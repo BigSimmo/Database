@@ -201,16 +201,16 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/DocumentManagementActions.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
-        "src/components/clinical-dashboard/search-results-header-band.tsx",
-        "src/components/DocumentManagementActions.tsx"
+        "src/components/clinical-dashboard/search-results-header-band.tsx"
       ],
       "productImportFiles": [
+        "src/components/DocumentManagementActions.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
-        "src/components/clinical-dashboard/search-results-header-band.tsx",
-        "src/components/DocumentManagementActions.tsx"
+        "src/components/clinical-dashboard/search-results-header-band.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -620,32 +620,32 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
         "src/components/clinical-dashboard/clinical-output-helpers.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
-        "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
         "src/components/clinical-dashboard/evidence-panels.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
-        "src/components/ClinicalDashboard.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
         "src/components/dsm/dsm-search-page.tsx"
       ],
       "productImportFiles": [
+        "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
         "src/components/clinical-dashboard/clinical-output-helpers.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
-        "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
         "src/components/clinical-dashboard/evidence-panels.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
-        "src/components/ClinicalDashboard.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
         "src/components/dsm/dsm-search-page.tsx"
       ],
@@ -861,20 +861,20 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/ClinicalDashboard.tsx",
+        "src/components/DocumentViewer.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/ClinicalDashboard.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
-        "src/components/DocumentViewer.tsx"
+        "src/components/document-viewer/document-rail-panels.tsx"
       ],
       "productImportFiles": [
+        "src/components/ClinicalDashboard.tsx",
+        "src/components/DocumentViewer.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/ClinicalDashboard.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
-        "src/components/DocumentViewer.tsx"
+        "src/components/document-viewer/document-rail-panels.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1099,8 +1099,8 @@
       "source": "src/components/ui-primitives.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/document-viewer/source-panels.tsx", "src/components/DocumentViewer.tsx"],
-      "productImportFiles": ["src/components/document-viewer/source-panels.tsx", "src/components/DocumentViewer.tsx"],
+      "directImportFiles": ["src/components/DocumentViewer.tsx", "src/components/document-viewer/source-panels.tsx"],
+      "productImportFiles": ["src/components/DocumentViewer.tsx", "src/components/document-viewer/source-panels.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1251,24 +1251,24 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/DocumentViewer.tsx",
         "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/document-results.tsx",
         "src/components/clinical-dashboard/output-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
-        "src/components/document-viewer/source-panels.tsx",
-        "src/components/DocumentViewer.tsx"
+        "src/components/document-viewer/source-panels.tsx"
       ],
       "productImportFiles": [
+        "src/components/DocumentViewer.tsx",
         "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/document-results.tsx",
         "src/components/clinical-dashboard/output-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
-        "src/components/document-viewer/source-panels.tsx",
-        "src/components/DocumentViewer.tsx"
+        "src/components/document-viewer/source-panels.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1401,11 +1401,13 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/DocumentManagementActions.tsx",
+        "src/components/DocumentViewer.tsx",
         "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
-        "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
@@ -1415,19 +1417,19 @@
         "src/components/differentials/diagnosis-map-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
-        "src/components/DocumentManagementActions.tsx",
-        "src/components/DocumentViewer.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/therapy-compass/filter-sheet.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/DocumentManagementActions.tsx",
+        "src/components/DocumentViewer.tsx",
         "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
-        "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
@@ -1437,8 +1439,6 @@
         "src/components/differentials/diagnosis-map-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
-        "src/components/DocumentManagementActions.tsx",
-        "src/components/DocumentViewer.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/therapy-compass/filter-sheet.tsx"
       ],
