@@ -230,21 +230,29 @@ function DocumentFilterPanel({
     query: string;
     needle: string;
     expanded: ReadonlySet<SmartDocumentTagGroup>;
-  }>(() => ({ query, needle: "", expanded: new Set() }));
+    collapsed: ReadonlySet<SmartDocumentTagGroup>;
+  }>(() => ({ query, needle: "", expanded: new Set(), collapsed: new Set() }));
   if (chrome.query !== query) {
-    setChrome({ query, needle: "", expanded: new Set() });
+    setChrome({ query, needle: "", expanded: new Set(), collapsed: new Set() });
   }
   // Prefer the scoped values even on the transitional render before the
   // setState above commits — otherwise a typed needle from the previous
   // query can flash into the find field for one frame.
   const needle = chrome.query === query ? chrome.needle : "";
   const expanded = chrome.query === query ? chrome.expanded : new Set<SmartDocumentTagGroup>();
+  const collapsed = chrome.query === query ? chrome.collapsed : new Set<SmartDocumentTagGroup>();
   const setNeedle = (value: string) => setChrome((current) => ({ ...current, query, needle: value }));
   const setExpanded = (update: (current: ReadonlySet<SmartDocumentTagGroup>) => ReadonlySet<SmartDocumentTagGroup>) =>
     setChrome((current) => ({
       ...current,
       query,
       expanded: update(current.query === query ? current.expanded : new Set()),
+    }));
+  const setCollapsed = (update: (current: ReadonlySet<SmartDocumentTagGroup>) => ReadonlySet<SmartDocumentTagGroup>) =>
+    setChrome((current) => ({
+      ...current,
+      query,
+      collapsed: update(current.query === query ? current.collapsed : new Set()),
     }));
   const trimmedNeedle = needle.trim().toLowerCase();
 
@@ -264,6 +272,7 @@ function DocumentFilterPanel({
                 // field first (or abandoning the sheet for the shelf).
                 selected.has(facet.key) ||
                 facet.label.toLowerCase().includes(trimmedNeedle) ||
+                facet.searchText.toLowerCase().includes(trimmedNeedle) ||
                 group.toLowerCase().includes(trimmedNeedle),
             )
           : facets,
@@ -481,10 +490,14 @@ function DocumentFilterPanel({
         {ordered.map(({ group, facets }) => {
           const Icon = documentFacetIcons[group];
           const selectedCount = facets.filter((facet) => active.has(facet.key)).length;
-          // A search expands what it matched; otherwise a group opens because it
-          // holds a selection, or because there are few enough groups that
-          // collapsing them buys nothing.
-          const isOpen = !dense || Boolean(trimmedNeedle) || expanded.has(group) || selectedCount > 0;
+          // A search expands what it matched. Otherwise selected groups open by
+          // default, but an explicit collapse wins; without that third state the
+          // disclosure button updates expanded while selectedCount > 0
+          // immediately forces the panel open again.
+          const isOpen =
+            !dense ||
+            Boolean(trimmedNeedle) ||
+            (!collapsed.has(group) && (expanded.has(group) || selectedCount > 0));
           const groupPanelId = `${panelId}-${group.replace(/[^A-Za-z0-9_-]/g, "-")}`;
           return (
             <section key={group} className="min-w-0 border-t border-[color:var(--border)] py-1">
@@ -498,13 +511,19 @@ function DocumentFilterPanel({
                     type="button"
                     aria-expanded={isOpen}
                     aria-controls={groupPanelId}
-                    onClick={() =>
+                    onClick={() => {
                       setExpanded((current) => {
                         const next = new Set(current);
                         if (isOpen) next.delete(group);
                         else next.add(group);
                         return next;
-                      })
+                      });
+                      setCollapsed((current) => {
+                        const next = new Set(current);
+                        if (isOpen) next.add(group);
+                        else next.delete(group);
+                        return next;
+                      });
                     }
                     className={cn(
                       "flex min-h-tap w-full items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)] sm:min-h-10",
@@ -1560,11 +1579,13 @@ function DocumentSearchResultsPanelImpl({
         <LoadingPanel label="Finding matching documents" />
       ) : matches.length === 0 ? (
         recordMatchCount > 0 ? null : trimmedQuery && !shouldShowHome ? (
-          <EmptyState
-            icon={FileText}
-            title="No matching documents"
-            headingLevel={3}
-            body={`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
+          <SearchResultsEmptyState
+            modeId="documents"
+            query={trimmedQuery}
+            onBrowseAll={onOpenLibrary}
+            browseAllLabel={
+              documentCount > 0 ? `Browse all ${documentCount.toLocaleString()} sources` : "Browse all sources"
+            }
           />
         ) : (
           <DocumentSearchHome
@@ -1601,6 +1622,22 @@ function DocumentSearchResultsPanelImpl({
               onOpenLibrary={onOpenLibrary}
               onDone={() => setFilterPanelState({ query, open: false })}
             />
+          ) : null}
+          {showResultsControls && !hasFilters ? (
+            <button
+              type="button"
+              onClick={onOpenLibrary}
+              data-testid="document-results-browse-library"
+              className={cn(floatingControl, "min-h-tap w-fit gap-2 px-3 text-xs sm:min-h-10")}
+            >
+              <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
+              Browse all sources
+              {documentCount > 0 ? (
+                <span className="nums text-2xs text-[color:var(--text-soft)]">
+                  {documentCount.toLocaleString()}
+                </span>
+              ) : null}
+            </button>
           ) : null}
           {/* With the panel closed the active filters are otherwise invisible
               apart from the trigger's badge, so the reader needs the count to
