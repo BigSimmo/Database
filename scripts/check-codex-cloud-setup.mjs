@@ -161,7 +161,17 @@ export function validateCodexProjectMcpConfiguration(text) {
   const expectedNames = Object.keys(expectedCodexProjectMcpServers).sort();
   const actualNames = Object.keys(servers).sort();
   if (JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) {
-    errors.push(`.codex/config.toml must register exactly these MCP servers: ${expectedNames.join(", ")}.`);
+    const unexpectedNames = actualNames.filter((name) => !expectedNames.includes(name));
+    const missingNames = expectedNames.filter((name) => !actualNames.includes(name));
+    const details = [
+      unexpectedNames.length ? `unexpected: ${unexpectedNames.join(", ")}` : null,
+      missingNames.length ? `missing: ${missingNames.join(", ")}` : null,
+    ]
+      .filter(Boolean)
+      .join("; ");
+    errors.push(
+      `.codex/config.toml must register exactly these MCP servers: ${expectedNames.join(", ")}.${details ? ` ${details}.` : ""} Use the canonical railway template name; stale railway_cloud registrations are host-local OAuth apps and must not be reintroduced here.`,
+    );
   }
 
   for (const name of expectedNames) {

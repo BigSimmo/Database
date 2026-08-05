@@ -341,6 +341,11 @@ describe("Codex Cloud environment contract", () => {
   it("keeps project .codex/config.toml MCP registrations disabled and secret-free", () => {
     const tracked = readFileSync(new URL("../.codex/config.toml", import.meta.url), "utf8");
     expect(validateCodexProjectMcpConfiguration(tracked)).toEqual([]);
+    expect(
+      validateCodexProjectMcpConfiguration(tracked.replace("[mcp_servers.railway]", "[mcp_servers.railway_cloud]")),
+    ).toContain(
+      `.codex/config.toml must register exactly these MCP servers: figma_cloud, railway, sentry_cloud, supabase_cloud. unexpected: railway_cloud; missing: railway. Use the canonical railway template name; stale railway_cloud registrations are host-local OAuth apps and must not be reintroduced here.`,
+    );
     expect(validateCodexProjectMcpConfiguration(tracked.replaceAll("enabled = false", "enabled = true"))).toContain(
       `.codex/config.toml figma_cloud must set enabled = false (trusted Desktop/CLI operators opt in).`,
     );

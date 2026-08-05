@@ -325,8 +325,11 @@ copying credentials into the checkout.
    Do not add provider keys, database URLs, service-role credentials, test-user credentials, or
    `ALLOW_PROVIDER_TESTS`. Connected setup writes only the managed shell-environment policy; it
    never registers hosted MCP apps or writes OAuth tokens.
-2. **Grant the host integrations.** Install Railway's official app and complete Railway OAuth. If it
-   is unavailable, an Enterprise/Edu workspace admin enables Developer Mode, creates
+2. **Grant the host integrations.** Install Railway's official app and complete Railway OAuth. If a
+   stale custom app or connector named `railway_cloud` shows an authentication-expired reconnect
+   banner, remove or reconnect that host-local app in the MCP/App settings before starting a new
+   task; repository setup cannot refresh hosted OAuth tokens. If the official app is unavailable, an
+   Enterprise/Edu workspace admin enables Developer Mode, creates
    `Railway — Database` with `https://mcp.railway.com`, runs Scan Tools, and publishes access only
    to a dedicated RBAC group containing the user. Authorize the Codex GitHub connector for
    `BigSimmo/Database` with repository write access. Complete Railway OAuth only for workspace
