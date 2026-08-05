@@ -451,7 +451,21 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
   const [openId, setOpenId] = useState(SECTIONS[0]?.heading ?? "");
   const [expandAll, setExpandAll] = useState(false);
 
+  const scrollSectionIntoView = (heading: string) => {
+    sectionRefs.current[heading]?.scrollIntoView({
+      behavior: resolveScrollBehavior(),
+      block: "start",
+    });
+  };
+
   const selectSection = (heading: string) => {
+    // Re-tapping the active row leaves openId/expandAll unchanged, so the layout
+    // effect would not run — scroll immediately in that no-op state path.
+    if (!expandAll && openId === heading) {
+      pendingScrollHeading.current = null;
+      scrollSectionIntoView(heading);
+      return;
+    }
     pendingScrollHeading.current = heading;
     setExpandAll(false);
     setOpenId(heading);
@@ -463,10 +477,7 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
     const heading = pendingScrollHeading.current;
     if (!heading || openId !== heading || expandAll) return;
     pendingScrollHeading.current = null;
-    sectionRefs.current[heading]?.scrollIntoView({
-      behavior: resolveScrollBehavior(),
-      block: "start",
-    });
+    scrollSectionIntoView(heading);
   }, [openId, expandAll]);
 
   return (
