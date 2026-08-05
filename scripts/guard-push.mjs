@@ -748,9 +748,22 @@ export function staticGuard(changedFiles, options = {}) {
     if (!result.ok) failures.push(result);
   }
 
-  if (failures.length === 0) return { name: "static", ok: true };
-
   const dirty = tryGit(["status", "--porcelain"]);
+  if (failures.length === 0) {
+    // Warn on success too: a dirty tree can mask errors still present in the
+    // pushed commit (the format guard avoids this by materialising blobs).
+    if (dirty) {
+      return {
+        name: "static",
+        ok: true,
+        note:
+          "lint/typecheck passed against a dirty working tree — they may not describe the pushed commit. " +
+          "Commit or stash local edits if CI disagrees.",
+      };
+    }
+    return { name: "static", ok: true };
+  }
+
   const dirtyNote = dirty
     ? "\n  NOTE: your working tree has uncommitted changes, so this may not describe the pushed commit exactly.\n"
     : "";

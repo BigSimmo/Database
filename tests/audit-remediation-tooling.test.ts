@@ -41,6 +41,10 @@ describe("run-heavy lock holders stay async", () => {
     expect(source).toContain('"--tsBuildInfoFile"');
     expect(source).toContain("await runNpmScript()");
     expect(source).toContain('sharedTypecheckScripts.has(script) ? "shared"');
+    // Pre-push invokes via plain node (no npm_execpath); both spawn paths must
+    // forward effectiveForwarded so --tsBuildInfoFile is not dropped.
+    expect(source).toContain("const npmArgs = effectiveForwarded.length");
+    expect(source).not.toMatch(/\["run", script, \.\.\.\(forwarded\.length/);
   });
 
   it("routes guard-push static checks through the run coordinator", () => {

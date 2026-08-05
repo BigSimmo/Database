@@ -45,21 +45,27 @@ const lock = acquireHeavyRunLock({
 
 function runNpmScript() {
   const npmExecPath = process.env.npm_execpath;
+  // Always forward effectiveForwarded (includes injected --tsBuildInfoFile for
+  // shared typechecks). The pre-push hook invokes this via plain `node`, so
+  // npm_execpath is usually unset — dropping the injection there would share
+  // the base config's in-repo buildinfo across different include graphs.
+  const npmArgs = effectiveForwarded.length ? ["--", ...effectiveForwarded] : [];
   const child = npmExecPath
-    ? spawn(
-        process.execPath,
-        [npmExecPath, "run", script, ...(effectiveForwarded.length ? ["--", ...effectiveForwarded] : [])],
-        {
-          cwd: projectRoot,
-          env: lock.environment,
-          stdio: "inherit",
-        },
-      )
+    ? spawn(process.execPath, [npmExecPath, "run", script, ...npmArgs], {
+        cwd: projectRoot,
+        env: lock.environment,
+        stdio: "inherit",
+      })
     : spawn(
         process.platform === "win32" ? "cmd.exe" : "npm",
         process.platform === "win32"
-          ? ["/d", "/s", "/c", `npm run ${script}`]
-          : ["run", script, ...(forwarded.length ? ["--", ...forwarded] : [])],
+          ? [
+              "/d",
+              "/s",
+              "/c",
+              ["npm", "run", script, ...npmArgs].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(" "),
+            ]
+          : ["run", script, ...npmArgs],
         { cwd: projectRoot, env: lock.environment, stdio: "inherit" },
       );
 
