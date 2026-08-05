@@ -82,7 +82,7 @@ function PinIcons({ pin }: { pin: SearchPin }) {
       {pin.destinationIds.length > shown.length ? (
         <span
           aria-hidden="true"
-          className="-ml-1 inline-flex h-7 min-w-7 items-center justify-center rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--surface-subtle)] px-1 text-[10px] font-extrabold text-[color:var(--text-muted)] shadow-sm"
+          className="-ml-1 inline-flex h-7 min-w-7 items-center justify-center rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--surface-subtle)] px-1 text-3xs font-extrabold text-[color:var(--text-muted)] shadow-sm"
         >
           +{pin.destinationIds.length - shown.length}
         </span>

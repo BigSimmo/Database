@@ -195,7 +195,7 @@ function DomainIconRail({
         <span
           className={cn(
             "ml-1 inline-flex shrink-0 items-center justify-center rounded-full border border-[#c8d6e2] bg-[#eef4f9] font-extrabold text-[#315b7d] shadow-sm",
-            compact ? "h-6 px-1.5 text-[9px]" : "h-8 px-2 text-[10px]",
+            compact ? "h-6 px-1.5 text-3xs" : "h-8 px-2 text-3xs",
           )}
           aria-hidden="true"
         >
@@ -210,7 +210,7 @@ function DomainCountBadge({ domains, noun = "areas" }: { domains: DomainId[]; no
   const domainLabels = domains.map((domain) => domainMeta[domain].label).join(", ");
   return (
     <span
-      className="shrink-0 rounded-full border border-[#c8d6e2] bg-[#eef4f9] px-2 py-1 text-[10px] font-extrabold text-[#315b7d]"
+      className="shrink-0 rounded-full border border-[#c8d6e2] bg-[#eef4f9] px-2 py-1 text-3xs font-extrabold text-[#315b7d]"
       title={domainLabels}
     >
       {domains.length} {domains.length === 1 ? noun.replace(/s$/, "") : noun}
@@ -263,7 +263,7 @@ function AppFrame({ phone, children }: { phone: boolean; children: ReactNode }) 
           </span>
           <span>
             {!phone ? (
-              <span className="block text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#667586]">Mode</span>
+              <span className="block text-3xs font-extrabold uppercase tracking-[0.1em] text-[#667586]">Mode</span>
             ) : null}
             <span className="block text-sm font-extrabold text-[#080b0f]">Documents</span>
           </span>
@@ -338,7 +338,7 @@ function Composer({
               aria-hidden="true"
             />
           </button>
-          {!phone ? <span className="text-[10px] font-bold text-[#778595]">Enter searches this lens</span> : null}
+          {!phone ? <span className="text-3xs font-bold text-[#778595]">Enter searches this lens</span> : null}
         </div>
       ) : null}
       <form
@@ -478,7 +478,7 @@ function LensFoldPanel({
               <h3 className="text-sm font-black text-[#080b0f]">
                 {editing ? (creating ? "Create a new pin" : `Edit ${wardPinName}`) : "Pins and search"}
               </h3>
-              <p className="text-[11px] font-semibold text-[#6b7785]">
+              <p className="text-2xs font-semibold text-[#6b7785]">
                 {editing
                   ? "Choose useful destinations from across the app."
                   : "Open a pin or choose where this search runs."}
@@ -502,7 +502,7 @@ function LensFoldPanel({
 
       {editing ? (
         <div className="p-3">
-          <label className="mb-3 block px-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#6f7c89]">
+          <label className="mb-3 block px-1 text-3xs font-black uppercase tracking-[0.1em] text-[#6f7c89]">
             Pin name
             <input
               value={creating ? newPinName : wardPinName}
@@ -511,8 +511,8 @@ function LensFoldPanel({
             />
           </label>
           <div className="mb-2 flex items-center justify-between px-1">
-            <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#6f7c89]">App destinations</span>
-            <span className="text-[11px] font-bold text-[#677584]" aria-live="polite">
+            <span className="text-3xs font-black uppercase tracking-[0.1em] text-[#6f7c89]">App destinations</span>
+            <span className="text-2xs font-bold text-[#677584]" aria-live="polite">
               {editorDomains.length} destinations selected
             </span>
           </div>
@@ -577,14 +577,14 @@ function LensFoldPanel({
         <>
           <div className="p-2.5">
             <div className="mb-1 flex items-center justify-between px-2">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.1em] text-[#6f7c89]">Your pins</h3>
+              <h3 className="text-3xs font-black uppercase tracking-[0.1em] text-[#6f7c89]">Your pins</h3>
               <button
                 type="button"
                 onClick={() => {
                   setCreating(true);
                   setEditing(true);
                 }}
-                className={cn("min-h-10 rounded-lg px-2 text-[10px] font-black text-[#1d6fb8]", focusRing)}
+                className={cn("min-h-10 rounded-lg px-2 text-3xs font-black text-[#1d6fb8]", focusRing)}
               >
                 <Plus className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
                 New pin
@@ -622,7 +622,7 @@ function LensFoldPanel({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-extrabold text-[#17212b]">{lens.label}</span>
-                      <span className="block truncate text-[11px] font-semibold text-[#6f7c89]">
+                      <span className="block truncate text-2xs font-semibold text-[#6f7c89]">
                         {lens.id === "ward-round"
                           ? phone
                             ? `${wardRoundDomains.length} destinations · editable`
@@ -647,7 +647,7 @@ function LensFoldPanel({
                       }}
                       aria-label="Edit Ward essentials"
                       className={cn(
-                        "mr-2 min-h-12 rounded-lg px-2 text-[10px] font-black text-[#1d6fb8] hover:bg-white",
+                        "mr-2 min-h-12 rounded-lg px-2 text-3xs font-black text-[#1d6fb8] hover:bg-white",
                         focusRing,
                       )}
                     >
@@ -658,7 +658,7 @@ function LensFoldPanel({
               );
             })}
             <div className="my-2 border-t border-[#e3e8ef] pt-2">
-              <h3 className="px-2 pb-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#6f7c89]">Search in</h3>
+              <h3 className="px-2 pb-1 text-3xs font-black uppercase tracking-[0.1em] text-[#6f7c89]">Search in</h3>
               {lenses
                 .filter((item) => item.kind === "search")
                 .map((lens) => {
@@ -687,7 +687,7 @@ function LensFoldPanel({
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-extrabold text-[#17212b]">{lens.label}</span>
-                        <span className="block truncate text-[11px] font-semibold text-[#6f7c89]">{lens.detail}</span>
+                        <span className="block truncate text-2xs font-semibold text-[#6f7c89]">{lens.detail}</span>
                       </span>
                       {active ? <Check className="h-4 w-4 shrink-0 text-[#1d6fb8]" aria-hidden="true" /> : null}
                     </button>
@@ -696,7 +696,7 @@ function LensFoldPanel({
             </div>
           </div>
           <div className="border-t border-[#e3e8ef] bg-[#f8fafc] p-3">
-            <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#6f7c89]">Useful actions</p>
+            <p className="mb-2 px-1 text-3xs font-black uppercase tracking-[0.1em] text-[#6f7c89]">Useful actions</p>
             <div className="grid grid-cols-2 gap-1.5">
               {actions.map((action) => (
                 <button
@@ -711,7 +711,7 @@ function LensFoldPanel({
                   <span className="min-w-0">
                     <span className="block text-xs font-extrabold text-[#26323e]">{action.label}</span>
                     {!phone ? (
-                      <span className="block truncate text-[10px] font-semibold text-[#788493]">{action.detail}</span>
+                      <span className="block truncate text-3xs font-semibold text-[#788493]">{action.detail}</span>
                     ) : null}
                   </span>
                 </button>
@@ -776,7 +776,7 @@ function CommandDeckPanel({
             className="h-10 min-w-0 flex-1 bg-transparent text-sm font-bold text-[#17212b] outline-none"
           />
           {!phone ? (
-            <kbd className="rounded-md border border-[#d8e0e7] bg-white px-1.5 py-0.5 text-[10px] font-bold text-[#7a8692]">
+            <kbd className="rounded-md border border-[#d8e0e7] bg-white px-1.5 py-0.5 text-3xs font-bold text-[#7a8692]">
               ⌘ K
             </kbd>
           ) : null}
@@ -794,7 +794,7 @@ function CommandDeckPanel({
 
       <div className={cn("grid", phone ? "grid-cols-1" : "grid-cols-[180px_minmax(0,1fr)]")}>
         <div className={cn("border-[#dde5ec] bg-[#f3f6f9] p-2", phone ? "border-b" : "border-r")}>
-          <p className="px-2 pb-1 pt-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#74818e]">
+          <p className="px-2 pb-1 pt-1 text-3xs font-black uppercase tracking-[0.1em] text-[#74818e]">
             Pins and search
           </p>
           <div className={cn(phone && "flex gap-1 overflow-x-auto pb-1")}>
@@ -839,7 +839,7 @@ function CommandDeckPanel({
         <div className="min-w-0 bg-white p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#6c7a88]">
+              <p className="text-3xs font-black uppercase tracking-[0.1em] text-[#6c7a88]">
                 Selected command · {activeSection}
               </p>
               <p className="text-xs font-semibold text-[#53616e]">
@@ -891,10 +891,10 @@ function CommandDeckPanel({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-extrabold text-[#17212b]">{result.title}</span>
-                  <span className="block truncate text-[11px] font-semibold text-[#697684]">{result.meta}</span>
+                  <span className="block truncate text-2xs font-semibold text-[#697684]">{result.meta}</span>
                 </span>
                 {!phone ? (
-                  <span className="rounded-full border border-[#cfdae4] bg-white px-2 py-1 text-[10px] font-black text-[#596877]">
+                  <span className="rounded-full border border-[#cfdae4] bg-white px-2 py-1 text-3xs font-black text-[#596877]">
                     {result.tag}
                   </span>
                 ) : null}
@@ -928,7 +928,7 @@ function CommandDeckPanel({
           </div>
         </div>
       </div>
-      <div className="flex min-h-10 items-center justify-between border-t border-[#dde5ec] bg-[#f3f6f9] px-4 text-[10px] font-bold text-[#71808e]">
+      <div className="flex min-h-10 items-center justify-between border-t border-[#dde5ec] bg-[#f3f6f9] px-4 text-3xs font-bold text-[#71808e]">
         <span>{phone ? "3 grouped matches" : "↑↓ navigate · Enter open"}</span>
         <span className="min-w-0 truncate pl-2">{query ? `Searching “${query}”` : "Type to search"}</span>
       </div>
@@ -962,7 +962,7 @@ function InlineBuilderPanel({
       <div className="mb-2 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-black text-[#17212b]">Edit Quick pin</h3>
-          <p className="text-[11px] font-semibold text-[#6b7886]">Choose useful destinations from across the app.</p>
+          <p className="text-2xs font-semibold text-[#6b7886]">Choose useful destinations from across the app.</p>
         </div>
         <button
           autoFocus={focusOnMount}
@@ -994,14 +994,14 @@ function InlineBuilderPanel({
               <span className={cn("grid h-8 w-8 place-items-center rounded-lg border", meta.tone)}>
                 <Icon className="h-4 w-4" aria-hidden="true" />
               </span>
-              <span className="text-[11px] font-extrabold text-[#293540]">{meta.shortLabel}</span>
+              <span className="text-2xs font-extrabold text-[#293540]">{meta.shortLabel}</span>
               {active ? <Check className="absolute right-2 top-2 h-4 w-4 text-[#1d6fb8]" aria-hidden="true" /> : null}
             </button>
           );
         })}
       </div>
       <div className="mt-3 flex items-center justify-between border-t border-[#e3e8ef] pt-3">
-        <span className="text-[11px] font-bold text-[#677584]" aria-live="polite">
+        <span className="text-2xs font-bold text-[#677584]" aria-live="polite">
           {selectedDomains.length} destinations selected
         </span>
         <button
@@ -1118,13 +1118,13 @@ function Prototype({ direction, phone }: { direction: DirectionId; phone: boolea
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl border border-[#d6e1ea] bg-white text-[#1d6fb8] shadow-sm">
             <FileText className="h-5 w-5" aria-hidden="true" />
           </span>
-          <h2 className={cn("mt-4 font-black tracking-[-0.025em] text-[#080b0f]", phone ? "text-2xl" : "text-[2rem]")}>
+          <h2 className={cn("mt-4 font-black tracking-[-0.025em] text-[#080b0f]", phone ? "text-2xl" : "text-3xl")}>
             Find the right clinical source
           </h2>
           <p
             className={cn(
               "mx-auto mt-1 font-semibold leading-6 text-[#637180]",
-              phone ? "max-w-[290px] text-sm" : "max-w-lg text-[15px]",
+              phone ? "max-w-[290px] text-sm" : "max-w-lg text-base-minus",
             )}
           >
             Start in Documents, then widen the same search when another clinical area will help.
@@ -1207,7 +1207,7 @@ function Prototype({ direction, phone }: { direction: DirectionId; phone: boolea
             }}
             toggleButtonRef={toggleButtonRef}
           />
-          <p className="mt-2 text-center text-[10px] font-semibold text-[#788594]">
+          <p className="mt-2 text-center text-3xs font-semibold text-[#788594]">
             Do not enter patient-identifiable information.
           </p>
         </div>
@@ -1292,7 +1292,7 @@ export function SearchLensMenuMockupsPage() {
                   </span>
                   <span
                     className={cn(
-                      "rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em]",
+                      "rounded-full px-2 py-1 text-3xs font-black uppercase tracking-[0.08em]",
                       active
                         ? "bg-white text-[color:var(--clinical-accent)]"
                         : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",

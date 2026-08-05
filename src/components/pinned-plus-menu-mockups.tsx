@@ -119,7 +119,7 @@ function Constellation({ pin, size = "md" }: { pin: Pin; size?: "sm" | "md" }) {
         <span
           className={cn(
             "-ml-2 grid rounded-full border-2 border-white bg-slate-900 font-bold text-white shadow-sm",
-            size === "sm" ? "h-6 w-6 text-[9px]" : "h-8 w-8 text-[10px]",
+            size === "sm" ? "h-6 w-6 text-3xs" : "h-8 w-8 text-3xs",
           )}
         >
           +{extra}
@@ -393,7 +393,7 @@ function PaletteMenu({
       <div className="flex min-h-16 items-center gap-3 border-b border-slate-200 px-4">
         <Search className="h-5 w-5 text-slate-400" />
         <span className="text-sm text-slate-500">Open a pin or choose where to search…</span>
-        <kbd className="ml-auto rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] text-slate-500">
+        <kbd className="ml-auto rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-3xs text-slate-500">
           ⌘ K
         </kbd>
       </div>
@@ -623,7 +623,7 @@ function AppPreview({
           <div className="mx-auto mt-8 flex w-fit items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm">
             <Constellation pin={pins[0]} size="sm" />
             <span className="text-left">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Pinned by you</span>
+              <span className="block text-3xs font-bold uppercase tracking-wider text-slate-400">Pinned by you</span>
               <span className="text-sm font-bold text-slate-800">{pins.length} pins ready</span>
             </span>
           </div>
@@ -716,7 +716,7 @@ export function PinnedPlusMenuMockupsPage() {
                   : "border-slate-200 bg-white hover:border-blue-300",
               )}
             >
-              <span className="text-[10px] font-bold uppercase tracking-[.14em] opacity-70">
+              <span className="text-3xs font-bold uppercase tracking-[.14em] opacity-70">
                 0{index + 1} · {item.verdict}
               </span>
               <span className="mt-1 block text-base font-bold">{item.label}</span>
