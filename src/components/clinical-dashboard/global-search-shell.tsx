@@ -56,6 +56,7 @@ import {
 import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import { cn } from "@/components/ui-primitives";
 import {
+  appModeDefinition,
   appModeHomeHref,
   isAppModeId,
   isAppModeVisible,
@@ -115,6 +116,16 @@ type GlobalSearchShellProps = {
   mobileChromeVisible?: boolean;
   /** Optional custom fallback for the Suspense boundary. Defaults to ModeHomeRouteLoading on the home route. */
   fallback?: ReactNode;
+};
+
+type PendingModeNavigation = {
+  mode: AppModeId;
+  pathname: string;
+  /** Destination search string (no leading `?`) so same-pathname homes wait for query clear. */
+  searchParamString: string;
+  /** URL at the moment the mode push was issued — used to detect superseding navigations. */
+  sourcePathname: string;
+  sourceSearchParamString: string;
 };
 
 export function GlobalSearchShell(props: GlobalSearchShellProps) {
@@ -387,6 +398,7 @@ function GlobalStandaloneSearchShellBody({
   const [syncedSearchParamString, setSyncedSearchParamString] = useState(searchParamString);
   const [syncedPathname, setSyncedPathname] = useState(pathname);
   const [searchMode, setSearchMode] = useState<AppModeId>(resolvedSearchMode);
+  const [pendingModeNavigation, setPendingModeNavigation] = useState<PendingModeNavigation | null>(null);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>(
     () => readSearchNavigationContext(searchParams).queryMode,
   );
@@ -474,6 +486,37 @@ function GlobalStandaloneSearchShellBody({
     setQueryMode(nextSearchContext.queryMode);
     setScopeFilters(nextSearchContext.scopeFilters);
   }
+
+  // Imperative mode-menu navigation does not have Link's immediate pending UI:
+  // Next keeps the previous RSC page visible while it waits for the destination
+  // payload. Replace that stale page with the neutral route skeleton as soon as
+  // a mode is chosen, then release it when the destination lands — or when any
+  // other committed URL change supersedes the in-flight mode push (Back, New
+  // chat, sidebar link, a second mode pick). Destination checks include the
+  // query string so same-pathname returns (e.g. `/services?q=&run=1` → `/services`)
+  // keep the skeleton until the home URL actually commits; mode is still checked
+  // for `/` modes such as Answer, Documents, and Medication.
+  if (pendingModeNavigation) {
+    const reachedDestination =
+      pathname === pendingModeNavigation.pathname &&
+      resolvedSearchMode === pendingModeNavigation.mode &&
+      searchParamString === pendingModeNavigation.searchParamString;
+    const supersededWhilePending =
+      pathname !== pendingModeNavigation.sourcePathname ||
+      searchParamString !== pendingModeNavigation.sourceSearchParamString;
+    if (reachedDestination || supersededWhilePending) {
+      setPendingModeNavigation(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!pendingModeNavigation) return undefined;
+    // A failed/blocked client navigation must not strand the application behind
+    // a permanent loading surface. Normal prefetched mode switches clear this as
+    // soon as the URL lands; this is only a conservative recovery path.
+    const timeout = window.setTimeout(() => setPendingModeNavigation(null), 10_000);
+    return () => window.clearTimeout(timeout);
+  }, [pendingModeNavigation]);
 
   useEffect(() => {
     // Submitted result views must not keep the dock focused. Composer focus
@@ -616,11 +659,39 @@ function GlobalStandaloneSearchShellBody({
       openAccountSetup("favourites");
       return;
     }
-    setQuery("");
+    // Same-mode picks are load-bearing: the checked mode-menu option and every
+    // ModeActionPopup quick action route through changeMode to leave a detail /
+    // submitted URL and land on the clean mode home. Skip only a true no-op
+    // (already exactly on that home) when nothing else is in flight.
+    const href = appModeHomeHref(mode, { queryMode, scopeFilters });
+    const destination = new URL(href, window.location.origin);
+    const destinationSearch = destination.search.startsWith("?") ? destination.search.slice(1) : destination.search;
+    const alreadyOnDestination = pathname === destination.pathname && searchParamString === destinationSearch;
+
     setMobileMenuOpen(false);
+
+    if (alreadyOnDestination) {
+      // Re-selecting the current mode while a different mode push is in flight
+      // must cancel the pending skeleton and re-affirm the current home so the
+      // in-flight navigation does not leave the user on the wrong page.
+      if (pendingModeNavigation && pendingModeNavigation.mode !== mode) {
+        setPendingModeNavigation(null);
+        router.push(href);
+      }
+      return;
+    }
+
+    setQuery("");
     // Let the URL sync (render-time) own searchMode. Optimistic setSearchMode
     // before pathname updates was the namespaced mode-switch reserve flip.
-    navigateToMode(mode);
+    setPendingModeNavigation({
+      mode,
+      pathname: destination.pathname,
+      searchParamString: destinationSearch,
+      sourcePathname: pathname,
+      sourceSearchParamString: searchParamString,
+    });
+    router.push(href);
   }
 
   function startNewAnswerChat() {
@@ -764,7 +835,7 @@ function GlobalStandaloneSearchShellBody({
             documentTotal={0}
             query={query}
             searchMode={searchMode}
-            loading={false}
+            loading={pendingModeNavigation !== null}
             selectedDocumentIds={[]}
             queryMode={queryMode}
             scopeFilters={scopeFilters}
@@ -930,7 +1001,7 @@ function GlobalStandaloneSearchShellBody({
               Rendered in normal flow (sticky={false}) so it never contends with
               the universal collapsing header or page-flow search chrome.
             */}
-            {searchMode !== "specifiers" && searchMode !== "formulation" ? (
+            {!pendingModeNavigation && searchMode !== "specifiers" && searchMode !== "formulation" ? (
               <PageSecondaryNavigation
                 modeId={searchMode}
                 pathname={pathname}
@@ -942,7 +1013,16 @@ function GlobalStandaloneSearchShellBody({
             ) : null}
             {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
                 blanked every standalone mode until JS mounted (hard-load LCP hit). */}
-            <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
+            <SearchCommandProvider value={searchCommandContextValue}>
+              {pendingModeNavigation ? (
+                <div aria-busy="true" aria-live="polite" data-testid="mode-navigation-loading">
+                  <span className="sr-only">Loading {appModeDefinition(pendingModeNavigation.mode).label}</span>
+                  <ModeHomeRouteLoading />
+                </div>
+              ) : (
+                children
+              )}
+            </SearchCommandProvider>
           </div>
         </div>
       </PhoneFooterLayerFrame>

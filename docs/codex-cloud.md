@@ -295,7 +295,9 @@ first authenticated use of an enabled endpoint completes browser OAuth. Hosted C
 requires the matching installed plugin/connector. In either host, start a fresh task after consent
 and verify the actual callable inventory.
 The root `.mcp.json` is a cross-client template and static allowlist only. It does not prove hosted
-Cloud availability unless a plugin manifest or host explicitly imports it.
+Cloud availability unless a plugin manifest or host explicitly imports it. Context7 / library-docs
+MCP is Cursor-side (`.cursor/mcp.json` or a host-injected connector), not part of this Codex Cloud
+Railway + Supabase allowlist.
 
 Production Supabase stays project-scoped and `read_only=true`, with
 `default_tools_approval_mode = "prompt"` so every production metadata/read call requires

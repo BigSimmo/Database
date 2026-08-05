@@ -134,7 +134,8 @@ describe("audit navigation and auth regressions", () => {
     );
 
     expect(masterSearchHeaderSource).toContain("function prefetchModeHome(modeId: AppModeId)");
-    expect(masterSearchHeaderSource).toContain("router.prefetch(href)");
+    expect(masterSearchHeaderSource).toContain("router.prefetch(href,");
+    expect(masterSearchHeaderSource).toContain("onInvalidate:");
     expect(modeOptions).toContain("onFocus={() => prefetchModeHome(mode.id)}");
     expect(modeOptions).toContain("onPointerEnter={() => prefetchModeHome(mode.id)}");
     // Menu-open paths warm only the highlighted option — never every visible home.
