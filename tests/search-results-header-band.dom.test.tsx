@@ -431,10 +431,12 @@ describe("MobileResultFilterControl", () => {
     expect(screen.getByRole("menu")).toBeVisible();
 
     // Simulate Safari: option is focused, trigger mousedown does not move
-    // focus, then click must close rather than re-open.
+    // focus, then click must close rather than re-open — and focus must return
+    // to the trigger so Tab continues from here rather than document.body.
     screen.getByRole("menuitemradio", { name: "Crisis" }).focus();
     await user.click(trigger);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 
   it("does not re-fire onChange when the active option is re-selected", async () => {

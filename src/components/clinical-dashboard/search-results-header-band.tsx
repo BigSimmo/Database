@@ -1012,7 +1012,16 @@ export function MobileResultFilterControl<Value extends string>({
         onMouseDown={(event) => {
           if (open) event.preventDefault();
         }}
-        onClick={() => (open ? closeMenu() : openMenu(matchedIndex >= 0 ? matchedIndex : 0))}
+        onClick={() => {
+          if (open) {
+            // preventDefault on mousedown kept focus on the portaled option;
+            // closing unmounts it onto <body> unless we restore the trigger.
+            closeMenu();
+            triggerRef.current?.focus({ preventScroll: true });
+            return;
+          }
+          openMenu(matchedIndex >= 0 ? matchedIndex : 0);
+        }}
         className={cn(
           // The sort group next to this control puts min-h-tap on its buttons and
           // its own border outside them, so it stands 2px taller than a bare
