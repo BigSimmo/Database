@@ -167,11 +167,11 @@ removed after current-main verification; it is not missing recommended work.
 | 114 | `#248` | A2 | Operator — Supabase + Specialist | After PR #1614 symptom repair; approved live/history window | 1–2 hours | Investigate why 20260705180000 search-health indexes were missing on live despite applied history; decide if drift checks should catch this class. **Stop:** no hosted mutation without approval. |
 | 115 | `#249` | A3 | High — agent process | Next issues-skill / plan touch | 1–2 hours | Extend issues/plan with an agent-safe wins classifier (optional filter; no new skill unless reused thrice). **Stop:** do not outrank A1 operator work. |
 | 116 | `#250` | A2 | High — multi-agent execution | After Wave 0 queue repair on main | multi-wave | Execute the fastest-wins multi-wave plan (Waves 0–4 + operator track) with parallel agents and per-PR gates. **Stop:** provider/RAG approvals still required where flagged. |
+| 117 | `#251` | Optional | High — agent process | Next handoff/gates doc touch | 15–30 min | Handoff checklist pairs gates skill with verification-router; paste decisive proof line. **Stop:** do not stack broad gates by default. |
 | 118 | `#252` | A2 | High — bundling/gates | Next bundle-budget decision | 1–2 hours | Decide whether check:bundle-budget should exclude mockup chunks or keep counting them as hygiene; do not raise tolerance to clear #1580. **Stop:** do not --update without deciding. |
 | 119 | `#253` | A2 | High — phone results UI | Next #1606 merge pass | 1–2 hours | Hand-merge #1606 portal menu against #1615 iOS 16px select fix; re-verify keyboard + lint. **Stop:** do not close #1606 to dodge the conflict. |
 | 120 | `#254` | A2 | Operator — Codex Cloud | Before #1617 leaves draft | 1–2 hours | Re-run Codex Cloud acceptance at the exact current head or mark head-independent evidence. **Stop:** do not treat stale pins as coverage. |
 | 121 | `#255` | A2 | High — Cloud/browser gates | Next environment image update | 2–4 hours | Align Cloud Playwright browser builds with lockfile pin; document CI delegation until then. **Stop:** do not force mismatched Chromium revisions. |
-| 117 | `#251` | Optional | High — agent process | Next handoff/gates doc touch | 15–30 min | Handoff checklist pairs gates skill with verification-router; paste decisive proof line. **Stop:** do not stack broad gates by default. |
 
 
 <!-- issues:next-id=256 -->

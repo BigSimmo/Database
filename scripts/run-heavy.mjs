@@ -33,11 +33,14 @@ const typecheckBuildInfo =
     : null;
 if (typecheckBuildInfo) mkdirSync(path.dirname(typecheckBuildInfo), { recursive: true });
 const effectiveForwarded = typecheckBuildInfo ? [...forwarded, "--tsBuildInfoFile", typecheckBuildInfo] : forwarded;
+const configuredWaitTimeoutMs = Number(process.env.HEAVY_RUN_WAIT_TIMEOUT_MS);
+const waitTimeoutMs = Number.isFinite(configuredWaitTimeoutMs) ? configuredWaitTimeoutMs : undefined;
 const lock = acquireHeavyRunLock({
   projectRoot,
   command: `npm run ${script}`,
   forceLockRelease,
   mode,
+  ...(waitTimeoutMs === undefined ? {} : { waitTimeoutMs }),
 });
 
 function runNpmScript() {

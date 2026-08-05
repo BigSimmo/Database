@@ -42,12 +42,10 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { typescriptBuildInfoPath } from "./test-cache-path.mjs";
-import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
 const SCHEMA_PATH = "supabase/schema.sql";
@@ -540,21 +538,6 @@ const LINT_ROOT_FILES = new Set([
   "playwright.visual.config.ts",
   "vitest.config.mts",
 ]);
-/** Same targets as package.json `lint:internal` — used when eslint policy changes. */
-const LINT_REPO_TARGETS = [
-  "src",
-  "tests",
-  "scripts",
-  "worker",
-  "supabase",
-  "playwright",
-  "eslint-rules",
-  "eslint.config.mjs",
-  "next.config.ts",
-  "playwright.config.ts",
-  "playwright.visual.config.ts",
-  "vitest.config.mts",
-];
 const LINTABLE_EXT = /\.(?:ts|tsx|mts|js|jsx|mjs|cjs)$/;
 /**
  * Extensions that tsconfig.typecheck.json's `include` covers. `.cts` is
@@ -564,7 +547,7 @@ const LINTABLE_EXT = /\.(?:ts|tsx|mts|js|jsx|mjs|cjs)$/;
 const TYPECHECKABLE_EXT = /\.(?:ts|tsx|mts)$/;
 /** Guard-private eslint cache — never share writes with `lint:internal`. */
 const STATIC_GUARD_ESLINT_CACHE = "node_modules/.cache/eslint-guard-push/";
-/** Short exclusive wait; busy coordinator fails open rather than stalling a push. */
+/** Short wait via run-heavy; busy coordinator fails open rather than stalling a push. */
 const STATIC_GUARD_LOCK_WAIT_MS = 30_000;
 
 /** Exported for tests: which changed paths eslint would actually cover. */
@@ -624,12 +607,36 @@ function staticToolsAvailable(root) {
   );
 }
 
-function runStaticCheck(root, args, label) {
+function isCoordinatorBusyOutput(output) {
+  return /Database heavyweight|coordinator is (?:busy|being initialized)|retry shortly/i.test(output ?? "");
+}
+
+/**
+ * Run eslint/tsc through `scripts/run-heavy.mjs` so the push takes the same
+ * exclusive/shared leases as `npm run lint` / `npm run typecheck:source`.
+ * Short wait + busy → fail-open (CI still enforces both).
+ */
+function runStaticCheck(root, script, forwarded, label) {
   try {
-    execFileSync(process.execPath, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    execFileSync(
+      process.execPath,
+      [path.join(root, "scripts", "run-heavy.mjs"), "--npm-script", script, ...forwarded],
+      {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          HEAVY_RUN_WAIT_TIMEOUT_MS: String(STATIC_GUARD_LOCK_WAIT_MS),
+        },
+      },
+    );
     return { ok: true };
   } catch (error) {
     const output = `${error?.stdout ?? ""}${error?.stderr ?? ""}`.trim();
+    if (isCoordinatorBusyOutput(output) || isCoordinatorBusyOutput(error?.message)) {
+      return { ok: true, busy: true, output: output || String(error?.message ?? error) };
+    }
     return { ok: false, label, output };
   }
 }
@@ -649,9 +656,9 @@ function runStaticCheck(root, args, label) {
  * the guard red for a defect that is not in the push (docs/outstanding-issues.md
  * #210). Both tools are incremental, so the warm cost is seconds.
  *
- * Coordinator: acquires an exclusive lease (short timeout, fail-open) so a push
- * cannot race `npm run lint`/`build`/`test` and corrupt shared caches. Eslint
- * writes a guard-private cache; tsc gets a per-worktree buildinfo path.
+ * Coordinator: routes through `run-heavy.mjs` (short timeout, fail-open when
+ * busy) so a push cannot race `npm run lint`/`build`/`test`. Eslint writes a
+ * guard-private cache; tsc gets the per-worktree buildinfo path from run-heavy.
  *
  * Caveat: this reads the working tree, not the pushed blobs. When HEAD is not
  * the pushed tip the guard fails closed. A dirty tree after committing is
@@ -695,65 +702,50 @@ export function staticGuard(changedFiles, options = {}) {
     };
   }
 
-  let lock;
-  try {
-    lock = acquireHeavyRunLock({
-      projectRoot: PROJECT_ROOT,
-      command: "guard-push static",
-      mode: "exclusive",
-      waitTimeoutMs: STATIC_GUARD_LOCK_WAIT_MS,
-    });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    return {
-      name: "static",
-      ok: true,
-      note:
-        `run coordinator busy — lint and typecheck NOT run (${detail}). ` +
-        `CI still enforces both; retry the push once the other heavy run finishes.`,
-    };
+  const failures = [];
+  const present = toLint.filter((f) => existsSync(path.join(PROJECT_ROOT, f)));
+
+  if (repoWide || present.length > 0) {
+    const result = repoWide
+      ? runStaticCheck(PROJECT_ROOT, "lint:internal", [], "lint")
+      : runStaticCheck(
+          PROJECT_ROOT,
+          "lint:changed:internal",
+          [
+            ...present,
+            "--max-warnings",
+            "0",
+            "--no-error-on-unmatched-pattern",
+            "--cache",
+            "--cache-location",
+            STATIC_GUARD_ESLINT_CACHE,
+          ],
+          "lint",
+        );
+    if (result.busy) {
+      return {
+        name: "static",
+        ok: true,
+        note:
+          `run coordinator busy — lint and typecheck NOT run (${result.output}). ` +
+          `CI still enforces both; retry the push once the other heavy run finishes.`,
+      };
+    }
+    if (!result.ok) failures.push(result);
   }
 
-  const failures = [];
-  try {
-    const lintTargets = repoWide ? LINT_REPO_TARGETS : toLint.filter((f) => existsSync(path.join(PROJECT_ROOT, f)));
-    if (lintTargets.length > 0) {
-      const result = runStaticCheck(
-        PROJECT_ROOT,
-        [
-          path.join(PROJECT_ROOT, "node_modules", "eslint", "bin", "eslint.js"),
-          ...lintTargets,
-          "--max-warnings",
-          "0",
-          "--no-error-on-unmatched-pattern",
-          "--cache",
-          "--cache-location",
-          STATIC_GUARD_ESLINT_CACHE,
-        ],
-        "lint",
-      );
-      if (!result.ok) failures.push(result);
+  if (wantTypecheck) {
+    const result = runStaticCheck(PROJECT_ROOT, "typecheck:source:internal", [], "typecheck");
+    if (result.busy) {
+      return {
+        name: "static",
+        ok: true,
+        note:
+          `run coordinator busy — typecheck NOT run (${result.output}). ` +
+          `CI still enforces it; retry the push once the other heavy run finishes.`,
+      };
     }
-
-    if (wantTypecheck) {
-      const buildInfo = typescriptBuildInfoPath(PROJECT_ROOT, undefined, "tsconfig.typecheck.tsbuildinfo");
-      mkdirSync(path.dirname(buildInfo), { recursive: true });
-      const result = runStaticCheck(
-        PROJECT_ROOT,
-        [
-          path.join(PROJECT_ROOT, "node_modules", "typescript", "bin", "tsc"),
-          "-p",
-          "tsconfig.typecheck.json",
-          "--noEmit",
-          "--tsBuildInfoFile",
-          buildInfo,
-        ],
-        "typecheck",
-      );
-      if (!result.ok) failures.push(result);
-    }
-  } finally {
-    lock.release();
+    if (!result.ok) failures.push(result);
   }
 
   if (failures.length === 0) return { name: "static", ok: true };
