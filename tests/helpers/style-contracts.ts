@@ -198,7 +198,12 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
     // The mark moved inside the padding when the band collapsed to one line: a
     // 2px line across the full width read as a divider between the composer and
     // the results rather than as the band's own accent.
-    selector: '[data-testid="search-query-ribbon"]:visible .search-band-lead',
+    // Scoped to the accent tone. `2px solid` holds only while the band is
+    // healthy; if the live search on this route degrades to `partial`, the mark
+    // renders `data-tone="warning"` and `6px double`, and the contract would go
+    // red for a reason that has nothing to do with the cascade regression it
+    // exists to catch.
+    selector: '[data-testid="search-query-ribbon"]:visible .search-band-lead[data-tone="accent"]',
     // The exact regression, unchanged in kind: the accent is an unlayered rule
     // that has to beat Tailwind's utilities layer, and when it loses it degrades
     // to something that still passes every class-presence assertion — before, a

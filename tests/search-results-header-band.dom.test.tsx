@@ -507,7 +507,9 @@ describe("SearchResultsEmptyState", () => {
     render(<SearchResultsEmptyState modeId="documents" query="lithium monitoring" onTryExample={vi.fn()} />);
 
     expect(screen.getByText("No matches for “lithium monitoring”")).toBeVisible();
-    expect(screen.getByText("Try an example, or jump to another mode.")).toBeVisible();
+    // No `onCrossMode` here, so no mode buttons render and the copy must not
+    // name one. The body describes the controls actually on the panel.
+    expect(screen.getByText("Try one of the examples below.")).toBeVisible();
     expect(screen.queryByTestId("search-results-empty-remove-filter")).toBeNull();
     expect(screen.queryByTestId("search-results-empty-clear-filters")).toBeNull();
     expect(screen.getByRole("button", { name: /^Try:/ }).parentElement).not.toHaveClass("border-t");
@@ -542,6 +544,14 @@ describe("SearchResultsEmptyState", () => {
     // `getByRole("status")` queries used across the suite — and by Playwright on
     // every mode — resolve to two nodes.
     expect(screen.getByText("No matches for “unmatched therapy”")).toBeVisible();
+    // `searchCommandSurfaceByMode` is a `Partial<Record<…>>` with no
+    // therapy-compass entry, so this mode has neither an example nor a
+    // cross-mode route. The body must not tell the reader to "try an example, or
+    // jump to another mode" when the panel renders no control for either.
+    expect(screen.getByText("Check the spelling, or try a broader term.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /^Try:/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Search in / })).toBeNull();
+
     await user.click(screen.getByTestId("search-results-empty-clear-search"));
     expect(onClearSearch).toHaveBeenCalledTimes(1);
   });

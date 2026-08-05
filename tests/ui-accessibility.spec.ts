@@ -715,7 +715,6 @@ test.describe("Clinical KB accessibility coverage", () => {
     expect(rail.color, "lead rule must resolve to --clinical-accent").toBe(rail.accent);
     expect(rail.color, "lead rule must not degrade to the card's neutral border").not.toBe(rail.neutral);
     expect(rail.color, "lead rule must not be inert/transparent").not.toBe("rgba(0, 0, 0, 0)");
-    expect(rail.color).not.toBe("rgb(229, 231, 235)");
     // The accent lives inside the padding now. A 2px top border here would be the
     // old full-width rail leaking back alongside the new mark.
     expect(rail.cardTopWidth, "the card keeps its 1px neutral border, not a second accent rail").toBe("1px");
@@ -736,7 +735,15 @@ test.describe("Clinical KB accessibility coverage", () => {
   // search is visually identical to a successful one.
   test("a faulted search is legible as shape, not only as hue", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.route(/\/api\/search(?:\?.*)?$/, (route) => route.fulfill({ status: 500, json: { error: "down" } }));
+    // `/api/differentials`, NOT `/api/search`. This page's catalog hook fetches
+    // `/api/differentials?kind=diagnosis|presentation` (`use-differential-catalog.ts:204`)
+    // and never touches `/api/search`, so intercepting the latter faults
+    // nothing and the band stays healthy — the test then hangs on a fault panel
+    // that will never render. That swap was made on review advice and shipped
+    // without running this spec; it cost two red `Production UI` shards.
+    await page.route(/\/api\/differentials(?:\?.*)?$/, (route) =>
+      route.fulfill({ status: 500, json: { error: "down" } }),
+    );
     await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
 
     const band = page.locator('[data-testid="search-query-ribbon"]:visible').first();
@@ -766,7 +773,10 @@ test.describe("Clinical KB accessibility coverage", () => {
     // Differentials is the widest fault: Retry plus two "Browse …" links. Their
     // combined width exceeds a 390px panel, and the band root is
     // `overflow-hidden`, so without wrapping the trailing link is cut off.
-    await page.route(/\/api\/search(?:\?.*)?$/, (route) => route.fulfill({ status: 500, json: { error: "down" } }));
+    // See the sibling test above: this page's search is `/api/differentials`.
+    await page.route(/\/api\/differentials(?:\?.*)?$/, (route) =>
+      route.fulfill({ status: 500, json: { error: "down" } }),
+    );
     await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
 
     const fault = page.locator('[data-testid="search-query-ribbon-fault"]:visible').first();

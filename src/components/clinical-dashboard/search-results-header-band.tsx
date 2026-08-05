@@ -831,6 +831,14 @@ export function SearchResultsEmptyState({
   const lastFilter = appliedFilters.at(-1);
   const filtered = appliedFilters.length > 0;
   const Title = headingLevel ? (`h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6") : "p";
+  // What the panel can actually offer, decided before the copy describes it.
+  // `searchCommandSurfaceByMode` is a `Partial<Record<…>>` and therapy-compass
+  // has no entry, so there is neither an example nor a cross-mode route there —
+  // yet the body said "Try an example, or jump to another mode", naming two
+  // controls the reader could not see. Copy that promises absent affordances is
+  // the same defect class as a label that does not match its handler.
+  const hasExample = Boolean(config?.examples[0] && onTryExample);
+  const hasCrossMode = crossModes.length > 0 && Boolean(onCrossMode);
   const secondary = [
     config?.examples[0] && onTryExample ? (
       <button
@@ -900,7 +908,13 @@ export function SearchResultsEmptyState({
         <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
           {filtered
             ? "The search itself ran fine — the filters above excluded everything. Remove one to widen it."
-            : "Try an example, or jump to another mode."}
+            : hasExample && hasCrossMode
+              ? "Try an example, or jump to another mode."
+              : hasExample
+                ? "Try one of the examples below."
+                : hasCrossMode
+                  ? "Try another mode."
+                  : "Check the spelling, or try a broader term."}
         </p>
       </div>
       {/* Relaxing comes first and is the only accented pair. Naming the filter in
