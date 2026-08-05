@@ -1,24 +1,27 @@
 # Privacy page redesign comps (2026-08)
 
-Static combined desktop + phone comps for `/privacy`, plus the runnable study at
-[`/mockups/privacy-page-directions`](../../../src/app/mockups/privacy-page-directions/page.tsx).
+## Selected: Live Signal perfected
 
-Clinical White / Sky Graphite only (`docs/design-system.md`,
-`docs/redesign/permanent-colour-direction.md`). Governance section headings and body
-copy match production (`tests/privacy-ui.test.ts`).
+| File                                         | Notes                                                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------- |
+| `03-live-signal-perfected-desktop-phone.png` | **Selected** — sticky fused obligation, gists, region ticker, index/chips |
 
-| File                                 | Direction            | Notes                     |
-| ------------------------------------ | -------------------- | ------------------------- |
-| `01-quiet-ledger-desktop-phone.png`  | **01 Quiet ledger**  | Recommended default       |
-| `02-trust-map-desktop-phone.png`     | **02 Trust map**     | Region chips + icon cards |
-| `03-indexed-brief-desktop-phone.png` | **03 Indexed brief** | Phone chips + desktop TOC |
+Runnable:
 
-## Contracts locked in these comps
+- Perfected focus: `/mockups/privacy-live-signal-perfected`
+- Full study (01–03): `/mockups/privacy-page-directions`
 
-- Back control sits below `safe-area-inset-top` and is at least 48×48.
-- Amber is reserved for the Important obligation only.
-- Clinical Sky accent is used for navigation chips / processing-map highlights only.
-- No wording change to pinned privacy governance copy.
+## Earlier directions (context)
 
-Production UI for the full redesign is unchanged until a direction is chosen.
-The safe-area back-control pad on `/privacy` ships independently of that choice.
+| File                                     | Direction                   |
+| ---------------------------------------- | --------------------------- |
+| `01-statement-theatre-desktop-phone.png` | Statement theatre           |
+| `02-data-passport-desktop-phone.png`     | Data passport               |
+| `03-live-signal-desktop-phone.png`       | Live signal (pre-perfected) |
+
+## Contracts
+
+- Back control below `safe-area-inset-top`, ≥48×48
+- Amber = Important obligation only
+- Clinical Sky for active index / section marks / jump chips
+- Governance section headings + bodies match production

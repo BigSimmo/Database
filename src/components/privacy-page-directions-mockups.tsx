@@ -1,158 +1,171 @@
 "use client";
 
-import {
-  ArrowLeft,
-  Database,
-  FileText,
-  Globe2,
-  Hash,
-  MapPin,
-  Server,
-  ShieldAlert,
-  Timer,
-  UserCheck,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowLeft, ShieldAlert } from "lucide-react";
 
+import { LiveSignalPerfectedFrame } from "@/components/privacy-live-signal-perfected-mockups";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 
 /**
- * Design-scratch study for `/privacy`.
+ * Privacy page redesign study — second pass.
  *
- * Diagnosis of today's page (from live phone screenshots):
- * - Back control sits under the Dynamic Island / status bar (no safe-area owner).
- * - Seven identical white cards flatten hierarchy — the Important notice and
- *   region/provider facts compete equally with body sections.
- * - No way to scan or jump a long governance document on phone.
+ * First pass (ledger / trust-map / indexed) read as a generic SaaS policy card
+ * stack. This pass aims for a clinical instrument: brand-led first viewport,
+ * atmospheric wash (not flat white), amber reserved for the obligation, and
+ * three layouts that are structurally different rather than three skins on
+ * the same card list.
  *
- * All three directions share Clinical White / Sky Graphite tokens, keep amber
- * reserved for the Important obligation, and keep governance section headings
- * + body wording identical to `src/app/privacy/page.tsx` (pinned by
- * `tests/privacy-ui.test.ts`). Layout and chrome only.
+ * Governance headings + body wording match production
+ * (`tests/privacy-ui.test.ts`). Layout and chrome only.
  */
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 const DRAFT =
-  "This is draft product information based on the repository's configured behaviour. It is not legal advice, a final privacy policy, or an assertion of governance approval.";
+  "Draft product information from configured repository behaviour — not legal advice, not a final policy, not governance approval.";
 
 const IMPORTANT =
   "Do not enter identifiable patient details such as names, dates of birth, or record numbers. Requests are processed by the application service in Singapore. With external provider mode configured, question text may be sent to the OpenAI API for retrieval embedding even when the final response is source-only; model-backed answer synthesis also sends the question and selected evidence.";
 
-type Section = {
-  heading: string;
-  body: string;
-  icon: LucideIcon;
-};
+type Section = { heading: string; body: string; short: string };
 
 const SECTIONS: Section[] = [
   {
     heading: "What this tool is",
-    icon: FileText,
+    short: "Tool",
     body: "Clinical KB is a knowledge base over clinical reference material. It is not a patient-record system and its provider-backed features do not ask for patient identifiers. The Safety Plan Generator accepts sensitive working content and support contacts but deliberately omits a patient-identifier field.",
   },
   {
     heading: "What is collected",
-    icon: Database,
+    short: "Collected",
     body: "Questions, generated answers, account identifiers, uploaded documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and uploaded material can contain sensitive information if you enter it. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by Clinical KB.",
   },
   {
     heading: "How questions are handled",
-    icon: Hash,
+    short: "Questions",
     body: "Raw question text is not written to query logs by default; logs use a keyed one-way hash. Generated answer text is also omitted from durable query logs by default. A short-lived response cache can contain the answer while its read TTL is valid.",
   },
   {
     heading: "Where data is stored and processed",
-    icon: MapPin,
+    short: "Regions",
     body: "Documents, extracted evidence, metadata, account records, and owner-scoped operational records are stored in the configured Supabase project in Sydney. The production application and ingestion worker currently run on Railway in Singapore, so questions, retrieved evidence, answers, and ingestion material are processed in or transit through Singapore. File buckets are private and links are time-limited. The operator must verify deployed regions and contractual controls.",
   },
   {
     heading: "External provider processing",
-    icon: Globe2,
+    short: "Providers",
     body: "When external provider mode is configured, question text may be sent to the OpenAI API to create a retrieval embedding, including when the final response is source-only. When model-backed answer synthesis is used, the question and selected source excerpts are also sent. This processing may occur outside Australia. The operator must verify provider regions, retention terms, contracts, and cross-border obligations.",
   },
   {
     heading: "Retention",
-    icon: Timer,
+    short: "Retention",
     body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Uploaded documents remain until removed under the applicable process. Safety-plan working content has no Clinical KB retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
   },
   {
     heading: "Your responsibilities",
-    icon: UserCheck,
+    short: "You",
     body: "Do not enter patient-identifiable information. In the Safety Plan Generator, add any patient identifier only after export through your organisation's approved clinical-record process. Upload only material you are authorised to use, keep access credentials private, review original linked sources before relying on clinical output, and report suspected privacy or access issues through your organisation's approved process.",
   },
 ];
 
-type DirectionId = "ledger" | "trust-map" | "indexed";
+type DirectionId = "theatre" | "passport" | "signal";
 
 const directions: Array<{
   id: DirectionId;
   number: string;
   name: string;
+  verdict: string;
   summary: string;
   strengths: string[];
   cost: string;
   recommended?: boolean;
 }> = [
   {
-    id: "ledger",
+    id: "theatre",
     number: "01",
-    name: "Quiet ledger",
+    name: "Statement theatre",
+    verdict: "Brand-led first viewport",
     summary:
-      "One continuous reading surface. Sticky chrome owns the safe-area; the Important obligation leads with a left amber spine; sections divide with hairlines instead of a card stack.",
-    strengths: ["Calmest reading measure", "Clearest hierarchy", "Least chrome"],
-    cost: "No jump navigation on long phones — scroll is the only path.",
-    recommended: true,
+      "First screen is one composition: Clinical KB mark, display title, and a full-bleed amber obligation band — then a calm 68ch reading column. Desktop pins a graphite command rail; phone keeps sticky glass chrome below the notch.",
+    strengths: ["Hero reads as brand, not a form", "Obligation is the loudest plane", "Almost no card chrome"],
+    cost: "Long scroll on phone with no section jump.",
   },
   {
-    id: "trust-map",
+    id: "passport",
     number: "02",
-    name: "Trust map",
+    name: "Data passport",
+    verdict: "Sealed instrument brief",
     summary:
-      "Ops-clarity first: a three-chip processing map (Sydney / Singapore / OpenAI) sits under the Important notice, then icon-led section cards in a responsive grid.",
-    strengths: ["Region facts scan in one glance", "Desktop uses width well", "Icons aid recall"],
-    cost: "Slightly busier; cards return, so it is denser than the ledger.",
+      "A graphite command masthead seals the page. Region facts become a precision instrument strip (Sydney · Singapore · OpenAI). Giant watermark section numbers do the hierarchy work — one white brief panel, not a farm of cards.",
+    strengths: ["Feels issued, not stacked", "Regions above the fold", "Typographic weight"],
+    cost: "Command masthead is heavier chrome than 01.",
   },
   {
-    id: "indexed",
+    id: "signal",
     number: "03",
-    name: "Indexed brief",
+    name: "Live signal",
+    verdict: "Perfected · selected",
     summary:
-      "Document navigation for a long policy: phone gets a sticky section-chip strip; desktop gets a left TOC rail + article column. Same copy, jumpable structure.",
-    strengths: ["Best long-doc UX", "TOC mirrors clinical briefs", "Sticky back always reachable"],
-    cost: "Most chrome; chip strip needs horizontal scroll on narrow phones.",
+      "Sticky fused obligation chrome with Full/Less disclosure, one-line gists on every collapsed row, region ticker as instrument strip, living signal index (desktop) and jump chips (phone). Obligation never scrolls away.",
+    strengths: ["Always-on Important", "Scan without opening", "Phone density solved"],
+    cost: "Full bodies still sit one tap behind — first section opens by default.",
+    recommended: true,
   },
 ];
 
-function BackControl({ compact = false }: { compact?: boolean }) {
+const atmosphere =
+  "bg-[radial-gradient(ellipse_at_20%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_55%,transparent),transparent_42%),radial-gradient(ellipse_at_90%_10%,color-mix(in_srgb,var(--surface-inset)_80%,transparent),transparent_38%),var(--background)]";
+
+function BrandMark({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid shrink-0 place-items-center rounded-[0.7rem] bg-[color:var(--text-heading)] font-black tracking-[-0.05em] text-[color:var(--surface)] shadow-[var(--shadow-inset)]",
+        size === "sm" && "h-9 w-9 text-2xs",
+        size === "md" && "h-11 w-11 text-xs",
+        size === "lg" && "h-14 w-14 text-sm",
+      )}
+    >
+      KB
+    </span>
+  );
+}
+
+function BackControl({ tone = "light" }: { tone?: "light" | "dark" }) {
   return (
     <button
       type="button"
       onClick={() => undefined}
       aria-label="Go back"
       className={cn(
-        "inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
+        "inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full transition active:translate-y-px",
         focusRing,
-        compact && "min-h-11 min-w-11",
+        tone === "light"
+          ? "border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)]"
+          : "border border-white/15 bg-white/8 text-white/90 hover:bg-white/14",
       )}
     >
-      <ArrowLeft aria-hidden="true" className={cn(compact ? "h-4 w-4" : "h-5 w-5")} />
+      <ArrowLeft aria-hidden="true" className="h-5 w-5" />
     </button>
   );
 }
 
-function StatusBar({ dark = false }: { dark?: boolean }) {
+function StatusBar({ invert = false }: { invert?: boolean }) {
   return (
     <div
       aria-hidden="true"
       className={cn(
         "relative flex h-11 shrink-0 items-end justify-between px-5 pb-1.5 text-[10px] font-semibold tabular-nums",
-        dark ? "text-white/90" : "text-[color:var(--text-heading)]",
+        invert ? "text-white/85" : "text-[color:var(--text-heading)]",
       )}
     >
       <span>9:41</span>
-      <span className="absolute left-1/2 top-2 h-7 w-28 -translate-x-1/2 rounded-full bg-[color:var(--text-heading)]" />
+      <span
+        className={cn(
+          "absolute left-1/2 top-2 h-7 w-28 -translate-x-1/2 rounded-full",
+          invert ? "bg-black/80" : "bg-[color:var(--text-heading)]",
+        )}
+      />
       <span className="tracking-tight">■■■ ▮</span>
     </div>
   );
@@ -172,267 +185,141 @@ function DeviceChrome({
   return (
     <div className={cn("min-w-0", phone && "mx-auto w-full max-w-[24rem]")}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
+        <span className="text-3xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--text-soft)]">
           {label}
         </span>
         <span className="text-3xs font-bold text-[color:var(--text-soft)]">{widthLabel}</span>
       </div>
       <div
         className={cn(
-          "overflow-hidden border border-[color:var(--border)] bg-[color:var(--background)] shadow-[var(--shadow-tight)]",
-          phone ? "rounded-[1.75rem]" : "rounded-2xl",
+          "overflow-hidden border border-[color:var(--border)] bg-[color:var(--background)] shadow-[var(--shadow-lux)]",
+          phone ? "rounded-[1.85rem]" : "rounded-2xl",
         )}
       >
         {phone ? <StatusBar /> : null}
-        <div className={cn(phone ? "h-[42rem] overflow-y-auto" : "h-[42rem] overflow-y-auto")}>{children}</div>
+        <div className="h-[46rem] overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* 01 — Quiet ledger                                                   */
-/* ------------------------------------------------------------------ */
-
-function LedgerFrame({ phone = false }: { phone?: boolean }) {
+function RegionStrip({ compact = false }: { compact?: boolean }) {
+  const cells = [
+    { place: "Sydney", role: "Supabase storage", tone: "accent" as const },
+    { place: "Singapore", role: "App + worker", tone: "neutral" as const },
+    { place: "External", role: "OpenAI API", tone: "warn" as const },
+  ];
   return (
-    <div className="min-h-full bg-[color:var(--background)]">
-      <div
-        className={cn(
-          "sticky top-0 z-10 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)] backdrop-blur-xl",
-          phone ? "px-3 py-3" : "px-8 pb-4 pt-5",
-        )}
-      >
-        <div className={cn("flex min-h-12 items-center gap-3", !phone && "mx-auto max-w-[42rem]")}>
-          <BackControl compact={phone} />
-          <div className="min-w-0">
-            <p className={eyebrowText}>Privacy</p>
-            <p className="truncate text-sm font-semibold text-[color:var(--text-heading)]">Privacy & data handling</p>
-          </div>
-          <span className="ml-auto shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-3xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
-            Draft
-          </span>
-        </div>
-      </div>
-
-      <div className={cn(phone ? "px-3 py-4" : "px-8 py-8")}>
-        <article
-          className={cn(
-            "overflow-hidden border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]",
-            phone ? "rounded-2xl" : "mx-auto max-w-[42rem] rounded-3xl",
-          )}
-        >
-          <div className={cn(phone ? "space-y-5 p-4" : "space-y-6 p-8")}>
-            <header className="space-y-3">
-              {!phone ? (
-                <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--text-heading)]">
-                  Privacy & data handling
-                </h1>
-              ) : (
-                <h1 className="text-xl font-semibold tracking-tight text-[color:var(--text-heading)]">
-                  Privacy & data handling
-                </h1>
-              )}
-              <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">{DRAFT}</p>
-            </header>
-
-            <aside className="flex gap-3 rounded-xl border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-3.5 sm:p-4">
-              <span
-                aria-hidden="true"
-                className="mt-0.5 w-1 shrink-0 self-stretch rounded-full bg-[color:var(--warning)]"
-              />
-              <div className="min-w-0 space-y-1.5">
-                <p className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)]">
-                  <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-                  Important
-                </p>
-                <p className="text-sm leading-6 text-[color:var(--text-heading)]">{IMPORTANT}</p>
-              </div>
-            </aside>
-
-            <div className="divide-y divide-[color:var(--border)]">
-              {SECTIONS.map((section) => (
-                <section key={section.heading} className={cn(phone ? "py-4" : "py-5")}>
-                  <h2 className="text-base font-semibold text-[color:var(--text-heading)]">{section.heading}</h2>
-                  <p className="mt-1.5 max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">{section.body}</p>
-                </section>
-              ))}
-            </div>
-          </div>
-        </article>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* 02 — Trust map                                                      */
-/* ------------------------------------------------------------------ */
-
-const REGION_CHIPS: Array<{ label: string; detail: string; tone: "neutral" | "accent" | "warning" }> = [
-  { label: "Sydney", detail: "Supabase storage", tone: "accent" },
-  { label: "Singapore", detail: "App + worker", tone: "neutral" },
-  { label: "External", detail: "OpenAI API", tone: "warning" },
-];
-
-function TrustMapFrame({ phone = false }: { phone?: boolean }) {
-  return (
-    <div className="min-h-full bg-[color:var(--background)]">
-      <div
-        className={cn(
-          "sticky top-0 z-10 border-b border-[color:var(--border)] bg-[color:var(--surface)]",
-          phone ? "px-3 py-3" : "px-8 pb-5 pt-5",
-        )}
-      >
-        <div className={cn(!phone && "mx-auto max-w-[72rem]")}>
-          <div className="flex min-h-12 items-center gap-3">
-            <BackControl compact={phone} />
-            <div className="min-w-0 flex-1">
-              <p className={eyebrowText}>Privacy</p>
-              <h1
-                className={cn(
-                  "font-semibold tracking-tight text-[color:var(--text-heading)]",
-                  phone ? "truncate text-base" : "text-2xl",
-                )}
-              >
-                Privacy & data handling
-              </h1>
-            </div>
-          </div>
-          {!phone ? (
-            <p className="mt-3 max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">{DRAFT}</p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className={cn(phone ? "space-y-3 px-3 py-3" : "mx-auto max-w-[72rem] space-y-5 px-8 py-8")}>
-        {phone ? <p className="text-sm leading-6 text-[color:var(--text-muted)]">{DRAFT}</p> : null}
-
-        <aside className="rounded-2xl border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-4">
-          <p className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)]">
-            <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-            Important
+    <div
+      className={cn(
+        "grid overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)]",
+        compact
+          ? "grid-cols-1 divide-y divide-[color:var(--border)]"
+          : "grid-cols-3 divide-x divide-[color:var(--border)]",
+      )}
+    >
+      {cells.map((cell) => (
+        <div key={cell.place} className={cn("min-w-0", compact ? "px-3.5 py-2.5" : "px-4 py-3")}>
+          <p
+            className={cn(
+              "text-2xs font-extrabold uppercase tracking-[0.12em]",
+              cell.tone === "accent" && "text-[color:var(--clinical-accent)]",
+              cell.tone === "warn" && "text-[color:var(--warning-text)]",
+              cell.tone === "neutral" && "text-[color:var(--text-muted)]",
+            )}
+          >
+            {cell.place}
           </p>
-          <p className="mt-2 text-sm leading-6 text-[color:var(--text-heading)]">{IMPORTANT}</p>
-        </aside>
-
-        <section
-          aria-label="Where processing happens"
-          className={cn(
-            "rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]",
-            !phone && "p-4",
-          )}
-        >
-          <div className="mb-2.5 flex items-center gap-2">
-            <Server className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-            <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
-              Processing map
-            </p>
-          </div>
-          <div className={cn("grid gap-2", phone ? "grid-cols-1" : "grid-cols-3")}>
-            {REGION_CHIPS.map((chip) => (
-              <div
-                key={chip.label}
-                className={cn(
-                  "rounded-xl border px-3 py-2.5",
-                  chip.tone === "accent" &&
-                    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]",
-                  chip.tone === "warning" && "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)]",
-                  chip.tone === "neutral" && "border-[color:var(--border)] bg-[color:var(--surface-subtle)]",
-                )}
-              >
-                <p className="text-sm font-semibold text-[color:var(--text-heading)]">{chip.label}</p>
-                <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">{chip.detail}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <div className={cn("grid gap-3", phone ? "grid-cols-1" : "grid-cols-2")}>
-          {SECTIONS.map((section) => {
-            const Icon = section.icon;
-            return (
-              <section
-                key={section.heading}
-                className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-inset)]"
-              >
-                <div className="flex items-start gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--surface-subtle)] text-[color:var(--clinical-accent)]">
-                    <Icon className="h-[1.125rem] w-[1.125rem]" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-[color:var(--text-heading)]">{section.heading}</h2>
-                    <p className="mt-1.5 text-sm leading-6 text-[color:var(--text-muted)]">{section.body}</p>
-                  </div>
-                </div>
-              </section>
-            );
-          })}
+          <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">{cell.role}</p>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
 
+function ObligationBand({ density = "full" }: { density?: "full" | "compact" | "bar" }) {
+  if (density === "bar") {
+    return (
+      <div className="flex items-start gap-2.5 border-y border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-3 py-2.5">
+        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden="true" />
+        <p className="min-w-0 text-2xs font-semibold leading-4 text-[color:var(--text-heading)]">
+          <span className="font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)]">
+            Important —{" "}
+          </span>
+          Do not enter identifiable patient details. Processing may include Singapore and OpenAI.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <aside
+      className={cn(
+        "relative overflow-hidden border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)]",
+        density === "full" ? "rounded-2xl p-5 sm:p-6" : "rounded-xl p-4",
+      )}
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full bg-[color:var(--warning)]/10"
+      />
+      <p className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--warning-text)]">
+        <ShieldAlert className="h-4 w-4" aria-hidden="true" />
+        Important
+      </p>
+      <p
+        className={cn(
+          "relative mt-2 max-w-[68ch] font-medium text-[color:var(--text-heading)]",
+          density === "full" ? "text-[0.95rem] leading-7 sm:text-base" : "text-sm leading-6",
+        )}
+      >
+        {IMPORTANT}
+      </p>
+    </aside>
+  );
+}
+
 /* ------------------------------------------------------------------ */
-/* 03 — Indexed brief                                                  */
+/* 01 — Statement theatre                                              */
 /* ------------------------------------------------------------------ */
 
-function IndexedFrame({ phone = false }: { phone?: boolean }) {
-  const chipLabels = SECTIONS.map((section) => section.heading.split(" ").slice(0, 2).join(" "));
-
+function TheatreFrame({ phone = false }: { phone?: boolean }) {
   if (phone) {
     return (
-      <div className="min-h-full bg-[color:var(--background)]">
-        <div className="sticky top-0 z-10 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)] backdrop-blur-xl">
-          <div className="flex min-h-12 items-center gap-3 px-3 py-3">
-            <BackControl compact />
+      <div className={cn("min-h-full", atmosphere)}>
+        <div className="sticky top-0 z-20 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)] px-3 py-3 backdrop-blur-xl">
+          <div className="flex min-h-12 items-center gap-3">
+            <BackControl />
+            <BrandMark size="sm" />
             <div className="min-w-0 flex-1">
-              <p className={eyebrowText}>Privacy</p>
-              <h1 className="truncate text-base font-semibold text-[color:var(--text-heading)]">
-                Privacy & data handling
-              </h1>
+              <p className={eyebrowText}>Clinical KB</p>
+              <p className="truncate text-sm font-semibold text-[color:var(--text-heading)]">Privacy</p>
             </div>
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto px-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {chipLabels.map((label, index) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => undefined}
-                className={cn(
-                  "inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-2xs font-semibold",
-                  focusRing,
-                  index === 0
-                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-                )}
-              >
-                {label}
-              </button>
-            ))}
           </div>
         </div>
 
-        <div className="space-y-3 px-3 py-3">
-          <p className="text-sm leading-6 text-[color:var(--text-muted)]">{DRAFT}</p>
-          <aside className="rounded-2xl border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-3.5">
-            <p className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)]">
-              <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-              Important
-            </p>
-            <p className="mt-2 text-sm leading-6 text-[color:var(--text-heading)]">{IMPORTANT}</p>
-          </aside>
+        <div className="px-4 pb-10 pt-6">
+          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
+            Privacy
+          </p>
+          <h1 className="mt-2 text-balance text-[1.85rem] font-extrabold leading-[1.08] tracking-[-0.035em] text-[color:var(--text-heading)]">
+            Privacy & data handling
+          </h1>
+          <p className="mt-3 max-w-[42ch] text-sm leading-6 text-[color:var(--text-muted)]">{DRAFT}</p>
+        </div>
+
+        <ObligationBand density="compact" />
+
+        <div className="space-y-8 px-4 py-8">
           {SECTIONS.map((section, index) => (
-            <section
-              key={section.heading}
-              className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4"
-            >
-              <p className="text-3xs font-extrabold tabular-nums text-[color:var(--clinical-accent)]">
+            <section key={section.heading} className="relative">
+              <p className="nums text-3xs font-extrabold tracking-[0.14em] text-[color:var(--clinical-accent)]">
                 {String(index + 1).padStart(2, "0")}
               </p>
-              <h2 className="mt-1 text-base font-semibold text-[color:var(--text-heading)]">{section.heading}</h2>
-              <p className="mt-1.5 text-sm leading-6 text-[color:var(--text-muted)]">{section.body}</p>
+              <h2 className="mt-1.5 text-lg font-semibold tracking-[-0.02em] text-[color:var(--text-heading)]">
+                {section.heading}
+              </h2>
+              <p className="mt-2 max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">{section.body}</p>
             </section>
           ))}
         </div>
@@ -441,71 +328,51 @@ function IndexedFrame({ phone = false }: { phone?: boolean }) {
   }
 
   return (
-    <div className="min-h-full bg-[color:var(--background)]">
-      <div className="sticky top-0 z-10 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-8 pb-5 pt-5">
-        <div className="mx-auto flex max-w-[78rem] items-center gap-3">
-          <BackControl />
-          <div className="min-w-0">
-            <p className={eyebrowText}>Privacy</p>
-            <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-heading)]">
-              Privacy & data handling
-            </h1>
+    <div className="flex min-h-full">
+      <aside className="flex w-[19rem] shrink-0 flex-col justify-between bg-[color:var(--command)] px-6 py-7 text-[color:var(--surface)]">
+        <div>
+          <div className="flex items-center gap-3">
+            <BackControl tone="dark" />
+            <BrandMark size="md" />
           </div>
-          <span className="ml-auto shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-3xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
-            Draft · not legal advice
-          </span>
+          <p className="mt-10 text-xs font-extrabold uppercase tracking-[0.16em] text-white/55">Clinical KB</p>
+          <h1 className="mt-3 text-balance text-[2rem] font-extrabold leading-[1.05] tracking-[-0.04em]">
+            Privacy & data handling
+          </h1>
+          <p className="mt-4 text-sm leading-6 text-white/65">{DRAFT}</p>
         </div>
-      </div>
+        <div className="space-y-3 border-t border-white/12 pt-5">
+          <p className="text-2xs font-extrabold uppercase tracking-[0.14em] text-white/45">Processing</p>
+          <ul className="space-y-2 text-sm text-white/80">
+            <li>Sydney · storage</li>
+            <li>Singapore · app + worker</li>
+            <li>External · OpenAI</li>
+          </ul>
+        </div>
+      </aside>
 
-      <div className="mx-auto grid max-w-[78rem] gap-8 px-8 py-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside className="h-fit rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)] lg:sticky lg:top-28">
-          <p className="px-2 pb-2 text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
-            On this page
-          </p>
-          <nav aria-label="Privacy sections" className="grid gap-0.5">
+      <div className={cn("min-w-0 flex-1", atmosphere)}>
+        <div className="mx-auto max-w-[44rem] px-10 py-10">
+          <ObligationBand density="full" />
+          <div className="mt-10 space-y-9">
             {SECTIONS.map((section, index) => (
-              <button
-                key={section.heading}
-                type="button"
-                onClick={() => undefined}
-                className={cn(
-                  "flex min-h-11 items-center gap-2 rounded-lg px-2.5 text-left text-xs font-semibold transition",
-                  focusRing,
-                  index === 0
-                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                )}
-              >
-                <span className="w-5 tabular-nums text-3xs font-extrabold opacity-70">
+              <section key={section.heading} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-4">
+                <p
+                  aria-hidden="true"
+                  className="nums pt-1 text-2xl font-black tracking-[-0.04em] text-[color:var(--clinical-accent-soft)]"
+                >
                   {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className="truncate">{section.heading}</span>
-              </button>
-            ))}
-          </nav>
-        </aside>
-
-        <div className="min-w-0 space-y-5">
-          <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">{DRAFT}</p>
-          <aside className="rounded-2xl border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] p-5">
-            <p className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)]">
-              <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-              Important
-            </p>
-            <p className="mt-2 max-w-[68ch] text-sm leading-6 text-[color:var(--text-heading)]">{IMPORTANT}</p>
-          </aside>
-          <div className="overflow-hidden rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]">
-            <div className="divide-y divide-[color:var(--border)]">
-              {SECTIONS.map((section, index) => (
-                <section key={section.heading} className="px-7 py-6">
-                  <p className="text-3xs font-extrabold tabular-nums text-[color:var(--clinical-accent)]">
-                    {String(index + 1).padStart(2, "0")}
+                </p>
+                <div>
+                  <h2 className="text-xl font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]">
+                    {section.heading}
+                  </h2>
+                  <p className="mt-2 max-w-[68ch] text-[0.95rem] leading-7 text-[color:var(--text-muted)]">
+                    {section.body}
                   </p>
-                  <h2 className="mt-1 text-lg font-semibold text-[color:var(--text-heading)]">{section.heading}</h2>
-                  <p className="mt-2 max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">{section.body}</p>
-                </section>
-              ))}
-            </div>
+                </div>
+              </section>
+            ))}
           </div>
         </div>
       </div>
@@ -513,10 +380,105 @@ function IndexedFrame({ phone = false }: { phone?: boolean }) {
   );
 }
 
-function DirectionPreview({ id }: { id: DirectionId }) {
-  const Frame = id === "ledger" ? LedgerFrame : id === "trust-map" ? TrustMapFrame : IndexedFrame;
+/* ------------------------------------------------------------------ */
+/* 02 — Data passport                                                  */
+/* ------------------------------------------------------------------ */
+
+function PassportFrame({ phone = false }: { phone?: boolean }) {
   return (
-    <div className="grid gap-6 p-4 sm:p-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+    <div className="min-h-full bg-[color:var(--background)]">
+      <header
+        className={cn(
+          "bg-[color:var(--command)] text-[color:var(--surface)]",
+          phone ? "px-3 pb-5 pt-3" : "px-10 pb-8 pt-6",
+        )}
+      >
+        <div className={cn("flex items-center gap-3", !phone && "mx-auto max-w-[72rem]")}>
+          <BackControl tone="dark" />
+          <BrandMark size={phone ? "sm" : "md"} />
+          <div className="min-w-0 flex-1">
+            <p className="text-2xs font-extrabold uppercase tracking-[0.14em] text-white/55">
+              Clinical KB · sealed brief
+            </p>
+            <h1 className={cn("font-extrabold tracking-[-0.03em]", phone ? "truncate text-base" : "text-2xl")}>
+              Privacy & data handling
+            </h1>
+          </div>
+          <span className="shrink-0 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-3xs font-extrabold uppercase tracking-wide text-white/85">
+            Draft
+          </span>
+        </div>
+        {!phone ? <p className="mx-auto mt-4 max-w-[72rem] text-sm leading-6 text-white/65">{DRAFT}</p> : null}
+      </header>
+
+      <div className={cn(phone ? "space-y-4 px-3 py-4" : "mx-auto max-w-[72rem] space-y-6 px-10 py-8")}>
+        {phone ? <p className="text-sm leading-6 text-[color:var(--text-muted)]">{DRAFT}</p> : null}
+        <ObligationBand density={phone ? "compact" : "full"} />
+        <RegionStrip compact={phone} />
+
+        <article
+          className={cn(
+            "relative overflow-hidden border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]",
+            phone ? "rounded-2xl" : "rounded-3xl",
+          )}
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-6 top-8 select-none text-[7rem] font-black leading-none tracking-[-0.06em] text-[color:var(--surface-wash)]"
+          >
+            KB
+          </div>
+          <div
+            className={cn(phone ? "divide-y divide-[color:var(--border)]" : "divide-y divide-[color:var(--border)]")}
+          >
+            {SECTIONS.map((section, index) => (
+              <section
+                key={section.heading}
+                className={cn(
+                  "relative",
+                  phone ? "px-4 py-5" : "grid grid-cols-[5.5rem_minmax(0,1fr)] gap-6 px-8 py-7",
+                )}
+              >
+                <p
+                  className={cn(
+                    "nums font-black tracking-[-0.05em] text-[color:var(--clinical-accent)]",
+                    phone ? "text-sm" : "pt-0.5 text-3xl",
+                  )}
+                >
+                  {String(index + 1).padStart(2, "0")}
+                </p>
+                <div className={phone ? "mt-1" : undefined}>
+                  <h2
+                    className={cn(
+                      "font-semibold text-[color:var(--text-heading)]",
+                      phone ? "text-base" : "text-lg tracking-[-0.02em]",
+                    )}
+                  >
+                    {section.heading}
+                  </h2>
+                  <p className="mt-2 max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">{section.body}</p>
+                </div>
+              </section>
+            ))}
+          </div>
+        </article>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 03 — Live signal (perfected frame)                                  */
+/* ------------------------------------------------------------------ */
+
+function SignalFrame({ phone = false }: { phone?: boolean }) {
+  return <LiveSignalPerfectedFrame phone={phone} />;
+}
+
+function DirectionPreview({ id }: { id: DirectionId }) {
+  const Frame = id === "theatre" ? TheatreFrame : id === "passport" ? PassportFrame : SignalFrame;
+  return (
+    <div className="grid gap-6 bg-[color:var(--surface-wash)] p-4 sm:p-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
       <DeviceChrome label="Desktop" widthLabel="1440 × 900">
         <Frame />
       </DeviceChrome>
@@ -537,62 +499,41 @@ export function PrivacyPageDirectionsMockups() {
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
         <div className="mx-auto max-w-[92rem] px-4 py-7 sm:px-6 lg:px-8">
           <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
-            Privacy page — redesign study
+            Privacy page — redesign study · pass 2
           </p>
           <h1 className="mt-2 max-w-4xl text-balance text-3xl font-extrabold tracking-[-0.03em] text-[color:var(--text-heading)] sm:text-4xl">
-            Three elevated directions for `/privacy`
+            Dramatically elevated directions
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            Grounded in Clinical White / Sky Graphite. Amber stays reserved for the Important obligation. Governance
-            section headings and body copy are unchanged from production — chrome, hierarchy, and phone safe-area only.
-            Each direction shows desktop and phone together.
+            Pass 1 was three skins on a card stack. Pass 2 changes structure: brand-led theatre, sealed passport, and a
+            live obligation signal. Still Clinical White / Sky Graphite. Still the same governance wording. Amber only
+            for Important. Back control always below the notch.
           </p>
         </div>
       </header>
 
       <div className="mx-auto grid max-w-[92rem] gap-8 px-4 py-8 sm:px-6 lg:px-8">
         <section
-          aria-labelledby="diagnosis-title"
-          className="grid gap-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]"
+          aria-labelledby="reject-title"
+          className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] sm:p-5"
         >
-          <div className="min-w-0">
-            <h2 id="diagnosis-title" className="text-lg font-extrabold text-[color:var(--text-heading)]">
-              What is wrong with today
-            </h2>
-            <ul className="mt-3 grid gap-2 text-sm leading-6 text-[color:var(--text-muted)]">
-              <li>
-                <span className="font-semibold text-[color:var(--text-heading)]">Back control in the notch.</span>{" "}
-                `/privacy` sits outside the search shell and never pads `safe-area-inset-top`, so the arrow climbs into
-                the Dynamic Island / status bar on notched phones.
-              </li>
-              <li>
-                <span className="font-semibold text-[color:var(--text-heading)]">Card stack flattens risk.</span> The
-                Important notice and seven body sections share the same raised-card treatment, so the obligation does
-                not outrank retention or tool-definition copy.
-              </li>
-              <li>
-                <span className="font-semibold text-[color:var(--text-heading)]">No long-doc navigation.</span> A phone
-                user must scroll the entire policy with no section index — unusual for a governance page of this length.
-              </li>
-              <li>
-                <span className="font-semibold text-[color:var(--text-heading)]">Region facts are buried.</span> Sydney
-                / Singapore / OpenAI processing sits mid-page in prose, though it is the fact clinicians ask about
-                first.
-              </li>
-            </ul>
-          </div>
-          <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3">
-            <p className="mb-2 text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
-              Locked for this study
-            </p>
-            <ul className="grid gap-1.5 text-2xs leading-4 text-[color:var(--text-muted)]">
-              <li>Clinical White / Sky Graphite role tokens only</li>
-              <li>Amber = Important obligation only (clinical colour reserved)</li>
-              <li>Section headings + body wording match production</li>
-              <li>Back control is min 48×48 and below safe-area in every frame</li>
-              <li>Production already ships the safe-area pad fix independently</li>
-            </ul>
-          </div>
+          <h2 id="reject-title" className="text-lg font-extrabold text-[color:var(--text-heading)]">
+            Why pass 1 was rejected
+          </h2>
+          <ul className="mt-3 grid gap-2 text-sm leading-6 text-[color:var(--text-muted)] sm:grid-cols-3">
+            <li>
+              <span className="font-semibold text-[color:var(--text-heading)]">Generic SaaS cards.</span> Seven white
+              panels equalised the Important obligation with Retention.
+            </li>
+            <li>
+              <span className="font-semibold text-[color:var(--text-heading)]">No brand presence.</span> The first
+              viewport could belong to any product after removing the nav.
+            </li>
+            <li>
+              <span className="font-semibold text-[color:var(--text-heading)]">Same structure thrice.</span> Ledger /
+              map / TOC were skins, not distinct compositions.
+            </li>
+          </ul>
         </section>
 
         {directions.map((direction) => (
@@ -615,6 +556,9 @@ export function PrivacyPageDirectionsMockups() {
                     >
                       {direction.name}
                     </h2>
+                    <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-0.5 text-3xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+                      {direction.verdict}
+                    </span>
                     {direction.recommended ? (
                       <span className="rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-0.5 text-3xs font-extrabold uppercase tracking-wide text-[color:var(--clinical-accent)]">
                         Recommended
@@ -652,15 +596,10 @@ export function PrivacyPageDirectionsMockups() {
             Recommendation
           </h2>
           <p className="max-w-4xl text-sm leading-6 text-[color:var(--text-muted)]">
-            <span className="font-semibold text-[color:var(--text-heading)]">Ship 01 Quiet ledger</span> as the default
-            privacy surface — one measure, one voice, Important spine first, sticky safe-area chrome. Adopt the{" "}
-            <span className="font-semibold text-[color:var(--text-heading)]">processing-map strip from 02</span> as an
-            optional insert under Important if operators want region facts above the fold. Keep 03 Indexed brief as the
-            escalation if the page grows past seven sections or counsel wants jump links.
-          </p>
-          <p className="max-w-4xl text-sm leading-6 text-[color:var(--text-muted)]">
-            The safe-area back-control fix is already applied on production `/privacy` in this branch and does not wait
-            on the direction choice.
+            <span className="font-semibold text-[color:var(--text-heading)]">Ship 03 Live Signal (perfected).</span> The
+            obligation stays on screen, collapsed rows carry gists so clinicians can scan without opening every section,
+            and phone jump chips solve long-doc navigation. Dedicated review route:{" "}
+            <code>/mockups/privacy-live-signal-perfected</code>.
           </p>
         </section>
       </div>
