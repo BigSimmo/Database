@@ -1114,15 +1114,21 @@ describe("Supabase schema Data API grants", () => {
       expect(normalizeIndexDefinition(canonicalMigrationDefinition ?? "")).toBe(
         normalizeIndexDefinition(schemaDefinition ?? ""),
       );
-      expect(normalizeIndexDefinition(driftDefinition ?? "")).toBe(normalizeIndexDefinition(schemaDefinition ?? ""));
+      expect(normalizeIndexDefinition(driftDefinition ?? "")).toBe(
+        normalizeIndexDefinition(schemaDefinition ?? ""),
+      );
       expect(restoreRagSearchHealthIndexesMigration).toContain(`'${indexName}'`);
     }
 
     // This version records an already-completed, validated repair. It must
     // fail fast on drift rather than starting a write-blocking transactional
     // rebuild on ingestion and telemetry tables.
-    expect(restoreRagSearchHealthIndexesMigration).toContain("where to_regclass(format('public.%I', index_name)) is null");
-    expect(restoreRagSearchHealthIndexesMigration).toContain("create missing indexes concurrently outside the migration transaction");
+    expect(restoreRagSearchHealthIndexesMigration).toContain(
+      "where to_regclass(format('public.%I', index_name)) is null",
+    );
+    expect(restoreRagSearchHealthIndexesMigration).toContain(
+      "create missing indexes concurrently outside the migration transaction",
+    );
     expect(restoreRagSearchHealthIndexesMigration).not.toContain("create index if not exists");
   });
   it("mirrors tightened search_document_chunks owner scope in schema and migration", () => {
