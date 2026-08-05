@@ -179,6 +179,10 @@ function AccessibleTableMarkup({
         expanded && "max-h-[calc(100dvh-8.5rem)] flex flex-col rounded-none border-0 sm:rounded-lg sm:border",
       )}
     >
+      {/* Visible chrome is source metadata only. When the caller hides it
+          (untitled tables, or a surrounding card that already owns the title),
+          keep the semantic <caption> below and invent nothing on screen —
+          including inside the expanded fullscreen dialog. */}
       {!hidePreviewCaption ? (
         <div
           aria-hidden="true"

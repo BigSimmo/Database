@@ -131,7 +131,7 @@ export function Chip({
         {children}
       </span>
       {onRemove ? (
-        <span className="relative h-full w-5 shrink-0">
+        <span className="relative h-full w-5 shrink-0 self-center">
           {/* The hit area grows only into the chip's own height and padding: a
               48px target would overhang neighbouring chips and steal their taps. */}
           <button
