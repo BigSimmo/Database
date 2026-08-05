@@ -170,7 +170,7 @@ export function ClinicalOutputPanel({
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                      <p className="truncate text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                         {meta.eyebrow}
                       </p>
                       <h3 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">

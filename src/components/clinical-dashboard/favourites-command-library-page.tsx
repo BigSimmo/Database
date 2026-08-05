@@ -517,7 +517,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
             role="menuitem"
             disabled
             title="Coming soon"
-            className="flex min-h-tap w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text-soft)]"
+            className="flex min-h-tap w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--disabled)]"
           >
             <Folder className="h-4 w-4" aria-hidden />
             Move to set
@@ -665,7 +665,7 @@ function FavouritesTable({
             </select>
             <ChevronDown
               aria-hidden="true"
-              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--text-soft)]"
+              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--decoration-soft)]"
             />
           </label>
         </div>
@@ -973,7 +973,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
               type="button"
               disabled
               title="Coming soon"
-              className="inline-flex h-9 cursor-not-allowed items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-soft)]"
+              className="inline-flex h-9 cursor-not-allowed items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--disabled)]"
             >
               <Folder className="h-4 w-4" aria-hidden />
               Move to set

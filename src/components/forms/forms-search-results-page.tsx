@@ -655,7 +655,7 @@ function MobileResultCard({ match, code }: CodedFormMatch) {
           <span className="sr-only"> risk</span>
         </span>
       ) : null}
-      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
     </Link>
   );
 }
@@ -685,7 +685,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
               <div className="flex items-center gap-2 px-1">
                 <h3 className={eyebrowText}>{group.category}</h3>
                 <span aria-hidden className="h-px flex-1 bg-[color:var(--border)]" />
-                <span className="text-2xs font-bold text-[color:var(--text-soft)]">{group.items.length}</span>
+                <span className="text-2xs font-bold text-[color:var(--text-muted)]">{group.items.length}</span>
               </div>
               {group.items.map((item) => (
                 <MobileResultCard key={item.match.service.slug} match={item.match} code={item.code} />

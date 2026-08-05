@@ -100,7 +100,7 @@ function CrossModeLinkChip({ link, Icon, query, onModeSearch }: CrossModeLinkCar
         <span className="max-w-[13rem] truncate text-xs font-semibold text-[color:var(--text-heading)]">
           {link.title}
         </span>
-        <span className="shrink-0 text-2xs font-semibold uppercase tracking-[0.04em] text-[color:var(--text-soft)]">
+        <span className="shrink-0 text-2xs font-semibold uppercase tracking-[0.04em] text-[color:var(--text-muted)]">
           {link.modeLabel}
         </span>
       </Link>

@@ -172,7 +172,7 @@ function DifferentialsMobileCompareBar({
           data-testid="differentials-compare-selected-mobile"
           className="differentials-mobile-compare-fab__button differentials-mobile-compare-fab__button--empty"
         >
-          <GitCompareArrows className="h-5 w-5 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+          <GitCompareArrows className="h-5 w-5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
           <span className="truncate">Tick results to compare</span>
         </p>
       )}
@@ -299,7 +299,7 @@ function ResultTypeTabs({
                 "nums rounded-full px-1.5 text-2xs leading-tight",
                 active
                   ? "bg-[color:var(--clinical-accent-contrast)]/15 text-[color:var(--clinical-accent-contrast)]"
-                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
+                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
               )}
             >
               {tab.count}
@@ -358,7 +358,7 @@ function SelectionToggle({ selected, onClick, label }: { selected: boolean; onCl
         "grid h-tap w-tap shrink-0 place-items-center rounded-md border text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         selected
           ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-          : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent hover:text-[color:var(--text-soft)]",
+          : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent hover:text-[color:var(--decoration-soft)]",
       )}
     >
       <Check className="h-4 w-4" aria-hidden />
@@ -669,7 +669,7 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
           >
             <StatusBadge status={result.status} />
             <span className="truncate">{result.title}</span>
-            <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+            <ChevronRight className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
           </Link>
         ))}
       </div>
@@ -1206,7 +1206,7 @@ function SearchResultsView({
               </Link>
             ) : (
               <p className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] lg:inline-flex">
-                <GitCompareArrows className="h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
+                <GitCompareArrows className="h-5 w-5 text-[color:var(--decoration-soft)]" aria-hidden />
                 Tick results to compare them side by side
               </p>
             )}

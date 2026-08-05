@@ -9,6 +9,7 @@ import {
   analyzeCssContractsInSource,
   findDebtPathRegressions,
   findInteractiveTapLiteralsInSource,
+  findTextSoftConsumersInSource,
   hasLegacyTapClass,
   jsxClassText,
   rawColorContractSource,
@@ -113,6 +114,7 @@ const metrics = {
   darkColorOverrides: 0,
   legacyShadowAliases: 0,
   layoutTransitionExceptions: 0,
+  textSoftConsumers: 0,
 };
 const debtByPath = Object.fromEntries(Object.keys(metrics).map((metric) => [metric, {}]));
 const recordDebt = (metric, relativePath, count) => {
@@ -124,9 +126,13 @@ const densityOverrideFindings = [];
 const hardcodedMotionClassFindings = [];
 const layoutTransitionFindings = [];
 const unapprovedZIndexFindings = [];
+const textSoftConsumerFindings = [];
 
 for (const file of files) {
   const source = textAt(file.relativePath);
+  const fileTextSoftConsumers = findTextSoftConsumersInSource(file.relativePath, source);
+  recordDebt("textSoftConsumers", file.relativePath, fileTextSoftConsumers.length);
+  textSoftConsumerFindings.push(...fileTextSoftConsumers);
   const rawColorSource = withoutComments(
     rawColorContractSource(file.relativePath, source, (message) => assert(false, message)),
   );
@@ -170,6 +176,10 @@ assert(
 assert(
   unapprovedZIndexFindings.length === 0,
   `Tailwind z-index utilities bypass the named ladder: ${unapprovedZIndexFindings.join(", ")}`,
+);
+assert(
+  textSoftConsumerFindings.length === 0,
+  `production code consumes the decoration-only --text-soft compatibility alias: ${textSoftConsumerFindings.join(", ")}`,
 );
 
 for (const [relativePath, findings] of Map.groupBy(layoutTransitionFindings, (finding) => finding.relativePath)) {
@@ -330,4 +340,5 @@ console.log(
 console.log(
   `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; layout transitions ${metrics.layoutTransitionExceptions}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}.`,
 );
+console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);

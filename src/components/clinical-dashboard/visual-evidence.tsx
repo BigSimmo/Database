@@ -660,8 +660,8 @@ export function MobileEvidenceSheetContent({
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
-              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
+            <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-muted)]">
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" />
               Source
             </span>
           )}

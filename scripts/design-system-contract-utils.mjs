@@ -2,6 +2,7 @@ import ts from "@typescript/typescript6";
 import postcss from "postcss";
 
 const LEGACY_TAP_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*(?:h|w|min-h|min-w|size)-11`;
+const TEXT_SOFT_CONSUMER = /var\(\s*--text-soft(?:\s*,[^)]*)?\)/g;
 
 export const LEGACY_TAP_CLASS = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`, "g");
 const LEGACY_TAP_CLASS_TEST = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`);
@@ -49,6 +50,20 @@ export const RAW_COLOR_EXEMPTIONS = [
 
 export function hasLegacyTapClass(classText) {
   return LEGACY_TAP_CLASS_TEST.test(classText);
+}
+
+export function findTextSoftConsumersInSource(relativePath, sourceText) {
+  const sourceWithoutComments = sourceText
+    .replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\r\n]/g, " "))
+    .replace(/(^|[^:])\/\/.*$/gm, (comment) => comment.replace(/[^\r\n]/g, " "));
+  const findings = [];
+
+  for (const match of sourceWithoutComments.matchAll(TEXT_SOFT_CONSUMER)) {
+    const line = sourceWithoutComments.slice(0, match.index).split(/\r?\n/).length;
+    findings.push(`${relativePath}:${line}`);
+  }
+
+  return findings;
 }
 
 export function jsxClassSegments(attribute) {

@@ -981,7 +981,7 @@ export function MasterSearchHeader({
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold">{mode.label}</span>
-            <span className="block truncate text-2xs font-medium text-[color:var(--text-soft)]">
+            <span className="block truncate text-2xs font-medium text-[color:var(--text-muted)]">
               {mode.description}
             </span>
           </span>
@@ -1242,7 +1242,7 @@ export function MasterSearchHeader({
           <label className="relative block">
             <Search
               aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--decoration-soft)]"
             />
             <input
               ref={scopeFilterInputRef}
@@ -1313,7 +1313,7 @@ export function MasterSearchHeader({
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
-                      <span className="nums block truncate text-2xs font-medium text-[color:var(--text-soft)]">
+                      <span className="nums block truncate text-2xs font-medium text-[color:var(--text-muted)]">
                         {documentScopeMeta(document)}
                       </span>
                       <DocumentTagCloud
@@ -1341,7 +1341,7 @@ export function MasterSearchHeader({
             </div>
           </div>
           {hiddenScopeMatchCount > 0 ? (
-            <p className="nums px-1 text-xs font-medium text-[color:var(--text-soft)]">
+            <p className="nums px-1 text-xs font-medium text-[color:var(--text-muted)]">
               {requireScopeFilter
                 ? `${loadedScopeSummary} documents. Type a title or file name to narrow the loaded list.`
                 : `Showing ${visibleScopeDocuments.length} of ${matchingDocuments.length}. Keep typing to narrow the list.`}
@@ -1459,9 +1459,12 @@ export function MasterSearchHeader({
         <details className="group hidden min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5 sm:block">
           <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-0.5 lg:min-h-8">
             <span className={eyebrowText}>Label filters</span>
-            <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-soft)]">
+            <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-muted)]">
               {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, action, intent"}
-              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 transition group-open:rotate-180" />
+              <ChevronDown
+                aria-hidden="true"
+                className="h-3.5 w-3.5 text-[color:var(--decoration-soft)] transition group-open:rotate-180"
+              />
             </span>
           </summary>
           <div className="mt-2 grid gap-2 border-t border-[color:var(--border)] pt-2">
@@ -1802,7 +1805,7 @@ export function MasterSearchHeader({
             className="polished-scroll absolute bottom-[calc(100%+0.75rem)] right-2 z-[95] max-h-[min(70dvh,28rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
           >
             {scopePreview ? (
-              <p className="truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+              <p className="truncate px-1 text-xs text-[color:var(--text-muted)]">{scopePreview}</p>
             ) : null}
             {renderScopeRows()}
           </div>
@@ -1842,7 +1845,7 @@ export function MasterSearchHeader({
             )}
           >
             {scopePreview ? (
-              <p className="truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+              <p className="truncate px-1 text-xs text-[color:var(--text-muted)]">{scopePreview}</p>
             ) : null}
             {renderScopeRows()}
           </div>
@@ -2016,7 +2019,7 @@ export function MasterSearchHeader({
             <ChevronDown
               aria-hidden="true"
               className={cn(
-                "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                "h-4 w-4 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
                 modeMenuOpen && "rotate-180",
               )}
             />

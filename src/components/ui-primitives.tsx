@@ -69,7 +69,7 @@ export const fieldControl =
 export const fieldControlWithIcon = `${fieldControl} pl-9 pr-3`;
 export const fieldControlPlain = `${fieldControl} px-3`;
 export const fieldIcon =
-  "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]";
+  "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--decoration-soft)]";
 export const shellChip =
   "inline-flex min-h-tap items-center gap-2 rounded-lg border px-3 text-xs font-semibold shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)]";
 export const navPill = `inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
@@ -137,7 +137,7 @@ export const sidebarItem = `flex min-h-tap min-w-0 w-full items-center gap-2 ove
 const statusDotBase = "inline-block h-2 w-2 shrink-0 rounded-full";
 export const statusDotReady = `${statusDotBase} bg-[color:var(--success)]`;
 export const statusDotReview = `${statusDotBase} bg-[color:var(--warning)]`;
-export const statusDotMuted = `${statusDotBase} bg-[color:var(--text-soft)]`;
+export const statusDotMuted = `${statusDotBase} bg-[color:var(--decoration-soft)]`;
 
 export const toneSuccess =
   "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";

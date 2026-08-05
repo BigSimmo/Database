@@ -43,7 +43,7 @@ type ModeHomeTemplateProps = {
 const pillToneClass: Record<NonNullable<ModeHomePill["tone"]>, string> = {
   danger: "bg-[color:var(--danger)]",
   info: "bg-[color:var(--info)]",
-  neutral: "bg-[color:var(--text-soft)]",
+  neutral: "bg-[color:var(--text-muted)]",
   primary: "bg-[color:var(--clinical-accent)]",
   purple: "bg-[color:var(--tone-purple)]",
   indigo: "bg-[color:var(--tone-indigo)]",
@@ -292,7 +292,7 @@ export function ModeHomeTemplate({
                   </span>
                 </span>
                 <ArrowRight
-                  className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                  className="h-4 w-4 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                   aria-hidden="true"
                 />
               </>

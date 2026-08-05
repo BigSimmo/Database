@@ -882,7 +882,7 @@ export function DocumentDrawer({
           />
           <label
             htmlFor="needs-review-filter"
-            className="text-xs font-semibold text-[color:var(--text-soft)] cursor-pointer select-none"
+            className="text-xs font-semibold text-[color:var(--text-muted)] cursor-pointer select-none"
           >
             Show &quot;Needs review&quot; queue only
           </label>
@@ -1080,7 +1080,10 @@ export function DocumentDrawer({
                     className="flex min-h-tap min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                   >
                     <span className="truncate">{documentDisplayTitle(document)}</span>
-                    <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
+                    <ExternalLink
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]"
+                    />
                   </Link>
                   <DocumentOrganizationBadges document={document} compact className="mt-1" />
                   <p className={cn("mt-1 truncate text-xs", textMuted)}>

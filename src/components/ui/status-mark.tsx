@@ -35,7 +35,7 @@ export function StatusMark({ status, className }: StatusMarkProps) {
         ? "var(--warning)"
         : status === "outdated"
           ? "var(--danger)"
-          : "var(--text-soft)";
+          : "var(--decoration-soft)";
 
   return (
     <span

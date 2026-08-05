@@ -175,7 +175,7 @@ export function Meter({ value, label }: { value: number | null; label: string })
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-2xs text-[color:var(--text-soft)]">{label}</span>
+        <span className="text-2xs text-[color:var(--text-muted)]">{label}</span>
         <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{value == null ? "—" : `${v}%`}</span>
       </div>
       <span className="block h-1.5 overflow-hidden rounded-xs bg-[color:var(--surface-inset)]">

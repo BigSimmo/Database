@@ -733,14 +733,14 @@ export function ModeActionPopup({
                   {item.description ? (
                     <span
                       id={descriptionId}
-                      className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-soft)]"
+                      className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-muted)]"
                     >
                       {item.description}
                     </span>
                   ) : null}
                 </span>
                 <ChevronRight
-                  className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
+                  className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
                   aria-hidden="true"
                 />
               </button>
@@ -788,7 +788,7 @@ export function ModeActionPopup({
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-extrabold">{mode.label}</span>
                   {mode.description ? (
-                    <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                    <span className="block truncate text-2xs font-semibold text-[color:var(--text-muted)]">
                       {mode.description}
                     </span>
                   ) : null}
@@ -845,7 +845,7 @@ export function ModeActionPopup({
             {canSwitchMode ? (
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition",
+                  "h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition",
                   modeSelectorOpen && "rotate-180",
                 )}
                 aria-hidden="true"

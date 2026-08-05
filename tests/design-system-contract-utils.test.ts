@@ -13,6 +13,7 @@ import {
   findInteractiveTapLiteralsInSource,
   findJsxEdgeOwnershipConflictsInSource,
   findLayoutTransitionClassesInSource,
+  findTextSoftConsumersInSource,
   findUnapprovedZIndexClassesInSource,
   hasLegacyTapClass,
   rawColorContractSource,
@@ -34,6 +35,22 @@ describe("design-system contract helpers", () => {
         '<div className={cn("h-11", active && "md:w-11")}>Decoration</div>',
       ),
     ).toEqual([]);
+  });
+
+  it("rejects --text-soft consumption while allowing compatibility declarations and comments", () => {
+    const source = [
+      ":root { --text-soft: #8894a6; --decoration-soft: #8894a6; }",
+      "/* var(--text-soft) is retained only as a compatibility declaration. */",
+      'const text = <p className="text-[color:var(--text-soft)]">Unsafe text</p>;',
+      ".icon { color: var(--text-soft); }",
+      "// const documented = 'var(--text-soft)';",
+      ".safe-icon { color: var(--decoration-soft); }",
+    ].join("\n");
+
+    expect(findTextSoftConsumersInSource("src/example.tsx", source)).toEqual([
+      "src/example.tsx:3",
+      "src/example.tsx:4",
+    ]);
   });
 
   it("detects border and ring width ownership on the same JSX literal without merging exclusive branches", () => {

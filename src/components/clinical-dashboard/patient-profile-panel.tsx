@@ -153,10 +153,10 @@ export function PatientProfilePanel({
               Active
             </span>
           ) : (
-            <span className="text-2xs font-medium text-[color:var(--text-soft)]">Optional</span>
+            <span className="text-2xs font-medium text-[color:var(--text-muted)]">Optional</span>
           )}
         </span>
-        <span className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
+        <span className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
           {open ? "Hide" : "Edit"}
         </span>
       </summary>
@@ -293,7 +293,7 @@ export function PatientProfilePanel({
           </button>
         </div>
 
-        <p className="text-2xs leading-4 text-[color:var(--text-soft)]">
+        <p className="text-2xs leading-4 text-[color:var(--text-muted)]">
           Anonymous values only — no patient‑identifying information is stored. Cleared when the tab closes. Decision
           support, not medical advice.
         </p>

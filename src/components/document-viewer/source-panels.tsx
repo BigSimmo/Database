@@ -623,7 +623,7 @@ function IndexedSourceText({
             <ul
               key={block.id}
               className={cn(
-                "list-disc space-y-1.5 pl-5 text-base-minus leading-7 text-[color:var(--text)] marker:text-[color:var(--text-soft)]",
+                "list-disc space-y-1.5 pl-5 text-base-minus leading-7 text-[color:var(--text)] marker:text-[color:var(--decoration-soft)]",
                 compact && "text-sm leading-6",
               )}
             >

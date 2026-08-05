@@ -266,7 +266,7 @@ function SummaryCard({ card }: { card: ServiceSummaryCard }) {
           </h3>
         </div>
         <ChevronRight
-          className="mt-2 h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
+          className="mt-2 h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
           aria-hidden
         />
       </div>
@@ -674,17 +674,26 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                     <ShieldCheck className="h-5 w-5" aria-hidden />
                   </span>
                   <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Verification</h2>
-                  <span className="hidden h-1 w-1 rounded-full bg-[color:var(--text-soft)] sm:block" aria-hidden />
+                  <span
+                    className="hidden h-1 w-1 rounded-full bg-[color:var(--decoration-soft)] sm:block"
+                    aria-hidden
+                  />
                   <span className="text-sm font-medium text-[color:var(--text-muted)]">
                     {verified ? "Locally verified" : "Verify locally before use"}
                   </span>
-                  <span className="hidden h-1 w-1 rounded-full bg-[color:var(--text-soft)] sm:block" aria-hidden />
+                  <span
+                    className="hidden h-1 w-1 rounded-full bg-[color:var(--decoration-soft)] sm:block"
+                    aria-hidden
+                  />
                   <span className="text-sm font-medium text-[color:var(--text-muted)]">
                     {service.verification?.confidence ?? "Unknown"} confidence
                   </span>
                   {service.source?.status ? (
                     <>
-                      <span className="hidden h-1 w-1 rounded-full bg-[color:var(--text-soft)] sm:block" aria-hidden />
+                      <span
+                        className="hidden h-1 w-1 rounded-full bg-[color:var(--decoration-soft)] sm:block"
+                        aria-hidden
+                      />
                       <span className="text-sm font-medium text-[color:var(--text-muted)]">
                         {service.source.status}
                       </span>

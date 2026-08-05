@@ -256,7 +256,7 @@ function SectionCard({ section }: { section: MedicationSection }) {
           <span className="truncate text-sm-minus font-semibold text-[color:var(--text-heading)]">{section.title}</span>
         </span>
         <ChevronDown
-          className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-open:rotate-180"
+          className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition group-open:rotate-180"
           aria-hidden="true"
         />
       </summary>
@@ -320,7 +320,7 @@ function QuickRefRow({ row }: { row: MedicationQuickRow }) {
         <span className="flex items-center justify-between gap-2">
           {label}
           <ChevronDown
-            className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)] transition group-open:rotate-180"
+            className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)] transition group-open:rotate-180"
             aria-hidden="true"
           />
         </span>
@@ -410,7 +410,7 @@ function MedicationRecordDetail({
                   {record.subclass || record.class}
                   {record.category ? (
                     <>
-                      <span className="mx-1.5 text-[color:var(--text-soft)]">·</span>
+                      <span className="mx-1.5 text-[color:var(--decoration-soft)]">·</span>
                       {record.category}
                     </>
                   ) : null}

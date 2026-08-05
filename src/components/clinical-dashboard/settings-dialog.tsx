@@ -308,8 +308,8 @@ export function SettingsDialog({
               );
             })}
           </nav>
-          <p className="mt-auto flex items-center gap-2 px-1 pt-6 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-            <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          <p className="mt-auto flex items-center gap-2 px-1 pt-6 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" />
             Stored on this device. No PHI.
           </p>
         </aside>
@@ -454,7 +454,7 @@ export function SettingsDialog({
                       </form>
                     ) : null}
 
-                    <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
+                    <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-muted)]">
                       <span className="h-px flex-1 bg-[color:var(--border)]" />
                       <span>or continue with</span>
                       <span className="h-px flex-1 bg-[color:var(--border)]" />
@@ -476,7 +476,7 @@ export function SettingsDialog({
                     <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
                       <LockKeyhole
                         aria-hidden="true"
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]"
                       />
                       Accounts sync favourites and preferences across signed-in devices. Do not enter PHI.
                     </p>
@@ -828,9 +828,9 @@ function NotYetActiveBadge({ id }: { id?: string }) {
   return (
     <span
       id={id}
-      className="mt-1 inline-flex w-fit items-center gap-1 text-2xs font-medium leading-4 text-[color:var(--text-soft)]"
+      className="mt-1 inline-flex w-fit items-center gap-1 text-2xs font-medium leading-4 text-[color:var(--text-muted)]"
     >
-      <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--text-soft)]" />
+      <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--decoration-soft)]" />
       Not active yet
     </span>
   );
@@ -1047,7 +1047,7 @@ function SettingsActionRow({
       {meta ? (
         <span className="shrink-0 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{meta}</span>
       ) : null}
-      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
     </button>
   );
 }
@@ -1138,7 +1138,7 @@ function SettingsProviderRow({
         </span>
       ) : null}
       {!disabledReason ? (
-        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
       ) : null}
     </button>
   );

@@ -791,7 +791,7 @@ function DocumentSearchHome({
       footer={
         <div className="grid w-full gap-3">
           {documentCount > 0 ? (
-            <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
+            <p className="text-xs font-semibold text-[color:var(--text-muted)]" aria-live="polite">
               {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
             </p>
           ) : null}
@@ -916,7 +916,7 @@ function SearchRecordResults({
               ) : null}
 
               {reasons.length ? (
-                <p className="text-xs font-medium text-[color:var(--text-soft)]">
+                <p className="text-xs font-medium text-[color:var(--text-muted)]">
                   Matched by {reasons.slice(0, 3).join(", ")}.
                 </p>
               ) : null}

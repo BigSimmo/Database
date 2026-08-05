@@ -611,7 +611,7 @@ function MobileDetailSections({ app }: { app: LauncherApp }) {
               <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{label}</span>
               <ChevronRight
                 className={cn(
-                  "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                  "h-4 w-4 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
                   expanded && "rotate-90",
                 )}
                 aria-hidden

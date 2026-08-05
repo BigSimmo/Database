@@ -301,7 +301,7 @@ function PathwayContextCard({
           </span>
           <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">Decision context</h2>
         </div>
-        <Info className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+        <Info className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
       </div>
       <div
         className="grid grid-cols-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-xs font-semibold"
@@ -341,7 +341,7 @@ function PathwayContextCard({
         <div className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4">
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-            <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Before</p>
+            <p className="text-2xs font-bold uppercase text-[color:var(--text-muted)]">Before</p>
             <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
               {beforeForms.map((item) => (
                 <div
@@ -365,7 +365,7 @@ function PathwayContextCard({
           </div>
           <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
             <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
-            <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-soft)]">Current</p>
+            <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-muted)]">Current</p>
             <div className="flex items-center gap-2.5">
               <FormCodeBadge code={code} variant="sm" />
               <p className="min-w-0 text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
@@ -377,7 +377,7 @@ function PathwayContextCard({
           </div>
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-            <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Parallel</p>
+            <p className="text-2xs font-bold uppercase text-[color:var(--text-muted)]">Parallel</p>
             <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
               {parallelForms.map((item) => (
                 <div
@@ -401,7 +401,7 @@ function PathwayContextCard({
           </div>
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-            <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">After</p>
+            <p className="text-2xs font-bold uppercase text-[color:var(--text-muted)]">After</p>
             <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
               {afterForms.map((item) => (
                 <div
@@ -425,7 +425,7 @@ function PathwayContextCard({
           </div>
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-            <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Confirm</p>
+            <p className="text-2xs font-bold uppercase text-[color:var(--text-muted)]">Confirm</p>
             <div className="mt-2 grid gap-1.5">
               {confirmChecks.slice(0, 4).map((check) => (
                 <span
@@ -464,15 +464,15 @@ function PathwayContextCard({
           </p>
           <dl className="grid gap-2 text-xs">
             <div>
-              <dt className="font-bold uppercase text-[color:var(--text-soft)]">Official source</dt>
+              <dt className="font-bold uppercase text-[color:var(--text-muted)]">Official source</dt>
               <dd className={textMuted}>{displayText(form.source?.label)}</dd>
             </div>
             <div>
-              <dt className="font-bold uppercase text-[color:var(--text-soft)]">Reviewed</dt>
+              <dt className="font-bold uppercase text-[color:var(--text-muted)]">Reviewed</dt>
               <dd className={textMuted}>{displayText(form.source?.reviewed ?? details?.officialTitleCheckedAt)}</dd>
             </div>
             <div>
-              <dt className="font-bold uppercase text-[color:var(--text-soft)]">Availability</dt>
+              <dt className="font-bold uppercase text-[color:var(--text-muted)]">Availability</dt>
               <dd className={textMuted}>
                 {details?.availability === "downloadable"
                   ? "Official PDF stored locally; confirm against the register before use"
@@ -482,7 +482,7 @@ function PathwayContextCard({
               </dd>
             </div>
             <div>
-              <dt className="font-bold uppercase text-[color:var(--text-soft)]">Act / cue</dt>
+              <dt className="font-bold uppercase text-[color:var(--text-muted)]">Act / cue</dt>
               <dd className={textMuted}>{displayText(details?.sourceFacts?.sectionCue, details?.sourceNote)}</dd>
             </div>
           </dl>
@@ -614,7 +614,7 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string | 
           {displayText(value)}
         </p>
       </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
     </article>
   );
 }

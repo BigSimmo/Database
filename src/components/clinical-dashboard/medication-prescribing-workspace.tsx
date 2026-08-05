@@ -576,7 +576,7 @@ function MedicationResults({
                   </span>
                   {result.href ? (
                     <ChevronRight
-                      className="h-4 w-4 justify-self-end text-[color:var(--text-soft)] group-hover:text-[color:var(--clinical-accent)] motion-safe:transition motion-safe:group-hover:translate-x-0.5"
+                      className="h-4 w-4 justify-self-end text-[color:var(--decoration-soft)] group-hover:text-[color:var(--clinical-accent)] motion-safe:transition motion-safe:group-hover:translate-x-0.5"
                       aria-hidden="true"
                     />
                   ) : (
@@ -656,7 +656,10 @@ function MedicationResults({
                 </p>
               </div>
               {result.href ? (
-                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
+                <ChevronRight
+                  className="mt-1 h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]"
+                  aria-hidden="true"
+                />
               ) : (
                 <span className="mt-1 shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   Soon
