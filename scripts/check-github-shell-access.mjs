@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repository = "BigSimmo/Database";
@@ -18,7 +18,9 @@ function shellGh(command, args) {
  *
  * Live `gh` API calls require an explicit opt-in (`--allow-provider` or
  * `ALLOW_GITHUB_SHELL_ACCESS=true`) so the provider confirmation boundary is
- * self-enforcing rather than documentation-only. `--self-test` stays offline.
+ * self-enforcing rather than documentation-only. The plain npm script runs
+ * `--self-test` offline; use `npm run check:github-shell-access:live` for the
+ * provider-backed path.
  */
 export function githubShellAccess(run = shellGh) {
   if (run("gh", ["--version"]).status !== 0) {
@@ -82,8 +84,8 @@ function main() {
     console.error(
       [
         "Refusing live GitHub API calls without confirmation.",
-        `Re-run with ${allowProviderFlag} or ${allowProviderEnv}=true only after explicit provider approval.`,
-        "Offline proof: npm run check:github-shell-access -- --self-test",
+        `Re-run with npm run check:github-shell-access:live, or pass ${allowProviderFlag} / ${allowProviderEnv}=true, only after explicit provider approval.`,
+        "Offline proof: npm run check:github-shell-access",
       ].join("\n"),
     );
     process.exitCode = 1;
@@ -95,5 +97,11 @@ function main() {
   if (!result.ok) process.exitCode = 1;
 }
 
-const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (invokedPath === fileURLToPath(import.meta.url)) main();
+const invokedDirectly = (() => {
+  try {
+    return Boolean(process.argv[1]) && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+})();
+if (invokedDirectly) main();

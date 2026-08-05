@@ -437,7 +437,38 @@ describe("Codex Cloud environment contract", () => {
     });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("OPENAI_API_KEY");
+    expect(result.stderr).toContain("STOP:");
     expect(result.stderr).not.toContain(secret);
+  });
+
+  it("name-scopes the documented OPENAI_BASE_URL launcher defect separately from unexpected leaks", () => {
+    const known = spawnSync(bashCommand, ["scripts/check-codex-cloud-raw-env.sh"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, NODE_ENV: "test", OPENAI_BASE_URL: "https://example.invalid" },
+    });
+    expect(known.status).toBe(2);
+    expect(known.stderr).toContain("FAIL-KNOWN:");
+    expect(known.stderr).toContain("OPENAI_BASE_URL");
+    expect(known.stderr).toContain("CONTINUE-RESTRICTED:");
+    expect(known.stderr).not.toContain("https://example.invalid");
+
+    const mixed = spawnSync(bashCommand, ["scripts/check-codex-cloud-raw-env.sh"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        PATH: process.env.PATH,
+        NODE_ENV: "test",
+        OPENAI_BASE_URL: "https://example.invalid",
+        SUPABASE_SERVICE_ROLE_KEY: "never-print-service-role",
+      },
+    });
+    expect(mixed.status).toBe(1);
+    expect(mixed.stderr).toContain("FAIL:");
+    expect(mixed.stderr).toContain("STOP:");
+    expect(mixed.stderr).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(mixed.stderr).not.toContain("never-print-service-role");
+    expect(mixed.stderr).not.toContain("CONTINUE-RESTRICTED:");
   });
 
   it("keeps setup and maintenance repairs guarded for repeat execution", () => {

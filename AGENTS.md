@@ -894,16 +894,19 @@ Use `docs/codex-cloud.md` as the environment contract:
   separately without printing secret values.
 - In a fresh Cloud task, run `bash scripts/check-codex-cloud-raw-env.sh` before sourcing a
   profile or entering a login shell. It must report only provider variable names and presence,
-  never values. Then run `npm run check:codex-cloud` directly; it must report the
-  static-and-environment PASS line. Run `npm run check:codex-cloud -- --runtime` with
-  `CODEX_CLOUD_EXPECTED_BASE_SHA` set to the intended merge/base commit when the checkout has
-  only a task HEAD. Setup and maintenance may report freshness as unverified so provisioning
-  remains repairable, but explicit acceptance must not pass an arbitrary HEAD. The command shims
-  load the generated profile for normal `node`, `npm`, and `npx` work. Also run
-  `npm run check:runtime` and `npm run check:installed-lock-parity` before trusting a new or
-  reset environment. A skipped browser install is not full browser readiness. Output is limited
-  to approved mode values, presence booleans, full Git commit identities, and MCP
-  server/command/environment-variable names; never print credential values.
+  never values. Treat exit `1` / `FAIL`+`STOP` as a hard stop for any unexpected inherited name.
+  Only exit `2` / `FAIL-KNOWN` for `OPENAI_BASE_URL` alone may use the restricted
+  profile-and-shim continue path; do not generalize that allowance. Then run
+  `npm run check:codex-cloud` directly; it must report the static-and-environment PASS line. Run
+  `npm run check:codex-cloud -- --runtime` with `CODEX_CLOUD_EXPECTED_BASE_SHA` set to the
+  intended merge/base commit when the checkout has only a task HEAD. Setup and maintenance may
+  report freshness as unverified so provisioning remains repairable, but explicit acceptance must
+  not pass an arbitrary HEAD. The command shims load the generated profile for normal `node`,
+  `npm`, and `npx` work. Also run `npm run check:runtime` and
+  `npm run check:installed-lock-parity` before trusting a new or reset environment. A skipped
+  browser install is not full browser readiness. Output is limited to approved mode values,
+  presence booleans, full Git commit identities, and MCP server/command/environment-variable
+  names; never print credential values.
 - Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
   Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
   agent phase unless the platform explicitly exposes a secret to the named task phase; do not

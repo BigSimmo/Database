@@ -4,6 +4,13 @@ set -Eeuo pipefail
 
 # Run this directly with a pristine shell before sourcing profiles or invoking
 # node/npm shims. It reports names and presence only, never values.
+#
+# Exit codes:
+#   0 — no provider variables inherited (raw boundary passed)
+#   1 — unexpected provider variable names present; stop and start a fresh task
+#   2 — only the documented Personal Pro launcher defect (`OPENAI_BASE_URL`) is
+#       present. The raw boundary still failed; continue only through the
+#       generated profile and command shims, never by treating this as a pass.
 provider_variables=(
   OPENAI_API_KEY OPENAI_ORG_ID OPENAI_PROJECT_ID OPENAI_BASE_URL
   NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -17,6 +24,10 @@ provider_variables=(
   E2E_AUTH_ENABLED E2E_USER_EMAIL E2E_USER_PASSWORD ALLOW_PROVIDER_TESTS
 )
 
+# Name-scoped allowance: only this inherited name may use the restricted continue
+# path. Any other provider name remains a hard stop.
+known_launcher_defect_variables=(OPENAI_BASE_URL)
+
 present=()
 for name in "${provider_variables[@]}"; do
   if [[ -n "${!name:-}" ]]; then
@@ -24,9 +35,34 @@ for name in "${provider_variables[@]}"; do
   fi
 done
 
-if (( ${#present[@]} > 0 )); then
+if (( ${#present[@]} == 0 )); then
+  printf '[Codex Cloud Raw Env] PASS: no provider variables are inherited by the raw task shell.\n'
+  exit 0
+fi
+
+known=()
+unexpected=()
+for name in "${present[@]}"; do
+  is_known=0
+  for known_name in "${known_launcher_defect_variables[@]}"; do
+    if [[ "$name" == "$known_name" ]]; then
+      is_known=1
+      break
+    fi
+  done
+  if (( is_known )); then
+    known+=("$name")
+  else
+    unexpected+=("$name")
+  fi
+done
+
+if (( ${#unexpected[@]} > 0 )); then
   printf '[Codex Cloud Raw Env] FAIL: inherited provider variable names: %s\n' "${present[*]}" >&2
+  printf '[Codex Cloud Raw Env] STOP: unexpected credential-bearing names require a fresh task; do not continue.\n' >&2
   exit 1
 fi
 
-printf '[Codex Cloud Raw Env] PASS: no provider variables are inherited by the raw task shell.\n'
+printf '[Codex Cloud Raw Env] FAIL-KNOWN: inherited documented launcher defect names: %s\n' "${known[*]}" >&2
+printf '[Codex Cloud Raw Env] CONTINUE-RESTRICTED: use only the generated profile and command shims; raw boundary remains failed.\n' >&2
+exit 2

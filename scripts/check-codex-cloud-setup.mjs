@@ -669,13 +669,17 @@ export function validateCodexCloudSetup() {
     if (!setup.includes(name)) errors.push(`Cloud setup must handle provider environment variable ${name}.`);
   }
   // Reject any executable (non-comment) reference that would write MCP tables.
-  // Comments may mention mcp_servers as preserved host settings; printf/echo/cat/tee
-  // generations must not.
-  const setupWithoutFullLineComments = setup
+  // Strip full-line comments and whitespace-prefixed trailing comments so an
+  // inline note cannot false-trip the guard. This remains a text-level contract;
+  // the generated-config behavioural test is the stronger proof.
+  const setupWithoutComments = setup
     .split("\n")
-    .filter((line) => !/^\s*#/.test(line))
+    .map((line) => {
+      if (/^\s*#/.test(line)) return "";
+      return line.replace(/\s+#.*$/, "");
+    })
     .join("\n");
-  if (setupWithoutFullLineComments.includes("mcp_servers.")) {
+  if (/\bmcp_servers\b/.test(setupWithoutComments)) {
     errors.push("Cloud setup must not generate MCP registrations; hosted apps are external to the repository.");
   }
   if (setup.includes("@railway/cli") || setup.includes('setup_step="railway-cli"')) {
@@ -734,6 +738,24 @@ export function validateCodexCloudSetup() {
     "PAT deletion helper must reject the Codex Cloud agent phase and direct operators to native publication.",
   );
   requireMatch(errors, rawEnvironmentProbe, /never values/, "Raw Cloud environment probe must report names only.");
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /known_launcher_defect_variables=\(OPENAI_BASE_URL\)/,
+    "Raw Cloud environment probe must name-scope the OPENAI_BASE_URL launcher-defect allowance.",
+  );
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /FAIL-KNOWN: inherited documented launcher defect names/,
+    "Raw Cloud environment probe must emit FAIL-KNOWN for the documented launcher defect.",
+  );
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /STOP: unexpected credential-bearing names require a fresh task/,
+    "Raw Cloud environment probe must hard-stop on unexpected provider names.",
+  );
   for (const name of providerCredentialVariables) {
     if (!rawEnvironmentProbe.includes(name)) {
       errors.push(`Raw Cloud environment probe must cover provider environment variable ${name}.`);
@@ -839,6 +861,9 @@ function repositoryCommand(command, args) {
 export async function validateCodexCloudRuntime(env = process.env) {
   const errors = validateCodexCloudEnvironment(env);
 
+  // Hosted Railway access is the OAuth ChatGPT/Codex app, not CLI token auth.
+  // Do not reintroduce `railway --version` or RAILWAY_API_TOKEN-vs-RAILWAY_TOKEN
+  // substitution checks here unless a future workflow restores CLI token auth.
   for (const error of [
     commandVersion("deno", ["--version"], /^deno 2\./m),
     commandVersion("tesseract", ["--version"], /^tesseract \d+\./m),

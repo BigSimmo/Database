@@ -253,13 +253,20 @@ sourcing any profile or invoking node/npm in a fresh task, run:
 bash --noprofile --norc scripts/check-codex-cloud-raw-env.sh
 ```
 
-The probe checks the complete provider-variable inventory and prints names only. A failure is a
-launcher/environment defect; remove the variable in host environment settings and start another
-fresh task. If Personal Pro still injects `OPENAI_BASE_URL` after the environment UI no longer
-contains it, preserve the failing name-only output for OpenAI support and continue provider-free
-work only through the generated profile and command shims, followed by a passing
-`npm run check:codex-cloud`. This keeps normal repository commands functional without treating the
-sanitized child shell as proof that the raw-parent boundary passed.
+The probe checks the complete provider-variable inventory and prints names only. Outcomes are
+name-scoped in the probe itself:
+
+- exit `0` / `PASS` — raw boundary clean
+- exit `1` / `FAIL` + `STOP` — any unexpected provider name (for example
+  `SUPABASE_SERVICE_ROLE_KEY`); start another fresh task and do not continue
+- exit `2` / `FAIL-KNOWN` + `CONTINUE-RESTRICTED` — only the documented Personal Pro launcher
+  defect name `OPENAI_BASE_URL`
+
+When the probe reports `FAIL-KNOWN` for `OPENAI_BASE_URL` alone, preserve that name-only output
+for OpenAI support and continue provider-free work only through the generated profile and command
+shims, followed by a passing `npm run check:codex-cloud`. Do not generalize that restricted path
+to any other inherited name. A sanitized child shell is never proof that the raw-parent boundary
+passed.
 
 `npm run check:production-readiness` remains useful in the offline profile for local safeguards.
 Missing Supabase/OpenAI agent-phase credentials are reported as a provider capability gap and do
