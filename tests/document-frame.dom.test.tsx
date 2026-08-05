@@ -101,6 +101,7 @@ describe("DocumentFrame", () => {
         state="ready"
         controls={readyControls({ fitWidth: false, zoom: 1.5, viewingAid: true })}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element -- A plain image is the document-content fixture under test. */}
         <img src="https://example.test/figure.png" alt="Clinical figure" />
       </DocumentFrame>,
     );

@@ -479,7 +479,8 @@ describe("design-system adoption manifest", () => {
 
   it("fails closed when a v2-adopted surface omits required proof", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
-    const { browser: _browser, ...incompleteProof } = current.surfaces[0].proof;
+    const incompleteProof = { ...current.surfaces[0].proof };
+    delete incompleteProof.browser;
     const manifest = {
       ...current,
       surfaces: [

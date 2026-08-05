@@ -75,7 +75,7 @@ import {
 import type { SourceGovernanceWarning } from "@/lib/source-governance";
 import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
-import type { ClinicalDocument, DocumentMatch, SearchResult, SearchScopeSummary } from "@/lib/types";
+import type { ClinicalDocument, DocumentMatch, SearchScopeSummary } from "@/lib/types";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
 import { documentRelevancePercent } from "./relevance-score";

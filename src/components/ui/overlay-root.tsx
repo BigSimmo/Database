@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 export type OverlayLayer = "overlay" | "popover" | "modal" | "toast";
@@ -70,16 +70,30 @@ function ensureFallbackHost(layer: OverlayLayer) {
   return root.querySelector<HTMLElement>(`[data-overlay-host="${layer}"]`)!;
 }
 
+function getOverlayHost(layer: OverlayLayer) {
+  if (typeof document === "undefined") return null;
+  return document.querySelector<HTMLElement>(`[data-overlay-host="${layer}"]`);
+}
+
+function getServerOverlayHost() {
+  return null;
+}
+
 export type OverlayPortalProps =
   | { layer: "modal"; name: string; children: ReactNode }
   | { layer: Exclude<OverlayLayer, "modal">; name?: string; children: ReactNode };
 
 export function OverlayPortal({ layer, name, children }: OverlayPortalProps) {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setHost(ensureFallbackHost(layer));
-  }, [layer]);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      ensureFallbackHost(layer);
+      onStoreChange();
+      return () => undefined;
+    },
+    [layer],
+  );
+  const getSnapshot = useCallback(() => getOverlayHost(layer), [layer]);
+  const host = useSyncExternalStore(subscribe, getSnapshot, getServerOverlayHost);
 
   if (!host) return null;
   return createPortal(

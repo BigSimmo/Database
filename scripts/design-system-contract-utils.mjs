@@ -267,10 +267,6 @@ function utilityVariants(token) {
   return splitTailwindVariants(token).slice(0, -1);
 }
 
-function jsxClassAttribute(node, source) {
-  return jsxClassAttributes(node, source)[0];
-}
-
 function jsxClassAttributes(node, source) {
   return node.attributes.properties.filter(
     (attribute) => ts.isJsxAttribute(attribute) && /(?:^|[A-Z])className$/i.test(attribute.name.getText(source)),

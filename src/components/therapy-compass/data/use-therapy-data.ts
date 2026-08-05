@@ -128,14 +128,6 @@ export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataSta
   useEffect(() => {
     if (!resolved.enabled) {
       settleRetryWaiters();
-      // Home deliberately masks catalogue state and performs no I/O. Retain a
-      // settled success so a later rich route can reuse the immutable cached
-      // dataset, but invalidate a settled failure: its request was removed from
-      // `cache`, so it cannot describe the automatic replacement request that
-      // starts when catalogue loading is enabled again.
-      setState((previous) =>
-        previous.error ? { requestKey: null, data: null, loading: false, error: null } : previous,
-      );
       return;
     }
     let active = true;
@@ -173,7 +165,18 @@ export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataSta
     };
   }, [settleRetryWaiters]);
 
-  if (!resolved.enabled) return { data: EMPTY_DATASET, loading: false, error: null, retry };
+  if (!resolved.enabled) {
+    // Home deliberately masks catalogue state and performs no I/O. Retain a
+    // settled success so a later rich route can reuse the immutable cached
+    // dataset, but invalidate a settled failure: its request was removed from
+    // `cache`, so it cannot describe the automatic replacement request that
+    // starts when catalogue loading is enabled again. Updating during render is
+    // safe here because the error guard makes the adjustment self-terminating.
+    if (state.error) {
+      setState({ requestKey: null, data: null, loading: false, error: null });
+    }
+    return { data: EMPTY_DATASET, loading: false, error: null, retry };
+  }
   if (state.requestKey !== requestKey) return { data: null, loading: true, error: null, retry };
   return { data: state.data, loading: state.loading, error: state.error, retry };
 }
