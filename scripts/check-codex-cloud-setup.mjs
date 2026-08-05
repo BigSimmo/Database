@@ -229,8 +229,6 @@ export const providerCredentialVariables = Object.freeze([
   "HEALTH_DEEP_PROBE_SECRET",
   "INDEXING_V3_AGENT_SECRET",
   "CROSS_TENANT_SERVICE_ROLE_KEY",
-  "SENTRY_AUTH_TOKEN",
-  "SENTRY_DSN",
 ]);
 
 function read(relativePath) {
