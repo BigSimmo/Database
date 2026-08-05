@@ -28,6 +28,19 @@ describe("requireSentryEnv", () => {
     expect(() => requireSentryEnv()).not.toThrow();
   });
 
+  it("treats blank Sentry DSNs as unset so offline scrubbers can pin empty strings", async () => {
+    const { env, requireSentryEnv } = await loadEnv({
+      NEXT_PUBLIC_SENTRY_DSN: "",
+      SENTRY_DSN: "",
+      SENTRY_ORG: undefined,
+      SENTRY_PROJECT: undefined,
+      SENTRY_AUTH_TOKEN: undefined,
+    });
+    expect(env.SENTRY_DSN).toBeUndefined();
+    expect(env.NEXT_PUBLIC_SENTRY_DSN).toBeUndefined();
+    expect(() => requireSentryEnv()).not.toThrow();
+  });
+
   it("does not throw on partial build-time sourcemap credentials at runtime", async () => {
     const { requireSentryEnv } = await loadEnv({
       NEXT_PUBLIC_SENTRY_DSN: undefined,

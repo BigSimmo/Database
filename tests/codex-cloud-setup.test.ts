@@ -376,6 +376,16 @@ describe("Codex Cloud environment contract", () => {
     expect(
       validateCodexProjectMcpConfiguration(
         tracked.replace(
+          /(\[mcp_servers\.frontendchecklist_cloud\][\s\S]*?)default_tools_approval_mode = "prompt"/,
+          '$1default_tools_approval_mode = "auto"',
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml frontendchecklist_cloud must set default_tools_approval_mode = "prompt" because external read tools require explicit approval.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
           'url = "https://mcp.figma.com/mcp"',
           'url = "https://mcp.figma.com/mcp"\nbearer_token_env_var = "FIGMA_TOKEN"',
         ),
@@ -466,7 +476,9 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain('if [[ "$actual_version" != "$expected_version" ]]');
     expect(setup).toContain('"$HOME/.bash_profile"');
     expect(setup.match(/unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy/g)).toHaveLength(2);
-    expect(setup.match(/export NODE_USE_ENV_PROXY=1/g)).toHaveLength(1);
+    // Setup process + generated agent profile both export the Cloud proxy flag.
+    expect(setup.match(/export NODE_USE_ENV_PROXY=1/g)).toHaveLength(2);
+    expect(setup.indexOf("export NODE_USE_ENV_PROXY=1")).toBeLessThan(setup.indexOf("npm install --global"));
     expect(setup.indexOf("unset OPENAI_API_KEY")).toBeLessThan(
       setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]'),
     );
@@ -552,6 +564,10 @@ describe("Codex Cloud environment contract", () => {
     const connected = runSetupPolicyOnly(connectedHome, {
       CODEX_CLOUD_ACCESS_PROFILE: "connected",
       RAG_PROVIDER_MODE: "offline",
+      // Pin opt-ins off so ambient host/CI ENABLE_*=1 cannot flip baseline asserts.
+      CODEX_CLOUD_ENABLE_FIGMA: "0",
+      CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST: "0",
+      CODEX_CLOUD_ENABLE_SENTRY: "0",
     });
     expect(connected.status, connected.stderr || connected.stdout).toBe(0);
     const connectedProfile = readRuntimeProfile(connectedHome);
@@ -568,6 +584,7 @@ describe("Codex Cloud environment contract", () => {
     expect(connectedConfig.match(/^default_tools_approval_mode = "prompt"$/gm)).toHaveLength(1);
     expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
     expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
+    expect(connectedProfile).toContain("export NODE_USE_ENV_PROXY=1");
     expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");
     expect(connectedProfile).toContain("unset SENTRY_AUTH_TOKEN SENTRY_DSN");
 

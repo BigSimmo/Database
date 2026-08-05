@@ -5,8 +5,14 @@ import { resolvePythonBin } from "@/lib/python-bin";
 import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
 import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
 
+/** Treat blank env values as unset so offline scrubbers can pin empty strings. */
+const optionalUrl = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().url().optional(),
+);
+
 const envSchema = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
+  NEXT_PUBLIC_SUPABASE_URL: optionalUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   SUPABASE_PROJECT_REF: z.string().optional(),
   SUPABASE_PROJECT_NAME: z.string().optional(),
@@ -16,7 +22,7 @@ const envSchema = z.object({
   SUPABASE_STAGING_PROJECT_REF: z.string().optional(),
   SUPABASE_STAGING_PROJECT_NAME: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-  SUPABASE_DB_URL: z.string().url().optional(),
+  SUPABASE_DB_URL: optionalUrl,
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
   // Inbound webhook receivers. Each shared secret gates a machine-to-machine
   // endpoint under /api/webhooks/* and fails closed when unset (the route 503s
@@ -32,15 +38,15 @@ const envSchema = z.object({
   // Optional outbound chat destinations shared by every /api/webhooks/* forwarder
   // and the CI-failure GitHub workflow. Set either, both, or neither; a receiver
   // with no destination configured accepts the event and reports it undelivered.
-  SLACK_WEBHOOK_URL: z.string().url().optional(),
-  DISCORD_WEBHOOK_URL: z.string().url().optional(),
-  WORKER_FAILURE_WEBHOOK_URL: z.string().url().optional(),
+  SLACK_WEBHOOK_URL: optionalUrl,
+  DISCORD_WEBHOOK_URL: optionalUrl,
+  WORKER_FAILURE_WEBHOOK_URL: optionalUrl,
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
   LOCAL_NO_AUTH_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
-  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+  NEXT_PUBLIC_SENTRY_DSN: optionalUrl,
   NEXT_PUBLIC_SENTRY_RELEASE: z.string().optional(),
   // Optional release tag for Sentry production readability and source-map correlation
   // (for example: a short git SHA or deployment ID).
@@ -50,7 +56,7 @@ const envSchema = z.object({
   SENTRY_PROJECT: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
-  SENTRY_DSN: z.string().url().optional(),
+  SENTRY_DSN: optionalUrl,
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
   // model without updating this (and the schema) silently corrupts ingestion (IDX-C2).

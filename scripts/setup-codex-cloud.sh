@@ -100,11 +100,34 @@ else
   rag_provider_mode="offline"
 fi
 
+# Resolve hosted MCP URLs from the audited project template so connected setup
+# cannot drift from `.codex/config.toml` (validated by check:codex-cloud).
+resolve_codex_mcp_url() {
+  local section="$1"
+  sed -n "/^\\[mcp_servers\\.${section}\\]\$/,/^\\[mcp_servers\\./ s/^url = \"\\(.*\\)\"\$/\\1/p" .codex/config.toml | head -n 1
+}
+
 connected_supabase_mcp_url=""
+connected_railway_mcp_url=""
+connected_figma_mcp_url=""
+connected_frontendchecklist_mcp_url=""
+connected_sentry_mcp_url=""
 if [[ "$access_profile" = "connected" ]]; then
-  connected_supabase_mcp_url="$(sed -n '/^\[mcp_servers\.supabase_cloud\]$/,/^\[mcp_servers\./ s/^url = "\(.*\)"$/\1/p' .codex/config.toml | head -n 1)"
+  connected_supabase_mcp_url="$(resolve_codex_mcp_url supabase_cloud)"
+  connected_railway_mcp_url="$(resolve_codex_mcp_url railway_cloud)"
+  connected_figma_mcp_url="$(resolve_codex_mcp_url figma_cloud)"
+  connected_frontendchecklist_mcp_url="$(resolve_codex_mcp_url frontendchecklist_cloud)"
+  connected_sentry_mcp_url="$(resolve_codex_mcp_url sentry_cloud)"
   [[ "$connected_supabase_mcp_url" = https://mcp.supabase.com/mcp\?* ]] ||
     fail "Could not resolve the audited Supabase MCP URL from .codex/config.toml."
+  [[ "$connected_railway_mcp_url" = https://mcp.railway.com ]] ||
+    fail "Could not resolve the audited Railway MCP URL from .codex/config.toml."
+  [[ "$connected_figma_mcp_url" = https://mcp.figma.com/mcp ]] ||
+    fail "Could not resolve the audited Figma MCP URL from .codex/config.toml."
+  [[ "$connected_frontendchecklist_mcp_url" = https://mcp.frontendchecklist.io ]] ||
+    fail "Could not resolve the audited Frontend Checklist MCP URL from .codex/config.toml."
+  [[ "$connected_sentry_mcp_url" = https://mcp.sentry.dev/mcp ]] ||
+    fail "Could not resolve the audited Sentry MCP URL from .codex/config.toml."
 fi
 
 runtime_profile="$HOME/.clinical-kb-codex-cloud.sh"
@@ -122,6 +145,8 @@ export CODEX_CLOUD_ACCESS_PROFILE="${access_profile}"
 export NEXT_PUBLIC_DEMO_MODE="\${NEXT_PUBLIC_DEMO_MODE:-true}"
 export PLAYWRIGHT_OFFLINE_MODE="\${PLAYWRIGHT_OFFLINE_MODE:-true}"
 unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy
+# Keep Node subprocesses (npm, npx, CLI downloaders) on the Cloud proxy path.
+export NODE_USE_ENV_PROXY=1
 # Connected access is provided by OAuth-backed MCP servers and the GitHub
 # connector, never by raw provider variables in the agent shell. Scrub the
 # complete inventory in both profiles in case setup-only secrets were inherited.
@@ -213,8 +238,9 @@ trap 'rm -f "$codex_config_candidate"' EXIT
   if [[ "$access_profile" = "connected" ]]; then
     # Baseline connected providers: Railway + constrained Supabase.
     # Optional OAuth-backed providers stay off unless the task explicitly opts in.
+    # URLs come from the audited `.codex/config.toml` registrations above.
     printf '\n%s\n' '[mcp_servers.railway_connected]'
-    printf '%s\n' 'url = "https://mcp.railway.com"'
+    printf 'url = "%s"\n' "$connected_railway_mcp_url"
     printf '%s\n' 'enabled = true'
     printf '%s\n' 'default_tools_approval_mode = "writes"'
     printf '\n%s\n' '[mcp_servers.supabase_connected]'
@@ -223,20 +249,20 @@ trap 'rm -f "$codex_config_candidate"' EXIT
     printf '%s\n' 'default_tools_approval_mode = "prompt"'
     if [[ "${CODEX_CLOUD_ENABLE_FIGMA:-0}" = "1" ]]; then
       printf '\n%s\n' '[mcp_servers.figma_connected]'
-      printf '%s\n' 'url = "https://mcp.figma.com/mcp"'
+      printf 'url = "%s"\n' "$connected_figma_mcp_url"
       printf '%s\n' 'enabled = true'
       # prompt: Figma file reads stay confirmation-gated, not auto-approved.
       printf '%s\n' 'default_tools_approval_mode = "prompt"'
     fi
     if [[ "${CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST:-0}" = "1" ]]; then
       printf '\n%s\n' '[mcp_servers.frontendchecklist_connected]'
-      printf '%s\n' 'url = "https://mcp.frontendchecklist.io"'
+      printf 'url = "%s"\n' "$connected_frontendchecklist_mcp_url"
       printf '%s\n' 'enabled = true'
       printf '%s\n' 'default_tools_approval_mode = "prompt"'
     fi
     if [[ "${CODEX_CLOUD_ENABLE_SENTRY:-0}" = "1" ]]; then
       printf '\n%s\n' '[mcp_servers.sentry_connected]'
-      printf '%s\n' 'url = "https://mcp.sentry.dev/mcp"'
+      printf 'url = "%s"\n' "$connected_sentry_mcp_url"
       printf '%s\n' 'enabled = true'
       # prompt: Sentry issue/event reads can include request/user context.
       printf '%s\n' 'default_tools_approval_mode = "prompt"'

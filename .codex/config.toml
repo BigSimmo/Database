@@ -3,8 +3,9 @@
 #
 # checked-in policy:
 # - enabled = false so ordinary/offline Codex sessions do not initialize providers
-# - production Supabase uses "prompt" so every metadata/read operation requires
-#   explicit approval; write-capable Figma/Railway/Sentry tools use "writes"
+# - production Supabase and Frontend Checklist use "prompt" so every metadata/read
+#   operation requires explicit approval; write-capable Figma/Railway/Sentry tools
+#   use "writes" in this template (connected opt-ins may further tighten to "prompt")
 # - Paid API canaries (eval:rag, eval:retrieval:quality, eval:quality, verify:release,
 #   test:live, check:supabase-project) still need explicit confirmation per AGENTS.md
 # Hosted Cloud tools come from installed OAuth plugins/connectors; `.mcp.json` is a cross-client template, not runtime proof.

@@ -313,7 +313,7 @@ Docker Desktop, a local filesystem path, or a raw secret.
 | Local registration                                               | Connected Cloud resolution                                                                                         |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `figma_cloud`                                                    | Opt-in managed `figma_connected` hosted MCP (`CODEX_CLOUD_ENABLE_FIGMA=1`); OAuth remains in the host store        |
-| `frontendchecklist`                                              | Opt-in managed `frontendchecklist_connected` hosted MCP (`CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST=1`); calls prompt   |
+| `frontendchecklist_cloud`                                        | Opt-in managed `frontendchecklist_connected` hosted MCP (`CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST=1`); calls prompt   |
 | `github` and Docker `github-official`                            | Native Codex GitHub connector; no PAT is exposed to the shell                                                      |
 | `railway` / `railway_cloud`                                      | Managed `railway_connected` hosted MCP; local CLI state is not reused                                              |
 | `sentry`, `sentry_bridge`, and Docker `sentry-remote`            | Opt-in managed `sentry_connected` hosted MCP (`CODEX_CLOUD_ENABLE_SENTRY=1`); reads stay prompt-gated              |
