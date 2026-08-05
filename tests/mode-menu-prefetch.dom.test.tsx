@@ -91,12 +91,33 @@ describe("mode menu home prefetch", () => {
     const menu = await screen.findByRole("menu", { name: "Choose app mode" });
 
     // Opening on the current mode is a no-op; scanning another option warms it.
-    expect(router.prefetch).not.toHaveBeenCalledWith(documentsHref);
+    expect(router.prefetch.mock.calls.some(([href]) => href === documentsHref)).toBe(false);
     await user.hover(within(menu).getByRole("menuitemradio", { name: /Documents/i }));
-    expect(router.prefetch).toHaveBeenCalledWith(documentsHref);
+    expect(router.prefetch.mock.calls.some(([href]) => href === documentsHref)).toBe(true);
     const prefetched = new Set(router.prefetch.mock.calls.map(([href]) => href as string));
     expect(prefetched.has(documentsHref)).toBe(true);
     expect(prefetched.size).toBeLessThan(guestModeHomes().length);
+  });
+
+  it("warms a mode again after Next invalidates its cached payload", async () => {
+    const user = userEvent.setup();
+    const documentsHref = appModeHomeHref("documents");
+
+    render(<MasterSearchHeader {...headerProps()} />);
+    await user.click(screen.getByRole("button", { name: /Mode Answer/i }));
+    const documentsOption = within(await screen.findByRole("menu", { name: "Choose app mode" })).getByRole(
+      "menuitemradio",
+      { name: /Documents/i },
+    );
+    await user.hover(documentsOption);
+
+    const [, options] = router.prefetch.mock.calls.find(([href]) => href === documentsHref) ?? [];
+    expect(options?.onInvalidate).toBeTypeOf("function");
+    options.onInvalidate();
+    await user.unhover(documentsOption);
+    await user.hover(documentsOption);
+
+    expect(router.prefetch.mock.calls.filter(([href]) => href === documentsHref)).toHaveLength(2);
   });
 
   it("prefetches the highlighted mode when openModeMenuWithFocus targets another home", async () => {
@@ -114,7 +135,7 @@ describe("mode menu home prefetch", () => {
     await user.keyboard("{ArrowUp}");
     await screen.findByRole("menu", { name: "Choose app mode" });
 
-    expect(router.prefetch).toHaveBeenCalledWith(previousHref);
+    expect(router.prefetch.mock.calls.some(([href]) => href === previousHref)).toBe(true);
     expect(new Set(router.prefetch.mock.calls.map(([href]) => href)).size).toBe(1);
   });
 });
