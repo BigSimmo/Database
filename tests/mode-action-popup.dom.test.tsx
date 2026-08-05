@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { useRef, useState } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -146,6 +149,18 @@ describe("ModeActionPopup state transitions", () => {
     const dialog = screen.getByRole("dialog", { name: "Pins and search" });
     expect(screen.getByTestId("daily-actions-menu")).toBe(dialog);
     await waitFor(() => expect(screen.getByRole("button", { name: "Last custom action" })).toHaveFocus());
+  });
+
+  it("keeps custom body placement measurement stable across parent renders", () => {
+    // jsdom does not support `new URL(..., import.meta.url)` file resolution.
+    const source = readFileSync(
+      path.join(process.cwd(), "src/components/clinical-dashboard/mode-action-popup.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("const hasCustomBody = Boolean(customBody);");
+    expect(source).toContain("[hasCustomBody, integrated, integratedChipRow, items.length]");
+    expect(source).not.toContain("[customBody, integrated, integratedChipRow, items.length]");
   });
 
   it("lets custom sheet actions retarget return focus to the composer", async () => {

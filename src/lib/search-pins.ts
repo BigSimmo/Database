@@ -35,28 +35,7 @@ const destinationIdSet = new Set<string>(searchPinDestinationIds);
 export const maximumSearchPins = 8;
 const maximumDestinations = 6;
 const maximumNameLength = 48;
-
-/**
- * Last known pin list for this tab. Survives SearchPinsMenu remounts when
- * localStorage is unavailable/full so edits are not silently discarded.
- */
-let sessionSearchPins: SearchPin[] | null = null;
-
-function cloneDefaultSearchPins(): SearchPin[] {
-  return defaultSearchPins.map((pin) => ({
-    id: pin.id,
-    name: pin.name,
-    destinationIds: [...pin.destinationIds],
-  }));
-}
-
-function cloneSearchPins(pins: SearchPin[]): SearchPin[] {
-  return pins.map((pin) => ({
-    id: pin.id,
-    name: pin.name,
-    destinationIds: [...pin.destinationIds],
-  }));
-}
+let inMemorySearchPins: SearchPin[] | null = null;
 
 function normalizePin(value: unknown): SearchPin | null {
   if (!value || typeof value !== "object") return null;
@@ -76,6 +55,22 @@ function normalizePin(value: unknown): SearchPin | null {
   return { id, name, destinationIds };
 }
 
+function cloneSearchPins(pins: readonly SearchPin[]): SearchPin[] {
+  return pins.map((pin) => ({
+    id: pin.id,
+    name: pin.name,
+    destinationIds: [...pin.destinationIds],
+  }));
+}
+
+function cloneDefaultSearchPins(): SearchPin[] {
+  return cloneSearchPins(defaultSearchPins);
+}
+
+function cloneStoredOrDefaultSearchPins(): SearchPin[] {
+  return inMemorySearchPins ? cloneSearchPins(inMemorySearchPins) : cloneDefaultSearchPins();
+}
+
 export function normalizeSearchPins(value: unknown): SearchPin[] {
   if (!Array.isArray(value)) return cloneDefaultSearchPins();
   const seenIds = new Set<string>();
@@ -90,35 +85,44 @@ export function normalizeSearchPins(value: unknown): SearchPin[] {
 }
 
 export function readSearchPins(storage?: Pick<Storage, "getItem">): SearchPin[] {
+  let raw: string | null;
   try {
     const target = storage ?? (typeof window === "undefined" ? null : window.localStorage);
-    if (!target) return cloneSearchPins(sessionSearchPins ?? cloneDefaultSearchPins());
-    const raw = target.getItem(searchPinsStorageKey);
-    if (raw) {
-      const normalized = normalizeSearchPins(JSON.parse(raw));
-      sessionSearchPins = normalized;
-      return cloneSearchPins(normalized);
-    }
+    if (!target) return cloneStoredOrDefaultSearchPins();
+    raw = target.getItem(searchPinsStorageKey);
   } catch {
-    // Fall through to session / defaults.
+    return cloneStoredOrDefaultSearchPins();
   }
-  return cloneSearchPins(sessionSearchPins ?? cloneDefaultSearchPins());
+
+  if (!raw) return cloneStoredOrDefaultSearchPins();
+  try {
+    const normalized = normalizeSearchPins(JSON.parse(raw));
+    if (!storage) inMemorySearchPins = cloneSearchPins(normalized);
+    return cloneSearchPins(normalized);
+  } catch {
+    return cloneStoredOrDefaultSearchPins();
+  }
 }
 
 export function writeSearchPins(pins: SearchPin[], storage?: Pick<Storage, "setItem">): SearchPin[] {
   const normalized = normalizeSearchPins(pins);
-  sessionSearchPins = normalized;
   try {
     const target = storage ?? (typeof window === "undefined" ? null : window.localStorage);
-    target?.setItem(searchPinsStorageKey, JSON.stringify(normalized));
+    if (!target) {
+      inMemorySearchPins = cloneSearchPins(normalized);
+      return cloneSearchPins(normalized);
+    }
+    target.setItem(searchPinsStorageKey, JSON.stringify(normalized));
+    if (!storage) inMemorySearchPins = cloneSearchPins(normalized);
   } catch {
-    // Pins are a progressive enhancement. Session memory keeps the normalized
-    // value across menu remounts when browser storage is unavailable or full.
+    // Pins are a progressive enhancement. Keep this session's normalized value
+    // when browser storage is unavailable or full.
+    inMemorySearchPins = cloneSearchPins(normalized);
   }
   return cloneSearchPins(normalized);
 }
 
 /** Test-only: drop tab session memory so cases do not leak pin lists. */
 export function resetSearchPinsSessionForTests() {
-  sessionSearchPins = null;
+  inMemorySearchPins = null;
 }
