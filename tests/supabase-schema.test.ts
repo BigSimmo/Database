@@ -184,15 +184,19 @@ const driftManifest = JSON.parse(readFileSync(new URL("../supabase/drift-manifes
 const driftIndexDefinitions = new Map(driftManifest.snapshot.indexes.map((index) => [index.name, index.def] as const));
 
 function normalizeIndexDefinition(definition: string) {
-  return definition
-    .toLowerCase()
-    .replace("create index if not exists", "create index")
-    .replace(/ extensions\./g, " ")
-    .replace(/ using btree/g, "")
-    .replace(/where \(([^()]*)\)$/g, "where $1")
-    .replace(/;/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    definition
+      .toLowerCase()
+      .replace("create index if not exists", "create index")
+      .replace(/ extensions\./g, " ")
+      .replace(/ using btree/g, "")
+      .replace(/where \(([^()]*)\)$/g, "where $1")
+      .replace(/;/g, "")
+      .replace(/\s+/g, " ")
+      // pg_get_indexdef emits "table (cols)" after USING btree is stripped; schema SQL uses "table(cols)".
+      .replace(/ on ([^ ()]+) \(/g, " on $1(")
+      .trim()
+  );
 }
 const searchSchemaHealthM13GuardMigration = readFileSync(
   new URL("../supabase/migrations/20260706010000_search_schema_health_m13_guard.sql", import.meta.url),
@@ -1114,18 +1118,23 @@ describe("Supabase schema Data API grants", () => {
       );
       expect(normalizeIndexDefinition(driftDefinition ?? "")).toBe(normalizeIndexDefinition(schemaDefinition ?? ""));
       expect(restoreRagSearchHealthIndexesMigration).toContain(`'${indexName}'`);
+      expect(restoreRagSearchHealthIndexesMigration).toContain(normalizeIndexDefinition(schemaDefinition ?? ""));
     }
 
     // This version records an already-completed, validated repair. It must
     // fail fast on drift rather than starting a write-blocking transactional
-    // rebuild on ingestion and telemetry tables.
-    expect(restoreRagSearchHealthIndexesMigration).toContain(
-      "where to_regclass(format('public.%I', index_name)) is null",
-    );
+    // rebuild on ingestion and telemetry tables. Presence alone is insufficient:
+    // invalid CONCURRENTLY leftovers and non-canonical definitions must also fail.
+    expect(restoreRagSearchHealthIndexesMigration).toContain("to_regclass(format('public.%I', required.index_name))");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("i.indisvalid");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("i.indisready");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("pg_get_indexdef(i.indexrelid)");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("Missing: %; Invalid: %; Mismatched: %");
     expect(restoreRagSearchHealthIndexesMigration).toContain(
       "create missing indexes concurrently outside the migration transaction",
     );
-    expect(restoreRagSearchHealthIndexesMigration).not.toContain("create index if not exists");
+    // Allow the normalizer's replace() literal, but forbid actual IF NOT EXISTS DDL.
+    expect(restoreRagSearchHealthIndexesMigration).not.toMatch(/create\s+index\s+if\s+not\s+exists\s+[a-z_]/i);
   });
   it("mirrors tightened search_document_chunks owner scope in schema and migration", () => {
     expect(searchDocumentChunksOwnerScopeMigration).toContain("(p_owner_id is null and d.owner_id is null)");

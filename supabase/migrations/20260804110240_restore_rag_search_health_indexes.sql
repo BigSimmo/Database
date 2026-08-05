@@ -15,24 +15,88 @@ set statement_timeout = '30s';
 
 do $migration$
 declare
-  missing_indexes text[];
+  missing_indexes text[] := array[]::text[];
+  invalid_indexes text[] := array[]::text[];
+  mismatched_indexes text[] := array[]::text[];
+  required record;
+  index_oid regclass;
+  is_valid boolean;
+  is_ready boolean;
+  actual_def text;
+  actual_normalized text;
+  expected_normalized text;
 begin
-  select array_agg(index_name order by index_name)
-  into missing_indexes
-  from unnest(
-    array[
-      'document_labels_label_trgm_idx',
-      'document_summaries_summary_trgm_idx',
-      'document_index_units_owner_chunk_type_idx',
-      'rag_retrieval_logs_miss_idx'
-    ]::text[]
-  ) as required(index_name)
-  where to_regclass(format('public.%I', index_name)) is null;
+  for required in
+    select *
+    from (
+      values
+        (
+          'document_labels_label_trgm_idx',
+          'create index document_labels_label_trgm_idx on public.document_labels using gin (lower(label) gin_trgm_ops)'
+        ),
+        (
+          'document_summaries_summary_trgm_idx',
+          'create index document_summaries_summary_trgm_idx on public.document_summaries using gin (lower(summary) gin_trgm_ops)'
+        ),
+        (
+          'document_index_units_owner_chunk_type_idx',
+          'create index document_index_units_owner_chunk_type_idx on public.document_index_units(owner_id, source_chunk_id, unit_type) where source_chunk_id is not null'
+        ),
+        (
+          'rag_retrieval_logs_miss_idx',
+          'create index rag_retrieval_logs_miss_idx on public.rag_retrieval_logs(is_miss, created_at desc) where is_miss = true'
+        )
+    ) as t(index_name, canonical_def)
+  loop
+    index_oid := to_regclass(format('public.%I', required.index_name));
+    if index_oid is null then
+      missing_indexes := array_append(missing_indexes, required.index_name);
+      continue;
+    end if;
 
-  if missing_indexes is not null then
+    select i.indisvalid, i.indisready, pg_get_indexdef(i.indexrelid)
+      into is_valid, is_ready, actual_def
+    from pg_index as i
+    where i.indexrelid = index_oid;
+
+    if not coalesce(is_valid, false) or not coalesce(is_ready, false) then
+      invalid_indexes := array_append(invalid_indexes, required.index_name);
+      continue;
+    end if;
+
+    actual_normalized := lower(actual_def);
+    actual_normalized := replace(actual_normalized, 'create index if not exists', 'create index');
+    actual_normalized := regexp_replace(actual_normalized, ' extensions\.', ' ', 'g');
+    actual_normalized := regexp_replace(actual_normalized, ' using btree', '', 'g');
+    actual_normalized := regexp_replace(actual_normalized, 'where \(([^()]*)\)$', 'where \1');
+    actual_normalized := replace(actual_normalized, ';', '');
+    actual_normalized := regexp_replace(actual_normalized, '[[:space:]]+', ' ', 'g');
+    actual_normalized := regexp_replace(actual_normalized, ' on ([^ ()]+) \(', ' on \1(', 'g');
+    actual_normalized := btrim(actual_normalized);
+
+    expected_normalized := lower(required.canonical_def);
+    expected_normalized := replace(expected_normalized, 'create index if not exists', 'create index');
+    expected_normalized := regexp_replace(expected_normalized, ' extensions\.', ' ', 'g');
+    expected_normalized := regexp_replace(expected_normalized, ' using btree', '', 'g');
+    expected_normalized := regexp_replace(expected_normalized, 'where \(([^()]*)\)$', 'where \1');
+    expected_normalized := replace(expected_normalized, ';', '');
+    expected_normalized := regexp_replace(expected_normalized, '[[:space:]]+', ' ', 'g');
+    expected_normalized := regexp_replace(expected_normalized, ' on ([^ ()]+) \(', ' on \1(', 'g');
+    expected_normalized := btrim(expected_normalized);
+
+    if actual_normalized is distinct from expected_normalized then
+      mismatched_indexes := array_append(mismatched_indexes, required.index_name);
+    end if;
+  end loop;
+
+  if cardinality(missing_indexes) > 0
+     or cardinality(invalid_indexes) > 0
+     or cardinality(mismatched_indexes) > 0 then
     raise exception
-      'RAG index repair was not prebuilt; create missing indexes concurrently outside the migration transaction, validate them, then mark this version applied. Missing: %',
-      array_to_string(missing_indexes, ', ');
+      'RAG index repair was not prebuilt; create missing indexes concurrently outside the migration transaction, validate them, then mark this version applied. Missing: %; Invalid: %; Mismatched: %',
+      coalesce(nullif(array_to_string(missing_indexes, ', '), ''), '(none)'),
+      coalesce(nullif(array_to_string(invalid_indexes, ', '), ''), '(none)'),
+      coalesce(nullif(array_to_string(mismatched_indexes, ', '), ''), '(none)');
   end if;
 end
 $migration$;
