@@ -557,22 +557,52 @@ describe("provider-safe test environment", () => {
       NEXT_PUBLIC_DEMO_MODE: "true",
     });
     for (const key of providerEnvironmentKeys) {
-      if (key === "SENTRY_DSN") {
-        expect(environment[key]).toBeUndefined();
-        continue;
-      }
       expect(environment[key]).toBe(offlineUrlValues[key as keyof typeof offlineUrlValues] ?? "");
     }
-    // Credentials join the scrub inventory; the two control flags deliberately
-    // do not — they are forced off instead, so nothing demands that a non-secret
+    // Credentials join the scrub inventory; the control flags deliberately do
+    // not — they are forced off instead, so nothing demands that a non-secret
     // name be scrubbed from setup and raw-env checks too.
-    expect(providerEnvironmentKeys).toEqual(expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN"]));
+    expect(providerEnvironmentKeys).toEqual(
+      expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"]),
+    );
     expect(providerEnvironmentKeys).not.toContain("SENTRY_ENABLE_LOGS");
     expect(providerEnvironmentKeys).not.toContain("SENTRY_SEND_TEST_LOG");
+    expect(providerEnvironmentKeys).not.toContain("SENTRY_TRACES_SAMPLE_RATE");
     expect(environment.SENTRY_AUTH_TOKEN).toBe("");
-    expect(environment.SENTRY_DSN).toBeUndefined();
+    // Explicit inert URL — not deleted — so Next cannot reload a real DSN from
+    // `.env.local` during Playwright/Lighthouse `next build` / `next start`.
+    expect(environment.SENTRY_DSN).toBe(offlineUrlValues.SENTRY_DSN);
+    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe(offlineUrlValues.NEXT_PUBLIC_SENTRY_DSN);
+    expect(environment.SENTRY_DSN).toBe(environment.NEXT_PUBLIC_SENTRY_DSN);
+    expect(environment.SENTRY_DSN).toMatch(/^https:\/\/offline@127\.0\.0\.1\//);
     expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
     expect(environment.SENTRY_SEND_TEST_LOG).toBe("false");
+    expect(environment.SENTRY_TRACES_SAMPLE_RATE).toBe("0");
+  });
+
+  it("keeps Sentry DSNs pinned so a repository-local env file cannot restore a live destination", () => {
+    // Simulate the inheritance shape Next would see after `.env.local` load:
+    // both a live DSN on the parent and a would-be reload candidate. The offline
+    // wrapper must overwrite both names with the same inert loopback value.
+    const liveDsn = "https://real-key@o123.ingest.sentry.io/456";
+    const environment = offlineTestEnvironment({
+      SENTRY_DSN: liveDsn,
+      NEXT_PUBLIC_SENTRY_DSN: liveDsn,
+      SENTRY_AUTH_TOKEN: "sntrys_live_token",
+      SENTRY_TRACES_SAMPLE_RATE: "0.1",
+      SENTRY_ENABLE_LOGS: "true",
+    });
+
+    expect(environment.SENTRY_DSN).toBe(offlineUrlValues.SENTRY_DSN);
+    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe(offlineUrlValues.NEXT_PUBLIC_SENTRY_DSN);
+    expect(environment.SENTRY_DSN).not.toBe(liveDsn);
+    expect(environment.SENTRY_AUTH_TOKEN).toBe("");
+    expect(environment.SENTRY_TRACES_SAMPLE_RATE).toBe("0");
+    expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
+    // Presence (not absence) is load-bearing: Next only skips `.env*` reload for
+    // names already set on process.env.
+    expect(Object.hasOwn(environment, "SENTRY_DSN")).toBe(true);
+    expect(Object.hasOwn(environment, "NEXT_PUBLIC_SENTRY_DSN")).toBe(true);
   });
 
   it("requires explicit permission before live tests can run", () => {
