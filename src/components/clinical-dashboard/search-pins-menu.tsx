@@ -49,11 +49,15 @@ const destinationLabels: Record<SearchPinDestinationId, string> = {
 };
 
 const destinationTone: Record<SearchPinDestinationId, string> = {
-  documents: "border-sky-200 bg-sky-50 text-sky-700",
-  prescribing: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  forms: "border-amber-200 bg-amber-50 text-amber-700",
-  services: "border-violet-200 bg-violet-50 text-violet-700",
-  differentials: "border-rose-200 bg-rose-50 text-rose-700",
+  documents:
+    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+  prescribing:
+    "border-[color:var(--tone-slate-border)] bg-[color:var(--tone-slate-soft)] text-[color:var(--tone-slate)]",
+  forms: "border-[color:var(--tone-purple-border)] bg-[color:var(--tone-purple-soft)] text-[color:var(--tone-purple)]",
+  services:
+    "border-[color:var(--tone-indigo-border)] bg-[color:var(--tone-indigo-soft)] text-[color:var(--tone-indigo)]",
+  differentials:
+    "border-[color:var(--tone-rose-border)] bg-[color:var(--tone-rose-soft)] text-[color:var(--tone-rose)]",
   tools: "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
 };
 
@@ -294,7 +298,7 @@ export function SearchPinsMenu({
               type="button"
               onClick={deleteEditorPin}
               className={cn(
-                "inline-flex min-h-12 items-center gap-2 rounded-xl px-3 text-sm font-bold text-red-700 hover:bg-red-50",
+                "inline-flex min-h-12 items-center gap-2 rounded-xl border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 text-sm font-bold text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)]",
                 focusRing,
               )}
             >

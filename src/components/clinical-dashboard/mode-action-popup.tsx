@@ -386,6 +386,7 @@ export function ModeActionPopup({
   integratedChipRow = true,
   useSheet = false,
   triggerRef,
+  sheetReturnFocusRef,
   dismissIgnoreRefs,
   customBody,
 }: {
@@ -410,6 +411,8 @@ export function ModeActionPopup({
   /** Render the actions in a bottom sheet / centred dialog (phones + tablets ≤1023px)
    *  instead of the anchored desktop popover. */
   useSheet?: boolean;
+  /** Optional dynamic focus target for Sheet closes that intentionally leave the menu. */
+  sheetReturnFocusRef?: RefObject<HTMLElement | null>;
   /** Header-owned controls (e.g. app mode trigger) that must stay clickable above the portaled menu. */
   dismissIgnoreRefs?: readonly RefObject<HTMLElement | null>[];
   /** Optional richer body for the shared + surface. The popup continues to own
@@ -941,7 +944,7 @@ export function ModeActionPopup({
           title={title}
           description={headerSubtitle}
           closeLabel={`Close ${title.toLowerCase()} options`}
-          returnFocusRef={buttonRef}
+          returnFocusRef={sheetReturnFocusRef ?? buttonRef}
           id={customBody ? actionSurfaceId : undefined}
           testId={customBody ? "daily-actions-menu" : undefined}
           headerLeading={

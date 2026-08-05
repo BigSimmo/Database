@@ -533,6 +533,7 @@ export function MasterSearchHeader({
   const prefetchedModeHrefsRef = useRef(new Set<string>());
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const actionMenuSheetReturnFocusRef = useRef<HTMLElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartY = useRef<number | null>(null);
   const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
@@ -1786,6 +1787,7 @@ export function MasterSearchHeader({
               items={actionMenuItems}
               onOpenChange={setActionMenuOpen}
               onBeforeOpen={() => {
+                actionMenuSheetReturnFocusRef.current = null;
                 setUsesScopeSheet(currentUsesScopeSheet());
                 setCommandDropdownOpen(false);
                 setModeMenuOpen(false);
@@ -1800,6 +1802,7 @@ export function MasterSearchHeader({
               integrated={usesFooterChipLayout}
               integratedChipRow={showFooterSearchChips}
               useSheet={usesScopeSheet}
+              sheetReturnFocusRef={actionMenuSheetReturnFocusRef}
               dismissIgnoreRefs={[modeMenuRef]}
               customBody={
                 <SearchPinsMenu
@@ -1810,13 +1813,13 @@ export function MasterSearchHeader({
                   globalSearchAvailable={commandDropdownDisplayable}
                   onClose={() => setActionMenuOpen(false)}
                   onCurrentSearch={() => {
+                    actionMenuSheetReturnFocusRef.current = queryInputRef?.current ?? null;
                     setActionMenuOpen(false);
-                    window.requestAnimationFrame(() => queryInputRef?.current?.focus());
                   }}
                   onGlobalSearch={() => {
+                    actionMenuSheetReturnFocusRef.current = queryInputRef?.current ?? null;
                     setActionMenuOpen(false);
                     setCommandDropdownOpen(true);
-                    window.requestAnimationFrame(() => queryInputRef?.current?.focus());
                   }}
                   onModeSelect={(modeId) => {
                     setActionMenuOpen(false);
