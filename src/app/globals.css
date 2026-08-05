@@ -1661,7 +1661,6 @@ summary::-webkit-details-marker {
     padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
   }
 
-  .medication-also-matches,
   .medication-patient-strip {
     border-right: 0;
     border-left: 0;
@@ -1669,7 +1668,13 @@ summary::-webkit-details-marker {
     box-shadow: none;
   }
 
-  .medication-also-matches,
+  /* Keep the raised-card treatment from UniversalSearchAlsoMatches on phones —
+     inset from the full-bleed workspace rather than flattening to a strip. */
+  .medication-also-matches {
+    margin-left: max(1rem, calc(var(--safe-area-left) + 0.25rem));
+    margin-right: max(1rem, calc(var(--safe-area-right) + 0.25rem));
+  }
+
   .medication-patient-strip > summary,
   .medication-patient-strip > div {
     padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
