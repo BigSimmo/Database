@@ -523,8 +523,25 @@ describe("SearchResultsEmptyState", () => {
       />,
     );
 
-    expect(screen.getByText("No documents match all 1 filter")).toBeVisible();
+    expect(screen.getByText("No documents match the selected filter")).toBeVisible();
     expect(screen.getByTestId("search-results-empty-remove-filter")).toBeVisible();
     expect(screen.queryByTestId("search-results-empty-clear-filters")).toBeNull();
+  });
+
+  it("announces query-only emptiness and offers a clear-search recovery", async () => {
+    const user = userEvent.setup();
+    const onClearSearch = vi.fn();
+
+    render(
+      <SearchResultsEmptyState
+        modeId="therapy-compass"
+        query="unmatched therapy"
+        onClearSearch={onClearSearch}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("No matches for “unmatched therapy”");
+    await user.click(screen.getByTestId("search-results-empty-clear-search"));
+    expect(onClearSearch).toHaveBeenCalledTimes(1);
   });
 });
