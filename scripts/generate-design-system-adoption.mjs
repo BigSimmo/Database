@@ -896,6 +896,10 @@ function combineClassPatterns(groups, separator, constructed = false) {
  * Parse only class-bearing expressions. A literal `ckb-v2` token is a normal
  * opt-in; any concatenation/template/join that can synthesize that token is a
  * dynamic opt-in and fails the adoption contract.
+ *
+ * @param {string} relativePath
+ * @param {string} sourceText
+ * @param {{ elementName?: string | null }} [options]
  */
 export function analyzeCkbV2ClassUsage(relativePath, sourceText, { elementName = null } = {}) {
   const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
