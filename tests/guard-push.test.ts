@@ -186,6 +186,7 @@ describe("static guard scope selection", () => {
       tipSha: "aaa",
       localRef: "refs/heads/other",
     });
+    expect(pushedTipMatchesHead([{ localSha: "tagobj", localRef: "refs/tags/v1" }], "bbb").ok).toBe(true);
 
     const result = staticGuard(["src/lib/a.ts"], {
       ranges: [{ localSha: "deadbeef", localRef: "refs/heads/other" }],
@@ -193,6 +194,19 @@ describe("static guard scope selection", () => {
     expect(result.ok).toBe(false);
     expect(result.message).toContain("SKIP_STATIC_GUARD=1");
     expect(result.message).toContain("deadbeef");
+  });
+
+  it("does not tip-check docs-only or tag pushes that need no static work", () => {
+    const docsOnly = staticGuard(["docs/only.md"], {
+      ranges: [{ localSha: "deadbeef", localRef: "refs/heads/docs-branch" }],
+    });
+    expect(docsOnly.ok).toBe(true);
+    expect(docsOnly.message).toBeUndefined();
+
+    const tagPush = staticGuard(["README.md"], {
+      ranges: [{ localSha: "tagobj", localRef: "refs/tags/v1.2.3" }],
+    });
+    expect(tagPush.ok).toBe(true);
   });
 
   it("skips with SKIP_STATIC_GUARD=1 and is a no-op for docs-only pushes", () => {

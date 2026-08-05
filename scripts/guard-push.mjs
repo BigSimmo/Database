@@ -607,7 +607,11 @@ export function needsRepoWideLint(changedFiles) {
  */
 export function pushedTipMatchesHead(ranges, headSha = tryGit(["rev-parse", "HEAD"])) {
   if (!headSha || !Array.isArray(ranges) || ranges.length === 0) return { ok: true };
-  const mismatch = ranges.find((range) => range.localSha && range.localSha !== headSha);
+  // Only branch tips are checked against HEAD. Tag / note / other refs have
+  // object SHAs that are not the commit checked out in the working tree.
+  const branchRanges = ranges.filter((range) => !range.localRef || range.localRef.startsWith("refs/heads/"));
+  if (branchRanges.length === 0) return { ok: true };
+  const mismatch = branchRanges.find((range) => range.localSha && range.localSha !== headSha);
   if (!mismatch) return { ok: true };
   return { ok: false, headSha, tipSha: mismatch.localSha, localRef: mismatch.localRef };
 }
@@ -704,6 +708,14 @@ export function staticGuard(changedFiles, options = {}) {
     return { name: "static", ok: true, skipped: "SKIP_STATIC_GUARD=1" };
   }
 
+  const repoWide = needsRepoWideLint(changedFiles);
+  const toLint = repoWide ? [] : lintableFiles(changedFiles);
+  const wantTypecheck = needsTypecheck(changedFiles);
+  // Docs-only / tag / no-op pushes never read the working tree — skip the
+  // tip-vs-HEAD fail-closed check so `git push --tags` and docs branches are
+  // not blocked before we know there is nothing to lint or typecheck.
+  if (!repoWide && toLint.length === 0 && !wantTypecheck) return { name: "static", ok: true };
+
   const tipCheck = pushedTipMatchesHead(options.ranges ?? []);
   if (!tipCheck.ok) {
     return {
@@ -718,11 +730,6 @@ export function staticGuard(changedFiles, options = {}) {
         `  To push anyway: SKIP_STATIC_GUARD=1 git push`,
     };
   }
-
-  const repoWide = needsRepoWideLint(changedFiles);
-  const toLint = repoWide ? [] : lintableFiles(changedFiles);
-  const wantTypecheck = needsTypecheck(changedFiles);
-  if (!repoWide && toLint.length === 0 && !wantTypecheck) return { name: "static", ok: true };
 
   if (!staticToolsAvailable(PROJECT_ROOT)) {
     return {
