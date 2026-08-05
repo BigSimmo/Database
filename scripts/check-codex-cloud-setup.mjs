@@ -230,6 +230,8 @@ export const knownHostedAppInventoryNames = Object.freeze([
   "supabase",
   "figma",
   "sentry",
+  "slack",
+  "linear",
   "figma_cloud",
   "sentry_cloud",
   "supabase_cloud",
@@ -256,6 +258,27 @@ export function parseHostedAppInventoryArgument(args) {
 }
 
 /**
+ * Reject malformed or ambiguous attempts to supply hosted inventory evidence.
+ * @param {string[]} args
+ * @returns {string[]}
+ */
+export function validateHostedAppInventoryArguments(args) {
+  const exactPrefix = "--hosted-app-inventory=";
+  const exactArguments = args.filter((value) => value.startsWith(exactPrefix));
+  const malformedArguments = args.filter(
+    (value) => /^--hosted-app-inventor(?:y|ies)/.test(value) && !value.startsWith(exactPrefix),
+  );
+  const errors = [];
+  if (malformedArguments.length > 0) {
+    errors.push("Hosted app inventory must use exactly --hosted-app-inventory=<comma-separated-apps>.");
+  }
+  if (exactArguments.length > 1) {
+    errors.push("Hosted app inventory may be supplied only once.");
+  }
+  return errors;
+}
+
+/**
  * Format hosted-app inventory for sanitized capability output.
  * Never echo arbitrary operator-supplied strings — only allowlisted presence flags.
  * @param {string[] | null} appNames
@@ -263,8 +286,9 @@ export function parseHostedAppInventoryArgument(args) {
  */
 export function hostedAppInventoryCapabilityLine(appNames) {
   if (appNames === null) return "hosted_app.inventory=external-unverified-until-fresh-task";
-  const set = new Set(appNames);
-  const unknownCount = appNames.filter(
+  const normalizedNames = appNames.map((name) => name.toLowerCase());
+  const set = new Set(normalizedNames);
+  const unknownCount = normalizedNames.filter(
     (name) => !knownHostedAppInventoryNames.includes(name) && !staleHostedAppInventoryNames.includes(name),
   ).length;
   const parts = [
@@ -289,22 +313,20 @@ export function validateHostedAppInventory(appNames) {
     errors.push("Hosted app inventory was supplied but contained no app names.");
     return errors;
   }
-  const invalidNames = appNames.filter((name) => !/^[A-Za-z0-9_.-]+$/.test(name));
+  const normalizedNames = appNames.map((name) => name.toLowerCase());
+  const invalidNames = normalizedNames.filter((name) => !/^[A-Za-z0-9_.-]+$/.test(name));
   if (invalidNames.length > 0) {
     errors.push("Hosted app inventory names may contain only letters, numbers, dot, underscore, and hyphen.");
   }
-  const unrecognizedNames = appNames.filter(
-    (name) =>
-      /^[A-Za-z0-9_.-]+$/.test(name) &&
-      !knownHostedAppInventoryNames.includes(name) &&
-      !staleHostedAppInventoryNames.includes(name),
+  const credentialShapedNames = normalizedNames.filter(
+    (name) => /^(?:sk-|github_pat_|gh[pousr]_|sb_(?:secret|publishable)_)/.test(name) || name.length > 128,
   );
-  if (unrecognizedNames.length > 0) {
+  if (credentialShapedNames.length > 0) {
     errors.push(
-      `Hosted app inventory contains unrecognized app names; supply only connector names (${knownHostedAppInventoryNames.join(", ")}), never tokens or secrets.`,
+      "Hosted app inventory appears to contain a credential; supply connector names only, never tokens or secrets.",
     );
   }
-  if (appNames.some((name) => staleHostedAppInventoryNames.includes(name))) {
+  if (normalizedNames.some((name) => staleHostedAppInventoryNames.includes(name))) {
     errors.push(
       "Hosted app inventory contains stale railway_cloud; remove or reconnect that host-local app, then start a fresh task and supply the new inventory.",
     );
@@ -1025,7 +1047,9 @@ export async function validateCodexCloudRuntime(env = process.env) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const errors = validateCodexCloudSetup();
-  const hostedAppInventory = parseHostedAppInventoryArgument(process.argv.slice(2));
+  const commandArguments = process.argv.slice(2);
+  errors.push(...validateHostedAppInventoryArguments(commandArguments));
+  const hostedAppInventory = parseHostedAppInventoryArgument(commandArguments);
   errors.push(...validateHostedAppInventory(hostedAppInventory));
   const runtime = process.argv.includes("--runtime");
   const environment = runtime || process.env.CODEX_CLOUD === "1" || process.argv.includes("--environment");
