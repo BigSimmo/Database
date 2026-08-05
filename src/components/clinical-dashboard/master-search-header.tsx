@@ -862,7 +862,19 @@ export function MasterSearchHeader({
     const href = appModeHomeHref(modeId);
     if (prefetchedModeHrefsRef.current.has(href)) return;
     prefetchedModeHrefsRef.current.add(href);
-    router.prefetch(href);
+    router.prefetch(href, {
+      // Next's client cache can invalidate a prefetched RSC payload while this
+      // long-lived shared header remains mounted. Let the next pointer/focus
+      // intent warm it again instead of permanently treating the stale entry as
+      // prefetched for the rest of the session.
+      onInvalidate: () => {
+        prefetchedModeHrefsRef.current.delete(href);
+      },
+      // Next 16.2.12's public guide documents onInvalidate as the only optional
+      // field, while its bundled AppRouterInstance type incorrectly exposes the
+      // internal required `kind`. Keep the public API shape without importing a
+      // private router enum.
+    } as Parameters<typeof router.prefetch>[1]);
   }
 
   function openModeMenuWithFocus(index: number) {

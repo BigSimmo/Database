@@ -797,7 +797,10 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     .map((chunk) => chunk.id)
     .join(",")}`;
   const previousAutoOpenDriverRef = useRef<string | null>(null);
-  const manualClosedDriverRef = useRef<string | null>(null);
+  // Track manual close in state (not only a ref) so selected/active chunk
+  // disclosures can stay React-controlled — imperative `.open = true` alone was
+  // lost across re-renders and left deep-linked hits collapsed in Production UI.
+  const [manualClosedDriver, setManualClosedDriver] = useState<string | null>(null);
   const [compactOpen, setCompactOpen] = useState(Boolean(selectedChunkId));
   // Deep-linked chunks and in-document search must keep the panel revealed even
   // when the exclusive accordion briefly closes it (section jumps / sibling
@@ -808,20 +811,21 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     setPrevForceReveal(forceReveal);
     if (forceReveal) setCompactOpen(true);
   }
+  if (previousAutoOpenDriverRef.current !== autoOpenDriver) {
+    previousAutoOpenDriverRef.current = autoOpenDriver;
+    if (manualClosedDriver !== null) setManualClosedDriver(null);
+  }
+  const autoOpenSuppressed = Boolean(autoOpenDriver) && manualClosedDriver === autoOpenDriver;
 
   useEffect(() => {
-    if (previousAutoOpenDriverRef.current !== autoOpenDriver) {
-      previousAutoOpenDriverRef.current = autoOpenDriver;
-      manualClosedDriverRef.current = null;
-    }
-    if (!autoOpenDriver || !autoOpenTargetId || manualClosedDriverRef.current === autoOpenDriver) return;
+    if (!autoOpenDriver || !autoOpenTargetId || autoOpenSuppressed) return;
     const targetDisclosure = document.getElementById(`${idPrefix}-${autoOpenTargetId}`);
     if (!(targetDisclosure instanceof HTMLDetailsElement)) return;
     if (topLevelDisclosureRef.current) topLevelDisclosureRef.current.open = true;
     const wasOpen = targetDisclosure.open;
     openNestedSourceDisclosure(topLevelDisclosureRef.current, targetDisclosure);
     if (!wasOpen) targetDisclosure.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
-  }, [autoOpenDriver, autoOpenTargetId, idPrefix, targetAvailability]);
+  }, [autoOpenDriver, autoOpenTargetId, autoOpenSuppressed, idPrefix, targetAvailability]);
 
   function moveHit(delta: number) {
     if (visibleChunks.length === 0) return;
@@ -835,14 +839,14 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     const isDriverDisclosure = disclosure.id === `${idPrefix}-${autoOpenTargetId}`;
     if (disclosure.open) {
       disclosure.open = false;
-      if (isDriverDisclosure && autoOpenDriver) manualClosedDriverRef.current = autoOpenDriver;
+      if (isDriverDisclosure && autoOpenDriver) setManualClosedDriver(autoOpenDriver);
       return;
     }
-    if (isDriverDisclosure && autoOpenDriver) manualClosedDriverRef.current = null;
+    if (isDriverDisclosure && autoOpenDriver) setManualClosedDriver(null);
     if (!isDriverDisclosure && autoOpenDriver && autoOpenTargetId) {
       const driverDisclosure = document.getElementById(`${idPrefix}-${autoOpenTargetId}`);
       if (driverDisclosure instanceof HTMLDetailsElement && driverDisclosure.open) {
-        manualClosedDriverRef.current = autoOpenDriver;
+        setManualClosedDriver(autoOpenDriver);
       }
     }
     openNestedSourceDisclosure(topLevelDisclosureRef.current, disclosure);
@@ -998,6 +1002,10 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
               visibleChunks.map((chunk) => {
                 const selected = selectedChunkId === chunk.id;
                 const active = activeHit?.id === chunk.id;
+                const isAutoOpenTarget = Boolean(autoOpenTargetId) && chunk.id === autoOpenTargetId;
+                // Keep deep-linked / active-hit passages React-controlled so a
+                // later render cannot collapse the citation the URL asked for.
+                const forceChunkOpen = isAutoOpenTarget && !autoOpenSuppressed;
                 const status = selected
                   ? "Highlighted quoted passage"
                   : active
@@ -1012,6 +1020,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
                     data-testid={selected ? "highlighted-indexed-source-chunk" : "indexed-source-passage-disclosure"}
                     data-source-chunk-id={chunk.id}
                     data-source-active-hit={active || undefined}
+                    open={forceChunkOpen ? true : undefined}
                     className={cn(
                       sourceCard,
                       "group/source-row overflow-hidden p-0 transition source-print",

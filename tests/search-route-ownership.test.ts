@@ -101,9 +101,17 @@ describe("shared-search route ownership", () => {
     expect(shellSource).toContain("isStandaloneModeHomePath(pathname)");
     expect(shellSource).not.toMatch(/searchMode === "services" && pathname === "\/services"/);
     // changeMode must not optimistic-set searchMode before navigation.
-    expect(shellSource).toMatch(/function changeMode\(mode: AppModeId\) \{[\s\S]*?navigateToMode\(mode\);\n  \}/);
+    // Same-mode picks still navigate to the mode home unless already there;
+    // cross-mode / leaving a detail URL uses router.push with pending state.
+    expect(shellSource).toMatch(/function changeMode\(mode: AppModeId\) \{[\s\S]*?router\.push\(href\);\n  \}/);
     expect(shellSource).not.toMatch(
-      /function changeMode\(mode: AppModeId\) \{[\s\S]*?setSearchMode\(mode\);[\s\S]*?navigateToMode\(mode\);/,
+      /function changeMode\(mode: AppModeId\) \{[\s\S]*?setSearchMode\(mode\);[\s\S]*?router\.push/,
+    );
+    expect(shellSource).toContain("alreadyOnDestination");
+    expect(shellSource).toContain("setPendingModeNavigation");
+    // Blanket mode-equality early return would break same-mode home returns.
+    expect(shellSource).not.toMatch(
+      /function changeMode\(mode: AppModeId\) \{[\s\S]*?if \(mode === searchMode\) return;/,
     );
   });
 
