@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, MessageSquarePlus, Search, X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -318,17 +318,20 @@ function ModeRow({
   active,
   index,
   onSelect,
+  buttonRef,
 }: {
   modeId: AppModeId;
   active: boolean;
   index: number;
   onSelect: (id: AppModeId) => void;
+  buttonRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const mode = modeOf(modeId);
   const Icon = appModeIcons[modeId];
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       role="menuitemradio"
       aria-checked={active}
@@ -393,11 +396,18 @@ function SectionedListSheet({
 }) {
   const [selected, setSelected] = useState(initialMode);
   const diagnoseRef = useRef<HTMLElement>(null);
+  const selectedRowRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (preview !== "scrolled") return;
+    if (preview === "rest") return;
     const frame = window.requestAnimationFrame(() => {
-      diagnoseRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+      if (preview === "scrolled") {
+        diagnoseRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+        return;
+      }
+      // Switched: bring the newly current mode into view so selection is not
+      // off-screen under Find while the header already says DSM-5 / Care / etc.
+      selectedRowRef.current?.scrollIntoView({ block: "center", behavior: "auto" });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [preview]);
@@ -449,6 +459,7 @@ function SectionedListSheet({
                     active={modeId === selected}
                     index={rowOffset + modeIndex}
                     onSelect={setSelected}
+                    buttonRef={modeId === selected ? selectedRowRef : undefined}
                   />
                 ))}
               </div>
