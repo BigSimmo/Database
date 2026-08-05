@@ -2104,10 +2104,20 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const header = document.querySelector("header");
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
       const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
+      // Include vertical margins: phone bottom clearance (`max-sm:mb-4`) sits
+      // outside getBoundingClientRect().height and still consumes scroll budget.
+      let alsoMatchesHeight = 0;
+      if (alsoMatches instanceof HTMLElement) {
+        const box = alsoMatches.getBoundingClientRect();
+        const styles = window.getComputedStyle(alsoMatches);
+        alsoMatchesHeight = Math.ceil(
+          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+        );
+      }
       return {
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
-        alsoMatchesHeight: alsoMatches ? Math.ceil(alsoMatches.getBoundingClientRect().height) : 0,
+        alsoMatchesHeight,
       };
     });
     // Content-sized section => no unexplained phantom scroll. Submitted universal
@@ -2127,6 +2137,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // unconditional. What this still pins is that the page is sized by its
     // content: 112 admits the notice and nothing more, so a genuine phantom
     // viewport-height runway would still fail it. See ledger #226.
+    // alsoMatchesHeight already includes the section's phone bottom margin.
     const permittedOverflow = geo.alsoMatchesHeight > 0 ? geo.alsoMatchesHeight + 24 : 112;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);

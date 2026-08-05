@@ -117,14 +117,18 @@ export function UniversalSearchAlsoMatches({
   if (modeId === "answer" && currentGroups.length === 0) return null;
   if (isWide && !searchPending && currentGroups.length === 0) return null;
 
+  // Count badge: ellipsis while collapsed/pending/empty so a finished-empty
+  // disclosure does not show a literal "0" next to "No additional matches".
+  const phoneCountBadge = !searchActive || searchPending || matchCount === 0 ? "…" : String(matchCount);
+
   return (
     <section
       className={cn(
         // Raised card — matches the library rows above, instead of a flat bar
         // flush against the phone home-indicator / dock edge.
-        "basis-full rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-inset)]",
-        // Extra phone bottom clearance: hidden dock reserve collapses to 0rem,
-        // so a modest margin keeps the disclosure tappable above the home indicator.
+        "basis-full rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-inset)] motion-safe:animate-fade-up",
+        // Content spacing below the last interactive section on phones — not a
+        // chrome/dock reserve restore (those stay 0rem when scroll-hidden).
         "max-sm:mb-4",
         className,
       )}
@@ -146,7 +150,10 @@ export function UniversalSearchAlsoMatches({
           "sm:pointer-events-none sm:mb-1.5 sm:min-h-0 sm:cursor-default sm:gap-2 sm:px-2 sm:py-1 sm:hover:bg-transparent",
         )}
       >
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:hidden">
+        <span
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:hidden"
+          aria-hidden
+        >
           <Layers className="h-4 w-4" aria-hidden />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -154,11 +161,17 @@ export function UniversalSearchAlsoMatches({
             <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
               Also matches in other modes
             </span>
-            <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold tabular-nums text-[color:var(--clinical-accent)] sm:hidden">
-              {!searchActive || (searchPending && matchCount === 0) ? "…" : matchCount}
+            <span
+              className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold tabular-nums text-[color:var(--clinical-accent)] sm:hidden"
+              aria-hidden={phoneCountBadge === "…"}
+            >
+              {phoneCountBadge}
             </span>
           </span>
-          <span className="text-2xs font-medium text-[color:var(--text-muted)] sm:hidden">{phoneSubtitle}</span>
+          {/* Visual cue only — keep the button name to the title (+ optional count). */}
+          <span className="text-2xs font-medium text-[color:var(--text-muted)] sm:hidden" aria-hidden>
+            {phoneSubtitle}
+          </span>
         </span>
         <span className="hidden text-2xs font-bold text-[color:var(--text-soft)] sm:inline">Across Clinical KB</span>
         <span
@@ -211,7 +224,9 @@ export function UniversalSearchAlsoMatches({
               </span>
               <Link
                 href={appModeHomeHref(targetModeId, { query: trimmedQuery, run: true })}
-                className="inline-flex min-h-tap shrink-0 items-center text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)] sm:min-h-0"
+                // Top-align the label with the mode title; min-h-tap still grows the
+                // hit box downward so the 48px floor does not pull the text mid-card.
+                className="inline-flex min-h-tap shrink-0 items-start pt-0.5 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)] sm:min-h-0 sm:pt-0 sm:items-center"
               >
                 View all
               </Link>
