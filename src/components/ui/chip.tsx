@@ -4,9 +4,18 @@ import { X, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 
-export type ChipTone = "neutral" | "info" | "success" | "warning" | "danger";
+export type ChipSize = "compact" | "standard";
+export type ChipStatusTone = "neutral" | "info" | "success" | "warning" | "danger";
+export type ChipCategoryTone =
+  "document" | "table" | "search" | "source" | "service" | "form" | "purple" | "indigo" | "rose" | "slate";
+export type ChipInformationTone = "neutral" | "quiet" | "inset" | "accent" | "info";
 
-const TONE: Record<ChipTone, string> = {
+export type ChipAppearance =
+  | { kind: "status"; tone: ChipStatusTone }
+  | { kind: "category"; tone: ChipCategoryTone }
+  | { kind: "information"; tone?: ChipInformationTone };
+
+const STATUS: Record<ChipStatusTone, string> = {
   neutral: toneNeutral,
   info: toneInfo,
   success: toneSuccess,
@@ -14,63 +23,132 @@ const TONE: Record<ChipTone, string> = {
   danger: toneDanger,
 };
 
-const DOT: Record<ChipTone, string> = {
-  neutral: "bg-[color:var(--text-soft)]",
-  info: "bg-[color:var(--info)]",
-  success: "bg-[color:var(--success)]",
-  warning: "bg-[color:var(--warning)]",
-  danger: "bg-[color:var(--danger)]",
+const CATEGORY: Record<ChipCategoryTone, string> = {
+  document:
+    "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]",
+  table: "border-[color:var(--type-table-border)] bg-[color:var(--type-table-soft)] text-[color:var(--type-table)]",
+  search: "border-[color:var(--type-search-border)] bg-[color:var(--type-search-soft)] text-[color:var(--type-search)]",
+  source: "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
+  service:
+    "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
+  form: "border-[color:var(--type-form-border)] bg-[color:var(--type-form-soft)] text-[color:var(--type-form)]",
+  purple: "border-[color:var(--tone-purple-border)] bg-[color:var(--tone-purple-soft)] text-[color:var(--tone-purple)]",
+  indigo: "border-[color:var(--tone-indigo-border)] bg-[color:var(--tone-indigo-soft)] text-[color:var(--tone-indigo)]",
+  rose: "border-[color:var(--tone-rose-border)] bg-[color:var(--tone-rose-soft)] text-[color:var(--tone-rose)]",
+  slate: "border-[color:var(--tone-slate-border)] bg-[color:var(--tone-slate-soft)] text-[color:var(--tone-slate)]",
 };
+
+const INFORMATION: Record<ChipInformationTone, string> = {
+  neutral: toneNeutral,
+  quiet: "border-transparent bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+  inset: "border-[color:var(--border)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]",
+  accent:
+    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+  info: toneInfo,
+};
+
+const SIZE: Record<ChipSize, string> = {
+  compact: "h-6 px-2 text-2xs",
+  standard: "h-7 px-2.5 text-xs",
+};
+
+/** Multi-line clinical tags: keep the same density floor, allow the label to wrap. */
+const SIZE_WRAP: Record<ChipSize, string> = {
+  compact: "min-h-6 px-2 py-1 text-2xs leading-snug",
+  standard: "min-h-7 px-2.5 py-1 text-xs leading-snug",
+};
+
+function appearanceClasses(appearance: ChipAppearance) {
+  if (appearance.kind === "status") return STATUS[appearance.tone];
+  if (appearance.kind === "category") return CATEGORY[appearance.tone];
+  return INFORMATION[appearance.tone ?? "neutral"];
+}
+
+function dotClasses(appearance: ChipAppearance) {
+  if (appearance.kind === "status") {
+    if (appearance.tone === "success") return "bg-[color:var(--success)]";
+    if (appearance.tone === "warning") return "bg-[color:var(--warning)]";
+    if (appearance.tone === "danger") return "bg-[color:var(--danger)]";
+    if (appearance.tone === "info") return "bg-[color:var(--info)]";
+  }
+  return "bg-current";
+}
 
 type ChipBase = {
   children: ReactNode;
-  tone?: ChipTone;
+  size?: ChipSize;
+  appearance?: ChipAppearance;
   /** Status dot. Never the only carrier of meaning — the label still says it. */
   dot?: boolean;
   icon?: LucideIcon;
+  /**
+   * Allow the label to wrap onto extra lines. Default density stays single-line
+   * and fixed-height; opt in for arbitrary clinical tag phrases.
+   */
+  wrap?: boolean;
+  /** Native title when children are not a plain string (truncated/wrap hover text). */
+  title?: string;
+  /** Layout only: margin, width, shrink/grow, alignment and wrapping. */
   className?: string;
 };
 
-/**
- * Removable chips require a per-chip `removeLabel` — a row of identical "Remove"
- * buttons is unusable by voice or screen reader.
- */
+/** Removable chips require a unique, object-specific label. */
 export type ChipProps = ChipBase &
   ({ onRemove: () => void; removeLabel: string } | { onRemove?: never; removeLabel?: never });
 
-// A chip is static text at 28px (`--chip-height`), NOT a tap target — that
-// floor is for interactive controls (register #7/#18). The remove control inside
-// a removable chip is interactive and keeps its own hit area.
 export function Chip({
   children,
-  tone = "neutral",
+  size = "standard",
+  appearance = { kind: "information", tone: "neutral" },
   dot = false,
   icon: Icon,
+  wrap = false,
+  title,
   onRemove,
   removeLabel,
   className,
 }: ChipProps) {
+  const fullLabel = title ?? (typeof children === "string" ? children : undefined);
   return (
     <span
+      data-testid="chip"
+      data-size={size}
+      data-appearance={appearance.kind}
+      data-wrap={wrap ? "true" : "false"}
       className={cn(
-        "inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium",
-        TONE[tone],
-        onRemove && "pr-1",
+        "relative inline-flex items-center gap-1.5 rounded-md border font-semibold",
+        wrap ? `${SIZE_WRAP[size]} whitespace-normal` : `${SIZE[size]} leading-none`,
+        appearanceClasses(appearance),
         className,
       )}
     >
-      {dot ? <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", DOT[tone])} /> : null}
+      {dot ? <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotClasses(appearance))} /> : null}
       {Icon ? <Icon aria-hidden="true" className="size-icon-xs shrink-0" /> : null}
-      <span className="min-w-0 truncate">{children}</span>
+      <span
+        className={cn("min-w-0", wrap ? "whitespace-normal break-words" : "max-h-full overflow-hidden truncate")}
+        title={fullLabel}
+      >
+        {children}
+      </span>
       {onRemove ? (
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={removeLabel}
-          className="grid h-5 w-5 shrink-0 place-items-center rounded-sm transition hover:bg-[color:var(--surface-highlight)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
-        >
-          <X aria-hidden="true" className="h-3 w-3" />
-        </button>
+        // Wrap mode uses min-height only, so `h-full` collapses to 0. Stretch the
+        // track to the flex line (or a 20px floor) so the remove control stays
+        // tappable on multi-line tags without a 48px overhang onto neighbours.
+        <span className={cn("relative w-5 shrink-0", wrap ? "min-h-5 self-stretch" : "h-full self-center")}>
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={removeLabel}
+            // w-8 is intentionally wider than the w-5 track so the hit area
+            // overhangs into chip horizontal padding. Do not add max-w-full —
+            // that clamps back to the track width and nullifies the enlarge.
+            className="absolute inset-y-0 left-1/2 grid h-full min-h-5 w-8 -translate-x-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
+          >
+            <span className="grid h-5 w-5 place-items-center rounded-sm transition hover:bg-[color:var(--surface-highlight)]">
+              <X aria-hidden="true" className="h-3 w-3" />
+            </span>
+          </button>
+        </span>
       ) : null}
     </span>
   );

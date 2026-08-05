@@ -578,7 +578,10 @@ export const NativePdfEmbed = memo(function NativePdfEmbed({
   initialPage: number;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]">
+    <div
+      data-testid="native-pdf-embed"
+      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]"
+    >
       <iframe
         title={title}
         src={nativePdfEmbedUrl(url, initialPage)}

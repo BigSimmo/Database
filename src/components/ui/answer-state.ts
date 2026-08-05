@@ -1,5 +1,6 @@
 import type { AnswerState, OverdueSource, UngroundedReason } from "@/lib/answer-state-types";
 import type { ClinicalSourceMetadata } from "@/lib/types";
+import { createBoundedDiagnosticRecorder } from "@/components/ui/design-system-diagnostics";
 
 /**
  * COMPONENTS §2. Degraded, partial and fallback answers are structurally
@@ -93,13 +94,15 @@ export type AnswerStateInput = {
  */
 const generationFallbackMarker = /generation_fallback|generation_failed/i;
 
-const loggedStateDefects = new Set<string>();
+const recordStateDefect = createBoundedDiagnosticRecorder({
+  emit: (message) => {
+    if (typeof process !== "undefined" && process.env?.NODE_ENV === "test") return;
+    console.warn(message);
+  },
+});
 
 function noteOnce(key: string, message: string, detail: Record<string, string | number>) {
-  if (loggedStateDefects.has(key)) return;
-  loggedStateDefects.add(key);
-  if (typeof process !== "undefined" && process.env?.NODE_ENV === "test") return;
-  console.warn(JSON.stringify({ level: "warn", message, ...detail }));
+  recordStateDefect(key, JSON.stringify({ level: "warn", message, ...detail }));
 }
 
 /**

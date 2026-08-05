@@ -16,8 +16,8 @@ export const Full = () => (
       }
       meta={
         <>
-          <Chip tone="success">Current</Chip>
-          <Chip tone="info">WA</Chip>
+          <Chip appearance={{ kind: "status", tone: "success" }}>Current</Chip>
+          <Chip appearance={{ kind: "information", tone: "info" }}>WA</Chip>
         </>
       }
     />

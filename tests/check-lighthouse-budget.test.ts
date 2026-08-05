@@ -315,6 +315,17 @@ describe("committed lighthouse-budget.json", () => {
   it("names a strategy set the grader understands", () => {
     expect(committed.strategies).toEqual(["mobile", "desktop"]);
   });
+
+  it("invokes npm's JavaScript npx CLI through Node when available", () => {
+    const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
+
+    expect(runner).toContain('const npxCli = path.join(path.dirname(npmExecPath), "npx-cli.js")');
+    expect(runner).toContain("process.env.npm_node_execpath ?? process.execPath");
+    expect(runner).toMatch(/spawnSync\(\s*npxInvocation\.command,/);
+    expect(runner).toContain("...npxInvocation.prefixArgs");
+    expect(runner).not.toMatch(/spawnSync\(\s*"npx",/);
+    expect(runner).not.toMatch(/spawnSync\(\s*"npx\.cmd",/);
+  });
 });
 
 describe("renderBudgetTable", () => {

@@ -7,7 +7,12 @@ import type { AnswerState, OverdueSource } from "@/components/ui/answer-state";
 import { DateDisplay } from "@/components/ui/date-display";
 import { MissingValue, type MissingValueReason } from "@/components/ui/missing-value";
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
-import { VerificationNotice } from "@/components/ui/verification-notice";
+import {
+  VerificationNotice,
+  recordedUnknownVerificationNoticeStateKeysForTests,
+  recordUnknownVerificationNoticeStateForTests,
+  resetRecordedUnknownVerificationNoticeStatesForTests,
+} from "@/components/ui/verification-notice";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
 const readyState: AnswerState = { kind: "ready", sourceCount: 4 };
@@ -123,6 +128,75 @@ describe("VerificationNotice", () => {
     expect(screen.getByTestId("verification-notice")).toHaveTextContent(/verify/i);
   });
 
+  it("defaults to the complete wording without rendering a compact substitute", () => {
+    render(<VerificationNotice state="ready" />);
+
+    expect(screen.getByTestId("verification-notice-full")).toHaveTextContent(
+      "AI-generated from the cited sources. Verify every clinical claim against the linked source before acting on it.",
+    );
+    expect(screen.queryByTestId("verification-notice-compact")).not.toBeInTheDocument();
+  });
+
+  it("keeps a fixed compact clinical instruction visible on phones while retaining the full wording", () => {
+    render(<VerificationNotice state="partial_retrieval" presentation="responsive-compact" />);
+
+    const compact = screen.getByTestId("verification-notice-compact");
+    const full = screen.getByTestId("verification-notice-full");
+    expect(compact).toHaveTextContent(
+      "AI-generated from incomplete sources and may omit guidance. Verify against cited sources before acting.",
+    );
+    expect(compact.className).toContain("sm:hidden");
+    expect(compact.className).toContain("print:hidden");
+    expect(full).toHaveTextContent(/Some sources for this question were unavailable/i);
+    expect(full.className).toContain("hidden");
+    expect(full.className).toContain("sm:block");
+    expect(full.className).toContain("print:block");
+  });
+
+  it("preserves attribution and every state-specific instruction in responsive compact wording", () => {
+    const cases = [
+      ["ready", "model", /AI-generated.*Verify every clinical claim against the cited sources before acting/i],
+      ["stale_evidence", "model", /some cited sources are overdue.*Re-verify every clinical claim/i],
+      ["partial_retrieval", "model", /incomplete sources and may omit guidance.*Verify against cited sources/i],
+      [
+        "ungrounded",
+        "model",
+        /Sources could not be shown to support every claim.*Check each dose, number, timing and threshold before acting/i,
+      ],
+      [
+        "source_only",
+        "extractive",
+        /Copied from cited sources without model synthesis.*Verify against the cited sources/i,
+      ],
+      ["stale_evidence", "extractive", /Copied from cited sources; some are overdue.*Re-verify every clinical claim/i],
+      [
+        "partial_retrieval",
+        "extractive",
+        /Copied from incomplete sources and may omit guidance.*Verify against cited sources/i,
+      ],
+      [
+        "ungrounded",
+        "extractive",
+        /Sources could not be shown to support every claim.*Check each dose, number, timing and threshold before acting/i,
+      ],
+    ] as const;
+
+    for (const [state, attribution, expected] of cases) {
+      const { unmount } = render(
+        <VerificationNotice state={state} attribution={attribution} presentation="responsive-compact" />,
+      );
+      expect(screen.getByTestId("verification-notice-compact"), `${state}:${attribution}`).toHaveTextContent(expected);
+      unmount();
+    }
+  });
+
+  it("uses the complete wording for print even when responsive compact was requested", () => {
+    render(<VerificationNotice state="ready" medium="print" presentation="responsive-compact" />);
+
+    expect(screen.queryByTestId("verification-notice-compact")).not.toBeInTheDocument();
+    expect(screen.getByTestId("verification-notice-full")).toHaveTextContent(/against the linked source/i);
+  });
+
   it("uses a different approved wording for each state", () => {
     const wording = new Set<string>();
     for (const state of ["ready", "stale_evidence", "partial_retrieval", "ungrounded", "source_only"] as const) {
@@ -222,11 +296,38 @@ describe("VerificationNotice", () => {
     // Failing open to the neutral variant on a verification notice would weaken
     // the one disclaimer a clinician reads before acting.
     const state = "provenance_unavailable" as unknown as "ready";
-    render(<VerificationNotice state={state} />);
+    render(<VerificationNotice state={state} presentation="responsive-compact" />);
     const notice = screen.getByTestId("verification-notice");
     expect(notice).toHaveTextContent(/could not be established/i);
     expect(notice).toHaveTextContent(/unverified/i);
+    expect(screen.getByTestId("verification-notice-compact")).toHaveTextContent(
+      /check every clinical claim against the cited sources before acting/i,
+    );
     expect(notice.className).toContain("var(--warning)");
+  });
+
+  it("bounds unknown-state diagnostic records and re-logs evicted keys", () => {
+    resetRecordedUnknownVerificationNoticeStatesForTests();
+    const initialKeys = Array.from({ length: 32 }, (_, index) => `unknown:${index}`);
+
+    for (const key of initialKeys) {
+      expect(recordUnknownVerificationNoticeStateForTests(key)).toBe(true);
+    }
+    expect(recordUnknownVerificationNoticeStateForTests(initialKeys[0])).toBe(false);
+    expect(recordedUnknownVerificationNoticeStateKeysForTests()).toEqual(initialKeys);
+
+    expect(recordUnknownVerificationNoticeStateForTests("unknown:32")).toBe(true);
+    expect(recordedUnknownVerificationNoticeStateKeysForTests()).toHaveLength(32);
+    expect(recordedUnknownVerificationNoticeStateKeysForTests()).toEqual([...initialKeys.slice(1), "unknown:32"]);
+
+    expect(recordUnknownVerificationNoticeStateForTests(initialKeys[0])).toBe(true);
+    expect(recordedUnknownVerificationNoticeStateKeysForTests()).toHaveLength(32);
+    expect(recordedUnknownVerificationNoticeStateKeysForTests()).toEqual([
+      ...initialKeys.slice(2),
+      "unknown:32",
+      initialKeys[0],
+    ]);
+    resetRecordedUnknownVerificationNoticeStatesForTests();
   });
 });
 

@@ -1,6 +1,6 @@
 import { CircleAlert, CircleCheck } from "lucide-react";
 
-import { cn, metadataPill } from "@/components/ui-primitives";
+import { cn, metadataPillDensity } from "@/components/ui-primitives";
 import type { EvidenceRelevance, SourceEvidenceRelevance } from "@/lib/types";
 
 export function relevanceChipLabel(
@@ -90,7 +90,7 @@ export function QueryCoverageChips({
   return (
     <div className="flex flex-wrap gap-1.5">
       {chips.slice(0, limit).map((chip) => (
-        <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+        <span key={chip} className={metadataPillDensity.dense}>
           {chip}
         </span>
       ))}

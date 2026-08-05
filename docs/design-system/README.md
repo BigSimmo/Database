@@ -18,6 +18,11 @@ Reading order:
 5. [GATES.md](GATES.md) — every rule paired with its enforcement status. A prohibition
    with no row there is a suggestion.
 
-Canonical code: `src/app/ckb-v2-tokens.css` on `main` (the single token file, merged via
-PR #1538; nothing is adopted by product surfaces yet). Design project `08d6f126-3fd0-4764-aedf-0062a467280a` conforms to the repo
-file. No visual change ships from this document set — it is the system and its rules.
+Canonical code: `src/app/ckb-v2-tokens.css` is the **v2 target layer** and `globals.css` remains
+the compatibility layer. The source now mounts `.ckb-v2` literally on the global `<html>`, so every
+production surface is observed under v2. The generated [adoption manifest](adoption-manifest.json)
+records that observation. Declared v2 surfaces may keep `baseline.status: "not-committed"` with
+empty `files` so `check:design-system-adoption` / `check:design-system-contract` stay green during
+draft; human-approved Linux screenshots and exact hosted provenance remain the draft→ready gate,
+not a red CI check. Design project `08d6f126-3fd0-4764-aedf-0062a467280a` is not verified by this
+repository; local design-sync parity is not remote publication proof.

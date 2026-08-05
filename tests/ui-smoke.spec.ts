@@ -41,6 +41,35 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
+  const surround = page.getByTestId("document-frame-surround");
+  const content = page.getByTestId("document-frame-content");
+  await expect(surround).toBeVisible();
+  await expect(content).toBeVisible();
+  await expect(owner).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      const [surroundGeometry, contentBox, ownerBox] = await Promise.all([
+        surround.evaluate((element) => {
+          const style = window.getComputedStyle(element);
+          return {
+            clientWidth: element.clientWidth,
+            paddingLeft: Number.parseFloat(style.paddingLeft),
+            paddingRight: Number.parseFloat(style.paddingRight),
+          };
+        }),
+        content.boundingBox(),
+        owner.boundingBox(),
+      ]);
+      if (!contentBox || !ownerBox) return Number.POSITIVE_INFINITY;
+      const availableWidth =
+        surroundGeometry.clientWidth - surroundGeometry.paddingLeft - surroundGeometry.paddingRight;
+      return Math.max(Math.abs(contentBox.width - availableWidth), Math.abs(ownerBox.width - availableWidth));
+    })
+    .toBeLessThanOrEqual(2);
+}
+
 async function revealPhoneHeaderControl(page: Page, control: Locator) {
   const { scrollTop } = await readPrimaryScrollGeometry(page);
   if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
@@ -1537,10 +1566,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(modeSheet).toBeVisible();
 
     // Click the dimmed backdrop (outside the dialog panel) to dismiss.
-    await page
-      .locator(".fixed.inset-0.z-\\[100\\]")
-      .first()
-      .click({ position: { x: 8, y: 8 } });
+    await modeSheet.locator("..").click({ position: { x: 8, y: 8 } });
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeTrigger).toBeFocused();
     await expect(appModeTrigger).toHaveAttribute("aria-expanded", "false");
@@ -2113,21 +2139,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Content-sized section => no unexplained phantom scroll. Submitted universal
     // matches are real content below the answer, so their compact panel may account
     // for the overflow; the old viewport floor created much more empty scroll.
-    // After the 48px tap / 10px control-radius step, bare short answers still fit
-    // with only a couple of pixels of layout slack — keep the empty-state budget
-    // tight, but allow a small sub-pixel band so radius/tap rounding cannot flake.
-    // Re-pinned from CI run 30820496984 (97 measured), never from a local
-    // reading — this machine reports 29 for the same tree, and finding L records
-    // that the local geometry sits 41-81px below CI here.
-    //
-    // The bare budget moved 8 -> 112 because the product changed, not because
-    // the test was inconvenient: every answer now carries a verification notice
-    // above the prose (PR 13 / #207), so "a bare short answer fits with a couple
-    // of pixels of slack" stopped being true the moment the notice became
-    // unconditional. What this still pins is that the page is sized by its
-    // content: 112 admits the notice and nothing more, so a genuine phantom
-    // viewport-height runway would still fail it. See ledger #226.
-    const permittedOverflow = geo.alsoMatchesHeight > 0 ? geo.alsoMatchesHeight + 24 : 112;
+    // The responsive notice keeps its complete instruction while returning the
+    // unexplained-scroll allowance to the original 8px phone contract. Submitted
+    // universal matches are real content, so subtract their measured height
+    // before applying that phantom-overflow budget.
+    const permittedOverflow = geo.alsoMatchesHeight + 8;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
@@ -2298,22 +2314,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // content would hide this distinction. The prior 44px-era ~39px pin moved
     // up with taller answer controls, so the upper bound tracks that band
     // rather than the old 48px ceiling.
-    // Re-pinned from CI run 30820496984 (maxOffset 251), never from a local
-    // reading — finding L. Be honest about what moved: the upper bound was
-    // derived as collapse budget (128) + the 72px in-flow activation band, and
-    // the post-collapse runway no longer fits inside that band. Every answer now
-    // carries an unconditional verification notice above the prose (#207), so
-    // this fixture's short answer is taller than the geometry the band was
-    // written against. The collapse budget itself is untouched, because chrome
-    // height did not change — only the content below it. Ledger #226 carries the
-    // decision; the band is a real contract and widening it is a product change,
-    // not a test tweak.
+    // The compact phone notice restores the original short-answer contract:
+    // total runway remains below 200px and the runway left after chrome collapse
+    // fits inside the 72px in-flow activation band.
     expect(geometry.maxOffset).toBeGreaterThan(140);
-    expect(geometry.maxOffset).toBeLessThan(280);
+    expect(geometry.maxOffset).toBeLessThan(200);
     expect(geometry.collapseBudget).toBeGreaterThan(112);
     expect(geometry.collapseBudget).toBeLessThan(128);
     expect(geometry.postCollapseMaxOffset).toBeGreaterThanOrEqual(32);
-    expect(geometry.postCollapseMaxOffset).toBeLessThan(160);
+    expect(geometry.postCollapseMaxOffset).toBeLessThanOrEqual(72);
     // A jump straight onto the bottom edge (PageDown / full-page flick) lands
     // past the post-collapse range; hiding there would clamp content under the
     // finger, so the near-bottom guard keeps both chrome edges visible.
@@ -2356,6 +2365,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await input.click();
     await expect(input).toBeFocused();
+
+    await page.setViewportSize({ width: 320, height: 844 });
+    const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
+    await expect(compactCrossModeRail).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    const compactCrossModeLinks = compactCrossModeRail.getByRole("link");
+    const compactCrossModeActions = compactCrossModeRail.getByRole("button");
+    expect(await compactCrossModeLinks.count()).toBeGreaterThan(0);
+    expect(await compactCrossModeActions.count()).toBeGreaterThan(0);
+    for (const control of await compactCrossModeLinks.all()) {
+      await expectMinTouchTarget(control, 48);
+    }
+    for (const control of await compactCrossModeActions.all()) {
+      await expectMinTouchTarget(control, 48);
+    }
   });
 
   test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
@@ -2474,12 +2498,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
-    const rail = strip.getByTestId("cross-mode-links-rail");
+    const rail = strip.getByTestId("cross-mode-links-card-rail");
     await expect(rail).toBeVisible();
-    await expect(rail).toHaveClass(/md:flex/);
+    await expect(rail).toHaveCSS("display", "flex");
     await page.keyboard.press("Escape");
-    await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
-    await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
+    await expect(strip.getByText("Medication", { exact: true }).filter({ visible: true })).toBeVisible();
+    const medicationSearch = strip.getByRole("button", { name: "Search Clozapine in Medication" });
+    await expect(medicationSearch).toBeVisible();
+    await expect(strip.getByText("SGA / TRS", { exact: true }).filter({ visible: true })).toBeVisible();
 
     const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");
     if (await followUps.isVisible()) {
@@ -2492,6 +2518,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
     await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
+    await expectMinTouchTarget(medicationLink, 48);
+    await expectMinTouchTarget(medicationSearch, 48);
     await waitForReactEventHandler(medicationLink, "onClick");
     await medicationLink.click();
     await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 45_000 });
@@ -3383,11 +3411,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
         const railStyle = getComputedStyle(rail);
         const widths = Array.from(rail.children).map((child) => child.getBoundingClientRect().width);
         const firstActionStyle = getComputedStyle(rail.children[0]);
+        const typeProbe = document.createElement("span");
+        typeProbe.style.fontSize = "var(--text-sm)";
+        document.body.append(typeProbe);
+        const expectedActionFontSize = getComputedStyle(typeProbe).fontSize;
+        typeProbe.remove();
         const card = rail.closest("article")?.getBoundingClientRect();
         return {
           display: railStyle.display,
           widths,
           actionFontSize: firstActionStyle.fontSize,
+          expectedActionFontSize,
           actionFontWeight: firstActionStyle.fontWeight,
           actionDirection: firstActionStyle.flexDirection,
           cardLeft: card?.left ?? 0,
@@ -3399,7 +3433,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       expect(actionGeometry.cardRight).toBeLessThanOrEqual(actionGeometry.viewportWidth + 1);
       expect(actionGeometry.display).toBe("grid");
       expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
-      expect(actionGeometry.actionFontSize).toBe("14px");
+      expect(actionGeometry.actionFontSize).toBe(actionGeometry.expectedActionFontSize);
       expect(actionGeometry.actionDirection).toBe("row");
       expect(actionGeometry.actionFontWeight).toBe("800");
       for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
@@ -3725,6 +3759,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(downloadButton).toBeEnabled();
     await downloadButton.dblclick();
     await expect.poll(() => signedUrlRequests.filter((kind) => kind === "download").length).toBe(1);
+  });
+
+  test("document frame stretches canvas and native owners at phone and desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 720 });
+    await mockDemoApi(page);
+    await gotoApp(
+      page,
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
+
+    const canvasOwner = page.getByTestId("pdf-fullscreen-root");
+    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expectDocumentOwnerFillsFrame(page, canvasOwner);
+
+    await page.evaluate(() => {
+      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "native");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+    const nativeOwner = page.getByTestId("native-pdf-embed");
+    await expectDocumentOwnerFillsFrame(page, nativeOwner);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expectDocumentOwnerFillsFrame(page, nativeOwner);
+
+    await page.evaluate(() => {
+      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "canvas");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expectDocumentOwnerFillsFrame(page, canvasOwner);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("document viewer puts the PDF preview first with pinned evidence after it on mobile", async ({ page }) => {

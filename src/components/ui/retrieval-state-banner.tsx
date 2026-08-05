@@ -5,6 +5,7 @@ import { FileWarning, Info, TriangleAlert } from "lucide-react";
 import { cn, toneInfo, toneWarning } from "@/components/ui-primitives";
 import type { DegradedAnswerState, OverdueSource, SourceRef, UngroundedReason } from "@/components/ui/answer-state";
 import { DateDisplay } from "@/components/ui/date-display";
+import { createBoundedDiagnosticRecorder } from "@/components/ui/design-system-diagnostics";
 import { StatusMark } from "@/components/ui/status-mark";
 
 /**
@@ -28,13 +29,11 @@ export type RetrievalStateBannerProps = {
   className?: string;
 };
 
-const loggedEmptyStates = new Set<string>();
+const recordEmptyState = createBoundedDiagnosticRecorder();
 
 function noteEmptyState(kind: string, message: string, field: string, key: string) {
   const dedupeKey = `${kind}:${key}`;
-  if (loggedEmptyStates.has(dedupeKey)) return;
-  loggedEmptyStates.add(dedupeKey);
-  console.warn(JSON.stringify({ level: "warn", message, field, value: key }));
+  recordEmptyState(dedupeKey, JSON.stringify({ level: "warn", message, field, value: key }));
 }
 
 function OpenSourceButton({
