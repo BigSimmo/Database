@@ -366,7 +366,7 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
 - Production services `Database` (Next.js app tier, serves `https://psychiatry.tools`) and `worker` (ingestion) auto-deploy from `BigSimmo/Database` pushes to `main`; the `staging` environment runs the `app` service.
 - The older Railway project `clinical-kb` (`4361c04f-dd3c-4ee9-9e97-49e4e5707b70`) is superseded with zero active deployments; treat it as stale — never `railway link` to it or deploy there.
 - The similarly named Supabase project `Clinical KB Database` is the database/auth tier, not a Railway project; see "Supabase project safety" above.
-- Railway CLI/MCP auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects. The project-scoped Railway MCP server is registered in `.mcp.json`.
+- Railway CLI token auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects. Desktop/CLI MCP uses the secret-free `railway` entry in `.codex/config.toml` or `.mcp.json` plus `codex mcp login railway`; neither file activates a hosted ChatGPT/Codex app.
 - Railway deploys and mutations fall under the "API and provider confirmation boundary" below; verify target project/environment IDs before any mutation.
 
 <!-- END:railway-project-safety -->
@@ -876,11 +876,12 @@ Use `docs/codex-cloud.md` as the environment contract:
   Write-capable Figma, Railway, and Sentry tools still require explicit confirmation. Paid API
   canaries (`eval:rag`, `eval:retrieval:quality`, `eval:quality`, `verify:release`,
   `test:live`, `check:supabase-project`) still need explicit confirmation. Project
-  `.codex/config.toml` keeps MCP entries `enabled = false` so ordinary/offline hosts do not
-  initialize them. Connected setup writes enabled Railway and constrained Supabase entries to the
-  host `$CODEX_HOME/config.toml`; actual availability still requires the installed host
-  plugin/connector to complete OAuth and a fresh task to prove the callable inventory with
-  read-only identity calls. Root `.mcp.json` is a static cross-client template, not runtime proof.
+  `.codex/config.toml` keeps Desktop/CLI MCP entries `enabled = false`; use
+  `codex mcp login railway` locally after enabling the `railway` entry. Cloud setup never writes
+  Railway or Supabase MCP registrations to `$CODEX_HOME`. Hosted ChatGPT/Codex requires an
+  installed, workspace-authorized, OAuth-authenticated app, and a fresh task must prove the callable
+  inventory with read-only identity calls. Root `.mcp.json` is a static cross-client template, not
+  hosted runtime proof.
 - Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
   read-only identity, branch, status, worktree, and Git-operation checks. Proceed only in a
   clean disposable checkout on a task-specific non-protected branch.
@@ -915,9 +916,12 @@ Use `docs/codex-cloud.md` as the environment contract:
   `.github/workflows/authenticated-live-tests.yml` GitHub Actions workflow, its explicit
   dispatch confirmation, and the `Database / production` environment, never by exposing
   credentials to the Codex Cloud agent shell.
-- Connected Cloud Railway access uses the hosted Railway MCP connector and browser OAuth; prove it
-  with the callable tool inventory and a read-only identity/project-list call. CLI token auth is a
-  separate operator capability: it requires both the pinned CLI and a dedicated
+- Connected Cloud Railway access uses Railway's installed official app, or an Enterprise/Edu
+  workspace custom app for `https://mcp.railway.com`, plus browser OAuth; prove it with the callable
+  tool inventory and a read-only identity/project-list call. Repository setup and local MCP config
+  cannot activate it.
+  CLI token auth is a separate operator capability: it requires a separately installed Railway CLI
+  and a dedicated
   `RAILWAY_API_TOKEN`, and must never substitute `RAILWAY_TOKEN` or expose either token to an
   ordinary agent shell. GitHub connector access, GitHub CLI authentication, the credential-free
   `origin` URL, and shell Git authentication are separate capabilities.

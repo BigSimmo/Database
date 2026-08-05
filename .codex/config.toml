@@ -1,4 +1,4 @@
-# Secret-free, project-scoped MCP registrations for trusted Codex hosts.
+# Secret-free MCP registrations for trusted Codex Desktop/CLI hosts.
 # OAuth credentials remain in each host credential store — never commit them here.
 #
 # checked-in policy:
@@ -7,7 +7,7 @@
 #   explicit approval; write-capable Figma/Railway/Sentry tools use "writes"
 # - Paid API canaries (eval:rag, eval:retrieval:quality, eval:quality, verify:release,
 #   test:live, check:supabase-project) still need explicit confirmation per AGENTS.md
-# Hosted Cloud tools come from installed OAuth plugins/connectors; `.mcp.json` is a cross-client template, not runtime proof.
+# Hosted ChatGPT/Codex tools come only from installed, authenticated apps; this file is not runtime proof.
 
 [mcp_servers.figma_cloud]
 url = "https://mcp.figma.com/mcp"
@@ -21,7 +21,7 @@ url = "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=t
 enabled = false
 default_tools_approval_mode = "prompt"
 
-[mcp_servers.railway_cloud]
+[mcp_servers.railway]
 url = "https://mcp.railway.com"
 enabled = false
 default_tools_approval_mode = "writes"

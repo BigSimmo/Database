@@ -46,10 +46,10 @@ it makes every normal `node`, `npm`, and `npx` invocation load the generated san
 profile before starting Node. It is idempotent and uses `nvm which` rather than
 `command -v node`, so maintenance cannot accidentally wrap an earlier wrapper.
 
-The setup command fails if the complete toolchain cannot be installed. It pins Railway CLI
-`5.30.4` and Codex CLI `0.146.0`, both stable npm releases as reviewed on 2026-07-30. Railway's
-[official CLI guide](https://docs.railway.com/cli) supports global npm installation on Node 16+
-(this repository uses Node 24). OpenAI's
+The setup command fails if the required Cloud toolchain cannot be installed. It intentionally does
+not install Railway CLI: hosted Railway access comes from the authenticated workspace app, and the
+CLI postinstall downloads a separate binary that may be blocked in the Cloud setup network. It pins
+Codex CLI `0.146.0`, reviewed on 2026-07-30. OpenAI's
 [official Codex CLI guide](https://learn.chatgpt.com/docs/codex/cli) supports Linux installation;
 the npm package is used here so maintenance can verify an exact version without running an
 unversioned installer. Set
@@ -106,8 +106,8 @@ PLAYWRIGHT_OFFLINE_MODE=true
 Keep OpenAI disabled unless a later task explicitly authorizes it. Do not add provider keys,
 tokens, database URLs, service-role values, E2E credentials, or `ALLOW_PROVIDER_TESTS` to this
 environment. The generated agent profile removes the complete provider-variable inventory in
-both access profiles. Connected access configures the repository profile for scoped OAuth MCP
-servers and GitHub integration, but it does not expose raw credentials to the shell or guarantee
+both access profiles. Connected access records authorization intent and keeps the GitHub boundary
+explicit, but it does not register hosted MCP apps, expose raw credentials to the shell, or guarantee
 that every GitHub capability appears as a direct agent tool. For ordinary Cloud task publishing,
 use the native Cloud diff/PR controls and verify the resulting GitHub branch and PR link. A
 metadata-only `make_pr` response is not publication evidence. If a requested GitHub API is not
@@ -234,7 +234,7 @@ Expected decisive lines include:
 The effective-environment check runs automatically when `CODEX_CLOUD=1`, including without
 `--runtime`, so a newly started agent shell cannot pass with stale modes. Its report prints only
 approved mode values and presence booleans. The runtime check additionally verifies Node/npm
-policy and installed-lock parity, pinned Railway/Codex CLIs, Deno 2, Python 3 and worker imports,
+policy and installed-lock parity, the pinned Codex CLI, Deno 2, Python 3 and worker imports,
 Tesseract, actual headless launch-and-close for Chromium/Firefox/WebKit, the Python requirements
 fingerprint plus `pip check` and medspaCy/spaCy versions, the expected base commit as an ancestor
 of HEAD, the `BigSimmo/Database` origin identity, offline credential absence when applicable,
@@ -269,13 +269,15 @@ in the offline profile.
 Provider access is verified separately because a generic bootstrap must not make paid or
 production-like calls. For a connected environment, name each provider, use a read-only or
 minimal no-op endpoint, confirm the intended account/project by non-secret metadata, and
-report cost or mutation risk before any write. The checked-in MCP configuration uses Railway's
-hosted `https://mcp.railway.com` endpoint so fresh Cloud tasks authenticate through browser OAuth
-instead of depending on machine-local CLI state. Authorize only workspace `bigsimmo's Projects`
-and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`), restart the MCP client after
-consent, and reduce identity/status results to non-secret account, project, workspace, environment,
-and service metadata. Railway's remote MCP does not accept project tokens; retain the pinned CLI
-only for explicitly approved local/operator workflows.
+report cost or mutation risk before any write. Prefer Railway's installed official app and complete
+browser OAuth without static tokens or headers. If the official app is unavailable, an
+Enterprise/Edu admin can enable Developer Mode and create a workspace-managed custom app named
+`Railway — Database` at Railway's official `https://mcp.railway.com` endpoint, then run Scan Tools
+and complete OAuth. Authorize only workspace `bigsimmo's Projects` and project `Database`
+(`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) where Railway offers that choice, restart the MCP client
+after consent, and reduce identity/status results to non-secret account, project, workspace,
+environment, and service metadata. Railway's remote MCP does not accept project tokens; install
+Railway CLI separately only for explicitly approved local/operator workflows.
 
 The Supabase MCP entry is scoped to production project `sjrfecxgysukkwxsowpy`, forces
 `read_only=true`, and exposes only documentation/development metadata tools. The database and
@@ -286,14 +288,13 @@ and storage mutations require a separately configured non-production project or 
 broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
 
-Project `.codex/config.toml` is the checked-in Codex MCP template. Its URL-only entries
-remain `enabled = false` so offline tasks do not initialize providers. In the connected profile,
-setup copies the audited Railway and constrained Supabase URLs into its managed
-`$CODEX_HOME/config.toml` block with `enabled = true`; the first use completes browser OAuth.
-Hosted ChatGPT still requires the matching installed plugin/connector. In either host, start a fresh
-task after consent and verify the actual callable inventory.
-The root `.mcp.json` is a cross-client template and static allowlist only. It does not prove hosted
-Cloud availability unless a plugin manifest or host explicitly imports it. Context7 / library-docs
+Project `.codex/config.toml` is the checked-in Codex Desktop/CLI MCP template. Its URL-only entries
+remain `enabled = false`; a trusted local operator can enable `railway` and run
+`codex mcp login railway`. Setup does not copy any MCP server into `$CODEX_HOME`. Hosted ChatGPT and
+Codex Cloud require the separately installed/authenticated workspace app. Start a fresh task after
+consent and verify the actual callable inventory.
+The root `.mcp.json` is a cross-client Desktop/CLI template and static allowlist only. It does not
+prove hosted Cloud availability. Context7 / library-docs
 MCP is Cursor-side (`.cursor/mcp.json` or a host-injected connector), not part of this Codex Cloud
 Railway + Supabase allowlist.
 
@@ -322,15 +323,21 @@ copying credentials into the checkout.
    maintenance as
    `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
    Do not add provider keys, database URLs, service-role credentials, test-user credentials, or
-   `ALLOW_PROVIDER_TESTS`. Connected setup writes only the audited Railway/Supabase endpoints
-   into the managed host MCP block; it never writes OAuth tokens.
-2. **Grant the host integrations.** Authorize the Codex GitHub connector for
+   `ALLOW_PROVIDER_TESTS`. Connected setup writes only the managed shell-environment policy; it
+   never registers hosted MCP apps or writes OAuth tokens.
+2. **Grant the host integrations.** Install Railway's official app and complete Railway OAuth. If it
+   is unavailable, an Enterprise/Edu workspace admin enables Developer Mode, creates
+   `Railway — Database` with `https://mcp.railway.com`, runs Scan Tools, and publishes access only
+   to a dedicated RBAC group containing the user. Authorize the Codex GitHub connector for
    `BigSimmo/Database` with repository write access. Complete Railway OAuth only for workspace
    `bigsimmo's Projects` and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`). Complete
    Supabase OAuth only for the organization containing `Clinical KB Database`; retain project ref
    `sjrfecxgysukkwxsowpy`, `read_only=true`, and the docs/development-only feature allowlist. Do not broaden the
    production Supabase MCP to write access. Enable Figma or Sentry only for a task that names that
-   provider; their write-capable tools remain approval-gated.
+   provider; their write-capable tools remain approval-gated. Railway's OAuth metadata advertises
+   `offline_access`; verify the scanned consent includes it and prove refresh behavior with a second
+   read-only call after the one-hour access-token lifetime. If no refresh token is issued, require
+   reauthentication instead of adding a token workaround.
 3. **Start a fresh task.** OAuth tools and environment values are fixed when the task starts. A
    setup rerun inside an already-running offline task can validate a generated connected profile,
    but it cannot inject host MCP tools or retroactively grant OAuth. Restart the MCP client or open
@@ -345,7 +352,13 @@ copying credentials into the checkout.
 5. **Prove each provider read-only.** Use the tools exposed by the fresh host session, not shell
    tokens. For GitHub, read repository metadata and confirm `BigSimmo/Database` plus the intended
    identity. For Railway, read workspace/project/service metadata and confirm the IDs above without
-   triggering a deployment. For Supabase, read project/schema metadata and confirm the pinned ref
+   triggering a deployment. Record the exact Railway inventory. Set the app to allow reads and ask
+   before changes. In an Enterprise/Edu workspace, also allow `whoami`, `list-projects`,
+   `list-services`, `list-feature-flags`, and `get-feature-flag`; disable `create-project`,
+   `set-feature-flag`, `delete-feature-flag`, `redeploy`, `accept-deploy`, and `railway-agent`, with
+   newly discovered actions disabled by default. Personal workspaces may expose only the global
+   read-versus-change approval control; that does not prove tool-level RBAC. For Supabase, read
+   project/schema metadata and confirm the pinned ref
    without querying clinical row contents. Report only non-secret identity and status metadata.
    OpenAI has no generic connected-profile credential: leave `RAG_PROVIDER_MODE=offline` until a
    separately approved paid canary or protected workflow supplies its own credential boundary.
@@ -371,15 +384,15 @@ copying credentials into the checkout.
 
 Acceptance is complete only when evidence distinguishes these independent capabilities:
 
-| Capability              | Required evidence                                                                    | Not sufficient                                                     |
-| ----------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| Connected boundary      | Cloud environment and runtime PASS lines with provider variables absent              | Editing the generated profile in one running task                  |
-| GitHub read/write       | Connector repository read plus verified publication of the exact task commit         | Repository discovery, `make_pr` metadata, or a local commit        |
-| Railway read            | OAuth-backed metadata for the expected workspace and project                         | Installed Railway CLI alone                                        |
-| Supabase read           | OAuth-backed metadata for the pinned read-only project                               | A configured MCP URL without completed OAuth                       |
-| OpenAI/live application | Explicitly approved paid canary or protected authenticated workflow                  | Setting `RAG_PROVIDER_MODE=auto` without credentials               |
-| Local application       | Project identity plus the reported health status from the `ensure` URL               | Assuming a localhost port or treating demo 503 as production-ready |
-| Capacity                | Full intended checks complete without OOM, or a host-level capacity change is proven | Swap size by itself                                                |
+| Capability              | Required evidence                                                                      | Not sufficient                                                     |
+| ----------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Connected boundary      | Cloud environment and runtime PASS lines with provider variables absent                | Editing the generated profile in one running task                  |
+| GitHub read/write       | Connector repository read plus verified publication of the exact task commit           | Repository discovery, `make_pr` metadata, or a local commit        |
+| Railway read            | Exact callable hosted-app tools plus OAuth metadata for the expected workspace/project | Installed Railway CLI or repository MCP config alone               |
+| Supabase read           | OAuth-backed metadata for the pinned read-only project                                 | A configured MCP URL without completed OAuth                       |
+| OpenAI/live application | Explicitly approved paid canary or protected authenticated workflow                    | Setting `RAG_PROVIDER_MODE=auto` without credentials               |
+| Local application       | Project identity plus the reported health status from the `ensure` URL                 | Assuming a localhost port or treating demo 503 as production-ready |
+| Capacity                | Full intended checks complete without OOM, or a host-level capacity change is proven   | Swap size by itself                                                |
 
 If a capability still fails, record the exact sanitized failure and its owner: repository setup,
 Codex environment/OAuth, provider RBAC, GitHub installation, protected workflow, or host capacity.

@@ -16,7 +16,6 @@ import { providerEnvironmentKeys } from "./test-environment.mjs";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const expectedCloudCliVersions = Object.freeze({
-  railway: "5.30.4",
   codex: "0.146.0",
 });
 
@@ -34,7 +33,7 @@ export const expectedCodexProjectMcpServers = Object.freeze({
     url: "https://mcp.figma.com/mcp",
     approvalMode: "writes",
   }),
-  railway_cloud: Object.freeze({
+  railway: Object.freeze({
     url: expectedMcpConfiguration.railwayUrl,
     approvalMode: "writes",
   }),
@@ -151,8 +150,8 @@ function validateSupabaseMcpUrl(urlString, label, errors) {
 }
 
 /**
- * Project `.codex/config.toml` must register the approved MCP surface as disabled
- * URL-only templates so offline/ordinary Codex hosts do not initialize providers.
+ * Project `.codex/config.toml` must register the approved Desktop/CLI MCP surface
+ * as disabled URL-only templates. Hosted tools require separately installed apps.
  * @param {string} text
  * @returns {string[]}
  */
@@ -172,7 +171,7 @@ export function validateCodexProjectMcpConfiguration(text) {
     const expected = expectedCodexProjectMcpServers[name];
 
     if (server.enabled !== false) {
-      errors.push(`${label} must set enabled = false (host/connected layers opt in).`);
+      errors.push(`${label} must set enabled = false (trusted Desktop/CLI operators opt in).`);
     }
     if (server.default_tools_approval_mode !== expected.approvalMode) {
       const reason =
@@ -294,16 +293,6 @@ export function validateCodexCloudEnvironment(env = process.env) {
   return errors;
 }
 
-/** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
-export function railwayReadCapability(env = process.env, cliAvailable = false) {
-  return {
-    cliAvailable,
-    dedicatedCredentialPresent: Boolean(env.RAILWAY_API_TOKEN),
-    projectCredentialPresent: Boolean(env.RAILWAY_TOKEN),
-    cliTokenAuthReady: cliAvailable && Boolean(env.RAILWAY_API_TOKEN),
-  };
-}
-
 export function parseMcpServerMetadata(text) {
   const parsed = JSON.parse(text);
   const servers = parsed?.mcpServers;
@@ -347,17 +336,17 @@ export function validateMcpConfiguration(text) {
 
   const serverNames = Object.keys(servers).sort();
   if (JSON.stringify(serverNames) !== JSON.stringify(["railway", "supabase"])) {
-    errors.push("Cloud MCP configuration must contain only Railway and Supabase.");
+    errors.push("Desktop/CLI .mcp.json must contain only Railway and Supabase.");
   }
   for (const name of ["railway", "supabase"]) {
     if (servers[name]?.env !== undefined || servers[name]?.headers !== undefined) {
-      errors.push(`${name} MCP must use hosted OAuth without embedded environment variables or headers.`);
+      errors.push(`${name} MCP must use OAuth without embedded environment variables or headers.`);
     }
   }
 
   const railway = servers.railway;
   if (railway?.type !== "http" || railway?.url !== expectedMcpConfiguration.railwayUrl.replace(/\/$/, "")) {
-    errors.push("Railway MCP must use the hosted OAuth endpoint.");
+    errors.push("Railway MCP must use Railway's official remote OAuth endpoint.");
   }
 
   const supabase = servers.supabase;
@@ -410,7 +399,6 @@ function commandAvailable(command) {
 /** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
 export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   const origin = options.origin ?? inspectOriginRemote(repoRoot);
-  const railway = railwayReadCapability(env, options.railwayCliAvailable ?? commandAvailable("railway"));
   const codexCliAvailable = options.codexCliAvailable ?? commandAvailable("codex");
   const safeGitHelper = options.safeGitHelper ?? hasSafeGitHubCredentialHelper(repoRoot);
   const mcpServers = options.mcpServers ?? parseMcpServerMetadata(read(".mcp.json"));
@@ -423,11 +411,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
     `PLAYWRIGHT_OFFLINE_MODE=${approvedModeValue(env.PLAYWRIGHT_OFFLINE_MODE, ["true", "false"])}`,
   ];
   for (const name of providerCredentialVariables) lines.push(`${name}.present=${Boolean(env[name])}`);
-  lines.push(`railway.cli_available=${railway.cliAvailable}`);
-  lines.push(`railway.dedicated_credential_present=${railway.dedicatedCredentialPresent}`);
-  lines.push(`railway.project_credential_present=${railway.projectCredentialPresent}`);
-  lines.push(`railway.cli_token_auth_ready=${railway.cliTokenAuthReady}`);
-  lines.push("mcp.runtime_tool_inventory=host-provided-unverified-by-repository");
+  lines.push("hosted_app.inventory=external-unverified-until-fresh-task");
   lines.push(`codex.cli_available=${codexCliAvailable}`);
   lines.push(pythonWorkerVersionLine(env.CODEX_CLOUD_OCR_PYTHON));
   lines.push(`git.origin_configured=${origin.configured}`);
@@ -442,7 +426,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   lines.push(`git.checkout_freshness=${checkout.freshness}`);
   for (const server of mcpServers) {
     lines.push(
-      `mcp.server=${server.name} type=${server.type} command=${server.command} endpoint=${server.endpoint} query_names=${server.queryNames.join(",") || "none"} environment_names=${server.environmentNames.join(",") || "none"}`,
+      `desktop_cli_mcp.template=${server.name} type=${server.type} command=${server.command} endpoint=${server.endpoint} query_names=${server.queryNames.join(",") || "none"} environment_names=${server.environmentNames.join(",") || "none"}`,
     );
   }
   return lines;
@@ -648,18 +632,9 @@ export function validateCodexCloudSetup() {
     [/CODEX_CLOUD_OCR_PYTHON/, "Cloud setup must expose the Python worker environment."],
     [/playwright install --with-deps chromium firefox webkit/, "Cloud setup must install every browser."],
     [/CODEX_CLOUD_ACCESS_PROFILE/, "Cloud setup must support explicit access profiles."],
-    [
-      /mcp_servers\.railway_connected/,
-      "Connected Cloud setup must enable the hosted Railway MCP server in the managed host config.",
-    ],
-    [
-      /mcp_servers\.supabase_connected/,
-      "Connected Cloud setup must enable the constrained Supabase MCP server in the managed host config.",
-    ],
     [/RAG_PROVIDER_MODE=offline/, "Cloud setup must default RAG to offline mode."],
     [/unset OPENAI_API_KEY/, "Cloud setup must remove raw provider variables from the agent shell."],
     [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
-    [/@railway\/cli/, "Cloud setup must install the Railway CLI."],
     [/@openai\/codex/, "Cloud setup must install the Codex CLI."],
     [/ensure-codex-cloud-git-remote\.mjs/, "Cloud setup must restore a safe origin remote."],
     [/check:codex-cloud -- --runtime/, "Cloud setup must run runtime acceptance."],
@@ -681,14 +656,17 @@ export function validateCodexCloudSetup() {
   ]) {
     requireMatch(errors, setup, pattern, message);
   }
-  if (!setup.includes(`railway_cli_version="${expectedCloudCliVersions.railway}"`)) {
-    errors.push("Cloud setup Railway CLI version must match the checked runtime contract.");
-  }
   if (!setup.includes(`codex_cli_version="${expectedCloudCliVersions.codex}"`)) {
     errors.push("Cloud setup Codex CLI version must match the checked runtime contract.");
   }
   for (const name of providerCredentialVariables) {
     if (!setup.includes(name)) errors.push(`Cloud setup must handle provider environment variable ${name}.`);
+  }
+  if (/printf[^\n]*mcp_servers\./.test(setup)) {
+    errors.push("Cloud setup must not generate MCP registrations; hosted apps are external to the repository.");
+  }
+  if (setup.includes("@railway/cli") || setup.includes('setup_step="railway-cli"')) {
+    errors.push("Cloud setup must not install or invoke Railway CLI; hosted access comes from the authenticated app.");
   }
   const providerScrubIndex = setup.indexOf("unset OPENAI_API_KEY");
   const accessProfileBranchIndex = setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]');
@@ -849,7 +827,6 @@ export async function validateCodexCloudRuntime(env = process.env) {
   for (const error of [
     commandVersion("deno", ["--version"], /^deno 2\./m),
     commandVersion("tesseract", ["--version"], /^tesseract \d+\./m),
-    commandVersion("railway", ["--version"], exactVersionPattern(expectedCloudCliVersions.railway)),
     commandVersion("codex", ["--version"], exactVersionPattern(expectedCloudCliVersions.codex)),
   ]) {
     if (error) errors.push(error);
