@@ -635,16 +635,33 @@ function staticToolsAvailable(root) {
 }
 
 /**
+ * Structured admission-busy signal from `scripts/run-heavy.mjs`. Prefer this
+ * over prose — tsc/eslint output can quote the busy strings (e.g.
+ * `tests/test-runner-safety.test.ts`) and false-pass a real failure.
+ */
+export const HEAVY_RUN_ADMISSION_BUSY_EXIT = 75;
+export const HEAVY_RUN_ADMISSION_BUSY_MARKER = "DATABASE_HEAVY_RUN_ADMISSION_BUSY";
+
+/**
  * Match the busy / capacity-full wording from `scripts/test-run-lock.mjs`
  * (`busyMessage` for exclusive + shared leases, plus the initializing retry).
  * Shared-slot exhaustion says "Database focused-test capacity is full", not
  * "heavyweight" — that string must fail open here or pushes are rejected as
- * fake typecheck failures.
+ * fake typecheck failures. Prefer `isCoordinatorBusyResult` when a process
+ * result is available.
  */
 export function isCoordinatorBusyOutput(output) {
   return /Database heavyweight|Database focused-test capacity is full|coordinator is (?:busy|being initialized)|retry shortly/i.test(
     output ?? "",
   );
+}
+
+/** Exported for tests: structured admission-busy detection (exit code or marker). */
+export function isCoordinatorBusyResult(error) {
+  if (!error) return false;
+  if (error.status === HEAVY_RUN_ADMISSION_BUSY_EXIT) return true;
+  const output = `${error.stdout ?? ""}${error.stderr ?? ""}${error.message ?? ""}`;
+  return output.includes(HEAVY_RUN_ADMISSION_BUSY_MARKER);
 }
 
 /**
@@ -670,7 +687,7 @@ function runStaticCheck(root, script, forwarded, label) {
     return { ok: true };
   } catch (error) {
     const output = `${error?.stdout ?? ""}${error?.stderr ?? ""}`.trim();
-    if (isCoordinatorBusyOutput(output) || isCoordinatorBusyOutput(error?.message)) {
+    if (isCoordinatorBusyResult(error) || isCoordinatorBusyOutput(output) || isCoordinatorBusyOutput(error?.message)) {
       return { ok: true, busy: true, output: output || String(error?.message ?? error) };
     }
     return { ok: false, label, output };

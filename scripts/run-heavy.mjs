@@ -35,13 +35,32 @@ if (typecheckBuildInfo) mkdirSync(path.dirname(typecheckBuildInfo), { recursive:
 const effectiveForwarded = typecheckBuildInfo ? [...forwarded, "--tsBuildInfoFile", typecheckBuildInfo] : forwarded;
 const configuredWaitTimeoutMs = Number(process.env.HEAVY_RUN_WAIT_TIMEOUT_MS);
 const waitTimeoutMs = Number.isFinite(configuredWaitTimeoutMs) ? configuredWaitTimeoutMs : undefined;
-const lock = acquireHeavyRunLock({
-  projectRoot,
-  command: `npm run ${script}`,
-  forceLockRelease,
-  mode,
-  ...(waitTimeoutMs === undefined ? {} : { waitTimeoutMs }),
-});
+/** Keep in sync with `HEAVY_RUN_ADMISSION_BUSY_*` in `scripts/guard-push.mjs`. */
+const ADMISSION_BUSY_EXIT = 75;
+const ADMISSION_BUSY_MARKER = "DATABASE_HEAVY_RUN_ADMISSION_BUSY";
+const ADMISSION_BUSY_PATTERN =
+  /Database (?:focused-test capacity is full|heavyweight)|coordinator is (?:busy|being initialized)|retry shortly/i;
+
+let lock;
+try {
+  lock = acquireHeavyRunLock({
+    projectRoot,
+    command: `npm run ${script}`,
+    forceLockRelease,
+    mode,
+    ...(waitTimeoutMs === undefined ? {} : { waitTimeoutMs }),
+  });
+} catch (error) {
+  const message = String(error?.message ?? error);
+  if (ADMISSION_BUSY_PATTERN.test(message)) {
+    // Structured signal for callers (guard-push): tool output can quote the
+    // busy prose and false-match if detection is prose-only.
+    console.error(ADMISSION_BUSY_MARKER);
+    console.error(message);
+    process.exit(ADMISSION_BUSY_EXIT);
+  }
+  throw error;
+}
 
 function runNpmScript() {
   const npmExecPath = process.env.npm_execpath;
