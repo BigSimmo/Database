@@ -61,7 +61,6 @@ import {
 } from "@/components/clinical-dashboard/document-ui";
 import {
   cn,
-  EmptyState,
   floatingControl,
   LoadingPanel,
   metadataPill,
