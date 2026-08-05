@@ -238,6 +238,7 @@ function StagedAnswerResultSurfaceImpl({
                 one kind that carries no count, hence the `in` guard. */}
             <VerificationNotice
               state={answerState.kind}
+              presentation="responsive-compact"
               // From the quality tier, never from the state kind: #207
               // precedence lets stale/partial/ungrounded outrank source_only, so
               // keying on the kind announced "AI-generated" directly above the
@@ -300,7 +301,11 @@ function StagedAnswerResultSurfaceImpl({
             ) : null}
 
             {crossModeQueries?.length && onCrossModeSearch ? (
-              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} />
+              <CrossModeLinksSection
+                queries={crossModeQueries}
+                onModeSearch={onCrossModeSearch}
+                variant="responsive-compact"
+              />
             ) : null}
 
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (

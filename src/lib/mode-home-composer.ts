@@ -5,8 +5,26 @@ export const desktopPageComposerSlotId = "desktop-page-search-composer-slot";
 export const desktopComposerSlotReadyAttr = "data-composer-slot-ready";
 export const desktopComposerSlotReadyValue = "true";
 
+/**
+ * Mode-home hero slots SSR with this attribute so settled composer geometry is
+ * reserved before the portal attaches (CLS). MasterSearchHeader clears it when
+ * the home media query does not match or portal adoption falls back, so a never-
+ * filled phone slot collapses instead of leaving a permanent empty band.
+ */
+export const modeHomeComposerReserveAttr = "data-composer-reserve";
+export const modeHomeComposerReservePendingValue = "pending";
+
 export function isDesktopComposerSlotReady(slot: Element | null | undefined): boolean {
   return slot?.getAttribute(desktopComposerSlotReadyAttr) === desktopComposerSlotReadyValue;
+}
+
+export function setModeHomeComposerReservePending(slot: Element | null | undefined, pending: boolean): void {
+  if (!slot) return;
+  if (pending) {
+    slot.setAttribute(modeHomeComposerReserveAttr, modeHomeComposerReservePendingValue);
+  } else {
+    slot.removeAttribute(modeHomeComposerReserveAttr);
+  }
 }
 
 /** Mobile/tablet search-composer slot for differentials compare actions. */

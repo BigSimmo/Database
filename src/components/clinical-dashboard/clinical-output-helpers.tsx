@@ -212,7 +212,14 @@ function compactEvidenceCell(value: string | null | undefined, max = 140) {
 
 export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
   if (rows.length === 0) {
-    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title={emptyStates.evidenceMap.title}
+        body={emptyStates.evidenceMap.body}
+        live="polite"
+      />
+    );
   }
 
   const tableRows = rows.map((row) => [
