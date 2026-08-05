@@ -22,6 +22,8 @@ const providerEnvironmentKeys = Object.freeze([
   "E2E_AUTH_ENABLED",
   "E2E_USER_EMAIL",
   "E2E_USER_PASSWORD",
+  "SENTRY_AUTH_TOKEN",
+  "SENTRY_DSN",
   "ALLOW_PROVIDER_TESTS",
 ]);
 
@@ -30,6 +32,14 @@ const offlineUrlValues = Object.freeze({
   SUPABASE_URL: "http://127.0.0.1:1",
   SUPABASE_DB_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
   DATABASE_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
+});
+
+// Feature flags, not credentials: force them off in offline wrappers without
+// joining the credential inventory (which would also demand setup/raw-env
+// scrubbing for names that never carry a secret).
+const offlineSentryControlFlags = Object.freeze({
+  SENTRY_ENABLE_LOGS: "false",
+  SENTRY_SEND_TEST_LOG: "false",
 });
 
 /**
@@ -41,7 +51,19 @@ export function offlineTestEnvironment(source = process.env, overrides = {}) {
   // Explicit values both scrub inherited secrets and prevent Next/Vite from
   // repopulating the same names from a repository-local env file. URL-shaped
   // settings use inert loopback values so the runtime env schema still parses.
-  for (const key of providerEnvironmentKeys) environment[key] = offlineUrlValues[key] ?? "";
+  //
+  // SENTRY_DSN is deleted rather than blanked or faked, and the distinction
+  // matters in both directions: a blank string fails the runtime schema's
+  // `.url()`, while an inert loopback URL is truthy and would keep the app's
+  // Sentry gates ENABLED for the whole offline run — the opposite of the intent.
+  for (const key of providerEnvironmentKeys) {
+    if (key === "SENTRY_DSN") {
+      delete environment[key];
+      continue;
+    }
+    environment[key] = offlineUrlValues[key] ?? "";
+  }
+  Object.assign(environment, offlineSentryControlFlags);
 
   return {
     ...environment,
