@@ -14,12 +14,6 @@ export const Underlined = () => (
   </div>
 );
 
-export const Segmented = () => (
-  <div className="w-[32rem]">
-    <Tabs label="Answer sections" variant="segmented" items={items} value="sources" onChange={() => {}} />
-  </div>
-);
-
 export const WithPanel = () => (
   <div className="w-[32rem]">
     <Tabs label="Answer sections" items={items} value="sources" onChange={() => {}}>

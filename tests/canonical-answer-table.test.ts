@@ -47,7 +47,7 @@ describe("CanonicalAnswerTable", () => {
     expect(markup).not.toContain("Clozapine Monitoring Guideline, page 4");
   });
 
-  it("renders every canonical table as a separately labelled region", () => {
+  it("renders every canonical table with its own semantic caption", () => {
     const secondTable: CanonicalAnswerTableRecord = {
       ...table,
       id: "table-2",
@@ -63,8 +63,8 @@ describe("CanonicalAnswerTable", () => {
     const markup = renderToStaticMarkup(createElement(CanonicalAnswerTables, { tables: [table, secondTable] }));
 
     expect(markup).toContain('aria-label="Clinical tables"');
-    expect(markup).toContain('aria-label="ANC actions"');
-    expect(markup).toContain('aria-label="Metabolic monitoring"');
+    expect(markup).toContain('<caption class="sr-only">ANC actions</caption>');
+    expect(markup).toContain('<caption class="sr-only">Metabolic monitoring</caption>');
     expect(markup).toContain("Withhold and seek specialist advice");
     expect(markup).toContain("HbA1c");
     expect(markup).toContain("At baseline and review");

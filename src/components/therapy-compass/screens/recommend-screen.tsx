@@ -53,7 +53,7 @@ export function RecommendScreen() {
           onChange={(e) => b.setRecQuery(e.target.value)}
           className="w-full min-h-[74px] py-[13px] px-[15px] border border-[color:var(--border-strong)] rounded-lg bg-[color:var(--surface)] text-[color:var(--text)] text-base-minus leading-normal resize-y"
         />
-        <div className="text-2xs font-bold tracking-eyebrow text-[color:var(--text-soft)] mt-5 mx-0 mb-2.5">
+        <div className="text-2xs font-bold tracking-eyebrow text-[color:var(--text-muted)] mt-5 mx-0 mb-2.5">
           QUICK CONSTRAINTS
         </div>
         <div className="flex flex-wrap gap-[9px]">
@@ -211,8 +211,8 @@ export function RecommendScreen() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 mt-[18px] text-xs text-[color:var(--text-soft)]">
-            <ShieldIcon size={15} />
+          <div className="flex items-center gap-2 mt-[18px] text-xs text-[color:var(--text-muted)]">
+            <ShieldIcon size={15} className="text-[color:var(--decoration-soft)]" />
             Ranking is source-grounded and advisory. Confirm fit, cautions and review status before clinical use.
           </div>
         </>
@@ -249,7 +249,7 @@ function MatchCell({
 function ColMini({ eyebrow, text }: { eyebrow: string; text: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-3xs font-bold tracking-[0.04em] text-[color:var(--text-soft)] mb-1">{eyebrow}</div>
+      <div className="text-3xs font-bold tracking-[0.04em] text-[color:var(--text-muted)] mb-1">{eyebrow}</div>
       <p className="m-0 text-xs leading-normal text-[color:var(--text-muted)] overflow-hidden line-clamp-2">{text}</p>
     </div>
   );

@@ -88,6 +88,10 @@ describe("Therapy Compass responsive contract", () => {
     expect(modeHomeTemplateSource).toContain("sm:rounded-lg sm:border");
     expect(modeHomeTemplateSource).not.toContain("lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
     expect(modeHomeTemplateSource).toContain("sm:flex-wrap");
+    // The shared 8px gap keeps Therapy's five common searches on one 960px
+    // row before and after the Geist font swap. A 10px desktop override made
+    // the final row 961px, wrapped one pill, and produced desktop CLS 0.126.
+    expect(modeHomeTemplateSource).not.toContain("sm:gap-2.5");
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     expect(homeSource).toContain("ModeHomeVerificationFooter");
     expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(1);

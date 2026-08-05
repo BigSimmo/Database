@@ -15,7 +15,8 @@ row. A value restated here is a defect in this document.
   family names repo-side (DECISIONS §Resolution log).
 
 **Owner key:** `@theme` — the `@theme` block of `src/app/globals.css` (generates Tailwind
-utilities) · `live` — `globals.css` `:root` / `.dark` · `v2` — branch `ckb-v2-tokens.css` ·
+utilities) · `live` — `globals.css` `:root` / `.dark` compatibility layer · `v2` — target
+layer `ckb-v2-tokens.css` ·
 `design` — design-project copy only · `planned` — nowhere yet.
 
 ---

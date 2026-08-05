@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Info } from "lucide-react";
 import { createRef, useState } from "react";
@@ -6,11 +6,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AnswerFooter, DoseLine } from "@/components/ui/answer-card";
 import { Button } from "@/components/ui/button";
-import { Citation } from "@/components/ui/citation";
+import { Citation, CitationList } from "@/components/ui/citation";
 import { Chip } from "@/components/ui/chip";
 import { Checkbox, RadioGroup } from "@/components/ui/choice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Disclosure } from "@/components/ui/disclosure";
+import { OverlayPortal, OverlayRoot } from "@/components/ui/overlay-root";
 import { Pagination } from "@/components/ui/pagination";
+import { Progress } from "@/components/ui/progress";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { SearchField, TextField } from "@/components/ui/text-field";
@@ -34,6 +38,14 @@ describe("Button", () => {
   it("defaults to type=button so it cannot submit a surrounding form by accident", () => {
     render(<Button>Save</Button>);
     expect(screen.getByRole("button")).toHaveAttribute("type", "button");
+  });
+
+  it("uses semantic danger hover and active tokens without brightness filters", () => {
+    render(<Button variant="danger">Delete source</Button>);
+    const classes = screen.getByRole("button").className;
+    expect(classes).toContain("--danger-solid-hover");
+    expect(classes).toContain("--danger-solid-active");
+    expect(classes).not.toContain("brightness-");
   });
 });
 
@@ -125,6 +137,76 @@ describe("Chip", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remove Current only" }));
     expect(onRemove).toHaveBeenCalledOnce();
   });
+
+  it("pins compact to 24px/11px and standard to 28px/12px while the remove target stays inside the chip", () => {
+    render(
+      <>
+        <Chip
+          size="compact"
+          appearance={{ kind: "category", tone: "source" }}
+          onRemove={() => {}}
+          removeLabel="Remove source"
+        >
+          Source
+        </Chip>
+        <Chip size="standard">Long standard content</Chip>
+      </>,
+    );
+
+    const [compact, standard] = screen.getAllByTestId("chip");
+    expect(compact).toHaveAttribute("data-size", "compact");
+    expect(compact).toHaveAttribute("data-appearance", "category");
+    expect(compact).toHaveAttribute("data-wrap", "false");
+    expect(compact).toHaveClass("h-6", "text-2xs");
+    expect(compact).not.toHaveClass("min-h-6");
+    expect(standard).toHaveAttribute("data-size", "standard");
+    expect(standard).toHaveClass("h-7", "text-xs");
+    expect(standard).not.toHaveClass("min-h-7");
+    expect(within(standard).getByText("Long standard content")).toHaveClass("max-h-full", "overflow-hidden");
+    const remove = screen.getByRole("button", { name: "Remove source" });
+    expect(remove).toHaveClass("h-full", "w-8");
+    expect(remove).not.toHaveClass("h-tap", "w-tap", "max-w-full");
+  });
+
+  it("opts into wrapping for long clinical tag phrases without changing default density", () => {
+    render(
+      <Chip size="standard" wrap>
+        Persistent depressive disorder with anxious distress
+      </Chip>,
+    );
+
+    const chip = screen.getByTestId("chip");
+    expect(chip).toHaveAttribute("data-wrap", "true");
+    expect(chip).toHaveClass("min-h-7");
+    expect(chip).not.toHaveClass("h-7");
+    expect(within(chip).getByText("Persistent depressive disorder with anxious distress")).toHaveClass(
+      "whitespace-normal",
+      "break-words",
+    );
+  });
+
+  it("keeps the remove control tappable when a wrapping tag has no fixed height", () => {
+    render(
+      <Chip
+        size="standard"
+        wrap
+        onRemove={() => {}}
+        removeLabel="Remove persistent depressive disorder with anxious distress"
+      >
+        Persistent depressive disorder with anxious distress
+      </Chip>,
+    );
+
+    const chip = screen.getByTestId("chip");
+    const track = chip.querySelector("span.relative");
+    expect(track).toHaveClass("min-h-5", "self-stretch");
+    expect(track).not.toHaveClass("h-full");
+    const remove = screen.getByRole("button", {
+      name: "Remove persistent depressive disorder with anxious distress",
+    });
+    expect(remove).toHaveClass("min-h-5", "h-full", "w-8");
+    expect(remove).not.toHaveClass("max-w-full");
+  });
 });
 
 describe("Citation", () => {
@@ -139,6 +221,139 @@ describe("Citation", () => {
     render(<Citation index={2} label="NICE" interactive={false} />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByTestId("citation")).toHaveAttribute("aria-label", expect.stringContaining("NICE"));
+  });
+
+  it("keeps list identity stable when citations reorder", () => {
+    const first = {
+      id: "source-ranzcp-12",
+      citation: <Citation index={1} label="RANZCP" locator="p. 12" interactive={false} />,
+    };
+    const second = {
+      id: "source-nice-4",
+      citation: <Citation index={2} label="NICE" locator="p. 4" interactive={false} />,
+    };
+    const { rerender } = render(<CitationList citations={[first, second]} />);
+
+    rerender(<CitationList citations={[second, first]} />);
+
+    expect(screen.getAllByRole("listitem").map((item) => item.dataset.citationId)).toEqual([
+      "source-nice-4",
+      "source-ranzcp-12",
+    ]);
+  });
+});
+
+describe("Disclosure / Progress", () => {
+  it("uses the contextual disclosure heading level", () => {
+    render(
+      <Disclosure title="Monitoring" headingLevel={4}>
+        Review ECG and electrolytes.
+      </Disclosure>,
+    );
+    expect(screen.getByRole("heading", { level: 4, name: "Monitoring" })).toBeVisible();
+  });
+
+  it("animates determinate progress with scaleX rather than width", () => {
+    render(<Progress value={42} label="Indexing" />);
+    const fill = screen.getByTestId("progress-fill");
+    expect(fill).toHaveStyle({ transform: "scaleX(0.42)", transformOrigin: "left" });
+    expect(fill.style.width).toBe("");
+  });
+});
+
+describe("SegmentedControl", () => {
+  const options = [
+    { value: "brief", label: "Brief" },
+    { value: "standard", label: "Standard", disabled: true },
+    { value: "comprehensive", label: "Comprehensive" },
+  ] as const;
+
+  function Harness() {
+    const [value, setValue] = useState("brief");
+    return <SegmentedControl label="Answer style" value={value} onChange={setValue} options={options} layout="equal" />;
+  }
+
+  it("roves one radio through enabled options with wrap and disabled skipping", async () => {
+    render(<Harness />);
+    const radios = screen.getAllByRole("radio");
+    expect(radios.filter((radio) => radio.tabIndex === 0)).toHaveLength(1);
+    radios[0].focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "Comprehensive" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "Brief" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.keyboard("{End}");
+    expect(screen.getByRole("radio", { name: "Comprehensive" })).toHaveFocus();
+  });
+
+  it("keeps a controlled disabled value checked instead of remapping to the first enabled option", () => {
+    render(
+      <SegmentedControl
+        label="Answer style"
+        value="standard"
+        onChange={() => {
+          throw new Error("onChange must not fire while displaying a disabled controlled value");
+        }}
+        options={options}
+        layout="equal"
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "Standard" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Brief" })).toHaveAttribute("aria-checked", "false");
+    // Focus can still land on an enabled option when the checked radio is disabled.
+    expect(screen.getByRole("radio", { name: "Brief" }).tabIndex).toBe(0);
+    expect(screen.getByRole("radio", { name: "Standard" }).tabIndex).toBe(-1);
+  });
+});
+
+describe("OverlayRoot", () => {
+  it("provides named layer hosts for portalled consumers", async () => {
+    render(
+      <>
+        <OverlayRoot />
+        <OverlayPortal layer="popover">
+          <span>Portalled hint</span>
+        </OverlayPortal>
+      </>,
+    );
+
+    const host = document.querySelector('[data-overlay-host="popover"]');
+    expect(host).not.toBeNull();
+    expect((await screen.findByText("Portalled hint")).closest('[data-overlay-host="popover"]')).toBe(host);
+  });
+
+  it("re-portals when the real OverlayRoot host replaces a fallback host", async () => {
+    const { rerender } = render(
+      <OverlayPortal layer="popover">
+        <span>Portalled hint</span>
+      </OverlayPortal>,
+    );
+
+    const fallbackHost = document.querySelector('[data-overlay-host="popover"]');
+    expect(fallbackHost).not.toBeNull();
+    expect(fallbackHost?.closest('[data-overlay-root="fallback"]')).not.toBeNull();
+    expect((await screen.findByText("Portalled hint")).closest('[data-overlay-host="popover"]')).toBe(fallbackHost);
+
+    rerender(
+      <>
+        <OverlayRoot />
+        <OverlayPortal layer="popover">
+          <span>Portalled hint</span>
+        </OverlayPortal>
+      </>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const rootHost = document.querySelector('[data-overlay-root="true"] [data-overlay-host="popover"]');
+    expect(rootHost).not.toBeNull();
+    expect((await screen.findByText("Portalled hint")).closest('[data-overlay-host="popover"]')).toBe(rootHost);
+    // After consumers leave the synthetic host, the fallback root is removed so
+    // it does not linger for the page lifetime.
+    expect(document.querySelector('[data-overlay-root="fallback"]')).toBeNull();
   });
 });
 
@@ -357,6 +572,44 @@ describe("Tooltip", () => {
     trigger.focus();
     const tooltip = await screen.findByRole("tooltip");
     expect(trigger.getAttribute("aria-describedby")).toBe(tooltip.id);
+    await waitFor(() => {
+      expect(tooltip.style.visibility).toBe("visible");
+    });
+  });
+
+  it("stays invisible at the placeholder origin until geometry is measured", async () => {
+    const pendingFrames: Array<(time: number) => void> = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      pendingFrames.push(callback as (time: number) => void);
+      return 1;
+    });
+    const caf = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    try {
+      render(
+        <Tooltip content="Measured placement only.">
+          <button type="button">Measure</button>
+        </Tooltip>,
+      );
+
+      screen.getByRole("button", { name: "Measure" }).focus();
+      // visibility:hidden keeps the node out of the accessibility tree, so query by test id.
+      const tooltip = await screen.findByTestId("tooltip");
+      expect(tooltip).toHaveAttribute("role", "tooltip");
+      expect(tooltip.style.visibility).toBe("hidden");
+      expect(tooltip.style.left).toBe("0px");
+      expect(tooltip.style.top).toBe("0px");
+
+      expect(pendingFrames).toHaveLength(1);
+      pendingFrames[0](0);
+      await waitFor(() => {
+        expect(tooltip.style.visibility).toBe("visible");
+      });
+      expect(screen.getByRole("tooltip")).toBe(tooltip);
+    } finally {
+      raf.mockRestore();
+      caf.mockRestore();
+    }
   });
 
   it("composes over existing child event handlers instead of replacing them", async () => {
@@ -378,6 +631,52 @@ describe("Tooltip", () => {
     await userEvent.keyboard("{Escape}");
     expect(onKeyDown).toHaveBeenCalled();
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("caps and clamps viewport-sized content inside a 320px viewport", async () => {
+    const fullContent = "Opening context. Additional supplementary detail. FINAL LINE REMAINS DESCRIBED.";
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 320 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 240 });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return (
+        this.getAttribute("role") === "tooltip"
+          ? { x: 0, y: 0, left: 0, top: 0, right: 320, bottom: 500, width: 320, height: 500 }
+          : { x: 300, y: 220, left: 300, top: 220, right: 316, bottom: 236, width: 16, height: 16 }
+      ) as DOMRect;
+    });
+
+    try {
+      render(
+        <Tooltip content={fullContent} placement="bottom">
+          <button type="button">Edge trigger</button>
+        </Tooltip>,
+      );
+      const trigger = screen.getByRole("button", { name: "Edge trigger" });
+      trigger.focus();
+      const tooltip = await screen.findByRole("tooltip");
+      await waitFor(() => {
+        expect(tooltip.style.maxWidth).toBe("304px");
+        expect(tooltip.style.left).toBe("8px");
+        expect(tooltip.style.top).toBe("8px");
+      });
+      const visual = within(tooltip).getByTestId("tooltip-visual");
+      expect(visual.style.maxHeight).toBe("224px");
+      expect(visual).toHaveClass("overflow-hidden");
+      expect(visual.style.overflowY).toBe("");
+      expect(tooltip.style.overflowY).toBe("");
+      expect(tooltip).not.toHaveAttribute("tabindex");
+      expect(tooltip).toHaveAttribute("aria-label", fullContent);
+      expect(within(tooltip).getByTestId("tooltip-description")).toHaveTextContent("FINAL LINE REMAINS DESCRIBED.");
+      expect(trigger).toHaveAccessibleDescription(fullContent);
+    } finally {
+      rect.mockRestore();
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
+    }
   });
 });
 
@@ -453,6 +752,58 @@ describe("Toast", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Dismiss: Source indexed" }));
     expect(within(region).queryByText("Source indexed")).not.toBeInTheDocument();
+  });
+
+  it("deduplicates outcomes and caps the visible queue", async () => {
+    function QueueHarness() {
+      const { push } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            push({ tone: "info", title: "Repeated", duration: 0 });
+            push({ tone: "info", title: "Repeated", duration: 0 });
+            for (let index = 0; index < 8; index += 1) {
+              push({ tone: "success", title: `Outcome ${index}`, duration: 0 });
+            }
+          }}
+        >
+          Fill queue
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <QueueHarness />
+      </ToastProvider>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Fill queue" }));
+    expect(screen.getAllByTestId("toast")).toHaveLength(5);
+    expect(screen.queryByText("Repeated")).not.toBeInTheDocument();
+  });
+
+  it("refreshes a still-visible duplicate so the polite region can re-announce", async () => {
+    function RepeatHarness() {
+      const { push } = useToast();
+      return (
+        <button type="button" onClick={() => push({ tone: "danger", title: "Upload failed", duration: 0 })}>
+          Fail upload
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <RepeatHarness />
+      </ToastProvider>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Fail upload" }));
+    const first = screen.getByTestId("toast");
+    expect(first).toHaveAttribute("data-announce-key", "0");
+    await userEvent.click(screen.getByRole("button", { name: "Fail upload" }));
+    expect(screen.getAllByTestId("toast")).toHaveLength(1);
+    expect(screen.getByTestId("toast")).toHaveAttribute("data-announce-key", "1");
   });
 });
 

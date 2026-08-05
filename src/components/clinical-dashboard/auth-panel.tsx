@@ -210,7 +210,7 @@ export function AuthPanel() {
           {isExpired ? "Send fresh link" : "Continue with email"}
         </AsyncButton>
 
-        <div className="flex items-center gap-3 py-1 text-xs font-medium text-[color:var(--text-soft)]">
+        <div className="flex items-center gap-3 py-1 text-xs font-medium text-[color:var(--text-muted)]">
           <span className="h-px flex-1 bg-[color:var(--border)]" />
           <span>or continue with</span>
           <span className="h-px flex-1 bg-[color:var(--border)]" />
@@ -267,7 +267,7 @@ function ProviderButton({
         {disabled ? `${provider} sign-in unavailable` : `Continue with ${provider}`}
       </span>
       {!disabled ? (
-        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
       ) : null}
     </button>
   );
