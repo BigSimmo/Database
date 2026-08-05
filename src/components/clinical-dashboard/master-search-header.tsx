@@ -37,6 +37,7 @@ import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { SearchPinsMenu } from "@/components/clinical-dashboard/search-pins-menu";
@@ -1083,6 +1084,20 @@ export function MasterSearchHeader({
   const handleFocusSearchInput = useEventCallback(() => {
     queryInputRef?.current?.focus();
   });
+  const retargetActionMenuSheetFocusToSearchInput = useEventCallback(() => {
+    actionMenuSheetReturnFocusRef.current = queryInputRef?.current ?? null;
+  });
+  const handleActionMenuCurrentSearch = useEventCallback(() => {
+    retargetActionMenuSheetFocusToSearchInput();
+    setActionMenuOpen(false);
+  });
+  const handleActionMenuGlobalSearch = useEventCallback(() => {
+    retargetActionMenuSheetFocusToSearchInput();
+    setActionMenuOpen(false);
+    if (commandDropdownDisplayable) {
+      setCommandDropdownOpen(true);
+    }
+  });
 
   const phoneLayoutGateRef = useRef<boolean | null>(null);
   useEffect(() => {
@@ -1815,15 +1830,8 @@ export function MasterSearchHeader({
                   actions={actionMenuItems}
                   globalSearchAvailable={commandDropdownDisplayable}
                   onClose={() => setActionMenuOpen(false)}
-                  onCurrentSearch={() => {
-                    actionMenuSheetReturnFocusRef.current = queryInputRef?.current ?? null;
-                    setActionMenuOpen(false);
-                  }}
-                  onGlobalSearch={() => {
-                    actionMenuSheetReturnFocusRef.current = queryInputRef?.current ?? null;
-                    setActionMenuOpen(false);
-                    setCommandDropdownOpen(true);
-                  }}
+                  onCurrentSearch={handleActionMenuCurrentSearch}
+                  onGlobalSearch={handleActionMenuGlobalSearch}
                   onModeSelect={(modeId) => {
                     setActionMenuOpen(false);
                     selectAppModeById(modeId);
