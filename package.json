@@ -109,6 +109,8 @@
     "check:installed-lock-parity": "node scripts/check-installed-lock-parity.mjs",
     "check:upload-limit-parity": "node scripts/check-upload-limit-parity.mjs --self-test && node scripts/check-upload-limit-parity.mjs",
     "check:codex-cloud": "node scripts/check-codex-cloud-setup.mjs",
+    "check:github-shell-access": "node scripts/check-github-shell-access.mjs --self-test",
+    "check:github-shell-access:live": "node scripts/check-github-shell-access.mjs --allow-provider",
     "cloud:setup": "bash scripts/setup-codex-cloud.sh",
     "cloud:maintain": "bash scripts/maintain-codex-cloud.sh",
     "check:codex-autofix-workflow": "node scripts/check-codex-autofix-workflow.mjs",

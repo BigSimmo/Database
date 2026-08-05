@@ -125,6 +125,7 @@ as it was on that date; supersede with a new dated document rather than editing.
 - [audit/audit-handover-2026-07-14.md](audit/audit-handover-2026-07-14.md) — multi-skill repository audit findings inventory
 - [audit/audit-remediation-plan-2026-07-14.md](audit/audit-remediation-plan-2026-07-14.md) — sequenced remediation plan for the 2026-07-14 audit, with the 2026-07-17 reconciliation
 - [audit/design-audit-2026-07-17.md](audit/design-audit-2026-07-17.md) — repository-wide design, accessibility, and interaction audit
+- [audit/cloud-connection-acceptance-2026-08-05.md](audit/cloud-connection-acceptance-2026-08-05.md) — hosted versus local MCP boundary acceptance, Personal Pro split control plane, and remaining Cloud launcher blockers
 - [current-clinical-work-brief.md](current-clinical-work-brief.md) — ledger #063 product/privacy/persistence brief (decision only, no implementation)
 - [factsheets-reading-model-brief.md](factsheets-reading-model-brief.md) — ledger #041 reading-model decision (no second Factsheets mode)
 - [source-governance-refresh-worklist-2026-07-22.md](source-governance-refresh-worklist-2026-07-22.md) — ledger #022 worklist and BMJ attestation policy status
