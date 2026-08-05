@@ -51,7 +51,7 @@ export function GuidanceSection({
         </span>
         <span className="min-w-0 flex-1 text-sm font-extrabold text-[color:var(--text-heading)]">{title}</span>
         <ChevronDown
-          className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-open:rotate-180 motion-reduce:transition-none"
+          className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition group-open:rotate-180 motion-reduce:transition-none"
           aria-hidden
         />
       </summary>

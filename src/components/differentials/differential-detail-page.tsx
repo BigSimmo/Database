@@ -296,7 +296,7 @@ function SectionRow({
           {badge}
         </span>
         <ChevronDown
-          className="h-4 w-4 justify-self-end text-[color:var(--text-soft)] transition group-open:rotate-180"
+          className="h-4 w-4 justify-self-end text-[color:var(--decoration-soft)] transition group-open:rotate-180"
           aria-hidden
         />
       </summary>
@@ -476,7 +476,7 @@ function RelatedDiagnoses({ record, knownRelatedSlugs }: { record: DifferentialR
                   {tag.label}
                 </span>
                 {known.has(node.id) ? (
-                  <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+                  <ChevronRight className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
                 ) : null}
               </span>
             </>
@@ -614,7 +614,7 @@ function ComparePanel({
                   {tag.label}
                 </span>
                 {known.has(node.id) ? (
-                  <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+                  <ChevronRight className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
                 ) : null}
               </span>
             </>
@@ -1018,9 +1018,9 @@ export function DifferentialDetailPage({
               <Link href="/differentials" className="text-[color:var(--clinical-accent)]">
                 Differentials
               </Link>
-              <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
+              <ChevronRight className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
               <span className="text-[color:var(--text-muted)]">Diagnosis</span>
-              <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
+              <ChevronRight className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
               <span className="text-[color:var(--text-muted)]">{record.title}</span>
             </nav>
             <div className="flex items-start gap-3 sm:gap-4">

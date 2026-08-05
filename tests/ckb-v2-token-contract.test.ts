@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
- * Invariants of the opt-in `.ckb-v2` token layer (`src/app/ckb-v2-tokens.css`).
+ * Invariants of the scoped `.ckb-v2` token layer (`src/app/ckb-v2-tokens.css`).
  *
  * These are the relationships the v2 design review found broken in v1, each of
  * which was invisible to lint, typecheck and a screenshot diff:
@@ -31,7 +31,7 @@ function remOf(value: string | undefined) {
 }
 
 function block(selector: string) {
-  // After the cascade port there are two top-level `.ckb-v2` blocks (structural
+  // After the cascade port there are two top-level `.ckb-v2.ckb-v2` blocks (structural
   // and light shell) and the dark block opens with a grouped selector. Collect
   // every top-level block whose selector line starts with the given selector.
   const opener = `\n${selector} {`;
@@ -56,9 +56,9 @@ function declarations(source: string) {
   return map;
 }
 
-const structural = declarations(block(".ckb-v2"));
-const lightShell = structural; // structural + light now share the .ckb-v2 selector
-const darkShell = declarations(block(".dark .ckb-v2"));
+const structural = declarations(block(".ckb-v2.ckb-v2"));
+const lightShell = structural; // structural + light share the specificity-lifted scope
+const darkShell = declarations(block(".dark .ckb-v2.ckb-v2"));
 
 function hexOf(tokens: Map<string, string>, name: string) {
   const value = tokens.get(name);
@@ -80,8 +80,8 @@ function contrastRatio(first: string, second: string) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-describe("ckb-v2 layer stays opt-in", () => {
-  it("declares nothing outside a .ckb-v2 scope, so the live app is untouched", () => {
+describe("ckb-v2 layer stays scoped", () => {
+  it("declares nothing outside a .ckb-v2 scope, preserving the class rollback boundary", () => {
     // Every top-level selector must be class-scoped. A stray `:root` here would
     // repaint the whole app the moment the file is imported.
     const withoutComments = stylesheet.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -97,7 +97,14 @@ describe("ckb-v2 layer stays opt-in", () => {
     expect(globals).toContain('@import "./ckb-v2-tokens.css";');
   });
 
-  it("keeps --text-placeholder on the live layer too, so production placeholders resolve before .ckb-v2 adoption", () => {
+  it("outranks the later compatibility :root without promoting v2 values into it", () => {
+    expect(stylesheet).toMatch(/^\.ckb-v2\.ckb-v2\s*\{/m);
+    expect(stylesheet).not.toMatch(/^\.ckb-v2\s*\{/m);
+    expect(stylesheet).toContain(".dark .ckb-v2.ckb-v2,");
+    expect(stylesheet).toContain(".ckb-v2.dark.ckb-v2");
+  });
+
+  it("keeps --text-placeholder on the compatibility layer for rollback", () => {
     const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
     expect(globals).toMatch(/--text-placeholder\s*:/);
   });
@@ -226,12 +233,14 @@ describe("ckb-v2 forced-colours block (PR 2)", () => {
     const start = stylesheet.indexOf("@media (forced-colors: active)");
     expect(start).toBeGreaterThan(-1);
     const block = stylesheet.slice(start, stylesheet.indexOf("\n}", stylesheet.lastIndexOf("--spine-stale")) + 2);
-    expect(block).toContain(".ckb-v2,");
-    expect(block).toContain(".dark .ckb-v2,");
-    expect(block).toContain(".ckb-v2.dark");
+    expect(block).toContain(".ckb-v2.ckb-v2,");
+    expect(block).toContain(".dark .ckb-v2.ckb-v2,");
+    expect(block).toContain(".ckb-v2.dark.ckb-v2");
     expect(block).toMatch(/--command:\s*ButtonFace/);
     expect(block).toMatch(/--command-contrast:\s*ButtonText/);
     expect(block).toMatch(/--danger-solid:\s*Mark/);
+    expect(block).toMatch(/--danger-solid-hover:\s*Mark/);
+    expect(block).toMatch(/--danger-solid-active:\s*Mark/);
     expect(block).toMatch(/--danger-solid-contrast:\s*MarkText/);
     expect(block).toMatch(/--focus:\s*Highlight/);
     expect(block).toMatch(/--disabled:\s*GrayText/);
@@ -311,5 +320,39 @@ describe("ckb-v2 structure", () => {
     expect(structural.get("--text-xs-tr")).toBe("0");
     expect(structural.get("--text-sm-tr")).toBe("0");
     expect(structural.get("--text-body-tr")).toMatch(/^-/);
+  });
+});
+
+describe("ckb-v2 category chip tones", () => {
+  const families = [
+    "type-document",
+    "type-table",
+    "type-search",
+    "type-source",
+    "type-service",
+    "type-form",
+    "tone-purple",
+    "tone-indigo",
+    "tone-rose",
+    "tone-slate",
+  ] as const;
+
+  it("declares complete text/soft/border triads in light and dark so Chip CATEGORY is not compatibility-only", () => {
+    for (const family of families) {
+      for (const suffix of ["", "-soft", "-border"] as const) {
+        const name = `--${family}${suffix}`;
+        expect(hexOf(lightShell, name)).toMatch(/^#[0-9a-f]{6}$/i);
+        expect(hexOf(darkShell, name)).toMatch(/^#[0-9a-f]{6}$/i);
+      }
+    }
+  });
+
+  it("maps category chip tones under forced-colours so HCM does not fall through to hex", () => {
+    const forced = block("@media (forced-colors: active)");
+    for (const family of families) {
+      expect(forced).toContain(`--${family}: CanvasText;`);
+      expect(forced).toContain(`--${family}-soft: Canvas;`);
+      expect(forced).toContain(`--${family}-border: ButtonBorder;`);
+    }
   });
 });

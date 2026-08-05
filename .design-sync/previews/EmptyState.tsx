@@ -6,6 +6,7 @@ export const NoDocuments = () => (
     icon={Inbox}
     title="No documents yet"
     body="Upload a guideline or protocol to make it searchable across the workspace."
+    live="off"
   />
 );
 
@@ -18,5 +19,15 @@ export const NoResults = () => (
     icon={SearchX}
     title="No matches"
     body="Try a broader term — searches cover titles, content and clinical synonyms."
+  />
+);
+
+export const DynamicResult = () => (
+  <EmptyState
+    icon={SearchX}
+    title="Search finished with no matches"
+    body="Try a broader clinical term."
+    live="polite"
+    headingLevel={3}
   />
 );

@@ -4,6 +4,7 @@ import { Maximize2, TriangleAlert } from "lucide-react";
 import { type ReactNode, useCallback, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
+import { MissingValue } from "@/components/ui/missing-value";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
 import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
 
@@ -45,6 +46,35 @@ function isMetadataHeader(value: string) {
 }
 
 export type AccessibleTableColumnAlign = "start" | "end" | "auto";
+
+export type AccessibleTableProps = {
+  caption: string;
+  markdown?: string | null;
+  rows?: string[][] | null;
+  columns?: string[] | null;
+  normalizedTable?: NormalizedAccessibleTable | null;
+  compact?: boolean;
+  expandOnMobile?: boolean;
+  previewRows?: number;
+  hidePreviewCaption?: boolean;
+  hidePreviewRowCount?: boolean;
+  densePreview?: boolean;
+  dialogTitle?: string | null;
+  clinicalOnly?: boolean;
+  rowActions?: Array<ReactNode | null>;
+  actionsHeader?: string;
+  // GEN-H3: when the normalizer can't confidently reconstruct a clinical table,
+  // the padded raw grid is misleading (mostly empty "-" cells, clipped headers).
+  // Callers that have the cropped source image (e.g. the visual-evidence cards)
+  // can pass it here to show the real table screenshot instead of that grid.
+  lowConfidenceFallback?: ReactNode;
+  // Per-column horizontal alignment. Default is "auto": columns whose every
+  // non-empty cell is numeric right-align so their digits stack, everything else
+  // stays left. Pass "start"/"end" to pin a column, or `numericColumns` to state
+  // the numeric indexes outright and skip detection entirely.
+  columnAlign?: AccessibleTableColumnAlign[];
+  numericColumns?: number[];
+};
 
 // Register #48: dose columns were left-aligned as text, so `tabular-nums` had
 // nothing to stack against — "12.5 mg" and "5 mg" still started at different
@@ -121,7 +151,7 @@ function AccessibleTableMarkup({
   actionsHeader = "Actions",
   alignEnd,
 }: {
-  caption?: string | null;
+  caption: string;
   header: string[];
   body: string[][];
   compact: boolean;
@@ -149,8 +179,13 @@ function AccessibleTableMarkup({
         expanded && "max-h-[calc(100dvh-8.5rem)] flex flex-col rounded-none border-0 sm:rounded-lg sm:border",
       )}
     >
-      {caption && !(hidePreviewCaption && !expanded) ? (
+      {/* Visible chrome is source metadata only. When the caller hides it
+          (untitled tables, or a surrounding card that already owns the title),
+          keep the semantic <caption> below and invent nothing on screen —
+          including inside the expanded fullscreen dialog. */}
+      {!hidePreviewCaption ? (
         <div
+          aria-hidden="true"
           className={cn(
             "border-b border-[color:var(--border)] px-3 py-2 text-left font-semibold",
             expanded ? "text-sm text-[color:var(--text-heading)]" : `text-xs ${textMuted}`,
@@ -161,7 +196,6 @@ function AccessibleTableMarkup({
       ) : null}
       <div className={cn("overflow-x-auto", expanded && "flex-1 min-h-0")}>
         <table
-          aria-label={caption ?? undefined}
           className={cn(
             // Non-dense tables use auto layout so columns size to their content
             // (min-content = longest word) and wrap at word boundaries; a table
@@ -173,6 +207,7 @@ function AccessibleTableMarkup({
             renderDensePreview ? "min-w-full table-fixed text-2xs" : expanded ? "text-base-minus" : "text-sm",
           )}
         >
+          <caption className="sr-only">{caption}</caption>
           <colgroup className="hidden md:table-column-group">
             {header.map((cell, index) => (
               <col key={`${cell}:col:${index}`} style={{ width: `${100 / columnCount}%` }} />
@@ -288,7 +323,7 @@ function AccessibleTableMarkup({
                               : "text-sm leading-6 md:text-inherit md:leading-inherit",
                           )}
                         >
-                          {cell || <span className={textMuted}>-</span>}
+                          {cell || <MissingValue reason="not_recorded" density="cell" />}
                         </span>
                       </td>
                     );
@@ -314,7 +349,17 @@ function AccessibleTableMarkup({
                       >
                         {actionsHeader}
                       </span>
-                      {displayActions[rowIndex] || <span className={textMuted}>-</span>}
+                      {displayActions[rowIndex] ||
+                        (renderDensePreview ? (
+                          <>
+                            <span aria-hidden="true" className={textMuted}>
+                              —
+                            </span>
+                            <span className="sr-only">No action available</span>
+                          </>
+                        ) : (
+                          <span className={textMuted}>No action available</span>
+                        ))}
                     </td>
                   ) : null}
                 </tr>
@@ -422,34 +467,7 @@ export function AccessibleTable({
   lowConfidenceFallback,
   columnAlign,
   numericColumns,
-}: {
-  caption?: string | null;
-  markdown?: string | null;
-  rows?: string[][] | null;
-  columns?: string[] | null;
-  normalizedTable?: NormalizedAccessibleTable | null;
-  compact?: boolean;
-  expandOnMobile?: boolean;
-  previewRows?: number;
-  hidePreviewCaption?: boolean;
-  hidePreviewRowCount?: boolean;
-  densePreview?: boolean;
-  dialogTitle?: string | null;
-  clinicalOnly?: boolean;
-  rowActions?: Array<ReactNode | null>;
-  actionsHeader?: string;
-  // GEN-H3: when the normalizer can't confidently reconstruct a clinical table,
-  // the padded raw grid is misleading (mostly empty "-" cells, clipped headers).
-  // Callers that have the cropped source image (e.g. the visual-evidence cards)
-  // can pass it here to show the real table screenshot instead of that grid.
-  lowConfidenceFallback?: ReactNode;
-  // Per-column horizontal alignment. Default is "auto": columns whose every
-  // non-empty cell is numeric right-align so their digits stack, everything else
-  // stays left. Pass "start"/"end" to pin a column, or `numericColumns` to state
-  // the numeric indexes outright and skip detection entirely.
-  columnAlign?: AccessibleTableColumnAlign[];
-  numericColumns?: number[];
-}) {
+}: AccessibleTableProps) {
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const dialogId = useId();
   const [open, setOpen] = useState(false);
@@ -483,8 +501,8 @@ export function AccessibleTable({
   if (!normalized) return null;
 
   const { header, body } = normalized;
-  const displayCaption = clinicalOnly && caption ? cleanClinicalTableText(caption) : caption;
-  const title = dialogTitle || displayCaption || "Clinical table";
+  const displayCaption = (clinicalOnly ? cleanClinicalTableText(caption) : caption.trim()) || "Clinical table";
+  const title = dialogTitle?.trim() || displayCaption;
   const lowConfidence = Boolean(normalized.lowConfidence);
   const showFallback = lowConfidence && Boolean(lowConfidenceFallback);
   const table = (
@@ -570,6 +588,7 @@ export function AccessibleTable({
               body={body}
               compact={false}
               expanded
+              hidePreviewCaption={hidePreviewCaption}
               rowActions={rowActions}
               actionsHeader={actionsHeader}
               alignEnd={alignEnd}

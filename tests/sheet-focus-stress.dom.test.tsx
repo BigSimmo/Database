@@ -180,7 +180,7 @@ describe("Sheet focus stress", () => {
   it("does not crash or leak when the sheet has no focusable target", async () => {
     const timeoutSpy = vi.spyOn(window, "setTimeout");
     const { unmount } = render(
-      <Sheet open onClose={() => {}} portal>
+      <Sheet open onClose={() => {}} ariaLabel="Untitled test sheet" portal>
         <p>Untitled body with no controls</p>
       </Sheet>,
     );
@@ -237,7 +237,7 @@ describe("Sheet focus stress", () => {
             <button type="button">Background</button>
           </aside>
           <section>
-            <Sheet open={open} onClose={() => {}} title="Inline">
+            <Sheet open={open} onClose={() => {}} title="Inline" portal={false}>
               <p>Body</p>
             </Sheet>
           </section>

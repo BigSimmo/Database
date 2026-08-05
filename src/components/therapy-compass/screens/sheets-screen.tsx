@@ -86,7 +86,7 @@ export function SheetsScreen() {
 
           <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[18px] px-5">
             <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mb-1.5">Sections</div>
-            <p className="mt-0 mx-0 mb-3.5 text-xs text-[color:var(--text-soft)]">Toggle what appears on the sheet.</p>
+            <p className="mt-0 mx-0 mb-3.5 text-xs text-[color:var(--text-muted)]">Toggle what appears on the sheet.</p>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -137,7 +137,7 @@ export function SheetsScreen() {
                 <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
                   Clinician footer
                 </span>
-                <span className="block text-xs text-[color:var(--text-soft)] mt-0.5">
+                <span className="block text-xs text-[color:var(--text-muted)] mt-0.5">
                   Name, service and review date.
                 </span>
               </span>
@@ -154,7 +154,7 @@ export function SheetsScreen() {
                 <span data-therapy-clinician-knob />
               </button>
             </div>
-            <p className="mt-3.5 mx-0 mb-0 text-2xs leading-normal text-[color:var(--text-soft)] border-t border-[color:var(--border)] pt-3">
+            <p className="mt-3.5 mx-0 mb-0 text-2xs leading-normal text-[color:var(--text-muted)] border-t border-[color:var(--border)] pt-3">
               Tip: every heading and paragraph on the sheet is editable — click to rewrite it before printing. Wording
               follows the {toneWord} tone.
             </p>
@@ -343,12 +343,16 @@ function TherapyPicker() {
             {b.selectedTherapy?.name ?? "Choose a therapy"}
           </span>
         </span>
-        <ChevronDownIcon size={15} strokeWidth={1.8} className="text-[color:var(--text-soft)] flex-none" />
+        <ChevronDownIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)] flex-none" />
       </button>
       {open ? (
         <div className="absolute z-[30] top-[52px] left-0 right-0 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-hover)] overflow-hidden">
           <label className="relative flex items-center p-2 border-b border-[color:var(--border)]">
-            <SearchIcon size={15} strokeWidth={1.8} className="absolute left-[18px] text-[color:var(--text-soft)]" />
+            <SearchIcon
+              size={15}
+              strokeWidth={1.8}
+              className="absolute left-[18px] text-[color:var(--decoration-soft)]"
+            />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
