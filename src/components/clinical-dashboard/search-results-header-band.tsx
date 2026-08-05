@@ -626,6 +626,49 @@ type MobileResultFilterMenuBox = {
   placement: "above" | "below";
 };
 
+type MobileResultFilterTypeaheadState = {
+  buffer: string;
+  lastAt: number;
+  timer: ReturnType<typeof setTimeout> | null;
+};
+
+function matchTypeaheadOptionIndex<Value extends string>({
+  key,
+  fromIndex,
+  now,
+  options,
+  state,
+}: {
+  key: string;
+  fromIndex: number;
+  now: number;
+  options: ReadonlyArray<{ value: Value; label: string; disabled?: boolean }>;
+  state: MobileResultFilterTypeaheadState;
+}): number | null {
+  const character = key.toLocaleLowerCase();
+  if (character.length !== 1 || /\s/.test(character)) return null;
+  if (state.timer !== null) window.clearTimeout(state.timer);
+  state.buffer = now - state.lastAt < 500 ? `${state.buffer}${character}` : character;
+  state.lastAt = now;
+  state.timer = setTimeout(() => {
+    state.buffer = "";
+    state.timer = null;
+  }, 500);
+
+  const buffer = state.buffer;
+  const total = options.length;
+  if (total === 0) return -1;
+  const start = fromIndex >= 0 ? fromIndex : 0;
+  for (let step = 0; step < total; step += 1) {
+    // Same-letter repeats advance to the next match (native <select> behaviour).
+    const index = (start + (buffer.length === 1 ? step + 1 : step)) % total;
+    const option = options[index];
+    if (!option || option.disabled) continue;
+    if (option.label.toLocaleLowerCase().startsWith(buffer)) return index;
+  }
+  return -1;
+}
+
 /**
  * Phone Category / Show / Filter control. Soft value button + custom menu —
  * never a native `<select>`, which painted a harsh system-blue highlight over
@@ -660,12 +703,12 @@ export function MobileResultFilterControl<Value extends string>({
 }) {
   const [open, setOpen] = useState(false);
   const [menuBox, setMenuBox] = useState<MobileResultFilterMenuBox | null>(null);
-  const [pendingFocus, setPendingFocus] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const typeaheadRef = useRef<{ buffer: string; lastAt: number; timer: ReturnType<typeof setTimeout> | null }>({
+  const pendingFocusRef = useRef<number | null>(null);
+  const typeaheadRef = useRef<MobileResultFilterTypeaheadState>({
     buffer: "",
     lastAt: 0,
     timer: null,
@@ -680,9 +723,9 @@ export function MobileResultFilterControl<Value extends string>({
   const accessibleName = `${label} ${activeLabel}. ${ariaLabel}`;
 
   const closeMenu = useCallback(() => {
+    pendingFocusRef.current = null;
     setOpen(false);
     setMenuBox(null);
-    setPendingFocus(null);
   }, []);
 
   const dismissableRefs = useMemo(() => [rootRef, menuRef], []);
@@ -700,10 +743,7 @@ export function MobileResultFilterControl<Value extends string>({
   // The search-results band is `overflow-hidden`, so the menu is portaled and
   // fixed to the trigger's viewport box instead of being clipped inside the band.
   useLayoutEffect(() => {
-    if (!open) {
-      setMenuBox(null);
-      return undefined;
-    }
+    if (!open) return undefined;
     function isTriggerDisplayed(trigger: HTMLElement) {
       // A zero box alone is not enough — jsdom always reports 0×0. Close only
       // when an ancestor (or the trigger) is `display: none`, which is what
@@ -785,45 +825,32 @@ export function MobileResultFilterControl<Value extends string>({
 
   function openMenu(focusIndex: number) {
     const next = nearestEnabledIndex(Math.max(0, focusIndex));
+    pendingFocusRef.current = next >= 0 ? next : null;
     setOpen(true);
-    setPendingFocus(next >= 0 ? next : null);
   }
 
   // Focus after the portaled menu + options commit (menuBox is set in layout).
   // A single rAF can fire before that second paint, leaving optionRefs empty.
   useLayoutEffect(() => {
-    if (!open || pendingFocus === null || !menuBox) return;
-    focusOption(pendingFocus);
-    setPendingFocus(null);
-  }, [open, pendingFocus, menuBox]);
+    if (!open || !menuBox) return;
+    const index = pendingFocusRef.current;
+    if (index === null) return;
+    pendingFocusRef.current = null;
+    optionRefs.current[index]?.focus();
+  }, [open, menuBox]);
 
-  function focusTypeahead(key: string, fromIndex: number) {
-    const character = key.toLocaleLowerCase();
-    if (character.length !== 1 || /\s/.test(character)) return false;
-    const now = Date.now();
-    const state = typeaheadRef.current;
-    if (state.timer !== null) window.clearTimeout(state.timer);
-    state.buffer = now - state.lastAt < 500 ? `${state.buffer}${character}` : character;
-    state.lastAt = now;
-    state.timer = setTimeout(() => {
-      state.buffer = "";
-      state.timer = null;
-    }, 500);
-
-    const buffer = state.buffer;
-    const total = options.length;
-    if (total === 0) return true;
-    const start = fromIndex >= 0 ? fromIndex : 0;
-    for (let step = 0; step < total; step += 1) {
-      // Same-letter repeats advance to the next match (native <select> behaviour).
-      const index = (start + (buffer.length === 1 ? step + 1 : step)) % total;
-      const option = options[index];
-      if (!option || option.disabled) continue;
-      if (option.label.toLocaleLowerCase().startsWith(buffer)) {
-        if (open) focusOption(index);
-        else openMenu(index);
-        return true;
-      }
+  function handleTypeaheadKey(key: string, fromIndex: number, now: number) {
+    const matched = matchTypeaheadOptionIndex({
+      key,
+      fromIndex,
+      now,
+      options,
+      state: typeaheadRef.current,
+    });
+    if (matched === null) return false;
+    if (matched >= 0) {
+      if (open) focusOption(matched);
+      else openMenu(matched);
     }
     return true;
   }
@@ -836,7 +863,7 @@ export function MobileResultFilterControl<Value extends string>({
       event.preventDefault();
       const lastEnabled = stepEnabledIndex(options.length, -1);
       openMenu(lastEnabled >= 0 ? lastEnabled : 0);
-    } else if (focusTypeahead(event.key, matchedIndex)) {
+    } else if (handleTypeaheadKey(event.key, matchedIndex, event.timeStamp)) {
       event.preventDefault();
     }
   }
@@ -854,7 +881,7 @@ export function MobileResultFilterControl<Value extends string>({
     } else if (event.key === "End") {
       event.preventDefault();
       focusOption(stepEnabledIndex(options.length, -1));
-    } else if (focusTypeahead(event.key, index)) {
+    } else if (handleTypeaheadKey(event.key, index, event.timeStamp)) {
       event.preventDefault();
     }
   }
