@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useCallback,
   useId,
   useRef,
   type CSSProperties,
@@ -9,8 +10,8 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { OverlayPortal } from "@/components/ui/overlay-root";
 import { cn, toolbarButton } from "@/components/ui-primitives";
 import {
   canRestoreFocusTo,
@@ -18,55 +19,24 @@ import {
   popSheet,
   pushSheet,
   startSheetOpenFocus,
+  updateSheetRoot,
   type SheetFocusController,
 } from "@/components/ui/sheet-focus";
 
 export type SheetMobileSize = "content" | "viewport";
 
-/**
- * Responsive overlay: a bottom sheet on mobile (rises from the bottom, safe-area
- * aware, drag-grip) and a centred dialog from `sm:` up. CSS-only animation, no
- * portal/deps. Focus is trapped while open and returned to the opener on close;
- * Escape and backdrop click both dismiss. Mirrors the original GuideDialog
- * focus handling so behaviour is unchanged where it replaces a modal.
- */
-export function Sheet({
-  open,
-  onClose,
-  title,
-  description,
-  children,
-  footer,
-  closeLabel = "Close",
-  labelledBy,
-  initialFocusRef,
-  returnFocusRef,
-  headerLeading,
-  titleAccessory,
-  descriptionContent,
-  headerActions,
-  headerClassName,
-  titleClassName,
-  closeButtonClassName,
-  contentClassName,
-  contentStyle,
-  bodyClassName,
-  placement = "default",
-  mobilePlacement = "bottom",
-  mobileSize = "content",
-  portal = false,
-  desktopBackdropClassName,
-  testId,
-  id,
-}: {
+type SheetAccessibleName =
+  | { title: string; labelledBy?: string; ariaLabel?: string }
+  | { title?: undefined; labelledBy: string; ariaLabel?: string }
+  | { title?: undefined; labelledBy?: undefined; ariaLabel: string };
+
+type SheetBaseProps = {
   open: boolean;
   onClose: () => void;
-  title?: string;
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
   closeLabel?: string;
-  labelledBy?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
   returnFocusRef?: RefObject<HTMLElement | null>;
   headerLeading?: ReactNode;
@@ -85,11 +55,51 @@ export function Sheet({
   portal?: boolean;
   desktopBackdropClassName?: string;
   testId?: string;
-  // Stable id for the dialog element so an opener can advertise `aria-controls`.
-  // Without it a trigger can only carry `aria-expanded`, which tells assistive
-  // technology that something expanded but never which region.
+  /** Stable dialog id so an opener can advertise `aria-controls`. */
   id?: string;
-}) {
+};
+
+export type SheetProps = SheetBaseProps & SheetAccessibleName;
+
+/**
+ * Responsive overlay: a bottom sheet on mobile (rises from the bottom, safe-area
+ * aware, drag-grip) and a centred dialog from `sm:` up. CSS-only animation.
+ * Portals into `OverlayRoot` (`layer="modal"`) by default so stacking and
+ * inerting stay consistent across product overlays; pass `portal={false}` to
+ * keep the sheet in-tree when an ancestor-scoped style must still apply.
+ * Focus is trapped while open and returned to the opener on close; Escape and
+ * backdrop click both dismiss.
+ */
+export function Sheet({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  closeLabel = "Close",
+  labelledBy,
+  ariaLabel,
+  initialFocusRef,
+  returnFocusRef,
+  headerLeading,
+  titleAccessory,
+  descriptionContent,
+  headerActions,
+  headerClassName,
+  titleClassName,
+  closeButtonClassName,
+  contentClassName,
+  contentStyle,
+  bodyClassName,
+  placement = "default",
+  mobilePlacement = "bottom",
+  mobileSize = "content",
+  portal = true,
+  desktopBackdropClassName,
+  testId,
+  id,
+}: SheetProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -112,6 +122,13 @@ export function Sheet({
   const titleId = useId();
   const descId = useId();
   const sheetId = useId();
+  const setBackdropRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      backdropRef.current = node;
+      updateSheetRoot(sheetId, node);
+    },
+    [sheetId],
+  );
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -300,6 +317,14 @@ export function Sheet({
 
   if (!open) return null;
 
+  // Empty-string titles still satisfy the type-level union (`title: string`) but
+  // leave the dialog unnamed at runtime. Never drop the overlay in production —
+  // keep a generic accessible name so the user can still dismiss and finish.
+  const hasAccessibleName = Boolean(title || labelledBy || ariaLabel);
+  if (!hasAccessibleName && process.env.NODE_ENV !== "production") {
+    throw new Error("Sheet requires an accessible name through title, labelledBy, or ariaLabel.");
+  }
+  const resolvedAriaLabel = ariaLabel || (!title && !labelledBy ? "Dialog" : undefined);
   const resolvedLabelledBy = labelledBy ?? (title ? titleId : undefined);
   const defaultSheetIsFullscreen = placement !== "left" && mobilePlacement === "fullscreen";
   const defaultSheetIsTopAligned = placement !== "left" && mobilePlacement === "top";
@@ -310,9 +335,11 @@ export function Sheet({
 
   const sheet = (
     <div
-      ref={backdropRef}
+      ref={setBackdropRef}
       className={cn(
-        "fixed inset-0 z-[100] flex bg-[color:var(--overlay-backdrop)] backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
+        // The modal rung is kept on the backdrop itself so the non-portal
+        // branch still stacks above sibling chrome.
+        "pointer-events-auto fixed inset-0 z-[var(--z-modal)] flex bg-[color:var(--overlay-backdrop)] backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
         desktopBackdropClassName,
         placement !== "left" && "motion-safe:animate-overlay-in",
         placement === "left"
@@ -342,6 +369,7 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={resolvedLabelledBy}
+        aria-label={resolvedAriaLabel}
         aria-describedby={description || descriptionContent ? descId : undefined}
         onPointerDown={(event) => {
           backdropPointerDownRef.current = false;
@@ -350,7 +378,7 @@ export function Sheet({
         style={contentStyle}
         className={cn(
           "flex min-w-0 w-full flex-col overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe",
-          "transition duration-200 motion-reduce:transition-none sm:duration-150",
+          "transition duration-[var(--duration-moderate)] motion-reduce:transition-none sm:duration-[var(--duration-quick)]",
           placement === "left"
             ? "h-full max-h-full max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 pt-safe sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
             : cn(
@@ -409,7 +437,7 @@ export function Sheet({
                 <div className="flex min-w-0 items-center gap-2">
                   <h2
                     id={titleId}
-                    className={cn("truncate text-lg font-semibold text-[color:var(--text-heading)]", titleClassName)}
+                    className={cn("break-words text-lg font-semibold text-[color:var(--text-heading)]", titleClassName)}
                   >
                     {title}
                   </h2>
@@ -449,8 +477,11 @@ export function Sheet({
   );
 
   if (portal) {
-    if (typeof document === "undefined") return null;
-    return createPortal(sheet, document.body);
+    return (
+      <OverlayPortal layer="modal" name={title ?? resolvedAriaLabel ?? labelledBy ?? "sheet"}>
+        {sheet}
+      </OverlayPortal>
+    );
   }
 
   return sheet;

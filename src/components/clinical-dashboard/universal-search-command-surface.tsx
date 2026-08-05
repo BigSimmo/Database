@@ -266,7 +266,7 @@ function CommandDropdown({
               {section.heading ? (
                 <div
                   role="presentation"
-                  className="px-2.5 pb-1 pt-2 text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]"
+                  className="px-2.5 pb-1 pt-2 text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-muted)]"
                 >
                   {section.heading}
                 </div>
@@ -319,9 +319,9 @@ function CommandDropdown({
         {universalPending ? (
           <div
             role="presentation"
-            className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[color:var(--text-soft)]"
+            className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]"
           >
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-[color:var(--decoration-soft)]" aria-hidden />
             Searching across Clinical KB…
           </div>
         ) : null}
@@ -332,7 +332,7 @@ function CommandDropdown({
         ) : null}
       </div>
 
-      <div className="hidden items-center justify-between border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-bold text-[color:var(--text-soft)] sm:flex">
+      <div className="hidden items-center justify-between border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-bold text-[color:var(--text-muted)] sm:flex">
         <span className="inline-flex items-center gap-2">
           <kbd className="rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-1 font-mono">↑↓</kbd>
           navigate

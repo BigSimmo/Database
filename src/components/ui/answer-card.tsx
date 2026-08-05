@@ -10,7 +10,11 @@ import { Quantity } from "@/components/ui/quantity";
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import { StatusMark } from "@/components/ui/status-mark";
 import { VerificationNotice, type VerificationNoticeProps } from "@/components/ui/verification-notice";
-import { clipboardProvenanceLine, normalizeSourceMetadata } from "@/lib/source-metadata";
+import {
+  answerClipboardCaveatLine,
+  answerClipboardProvenanceLine,
+  answerStateAttribution,
+} from "@/lib/answer-clipboard";
 
 /*
  * The answer surface. `answerSurface` was `"rounded-lg bg-transparent"` — the
@@ -137,11 +141,24 @@ export type ClipboardSourceRef = {
 export function answerClipboardText({
   body,
   state,
+  sourceOnly,
   sources,
   metadata,
 }: {
   body: string;
   state: AnswerState;
+  /**
+   * True when the answer was assembled from source passages rather than written
+   * by a model. It cannot be inferred from `state`: `#207` precedence puts
+   * `ungrounded` above `source_only`, so an extractive answer that is also
+   * weakly supported reports `ungrounded`, and keying attribution on the kind
+   * pastes "AI-generated" over passages no model wrote — a false provenance
+   * claim in a clinical record. The product composer takes the same explicit
+   * flag for the same reason (`@/lib/answer-clipboard`); this primitive was left
+   * without one, which mattered the moment `AnswerCard` acquired its first
+   * product mount (ledger `#216`).
+   */
+  sourceOnly?: boolean;
   /** The cited documents, enumerated so the paste can be audited away from the app. */
   sources?: readonly ClipboardSourceRef[];
   /**
@@ -155,39 +172,25 @@ export function answerClipboardText({
   // clinical prose with nothing attached reads in a record as though a clinician
   // wrote and endorsed it. This deliberately exceeds SPEC §13 slice 8, which
   // scoped the copied caveat to non-ready states; see docs/design-system/SPEC.md.
-  const attribution =
-    state.kind === "source_only"
-      ? "Assembled directly from the cited sources without model synthesis."
-      : "AI-generated from the cited sources.";
+  //
+  // Attribution, the degraded caveat and the provenance suppression rule live in
+  // `@/lib/answer-clipboard` so this primitive and the product composer (#208)
+  // cannot drift apart — one implementation of each rule, two callers.
   const verify = "Verify against the linked source documents before clinical use.";
-
-  const caveat =
-    state.kind === "stale_evidence"
-      ? state.overdue.length > 0
-        ? `Caveat: ${state.overdue.length} of ${state.sourceCount} cited sources are past their review date.`
-        : // Defensive: the banner guards this state, and a count of zero would
-          // argue against the caution it is attached to.
-          "Caveat: some cited sources are past their review date."
-      : state.kind === "partial_retrieval"
-        ? `Caveat: only ${state.retrieved} of ${state.requested} sources were available for this answer.`
-        : null;
 
   const sourceList = sources?.length
     ? ["Sources for review:", ...sources.map((source) => `- ${clipboardSourceLine(source)}`)].join("\n")
     : null;
 
-  // Normalised first so a partial metadata record produces the same fully
-  // explicit audit line as a complete one — the clipboard line never abbreviates.
-  //
-  // Suppressed on a multi-source stale answer: `metadata` describes one
-  // document, so "1 of 6 cited sources are past their review date" followed by
-  // "Review status: Current" would read as a correction of the caveat.
-  // Only emitted when the caller actually supplied a record. Synthesising an
-  // all-`Unknown` line would assert a governance read that never happened.
-  const provenanceApplies = metadata != null && !(state.kind === "stale_evidence" && state.sourceCount > 1);
-  const provenance = provenanceApplies ? clipboardProvenanceLine(normalizeSourceMetadata(metadata)) : null;
-
-  return [body.trim(), `${attribution} ${verify}`, caveat, sourceList, provenance].filter(Boolean).join("\n");
+  return [
+    body.trim(),
+    `${answerStateAttribution(state, { sourceOnly })} ${verify}`,
+    answerClipboardCaveatLine(state),
+    sourceList,
+    answerClipboardProvenanceLine(state, metadata),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function clipboardSourceLine({ title, locator, href }: ClipboardSourceRef) {

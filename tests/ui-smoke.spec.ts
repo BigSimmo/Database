@@ -41,6 +41,35 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
+  const surround = page.getByTestId("document-frame-surround");
+  const content = page.getByTestId("document-frame-content");
+  await expect(surround).toBeVisible();
+  await expect(content).toBeVisible();
+  await expect(owner).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      const [surroundGeometry, contentBox, ownerBox] = await Promise.all([
+        surround.evaluate((element) => {
+          const style = window.getComputedStyle(element);
+          return {
+            clientWidth: element.clientWidth,
+            paddingLeft: Number.parseFloat(style.paddingLeft),
+            paddingRight: Number.parseFloat(style.paddingRight),
+          };
+        }),
+        content.boundingBox(),
+        owner.boundingBox(),
+      ]);
+      if (!contentBox || !ownerBox) return Number.POSITIVE_INFINITY;
+      const availableWidth =
+        surroundGeometry.clientWidth - surroundGeometry.paddingLeft - surroundGeometry.paddingRight;
+      return Math.max(Math.abs(contentBox.width - availableWidth), Math.abs(ownerBox.width - availableWidth));
+    })
+    .toBeLessThanOrEqual(2);
+}
+
 async function revealPhoneHeaderControl(page: Page, control: Locator) {
   const { scrollTop } = await readPrimaryScrollGeometry(page);
   if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
@@ -905,7 +934,14 @@ async function expectAccountSettingsSurface(settings: Locator) {
 
 async function expectMobileSettingsLayout(settings: Locator) {
   const jurisdictionRow = settings.getByTestId("settings-row-jurisdiction");
-  const label = jurisdictionRow.getByText("Jurisdiction", { exact: true });
+  // The row carries two labels for one control, deliberately. The visible row
+  // text is a `<label htmlFor>` so clicking it focuses the select, and the DS
+  // `Select` keeps its own `sr-only` label because a field without one is not a
+  // field; `aria-labelledby` points at the visible one, so the accessible name
+  // is those words once rather than the two concatenated. This layout assertion
+  // is about where the *visible* label sits, so it addresses that one by id
+  // instead of by text.
+  const label = jurisdictionRow.locator("#settings-jurisdiction-label");
   const control = jurisdictionRow.getByRole("combobox");
   const [rowBox, labelBox, controlBox] = await Promise.all([
     jurisdictionRow.boundingBox(),
@@ -1530,10 +1566,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(modeSheet).toBeVisible();
 
     // Click the dimmed backdrop (outside the dialog panel) to dismiss.
-    await page
-      .locator(".fixed.inset-0.z-\\[100\\]")
-      .first()
-      .click({ position: { x: 8, y: 8 } });
+    await modeSheet.locator("..").click({ position: { x: 8, y: 8 } });
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeTrigger).toBeFocused();
     await expect(appModeTrigger).toHaveAttribute("aria-expanded", "false");
@@ -2106,10 +2139,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Content-sized section => no unexplained phantom scroll. Submitted universal
     // matches are real content below the answer, so their compact panel may account
     // for the overflow; the old viewport floor created much more empty scroll.
-    // After the 48px tap / 10px control-radius step, bare short answers still fit
-    // with only a couple of pixels of layout slack — keep the empty-state budget
-    // tight, but allow a small sub-pixel band so radius/tap rounding cannot flake.
-    const permittedOverflow = geo.alsoMatchesHeight > 0 ? geo.alsoMatchesHeight + 24 : 8;
+    // The responsive notice keeps its complete instruction while returning the
+    // unexplained-scroll allowance to the original 8px phone contract. Submitted
+    // universal matches are real content, so subtract their measured height
+    // before applying that phantom-overflow budget.
+    const permittedOverflow = geo.alsoMatchesHeight + 8;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
@@ -2280,12 +2314,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // content would hide this distinction. The prior 44px-era ~39px pin moved
     // up with taller answer controls, so the upper bound tracks that band
     // rather than the old 48px ceiling.
+    // The compact phone notice restores the original short-answer contract:
+    // total runway remains below 200px and the runway left after chrome collapse
+    // fits inside the 72px in-flow activation band.
     expect(geometry.maxOffset).toBeGreaterThan(140);
     expect(geometry.maxOffset).toBeLessThan(200);
     expect(geometry.collapseBudget).toBeGreaterThan(112);
     expect(geometry.collapseBudget).toBeLessThan(128);
     expect(geometry.postCollapseMaxOffset).toBeGreaterThanOrEqual(32);
-    expect(geometry.postCollapseMaxOffset).toBeLessThan(72);
+    expect(geometry.postCollapseMaxOffset).toBeLessThanOrEqual(72);
     // A jump straight onto the bottom edge (PageDown / full-page flick) lands
     // past the post-collapse range; hiding there would clamp content under the
     // finger, so the near-bottom guard keeps both chrome edges visible.
@@ -2328,6 +2365,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await input.click();
     await expect(input).toBeFocused();
+
+    await page.setViewportSize({ width: 320, height: 844 });
+    const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
+    await expect(compactCrossModeRail).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    const compactCrossModeLinks = compactCrossModeRail.getByRole("link");
+    const compactCrossModeActions = compactCrossModeRail.getByRole("button");
+    expect(await compactCrossModeLinks.count()).toBeGreaterThan(0);
+    expect(await compactCrossModeActions.count()).toBeGreaterThan(0);
+    for (const control of await compactCrossModeLinks.all()) {
+      await expectMinTouchTarget(control, 48);
+    }
+    for (const control of await compactCrossModeActions.all()) {
+      await expectMinTouchTarget(control, 48);
+    }
   });
 
   test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
@@ -2446,12 +2498,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
-    const rail = strip.getByTestId("cross-mode-links-rail");
+    const rail = strip.getByTestId("cross-mode-links-card-rail");
     await expect(rail).toBeVisible();
-    await expect(rail).toHaveClass(/md:flex/);
+    await expect(rail).toHaveCSS("display", "flex");
     await page.keyboard.press("Escape");
-    await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
-    await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
+    await expect(strip.getByText("Medication", { exact: true }).filter({ visible: true })).toBeVisible();
+    const medicationSearch = strip.getByRole("button", { name: "Search Clozapine in Medication" });
+    await expect(medicationSearch).toBeVisible();
+    await expect(strip.getByText("SGA / TRS", { exact: true }).filter({ visible: true })).toBeVisible();
 
     const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");
     if (await followUps.isVisible()) {
@@ -2464,6 +2518,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
     await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
+    await expectMinTouchTarget(medicationLink, 48);
+    await expectMinTouchTarget(medicationSearch, 48);
     await waitForReactEventHandler(medicationLink, "onClick");
     await medicationLink.click();
     await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 45_000 });
@@ -3327,14 +3383,24 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const filterPanel = page.getByTestId("document-filter-panel");
     await expect(filterPanel).toBeVisible();
     await expect(filterPanel.getByRole("radiogroup", { name: "Source type" })).toBeVisible();
+    // Library lives in the sheet footer now, under a rule and below the commit
+    // action. It was first renamed from "Open source filters" — it browses, it
+    // does not refine, and the old name made it read as a duplicate of Filter —
+    // but renaming treated the symptom. It sat adjacent to Filter in the utility
+    // rail answering a different question, occupied the space the pinned Filter
+    // needs, and was the sole reason the phone rail could overflow at all.
+    const libraryButton = filterPanel.getByTestId("document-filter-browse-library");
+    await expect(libraryButton).toBeVisible();
+    await expect(libraryButton).toHaveText(/Browse all sources/);
+    await expectMinTouchTarget(libraryButton);
     await filterPanel.getByTestId("document-filter-done").click();
     await expect(filterPanel).toHaveCount(0);
     await expect(mobileFilterTrigger).toHaveAttribute("aria-expanded", "false");
-    // Renamed from "Open source filters": it browses, it does not refine, and
-    // the old name is what made it read as a duplicate of Filter.
-    const ribbonLibraryButton = queryRibbon.getByRole("button", { name: "Open source library" });
-    await expect(ribbonLibraryButton).toBeVisible();
-    await expectMinTouchTarget(ribbonLibraryButton);
+    // Asserted as an absence, not merely tolerated: putting Library back on the
+    // rail re-creates the overflow it was moved to remove, and both of its new
+    // homes (this sheet, and the zero-result state) preserve the query the way
+    // the rail placement was protecting.
+    await expect(queryRibbon.getByRole("button", { name: "Open source library" })).toHaveCount(0);
     await expect(documentWorkspace.getByText("Documents overview")).toHaveCount(0);
     await expect(documentWorkspace.getByRole("button", { name: /Browse library/i })).toHaveCount(0);
     await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
@@ -3355,11 +3421,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
         const railStyle = getComputedStyle(rail);
         const widths = Array.from(rail.children).map((child) => child.getBoundingClientRect().width);
         const firstActionStyle = getComputedStyle(rail.children[0]);
+        const typeProbe = document.createElement("span");
+        typeProbe.style.fontSize = "var(--text-sm)";
+        document.body.append(typeProbe);
+        const expectedActionFontSize = getComputedStyle(typeProbe).fontSize;
+        typeProbe.remove();
         const card = rail.closest("article")?.getBoundingClientRect();
         return {
           display: railStyle.display,
           widths,
           actionFontSize: firstActionStyle.fontSize,
+          expectedActionFontSize,
           actionFontWeight: firstActionStyle.fontWeight,
           actionDirection: firstActionStyle.flexDirection,
           cardLeft: card?.left ?? 0,
@@ -3371,7 +3443,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       expect(actionGeometry.cardRight).toBeLessThanOrEqual(actionGeometry.viewportWidth + 1);
       expect(actionGeometry.display).toBe("grid");
       expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
-      expect(actionGeometry.actionFontSize).toBe("14px");
+      expect(actionGeometry.actionFontSize).toBe(actionGeometry.expectedActionFontSize);
       expect(actionGeometry.actionDirection).toBe("row");
       expect(actionGeometry.actionFontWeight).toBe("800");
       for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
@@ -3472,11 +3544,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await wideFilterTrigger.click();
     const wideFilterPanel = page.getByTestId("document-filter-panel");
     await expect(wideFilterPanel.getByRole("radiogroup", { name: "Source type" })).toBeVisible();
-    await wideFilterPanel.getByTestId("document-filter-done").click();
-    await expect(wideFilterPanel).toHaveCount(0);
     const dashboardMain = page.locator("main#main-content");
     const scrollTopBeforeSources = await dashboardMain.evaluate((element) => element.scrollTop);
-    await ribbonLibraryButton.click();
+    // The corpus is now reached from the sheet's footer rather than the rail,
+    // and reaching it dismisses the sheet: browsing is leaving this surface, so
+    // the Sources drawer must not open underneath a filter panel still covering
+    // the results both of them describe.
+    await wideFilterPanel.getByTestId("document-filter-browse-library").click();
+    await expect(wideFilterPanel).toHaveCount(0);
     const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(resultsLibraryDialog).toBeVisible();
     // Prefer Playwright's focus waiter over a raw activeElement poll — Sheet
@@ -3490,11 +3565,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("details#dashboard-documents-drawer")).not.toHaveAttribute("open", "");
     await page.keyboard.press("Escape");
     await expect(resultsLibraryDialog).toHaveCount(0);
+    // Focus must come back to a real control, never to `body` — closing a modal
+    // into nothing strands a keyboard user at the top of the document.
+    //
+    // It lands on the documents options button rather than on whatever opened
+    // the drawer, because the opener is now the sheet's footer control and the
+    // sheet dismisses itself on the way out, so by the time the drawer closes
+    // its opener has unmounted. That is a fallback, not the ideal — returning to
+    // the filter trigger would be better — but it is a visible, related control
+    // in the same workspace, and it is the app's existing restore target rather
+    // than anything this change introduced.
     await expect
-      .poll(async () => ribbonLibraryButton.evaluate((el) => el === document.activeElement), {
-        timeout: 15_000,
-      })
-      .toBe(true);
+      .poll(
+        async () =>
+          page.evaluate(() => {
+            const active = document.activeElement as HTMLElement | null;
+            if (!active || active === document.body) return "body";
+            return active.getAttribute("aria-label") ?? active.tagName;
+          }),
+        { timeout: 15_000 },
+      )
+      .toBe("Open documents options");
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
@@ -3615,7 +3706,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await submitDocumentSearch(page);
     await expect(page).toHaveURL(/\/documents\/search\?/);
     await expect(page.locator("body")).not.toContainText(/failed to fetch|Search failed/i);
-    await expect(page.getByRole("heading", { name: "No matching documents" }).first()).toBeVisible();
+    // Still a heading, deliberately: #1612 promoted this state's title to `h3`
+    // because it owns its region, and the move to the shared empty state must
+    // not quietly demote it back to a paragraph. Only the copy changed — the
+    // shared state names the query that found nothing.
+    await expect(
+      page.getByRole("heading", { level: 3, name: /No matches for .what is the best coffee machine/ }).first(),
+    ).toBeVisible();
 
     const demoDocId = "11111111-1111-4111-8111-111111111111";
     await gotoApp(page, `/documents/${demoDocId}?chunk=44444444-4444-4444-8444-444444444442`);
@@ -3697,6 +3794,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(downloadButton).toBeEnabled();
     await downloadButton.dblclick();
     await expect.poll(() => signedUrlRequests.filter((kind) => kind === "download").length).toBe(1);
+  });
+
+  test("document frame stretches canvas and native owners at phone and desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 720 });
+    await mockDemoApi(page);
+    await gotoApp(
+      page,
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
+
+    const canvasOwner = page.getByTestId("pdf-fullscreen-root");
+    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expectDocumentOwnerFillsFrame(page, canvasOwner);
+
+    await page.evaluate(() => {
+      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "native");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+    const nativeOwner = page.getByTestId("native-pdf-embed");
+    await expectDocumentOwnerFillsFrame(page, nativeOwner);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expectDocumentOwnerFillsFrame(page, nativeOwner);
+
+    await page.evaluate(() => {
+      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "canvas");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expectDocumentOwnerFillsFrame(page, canvasOwner);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("document viewer puts the PDF preview first with pinned evidence after it on mobile", async ({ page }) => {

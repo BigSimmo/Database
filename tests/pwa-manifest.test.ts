@@ -79,6 +79,20 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(offlineHtml).toMatch(/queries, answers, documents, uploads, signed URLs, or API responses/i);
   });
 
+  it("keeps offline browser chrome and surfaces on the canonical v2 palette", () => {
+    const offlineHtml = readFileSync(join(process.cwd(), "public", "offline.html"), "utf8");
+
+    expect(offlineHtml).toContain(
+      '<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />',
+    );
+    expect(offlineHtml).toContain('<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0e11" />');
+    expect(offlineHtml).toContain("--page-background: #ffffff; /* --background */");
+    expect(offlineHtml).toContain("--page-accent: #1a66a8; /* --command */");
+    expect(offlineHtml).toContain("--page-background: #0b0e11; /* dark --background */");
+    expect(offlineHtml).toContain("--page-surface: #1c2126; /* dark --surface-raised */");
+    expect(offlineHtml).not.toContain("#060708");
+  });
+
   it("binds the precached offline document to the service-worker cache version", () => {
     // The offline document is precached at install time only, so an edit that
     // ships without a CACHE_VERSION bump strands installed clients on the old
@@ -87,8 +101,8 @@ describe("PWA manifest and public bootstrap resources", () => {
     // value (never reuse a previous one, even for rollbacks) and record the
     // new offline.html hash here.
     const expectedPairing = {
-      cacheVersion: "2026-07-18-v1",
-      offlineHtmlSha256: "a7c0106c30621d5191db06cf4dea1516186f0fdb945529aeb083d5a88148721e",
+      cacheVersion: "2026-08-05-v2",
+      offlineHtmlSha256: "ce5e4b73faccfaa69a43d7e29cf13c41f948b6fe6b364797ae321506368cd86c",
     };
 
     const workerSource = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");

@@ -55,10 +55,11 @@ export function UniversalSearchAlsoMatches({
     query.addEventListener("change", sync);
     return () => query.removeEventListener("change", sync);
   }, []);
-  // Answer mounts this panel only after generation completes, so its request is
-  // not competing with typeahead or answer work. Keep that result panel eager
-  // and invisible until real matches arrive; a speculative phone disclosure
-  // would add dead space to short answers that have no cross-mode matches.
+  // ClinicalDashboard mounts Answer-mode also-matches only after generation
+  // completes (`answer && !loading`), so this fetch never races the answer
+  // stream. Once mounted, keep the panel eager and invisible until real matches
+  // arrive; a speculative phone disclosure would add dead space to short
+  // answers that have no cross-mode matches.
   const searchActive = isWide || modeId === "answer" || expanded;
   const universal = useUniversalSearch({
     query: trimmedQuery,
@@ -107,7 +108,8 @@ export function UniversalSearchAlsoMatches({
   return (
     <section
       className={cn(
-        "basis-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5",
+        // Secondary post-answer discovery chrome — quieter than the answer card.
+        "basis-full rounded-lg border border-[color:var(--border)]/70 bg-[color:var(--surface)] p-2 motion-safe:animate-fade-up sm:p-2.5",
         className,
       )}
       aria-label="Matches in other modes"
@@ -123,21 +125,23 @@ export function UniversalSearchAlsoMatches({
         tabIndex={isWide ? -1 : undefined}
         className={cn(
           "flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors",
-          "hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          "hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
           // On desktop the panel is always open, so the header is inert copy rather than a control.
-          "sm:pointer-events-none sm:mb-2 sm:cursor-default sm:py-0 sm:hover:bg-transparent",
+          "sm:pointer-events-none sm:mb-1.5 sm:cursor-default sm:py-0 sm:hover:bg-transparent",
         )}
       >
         <span className="flex min-w-0 items-center gap-2">
-          <span className="text-xs font-extrabold text-[color:var(--text-heading)]">Also matches in other modes</span>
-          <span className="inline-flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)] sm:hidden">
+          <span className="text-xs font-bold text-[color:var(--text-heading)]">Also matches in other modes</span>
+          <span className="inline-flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-[color:var(--surface-subtle)] px-1 text-2xs font-bold text-[color:var(--text-muted)] sm:hidden">
             {currentGroups.length || "…"}
           </span>
         </span>
-        <span className="hidden text-2xs font-bold text-[color:var(--text-soft)] sm:inline">Across Clinical KB</span>
+        <span className="hidden text-2xs font-semibold text-[color:var(--text-muted)] sm:inline">
+          Across Clinical KB
+        </span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition-transform sm:hidden",
+            "h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition-transform sm:hidden",
             expanded && "rotate-180",
           )}
           aria-hidden
@@ -159,20 +163,20 @@ export function UniversalSearchAlsoMatches({
           return (
             <div
               key={targetModeId}
-              className="flex min-w-0 items-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2"
+              className="flex min-w-0 items-start gap-2 rounded-md border border-[color:var(--border)]/60 bg-[color:var(--surface-subtle)] p-2"
             >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[color:var(--surface)] text-[color:var(--text-muted)]">
                 <TargetIcon className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0 flex-1 space-y-0.5">
-                <span className="block truncate text-2xs font-bold uppercase tracking-wide text-[color:var(--clinical-accent)]">
+                <span className="block truncate text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
                   {targetMode.label}
                 </span>
                 {group.items.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="block truncate text-xs font-extrabold text-[color:var(--text)] hover:underline"
+                    className="block truncate text-xs font-bold text-[color:var(--text)] hover:underline"
                   >
                     {item.title}
                   </Link>
@@ -180,7 +184,7 @@ export function UniversalSearchAlsoMatches({
               </span>
               <Link
                 href={appModeHomeHref(targetModeId, { query: trimmedQuery, run: true })}
-                className="shrink-0 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)]"
+                className="shrink-0 text-2xs font-semibold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)]"
               >
                 View all
               </Link>

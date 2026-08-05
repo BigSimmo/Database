@@ -59,6 +59,13 @@
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
 
+  /* Mode-home composer slots reserve their settled portal geometry before the
+     client host adopts them. Without this structural reserve, Therapy moved the
+     entire action stack when hydration relocated the composer (CLS 0.248).
+     These are layout tokens, not a second v2 colour/theme source. */
+  --spacing-mode-home-composer-phone: 7.625rem;
+  --spacing-mode-home-composer-wide: 5.5rem;
+
   /* Icon glyph size scale. Named spacing tokens so icon sizing is a documented
      scale (size-icon-md is the 16px default) instead of raw `h-4 w-4` literals,
      and so a step can carry a responsive variant: `size-icon-md sm:size-icon-lg`.
@@ -208,6 +215,7 @@
   --text-heading: #080b0f;
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
+  --decoration-soft: var(--neutral-500);
   /* Placeholder is still text (≥4.5:1). Same ink as muted until a distinct step
      is needed; also declared on the v2 layer for opt-in adoption. */
   --text-placeholder: var(--neutral-600);
@@ -235,6 +243,8 @@
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #c6dcf2;
   --clinical-accent-contrast: #ffffff;
+  /* Tinted filter-count pill on the results band — quieter than a solid disc. */
+  --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 
   /* Bespoke chat surfaces with no role-token equivalent: warm sand callouts
      and table headers. Per-theme values, not aliases. */
@@ -286,6 +296,8 @@
   --danger-bg: #fef3f2;
   --danger-border: #fda29b;
   --danger-solid: #a3190f;
+  --danger-solid-hover: #85140d;
+  --danger-solid-active: #6f120c;
   --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
@@ -320,6 +332,10 @@
   --disabled: #8794a8;
   --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(4 8 14 / 56%);
+  --z-overlay: 80;
+  --z-popover: 95;
+  --z-modal: 100;
+  --z-toast: 110;
   --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
 
   /* Motion primitives (shared by both themes). The duration values live with
@@ -399,11 +415,25 @@
   /* Radius tokens are the single source of truth in @theme above (they also
      generate the rounded-* utilities); do not redefine them here or var() and
      the utilities drift apart. */
+  /* Motion ladder — exact observed production timings (Wave 4 Arch).
+     Phone-chrome hide=240ms / reveal=200ms must stay exact (search-chrome-behaviour). */
+  --duration-instant: 100ms;
   --duration-fast: 120ms;
+  --duration-quick: 150ms;
   --duration-base: 180ms;
+  --duration-moderate: 200ms;
   --duration-slow: 240ms;
+  --duration-deliberate: 300ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* CSS keyword ease-out equivalent — do not conflate with chrome-reveal / soft.
+     Named --ease-out-keyword (not --ease-out): Tailwind v4 owns --ease-out inside
+     @layer theme for the ease-out utility and --default-transition-timing-function;
+     an unlayered :root --ease-out would silently retarget every bare transition. */
+  --ease-out-keyword: cubic-bezier(0, 0, 0.58, 1);
+  /* Phone-chrome hide vs reveal: two tokens, never one (search-chrome-behaviour). */
+  --ease-chrome-hide: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-chrome-reveal: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: light;
 }
 
@@ -452,6 +482,7 @@
   --text-heading: var(--neutral-950);
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
+  --decoration-soft: var(--neutral-500);
   --text-placeholder: var(--neutral-600);
   /* Per-theme values, not neutral-ramp aliases: tracking --neutral-300 left the
      dark border at ~1.35:1 against --surface, i.e. effectively invisible. */
@@ -475,6 +506,7 @@
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #235a7d;
   --clinical-accent-contrast: #082e4d;
+  --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 
   --clinical-chat-sand: #2d2418;
   --clinical-chat-sand-border: #5a4427;
@@ -518,6 +550,8 @@
   --danger-bg: #401c24;
   --danger-border: #7f2e36;
   --danger-solid: #b42318;
+  --danger-solid-hover: #d92d20;
+  --danger-solid-active: #912018;
   --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
@@ -1379,7 +1413,7 @@ summary::-webkit-details-marker {
 }
 
 .chat-composer-input::placeholder {
-  color: var(--text-soft);
+  color: var(--text-placeholder);
 }
 
 .chat-composer-icon-button,
@@ -1495,7 +1529,7 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-input::placeholder {
-  color: color-mix(in srgb, var(--text-muted) 72%, var(--text-soft));
+  color: var(--text-placeholder);
   font-weight: 560;
   opacity: 1;
 }
@@ -1524,7 +1558,7 @@ summary::-webkit-details-marker {
 .answer-footer-search-send:disabled {
   opacity: 1;
   background: var(--surface-subtle);
-  color: var(--text-soft);
+  color: var(--disabled);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 42%, transparent);
 }
 
@@ -1730,7 +1764,7 @@ summary::-webkit-details-marker {
   justify-content: center;
   gap: 0.35rem;
   padding-inline: 0.25rem;
-  color: var(--text-soft);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -1741,7 +1775,7 @@ summary::-webkit-details-marker {
 }
 
 .answer-suggestion-label {
-  color: var(--text-soft);
+  color: var(--text-muted);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -1842,7 +1876,7 @@ summary::-webkit-details-marker {
   height: 0.8125rem;
   flex-shrink: 0;
   margin-right: 0.3125rem;
-  color: var(--text-soft);
+  color: var(--decoration-soft);
 }
 
 .answer-suggestion-chip-label {
@@ -2853,7 +2887,7 @@ td,
 
   .polished-scroll:hover,
   .polished-scroll:focus-within {
-    scrollbar-color: color-mix(in srgb, var(--border-strong) 95%, var(--text-soft) 15%) transparent;
+    scrollbar-color: color-mix(in srgb, var(--border-strong) 95%, var(--decoration-soft) 15%) transparent;
   }
 
   .polished-scroll::-webkit-scrollbar {
@@ -2878,7 +2912,7 @@ td,
   }
 
   .polished-scroll:hover::-webkit-scrollbar-thumb {
-    background-color: color-mix(in srgb, var(--border-strong) 90%, var(--text-soft) 15%);
+    background-color: color-mix(in srgb, var(--border-strong) 90%, var(--decoration-soft) 15%);
   }
 
   .polished-scroll::-webkit-scrollbar-thumb:hover {
@@ -2913,7 +2947,7 @@ td,
 }
 
 .stagger-item {
-  animation: cascade-fade-up 200ms var(--ease-out-soft) both;
+  animation: cascade-fade-up var(--duration-moderate) var(--ease-out-soft) both;
   animation-delay: calc(var(--stagger-index, 0) * 35ms);
 }
 
@@ -2947,7 +2981,7 @@ html[data-motion="reduced"] .stagger-item {
 
   /* Opt-in soft opacity fade for critical feedback state changes */
   .fade-accessible-reduced {
-    transition: opacity 120ms var(--ease-out-soft) !important;
+    transition: opacity var(--duration-fast) var(--ease-out-soft) !important;
   }
 }
 
@@ -2983,6 +3017,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --text: CanvasText;
     --text-muted: CanvasText;
     --text-soft: CanvasText;
+    --decoration-soft: GrayText;
     --text-placeholder: CanvasText;
     --border: ButtonBorder;
     --border-strong: ButtonText;
@@ -3009,6 +3044,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --clinical-accent-soft: Canvas;
     --clinical-accent-border: ButtonBorder;
     --clinical-accent-contrast: ButtonText;
+    --search-band-badge-bg: Highlight;
     --info: LinkText;
     --info-soft: Canvas;
     --success: CanvasText;
@@ -3018,6 +3054,8 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --danger: Mark;
     --danger-soft: Canvas;
     --danger-solid: Mark;
+    --danger-solid-hover: Mark;
+    --danger-solid-active: Mark;
     /* Mark's palette-paired foreground — ButtonText is not guaranteed to
        contrast a Mark fill in arbitrary user schemes. */
     --danger-solid-contrast: MarkText;
@@ -3104,6 +3142,15 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
+/* =========================================================================
+ * Print theme (SPEC §4.12) — four scoped blocks below:
+ *   1) Global print reset + chrome hide
+ *   2) Factsheet export isolation (html.factsheets-printing)
+ *   3) Safety-plan tool ([data-print-hide] / [data-safety-plan-copy])
+ *   4) Therapy Compass isolation (named @page + data-therapy-root)
+ * Chrome must prefer [data-print-hide]; element-name selectors below are
+ * transitional back-compat until every chrome owner is attribute-marked.
+ * ========================================================================= */
 @media print {
   html,
   body {
@@ -3113,6 +3160,12 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     color: #000;
   }
 
+  /* Prefer attribute marking for new chrome (SPEC §4.12). */
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Transitional element-name chrome hide — do not extend this list. */
   header,
   nav,
   button,
@@ -3139,6 +3192,11 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   a {
     color: #000;
     text-decoration: underline;
+  }
+
+  /* Flatten glass/elevation so print is ink-on-paper. */
+  * {
+    text-shadow: none !important;
   }
 }
 
@@ -3196,15 +3254,15 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
 @media (max-width: 639px) {
   #main-content[data-reserve-transitioning="true"] {
     will-change: padding-bottom;
-    transition: padding-bottom 240ms var(--ease-out-soft);
+    transition: padding-bottom var(--duration-slow) var(--ease-out-soft);
   }
   #main-content[data-reserve-transitioning="true"] [data-testid="mobile-composer-reserve-pad"] {
     will-change: padding-bottom;
-    transition: padding-bottom 240ms var(--ease-out-soft);
+    transition: padding-bottom var(--duration-slow) var(--ease-out-soft);
   }
   [data-testid="document-viewer-content"][data-reserve-transitioning="true"] {
     will-change: padding-bottom;
-    transition: padding-bottom 240ms var(--ease-out-soft);
+    transition: padding-bottom var(--duration-slow) var(--ease-out-soft);
   }
   /* A page-owned reserve changes scroll height below the current viewport.
      Suspend browser anchoring only for that transition so Chrome cannot turn
@@ -3214,7 +3272,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
   [data-reserve-owner][data-reserve-transitioning="true"] {
     will-change: padding-bottom;
-    transition: padding-bottom 240ms var(--ease-out-soft);
+    transition: padding-bottom var(--duration-slow) var(--ease-out-soft);
   }
 }
 
@@ -3233,8 +3291,8 @@ html.theme-transitioning *,
 html.theme-transitioning *:before,
 html.theme-transitioning *:after {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke !important;
-  transition-duration: 200ms !important;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-duration: var(--duration-moderate) !important;
+  transition-timing-function: var(--ease-chrome-hide) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3261,9 +3319,13 @@ html.theme-transitioning *:after {
 }
 
 /* ─── SEARCH RESULTS BAND ──────────────────────────────────────────────────
-   Weight comes down across this surface: nothing is bold, the heaviest step is
-   580, and the query and the figure share it — they are separated by tabular
-   numerals and a hairline rather than by shouting. Expressed here as numeric
+   Weight comes down across this surface: nothing is bold. The one-line anatomy
+   split the two apart rather than sharing a step — the figure carries 600 and
+   the query 450, so the count leads and the query reads as its subject. They
+   are separated by tabular numerals and a hairline rather than by shouting.
+   (This said "the heaviest step is 580, and the query and the figure share it"
+   until the redesign; both numbers changed and the sentence did not.)
+   Expressed here as numeric
    `font-weight` on named classes rather than Tailwind arbitrary values because
    (a) that is the existing idiom in this file, and (b) `check:type-scale
    --strict` is a zero gate on arbitrary `text-[Npx]` utilities. Geist is a
@@ -3273,28 +3335,45 @@ html.theme-transitioning *:after {
    carries the `border` / `border-[color:var(--border)]` utilities — inside a
    layer these rules lose and the accent rail silently renders as a neutral
    1px border. Verify with computed styles, not class presence. */
-/* The accent is the card's real border-top. As an absolutely-positioned bar
-   inside an overflow:hidden 12px-radius card the corner arc sliced its ends —
-   at y=0 the arc is 12px in, at y=2px it is 5.4px in — so the rail started
-   short and tapered while the 1px border curved past it. A border mitres into
-   the side borders and follows the radius by construction. */
-.search-band {
-  border-top: 2px solid var(--clinical-accent);
+/* The accent used to be the card's real border-top, drawn edge to edge. At 58px
+   the band is a bar rather than a card lid, and a line across its whole width
+   reads as a divider between the composer and the results instead of as the
+   band's own mark. It moves inside the padding: 2 x 18px, level with the count.
+
+   Drawn as a `border-left` on a zero-width box rather than as a background, for
+   two reasons that are not stylistic. Forced colors drops backgrounds outright
+   but maps border colour to CanvasText, and `border-left-style: double` is how
+   the faulted state stays structural there — the same idiom the old border-top
+   carried in the forced-colors block below, and the one high-contrast
+   distinction that matters clinically. */
+.search-band-lead {
+  /* `display: block` so width/height apply even if this mark is ever moved out
+     of a flex/grid formatting context. As a bare inline span those dimensions
+     are ignored and the stroke collapses to nothing while class-presence
+     assertions still pass. */
+  display: block;
+  box-sizing: content-box;
+  width: 0;
+  height: 1.125rem;
+  border-left: 2px solid var(--clinical-accent);
+  /* 2 + 4 = 6px, which is the faulted mark's own footprint, so the count does
+     not shift sideways the moment a search degrades. */
+  margin-right: 4px;
 }
-.search-band[data-status="error"],
-.search-band[data-status="unauthorized"] {
-  border-top-color: var(--warning);
+/* Keyed off the element rather than `.search-band[data-status=…] &`: a
+   descendant selector would put `.search-band` back into the unlayered-visual
+   inventory with a live component rule, and the style-contract registry would
+   then require a second contract for a class that no longer paints anything. */
+.search-band-lead[data-tone="warning"] {
+  border-left: 6px double var(--warning);
+  margin-right: 0;
 }
 
-.search-band-query {
-  font-size: 1.21875rem;
-  font-weight: 560;
-  letter-spacing: -0.023em;
-}
-/* The query now sits after the count rather than leading the band, so it steps
-   down to reading weight: it anchors the number without competing with it. */
+/* The query sits after the count rather than leading the band, so it steps down
+   to reading weight: it anchors the number without competing with it, and it is
+   the part that truncates when the line runs out. */
 .search-band-subject {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 450;
   letter-spacing: -0.006em;
 }
@@ -3305,10 +3384,13 @@ html.theme-transitioning *:after {
   font-weight: 560;
   letter-spacing: 0.1em;
 }
+/* The count and its noun are the same size and differ only by weight, so the
+   pair reads as one phrase rather than as a number with a caption. Tabular, so
+   the line does not reflow as the digit count changes under a live region. */
 .search-band-count {
-  font-size: 1.21875rem;
-  font-weight: 580;
-  letter-spacing: -0.016em;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.014em;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
@@ -3319,8 +3401,18 @@ html.theme-transitioning *:after {
   color: var(--text-muted);
 }
 .search-band-count-word {
-  font-size: 0.8125rem;
-  font-weight: 400;
+  font-size: 0.9375rem;
+  font-weight: 450;
+  letter-spacing: -0.014em;
+}
+@media (min-width: 40rem) {
+  .search-band-count,
+  .search-band-count-word {
+    font-size: 1rem;
+  }
+  .search-band-subject {
+    font-size: 0.875rem;
+  }
 }
 .search-band-fault {
   font-size: 0.84375rem;
@@ -3355,24 +3447,38 @@ html.theme-transitioning *:after {
    while still looking correct in review. Rendering (not reading) exposed three
    losses that colour alone was hiding. */
 @media (forced-colors: active) {
-  /* 1 — the rail survives as thickness, not hue: --clinical-accent resolves to
-     LinkText and --border-strong to CanvasText, so "accented" would otherwise
-     collapse into the other three borders. */
-  .search-band {
-    border-top-width: 3px;
+  /* 1 — the lead mark survives as stroke count, not hue: --clinical-accent
+     resolves to LinkText and --warning is not remapped by the token block at
+     all, so "accent" and "warning" would paint the same mark. One stroke is a
+     healthy search; two is a degraded one. */
+  .search-band-lead {
+    border-left-color: CanvasText;
+    height: 1.25rem;
   }
-  /* 2 — a fault becomes a doubled top edge. Structural, not chromatic. This is
-     the one distinction that matters clinically: without it a failed search is
-     visually identical to a successful one. */
+  .search-band-lead[data-tone="warning"] {
+    border-left: 6px double CanvasText;
+  }
+  /* 2 — a fault also doubles the card's own top edge. Structural, not
+     chromatic, and deliberately redundant with the mark above: at 58px an 18px
+     stroke is easy to miss, and this is the one distinction that matters
+     clinically — without it a failed search is visually identical to a
+     successful one. */
   .search-band[data-status="error"],
   .search-band[data-status="unauthorized"] {
-    border-top-width: 6px;
+    border-top-width: 4px;
     border-top-style: double;
+  }
+  /* 3 — the badged filter count is a colour-mixed tint, which forced colors
+     drops entirely, leaving a bare digit against the control's own label. */
+  .search-band-badge {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
   }
   .search-band-fault {
     font-weight: 640;
   }
-  /* 3 — selected sort/chip lose their fill, so carry them on the system's own
+  /* 4 — selected sort/chip lose their fill, so carry them on the system's own
      selection pair. forced-color-adjust is required: Highlight resolves
      semi-transparent and Chromium otherwise paints a Canvas backplate straight
      over the label. */

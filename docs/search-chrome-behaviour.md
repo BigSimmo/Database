@@ -30,7 +30,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 12. Standalone mode-home detection (`isStandaloneModeHomePath`) is pathname-only. Do not gate hero vs dock on a React `searchMode` that can update before the router pathname lands — that one-frame mismatch animates reserve padding and reads as a choppy screen resize.
 13. Phone `#main-content` / reserve-pad `padding-bottom` transitions apply while `data-reserve-transitioning="true"` (scroll-hide and reveal). Mode and route reserve flips clear that marker immediately and must snap.
 14. Shared shell must reset phone scroll offset and scroll-hide state on `pathname` change so mode homes do not inherit a mid-page offset or collapsed header.
-15. Hero composer portal: keep the default composer mounted until the portal host is actually attached; do not hide on `slotId` alone (mode-home remounts otherwise flash a null gap).
+15. Hero composer portal: keep the default composer mounted until the portal host is actually attached; do not hide on `slotId` alone (mode-home remounts otherwise flash a null gap). Mode-home hero geometry reserves via `data-composer-reserve="pending"` (SSR) or `:not(:empty)` (portal attached); `MasterSearchHeader` must clear the pending marker when the home media query does not match, `searchComposerVisible` is false, or portal adoption falls back — never leave an unconditional empty `min-h` band.
 16. Leaving the dashboard shell for a namespaced mode (`selectSearchMode` / `crossModeSearch`) must navigate without rewriting dashboard chrome first.
 17. Do not wrap mode-home `{children}` in `ClientHydrationBoundary` — that blanks RSC HTML until JS mounts. Keep hydration guards on the specific leaf that mismatches. Do not call `useSearchParams()` in an ancestor Suspense that also renders route `{children}`: that nests the page segment inside the shell’s incomplete streaming boundary and can leave a persistent hidden `S:` clone (duplicate page-root `data-testid`s). Gate always-standalone pathnames with `isAlwaysStandaloneShellPath`, and bridge search params beside the shell body via `ShellSearchParamsBridge`.
 18. Standalone mode-home `loading.tsx` files must render `ModeHomeRouteLoading` (phone top-aligned). Do not reuse unrelated results/medication skeletons.
@@ -65,16 +65,16 @@ chrome and changes to it land on every mode at once. Keep these rules:
    mapping from their own data source; five pages have no async source and are correct on the
    default.
 1. **The query is the only heading element in the band.** It is the sole `<h1>`/`<h2>`; the count
-   is never a heading. Nothing here is bold: the query uses weight 560 (`.search-band-query`) and
-   the figure uses 580 (`.search-band-count`) — two nearby steps of the same scale, separated by
+   is never a heading. Nothing here is bold: the query uses weight 450 (`.search-band-subject`) and
+   the figure uses 600 (`.search-band-count`) — two nearby steps of the same scale, separated by
    tabular numerals and a hairline rather than by shouting. No eyebrow — the magnifier tile
    already says "search", and a `QUERY` / `RESULTS FOR` label costs a line to repeat it. The
    query truncates; the count does not. Weights live as numeric `font-weight` on `.search-band-*`
    classes in `globals.css`, not as Tailwind arbitrary values: `check:type-scale --strict` is a
-   zero gate on arbitrary `text-[Npx]`, and Geist is a variable face so 470/540/560/580
+   zero gate on arbitrary `text-[Npx]`, and Geist is a variable face so 450/470/540/560/600
    interpolate rather than snapping to 700. Judge weights only with the app font loaded.
 2. **The count is neutral text, not a success pill.** `text-muted` with the figure itself
-   `.search-band-count` (580, tabular-nums), stepping down to 470 and muted at zero. Success
+   `.search-band-count` (600, tabular-nums), stepping down to 470 and muted at zero. Success
    colour is reserved for states that were actually achieved, so it still carries meaning where
    it appears. The `role="status"` / `aria-live="polite"` announcement stays either way — except
    while faulted, when the spine goes `aria-live="off"` and the fault panel's `role="alert"`
@@ -100,16 +100,22 @@ chrome and changes to it land on every mode at once. Keep these rules:
 6. **Active scopes render as removable chips at the head of that group**, in accent tone, so a
    constraint on the list is one tap from where it is read. Do not move them into a separate
    strip; `hasUtilities` already suppresses the whole group when nothing is active.
-7. **The accent is the card's `border-top`, never an overlay.** An absolutely-positioned bar
-   inside an `overflow-hidden` 12px-radius card is sliced by the corner arc, so it starts short
-   and tapers while the 1px border curves past it — two lines, two geometries. A border mitres
-   into the side borders and follows the radius by construction, and forced-colors maps it
-   automatically. Under forced colors the rail survives as **thickness** (3px, and 6px `double`
-   for a fault) because `--clinical-accent` resolves to `LinkText` and would otherwise be
-   indistinguishable from the other borders — that is what keeps a failed search visually
-   distinct from a successful one when colour is gone. The band's forced-colors rules **must
-   remain the last block in `globals.css`**: at equal specificity a later rule wins, so an
-   earlier block is silently overridden while still reading correctly.
+7. **The accent is a border, never an overlay — and it is now a lead mark, not a full-width
+   rail.** An absolutely-positioned bar inside an `overflow-hidden` 12px-radius card is sliced by
+   the corner arc, so it starts short and tapers while the 1px border curves past it — two lines,
+   two geometries. A border avoids that by construction, and forced-colors maps it automatically.
+   The accent used to be the card's own `border-top`; collapsing the band to one line moved it
+   inside the padding as `.search-band-lead`, a 2 × 18px `border-left` on a zero-width box,
+   because a line spanning the full width read as a divider between the composer and the results
+   rather than as the band's own mark. Under forced colors it survives as **stroke count** rather
+   than hue — one stroke healthy, `6px double` faulted, with the card's own top edge doubling to
+   `4px double` alongside it — because `--clinical-accent` resolves to `LinkText` and would
+   otherwise be indistinguishable from the other borders. That is what keeps a failed search
+   visually distinct from a successful one when colour is gone. Two consequences worth knowing:
+   the mark is `display: block` so it does not depend on flex blockification to paint at all, and
+   the band's forced-colors rules **must remain the last block in `globals.css`** — at equal
+   specificity a later rule wins, so an earlier block is silently overridden while still reading
+   correctly.
 8. **A new search page cannot skip the band.** `AppModeSearchConfig.resultsSurface` is required,
    so a new mode fails `typecheck` until it declares `results-band` or `answer`, and
    `tests/search-results-band-adoption.test.ts` then requires a matching mount plus a documented

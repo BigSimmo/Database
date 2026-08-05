@@ -62,11 +62,11 @@ export function DetailScreen() {
               {t.name}
             </h1>
             {t.aliases.length ? (
-              <div className="text-sm-minus text-[color:var(--text-soft)] mb-3">
+              <div className="text-sm-minus text-[color:var(--text-muted)] mb-3">
                 Also known as {t.aliases.join(", ")}
               </div>
             ) : (
-              <div className="text-sm-minus text-[color:var(--text-soft)] mb-3">{t.category}</div>
+              <div className="text-sm-minus text-[color:var(--text-muted)] mb-3">{t.category}</div>
             )}
             {t.clinicalSummary ? (
               <p className="mt-0 mx-0 mb-4 text-base-minus leading-normal text-[color:var(--text-muted)] max-w-[64ch]">
@@ -196,18 +196,22 @@ export function DetailScreen() {
                   <button
                     key={r.slug}
                     type="button"
-                    className={`${therapyBtn} transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] flex w-full items-center justify-between gap-2 border-0 bg-transparent px-0 py-[11px] text-left${i < arr.length - 1 ? " border-b border-[color:var(--border)]" : ""}`}
+                    className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center justify-between gap-2 border-0 bg-transparent px-0 py-[11px] text-left${i < arr.length - 1 ? " border-b border-[color:var(--border)]" : ""}`}
                     onClick={() => b.open(r.slug)}
                   >
                     <span className="min-w-0">
                       <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
                         {r.name}
                       </span>
-                      <span className="block text-xs text-[color:var(--text-soft)] mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
+                      <span className="block text-xs text-[color:var(--text-muted)] mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
                         {r.bestUsedFor ?? r.category}
                       </span>
                     </span>
-                    <ChevronRightIcon size={15} strokeWidth={1.8} className="text-[color:var(--text-soft)] flex-none" />
+                    <ChevronRightIcon
+                      size={15}
+                      strokeWidth={1.8}
+                      className="text-[color:var(--decoration-soft)] flex-none"
+                    />
                   </button>
                 ))}
               </div>

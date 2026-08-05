@@ -4,7 +4,8 @@
 gitignored `.ds-sync` toolchain and compiles CSS into `.design-sync/.cache/compiled.css`.
 Use `node scripts/design-sync.mjs --skip-install` when `.ds-sync` is already populated.
 Remote upload to claude.ai/design (`resync.mjs --remote`) remains a session skill
-outside this lockfile — run it after the local CSS prep when you need a full sync.
+outside this lockfile — run it only with the required authorisation. Local entry/config/preview
+parity does not prove remote upload, remote publication, or remote project state.
 
 - This repo is the Next.js app itself, not a component library: no `dist/`, no
   Storybook. The sync uses the package shape with a hand-authored entry at
@@ -33,7 +34,8 @@ outside this lockfile — run it after the local CSS prep when you need a full s
   transformed, explicitly-sized container (see `previews/Sheet.tsx`) so the
   overlay stays inside the card. Keep that wrapper on any preview edit.
 - Default `guidelinesGlob` swept 46 repo process docs into `guidelines/` —
-  the config pins a curated 5-file design set; keep it curated.
+  the config pins the seven-document `docs/design-system/` set; keep it curated and run
+  `npm run check:design-sync-contract` after changing public APIs or previews.
 
 ## Known claude.ai/design validator findings (accepted, do not "fix")
 

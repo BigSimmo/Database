@@ -108,7 +108,7 @@ export function ScopeAndGovernanceNotice({
             <li key={warning.code}>
               {warning.message}
               {warning.titles.length ? (
-                <details className="mt-0.5 text-[color:var(--text-soft)]">
+                <details className="mt-0.5 text-[color:var(--text-muted)]">
                   <summary className="cursor-pointer font-medium hover:text-[color:var(--text-muted)]">
                     Sources affected
                   </summary>
@@ -681,7 +681,7 @@ export function NaturalLanguageAnswer({
               data-testid="source-only-disclosure"
               role="note"
               className={cn(
-                "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-xs transition-[border-radius] duration-150",
+                "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-xs transition-[border-radius] duration-[var(--duration-quick)]",
                 sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
                 textMuted,
               )}

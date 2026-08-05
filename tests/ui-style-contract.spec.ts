@@ -152,6 +152,8 @@ const CKB_V2_HCM_EXPECTED: Record<string, string> = {
   "--command": "ButtonFace",
   "--command-contrast": "ButtonText",
   "--danger-solid": "Mark",
+  "--danger-solid-hover": "Mark",
+  "--danger-solid-active": "Mark",
   "--danger-solid-contrast": "MarkText",
   "--focus": "Highlight",
   "--disabled": "GrayText",

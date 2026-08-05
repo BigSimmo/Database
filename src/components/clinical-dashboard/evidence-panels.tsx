@@ -50,7 +50,7 @@ import {
   codeText,
   EmptyState,
   iconTilePremium,
-  metadataPill,
+  metadataPillDensity,
   panelSubtle,
   proseMeasure,
   sourceCard,
@@ -62,6 +62,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
+import type { AnswerState } from "@/components/ui/answer-state";
 import { isAnswerSourceBacked, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
 import {
@@ -108,12 +109,29 @@ type AnswerSupportPriority = {
   tone: "priority" | "caution";
 };
 
+/**
+ * PR 13 provenance adoption. `answerState` is the design system's projection of
+ * the same payload (`answerStateFromRetrieval`), and it is read here so the live
+ * "Review source match" caution and the DS `RetrievalStateBanner` cannot drift
+ * apart as the answer surface adopts `AnswerCard`.
+ *
+ * It is an **addition**, never a replacement: the three original signals below
+ * still fire on their own. Deriving the caution from the state alone would lose
+ * cases, because the projection's precedence collapses an answer that is both
+ * stale and ungrounded to `stale_evidence` — and a naive `kind === "ungrounded"`
+ * check would then silently drop the very warning `#207` was raised to protect.
+ *
+ * Any degraded kind asks for source review. That makes the caution a strict
+ * superset of the previous condition; the one case it newly covers is an answer
+ * over overdue sources that is otherwise grounded, which the DS banner already
+ * treats as caution and which a clinician should verify for the same reason.
+ */
 export function answerSupportPriority(
   answer: RagAnswer,
   sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
   table: VisualEvidenceCard | null,
   safetyFindings: ReturnType<typeof extractSafetyFindings>,
-  options: { grounded: boolean; weakEvidence: boolean },
+  options: { grounded: boolean; weakEvidence: boolean; answerState?: AnswerState | null },
 ): AnswerSupportPriority | null {
   const firstSafetyFinding = sortSafetyFindingsBySeverity(safetyFindings)[0];
   if (firstSafetyFinding) {
@@ -124,7 +142,9 @@ export function answerSupportPriority(
     };
   }
 
-  if (answer.answerQualityTier === "source_only" || !options.grounded || options.weakEvidence) {
+  const degradedState = options.answerState != null && options.answerState.kind !== "ready";
+
+  if (answer.answerQualityTier === "source_only" || !options.grounded || options.weakEvidence || degradedState) {
     return {
       title: "Review source match",
       detail:
@@ -872,8 +892,8 @@ export function ClinicalNotesChecklistPanel({
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-tap items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]">
-              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
+            <span className="inline-flex min-h-tap items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-muted)]">
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" />
               Source
             </span>
           )}
@@ -1137,7 +1157,7 @@ export function AnswerFeedbackPanel({
           </p>
         </div>
         {pending ? (
-          <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+          <span className={metadataPillDensity.dense}>
             <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
             Saving
           </span>
@@ -1182,7 +1202,12 @@ function RenderModelSourceList({
 }) {
   if (sources.length === 0) {
     return (
-      <EmptyState icon={FileText} title={emptyStates.sourcePassages.title} body={emptyStates.sourcePassages.body} />
+      <EmptyState
+        icon={FileText}
+        title={emptyStates.sourcePassages.title}
+        body={emptyStates.sourcePassages.body}
+        live="polite"
+      />
     );
   }
 
@@ -1343,7 +1368,12 @@ export function QuoteCards({
         }
       />
       {quotes.length === 0 ? (
-        <EmptyState icon={Quote} title={emptyStates.exactQuotes.title} body={emptyStates.exactQuotes.body} />
+        <EmptyState
+          icon={Quote}
+          title={emptyStates.exactQuotes.title}
+          body={emptyStates.exactQuotes.body}
+          live="polite"
+        />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {quotes.map((quote, index) => {

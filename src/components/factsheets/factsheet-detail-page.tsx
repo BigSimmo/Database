@@ -190,7 +190,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                       <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                       Updated {factsheet.reviewedOn}
                     </span>
-                    <span className="text-xs text-[color:var(--text-soft)]">· {factsheet.readTime}</span>
+                    <span className="text-xs text-[color:var(--text-muted)]">· {factsheet.readTime}</span>
                   </div>
                 </div>
               </div>
@@ -224,7 +224,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-[color:var(--text-heading)]">{source.title}</p>
-                        <p className="text-xs text-[color:var(--text-soft)]">
+                        <p className="text-xs text-[color:var(--text-muted)]">
                           {source.org} · {source.year}
                         </p>
                       </div>
@@ -233,7 +233,10 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                       </span>
                       {/* Only advertise an outbound link when a verifiable URL exists. */}
                       {source.url ? (
-                        <ArrowUpRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
+                        <ArrowUpRight
+                          className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]"
+                          aria-hidden="true"
+                        />
                       ) : null}
                     </>
                   );
@@ -290,13 +293,13 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                           <span className="block truncate text-sm font-bold text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
                             {sheet.title}
                           </span>
-                          <span className="block truncate text-xs text-[color:var(--text-soft)]">{sheet.summary}</span>
+                          <span className="block truncate text-xs text-[color:var(--text-muted)]">{sheet.summary}</span>
                         </span>
-                        <span className="shrink-0 text-xs font-bold text-[color:var(--text-soft)]">
+                        <span className="shrink-0 text-xs font-bold text-[color:var(--text-muted)]">
                           {sheet.readTime}
                         </span>
                         <ChevronRight
-                          className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
+                          className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
                           aria-hidden="true"
                         />
                       </Link>
@@ -328,7 +331,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                         <span className="block truncate text-sm font-bold text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
                           {sheet.title}
                         </span>
-                        <span className="block text-xs text-[color:var(--text-soft)]">{sheet.category}</span>
+                        <span className="block text-xs text-[color:var(--text-muted)]">{sheet.category}</span>
                       </span>
                     </Link>
                   );
@@ -338,7 +341,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
 
             <div className="mt-6 border-t border-[color:var(--border)] pt-3.5">
               <p className="text-xs font-bold text-[color:var(--warning)]">{FACTSHEET_DEMO_NOTICE}</p>
-              <p className="mt-1.5 text-xs leading-5 text-[color:var(--text-soft)]">
+              <p className="mt-1.5 text-xs leading-5 text-[color:var(--text-muted)]">
                 This sheet is general information, not personal medical advice. Always follow the instructions from your
                 own doctor or pharmacist.
               </p>
@@ -348,11 +351,11 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           {/* sidebar */}
           <aside className="grid gap-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] lg:sticky lg:top-4">
             <div className="p-4">
-              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">For</p>
+              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">For</p>
               <p className="mt-1 text-sm font-bold text-[color:var(--text-heading)]">{factsheet.audience}</p>
             </div>
             <div className="border-t border-[color:var(--border)] p-4">
-              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                 Last updated
               </p>
               <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold text-[color:var(--text-heading)]">
@@ -361,7 +364,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
               </p>
             </div>
             <div className="border-t border-[color:var(--border)] p-4">
-              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                 On this page
               </p>
               <ul className="mt-2 grid gap-1.5">
@@ -482,7 +485,10 @@ function FactsheetBody({
                 <ul className="grid gap-2">
                   {factsheet.sideCommon.map((item) => (
                     <li key={item} className="flex items-start gap-2.5 text-sm leading-5 text-[color:var(--text)]">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
+                      <Check
+                        className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]"
+                        aria-hidden="true"
+                      />
                       <span>{item}</span>
                     </li>
                   ))}

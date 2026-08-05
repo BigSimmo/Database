@@ -66,7 +66,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         <div className="flex gap-1">
           <button
             type="button"
-            className={`${therapyBtn} inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)] opacity-65`}
+            className={`${therapyBtn} inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--disabled)] opacity-65`}
             disabled
             title="Favourite saving is not available yet"
             aria-label="Favourite saving is not available yet"
@@ -121,7 +121,7 @@ function CardCell({
 }) {
   return (
     <div
-      className={`bg-[color:var(--surface)] px-[13px] py-3 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)] ${tone === "accent" ? "text-[color:var(--clinical-accent)]" : tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] [&_p]:text-[color:var(--warning-text)]" : "text-[color:var(--text-soft)]"}`}
+      className={`bg-[color:var(--surface)] px-[13px] py-3 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)] ${tone === "accent" ? "text-[color:var(--clinical-accent)]" : tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] [&_p]:text-[color:var(--warning-text)]" : "text-[color:var(--text-muted)]"}`}
     >
       <div className="mb-[7px] flex items-center gap-1.5">
         <Icon size={13} strokeWidth={1.9} />
@@ -149,7 +149,7 @@ export function TherapyListItem({
   return (
     <button
       type="button"
-      className={`${therapyBtn} transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:bg-[color:var(--clinical-accent-soft)]`}
+      className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:bg-[color:var(--clinical-accent-soft)]`}
       onClick={onClick}
       aria-pressed={active}
     >
@@ -161,11 +161,11 @@ export function TherapyListItem({
         </span>
       </span>
       {trailing ?? (
-        <span className="flex-none text-[color:var(--text-soft)]">
+        <span className="flex-none text-[color:var(--decoration-soft)]">
           {therapy.reviewStatus === "reviewed" ? null : <AlertIcon size={15} strokeWidth={1.8} />}
         </span>
       )}
-      <ChevronRightIcon size={15} strokeWidth={1.8} className="flex-none text-[color:var(--text-soft)]" />
+      <ChevronRightIcon size={15} strokeWidth={1.8} className="flex-none text-[color:var(--decoration-soft)]" />
     </button>
   );
 }

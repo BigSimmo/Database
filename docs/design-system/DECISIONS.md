@@ -1,10 +1,10 @@
 # Clinical KB design system — DECISIONS
 
-**The five conflicts resolved — what was chosen, what was rejected, and why — plus the
+**The six conflicts resolved — what was chosen, what was rejected, and why — plus the
 clinical Q&A that shaped the component specs, the assumptions register, and the blocked
 list.**
 
-- **Date:** 31 July 2026 · companions: [SPEC.md](SPEC.md) · [TOKENS.md](TOKENS.md) ·
+- **Date:** 5 August 2026 · companions: [SPEC.md](SPEC.md) · [TOKENS.md](TOKENS.md) ·
   [COMPONENTS.md](COMPONENTS.md) · [GATES.md](GATES.md)
 - **State corrections established while resolving:** the design-system work is **committed**
   as `ef13a072a` on branch `claude/clinical-kb-design-system-333a69` (local-only, base
@@ -86,6 +86,10 @@ surface at a time. The cost — carrying the transitional two-layer architecture
 (SPEC §4.11) a while longer — is bounded and already documented; an uncommanded repaint is
 neither.
 
+**Current status.** Class scoping is still a target-layer contract, not evidence that a product
+surface has adopted it. The local adoption manifest records literal root opt-ins; remote design
+status remains unverified unless an authorised remote check says otherwise.
+
 ---
 
 ## C4 · The v2 forced-colours block covers the descendant form
@@ -138,6 +142,37 @@ identity" was a misreading of category colour. Kind identity is the channel that
 scarce — three meanings a clinician can learn; a fourth dilutes all three. The per-mode
 mapping is **[assumed]** where a mode's kind is judgement (differentials, prescribing →
 source), flagged in SPEC §3 and cheap to veto mode-by-mode.
+
+---
+
+## C6 · Publication truth is source-derived; adoption truth is route-complete
+
+**Chose.** The local design-sync registry contains 53 visual exports. Each row is derived from
+one real source file and requires an entry export, an exact TypeScript-checker-derived public
+`*Props` contract (or an explicit zero-prop root), a reference preview, and a direct publication
+test. `OverlayPortal`, `ToastProvider`, `useToast`, `AnswerState`, the answer helpers, and the
+announcer APIs are support-only entry exports. The focus-stack internals remain private.
+
+The adoption contract separately declares every production page route and shared surface root
+under an explicit surface family and disposition. New undeclared routes fail generation. API and
+mockup trees are non-product exclusions; the sole route-only exception is the documented legacy
+document-source redirect. All declared roots remain on the compatibility shell until a separate
+adoption change opts in literally.
+
+**Rejected.** (a) A hand-maintained, partial `dtsPropsFor` list: it already drifted from final
+`Chip`, `Sheet`, `ConfirmDialog`, and callback contracts. (b) Calling every bundle symbol a visual
+component: providers, hooks, state models, and portals need public entry access without fake
+preview rows. (c) Treating registration or a product import as v2 style adoption: `AnswerCard` is
+a valid local reference with zero product imports, while the app-mounted `OverlayRoot` remains
+infrastructure on the compatibility shell. (d) Keeping
+`FilterBar` or `DataTable` as future names: `AccessibleTable` is canonical and filter composition
+belongs to the owning surface. (e) Leaving `SegmentedControl` or `OverlayRoot` as open
+specifications after their source, API, preview, and tests exist.
+
+**Why.** Source-derived publication makes API drift fail deterministically; route-complete
+adoption makes an undeclared production surface fail closed. Keeping those claims separate lets
+the repository say exactly what is ready locally without implying remote publication, browser
+acceptance, product restyling, or v2 root activation.
 
 ---
 

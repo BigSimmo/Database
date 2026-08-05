@@ -1,0 +1,3247 @@
+{
+  "schemaVersion": 7,
+  "baseline": {
+    "targetLayer": "v2",
+    "liveLayer": "v2",
+    "remoteStatus": "unverified",
+    "visualBaselineStatus": "not-committed"
+  },
+  "globalShell": {
+    "file": "src/app/layout.tsx",
+    "element": "html",
+    "exists": true,
+    "literalCkbV2": true,
+    "dynamicCkbV2": false,
+    "observedShellState": "v2"
+  },
+  "requiredProofCategories": ["dark", "forcedColours", "compact320", "print", "browser"],
+  "proofPolicy": {
+    "defaultApplicability": "required",
+    "nonVisualRoutes": {
+      "documents-source-legacy-redirect": {
+        "route": "src/app/(search-app)/documents/source/page.tsx",
+        "kind": "next-redirect-only"
+      }
+    },
+    "evidence": {
+      "testFileSuffixes": [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"],
+      "evidenceDirectory": "docs/design-system/evidence/",
+      "evidenceExtensions": [".json", ".md"]
+    },
+    "visualBaseline": {
+      "requiredPrefix": "tests/__screenshots__/linux/",
+      "allowedExtensions": [".png"],
+      "provenanceFile": "tests/__screenshots__/linux/provenance.json",
+      "provenanceSchemaVersion": 2,
+      "requiredPlatform": "linux",
+      "requiredRunnerImage": "ubuntu-24.04",
+      "requiredReviewStatus": "approved",
+      "requiredCandidateCount": 6,
+      "canonicalCandidates": [
+        {
+          "id": "dashboard-shell",
+          "path": "tests/__screenshots__/linux/dashboard-shell.png"
+        },
+        {
+          "id": "dashboard-shell-phone",
+          "path": "tests/__screenshots__/linux/dashboard-shell-phone.png"
+        },
+        {
+          "id": "search-results-band",
+          "path": "tests/__screenshots__/linux/search-results-band.png"
+        },
+        {
+          "id": "search-results-band-phone",
+          "path": "tests/__screenshots__/linux/search-results-band-phone.png"
+        },
+        {
+          "id": "document-viewer",
+          "path": "tests/__screenshots__/linux/document-viewer.png"
+        },
+        {
+          "id": "therapy-compass-home",
+          "path": "tests/__screenshots__/linux/therapy-compass-home.png"
+        }
+      ],
+      "sourceBinding": {
+        "visualSuiteFile": "tests/ui-visual-baseline.spec.ts",
+        "allowedChangedPaths": [
+          ".github/workflows/ci.yml",
+          "docs/branch-review-ledger.md",
+          "docs/design-system/ADOPTION.md",
+          "docs/design-system/COMPONENTS.md",
+          "docs/design-system/adoption-contract.json",
+          "docs/design-system/adoption-manifest.json",
+          "lighthouse-budget.json",
+          "tests/__screenshots__/linux/provenance.json"
+        ]
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "AccessibleTable",
+      "family": "source",
+      "source": "src/components/AccessibleTable.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/clinical-dashboard/clinical-output-helpers.tsx",
+        "src/components/clinical-dashboard/output-panel.tsx",
+        "src/components/clinical-dashboard/visual-evidence.tsx",
+        "src/components/document-viewer/source-panels.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/clinical-output-helpers.tsx",
+        "src/components/clinical-dashboard/output-panel.tsx",
+        "src/components/clinical-dashboard/visual-evidence.tsx",
+        "src/components/document-viewer/source-panels.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/AccessibleTable.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/accessible-table-alignment.dom.test.tsx",
+        "tests/accessible-table-fallback.test.ts",
+        "tests/accessible-table-normalization.test.ts",
+        "tests/accessible-table.dom.test.tsx",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/ward-output.test.ts"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "AnswerCard",
+      "family": "answer",
+      "source": "src/components/ui/answer-card.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/AnswerCard.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/answer-state-contract.test.ts",
+        "tests/answer-support-priority.dom.test.tsx",
+        "tests/design-sync-contract.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "AnswerFooter",
+      "family": "answer",
+      "source": "src/components/ui/answer-card.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/AnswerFooter.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-contract.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "AsyncButton",
+      "family": "controls",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/DocumentManagementActions.tsx",
+        "src/components/clinical-dashboard/account-setup-dialog.tsx",
+        "src/components/clinical-dashboard/auth-panel.tsx",
+        "src/components/clinical-dashboard/search-results-header-band.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/DocumentManagementActions.tsx",
+        "src/components/clinical-dashboard/account-setup-dialog.tsx",
+        "src/components/clinical-dashboard/auth-panel.tsx",
+        "src/components/clinical-dashboard/search-results-header-band.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/AsyncButton.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-primitives.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Breadcrumb",
+      "family": "layout",
+      "source": "src/components/ui/page-header.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/information-page-shell.tsx"],
+      "productImportFiles": ["src/components/information-page-shell.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Breadcrumb.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/information-page-shell.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Button",
+      "family": "controls",
+      "source": "src/components/ui/button.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/ui/confirm-dialog.tsx"],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Button.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Checkbox",
+      "family": "controls",
+      "source": "src/components/ui/choice.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Checkbox.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Chip",
+      "family": "controls",
+      "source": "src/components/ui/chip.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/therapy-compass/ui.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/therapy-compass/ui.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Chip.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/chip-contract.test.ts",
+        "tests/ckb-v2-token-contract.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-contract-utils.test.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Citation",
+      "family": "source",
+      "source": "src/components/ui/citation.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Citation.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/answer-render-policy.test.ts",
+        "tests/citations.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/rag-claim-support.test.ts",
+        "tests/rag-eval-source-governance.test.ts",
+        "tests/source-backed-recovery-cross-reference.test.ts",
+        "tests/ui-smoke.spec.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "CitationList",
+      "family": "source",
+      "source": "src/components/ui/citation.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/CitationList.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "ConfirmDialog",
+      "family": "layout",
+      "source": "src/components/ui/confirm-dialog.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ConfirmDialog.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "DateDisplay",
+      "family": "source",
+      "source": "src/components/ui/date-display.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/ui/answer-card.tsx",
+        "src/components/ui/retrieval-state-banner.tsx",
+        "src/components/ui/verification-notice.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/ui/retrieval-state-banner.tsx",
+        "src/components/ui/verification-notice.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/DateDisplay.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Disclosure",
+      "family": "layout",
+      "source": "src/components/ui/disclosure.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Disclosure.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "DisclosureGroup",
+      "family": "layout",
+      "source": "src/components/ui/disclosure.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/DisclosureGroup.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "DoseLine",
+      "family": "answer",
+      "source": "src/components/ui/answer-card.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/DoseLine.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "DownloadLink",
+      "family": "controls",
+      "source": "src/components/ui/link.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/DownloadLink.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "EmptyState",
+      "family": "feedback",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/ClinicalDashboard.tsx",
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
+        "src/components/clinical-dashboard/clinical-output-helpers.tsx",
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/clinical-dashboard/evidence-panels.tsx",
+        "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
+        "src/components/clinical-dashboard/medication-record-page.tsx",
+        "src/components/clinical-dashboard/visual-evidence.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/dsm/dsm-search-page.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/ClinicalDashboard.tsx",
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
+        "src/components/clinical-dashboard/clinical-output-helpers.tsx",
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/clinical-dashboard/evidence-panels.tsx",
+        "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
+        "src/components/clinical-dashboard/medication-record-page.tsx",
+        "src/components/clinical-dashboard/visual-evidence.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/dsm/dsm-search-page.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/EmptyState.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-contract.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/dsm-search-empty-state.dom.test.tsx",
+        "tests/therapy-compass-ui.dom.test.tsx",
+        "tests/ui-primitives.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "ErrorSummary",
+      "family": "feedback",
+      "source": "src/components/ui/form-field.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ErrorSummary.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-form-field.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "ExternalTextLink",
+      "family": "controls",
+      "source": "src/components/ui/link.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ExternalTextLink.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "FieldError",
+      "family": "feedback",
+      "source": "src/components/ui/form-field.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/ui/choice.tsx"],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/FieldError.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "FieldHint",
+      "family": "feedback",
+      "source": "src/components/ui/form-field.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/ui/choice.tsx"],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/FieldHint.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "FormField",
+      "family": "controls",
+      "source": "src/components/ui/form-field.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/ui/select.tsx", "src/components/ui/text-field.tsx"],
+      "productImportFiles": ["src/components/ui/select.tsx", "src/components/ui/text-field.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/FormField.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/settings-dialog-actions.dom.test.tsx",
+        "tests/ui-v2-components.dom.test.tsx",
+        "tests/ui-v2-form-field.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "IconButton",
+      "family": "controls",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/clinical-dashboard/image-lightbox.tsx",
+        "src/components/navigation-back-button.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/image-lightbox.tsx",
+        "src/components/navigation-back-button.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/IconButton.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/icon-button.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "InlineNotice",
+      "family": "feedback",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/ClinicalDashboard.tsx",
+        "src/components/DocumentViewer.tsx",
+        "src/components/clinical-dashboard/auth-panel.tsx",
+        "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/ClinicalDashboard.tsx",
+        "src/components/DocumentViewer.tsx",
+        "src/components/clinical-dashboard/auth-panel.tsx",
+        "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/InlineNotice.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "LinkAction",
+      "family": "controls",
+      "source": "src/components/ui/link.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/LinkAction.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "LoadingPanel",
+      "family": "feedback",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/clinical-dashboard/clinical-dashboard-lazy.tsx",
+        "src/components/clinical-dashboard/dashboard-nav.tsx",
+        "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/medication-record-page.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/source-panels.tsx",
+        "src/components/therapy-compass/ui.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/clinical-dashboard-lazy.tsx",
+        "src/components/clinical-dashboard/dashboard-nav.tsx",
+        "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/medication-record-page.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/source-panels.tsx",
+        "src/components/therapy-compass/ui.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/LoadingPanel.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "MissingValue",
+      "family": "feedback",
+      "source": "src/components/ui/missing-value.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/AccessibleTable.tsx",
+        "src/components/ui/answer-card.tsx",
+        "src/components/ui/date-display.tsx"
+      ],
+      "productImportFiles": ["src/components/AccessibleTable.tsx", "src/components/ui/date-display.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/MissingValue.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-contract.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "OverlayRoot",
+      "family": "layout",
+      "source": "src/components/ui/overlay-root.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/app/layout.tsx"],
+      "productImportFiles": ["src/app/layout.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/OverlayRoot.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/app-announcements-root.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "PageHeader",
+      "family": "layout",
+      "source": "src/components/ui/page-header.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/dsm/dsm-page-header.tsx", "src/components/information-page-shell.tsx"],
+      "productImportFiles": ["src/components/dsm/dsm-page-header.tsx", "src/components/information-page-shell.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/PageHeader.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Pagination",
+      "family": "controls",
+      "source": "src/components/ui/pagination.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Pagination.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "PanelHeading",
+      "family": "layout",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/DocumentViewer.tsx", "src/components/document-viewer/source-panels.tsx"],
+      "productImportFiles": ["src/components/DocumentViewer.tsx", "src/components/document-viewer/source-panels.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/PanelHeading.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Progress",
+      "family": "feedback",
+      "source": "src/components/ui/progress.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Progress.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Quantity",
+      "family": "answer",
+      "source": "src/components/ui/quantity.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/ui/answer-card.tsx"],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Quantity.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "RadioGroup",
+      "family": "controls",
+      "source": "src/components/ui/choice.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/RadioGroup.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "RetrievalStateBanner",
+      "family": "answer",
+      "source": "src/components/ui/retrieval-state-banner.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/ui/answer-card.tsx"
+      ],
+      "productImportFiles": ["src/components/clinical-dashboard/answer-result-surface.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/RetrievalStateBanner.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/answer-support-priority.dom.test.tsx",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "SafeBoldText",
+      "family": "layout",
+      "source": "src/components/SafeBoldText.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/DocumentViewer.tsx",
+        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/clinical-dashboard/document-results.tsx",
+        "src/components/clinical-dashboard/output-panel.tsx",
+        "src/components/document-viewer/document-clinical-summary.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/source-panels.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/DocumentViewer.tsx",
+        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/clinical-dashboard/document-results.tsx",
+        "src/components/clinical-dashboard/output-panel.tsx",
+        "src/components/document-viewer/document-clinical-summary.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/source-panels.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SafeBoldText.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/display-text.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "SearchField",
+      "family": "controls",
+      "source": "src/components/ui/text-field.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SearchField.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "SegmentedControl",
+      "family": "controls",
+      "source": "src/components/ui/segmented-control.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SegmentedControl.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Select",
+      "family": "controls",
+      "source": "src/components/ui/select.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/formulation/formulation-builder-page.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/formulation/formulation-builder-page.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Select.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/answer-progress-ui-smoke.spec.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/eval-process-safety.test.ts",
+        "tests/ui-formulation.spec.ts",
+        "tests/ui-smoke.spec.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Sheet",
+      "family": "layout",
+      "source": "src/components/ui/sheet.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/AccessibleTable.tsx",
+        "src/components/DocumentManagementActions.tsx",
+        "src/components/DocumentViewer.tsx",
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/ClinicalSidebar.tsx",
+        "src/components/clinical-dashboard/account-setup-dialog.tsx",
+        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/clinical-dashboard/dashboard-shell.tsx",
+        "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/image-lightbox.tsx",
+        "src/components/clinical-dashboard/master-search-header.tsx",
+        "src/components/clinical-dashboard/mode-action-popup.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/differentials/diagnosis-map-panel.tsx",
+        "src/components/document-viewer/document-clinical-summary.tsx",
+        "src/components/document-viewer/section-nav.tsx",
+        "src/components/mode-nav/mode-nav.tsx",
+        "src/components/therapy-compass/filter-sheet.tsx",
+        "src/components/ui/confirm-dialog.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/AccessibleTable.tsx",
+        "src/components/DocumentManagementActions.tsx",
+        "src/components/DocumentViewer.tsx",
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/ClinicalSidebar.tsx",
+        "src/components/clinical-dashboard/account-setup-dialog.tsx",
+        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/clinical-dashboard/dashboard-shell.tsx",
+        "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/image-lightbox.tsx",
+        "src/components/clinical-dashboard/master-search-header.tsx",
+        "src/components/clinical-dashboard/mode-action-popup.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/differentials/diagnosis-map-panel.tsx",
+        "src/components/document-viewer/document-clinical-summary.tsx",
+        "src/components/document-viewer/section-nav.tsx",
+        "src/components/mode-nav/mode-nav.tsx",
+        "src/components/therapy-compass/filter-sheet.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Sheet.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/accessible-table.dom.test.tsx",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/document-filter-panel.dom.test.tsx",
+        "tests/document-organization.test.ts",
+        "tests/mode-nav.dom.test.tsx",
+        "tests/rag-answer-fallback.test.ts",
+        "tests/settings-dialog-actions.dom.test.tsx",
+        "tests/sheet-focus-stress.dom.test.tsx",
+        "tests/sheet-focus.dom.test.tsx",
+        "tests/sheet.dom.test.tsx",
+        "tests/ui-accessibility.spec.ts",
+        "tests/ui-overlay-css-contract.test.ts",
+        "tests/ui-phone-scroll-page-owned.spec.ts",
+        "tests/ui-smoke.spec.ts",
+        "tests/xlsx-extraction-budget.test.ts"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Skeleton",
+      "family": "feedback",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/app/(search-app)/differentials/diagnoses/[slug]/loading.tsx",
+        "src/app/(search-app)/differentials/presentations/[slug]/loading.tsx",
+        "src/app/(search-app)/medications/[slug]/loading.tsx",
+        "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/mode-home-page-skeleton.tsx"
+      ],
+      "productImportFiles": [
+        "src/app/(search-app)/differentials/diagnoses/[slug]/loading.tsx",
+        "src/app/(search-app)/differentials/presentations/[slug]/loading.tsx",
+        "src/app/(search-app)/medications/[slug]/loading.tsx",
+        "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/mode-home-page-skeleton.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Skeleton.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/design-system-adoption.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "SourceDesignationBadge",
+      "family": "source",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SourceDesignationBadge.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/source-badges-off-vocab.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "SourceProvenance",
+      "family": "source",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SourceProvenance.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/source-badges-off-vocab.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "SourceStatusBadge",
+      "family": "source",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SourceStatusBadge.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/source-badges-off-vocab.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "StageList",
+      "family": "feedback",
+      "source": "src/components/ui/progress.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/StageList.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "StatusMark",
+      "family": "source",
+      "source": "src/components/ui/status-mark.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/ui/answer-card.tsx",
+        "src/components/ui/citation.tsx",
+        "src/components/ui/retrieval-state-banner.tsx"
+      ],
+      "productImportFiles": ["src/components/ui/retrieval-state-banner.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/StatusMark.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Tabs",
+      "family": "controls",
+      "source": "src/components/ui/tabs.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Tabs.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-tools.spec.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "TextField",
+      "family": "controls",
+      "source": "src/components/ui/text-field.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/formulation/formulation-builder-page.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/formulation/formulation-builder-page.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/TextField.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "TextLink",
+      "family": "controls",
+      "source": "src/components/ui/link.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/TextLink.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "ToastRegion",
+      "family": "feedback",
+      "source": "src/components/ui/toast.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ToastRegion.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "ToggleSwitch",
+      "family": "controls",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/forms/forms-search-results-page.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/forms/forms-search-results-page.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ToggleSwitch.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-primitives.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "Tooltip",
+      "family": "feedback",
+      "source": "src/components/ui/tooltip.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Tooltip.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "VerificationNotice",
+      "family": "answer",
+      "source": "src/components/ui/verification-notice.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/ui/answer-card.tsx"
+      ],
+      "productImportFiles": ["src/components/clinical-dashboard/answer-result-surface.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/VerificationNotice.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-contract.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "root-shell-and-settings",
+      "disposition": "shared-shell",
+      "documentedDisposition": "The root route, shared application shell, global overlays, answer orchestration and settings UI are owned by the mounted shell rather than separate settings routes.",
+      "routes": ["src/app/(search-app)/page.tsx"],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": ["src/app/layout.tsx"],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["answer", "controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["ClinicalDashboard", "OverlayRoot", "SettingsDialog"],
+      "roots": [
+        {
+          "file": "src/app/(search-app)/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ClinicalDashboard"]
+        },
+        {
+          "file": "src/app/layout.tsx",
+          "exists": true,
+          "imports": ["OverlayRoot"],
+          "importedFamilies": ["layout"],
+          "literalCkbV2": true,
+          "dynamicCkbV2": false,
+          "v2MountMode": "direct-literal",
+          "sanctionedPatternsPresent": ["OverlayRoot"]
+        },
+        {
+          "file": "src/components/ClinicalDashboard.tsx",
+          "exists": true,
+          "imports": ["EmptyState", "InlineNotice"],
+          "importedFamilies": ["feedback"],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ClinicalDashboard", "SettingsDialog"]
+        },
+        {
+          "file": "src/components/clinical-dashboard/settings-dialog.tsx",
+          "exists": true,
+          "imports": ["InlineNotice", "SegmentedControl", "Select", "Sheet", "TextField"],
+          "importedFamilies": ["controls", "feedback", "layout"],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["SettingsDialog"]
+        }
+      ]
+    },
+    {
+      "id": "catalogues-forms-and-info",
+      "disposition": "owned",
+      "documentedDisposition": null,
+      "routes": [
+        "src/app/(search-app)/dsm/compare/page.tsx",
+        "src/app/(search-app)/dsm/diagnoses/[slug]/differentials/page.tsx",
+        "src/app/(search-app)/dsm/diagnoses/[slug]/page.tsx",
+        "src/app/(search-app)/dsm/page.tsx",
+        "src/app/(search-app)/dsm/search/page.tsx",
+        "src/app/(search-app)/factsheets/[slug]/page.tsx",
+        "src/app/(search-app)/factsheets/page.tsx",
+        "src/app/(search-app)/factsheets/search/page.tsx",
+        "src/app/(search-app)/forms/[slug]/page.tsx",
+        "src/app/(search-app)/forms/page.tsx",
+        "src/app/(search-app)/medications/[slug]/page.tsx",
+        "src/app/(search-app)/services/[slug]/page.tsx",
+        "src/app/(search-app)/services/page.tsx"
+      ],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["DetailPage", "ModeHome", "SearchPage"],
+      "roots": [
+        {
+          "file": "src/app/(search-app)/dsm/compare/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/dsm/diagnoses/[slug]/differentials/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/dsm/diagnoses/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/dsm/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/dsm/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["SearchPage"]
+        },
+        {
+          "file": "src/app/(search-app)/factsheets/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["DetailPage"]
+        },
+        {
+          "file": "src/app/(search-app)/factsheets/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/factsheets/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["SearchPage"]
+        },
+        {
+          "file": "src/app/(search-app)/forms/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/forms/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/medications/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/services/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/services/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        }
+      ]
+    },
+    {
+      "id": "differentials",
+      "disposition": "owned",
+      "documentedDisposition": null,
+      "routes": [
+        "src/app/(search-app)/differentials/diagnoses/[slug]/page.tsx",
+        "src/app/(search-app)/differentials/diagnoses/page.tsx",
+        "src/app/(search-app)/differentials/page.tsx",
+        "src/app/(search-app)/differentials/presentations/[slug]/page.tsx"
+      ],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["Differential"],
+      "roots": [
+        {
+          "file": "src/app/(search-app)/differentials/diagnoses/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Differential"]
+        },
+        {
+          "file": "src/app/(search-app)/differentials/diagnoses/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Differential"]
+        },
+        {
+          "file": "src/app/(search-app)/differentials/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Differential"]
+        },
+        {
+          "file": "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Differential"]
+        }
+      ]
+    },
+    {
+      "id": "formulation",
+      "disposition": "owned",
+      "documentedDisposition": null,
+      "routes": [
+        "src/app/(search-app)/formulation/[slug]/page.tsx",
+        "src/app/(search-app)/formulation/builder/page.tsx",
+        "src/app/(search-app)/formulation/compare/page.tsx",
+        "src/app/(search-app)/formulation/map/page.tsx",
+        "src/app/(search-app)/formulation/page.tsx"
+      ],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["Formulation"],
+      "roots": [
+        {
+          "file": "src/app/(search-app)/formulation/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Formulation"]
+        },
+        {
+          "file": "src/app/(search-app)/formulation/builder/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Formulation"]
+        },
+        {
+          "file": "src/app/(search-app)/formulation/compare/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Formulation"]
+        },
+        {
+          "file": "src/app/(search-app)/formulation/map/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Formulation"]
+        },
+        {
+          "file": "src/app/(search-app)/formulation/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Formulation"]
+        }
+      ]
+    },
+    {
+      "id": "specifiers",
+      "disposition": "owned",
+      "documentedDisposition": null,
+      "routes": [
+        "src/app/(search-app)/specifiers/[slug]/page.tsx",
+        "src/app/(search-app)/specifiers/builder/page.tsx",
+        "src/app/(search-app)/specifiers/compare/page.tsx",
+        "src/app/(search-app)/specifiers/map/page.tsx",
+        "src/app/(search-app)/specifiers/page.tsx"
+      ],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["Specifier"],
+      "roots": [
+        {
+          "file": "src/app/(search-app)/specifiers/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Specifier"]
+        },
+        {
+          "file": "src/app/(search-app)/specifiers/builder/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Specifier"]
+        },
+        {
+          "file": "src/app/(search-app)/specifiers/compare/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Specifier"]
+        },
+        {
+          "file": "src/app/(search-app)/specifiers/map/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Specifier"]
+        },
+        {
+          "file": "src/app/(search-app)/specifiers/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Specifier"]
+        }
+      ]
+    },
+    {
+      "id": "therapy-compass",
+      "disposition": "owned",
+      "documentedDisposition": null,
+      "routes": [
+        "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
+        "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
+        "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
+        "src/app/(search-app)/therapy-compass/compare/page.tsx",
+        "src/app/(search-app)/therapy-compass/page.tsx",
+        "src/app/(search-app)/therapy-compass/pathways/page.tsx",
+        "src/app/(search-app)/therapy-compass/recommend/page.tsx",
+        "src/app/(search-app)/therapy-compass/review/page.tsx",
+        "src/app/(search-app)/therapy-compass/search/page.tsx"
+      ],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["TherapyCompass"],
+      "roots": [
+        {
+          "file": "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["TherapyCompass"]
+        },
+        {
+          "file": "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["TherapyCompass"]
+        },
+        {
+          "file": "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["TherapyCompass"]
+        },
+        {
+          "file": "src/app/(search-app)/therapy-compass/compare/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["TherapyCompass"]
+        },
+        {
+          "file": "src/app/(search-app)/therapy-compass/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["TherapyCompass"]
+        },
+        {
+          "file": "src/app/(search-app)/therapy-compass/pathways/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["TherapyCompass"]
+        },
+        {
+          "file": "src/app/(search-app)/therapy-compass/recommend/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["TherapyCompass"]
+        },
+        {
+          "file": "src/app/(search-app)/therapy-compass/review/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["TherapyCompass"]
+        },
+        {
+          "file": "src/app/(search-app)/therapy-compass/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["TherapyCompass"]
+        },
+        {
+          "file": "src/components/therapy-compass/ui.tsx",
+          "exists": true,
+          "imports": ["Chip", "LoadingPanel"],
+          "importedFamilies": ["controls", "feedback"],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        }
+      ]
+    },
+    {
+      "id": "documents-and-source-evidence",
+      "disposition": "owned",
+      "documentedDisposition": null,
+      "routes": [
+        "src/app/(search-app)/documents/[id]/page.tsx",
+        "src/app/(search-app)/documents/search/page.tsx",
+        "src/app/(search-app)/documents/source/evidence/page.tsx"
+      ],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["DocumentViewer", "SourceEvidence"],
+      "roots": [
+        {
+          "file": "src/app/(search-app)/documents/[id]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["DocumentViewer"]
+        },
+        {
+          "file": "src/app/(search-app)/documents/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/documents/source/evidence/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/components/DocumentViewer.tsx",
+          "exists": true,
+          "imports": ["InlineNotice", "PanelHeading", "SafeBoldText", "Sheet"],
+          "importedFamilies": ["feedback", "layout"],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["DocumentViewer", "SourceEvidence"]
+        }
+      ]
+    },
+    {
+      "id": "documents-source-legacy-redirect",
+      "disposition": "legacy-redirect",
+      "documentedDisposition": "Legacy source URLs validate the document id and redirect to the canonical /documents/[id] route; they do not own a visual surface.",
+      "routes": ["src/app/(search-app)/documents/source/page.tsx"],
+      "routeRoots": false,
+      "proofApplicability": "not-applicable",
+      "nonVisualRoute": {
+        "contract": {
+          "route": "src/app/(search-app)/documents/source/page.tsx",
+          "kind": "next-redirect-only"
+        },
+        "source": {
+          "importsNextRedirect": true,
+          "hasDefaultFunction": true,
+          "hasJsx": false,
+          "terminalOutcomes": ["redirect"],
+          "redirectOnly": true
+        },
+        "topologyMatches": true
+      },
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "dark": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "print": {
+          "status": "not-applicable",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-applicable",
+        "files": []
+      },
+      "permittedComponentFamilies": [],
+      "sanctionedSpecialPatterns": [],
+      "roots": []
+    },
+    {
+      "id": "favourites",
+      "disposition": "owned",
+      "documentedDisposition": null,
+      "routes": ["src/app/(search-app)/favourites/page.tsx"],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["FavouritesCommandLibraryPage"],
+      "roots": [
+        {
+          "file": "src/app/(search-app)/favourites/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["FavouritesCommandLibraryPage"]
+        }
+      ]
+    },
+    {
+      "id": "tools-and-calculators",
+      "disposition": "owned",
+      "documentedDisposition": null,
+      "routes": ["src/app/(search-app)/calculators/page.tsx", "src/app/(search-app)/tools/page.tsx"],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout"],
+      "sanctionedSpecialPatterns": ["ApplicationsLauncherPage", "CalculatorsSearchPage"],
+      "roots": [
+        {
+          "file": "src/app/(search-app)/calculators/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CalculatorsSearchPage"]
+        },
+        {
+          "file": "src/app/(search-app)/tools/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ApplicationsLauncherPage"]
+        }
+      ]
+    },
+    {
+      "id": "privacy-safety-and-reference",
+      "disposition": "owned",
+      "documentedDisposition": null,
+      "routes": [
+        "src/app/privacy/page.tsx",
+        "src/app/reference/colour-coding/page.tsx",
+        "src/app/safety-plan/page.tsx"
+      ],
+      "routeRoots": true,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["ColourCodingReferencePage", "PatientSafetyPlan", "PrivacyPage"],
+      "roots": [
+        {
+          "file": "src/app/privacy/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["PrivacyPage"]
+        },
+        {
+          "file": "src/app/reference/colour-coding/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ColourCodingReferencePage"]
+        },
+        {
+          "file": "src/app/safety-plan/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["PatientSafetyPlan"]
+        }
+      ]
+    },
+    {
+      "id": "search-results-shared",
+      "disposition": "shared-shell",
+      "documentedDisposition": "Submitted catalogue and document searches share the shell-owned results header band while their page routes remain owned by the domain surfaces above.",
+      "routes": [],
+      "routeRoots": false,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout"],
+      "sanctionedSpecialPatterns": ["SearchResultsHeaderBand"],
+      "roots": [
+        {
+          "file": "src/components/clinical-dashboard/search-results-header-band.tsx",
+          "exists": true,
+          "imports": ["AsyncButton"],
+          "importedFamilies": ["controls"],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["SearchResultsHeaderBand"]
+        }
+      ]
+    },
+    {
+      "id": "answers-shared",
+      "disposition": "shared-shell",
+      "documentedDisposition": "Answers are rendered inside the shared ClinicalDashboard route rather than a standalone page route.",
+      "routes": [],
+      "routeRoots": false,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["answer", "controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["AnswerResultSurface", "RetrievalStateBanner", "VerificationNotice"],
+      "roots": [
+        {
+          "file": "src/components/clinical-dashboard/answer-result-surface.tsx",
+          "exists": true,
+          "imports": ["RetrievalStateBanner", "Sheet", "VerificationNotice"],
+          "importedFamilies": ["answer", "layout"],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["AnswerResultSurface", "VerificationNotice", "RetrievalStateBanner"]
+        },
+        {
+          "file": "src/components/clinical-dashboard/answer-thread-turn.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        }
+      ]
+    },
+    {
+      "id": "source-preview-shared",
+      "disposition": "shared-shell",
+      "documentedDisposition": "Source preview is a shell-owned overlay launched from answer and search surfaces, not a page route.",
+      "routes": [],
+      "routeRoots": false,
+      "proofApplicability": "required",
+      "nonVisualRoute": null,
+      "declaredShellState": "v2",
+      "observedShellState": "v2",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "inheritedFrom": "src/app/layout.tsx",
+      "directV2MountFiles": [],
+      "proof": {
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["SourcePreviewPopover"],
+      "roots": [
+        {
+          "file": "src/components/clinical-dashboard/source-preview-popover.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["SourcePreviewPopover"]
+        }
+      ]
+    }
+  ],
+  "routeCoverage": {
+    "discovered": [
+      "src/app/(search-app)/calculators/page.tsx",
+      "src/app/(search-app)/differentials/diagnoses/[slug]/page.tsx",
+      "src/app/(search-app)/differentials/diagnoses/page.tsx",
+      "src/app/(search-app)/differentials/page.tsx",
+      "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
+      "src/app/(search-app)/documents/[id]/page.tsx",
+      "src/app/(search-app)/documents/search/page.tsx",
+      "src/app/(search-app)/documents/source/evidence/page.tsx",
+      "src/app/(search-app)/documents/source/page.tsx",
+      "src/app/(search-app)/dsm/compare/page.tsx",
+      "src/app/(search-app)/dsm/diagnoses/[slug]/differentials/page.tsx",
+      "src/app/(search-app)/dsm/diagnoses/[slug]/page.tsx",
+      "src/app/(search-app)/dsm/page.tsx",
+      "src/app/(search-app)/dsm/search/page.tsx",
+      "src/app/(search-app)/factsheets/[slug]/page.tsx",
+      "src/app/(search-app)/factsheets/page.tsx",
+      "src/app/(search-app)/factsheets/search/page.tsx",
+      "src/app/(search-app)/favourites/page.tsx",
+      "src/app/(search-app)/forms/[slug]/page.tsx",
+      "src/app/(search-app)/forms/page.tsx",
+      "src/app/(search-app)/formulation/[slug]/page.tsx",
+      "src/app/(search-app)/formulation/builder/page.tsx",
+      "src/app/(search-app)/formulation/compare/page.tsx",
+      "src/app/(search-app)/formulation/map/page.tsx",
+      "src/app/(search-app)/formulation/page.tsx",
+      "src/app/(search-app)/medications/[slug]/page.tsx",
+      "src/app/(search-app)/page.tsx",
+      "src/app/(search-app)/services/[slug]/page.tsx",
+      "src/app/(search-app)/services/page.tsx",
+      "src/app/(search-app)/specifiers/[slug]/page.tsx",
+      "src/app/(search-app)/specifiers/builder/page.tsx",
+      "src/app/(search-app)/specifiers/compare/page.tsx",
+      "src/app/(search-app)/specifiers/map/page.tsx",
+      "src/app/(search-app)/specifiers/page.tsx",
+      "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
+      "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
+      "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
+      "src/app/(search-app)/therapy-compass/compare/page.tsx",
+      "src/app/(search-app)/therapy-compass/page.tsx",
+      "src/app/(search-app)/therapy-compass/pathways/page.tsx",
+      "src/app/(search-app)/therapy-compass/recommend/page.tsx",
+      "src/app/(search-app)/therapy-compass/review/page.tsx",
+      "src/app/(search-app)/therapy-compass/search/page.tsx",
+      "src/app/(search-app)/tools/page.tsx",
+      "src/app/privacy/page.tsx",
+      "src/app/reference/colour-coding/page.tsx",
+      "src/app/safety-plan/page.tsx"
+    ],
+    "declared": [
+      "src/app/(search-app)/calculators/page.tsx",
+      "src/app/(search-app)/differentials/diagnoses/[slug]/page.tsx",
+      "src/app/(search-app)/differentials/diagnoses/page.tsx",
+      "src/app/(search-app)/differentials/page.tsx",
+      "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
+      "src/app/(search-app)/documents/[id]/page.tsx",
+      "src/app/(search-app)/documents/search/page.tsx",
+      "src/app/(search-app)/documents/source/evidence/page.tsx",
+      "src/app/(search-app)/documents/source/page.tsx",
+      "src/app/(search-app)/dsm/compare/page.tsx",
+      "src/app/(search-app)/dsm/diagnoses/[slug]/differentials/page.tsx",
+      "src/app/(search-app)/dsm/diagnoses/[slug]/page.tsx",
+      "src/app/(search-app)/dsm/page.tsx",
+      "src/app/(search-app)/dsm/search/page.tsx",
+      "src/app/(search-app)/factsheets/[slug]/page.tsx",
+      "src/app/(search-app)/factsheets/page.tsx",
+      "src/app/(search-app)/factsheets/search/page.tsx",
+      "src/app/(search-app)/favourites/page.tsx",
+      "src/app/(search-app)/forms/[slug]/page.tsx",
+      "src/app/(search-app)/forms/page.tsx",
+      "src/app/(search-app)/formulation/[slug]/page.tsx",
+      "src/app/(search-app)/formulation/builder/page.tsx",
+      "src/app/(search-app)/formulation/compare/page.tsx",
+      "src/app/(search-app)/formulation/map/page.tsx",
+      "src/app/(search-app)/formulation/page.tsx",
+      "src/app/(search-app)/medications/[slug]/page.tsx",
+      "src/app/(search-app)/page.tsx",
+      "src/app/(search-app)/services/[slug]/page.tsx",
+      "src/app/(search-app)/services/page.tsx",
+      "src/app/(search-app)/specifiers/[slug]/page.tsx",
+      "src/app/(search-app)/specifiers/builder/page.tsx",
+      "src/app/(search-app)/specifiers/compare/page.tsx",
+      "src/app/(search-app)/specifiers/map/page.tsx",
+      "src/app/(search-app)/specifiers/page.tsx",
+      "src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
+      "src/app/(search-app)/therapy-compass/[slug]/page.tsx",
+      "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
+      "src/app/(search-app)/therapy-compass/compare/page.tsx",
+      "src/app/(search-app)/therapy-compass/page.tsx",
+      "src/app/(search-app)/therapy-compass/pathways/page.tsx",
+      "src/app/(search-app)/therapy-compass/recommend/page.tsx",
+      "src/app/(search-app)/therapy-compass/review/page.tsx",
+      "src/app/(search-app)/therapy-compass/search/page.tsx",
+      "src/app/(search-app)/tools/page.tsx",
+      "src/app/privacy/page.tsx",
+      "src/app/reference/colour-coding/page.tsx",
+      "src/app/safety-plan/page.tsx"
+    ],
+    "undeclared": [],
+    "missing": [],
+    "duplicates": []
+  },
+  "adoption": {
+    "literalCkbV2RootCount": 1,
+    "inheritedCkbV2RootCount": 54,
+    "dynamicCkbV2RootCount": 0,
+    "v2MountedSurfaceCount": 14,
+    "declaredV2SurfaceCount": 14
+  },
+  "summary": {
+    "registeredComponentCount": 53,
+    "previewCount": 53,
+    "productImportedComponentCount": 27,
+    "rootCount": 55,
+    "productionRouteCount": 47,
+    "nextUiEntryCount": 99
+  }
+}

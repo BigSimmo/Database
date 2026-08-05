@@ -13,7 +13,6 @@ import {
   FilePlus2,
   FileText,
   Loader2,
-  RefreshCw,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -47,6 +46,7 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
+import { DocumentFrame, type DocumentFrameSource } from "@/components/ui/document-frame";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
@@ -970,6 +970,12 @@ export function DocumentViewer({
         ? "auth-required"
         : "error";
   const readyDocument = viewerState === "ready" ? document : null;
+  const previewFrameSource: DocumentFrameSource =
+    document?.file_type === "application/pdf"
+      ? { kind: "pdf-page", url: signedUrl ?? undefined, page: activePage, pageCount: document.page_count ?? undefined }
+      : document?.file_type?.startsWith("image/")
+        ? { kind: "image", url: signedUrl ?? undefined }
+        : { kind: "document", url: signedUrl ?? undefined };
   const headerTitle = readyDocument
     ? documentDisplayTitle(readyDocument)
     : viewerState === "auth-required"
@@ -1460,31 +1466,41 @@ export function DocumentViewer({
             className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)] overflow-hidden")}
           >
             <div data-testid="pdf-preview">
-              {effectiveLoadingDocument ? (
-                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_55%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm font-semibold text-[color:var(--text-muted)] sm:min-h-72">
-                  <div className="max-w-sm">
-                    <Loader2
-                      aria-hidden="true"
-                      className="mx-auto mb-3 h-5 w-5 animate-spin text-[color:var(--clinical-accent)]"
-                    />
-                    <p>Preparing PDF preview</p>
+              <DocumentFrame
+                alt={`${document ? documentDisplayTitle(document) : "Source document"} preview`}
+                src={previewFrameSource}
+                {...(effectiveLoadingDocument
+                  ? { state: "loading" as const, loadingLabel: "Preparing PDF preview" }
+                  : effectiveViewerError || previewError
+                    ? {
+                        state: "error" as const,
+                        errorMessage: effectiveViewerError ?? previewError ?? "Source preview could not be loaded.",
+                        onRetry: retryPreview,
+                      }
+                    : { state: "ready" as const })}
+                statusDetail={
+                  effectiveLoadingDocument ? (
                     <ul className="mt-3 space-y-1 text-left text-xs font-medium text-[color:var(--text-muted)]">
                       <li>Loading source metadata</li>
                       <li>Preparing PDF preview</li>
                       <li>Loading extracted tables</li>
                     </ul>
-                    {signedUrl && (
-                      <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "mt-3")}>
+                  ) : undefined
+                }
+                statusActions={
+                  <>
+                    {signedUrl ? (
+                      <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
                         <ExternalLink aria-hidden="true" className="h-4 w-4" />
                         Source PDF
                       </a>
-                    )}
-                    {downloadSignedUrl && (
+                    ) : null}
+                    {downloadSignedUrl ? (
                       <button
                         type="button"
                         onClick={() => void openSourceDownload()}
                         disabled={downloadingSource}
-                        className={cn(secondaryButton, "mt-3")}
+                        className={secondaryButton}
                       >
                         {downloadingSource ? (
                           <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -1493,89 +1509,57 @@ export function DocumentViewer({
                         )}
                         {downloadingSource ? "Preparing PDF" : "Download PDF"}
                       </button>
-                    )}
-                  </div>
-                </div>
-              ) : effectiveViewerError || previewError ? (
-                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--danger-soft)_62%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--danger)] sm:min-h-72">
-                  <div>
-                    <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-8 w-8" />
-                    <p className="font-semibold">{effectiveViewerError ?? previewError}</p>
-                    <div className="mt-3 flex flex-wrap justify-center gap-2">
-                      <button type="button" onClick={retryPreview} className={secondaryButton}>
-                        <RefreshCw aria-hidden="true" className="h-4 w-4" />
-                        Retry preview
+                    ) : null}
+                  </>
+                }
+              >
+                {signedUrl && document?.file_type === "application/pdf" ? (
+                  <>
+                    <div className="mb-2 flex items-center justify-end px-2 pt-2 sm:px-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHasExplicitPdfViewerMode(true);
+                          setUseNativePdfViewer((current) => !current);
+                        }}
+                        aria-label={
+                          useNativePdfViewer
+                            ? "Switch to the standard viewer with fit and zoom controls"
+                            : "Switch to sharper zoom using your browser's PDF viewer"
+                        }
+                        title={
+                          useNativePdfViewer
+                            ? "Standard viewer with built-in fit and zoom controls."
+                            : "Sharper zoom — uses your browser's PDF engine to keep heavy-zoom pages crisp."
+                        }
+                        className={cn(secondaryButton, "min-h-tap w-full justify-center px-3 text-xs sm:w-auto")}
+                      >
+                        {useNativePdfViewer ? "Standard view" : "Sharper zoom"}
                       </button>
-                      {signedUrl && (
-                        <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
-                          <ExternalLink aria-hidden="true" className="h-4 w-4" />
-                          Source PDF
-                        </a>
-                      )}
-                      {downloadSignedUrl && (
-                        <button
-                          type="button"
-                          onClick={() => void openSourceDownload()}
-                          disabled={downloadingSource}
-                          className={secondaryButton}
-                        >
-                          {downloadingSource ? (
-                            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Download aria-hidden="true" className="h-4 w-4" />
-                          )}
-                          {downloadingSource ? "Preparing PDF" : "Download PDF"}
-                        </button>
-                      )}
                     </div>
-                  </div>
-                </div>
-              ) : signedUrl && document?.file_type === "application/pdf" ? (
-                <>
-                  <div className="mb-2 flex items-center justify-end px-2 pt-2 sm:px-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHasExplicitPdfViewerMode(true);
-                        setUseNativePdfViewer((current) => !current);
-                      }}
-                      aria-label={
-                        useNativePdfViewer
-                          ? "Switch to the standard viewer with fit and zoom controls"
-                          : "Switch to sharper zoom using your browser's PDF viewer"
-                      }
-                      title={
-                        useNativePdfViewer
-                          ? "Standard viewer with built-in fit and zoom controls."
-                          : "Sharper zoom — uses your browser's PDF engine to keep heavy-zoom pages crisp."
-                      }
-                      className={cn(secondaryButton, "min-h-tap w-full justify-center px-3 text-xs sm:w-auto")}
-                    >
-                      {useNativePdfViewer ? "Standard view" : "Sharper zoom"}
-                    </button>
-                  </div>
-                  {useNativePdfViewer ? (
-                    <NativePdfEmbed url={signedUrl} title={documentDisplayTitle(document)} initialPage={activePage} />
-                  ) : (
-                    <PdfCanvasViewer
-                      key={`${documentId}-${useNativePdfViewer ? "native" : "canvas"}`}
-                      url={signedUrl}
-                      title={documentDisplayTitle(document)}
-                      initialPage={activePage}
-                      onUrlExpired={handleSignedUrlExpired}
-                      onLoadSuccess={handlePdfLoadSuccess}
-                      onPageChange={navigateToPage}
-                    />
-                  )}
-                </>
-              ) : (
-                <NonPdfSourcePreview
-                  fileType={document?.file_type}
-                  title={document ? documentDisplayTitle(document) : "Source document"}
-                  signedUrl={signedUrl}
-                  downloadSignedUrl={downloadSignedUrl}
-                />
-              )}
+                    {useNativePdfViewer ? (
+                      <NativePdfEmbed url={signedUrl} title={documentDisplayTitle(document)} initialPage={activePage} />
+                    ) : (
+                      <PdfCanvasViewer
+                        key={`${documentId}-${useNativePdfViewer ? "native" : "canvas"}`}
+                        url={signedUrl}
+                        title={documentDisplayTitle(document)}
+                        initialPage={activePage}
+                        onUrlExpired={handleSignedUrlExpired}
+                        onLoadSuccess={handlePdfLoadSuccess}
+                        onPageChange={navigateToPage}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <NonPdfSourcePreview
+                    fileType={document?.file_type}
+                    title={document ? documentDisplayTitle(document) : "Source document"}
+                    signedUrl={signedUrl}
+                    downloadSignedUrl={downloadSignedUrl}
+                  />
+                )}
+              </DocumentFrame>
             </div>
           </div>
 
@@ -1648,8 +1632,8 @@ export function DocumentViewer({
               glassOverlaySurface,
               "phone-footer-layer document-viewer-composer floating-composer-edge dashboard-composer-edge z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-[transform,opacity] motion-reduce:transition-none sm:fixed",
               composerScrollHidden
-                ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                ? "max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                : "max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
             )}
           >
             <button

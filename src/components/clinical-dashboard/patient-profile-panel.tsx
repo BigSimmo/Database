@@ -1,10 +1,12 @@
 "use client";
 
 import { Eraser, UserRound } from "lucide-react";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
-import { cn, fieldControlPlain, fieldLabel, ToggleSwitch } from "@/components/ui-primitives";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { TextField } from "@/components/ui/text-field";
+import { cn, fieldLabel, ToggleSwitch } from "@/components/ui-primitives";
 import { SCR_UMOL_PER_MGDL } from "@/lib/medication-patient-alerts";
 import type { AllergyClass, HepaticSeverity, ScrUnit } from "@/lib/medication-patient-alerts";
 import { PATIENT_PROFILE_NUMERIC_BOUNDS, PATIENT_PROFILE_SCR_UMOL_BOUNDS } from "@/lib/patient-profile-storage";
@@ -61,8 +63,6 @@ function NumberField({
   min: number;
   max: number;
 }) {
-  const id = useId();
-  const errorId = `${id}-error`;
   const [text, setText] = useState(value == null ? "" : String(value));
   const [syncedValue, setSyncedValue] = useState<number | null>(value ?? null);
 
@@ -78,44 +78,30 @@ function NumberField({
     if (!outOfRange) setText(value == null ? "" : String(value));
   }
 
+  // The unit rides in the label string rather than a styled span: `FormField`
+  // takes a string label so the whole accessible name is one readable phrase
+  // ("Serum creatinine (µmol/L)") instead of a name assembled from two nodes.
   return (
-    <div>
-      <label htmlFor={id} className={fieldLabel}>
-        {label}
-        {unit ? <span className="ml-1 lowercase text-[color:var(--text-soft)]">({unit})</span> : null}
-      </label>
-      <input
-        id={id}
-        type="number"
-        inputMode="decimal"
-        min={min}
-        max={max}
-        value={text}
-        onChange={(event) => {
-          const raw = event.target.value;
-          setText(raw);
-          // Commit only in-range numbers; an empty or out-of-range entry commits
-          // null so the alert engine treats it as a missing input (surfaced as
-          // "unassessed") rather than acting on a physiologically impossible value.
-          const next = parseNumber(raw);
-          onChange(next !== null && next >= min && next <= max ? next : null);
-        }}
-        aria-invalid={outOfRange || undefined}
-        aria-describedby={outOfRange ? errorId : undefined}
-        className={cn(fieldControlPlain, "nums", outOfRange && "border-[color:var(--danger-border)]")}
-        data-testid={testId}
-      />
-      {outOfRange ? (
-        <span
-          id={errorId}
-          role="alert"
-          className="mt-1 block text-2xs font-medium leading-4 text-[color:var(--danger)]"
-        >
-          Enter {min}–{max}
-          {unit ? ` ${unit}` : ""}.
-        </span>
-      ) : null}
-    </div>
+    <TextField
+      label={unit ? `${label} (${unit})` : label}
+      type="number"
+      inputMode="decimal"
+      min={min}
+      max={max}
+      value={text}
+      onChange={(event) => {
+        const raw = event.target.value;
+        setText(raw);
+        // Commit only in-range numbers; an empty or out-of-range entry commits
+        // null so the alert engine treats it as a missing input (surfaced as
+        // "unassessed") rather than acting on a physiologically impossible value.
+        const next = parseNumber(raw);
+        onChange(next !== null && next >= min && next <= max ? next : null);
+      }}
+      error={outOfRange ? `Enter ${min}–${max}${unit ? ` ${unit}` : ""}.` : undefined}
+      className="nums"
+      data-testid={testId}
+    />
   );
 }
 
@@ -167,10 +153,10 @@ export function PatientProfilePanel({
               Active
             </span>
           ) : (
-            <span className="text-2xs font-medium text-[color:var(--text-soft)]">Optional</span>
+            <span className="text-2xs font-medium text-[color:var(--text-muted)]">Optional</span>
           )}
         </span>
-        <span className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
+        <span className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
           {open ? "Hide" : "Edit"}
         </span>
       </summary>
@@ -228,47 +214,32 @@ export function PatientProfilePanel({
               max={scrBounds.max}
             />
           </div>
-          <fieldset className="col-span-2 min-w-0 sm:col-span-1">
-            <legend className={fieldLabel}>Creatinine unit</legend>
-            <div className="flex gap-1.5">
-              {SCR_UNIT_OPTIONS.map((option) => {
-                const active = (profile.scrUnit ?? "umol/L") === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setScrUnit(option.value)}
-                    className={cn(segmentBase, "flex-1", active ? segmentActive : segmentIdle)}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
+          <div className="col-span-2 min-w-0 sm:col-span-1">
+            <span id="patient-scr-unit-label" className={fieldLabel}>
+              Creatinine unit
+            </span>
+            <SegmentedControl
+              ariaLabelledBy="patient-scr-unit-label"
+              value={profile.scrUnit ?? "umol/L"}
+              onChange={setScrUnit}
+              options={SCR_UNIT_OPTIONS}
+              layout="equal"
+            />
+          </div>
         </div>
 
-        <fieldset className="min-w-0">
-          <legend className={fieldLabel}>Hepatic impairment</legend>
-          <div className="flex flex-wrap gap-1.5">
-            {HEPATIC_OPTIONS.map((option) => {
-              const active = (profile.hepatic ?? "none") === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => updateField("hepatic", option.value === "none" ? null : option.value)}
-                  data-testid={`patient-hepatic-${option.value}`}
-                  className={cn(segmentBase, active ? segmentActive : segmentIdle)}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
+        <div className="min-w-0">
+          <span id="patient-hepatic-label" className={fieldLabel}>
+            Hepatic impairment
+          </span>
+          <SegmentedControl
+            ariaLabelledBy="patient-hepatic-label"
+            value={profile.hepatic ?? "none"}
+            onChange={(value) => updateField("hepatic", value === "none" ? null : value)}
+            options={HEPATIC_OPTIONS}
+            layout="fit"
+          />
+        </div>
 
         <fieldset className="min-w-0">
           <legend className={fieldLabel}>Allergies</legend>
@@ -322,7 +293,7 @@ export function PatientProfilePanel({
           </button>
         </div>
 
-        <p className="text-2xs leading-4 text-[color:var(--text-soft)]">
+        <p className="text-2xs leading-4 text-[color:var(--text-muted)]">
           Anonymous values only — no patient‑identifying information is stored. Cleared when the tab closes. Decision
           support, not medical advice.
         </p>

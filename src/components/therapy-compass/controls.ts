@@ -12,7 +12,7 @@ const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 export const therapyBtn = cn(
-  "cursor-pointer font-[inherit] transition-[background-color,border-color,color,box-shadow,transform] duration-150",
+  "cursor-pointer font-[inherit] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--duration-quick)]",
   "hover:enabled:-translate-y-px active:enabled:translate-y-px",
   "disabled:cursor-not-allowed disabled:opacity-55",
   focusRing,
@@ -52,7 +52,7 @@ export const softControl = cn(
 
 export const iconControl = cn(
   therapyBtn,
-  "inline-flex h-tap w-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]",
+  "inline-flex h-tap w-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--decoration-soft)]",
   "hover:enabled:border-[color:var(--border-strong)] hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
 );
 
@@ -72,4 +72,4 @@ export const flexControl = "min-w-[150px] flex-1";
 export const compactControl = "px-[13px] text-xs";
 
 /** Shared hover wash for list rows. */
-export const therapyRow = "transition-colors duration-100 hover:bg-[color:var(--surface-subtle)]";
+export const therapyRow = "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)]";

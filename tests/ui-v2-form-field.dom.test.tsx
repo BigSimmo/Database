@@ -59,12 +59,18 @@ describe("FormField", () => {
     expect(screen.getByLabelText(/Review date/)).toHaveAttribute("id", "review-date");
   });
 
-  it("marks required and optional in the label text, never by colour alone", () => {
+  it("marks the requirement in the label text, never by colour alone, and leaves optional fields unmarked", () => {
     const { rerender } = render(<Field required />);
     expect(screen.getByText(/Review date/).textContent).toContain("(required)");
 
+    // Only the requirement is marked. Marking both sides was the original shape
+    // and made every ordinary field noisier for no information — a column of
+    // "(optional)" suffixes down a panel that already declares itself optional.
+    // Marking required and leaving the rest unmarked carries the same
+    // information, because "unmarked" now means exactly one thing.
     rerender(<Field />);
-    expect(screen.getByText(/Review date/).textContent).toContain("(optional)");
+    expect(screen.getByText(/Review date/).textContent).not.toContain("(optional)");
+    expect(screen.getByText(/Review date/).textContent).not.toContain("(required)");
   });
 
   it("passes autocomplete guidance through to the rendered control", () => {

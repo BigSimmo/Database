@@ -19,13 +19,14 @@ npm run docs:check-links
 | [site-map.md](site-map.md)             | **Generated** route map — regenerate with `npm run docs:update`, verify with `npm run sitemap:check`       |
 | [agents-guide.md](agents-guide.md)     | Human onboarding pointer; Cursor MCP default read path (Supabase, Railway, Context7); rules in `AGENTS.md` |
 | [scripts-index.md](scripts-index.md)   | Curated map of `scripts/` and the `package.json` command surface by purpose                                |
-| [codex-cloud.md](codex-cloud.md)       | Codex Cloud setup, access profiles, platform settings, and acceptance checks                               |
+| [codex-cloud.md](codex-cloud.md)       | Codex Cloud setup, access profiles, profile-loading command shims, GitHub exception, and acceptance checks |
 
 ## Architecture
 
 - [frontend-architecture.md](frontend-architecture.md) — shell, routing, dashboard module structure
 - [wiring-conventions.md](wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
 - [search-chrome-behaviour.md](search-chrome-behaviour.md) — shared search-chrome contract: composer ownership, phone edge-to-edge dock, hide/reveal reserves
+- [search-results-bar-decisions.md](search-results-bar-decisions.md) — shared results-bar anatomy, why the filter shelf is scoped to two modes, and what is deliberately not done
 - [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
 - [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states
 - [design-system.md](design-system.md) — tokens, primitives, styling conventions
@@ -34,6 +35,7 @@ npm run docs:check-links
 - [design-system/COMPONENTS.md](design-system/COMPONENTS.md) — the eight safety-component specifications plus the maturity matrix
 - [design-system/DECISIONS.md](design-system/DECISIONS.md) — conflicts C1–C5 resolved, clinical Q&A record, assumptions, blocked items
 - [design-system/GATES.md](design-system/GATES.md) — every design-system rule paired with its enforcement status
+- [design-system/ADOPTION.md](design-system/ADOPTION.md) — PR 13 registration record: adoption order, per-surface file allowlists, exclusions, pins, proof shots
 - [comparison-behaviour.md](comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
 - [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
 - [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
@@ -123,6 +125,7 @@ as it was on that date; supersede with a new dated document rather than editing.
 - [audit/audit-handover-2026-07-14.md](audit/audit-handover-2026-07-14.md) — multi-skill repository audit findings inventory
 - [audit/audit-remediation-plan-2026-07-14.md](audit/audit-remediation-plan-2026-07-14.md) — sequenced remediation plan for the 2026-07-14 audit, with the 2026-07-17 reconciliation
 - [audit/design-audit-2026-07-17.md](audit/design-audit-2026-07-17.md) — repository-wide design, accessibility, and interaction audit
+- [audit/cloud-connection-acceptance-2026-08-05.md](audit/cloud-connection-acceptance-2026-08-05.md) — hosted versus local MCP boundary acceptance, Personal Pro split control plane, and remaining Cloud launcher blockers
 - [current-clinical-work-brief.md](current-clinical-work-brief.md) — ledger #063 product/privacy/persistence brief (decision only, no implementation)
 - [factsheets-reading-model-brief.md](factsheets-reading-model-brief.md) — ledger #041 reading-model decision (no second Factsheets mode)
 - [source-governance-refresh-worklist-2026-07-22.md](source-governance-refresh-worklist-2026-07-22.md) — ledger #022 worklist and BMJ attestation policy status

@@ -242,7 +242,7 @@ export function MobileSectionFab({
         aria-expanded={open}
         aria-controls={panelId}
         className={cn(
-          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--command)] bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-elevated)] transition motion-safe:duration-150 hover:-translate-y-0.5 hover:bg-[color:var(--command-hover)] active:translate-y-px",
+          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--command)] bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-elevated)] transition motion-safe:duration-[var(--duration-quick)] hover:-translate-y-0.5 hover:bg-[color:var(--command-hover)] active:translate-y-px",
           open && "bg-[color:var(--command-hover)]",
         )}
         style={{
@@ -290,7 +290,7 @@ export function MobileSectionFab({
           />
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <div className="min-w-0">
-              <p id={labelId} className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
+              <p id={labelId} className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                 Answer navigator
               </p>
               <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -354,7 +354,7 @@ export function MobileSectionFab({
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate">{item.label}</span>
-                  <span className="mt-0.5 block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                  <span className="mt-0.5 block truncate text-2xs font-semibold text-[color:var(--text-muted)]">
                     {item.description}
                   </span>
                 </span>
