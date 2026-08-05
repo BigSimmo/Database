@@ -265,9 +265,9 @@ test.describe("previously uncovered production routes", () => {
           };
         });
         // [data-therapy-root] is `background: var(--background)`, so this tracks the app's
-        // page floor — #f1f4f8 since the Clinical Sky surface scale landed, not
-        // the white it used to be.
-        expect(layout.backgroundColor).toBe("rgb(241, 244, 248)");
+        // page floor — canonical v2 white from the root-mounted `.ckb-v2`
+        // layer, while the route keeps ownership of its specialised layout.
+        expect(layout.backgroundColor).toBe("rgb(255, 255, 255)");
         expect(layout.portaledIntoCollapse).toBe(true);
         expect(layout.inlineOverflow).toBeLessThanOrEqual(1);
       },

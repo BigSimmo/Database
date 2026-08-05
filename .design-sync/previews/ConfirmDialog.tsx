@@ -36,6 +36,7 @@ export const TypedConfirmation = () => (
       description="Retiring removes this guideline from every future answer. Existing answers keep their citation."
       confirmLabel="Retire guideline"
       confirmPhrase="RETIRE"
+      confirmPhraseLabel="Type RETIRE to confirm retirement"
     />
   </Stage>
 );

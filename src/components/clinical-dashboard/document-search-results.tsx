@@ -58,8 +58,7 @@ import {
   EmptyState,
   floatingControl,
   LoadingPanel,
-  metadataPill,
-  panelSubtle,
+  metadataPillDensity,
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
@@ -76,7 +75,7 @@ import {
 import type { SourceGovernanceWarning } from "@/lib/source-governance";
 import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
-import type { ClinicalDocument, DocumentMatch, SearchResult, SearchScopeSummary } from "@/lib/types";
+import type { ClinicalDocument, DocumentMatch, SearchScopeSummary } from "@/lib/types";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
 import { documentRelevancePercent } from "./relevance-score";
@@ -792,46 +791,13 @@ function DocumentSearchHome({
       footer={
         <div className="grid w-full gap-3">
           {documentCount > 0 ? (
-            <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
+            <p className="text-xs font-semibold text-[color:var(--text-muted)]" aria-live="polite">
               {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
             </p>
           ) : null}
         </div>
       }
     />
-  );
-}
-
-export function MatchExplanationChips({ source }: { source: SearchResult }) {
-  const explanation = source.match_explanation;
-  const reasons = explanation?.reasons?.length
-    ? explanation.reasons
-    : [
-        source.score_explanation?.titleBoost ? "title" : "",
-        source.score_explanation?.textRank ? "text" : "",
-        source.score_explanation?.vectorScore ? "vector" : "",
-        source.source_metadata?.document_status ? `status:${source.source_metadata.document_status}` : "",
-      ].filter(Boolean);
-  const score = source.score_explanation?.finalScore ?? source.hybrid_score ?? source.similarity;
-  const chips = [
-    ...reasons.slice(0, 5),
-    Number.isFinite(score) ? `score:${Number(score).toFixed(2)}` : "",
-    explanation?.indexQualityScore !== undefined && explanation.indexQualityScore !== null
-      ? `index:${Number(explanation.indexQualityScore).toFixed(2)}`
-      : "",
-    explanation?.indexQualityIssues?.length ? "index warning" : "",
-    explanation?.tableHit ? "table fact" : "",
-    explanation?.indexUnitType ? `unit:${explanation.indexUnitType.replaceAll("_", " ")}` : "",
-  ].filter(Boolean);
-  if (chips.length === 0) return null;
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {chips.slice(0, 7).map((chip) => (
-        <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
-          {chip}
-        </span>
-      ))}
-    </div>
   );
 }
 
@@ -867,7 +833,7 @@ function SearchRecordResults({
             </p>
           </div>
         </div>
-        <span className={cn(metadataPill, "min-h-8 px-2.5 text-2xs")}>{copy.chip}</span>
+        <span className={metadataPillDensity.roomyCompact}>{copy.chip}</span>
       </div>
 
       <div className="grid gap-3">
@@ -921,7 +887,7 @@ function SearchRecordResults({
               {chips.length ? (
                 <div className="flex flex-wrap gap-1.5">
                   {chips.slice(0, 5).map((chip) => (
-                    <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+                    <span key={chip} className={metadataPillDensity.dense}>
                       {chip}
                     </span>
                   ))}
@@ -950,7 +916,7 @@ function SearchRecordResults({
               ) : null}
 
               {reasons.length ? (
-                <p className="text-xs font-medium text-[color:var(--text-soft)]">
+                <p className="text-xs font-medium text-[color:var(--text-muted)]">
                   Matched by {reasons.slice(0, 3).join(", ")}.
                 </p>
               ) : null}
@@ -1111,15 +1077,20 @@ function DocumentSearchResultsPanelImpl({
   const recordMatchCount = recordMatches.length;
   const shouldShowHome = showHome || !trimmedQuery;
 
-  function toggleTagFacet(facet: SmartDocumentTagFacet) {
-    setActiveFacetState((current) => {
-      const keys = current.query === query ? current.keys : [];
-      return {
-        query,
-        keys: keys.includes(facet.key) ? keys.filter((key) => key !== facet.key) : [...keys, facet.key],
-      };
-    });
-  }
+  // Stable per query so the applied-filter shelf can depend on it honestly
+  // rather than suppressing the dependency check.
+  const toggleTagFacet = useCallback(
+    (facet: SmartDocumentTagFacet) => {
+      setActiveFacetState((current) => {
+        const keys = current.query === query ? current.keys : [];
+        return {
+          query,
+          keys: keys.includes(facet.key) ? keys.filter((key) => key !== facet.key) : [...keys, facet.key],
+        };
+      });
+    },
+    [query],
+  );
 
   const unavailable = deriveDocumentSearchUnavailable({
     apiUnavailable,
@@ -1182,10 +1153,7 @@ function DocumentSearchResultsPanelImpl({
       }
     }
     return chips;
-    // `toggleTagFacet` is a stable closure over `query`, which is already a
-    // dependency of `activeFacetKeys`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tagFacetGroups, activeFacetKeys, effectiveResultType, resultTabs]);
+  }, [tagFacetGroups, activeFacetKeys, effectiveResultType, resultTabs, toggleTagFacet]);
   const clearAllFilters = () => {
     setActiveFacetState({ query, keys: [] });
     setActiveResultType("all");
@@ -1290,17 +1258,13 @@ function DocumentSearchResultsPanelImpl({
         <LoadingPanel label="Finding matching documents" />
       ) : matches.length === 0 ? (
         recordMatchCount > 0 ? null : trimmedQuery && !shouldShowHome ? (
-          <div className={cn(panelSubtle, "grid gap-3 p-5 text-center sm:p-6")}>
-            <span className="mx-auto grid h-tap w-tap place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-              <FileText aria-hidden="true" className="h-5 w-5" />
-            </span>
-            <div>
-              <h3 className="text-base font-semibold text-[color:var(--text-heading)]">No matching documents</h3>
-              <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>
-                {`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            icon={FileText}
+            title="No matching documents"
+            headingLevel={3}
+            body={`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
+            live="polite"
+          />
         ) : (
           <DocumentSearchHome
             documentCount={documentCount}
@@ -1338,7 +1302,7 @@ function DocumentSearchResultsPanelImpl({
               apart from the trigger's badge, so the reader needs the count to
               explain why the list is shorter than the ribbon's total. */}
           {activeFilterCount > 0 && !filterPanelOpen ? (
-            <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-2xs")}>
+            <div className={cn(metadataPillDensity.roomyCompact, "w-fit max-w-full")}>
               {sortedMatches.length} result{sortedMatches.length === 1 ? "" : "s"} after filters
             </div>
           ) : null}
@@ -1354,6 +1318,7 @@ function DocumentSearchResultsPanelImpl({
                   icon={Funnel}
                   title="No document matches include all selected filters."
                   testId="document-filter-empty-results"
+                  live="polite"
                 />
               ) : null}
               <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">

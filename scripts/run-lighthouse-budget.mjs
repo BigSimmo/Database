@@ -25,7 +25,7 @@
  *        --keep (leave reports in place), --dir <path>.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -210,6 +210,23 @@ const strategies = budget.strategies ?? ["mobile", "desktop"];
  */
 const LIGHTHOUSE_VERSION = process.env.LIGHTHOUSE_VERSION ?? budget.lighthouseVersion ?? "12.8.2";
 
+function resolveNpxInvocation() {
+  const npmExecPath = process.env.npm_execpath;
+  if (npmExecPath) {
+    const npxCli = path.join(path.dirname(npmExecPath), "npx-cli.js");
+    if (existsSync(npxCli)) {
+      return { command: process.env.npm_node_execpath ?? process.execPath, prefixArgs: [npxCli] };
+    }
+  }
+
+  if (process.platform === "win32") {
+    throw new Error(
+      "run-lighthouse-budget: npm_execpath did not identify npx-cli.js on Windows; run through `npm run verify:lighthouse`.",
+    );
+  }
+  return { command: "npx", prefixArgs: [] };
+}
+
 if (routes.length === 0) {
   console.error("run-lighthouse-budget: lighthouse-budget.json lists no routes to measure.");
   process.exit(1);
@@ -227,6 +244,11 @@ if (dryRun) {
   }
   process.exit(0);
 }
+
+// Invoke npm's JavaScript CLI through Node when available. Direct child-process
+// launches of `npx`/`npx.cmd` fail with ENOENT/EINVAL on current Windows Node,
+// while this path is identical across shells and preserves argument boundaries.
+const npxInvocation = resolveNpxInvocation();
 
 try {
   // Lighthouse drives a real browser against a production build, so it takes the
@@ -296,8 +318,9 @@ try {
       const output = path.join(reportDirectory, `${strategy}-${slugFor(route)}.json`);
       console.log(`Measuring ${strategy} ${route}`);
       const result = spawnSync(
-        "npx",
+        npxInvocation.command,
         [
+          ...npxInvocation.prefixArgs,
           "--yes",
           `lighthouse@${LIGHTHOUSE_VERSION}`,
           `${baseUrl}${route}`,
@@ -317,7 +340,11 @@ try {
       );
       // Not downgraded to a warning: the grader treats a missing report as
       // incomplete evidence and fails, which is the behaviour we want locally too.
-      if (childProcessExitCode(result) !== 0) failures.push(`${strategy} ${route}`);
+      if (childProcessExitCode(result) !== 0) {
+        const failure = `${strategy} ${route}`;
+        failures.push(failure);
+        console.log(`::warning::lighthouse ${failure} failed (${childProcessFailureSummary(result)})`);
+      }
     }
   }
 

@@ -37,6 +37,6 @@ describe("Cursor project MCP contract", () => {
     expect(Object.keys(servers).sort()).toEqual(["chrome-devtools", "context7", "supabase"]);
     expect(servers["chrome-devtools"]?.command).toBe("npx");
     expect(servers["chrome-devtools"]?.args).toEqual(["-y", "chrome-devtools-mcp@1.6.0"]);
-    expect(servers.supabase?.url).toContain("project_ref=sjrfecxgysukkwxsowpy");
+    expect(servers.supabase?.url).toBe("https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true");
   });
 });

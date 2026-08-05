@@ -161,7 +161,7 @@ function CategoryFilterDropdown({
         )}
       >
         <ListFilter className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
+        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
           Category
         </span>
         <span className="min-w-0 flex-1 truncate text-left font-extrabold text-[color:var(--text-heading)]">
@@ -171,7 +171,10 @@ function CategoryFilterDropdown({
           {activeCount}
         </span>
         <ChevronDown
-          className={cn("h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition-transform", open && "rotate-180")}
+          className={cn(
+            "h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition-transform",
+            open && "rotate-180",
+          )}
           aria-hidden
         />
       </button>
@@ -212,7 +215,7 @@ function CategoryFilterDropdown({
                   {isActive ? <Check className="h-4 w-4" aria-hidden /> : null}
                 </span>
                 <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                <span className="shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">
+                <span className="shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">
                   {option.count}
                 </span>
               </Link>
@@ -317,7 +320,7 @@ export function DsmSearchPage({
                   {results.length} {results.length === 1 ? "result" : "results"}
                 </span>
               </div>
-              <div className="hidden grid-cols-[2.5rem_minmax(14rem,1fr)_10rem_7rem_1.25rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)] lg:grid">
+              <div className="hidden grid-cols-[2.5rem_minmax(14rem,1fr)_10rem_7rem_1.25rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)] lg:grid">
                 <span>Select</span>
                 <span>Diagnosis</span>
                 <span>Category</span>
@@ -349,7 +352,7 @@ export function DsmSearchPage({
                           "grid h-tap w-tap place-items-center rounded-lg border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                           isSelected
                             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                            : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-soft)] hover:border-[color:var(--clinical-accent)]",
+                            : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--decoration-soft)] hover:border-[color:var(--clinical-accent)]",
                         )}
                       >
                         {isSelected ? (
@@ -381,7 +384,7 @@ export function DsmSearchPage({
                       <Link
                         href={`/dsm/diagnoses/${result.slug}`}
                         aria-label={`Open ${result.title}`}
-                        className="grid h-tap w-tap -translate-y-0.5 place-items-center rounded-lg text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)] lg:translate-y-0"
+                        className="grid h-tap w-tap -translate-y-0.5 place-items-center rounded-lg text-[color:var(--decoration-soft)] transition group-hover:text-[color:var(--clinical-accent)] lg:translate-y-0"
                       >
                         <ChevronRight className="h-5 w-5" aria-hidden />
                       </Link>
@@ -443,7 +446,9 @@ export function DsmSearchPage({
           <EmptyState
             icon={SearchX}
             title="No diagnosis matches"
+            headingLevel={2}
             body="Try a diagnosis name, ICD code, symptom phrase, or a broader category."
+            live="polite"
             actions={
               <Link
                 href="/dsm/search"

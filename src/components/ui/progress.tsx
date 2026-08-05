@@ -41,13 +41,14 @@ export function Progress({ value, label, detail, className }: ProgressProps) {
         className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
       >
         <div
+          data-testid="progress-fill"
           className={cn(
-            "h-full rounded-full bg-[color:var(--command)]",
+            "h-full origin-left rounded-full bg-[color:var(--command)]",
             determinate
-              ? "transition-[width] duration-[var(--duration-base)] motion-reduce:transition-none"
+              ? "w-full transition-transform duration-[var(--duration-base)] motion-reduce:transition-none"
               : "w-1/3 animate-[shimmer_1.4s_ease-in-out_infinite] motion-reduce:w-full motion-reduce:animate-none",
           )}
-          style={determinate ? { width: `${clamped}%` } : undefined}
+          style={determinate ? { transform: `scaleX(${(clamped ?? 0) / 100})`, transformOrigin: "left" } : undefined}
         />
       </div>
     </div>
@@ -62,6 +63,12 @@ export type Stage = {
   detail?: ReactNode;
 };
 
+export type StageListProps = {
+  stages: Stage[];
+  label?: string;
+  className?: string;
+};
+
 /**
  * A staged job, shown as stages — not as one skeleton.
  *
@@ -74,15 +81,7 @@ export type Stage = {
  * `aria-live="polite"` on the list so a stage transition is announced without
  * interrupting; the current stage carries `aria-current="step"`.
  */
-export function StageList({
-  stages,
-  label = "Progress",
-  className,
-}: {
-  stages: Stage[];
-  label?: string;
-  className?: string;
-}) {
+export function StageList({ stages, label = "Progress", className }: StageListProps) {
   const activeIndex = stages.findIndex((stage) => stage.state === "active");
   const doneCount = stages.filter((stage) => stage.state === "done").length;
 

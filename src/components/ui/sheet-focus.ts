@@ -116,6 +116,21 @@ export function pushSheet(id: string, root: HTMLElement | null = null) {
   notifyStackListeners();
 }
 
+/** Updates a delayed portal ref after the sheet registered with a null root. */
+export function updateSheetRoot(id: string, root: HTMLElement | null) {
+  let entry: SheetEntry | undefined;
+  for (let index = openSheets.length - 1; index >= 0; index -= 1) {
+    if (openSheets[index].id === id) {
+      entry = openSheets[index];
+      break;
+    }
+  }
+  if (!entry || entry.root === root) return;
+  entry.root = root;
+  syncBackgroundInert();
+  notifyStackListeners();
+}
+
 export function popSheet(id: string) {
   for (let index = openSheets.length - 1; index >= 0; index -= 1) {
     if (openSheets[index].id === id) {
@@ -154,6 +169,15 @@ function collectBackgroundElements(root: HTMLElement) {
     for (const sibling of Array.from(parent.children)) {
       if (sibling === node) continue;
       if (canInert(sibling)) background.push(sibling);
+      // OverlayPortal carries a meaningful layer/name on a display:contents
+      // wrapper. Inert that logical wrapper and its direct surface so both the
+      // platform containment and the Sheet's historical backdrop contract stay
+      // observable for stacked modals.
+      if (sibling instanceof HTMLElement && sibling.hasAttribute("data-overlay-layer")) {
+        for (const surface of Array.from(sibling.children)) {
+          if (canInert(surface)) background.push(surface);
+        }
+      }
     }
     node = parent;
   }
