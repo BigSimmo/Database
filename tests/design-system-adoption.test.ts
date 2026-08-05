@@ -1098,6 +1098,17 @@ describe("design-system adoption manifest", () => {
           typeof component.baselineCommitted === "boolean",
       ),
     ).toBe(true);
+    for (const component of manifest.components) {
+      expect(component.directImportFiles, `${component.name} direct imports must be deterministic`).toEqual(
+        [...component.directImportFiles].sort(),
+      );
+      expect(component.productImportFiles, `${component.name} product imports must be deterministic`).toEqual(
+        [...component.productImportFiles].sort(),
+      );
+      expect(component.testFiles, `${component.name} test evidence must be deterministic`).toEqual(
+        [...component.testFiles].sort(),
+      );
+    }
     for (const name of ["Button", "ConfirmDialog", "Quantity", "AnswerCard"]) {
       const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
       expect(component.productImportFiles, `${name} should remain reference-only`).toEqual([]);

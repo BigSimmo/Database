@@ -1381,8 +1381,11 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
   const contract = JSON.parse(read(CONTRACT_PATH, root));
   const config = JSON.parse(read(CONFIG_PATH, root));
   const sourceMap = config.componentSrcMap ?? {};
-  const sourceFiles = walk(path.join(root, "src"), root);
-  const testFiles = walk(path.join(root, "tests"), root);
+  // Directory enumeration order differs between Windows and Linux. Sort the
+  // scanner inputs before filtering so generated import/test evidence is
+  // byte-identical on developer machines and hosted CI.
+  const sourceFiles = walk(path.join(root, "src"), root).sort();
+  const testFiles = walk(path.join(root, "tests"), root).sort();
   const entry = read(".design-sync/entry.tsx", root);
   const globalShellDeclaration = contract.globalShellRoot ?? {
     file: "src/app/layout.tsx",
