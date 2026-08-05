@@ -59,10 +59,11 @@ export function UniversalSearchAlsoMatches({
     query.addEventListener("change", sync);
     return () => query.removeEventListener("change", sync);
   }, []);
-  // Answer mounts this panel only after generation completes, so its request is
-  // not competing with typeahead or answer work. Keep that result panel eager
-  // and invisible until real matches arrive; a speculative phone disclosure
-  // would add dead space to short answers that have no cross-mode matches.
+  // ClinicalDashboard mounts Answer-mode also-matches only after generation
+  // completes (`answer && !loading`), so this fetch never races the answer
+  // stream. Once mounted, keep the panel eager and invisible until real matches
+  // arrive; a speculative phone disclosure would add dead space to short
+  // answers that have no cross-mode matches.
   const searchActive = isWide || modeId === "answer" || expanded;
   const universal = useUniversalSearch({
     query: trimmedQuery,
