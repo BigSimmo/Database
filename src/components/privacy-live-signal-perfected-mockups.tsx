@@ -4,7 +4,34 @@ import { ArrowLeft, ChevronDown, ShieldAlert } from "lucide-react";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 
 import { cn, eyebrowText } from "@/components/ui-primitives";
-import { resolveScrollBehavior } from "@/lib/scroll-behavior";
+
+/** Nearest overflow-y scroller (the device frame), not the document. */
+function findScrollContainer(start: HTMLElement | null): HTMLElement | null {
+  let node: HTMLElement | null = start?.parentElement ?? null;
+  while (node && node !== document.documentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if (
+      (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+      node.scrollHeight > node.clientHeight + 1
+    ) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Scroll a target into a local container only — `scrollIntoView` would yank every
+ * scrollable ancestor, including the mockup review page (see phone-mode-sheet-yes).
+ * Honours the target's `scroll-margin-top` so sticky chrome clearance stays single.
+ */
+function scrollContainerToTarget(container: HTMLElement, target: HTMLElement) {
+  const containerRect = container.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const marginTop = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+  container.scrollTop += targetRect.top - containerRect.top - marginTop;
+}
 
 /**
  * Live Signal — style polish pass (direction 03).
@@ -452,10 +479,11 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
   const [expandAll, setExpandAll] = useState(false);
 
   const scrollSectionIntoView = (heading: string) => {
-    sectionRefs.current[heading]?.scrollIntoView({
-      behavior: resolveScrollBehavior(),
-      block: "start",
-    });
+    const target = sectionRefs.current[heading];
+    if (!target) return;
+    const container = findScrollContainer(target);
+    if (!container) return;
+    scrollContainerToTarget(container, target);
   };
 
   const selectSection = (heading: string) => {
@@ -613,13 +641,12 @@ function DeviceChrome({
         )}
       >
         {phone ? <StatusBar /> : null}
-        <div
-          className={cn(
-            "h-[50rem] overflow-y-auto overscroll-contain",
-            // Match section scroll-mt so jump targets clear the sticky chrome stack.
-            phone ? "scroll-pt-[12.5rem]" : "scroll-pt-[10.5rem]",
-          )}
-        >
+        <div className="h-[50rem] overflow-y-auto overscroll-contain">
+          {/*
+            Section jump clearance lives only on each section's scroll-mt-*.
+            Do not also set scroll-pt here — scrollIntoView / margin-aware
+            container scroll would compound the two and land mid-frame.
+          */}
           {children}
         </div>
       </div>

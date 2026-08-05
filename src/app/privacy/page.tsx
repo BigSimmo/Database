@@ -10,7 +10,7 @@ import {
   raisedCard,
   searchPageCanvas,
   searchPageContainer,
-  searchPageShell,
+  searchPageShellStandalone,
 } from "@/components/ui-primitives";
 import { privacyCopy } from "@/lib/ui-copy";
 
@@ -76,22 +76,13 @@ export default function PrivacyPage() {
   return (
     <main className={cn(searchPageCanvas)}>
       {/*
-        Privacy sits outside the search shell, so this page owns the OS top inset.
-        `cn` is a plain join (not tailwind-merge), so searchPageShell's py-3/sm:py-5
-        stay in the class list; the pt-[max(...)] utilities win because Tailwind
-        emits pt-* after py-* in the stylesheet. Effectively replaces the shell's
-        top pad so the back control clears the status bar / Dynamic Island on
-        notched phones (apple-mobile-web-app-status-bar-style=black-translucent).
+        Privacy sits outside the search shell, so this page owns the OS top inset
+        via searchPageShellStandalone (max(safe-area-top) baked into the pad).
       */}
-      <div
-        className={cn(
-          searchPageShell,
-          "pt-[max(0.75rem,var(--safe-area-top))] sm:pt-[max(1.25rem,var(--safe-area-top))]",
-        )}
-      >
+      <div className={cn(searchPageShellStandalone)}>
         <div className={cn(searchPageContainer, "space-y-6")}>
           <header className="space-y-4">
-            <div className="flex min-h-12 items-center">
+            <div className="flex min-h-tap items-center">
               <Suspense fallback={<NavigationBackButton fallbackHref="/" />}>
                 <PrivacyPageBackButton />
               </Suspense>

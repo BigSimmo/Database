@@ -197,13 +197,11 @@ function DeviceChrome({
         )}
       >
         {phone ? <StatusBar /> : null}
-        <div
-          className={cn(
-            "h-[46rem] overflow-y-auto overscroll-contain",
-            // Live Signal jump chips use section scroll-mt; pad the scroller to match.
-            phone ? "scroll-pt-[12.5rem]" : "scroll-pt-[10.5rem]",
-          )}
-        >
+        <div className="h-[46rem] overflow-y-auto overscroll-contain">
+          {/*
+            Jump clearance is section scroll-mt only (see Live Signal perfected).
+            Pairing scroll-pt here compounds and lands mid-frame.
+          */}
           {children}
         </div>
       </div>
