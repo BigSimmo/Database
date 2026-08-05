@@ -255,6 +255,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
     columns: image.tableColumns,
   });
   const tableCaption = tableHeading || cleanCaption || "Document table";
+  const hasSourceTableTitle = Boolean(tableHeading || cleanCaption);
   const warnings = tableQualityWarnings(image, hasStructuredTable);
   const sourceImageFirst =
     !hasStructuredTable ||
@@ -299,6 +300,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
         columns={image.tableColumns}
         compact={false}
         expandOnMobile
+        hidePreviewCaption={!hasSourceTableTitle}
         dialogTitle={tableCaption}
         lowConfidenceFallback={imageBlock}
       />
@@ -644,6 +646,7 @@ function IndexedSourceText({
               rows={block.rows}
               compact={false}
               expandOnMobile
+              hidePreviewCaption={!block.caption?.trim()}
               dialogTitle={block.caption ?? "Document table"}
             />
           );

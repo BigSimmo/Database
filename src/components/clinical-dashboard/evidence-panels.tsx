@@ -1202,7 +1202,12 @@ function RenderModelSourceList({
 }) {
   if (sources.length === 0) {
     return (
-      <EmptyState icon={FileText} title={emptyStates.sourcePassages.title} body={emptyStates.sourcePassages.body} />
+      <EmptyState
+        icon={FileText}
+        title={emptyStates.sourcePassages.title}
+        body={emptyStates.sourcePassages.body}
+        live="polite"
+      />
     );
   }
 
@@ -1363,7 +1368,12 @@ export function QuoteCards({
         }
       />
       {quotes.length === 0 ? (
-        <EmptyState icon={Quote} title={emptyStates.exactQuotes.title} body={emptyStates.exactQuotes.body} />
+        <EmptyState
+          icon={Quote}
+          title={emptyStates.exactQuotes.title}
+          body={emptyStates.exactQuotes.body}
+          live="polite"
+        />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {quotes.map((quote, index) => {

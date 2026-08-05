@@ -32,7 +32,8 @@ type Position = {
 export function Tooltip({ children, content, placement = "top", className }: TooltipProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<Position>({ left: 0, top: 0, placement });
+  // Start off-viewport so the first paint cannot flash at (0, 0) before measure.
+  const [position, setPosition] = useState<Position>({ left: -10_000, top: -10_000, placement });
   const triggerWrapRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
 
