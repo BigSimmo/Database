@@ -440,11 +440,15 @@ function SectionedListSheet({
   const selectedIndex = Math.max(0, SECTIONED_MODE_IDS.indexOf(selected));
   // Roving tabindex: keyboard moves focusIndex; remount (via PhoneFrame key) resets it.
   const [focusIndex, setFocusIndex] = useState(selectedIndex);
+  // Proof-frame scroll uses the mount selection only — live taps must not re-scroll.
+  const mountSelectedIndexRef = useRef(selectedIndex);
 
   useEffect(() => {
     if (preview === "rest") return;
     // Constrain preview scroll to the sheet body — scrollIntoView would yank
     // every scrollable ancestor, including the document, past the study heading.
+    // Run once per proof-frame mount only: re-running on live selection taps
+    // would yank the Scrolled frame back to Diagnose after every mode pick.
     const frame = window.requestAnimationFrame(() => {
       const body = bodyRef.current;
       if (!body) return;
@@ -455,11 +459,11 @@ function SectionedListSheet({
       }
       // Switched: bring the newly current mode into view so selection is not
       // off-screen under Find while the header already says DSM-5 / Care / etc.
-      const target = optionRefs.current[selectedIndex];
+      const target = optionRefs.current[mountSelectedIndexRef.current];
       if (target) scrollContainerToTarget(body, target, "center");
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [preview, selectedIndex]);
+  }, [preview]);
 
   function focusModeOption(index: number) {
     const next = Math.max(0, Math.min(SECTIONED_MODE_IDS.length - 1, index));
