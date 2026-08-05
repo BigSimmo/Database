@@ -176,9 +176,7 @@ const restoreRagSearchHealthIndexesMigration = readFileSync(
   new URL("../supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
-const driftManifest = JSON.parse(
-  readFileSync(new URL("../supabase/drift-manifest.json", import.meta.url), "utf8"),
-) as {
+const driftManifest = JSON.parse(readFileSync(new URL("../supabase/drift-manifest.json", import.meta.url), "utf8")) as {
   snapshot: {
     indexes: Array<{ name: string; def: string }>;
   };
@@ -1114,9 +1112,7 @@ describe("Supabase schema Data API grants", () => {
       expect(normalizeIndexDefinition(canonicalMigrationDefinition ?? "")).toBe(
         normalizeIndexDefinition(schemaDefinition ?? ""),
       );
-      expect(normalizeIndexDefinition(driftDefinition ?? "")).toBe(
-        normalizeIndexDefinition(schemaDefinition ?? ""),
-      );
+      expect(normalizeIndexDefinition(driftDefinition ?? "")).toBe(normalizeIndexDefinition(schemaDefinition ?? ""));
       expect(restoreRagSearchHealthIndexesMigration).toContain(`'${indexName}'`);
     }
 
