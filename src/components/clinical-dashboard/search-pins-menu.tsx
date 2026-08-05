@@ -429,7 +429,7 @@ export function SearchPinsMenu({
               <div className="flex min-h-14 items-center">
                 <button
                   type="button"
-                  data-mode-action-first-focus={pin === pins[0] ? "true" : undefined}
+                  data-sheet-autofocus={pin === pins[0] ? "true" : undefined}
                   aria-label={`${expanded ? "Close" : "Open"} ${pin.name} pin, ${pin.destinationIds.length} destinations`}
                   aria-expanded={expanded}
                   onClick={() => setExpandedPinId(expanded ? null : pin.id)}
