@@ -320,9 +320,7 @@ export function validateHostedAppInventory(appNames) {
   if (invalidNames.length > 0) {
     errors.push("Hosted app inventory names may contain only letters, numbers, dot, underscore, and hyphen.");
   }
-  const credentialShapedNames = normalizedNames.filter(
-    (name) => redactSensitiveText(name) !== name || name.length > 128,
-  );
+  const credentialShapedNames = appNames.filter((name) => redactSensitiveText(name) !== name || name.length > 128);
   if (credentialShapedNames.length > 0) {
     errors.push(
       "Hosted app inventory appears to contain a credential; supply connector names only, never tokens or secrets.",

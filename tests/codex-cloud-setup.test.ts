@@ -455,6 +455,10 @@ describe("Codex Cloud environment contract", () => {
     expect(validateHostedAppInventory(["github", secretShaped])).toContain(
       "Hosted app inventory appears to contain a credential; supply connector names only, never tokens or secrets.",
     );
+    const jwtShaped = [["eyJ", "abcdefgh"].join(""), "ijklmnop", "qrstuvwx"].join(".");
+    expect(validateHostedAppInventory(["github", jwtShaped])).toContain(
+      "Hosted app inventory appears to contain a credential; supply connector names only, never tokens or secrets.",
+    );
     const capabilityLine = hostedAppInventoryCapabilityLine(["GitHub", "railway", "supabase", "Slack", "Linear"]);
     expect(capabilityLine).toContain("hosted_app.inventory=provided count=5");
     expect(capabilityLine).toContain("github=true");
@@ -488,7 +492,7 @@ describe("Codex Cloud environment contract", () => {
         "--environment",
         "--hosted-app-inventroy=github",
       ],
-      { cwd: repoRoot, encoding: "utf8", env: { PATH: process.env.PATH ?? "" } },
+      { cwd: repoRoot, encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" } },
     );
     expect(malformedCli.status).toBe(1);
     expect(malformedCli.stderr).toContain("Unsupported Cloud-check argument");
