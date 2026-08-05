@@ -561,7 +561,7 @@ describe("provider-safe test environment", () => {
     }
     expect(providerEnvironmentKeys).toEqual(expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN"]));
     expect(environment.SENTRY_AUTH_TOKEN).toBe("");
-    expect(environment.SENTRY_DSN).toBe("");
+    expect(environment.SENTRY_DSN).toBe("http://127.0.0.1:1");
   });
 
   it("requires explicit permission before live tests can run", () => {
