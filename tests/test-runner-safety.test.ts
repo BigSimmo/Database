@@ -559,9 +559,13 @@ describe("provider-safe test environment", () => {
     for (const key of providerEnvironmentKeys) {
       expect(environment[key]).toBe(offlineUrlValues[key as keyof typeof offlineUrlValues] ?? "");
     }
-    expect(providerEnvironmentKeys).toEqual(expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN"]));
+    expect(providerEnvironmentKeys).toEqual(
+      expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN", "SENTRY_ENABLE_LOGS", "SENTRY_SEND_TEST_LOG"]),
+    );
     expect(environment.SENTRY_AUTH_TOKEN).toBe("");
     expect(environment.SENTRY_DSN).toBe("http://127.0.0.1:1");
+    expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
+    expect(environment.SENTRY_SEND_TEST_LOG).toBe("false");
   });
 
   it("requires explicit permission before live tests can run", () => {
