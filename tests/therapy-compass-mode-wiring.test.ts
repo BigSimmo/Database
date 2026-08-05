@@ -185,6 +185,23 @@ describe("Therapy Compass production-mode wiring", () => {
     );
   });
 
+  it("uses } as const–terminated parsing for the therapy catalogue summary staleness check", () => {
+    const generatorSrc = readFileSync(new URL("../scripts/build-therapies-index.mjs", import.meta.url), "utf8");
+    expect(generatorSrc).toContain("function extractConstObjectBody");
+    expect(generatorSrc).toContain('extractConstObjectBody(currentManifest, "THERAPY_CATALOGUE_SUMMARY")');
+    // Nested `}` must not truncate the summary parse (previous `[^}]*` hole).
+    expect(generatorSrc).not.toMatch(/THERAPY_CATALOGUE_SUMMARY = \\\{\[\^\}]\*\\\}/);
+
+    const extractConstObjectBody = (source: string, name: string) =>
+      source.match(new RegExp(`${name} = \\{([\\s\\S]*?)\\} as const`))?.[1] ?? "";
+    const nested =
+      'export const THERAPY_CATALOGUE_SUMMARY = {\n  totalCount: 1,\n  note: { nested: "}" },\n  defaultBriefSlug: "a",\n  defaultSheetSlug: "b",\n} as const;\n';
+    const block = extractConstObjectBody(nested, "THERAPY_CATALOGUE_SUMMARY");
+    expect(block).toContain('defaultBriefSlug: "a"');
+    expect(block).toContain('defaultSheetSlug: "b"');
+    expect(block.match(/defaultSheetSlug: (null|"[^"]+")/)?.[1]).toBe('"b"');
+  });
+
   it("does not mangle ordinary sk- substrings like task-centred in generated JSON", () => {
     // Regression for the old mid-word sk- → s\u006b- rewrite in the generator.
     for (const kind of ["home", "index"] as const) {

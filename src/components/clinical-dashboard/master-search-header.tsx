@@ -361,6 +361,12 @@ export function MasterSearchHeader({
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopComposerPortalActive, setDesktopComposerPortalActive] = useState(false);
   const [desktopComposerPortalFallback, setDesktopComposerPortalFallback] = useState(false);
+  // SSR and first paint assume a declared home slot is media-eligible so the
+  // header composer stays suppressed while ModeHomeTemplate reserves hero
+  // geometry. The portal effect clears this when the home media query does not
+  // match (e.g. future `sm-up` hero + phone dock), so we never blank search
+  // for the 8s fallback window on a viewport that never hosts the hero slot.
+  const [homeComposerMediaEligible, setHomeComposerMediaEligible] = useState(() => Boolean(desktopHomeComposerSlotId));
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -1069,6 +1075,7 @@ export function MasterSearchHeader({
         setDesktopComposerPortalActive(false);
         setDesktopComposerPortalHost(null);
         setDesktopComposerPortalFallback(false);
+        setHomeComposerMediaEligible(false);
       });
       return () => {
         cancelled = true;
@@ -1110,6 +1117,9 @@ export function MasterSearchHeader({
     // their React segment hydrates. Adopting the slot before that injects a
     // display:contents host into still-unhydrated RSC HTML (React #418).
     const syncTarget = () => {
+      if (composerSlotKind === "home") {
+        setHomeComposerMediaEligible(mediaQuery.matches);
+      }
       const slot = mediaQuery.matches ? document.getElementById(composerSlotId) : null;
       if (slot && isDesktopComposerSlotReady(slot)) {
         if (retryTimeout !== null) {
@@ -2122,7 +2132,8 @@ export function MasterSearchHeader({
   );
 
   const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
-  const homePortalPending = Boolean(desktopHomeComposerSlotId) && !desktopComposerPortalFallback;
+  const homePortalPending =
+    Boolean(desktopHomeComposerSlotId) && homeComposerMediaEligible && !desktopComposerPortalFallback;
   const searchComposer = searchComposerVisible ? (
     <>
       {/* ModeHomeTemplate reserves the final hero-composer height in SSR, so a

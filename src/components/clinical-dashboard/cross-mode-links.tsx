@@ -218,6 +218,10 @@ export function CrossModeLinksStrip({
       </p>
 
       {responsiveCompact ? (
+        // Both rails stay mounted so SSR and the first paint agree; `hidden` /
+        // `md:hidden` use `display: none`, which removes the inactive rail from
+        // the accessibility tree. Keep distinct test ids so phone vs wide
+        // selectors do not double-count links.
         <>
           <div
             role="list"

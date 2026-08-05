@@ -309,10 +309,24 @@ if (!PRINT_METRICS && !PRINT_BASELINE) {
   assert(fs.existsSync(BASELINE_PATH), "design-system contract baseline is missing");
   if (fs.existsSync(BASELINE_PATH)) {
     const baseline = JSON.parse(fs.readFileSync(BASELINE_PATH, "utf8"));
-    for (const [metric, value] of Object.entries(metrics)) {
-      assert(value <= baseline.metrics?.[metric], `${metric} increased from ${baseline.metrics?.[metric]} to ${value}`);
-      for (const regression of findDebtPathRegressions(metric, debtByPath[metric], baseline.debtByPath?.[metric])) {
-        assert(false, regression);
+    const metricsShapeOk =
+      baseline &&
+      typeof baseline === "object" &&
+      baseline.metrics !== null &&
+      typeof baseline.metrics === "object" &&
+      !Array.isArray(baseline.metrics) &&
+      baseline.debtByPath !== null &&
+      typeof baseline.debtByPath === "object" &&
+      !Array.isArray(baseline.debtByPath);
+    assert(metricsShapeOk, "design-system contract baseline schema is out of date: expected { metrics, debtByPath }");
+    if (metricsShapeOk) {
+      for (const [metric, value] of Object.entries(metrics)) {
+        const baselineValue = baseline.metrics[metric];
+        assert(typeof baselineValue === "number", `design-system contract baseline is missing metrics.${metric}`);
+        assert(value <= baselineValue, `${metric} increased from ${baselineValue} to ${value}`);
+        for (const regression of findDebtPathRegressions(metric, debtByPath[metric], baseline.debtByPath[metric])) {
+          assert(false, regression);
+        }
       }
     }
   }

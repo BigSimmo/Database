@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Info } from "lucide-react";
 import { createRef, useState } from "react";
@@ -244,6 +244,26 @@ describe("SegmentedControl", () => {
     await userEvent.keyboard("{End}");
     expect(screen.getByRole("radio", { name: "Comprehensive" })).toHaveFocus();
   });
+
+  it("keeps a controlled disabled value checked instead of remapping to the first enabled option", () => {
+    render(
+      <SegmentedControl
+        label="Answer style"
+        value="standard"
+        onChange={() => {
+          throw new Error("onChange must not fire while displaying a disabled controlled value");
+        }}
+        options={options}
+        layout="equal"
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "Standard" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Brief" })).toHaveAttribute("aria-checked", "false");
+    // Focus can still land on an enabled option when the checked radio is disabled.
+    expect(screen.getByRole("radio", { name: "Brief" }).tabIndex).toBe(0);
+    expect(screen.getByRole("radio", { name: "Standard" }).tabIndex).toBe(-1);
+  });
 });
 
 describe("OverlayRoot", () => {
@@ -260,6 +280,36 @@ describe("OverlayRoot", () => {
     const host = document.querySelector('[data-overlay-host="popover"]');
     expect(host).not.toBeNull();
     expect((await screen.findByText("Portalled hint")).closest('[data-overlay-host="popover"]')).toBe(host);
+  });
+
+  it("re-portals when the real OverlayRoot host replaces a fallback host", async () => {
+    const { rerender } = render(
+      <OverlayPortal layer="popover">
+        <span>Portalled hint</span>
+      </OverlayPortal>,
+    );
+
+    const fallbackHost = document.querySelector('[data-overlay-host="popover"]');
+    expect(fallbackHost).not.toBeNull();
+    expect(fallbackHost?.closest('[data-overlay-root="fallback"]')).not.toBeNull();
+    expect((await screen.findByText("Portalled hint")).closest('[data-overlay-host="popover"]')).toBe(fallbackHost);
+
+    rerender(
+      <>
+        <OverlayRoot />
+        <OverlayPortal layer="popover">
+          <span>Portalled hint</span>
+        </OverlayPortal>
+      </>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const rootHost = document.querySelector('[data-overlay-root="true"] [data-overlay-host="popover"]');
+    expect(rootHost).not.toBeNull();
+    expect((await screen.findByText("Portalled hint")).closest('[data-overlay-host="popover"]')).toBe(rootHost);
   });
 });
 

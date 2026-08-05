@@ -151,7 +151,11 @@ describe("shared-search route ownership", () => {
       "utf8",
     );
     expect(headerSource).toContain("desktopComposerPortalFallback");
-    expect(headerSource).toContain("const homePortalPending = Boolean(desktopHomeComposerSlotId)");
+    expect(headerSource).toContain("homeComposerMediaEligible");
+    expect(headerSource).toMatch(
+      /const homePortalPending =\s*Boolean\(desktopHomeComposerSlotId\) && homeComposerMediaEligible && !desktopComposerPortalFallback/,
+    );
+    expect(headerSource).toContain("setHomeComposerMediaEligible(mediaQuery.matches)");
     expect(headerSource).toContain("const portalFallbackDelayMs = 8_000");
     expect(headerSource).toContain("let portalFailureStartedAt: number | null = null");
     expect(headerSource).toContain("portalFailureStartedAt = null");

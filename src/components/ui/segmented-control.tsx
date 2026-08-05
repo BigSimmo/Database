@@ -35,7 +35,13 @@ export function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   const refs = useRef(new Map<T, HTMLButtonElement>());
   const enabled = options.filter((option) => !option.disabled);
-  const selectedValue = enabled.some((option) => option.value === value) ? value : enabled[0]?.value;
+  // Keep the controlled value honest: a disabled matching option stays the
+  // checked radio. Never silently remap to the first enabled option — that
+  // would show a selection the owner state does not hold.
+  const valueMatchesOption = options.some((option) => option.value === value);
+  const valueIsEnabled = enabled.some((option) => option.value === value);
+  const selectedValue = valueMatchesOption ? value : undefined;
+  const tabStopValue = valueIsEnabled ? value : enabled[0]?.value;
 
   const selectAndFocus = useCallback(
     (next: SegmentedControlOption<T> | undefined) => {
@@ -93,7 +99,7 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={checked}
-            tabIndex={checked ? 0 : -1}
+            tabIndex={option.value === tabStopValue ? 0 : -1}
             disabled={option.disabled}
             data-segment-value={option.value}
             onClick={() => onChange(option.value)}

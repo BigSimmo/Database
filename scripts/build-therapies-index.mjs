@@ -45,12 +45,22 @@ function listHashedAssets() {
 }
 
 /**
+ * Extract the interior of `name = { ... } as const` so a nested `}` (or a
+ * string containing `}`) cannot truncate the parse the way `[^}]*` did and
+ * make staleness comparisons pass vacuously on trailing fields. The generator
+ * always terminates these objects with `} as const`.
+ */
+function extractConstObjectBody(source, name) {
+  return source.match(new RegExp(`${name} = \\{([\\s\\S]*?)\\} as const`))?.[1] ?? "";
+}
+
+/**
  * Filenames recorded under `name` in a `generated-assets.ts` body, keyed by
  * kind. Keyed rather than positional: a manifest missing one kind must not
  * shift the others into the wrong slot.
  */
 function manifestAssets(body, name) {
-  const block = body.match(new RegExp(`${name} = \\{([^}]*)\\}`))?.[1] ?? "";
+  const block = extractConstObjectBody(body, name);
   const entries = ["full", "index", "home"]
     .map((kind) => [kind, block.match(new RegExp(`${kind}: "([^"]+)"`))?.[1]])
     .filter(([, filename]) => Boolean(filename));
@@ -164,7 +174,7 @@ const catalogueSummary = {
 };
 
 if (checkOnly) {
-  const summaryBlock = currentManifest.match(/THERAPY_CATALOGUE_SUMMARY = \{([^}]*)\}/)?.[1] ?? "";
+  const summaryBlock = extractConstObjectBody(currentManifest, "THERAPY_CATALOGUE_SUMMARY");
   const recordedSummary = {
     totalCount: Number(summaryBlock.match(/totalCount: (\d+)/)?.[1] ?? Number.NaN),
     defaultBriefSlug: summaryBlock.match(/defaultBriefSlug: (null|"[^"]+")/)?.[1] ?? "",

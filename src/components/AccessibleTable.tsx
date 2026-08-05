@@ -345,7 +345,17 @@ function AccessibleTableMarkup({
                       >
                         {actionsHeader}
                       </span>
-                      {displayActions[rowIndex] || <span className={textMuted}>No action available</span>}
+                      {displayActions[rowIndex] ||
+                        (renderDensePreview ? (
+                          <>
+                            <span aria-hidden="true" className={textMuted}>
+                              —
+                            </span>
+                            <span className="sr-only">No action available</span>
+                          </>
+                        ) : (
+                          <span className={textMuted}>No action available</span>
+                        ))}
                     </td>
                   ) : null}
                 </tr>

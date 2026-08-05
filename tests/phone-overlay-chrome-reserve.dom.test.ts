@@ -225,4 +225,78 @@ describe("readPhoneOverlayChromeReservePx", () => {
     act(() => staleAfterUnmount(800));
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
   });
+
+  it("attaches the ResizeObserver when the phone header stack mounts after the hook", async () => {
+    let stackHeight = 72;
+    let notifyResize: ResizeObserverCallback | null = null;
+    let nextFrameId = 1;
+    const pendingFrames = new Map<number, FrameRequestCallback>();
+    let observedTargets = 0;
+
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          notifyResize = callback;
+        }
+
+        observe() {
+          observedTargets += 1;
+        }
+        disconnect() {}
+      },
+    );
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      const frameId = nextFrameId++;
+      pendingFrames.set(frameId, callback);
+      return frameId;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (frameId: number) => {
+      pendingFrames.delete(frameId);
+    });
+
+    const { unmount } = renderHook(() => usePhoneOverlayChromeReserve());
+    expect(observedTargets).toBe(0);
+    expect(notifyResize).toBeNull();
+
+    const stack = document.createElement("div");
+    stack.className = "phone-sticky-header-stack";
+    const collapse = document.createElement("div");
+    collapse.dataset.testid = "universal-header-collapse";
+    stack.append(collapse);
+    Object.defineProperty(stack, "offsetHeight", {
+      configurable: true,
+      get: () => stackHeight,
+    });
+    Object.defineProperty(collapse, "offsetHeight", {
+      configurable: true,
+      get: () => stackHeight,
+    });
+
+    act(() => {
+      document.body.append(stack);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(observedTargets).toBeGreaterThan(0);
+    expect(notifyResize).toBeTypeOf("function");
+    act(() => notifyResize!([], {} as ResizeObserver));
+    const flushFrame = (timestamp: number) => {
+      expect(pendingFrames.size).toBe(1);
+      const [frameId, callback] = pendingFrames.entries().next().value! as [number, FrameRequestCallback];
+      pendingFrames.delete(frameId);
+      callback(timestamp);
+    };
+    act(() => flushFrame(0));
+    act(() => flushFrame(phoneOverlayReserveGeometryQuietWindowMs));
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("72px");
+    unmount();
+  });
 });

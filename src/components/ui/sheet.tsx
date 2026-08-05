@@ -63,10 +63,12 @@ export type SheetProps = SheetBaseProps & SheetAccessibleName;
 
 /**
  * Responsive overlay: a bottom sheet on mobile (rises from the bottom, safe-area
- * aware, drag-grip) and a centred dialog from `sm:` up. CSS-only animation, no
- * portal/deps. Focus is trapped while open and returned to the opener on close;
- * Escape and backdrop click both dismiss. Mirrors the original GuideDialog
- * focus handling so behaviour is unchanged where it replaces a modal.
+ * aware, drag-grip) and a centred dialog from `sm:` up. CSS-only animation.
+ * Portals into `OverlayRoot` (`layer="modal"`) by default so stacking and
+ * inerting stay consistent across product overlays; pass `portal={false}` to
+ * keep the sheet in-tree when an ancestor-scoped style must still apply.
+ * Focus is trapped while open and returned to the opener on close; Escape and
+ * backdrop click both dismiss.
  */
 export function Sheet({
   open,

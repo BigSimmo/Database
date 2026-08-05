@@ -164,10 +164,32 @@ export function usePhoneOverlayChromeReserve(): void {
 
     // The collapse row grows and shrinks with portaled page navigation
     // (`header-collapse-addon`), so observe size rather than sampling once.
-    const observed = document.querySelector<HTMLElement>(collapseSelector);
-    const stack = observed?.closest<HTMLElement>(headerStackSelector) ?? observed ?? null;
-    const resizeObserver = stack ? new ResizeObserver(publishObservedReserve) : null;
-    if (stack && resizeObserver) resizeObserver.observe(stack);
+    // The stack may also mount after this effect (late chrome / route-owned
+    // collapse). Re-query on DOM mutations so a missing mount-time target does
+    // not leave the reserve on the CSS seed for the lifetime of the owner.
+    let resizeObserver: ResizeObserver | null = null;
+    let observedStack: HTMLElement | null = null;
+
+    const resolveStack = () => {
+      const observed = document.querySelector<HTMLElement>(collapseSelector);
+      return observed?.closest<HTMLElement>(headerStackSelector) ?? observed ?? null;
+    };
+
+    const attachResizeObserver = () => {
+      const stack = resolveStack();
+      if (stack === observedStack) return;
+      resizeObserver?.disconnect();
+      resizeObserver = null;
+      observedStack = stack;
+      if (!stack) return;
+      resizeObserver = new ResizeObserver(publishObservedReserve);
+      resizeObserver.observe(stack);
+      publishObservedReserve();
+    };
+
+    attachResizeObserver();
+    const mutationObserver = new MutationObserver(attachResizeObserver);
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
 
     // Stack geometry changes caused by viewport resize and orientation are
     // deliberately published only through ResizeObserver. The raw window
@@ -176,6 +198,7 @@ export function usePhoneOverlayChromeReserve(): void {
 
     return () => {
       invalidatePendingConfirmation();
+      mutationObserver.disconnect();
       resizeObserver?.disconnect();
       media.removeEventListener("change", syncBreakpoint);
       root.style.removeProperty(reserveProperty);

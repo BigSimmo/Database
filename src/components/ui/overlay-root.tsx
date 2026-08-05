@@ -46,8 +46,18 @@ export function OverlayRoot() {
   );
 }
 
+function getOverlayHost(layer: OverlayLayer) {
+  if (typeof document === "undefined") return null;
+  // Prefer the layout-mounted OverlayRoot over a synthetic fallback created
+  // before it. A bare querySelector would keep consumers stuck on the first
+  // host forever once both exist in the document.
+  const preferred = document.querySelector<HTMLElement>(`[data-overlay-root="true"] [data-overlay-host="${layer}"]`);
+  if (preferred) return preferred;
+  return document.querySelector<HTMLElement>(`[data-overlay-host="${layer}"]`);
+}
+
 function ensureFallbackHost(layer: OverlayLayer) {
-  const existing = document.querySelector<HTMLElement>(`[data-overlay-host="${layer}"]`);
+  const existing = getOverlayHost(layer);
   if (existing) return existing;
 
   let root = document.querySelector<HTMLElement>('[data-overlay-root="fallback"]');
@@ -70,11 +80,6 @@ function ensureFallbackHost(layer: OverlayLayer) {
   return root.querySelector<HTMLElement>(`[data-overlay-host="${layer}"]`)!;
 }
 
-function getOverlayHost(layer: OverlayLayer) {
-  if (typeof document === "undefined") return null;
-  return document.querySelector<HTMLElement>(`[data-overlay-host="${layer}"]`);
-}
-
 function getServerOverlayHost() {
   return null;
 }
@@ -86,9 +91,21 @@ export type OverlayPortalProps =
 export function OverlayPortal({ layer, name, children }: OverlayPortalProps) {
   const subscribe = useCallback(
     (onStoreChange: () => void) => {
+      if (typeof document === "undefined") return () => undefined;
+      // Ensure a host exists for the first paint, then observe host swaps so a
+      // late-mounted <OverlayRoot> (or fallback teardown) re-portals consumers.
       ensureFallbackHost(layer);
       onStoreChange();
-      return () => undefined;
+      const observer = new MutationObserver(() => {
+        onStoreChange();
+      });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["data-overlay-host", "data-overlay-root"],
+      });
+      return () => observer.disconnect();
     },
     [layer],
   );
