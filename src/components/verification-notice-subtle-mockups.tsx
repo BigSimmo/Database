@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { CircleAlert, Info, TriangleAlert } from "lucide-react";
 
 /**
@@ -186,7 +187,7 @@ function Lockup({ concept }: { concept: ConceptId }) {
   );
 }
 
-function Frame({ label, children }: { label: string; children: React.ReactNode }) {
+function Frame({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
       <div className="mb-2 flex items-baseline justify-between">
