@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   computeParity,
@@ -44,7 +45,9 @@ describe("check-env-parity name parsing", () => {
       "  RAG_PERSIST_RAW_QUERY_TEXT: z",
       '    .enum(["true", "false"])',
       '    .default("false"),',
+      "  SENTRY_DSN: z.preprocess(blankOptionalUrl, z.string().url().optional()),",
       "  notAKey: 3,",
+      "  DROPPED_SHARED: optionalUrlEnv,",
       "});",
     ].join("\n");
     const names = parseEnvSchemaNames(text);
@@ -52,7 +55,15 @@ describe("check-env-parity name parsing", () => {
     expect(names).toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(names).toContain("OPENAI_MAX_OUTPUT_TOKENS");
     expect(names).toContain("RAG_PERSIST_RAW_QUERY_TEXT");
+    expect(names).toContain("SENTRY_DSN");
     expect(names).not.toContain("notAKey");
+    expect(names).not.toContain("DROPPED_SHARED");
+  });
+
+  it("keeps Sentry DSN keys in the live env.ts schema name contract", () => {
+    const envTs = readFileSync(new URL("../src/lib/env.ts", import.meta.url), "utf8");
+    const names = parseEnvSchemaNames(envTs);
+    expect(names).toEqual(expect.arrayContaining(["SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"]));
   });
 
   it("extracts names from check-ci-env quoted literals and process.env access", () => {
