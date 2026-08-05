@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } fr
 
 import { cn } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
-import { appModeDefinitions, type AppModeId } from "@/lib/app-modes";
+import { appModeDefinitions, visibleAppModeDefinitions, type AppModeId } from "@/lib/app-modes";
 
 /**
  * Design scratch: phone "Choose mode" sheet — review + YES comps.
@@ -244,7 +244,11 @@ function SheetChrome({
 }
 
 function CurrentShippingSheet() {
-  const modes = appModeDefinitions.filter((mode) => !mode.devOnly);
+  // `visibleAppModeDefinitions("production")`, not a local `!mode.devOnly`:
+  // `devOnly` is optional on the union, so reading it off every member does not
+  // typecheck (TS2339). app-modes.ts already exports this guard — passing
+  // "production" reproduces the intent here, which is the shipping mode list.
+  const modes = visibleAppModeDefinitions("production");
 
   return (
     <SheetChrome
