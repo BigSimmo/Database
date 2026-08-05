@@ -155,7 +155,7 @@ export function UniversalSearchAlsoMatches({
               Also matches in other modes
             </span>
             <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold tabular-nums text-[color:var(--clinical-accent)] sm:hidden">
-              {searchPending && matchCount === 0 ? "…" : matchCount}
+              {!searchActive || (searchPending && matchCount === 0) ? "…" : matchCount}
             </span>
           </span>
           <span className="text-2xs font-medium text-[color:var(--text-muted)] sm:hidden">{phoneSubtitle}</span>
