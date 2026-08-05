@@ -238,7 +238,10 @@ action must perform one; a page that ships must be reachable.
   `<button>`; `tests/route-reachability.test.ts` (in `npm run test`) fails when a production page
   route has no inbound nav link unless it is consciously added to that test's documented
   allowlist (redirect targets / legacy-compat routes). Both run in `verify:cheap` and CI. Mockups
-  (`src/app/mockups/**`, `*-mockups.tsx`) are design-scratch and exempt from both.
+  (`src/app/mockups/**`, `*-mockups.tsx`) are design-scratch and exempt from both — **and from
+  nothing else**. Mockups are compiled like any other source: they are typechecked, and their client
+  chunks count toward `check:bundle-budget`'s repo-wide total, so a mockup-only PR can still fail
+  `Build` (PR #1580, `+10.1%` against a 10% tolerance). Do not read "exempt" as "free".
 - **Never** add a production page route without either an inbound link or a documented
   reachability allowlist entry plus an `/issues` note, and never silence the button-wiring rule
   with a blanket disable — wire the control or make it an explicit placeholder.
