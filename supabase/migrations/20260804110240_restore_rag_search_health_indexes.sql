@@ -1,22 +1,38 @@
--- Restore canonical RAG support indexes found missing on the live project even
--- though the original reconciliation migration is recorded as applied.
--- The definitions already exist in schema.sql and drift-manifest.json; this
--- idempotent forward migration repairs hosted drift without changing RPCs.
+-- Record the already-completed RAG index repair without rebuilding indexes in a
+-- transactional migration. Production creation and validation happened before
+-- this version was marked applied; fresh replays receive the same definitions
+-- from 20260705180000_reconcile_search_health_indexes.sql and schema.sql.
+--
+-- Plain CREATE INDEX here would hold write-blocking locks for the duration of
+-- each build. A drifted hosted target must instead prebuild every missing index
+-- with CREATE INDEX CONCURRENTLY outside a transaction, validate pg_index
+-- indisvalid/indisready plus the canonical definition, and only then mark this
+-- migration applied. This guard fails fast if that operator step was skipped.
 
 set search_path = public, extensions, pg_catalog;
 set lock_timeout = '5s';
-set statement_timeout = '15min';
+set statement_timeout = '30s';
 
-create index if not exists document_labels_label_trgm_idx
-  on public.document_labels using gin (lower(label) gin_trgm_ops);
+do $migration$
+declare
+  missing_indexes text[];
+begin
+  select array_agg(index_name order by index_name)
+  into missing_indexes
+  from unnest(
+    array[
+      'document_labels_label_trgm_idx',
+      'document_summaries_summary_trgm_idx',
+      'document_index_units_owner_chunk_type_idx',
+      'rag_retrieval_logs_miss_idx'
+    ]::text[]
+  ) as required(index_name)
+  where to_regclass(format('public.%I', index_name)) is null;
 
-create index if not exists document_summaries_summary_trgm_idx
-  on public.document_summaries using gin (lower(summary) gin_trgm_ops);
-
-create index if not exists document_index_units_owner_chunk_type_idx
-  on public.document_index_units(owner_id, source_chunk_id, unit_type)
-  where source_chunk_id is not null;
-
-create index if not exists rag_retrieval_logs_miss_idx
-  on public.rag_retrieval_logs(is_miss, created_at desc)
-  where is_miss = true;
+  if missing_indexes is not null then
+    raise exception
+      'RAG index repair was not prebuilt; create missing indexes concurrently outside the migration transaction, validate them, then mark this version applied. Missing: %',
+      array_to_string(missing_indexes, ', ');
+  end if;
+end
+$migration$;
