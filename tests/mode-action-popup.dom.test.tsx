@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import { useRef, useState } from "react";
 
@@ -151,7 +152,11 @@ describe("ModeActionPopup state transitions", () => {
   });
 
   it("keeps custom body placement measurement stable across parent renders", () => {
-    const source = readFileSync("src/components/clinical-dashboard/mode-action-popup.tsx", "utf8");
+    // jsdom does not support `new URL(..., import.meta.url)` file resolution.
+    const source = readFileSync(
+      path.join(process.cwd(), "src/components/clinical-dashboard/mode-action-popup.tsx"),
+      "utf8",
+    );
 
     expect(source).toContain("const hasCustomBody = Boolean(customBody);");
     expect(source).toContain("[hasCustomBody, integrated, integratedChipRow, items.length]");

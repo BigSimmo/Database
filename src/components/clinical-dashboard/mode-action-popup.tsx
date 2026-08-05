@@ -432,8 +432,10 @@ export function ModeActionPopup({
   const [integratedSurfaceLayout, setIntegratedSurfaceLayout] = useState<IntegratedSurfaceLayout | null>(null);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
   const canSwitchMode = Boolean(modeOptions?.length && onModeSelect);
-  const hasCustomBody = Boolean(customBody);
   const selectedModeOption = modeOptions?.find((mode) => mode.id === selectedModeId);
+  // Truthiness only — callers pass inline JSX for customBody, so the element
+  // identity must not invalidate placement measurement every parent render.
+  const hasCustomBody = Boolean(customBody);
 
   const closeAndRestoreFocus = useCallback(() => {
     setModeSelectorOpen(false);

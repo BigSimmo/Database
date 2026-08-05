@@ -125,5 +125,11 @@ export function writeSearchPins(pins: SearchPin[], storage?: Pick<Storage, "setI
     inMemorySearchPins = cloneSearchPins(normalized);
     inMemorySearchPinsFallbackActive = true;
   }
-  return normalized;
+  return cloneSearchPins(normalized);
+}
+
+/** Test-only: drop tab session memory so cases do not leak pin lists. */
+export function resetSearchPinsSessionForTests() {
+  inMemorySearchPins = null;
+  inMemorySearchPinsFallbackActive = false;
 }

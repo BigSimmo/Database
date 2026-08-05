@@ -1,14 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   defaultSearchPins,
   normalizeSearchPins,
   readSearchPins,
+  resetSearchPinsSessionForTests,
   searchPinsStorageKey,
   writeSearchPins,
 } from "@/lib/search-pins";
 
 describe("search pin storage", () => {
+  beforeEach(() => {
+    resetSearchPinsSessionForTests();
+  });
   it("normalizes user-owned pin names and destination ids", () => {
     expect(
       normalizeSearchPins([
@@ -45,6 +49,19 @@ describe("search pin storage", () => {
     first[0].destinationIds.push("tools");
     expect(readSearchPins({ getItem: () => null })).toEqual(defaultSearchPins);
     expect(defaultSearchPins[0].name).toBe("Ward essentials");
+  });
+
+  it("keeps the last written pins in session memory when storage writes fail", () => {
+    const failingStorage = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error("quota exceeded");
+      },
+    };
+    writeSearchPins([{ id: "clinic", name: "Clinic", destinationIds: ["documents"] }], failingStorage);
+    expect(readSearchPins({ getItem: () => null })).toEqual([
+      { id: "clinic", name: "Clinic", destinationIds: ["documents"] },
+    ]);
   });
 
   it("writes only the normalized preference payload", () => {
