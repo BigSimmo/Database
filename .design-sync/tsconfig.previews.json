@@ -2,7 +2,7 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "incremental": false,
-    "types": ["node"],
+    "types": ["node", "react", "react-dom"],
     "paths": {
       "@/*": ["../src/*"],
       "prompt-for-codex-medical-knowledge-base": ["./entry.tsx"]
