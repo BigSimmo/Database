@@ -736,7 +736,7 @@ test.describe("Clinical KB accessibility coverage", () => {
   // search is visually identical to a successful one.
   test("a faulted search is legible as shape, not only as hue", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.route(/\\/api\\/search(?:\\?.*)?$/, (route) => route.fulfill({ status: 500, json: { error: "down" } }));
+    await page.route(/\/api\/search(?:\?.*)?$/, (route) => route.fulfill({ status: 500, json: { error: "down" } }));
     await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
 
     const band = page.locator('[data-testid="search-query-ribbon"]:visible').first();
@@ -766,7 +766,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     // Differentials is the widest fault: Retry plus two "Browse …" links. Their
     // combined width exceeds a 390px panel, and the band root is
     // `overflow-hidden`, so without wrapping the trailing link is cut off.
-    await page.route(/\\/api\\/search(?:\\?.*)?$/, (route) => route.fulfill({ status: 500, json: { error: "down" } }));
+    await page.route(/\/api\/search(?:\?.*)?$/, (route) => route.fulfill({ status: 500, json: { error: "down" } }));
     await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
 
     const fault = page.locator('[data-testid="search-query-ribbon-fault"]:visible').first();
