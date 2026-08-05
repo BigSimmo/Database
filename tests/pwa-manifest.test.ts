@@ -87,7 +87,7 @@ describe("PWA manifest and public bootstrap resources", () => {
     );
     expect(offlineHtml).toContain('<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0e11" />');
     expect(offlineHtml).toContain("--page-background: #ffffff; /* --background */");
-    expect(offlineHtml).toContain("--page-accent: #1a66a8; /* --command */");
+    expect(offlineHtml).toContain("--page-accent: #111827; /* --command */");
     expect(offlineHtml).toContain("--page-background: #0b0e11; /* dark --background */");
     expect(offlineHtml).toContain("--page-surface: #1c2126; /* dark --surface-raised */");
     expect(offlineHtml).not.toContain("#060708");
@@ -101,8 +101,8 @@ describe("PWA manifest and public bootstrap resources", () => {
     // value (never reuse a previous one, even for rollbacks) and record the
     // new offline.html hash here.
     const expectedPairing = {
-      cacheVersion: "2026-08-05-v2",
-      offlineHtmlSha256: "ce5e4b73faccfaa69a43d7e29cf13c41f948b6fe6b364797ae321506368cd86c",
+      cacheVersion: "2026-08-05-v3",
+      offlineHtmlSha256: "a681b26a0cbe0c046dc6f694d9f9990946614a11338fd38ec14527cd693f93eb",
     };
 
     const workerSource = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");
