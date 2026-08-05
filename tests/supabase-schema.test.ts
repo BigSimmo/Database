@@ -183,9 +183,7 @@ const driftManifest = JSON.parse(
     indexes: Array<{ name: string; def: string }>;
   };
 };
-const driftIndexDefinitions = new Map(
-  driftManifest.snapshot.indexes.map((index) => [index.name, index.def] as const),
-);
+const driftIndexDefinitions = new Map(driftManifest.snapshot.indexes.map((index) => [index.name, index.def] as const));
 
 function normalizeIndexDefinition(definition: string) {
   return definition
