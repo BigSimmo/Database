@@ -165,7 +165,7 @@ describe("Chip", () => {
     expect(within(standard).getByText("Long standard content")).toHaveClass("max-h-full", "overflow-hidden");
     const remove = screen.getByRole("button", { name: "Remove source" });
     expect(remove).toHaveClass("h-full", "w-8");
-    expect(remove).not.toHaveClass("h-tap", "w-tap");
+    expect(remove).not.toHaveClass("h-tap", "w-tap", "max-w-full");
   });
 
   it("opts into wrapping for long clinical tag phrases without changing default density", () => {
@@ -205,6 +205,7 @@ describe("Chip", () => {
       name: "Remove persistent depressive disorder with anxious distress",
     });
     expect(remove).toHaveClass("min-h-5", "h-full", "w-8");
+    expect(remove).not.toHaveClass("max-w-full");
   });
 });
 

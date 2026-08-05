@@ -139,7 +139,10 @@ export function Chip({
             type="button"
             onClick={onRemove}
             aria-label={removeLabel}
-            className="absolute inset-y-0 left-1/2 grid h-full min-h-5 w-8 max-w-full -translate-x-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
+            // w-8 is intentionally wider than the w-5 track so the hit area
+            // overhangs into chip horizontal padding. Do not add max-w-full —
+            // that clamps back to the track width and nullifies the enlarge.
+            className="absolute inset-y-0 left-1/2 grid h-full min-h-5 w-8 -translate-x-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
           >
             <span className="grid h-5 w-5 place-items-center rounded-sm transition hover:bg-[color:var(--surface-highlight)]">
               <X aria-hidden="true" className="h-3 w-3" />
