@@ -156,6 +156,7 @@ describe("Chip", () => {
     const [compact, standard] = screen.getAllByTestId("chip");
     expect(compact).toHaveAttribute("data-size", "compact");
     expect(compact).toHaveAttribute("data-appearance", "category");
+    expect(compact).toHaveAttribute("data-wrap", "false");
     expect(compact).toHaveClass("h-6", "text-2xs");
     expect(compact).not.toHaveClass("min-h-6");
     expect(standard).toHaveAttribute("data-size", "standard");
@@ -165,6 +166,23 @@ describe("Chip", () => {
     const remove = screen.getByRole("button", { name: "Remove source" });
     expect(remove).toHaveClass("h-full", "w-8");
     expect(remove).not.toHaveClass("h-tap", "w-tap");
+  });
+
+  it("opts into wrapping for long clinical tag phrases without changing default density", () => {
+    render(
+      <Chip size="standard" wrap>
+        Persistent depressive disorder with anxious distress
+      </Chip>,
+    );
+
+    const chip = screen.getByTestId("chip");
+    expect(chip).toHaveAttribute("data-wrap", "true");
+    expect(chip).toHaveClass("min-h-7");
+    expect(chip).not.toHaveClass("h-7");
+    expect(within(chip).getByText("Persistent depressive disorder with anxious distress")).toHaveClass(
+      "whitespace-normal",
+      "break-words",
+    );
   });
 });
 
@@ -528,6 +546,44 @@ describe("Tooltip", () => {
     trigger.focus();
     const tooltip = await screen.findByRole("tooltip");
     expect(trigger.getAttribute("aria-describedby")).toBe(tooltip.id);
+    await waitFor(() => {
+      expect(tooltip.style.visibility).toBe("visible");
+    });
+  });
+
+  it("stays invisible at the placeholder origin until geometry is measured", async () => {
+    const pendingFrames: Array<(time: number) => void> = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      pendingFrames.push(callback as (time: number) => void);
+      return 1;
+    });
+    const caf = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    try {
+      render(
+        <Tooltip content="Measured placement only.">
+          <button type="button">Measure</button>
+        </Tooltip>,
+      );
+
+      screen.getByRole("button", { name: "Measure" }).focus();
+      // visibility:hidden keeps the node out of the accessibility tree, so query by test id.
+      const tooltip = await screen.findByTestId("tooltip");
+      expect(tooltip).toHaveAttribute("role", "tooltip");
+      expect(tooltip.style.visibility).toBe("hidden");
+      expect(tooltip.style.left).toBe("0px");
+      expect(tooltip.style.top).toBe("0px");
+
+      expect(pendingFrames).toHaveLength(1);
+      pendingFrames[0](0);
+      await waitFor(() => {
+        expect(tooltip.style.visibility).toBe("visible");
+      });
+      expect(screen.getByRole("tooltip")).toBe(tooltip);
+    } finally {
+      raf.mockRestore();
+      caf.mockRestore();
+    }
   });
 
   it("composes over existing child event handlers instead of replacing them", async () => {

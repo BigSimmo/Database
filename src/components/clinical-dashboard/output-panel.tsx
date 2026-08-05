@@ -191,6 +191,7 @@ export function ClinicalOutputPanel({
                           columns={table.columns}
                           {...simpleClinicalTableProps}
                           clinicalOnly
+                          // Invented fallbacks are accessible-name only — do not paint a fake heading.
                           hidePreviewCaption={!table.caption?.trim()}
                           dialogTitle={table.caption || "Clinical table"}
                         />

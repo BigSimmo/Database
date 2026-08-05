@@ -52,6 +52,12 @@ const SIZE: Record<ChipSize, string> = {
   standard: "h-7 px-2.5 text-xs",
 };
 
+/** Multi-line clinical tags: keep the same density floor, allow the label to wrap. */
+const SIZE_WRAP: Record<ChipSize, string> = {
+  compact: "min-h-6 px-2 py-1 text-2xs leading-snug",
+  standard: "min-h-7 px-2.5 py-1 text-xs leading-snug",
+};
+
 function appearanceClasses(appearance: ChipAppearance) {
   if (appearance.kind === "status") return STATUS[appearance.tone];
   if (appearance.kind === "category") return CATEGORY[appearance.tone];
@@ -75,6 +81,13 @@ type ChipBase = {
   /** Status dot. Never the only carrier of meaning — the label still says it. */
   dot?: boolean;
   icon?: LucideIcon;
+  /**
+   * Allow the label to wrap onto extra lines. Default density stays single-line
+   * and fixed-height; opt in for arbitrary clinical tag phrases.
+   */
+  wrap?: boolean;
+  /** Native title when children are not a plain string (truncated/wrap hover text). */
+  title?: string;
   /** Layout only: margin, width, shrink/grow, alignment and wrapping. */
   className?: string;
 };
@@ -89,30 +102,36 @@ export function Chip({
   appearance = { kind: "information", tone: "neutral" },
   dot = false,
   icon: Icon,
+  wrap = false,
+  title,
   onRemove,
   removeLabel,
   className,
 }: ChipProps) {
-  const fullLabel = typeof children === "string" ? children : undefined;
+  const fullLabel = title ?? (typeof children === "string" ? children : undefined);
   return (
     <span
       data-testid="chip"
       data-size={size}
       data-appearance={appearance.kind}
+      data-wrap={wrap ? "true" : "false"}
       className={cn(
-        "relative inline-flex items-center gap-1.5 rounded-md border font-semibold leading-none",
-        SIZE[size],
+        "relative inline-flex items-center gap-1.5 rounded-md border font-semibold",
+        wrap ? `${SIZE_WRAP[size]} whitespace-normal` : `${SIZE[size]} leading-none`,
         appearanceClasses(appearance),
         className,
       )}
     >
       {dot ? <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotClasses(appearance))} /> : null}
       {Icon ? <Icon aria-hidden="true" className="size-icon-xs shrink-0" /> : null}
-      <span className="max-h-full min-w-0 overflow-hidden truncate" title={fullLabel}>
+      <span
+        className={cn("min-w-0", wrap ? "whitespace-normal break-words" : "max-h-full overflow-hidden truncate")}
+        title={fullLabel}
+      >
         {children}
       </span>
       {onRemove ? (
-        <span className="relative h-full w-5 shrink-0">
+        <span className="relative h-full w-5 shrink-0 self-center">
           {/* The hit area grows only into the chip's own height and padding: a
               48px target would overhang neighbouring chips and steal their taps. */}
           <button

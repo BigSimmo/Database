@@ -300,6 +300,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
         columns={image.tableColumns}
         compact={false}
         expandOnMobile
+        // Invented fallbacks ("Document table") are accessible-name only — do not paint a fake heading.
         hidePreviewCaption={!hasSourceTableTitle}
         dialogTitle={tableCaption}
         lowConfidenceFallback={imageBlock}
@@ -639,15 +640,17 @@ function IndexedSourceText({
         }
 
         if (block.type === "table") {
+          const tableCaption = block.caption?.trim() || "Document table";
           return (
             <AccessibleTable
               key={block.id}
-              caption={block.caption?.trim() || "Document table"}
+              caption={tableCaption}
               rows={block.rows}
               compact={false}
               expandOnMobile
+              // Invented fallbacks are accessible-name only — do not paint a fake heading.
               hidePreviewCaption={!block.caption?.trim()}
-              dialogTitle={block.caption ?? "Document table"}
+              dialogTitle={tableCaption}
             />
           );
         }

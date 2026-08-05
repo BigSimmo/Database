@@ -32,8 +32,10 @@ type Position = {
 export function Tooltip({ children, content, placement = "top", className }: TooltipProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
-  // Start off-viewport so the first paint cannot flash at (0, 0) before measure.
-  const [position, setPosition] = useState<Position>({ left: -10_000, top: -10_000, placement });
+  const [position, setPosition] = useState<Position>({ left: 0, top: 0, placement });
+  // Keep the first paint invisible until geometry is measured so the tooltip never
+  // flashes at the (0, 0) placeholder before requestAnimationFrame repositions it.
+  const [positioned, setPositioned] = useState(false);
   const triggerWrapRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
 
@@ -66,10 +68,14 @@ export function Tooltip({ children, content, placement = "top", className }: Too
     const maximumTop = Math.max(verticalMargin, window.innerHeight - height - verticalMargin);
     const top = Math.max(verticalMargin, Math.min(desiredTop, maximumTop));
     setPosition({ left, top, placement: resolvedPlacement, maxWidth, maxHeight });
+    setPositioned(true);
   }, [placement]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setPositioned(false);
+      return;
+    }
     const frame = window.requestAnimationFrame(updatePosition);
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition, true);
@@ -119,6 +125,7 @@ export function Tooltip({ children, content, placement = "top", className }: Too
               left: position.left,
               top: position.top,
               maxWidth: position.maxWidth ?? "min(20rem, calc(100vw - 1rem))",
+              visibility: positioned ? "visible" : "hidden",
             }}
             className={cn(
               "pointer-events-none w-max max-w-xs rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-xs text-[color:var(--text)] shadow-[var(--shadow-hover)] ring-1 ring-[color:var(--border-lux)]",
