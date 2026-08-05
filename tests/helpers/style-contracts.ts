@@ -98,9 +98,10 @@ export function parseUnlayeredVisualClasses(css: string): UnlayeredVisualClass[]
     // Any line that opens a rule block, at-rules excluded. Deliberately NOT
     // "starts with a class": a selector list is often split across lines, and an
     // earlier line can carry a class the opening line does not
-    // (`.medication-also-matches,` above `.medication-patient-strip {`). Keying on
-    // the opening line alone silently left those classes unpoliced, so the gate
-    // could pass with an unregistered unlayered class.
+    // (`.medication-results-inset,` above `.medication-also-matches,` /
+    // `.medication-filter-strip {`). Keying on the opening line alone silently
+    // left those classes unpoliced, so the gate could pass with an unregistered
+    // unlayered class.
     if (!line.trimEnd().endsWith("{") || /^\s*@/.test(line)) continue;
     if (insideLayer(index)) continue;
 
@@ -273,8 +274,6 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Mode-specific surfaces.
   "differentials-mobile-compare-fab__button": "differentials compare FAB — no effect contract yet (#094)",
   "differentials-mobile-compare-fab__button--empty": "differentials compare FAB — no effect contract yet (#094)",
-  "medication-also-matches":
-    "prescribing also-matches row — the class Codex named as unpoliced; no effect contract yet (#094)",
   "medication-mobile-result": "prescribing phone results — no effect contract yet (#094)",
   "medication-mobile-results": "prescribing phone results — no effect contract yet (#094)",
   "medication-patient-strip": "prescribing patient strip — no effect contract yet (#094)",
