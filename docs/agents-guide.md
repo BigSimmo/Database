@@ -58,33 +58,38 @@ servers** per session (tool-schema token bloat degrades agents).
 Use registered MCPs before opening dashboards when the task is read-only inspection.
 Writes, secret rotations, and hosted mutations stay confirmation-gated per `AGENTS.md`.
 
-| Server                      | Config                                                                                                                                                                        | Use for                                                                                                                                                                             | Do not                                                                                                                                         |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Supabase** (read-only)    | `.cursor/mcp.json` — pinned `project_ref=sjrfecxgysukkwxsowpy`, `read_only=true`                                                                                              | `search_docs`, advisors, read SQL, schema inspection                                                                                                                                | Print secret values; raw-edit retrieval RPCs via `execute_sql`; Auth DB connection-cap (`#011`) — **dashboard only**                           |
-| **Railway**                 | Desktop/CLI: root `.mcp.json` / `.codex/config.toml` (`railway` + OAuth). Hosted ChatGPT/Codex: workspace-installed app only — repository MCP files are not a read path there | Deploy status, service logs, env **names**/presence (Desktop/CLI MCP or hosted app tools)                                                                                           | Treat root `.mcp.json` as hosted proof; confuse `RAILWAY_API_TOKEN` (personal) with CI `RAILWAY_TOKEN`; mutate without approval                |
-| **Context7**                | `.cursor/mcp.json` → `https://mcp.context7.com/mcp` (+ Cursor `context7-plugin`)                                                                                              | Versioned docs for **Tailwind 4, Zod 4, Playwright, Vitest, React 19, `@supabase/supabase-js`** (peers; not exhaustive). Optional higher limits: set `CONTEXT7_API_KEY` (see below) | Next.js 16 — always use `node_modules/next/dist/docs/` (AGENTS.md). Do not invent App Router APIs from training data; never commit the API key |
-| **Chrome DevTools**         | `.cursor/mcp.json` → `npx -y chrome-devtools-mcp@1.6.0`                                                                                                                       | CLS/LCP/console/network while implementing redesigns (`#147`, `#162`–`#164`, Therapy Compass)                                                                                       | Don't leave it always-on with Browse + Playwright MCP (token bloat). Use for perf/debug passes                                                 |
-| **GitHub Checks / Actions** | Operator approval pending                                                                                                                                                     | PR check visibility when `gh pr checks` returns empty totals                                                                                                                        | Bot `update-branch`; broaden scopes beyond Checks/Actions read                                                                                 |
+| Server                      | Config                                                                                                                                                                        | Use for                                                                                                                                                                            | Do not                                                                                                                                         |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Supabase** (read-only)    | `.cursor/mcp.json` — pinned `project_ref=sjrfecxgysukkwxsowpy`, `read_only=true`                                                                                              | `search_docs`, advisors, read SQL, schema inspection                                                                                                                               | Print secret values; raw-edit retrieval RPCs via `execute_sql`; Auth DB connection-cap (`#011`) — **dashboard only**                           |
+| **Railway**                 | Desktop/CLI: root `.mcp.json` / `.codex/config.toml` (`railway` + OAuth). Hosted ChatGPT/Codex: workspace-installed app only — repository MCP files are not a read path there | Deploy status, service logs, env **names**/presence (Desktop/CLI MCP or hosted app tools)                                                                                          | Treat root `.mcp.json` as hosted proof; confuse `RAILWAY_API_TOKEN` (personal) with CI `RAILWAY_TOKEN`; mutate without approval                |
+| **Context7**                | `.cursor/mcp.json` → `npx -y @upstash/context7-mcp@3.2.5` (+ Cursor `context7-plugin`)                                                                                        | Versioned docs for **Tailwind 4, Zod 4, Playwright, Vitest, React 19, `@supabase/supabase-js`** (peers; not exhaustive). Local stdio reads `CONTEXT7_API_KEY` from env (see below) | Next.js 16 — always use `node_modules/next/dist/docs/` (AGENTS.md). Do not invent App Router APIs from training data; never commit the API key |
+| **Chrome DevTools**         | `.cursor/mcp.json` → `npx -y chrome-devtools-mcp@1.6.0`                                                                                                                       | CLS/LCP/console/network while implementing redesigns (`#147`, `#162`–`#164`, Therapy Compass)                                                                                      | Don't leave it always-on with Browse + Playwright MCP (token bloat). Use for perf/debug passes                                                 |
+| **GitHub Checks / Actions** | Operator approval pending                                                                                                                                                     | PR check visibility when `gh pr checks` returns empty totals                                                                                                                       | Bot `update-branch`; broaden scopes beyond Checks/Actions read                                                                                 |
 
 ### Context7 API key (optional)
 
 1. Create a free key at [context7.com/dashboard](https://context7.com/dashboard) (`ctx7sk…`).
-2. Set `CONTEXT7_API_KEY` as a **user/OS env var** or in Cursor **Settings → MCP → context7**
-   env so `${env:CONTEXT7_API_KEY}` in `.cursor/mcp.json` resolves. That expansion is what
-   raises rate limits for the **project** MCP entry (header form
-   `CONTEXT7_API_KEY: ${env:CONTEXT7_API_KEY}` — leave it; do not switch the committed file to
-   empty `Authorization: Bearer`).
-3. **Does not feed project MCP `${env:}`:** `.env.local` alone, or Cursor Cloud Agent
-   **Secrets** (Secrets inject into the Next app’s `.env.local` / `process.env`, not into
-   `.cursor/mcp.json` header interpolation).
-4. **Project MCP vs host connector:** the checked-in `.cursor/mcp.json` entry is the desktop
-   project path. Cursor Cloud may also expose a **host-injected** Context7 connector — same
-   product, different injection. Cloud quota is not fixed by putting the key only in app
-   Secrets.
-5. The remote URL is **unversioned** (cannot pin like `chrome-devtools-mcp@1.6.0`). Reload MCP
-   servers after key changes. Without a key, Context7 still works at lower rate limits.
-6. Prefer the Cursor `context7-plugin` / `resolve-library-id` + `query-docs` tools over raw
-   `curl` to `https://context7.com/api/v2/...` unless you are debugging the HTTP API.
+2. **Project MCP (checked-in):** `.cursor/mcp.json` runs pinned local
+   `@upstash/context7-mcp@3.2.5` with `env.CONTEXT7_API_KEY: ${env:CONTEXT7_API_KEY}` so the
+   stdio child receives the key when Cursor expands it (Cursor filters inherited env for MCP
+   children — the explicit `env` pass-through is required). Set the key as a **user/OS env var**
+   or in Cursor **Settings → MCP → context7**.
+3. **Cursor Cloud Agent Secrets:** inject `CONTEXT7_API_KEY` into the agent shell
+   `process.env`. That authenticates **local** Context7 (`npx @upstash/context7-mcp` /
+   `npx ctx7`) and project stdio MCP after reload. It does **not** authenticate a separate
+   **host-injected** Context7 connector — measured 2026-08-05: host `resolve-library-id`
+   still returned monthly quota exceeded while the same key worked for `npx ctx7 library …`.
+   If host MCP is quota-blocked, use `npx ctx7 library|docs …` (or the project local MCP
+   after reload) — do not invent APIs from training data.
+4. **Does not expand project MCP `${env:}`:** `.env.local` alone (Next app / env.ts path).
+5. **Reload MCP servers after key changes.** The stdio child captures env at spawn time — setting
+   or rotating `CONTEXT7_API_KEY` has no effect until you reload MCP (or restart Cursor).
+6. **Keyless / lower rate limits:** when `CONTEXT7_API_KEY` is unset, Cursor expands
+   `${env:CONTEXT7_API_KEY}` to an empty string and the server runs anonymously. If MCP logs
+   ever show the literal placeholder `${env:CONTEXT7_API_KEY}` as the key value, remove the
+   `env` object from the `context7` entry (anonymous) or set a real key, then reload MCP.
+7. Prefer `resolve-library-id` → `query-docs` when the authenticated MCP path is available;
+   otherwise `npx ctx7`. Avoid raw `curl` with keys in chat logs unless debugging.
 
 Never paste credential values into chat, issues, or commits. Prefer presence/length checks
 (`check:local-presence`) over dumping env contents.

@@ -10,7 +10,7 @@ import {
   raisedCard,
   searchPageCanvas,
   searchPageContainer,
-  searchPageShell,
+  searchPageShellStandalone,
 } from "@/components/ui-primitives";
 import { privacyCopy } from "@/lib/ui-copy";
 
@@ -75,12 +75,18 @@ const SECTIONS: Section[] = [
 export default function PrivacyPage() {
   return (
     <main className={cn(searchPageCanvas)}>
-      <div className={cn(searchPageShell)}>
+      {/*
+        Privacy sits outside the search shell, so this page owns the OS top inset
+        via searchPageShellStandalone (max(safe-area-top) baked into the pad).
+      */}
+      <div className={cn(searchPageShellStandalone)}>
         <div className={cn(searchPageContainer, "space-y-6")}>
-          <header className="space-y-3">
-            <Suspense fallback={<NavigationBackButton fallbackHref="/" />}>
-              <PrivacyPageBackButton />
-            </Suspense>
+          <header className="space-y-4">
+            <div className="flex min-h-tap items-center">
+              <Suspense fallback={<NavigationBackButton fallbackHref="/" />}>
+                <PrivacyPageBackButton />
+              </Suspense>
+            </div>
             <div className="space-y-2">
               <p className={eyebrowText}>{privacyCopy.pageEyebrow}</p>
               <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
