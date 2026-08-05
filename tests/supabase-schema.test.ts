@@ -180,13 +180,11 @@ const driftManifest = JSON.parse(
   readFileSync(new URL("../supabase/drift-manifest.json", import.meta.url), "utf8"),
 ) as {
   snapshot: {
-    tables: Array<{
-      indexes?: Array<{ name: string; def: string }>;
-    }>;
+    indexes: Array<{ name: string; def: string }>;
   };
 };
 const driftIndexDefinitions = new Map(
-  driftManifest.snapshot.tables.flatMap((table) => (table.indexes ?? []).map((index) => [index.name, index.def] as const)),
+  driftManifest.snapshot.indexes.map((index) => [index.name, index.def] as const),
 );
 
 function normalizeIndexDefinition(definition: string) {
