@@ -19,6 +19,10 @@ postinstall can fail when GitHub release downloads are unavailable.
   If Enterprise/Edu governance is required, an admin must enable Developer Mode and either govern
   the official app or create `Railway — Database` at `https://mcp.railway.com`, run Scan Tools,
   restrict it to a dedicated group, and disable write tools individually.
+- A current Codex settings review independently confirmed the **PRO** classification. Its connector
+  page shows GitHub connected to `BigSimmo` and offers GitHub, Slack, and Linear; it provides no
+  Railway or Supabase connector control. This is a product-surface limit, not a repository setup
+  failure.
 - The installed app exposed these read actions: `Fetch-docs`, `Get-feature-flag`, `Get-logs`,
   `Get-service-config`, `Get-service-metrics`, `Get-status`, `List-deployments`, `List-domains`,
   `List-feature-flags`, `List-projects`, `List-services`, `List-variables`, `List-workspaces`,
@@ -28,20 +32,35 @@ postinstall can fail when GitHub release downloads are unavailable.
   `Railway-agent`, `Redeploy`, `Set-feature-flag`, `Set-variables`, and `Update-service`. None was
   invoked.
 - Railway OAuth metadata advertises `openid`, `profile`, `email`, `offline_access`, and
-  `workspace:member`. Confirm the scanned consent requests `offline_access`, then repeat a
-  read-only call from a new task after the one-hour access-token lifetime. If ChatGPT receives no
-  refresh token, record reauthentication as required; never introduce a static-token workaround.
+  `workspace:member`. An elapsed-time follow-up from a new ChatGPT Work task displayed **Your
+  Railway connection has expired** before `whoami` could run and offered the normal **Reconnect**
+  flow. The connection error identified the cause as `oauth_refresh_token_missing`. Reauthentication
+  through the normal Railway GitHub login completed successfully, after which `whoami`,
+  `list-projects`, and `get-status` passed immediately. Treat periodic reauthentication as required
+  for this Personal Pro app path; never introduce a static-token workaround.
 
 ## Acceptance status
 
-| Surface             | Required proof                                                                                                          | Status                                                                                                                                                                                                                |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Repository boundary | Setup never writes Railway/Supabase MCP servers; local templates stay secret-free                                       | PASS: focused tests and static checker pass; Cloud setup also no longer installs Railway CLI                                                                                                                          |
-| GitHub              | Connector reads `BigSimmo/Database`; exact commit is published and verified                                             | ChatGPT PASS via `mcp__codex_apps__github_get_repo`; draft PR #1617 created through the GitHub connector at exact published head `76dfe85fa93787b3845d0bd460aa18ff753ca2ca`. Codex Cloud FAIL: no GitHub tool exposed |
-| Railway             | Exact tools callable in a fresh ChatGPT chat and fresh Codex Cloud task; read-only identity/project/service checks pass | ChatGPT PASS via `mcp__codex_apps__railway_whoami`, `railway_list_projects`, and `railway_list_services`; exact project and services `app`, `worker`, `Database` visible. Codex Cloud FAIL: no Railway tool exposed   |
-| Supabase            | Existing app exposes only project-scoped read-only metadata without row queries                                         | ChatGPT PASS via `mcp__codex_apps__supabase_list_projects`: `sjrfecxgysukkwxsowpy`, `Clinical KB Database`, `ACTIVE_HEALTHY`; no schema/table/row/log call. Codex Cloud FAIL: no Supabase tool exposed                |
-| Raw Cloud shell     | Only five documented non-secret values; `OPENAI_BASE_URL` absent before profiles/shims                                  | Environment UI has exactly the five documented values and no `OPENAI_BASE_URL`, but fresh raw-shell FAIL still reports the inherited name. This is a launcher/workspace defect, not repository state                  |
-| OAuth durability    | Second read-only Railway call succeeds after one hour, or reauthentication is documented                                | Pending elapsed-time validation; no token workaround added                                                                                                                                                            |
+| Surface             | Required proof                                                                                                          | Status                                                                                                                                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository boundary | Setup never writes Railway/Supabase MCP servers; local templates stay secret-free                                       | PASS: focused tests and static checker pass; Cloud setup also no longer installs Railway CLI                                                                                                                                                               |
+| GitHub              | Connector reads `BigSimmo/Database`; exact commit is published and verified                                             | ChatGPT PASS via `mcp__codex_apps__github_get_repo`; draft PR #1617 was published through the GitHub connector. Fresh Codex Cloud FAIL: no GitHub tool exposed at tested head `7d485f88db391cc7e8e73c57ddbde61f532375fc`                                   |
+| Railway             | Exact tools callable in a fresh ChatGPT chat and fresh Codex Cloud task; read-only identity/project/service checks pass | ChatGPT PASS via `railway_whoami`, `railway_get_status`, `railway_list_projects`, and `railway_list_services`; project `Database` and services `Database` and `worker` were visible with `SUCCESS` status. Fresh Codex Cloud FAIL: no Railway tool exposed |
+| Supabase            | Existing app exposes only project-scoped read-only metadata without row queries                                         | ChatGPT PASS via `mcp__codex_apps__supabase_list_projects`: `sjrfecxgysukkwxsowpy`, `Clinical KB Database`, `ACTIVE_HEALTHY`; no schema/table/row/log call. Codex Cloud FAIL: no Supabase tool exposed                                                     |
+| Raw Cloud shell     | Only five documented non-secret values; `OPENAI_BASE_URL` absent before profiles/shims                                  | Environment UI has exactly the five documented values and no `OPENAI_BASE_URL`, but fresh raw-shell FAIL still reports the inherited name. This is a launcher/workspace defect, not repository state                                                       |
+| OAuth durability    | Second read-only Railway call succeeds after one hour, or reauthentication is documented                                | REAUTH VERIFIED: the elapsed-time task reported `oauth_refresh_token_missing`; normal Railway GitHub OAuth restored access and immediate read-only validation passed. Periodic reconnect remains required; no token workaround was added                   |
+
+## Personal Pro operating workarounds
+
+| Blocker                                                          | Safe workaround applied                                                                                                                                                        | Functional boundary                                                                                                       |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| No Personal Pro group RBAC or per-tool disabling                 | Railway app policy is **Allow read actions**; every change remains approval-gated                                                                                              | Maximum available Pro control; not equivalent to Enterprise/Edu RBAC                                                      |
+| Railway and Supabase absent from Codex Cloud connectors          | Use a split control plane: Codex Cloud for repository/GitHub work; ChatGPT web for official Railway OAuth and project-scoped read-only Supabase                                | Providers remain usable without copying tokens; a single Codex Cloud task still cannot call them                          |
+| Raw `OPENAI_BASE_URL` injected although absent in environment UI | Keep the name-only raw probe fail-closed, then use the generated profile, Codex shell policy, and `node`/`npm`/`npx` shims that remove provider variables before ordinary work | Normal repository commands are sanitized and functional; the raw parent-process defect remains visible for OpenAI support |
+| Railway OAuth expires instead of refreshing in this app path     | Use the app's normal **Reconnect** flow when prompted; the existing GitHub sign-in restored access without static or shared tokens                                             | Safe continuity workaround; Railway login/consent remains user-controlled                                                 |
+
+This operating mode favors maximum safe functionality on Personal Pro. It does not relabel the
+Codex Cloud provider-tool acceptance failure as success.
 
 The first fresh Codex Cloud acceptance attempt did not reach the agent: setup failed while
 `@railway/cli@5.30.4` tried to download its binary from GitHub Releases and received
@@ -60,6 +79,26 @@ exact head `76dfe85fa93787b3845d0bd460aa18ff753ca2ca`. It reported:
 - No callable Railway, GitHub, or Supabase tools: MCP resources/templates were empty and focused
   tool discovery returned zero tools. No provider call was attempted.
 
+A second, independently provisioned environment-attached task at
+`https://chatgpt.com/codex/cloud/tasks/task_e_6a7313d1364483228b7642cb942e674c` repeated acceptance at
+exact head `7d485f88db391cc7e8e73c57ddbde61f532375fc`. It passed locked installation, static and runtime
+Cloud contracts, Node `24.19.0`, npm `11.17.0`, installed-lock parity, and expected-base ancestry and
+freshness for `9d4a28c16e189256d2e2b1fc6edfb351138837cc`. The raw probe again failed only on the inherited
+name `OPENAI_BASE_URL`, and the task again exposed no callable Railway, GitHub, or Supabase tools.
+
+A separate fresh ChatGPT Work task did expose the hosted apps and completed only safe metadata
+reads: GitHub authenticated as `BigSimmo`; Supabase project `Clinical KB Database`
+(`sjrfecxgysukkwxsowpy`) was `ACTIVE_HEALTHY`; Railway authenticated as `bigsimmo`, project
+`Database` was visible, and services `Database` and `worker` were `SUCCESS`. No logs, variables,
+SQL, row contents, or provider writes were requested. This validates the Personal Pro split-control
+plane workaround, not single-task Codex Cloud provider acceptance.
+
+After the Railway token expired, a direct connector call returned `UNAUTHORIZED` with reason
+`oauth_refresh_token_missing`. The normal **Reconnect** flow completed through the existing GitHub
+sign-in, ChatGPT reported **Railway is now connected**, and new read-only calls again authenticated
+as `bigsimmo`. Project `Database` remained visible and both production services remained `SUCCESS`.
+GitHub repository access and project-scoped Supabase health also passed again in the same task.
+
 This proves the repository setup fix and also proves that repository code cannot close either
 remaining hosted blocker. The environment UI and launcher disagree about `OPENAI_BASE_URL`, and
 the Codex Cloud product did not project the installed ChatGPT apps into the task tool inventory.
@@ -72,9 +111,11 @@ the Codex Cloud product did not project the installed ChatGPT apps into the task
   connected Railway/Supabase MCPs. This repair is isolated from that unrelated PR and does not
   merge, close, or rewrite it.
 - Connector commit search did not find the Cloud-only `fe31128` GitHub preflight commit. The bounded
-  behavior was recreated as `check:github-shell-access`: its normal mode intentionally checks only
-  the optional `gh` shell fallback, while `--self-test` is fully offline. `GH_AUTH_MISSING` therefore
-  says nothing about the hosted GitHub connector, which passed independently.
+  behavior was recreated as `check:github-shell-access`: the plain npm entry is always offline
+  `--self-test` (ambient opt-in cannot override it); the live `gh` shell fallback is
+  `check:github-shell-access:live` (or a direct script invocation with `--allow-provider` /
+  `ALLOW_GITHUB_SHELL_ACCESS=true` and without `--self-test`). `GH_AUTH_MISSING` therefore says
+  nothing about the hosted GitHub connector, which passed independently.
 - The original blocked report's `OPENAI_BASE_URL` condition was removed in Codex environment
   settings. `Database - connected` now contains exactly the five documented non-secret variables,
   but a new task still inherited the variable name. Escalate this mismatch to Codex environment

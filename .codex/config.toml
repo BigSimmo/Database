@@ -3,6 +3,8 @@
 #
 # checked-in policy:
 # - enabled = false so ordinary/offline Codex sessions do not initialize providers
+#   (check:codex-cloud fails if any tracked entry is enabled; opt in via
+#   $CODEX_HOME/config.toml or a never-committed local edit)
 # - production Supabase uses "prompt" so every metadata/read operation requires
 #   explicit approval; write-capable Figma/Railway/Sentry tools use "writes"
 # - Paid API canaries (eval:rag, eval:retrieval:quality, eval:quality, verify:release,
@@ -21,6 +23,8 @@ url = "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=t
 enabled = false
 default_tools_approval_mode = "prompt"
 
+# Named `railway` (not `railway_cloud`) so `codex mcp login railway` matches the
+# entry name. Other providers keep the `_cloud` suffix; this asymmetry is intentional.
 [mcp_servers.railway]
 url = "https://mcp.railway.com"
 enabled = false

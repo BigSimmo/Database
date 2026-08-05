@@ -19,6 +19,8 @@ export const expectedCloudCliVersions = Object.freeze({
   codex: "0.146.0",
 });
 
+export const expectedHostedWorkspaceClass = "personal-pro";
+
 export const expectedMcpConfiguration = Object.freeze({
   // Canonical form matches `.mcp.json` (no trailing slash).
   railwayUrl: "https://mcp.railway.com",
@@ -181,7 +183,9 @@ export function validateCodexProjectMcpConfiguration(text) {
     const expected = expectedCodexProjectMcpServers[name];
 
     if (server.enabled !== false) {
-      errors.push(`${label} must set enabled = false (trusted Desktop/CLI operators opt in).`);
+      errors.push(
+        `${label} must set enabled = false (opt in via $CODEX_HOME/config.toml or a never-committed local edit; do not commit enabled = true).`,
+      );
     }
     if (server.default_tools_approval_mode !== expected.approvalMode) {
       const reason =
@@ -414,6 +418,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   const mcpServers = options.mcpServers ?? parseMcpServerMetadata(read(".mcp.json"));
   const checkout = options.checkout ?? gitCheckoutFreshness(repoRoot, env);
   const lines = [
+    `hosted_workspace.class_documented=${expectedHostedWorkspaceClass}`,
     `CODEX_CLOUD=${approvedModeValue(env.CODEX_CLOUD, ["1"])}`,
     `CODEX_CLOUD_ACCESS_PROFILE=${approvedModeValue(env.CODEX_CLOUD_ACCESS_PROFILE ?? "offline", ["offline", "connected"])}`,
     `RAG_PROVIDER_MODE=${approvedModeValue(env.RAG_PROVIDER_MODE, ["offline"])}`,
@@ -422,6 +427,9 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   ];
   for (const name of providerCredentialVariables) lines.push(`${name}.present=${Boolean(env[name])}`);
   lines.push("hosted_app.inventory=external-unverified-until-fresh-task");
+  lines.push("provider_route.github=codex-native-connector");
+  lines.push("provider_route.railway=chatgpt-official-app");
+  lines.push("provider_route.supabase=chatgpt-project-scoped-read-only-app");
   lines.push(`codex.cli_available=${codexCliAvailable}`);
   lines.push(pythonWorkerVersionLine(env.CODEX_CLOUD_OCR_PYTHON));
   lines.push(`git.origin_configured=${origin.configured}`);
@@ -672,7 +680,20 @@ export function validateCodexCloudSetup() {
   for (const name of providerCredentialVariables) {
     if (!setup.includes(name)) errors.push(`Cloud setup must handle provider environment variable ${name}.`);
   }
-  if (/printf[^\n]*mcp_servers\./.test(setup)) {
+  // Reject any executable (non-comment) reference that would write MCP tables.
+  // Strip full-line comments and whitespace-prefixed trailing comments so an
+  // inline note cannot false-trip the guard. Text-level only: a `#` inside a
+  // quoted shell string is also stripped, and split/concatenated table names
+  // would not match. The generated-config behavioural test (fresh temp $HOME
+  // asserting no `[mcp_servers.` after connected setup) is the stronger proof.
+  const setupWithoutComments = setup
+    .split("\n")
+    .map((line) => {
+      if (/^\s*#/.test(line)) return "";
+      return line.replace(/\s+#.*$/, "");
+    })
+    .join("\n");
+  if (/\bmcp_servers\b/.test(setupWithoutComments)) {
     errors.push("Cloud setup must not generate MCP registrations; hosted apps are external to the repository.");
   }
   if (setup.includes("@railway/cli") || setup.includes('setup_step="railway-cli"')) {
@@ -731,6 +752,30 @@ export function validateCodexCloudSetup() {
     "PAT deletion helper must reject the Codex Cloud agent phase and direct operators to native publication.",
   );
   requireMatch(errors, rawEnvironmentProbe, /never values/, "Raw Cloud environment probe must report names only.");
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /known_launcher_defect_variables=\(OPENAI_BASE_URL\)/,
+    "Raw Cloud environment probe must name-scope the OPENAI_BASE_URL launcher-defect allowance.",
+  );
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /FAIL-KNOWN: inherited documented launcher defect names/,
+    "Raw Cloud environment probe must emit FAIL-KNOWN for the documented launcher defect.",
+  );
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /CONTINUE-RESTRICTED: OPENAI_BASE_URL can redirect OpenAI-bound traffic/,
+    "Raw Cloud environment probe must warn that OPENAI_BASE_URL can redirect provider traffic.",
+  );
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /STOP: unexpected credential-bearing names require a fresh task/,
+    "Raw Cloud environment probe must hard-stop on unexpected provider names.",
+  );
   for (const name of providerCredentialVariables) {
     if (!rawEnvironmentProbe.includes(name)) {
       errors.push(`Raw Cloud environment probe must cover provider environment variable ${name}.`);
@@ -772,6 +817,8 @@ export function validateCodexCloudSetup() {
   requireMatch(errors, guide, /CODEX_CLOUD_ACCESS_PROFILE=connected/, "The guide must document connected access.");
   requireMatch(errors, guide, /CODEX_CLOUD_GITHUB_PAT/, "The guide must document the narrowly scoped PAT exception.");
   requireMatch(errors, guide, /GitHub connector/, "The guide must document GitHub connector access.");
+  requireMatch(errors, guide, /Personal Pro/, "The guide must identify the active Personal Pro workspace.");
+  requireMatch(errors, guide, /split control plane/, "The guide must document the Personal Pro provider workaround.");
   try {
     parseMcpServerMetadata(mcp);
   } catch (error) {
@@ -834,6 +881,9 @@ function repositoryCommand(command, args) {
 export async function validateCodexCloudRuntime(env = process.env) {
   const errors = validateCodexCloudEnvironment(env);
 
+  // Hosted Railway access is the OAuth ChatGPT/Codex app, not CLI token auth.
+  // Do not reintroduce `railway --version` or RAILWAY_API_TOKEN-vs-RAILWAY_TOKEN
+  // substitution checks here unless a future workflow restores CLI token auth.
   for (const error of [
     commandVersion("deno", ["--version"], /^deno 2\./m),
     commandVersion("tesseract", ["--version"], /^tesseract \d+\./m),

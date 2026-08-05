@@ -253,10 +253,24 @@ sourcing any profile or invoking node/npm in a fresh task, run:
 bash --noprofile --norc scripts/check-codex-cloud-raw-env.sh
 ```
 
-The probe checks the complete provider-variable inventory and prints names only. A failure is a
-launcher/environment defect; remove the variable in host environment settings and start another
-fresh task. Passing only after sourcing the profile or using a command shim does not close the
-raw-environment boundary.
+The probe checks the complete provider-variable inventory and prints names only. Outcomes are
+name-scoped in the probe itself:
+
+- exit `0` / `PASS` — raw boundary clean
+- exit `1` / `FAIL` + `STOP` — any unexpected provider name (for example
+  `SUPABASE_SERVICE_ROLE_KEY`); start another fresh task and do not continue
+- exit `2` / `FAIL-KNOWN` + `CONTINUE-RESTRICTED` — only the documented Personal Pro launcher
+  defect name `OPENAI_BASE_URL`
+
+Exit `2` is still a failed raw boundary: humans/agents may continue only under this contract.
+Do not treat “non-1” or “retry on any failure” as success in future automation — wire the three
+states explicitly. When the probe reports `FAIL-KNOWN` for `OPENAI_BASE_URL` alone, preserve that
+name-only output for OpenAI support and continue provider-free work only through the generated
+profile and command shims, followed by a passing `npm run check:codex-cloud`. Do not generalize
+that restricted path to any other inherited name. An inherited `OPENAI_BASE_URL` can redirect
+OpenAI-bound traffic, so never call OpenAI clients from the raw parent process or from binaries
+that bypass the profile/`node`/`npm`/`npx` shim scrub. A sanitized child shell is never proof
+that the raw-parent boundary passed.
 
 `npm run check:production-readiness` remains useful in the offline profile for local safeguards.
 Missing Supabase/OpenAI agent-phase credentials are reported as a provider capability gap and do
@@ -267,17 +281,19 @@ in the offline profile.
 ## Provider acceptance
 
 Provider access is verified separately because a generic bootstrap must not make paid or
-production-like calls. For a connected environment, name each provider, use a read-only or
-minimal no-op endpoint, confirm the intended account/project by non-secret metadata, and
-report cost or mutation risk before any write. Prefer Railway's installed official app and complete
-browser OAuth without static tokens or headers. If the official app is unavailable, an
-Enterprise/Edu admin can enable Developer Mode and create a workspace-managed custom app named
-`Railway — Database` at Railway's official `https://mcp.railway.com` endpoint, then run Scan Tools
-and complete OAuth. Authorize only workspace `bigsimmo's Projects` and project `Database`
-(`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) where Railway offers that choice, restart the MCP client
-after consent, and reduce identity/status results to non-secret account, project, workspace,
-environment, and service metadata. Railway's remote MCP does not accept project tokens; install
-Railway CLI separately only for explicitly approved local/operator workflows.
+production-like calls. The active hosted workspace is **Personal Pro**. It does not have the
+dedicated-group RBAC or per-tool action disabling assumed by Enterprise/Edu instructions. Use
+Railway's installed official ChatGPT app, complete browser OAuth without static tokens or headers,
+set the global app policy to **Allow read actions**, and leave changes approval-gated. Authorize
+only workspace `bigsimmo's Projects` and project `Database`
+(`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) where Railway offers that choice. Reduce read results to
+non-secret account, project, workspace, environment, and service metadata. Railway's remote MCP
+does not accept project tokens; install Railway CLI separately only for explicitly approved
+local/operator workflows (for example `npm run check:env-parity -- --railway`). That CLI path is
+not available in ordinary Cloud tasks and is not part of Cloud runtime acceptance. Prefer
+`RAILWAY_API_TOKEN` for personal CLI auth; never substitute the project-scoped CI
+`RAILWAY_TOKEN`. Enterprise/Edu custom-app controls are an optional future governance upgrade,
+not the current operating target.
 
 The Supabase MCP entry is scoped to production project `sjrfecxgysukkwxsowpy`, forces
 `read_only=true`, and exposes only documentation/development metadata tools. The database and
@@ -289,14 +305,34 @@ broaden the production entry. OpenAI generation, Supabase live data, Railway cha
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
 
 Project `.codex/config.toml` is the checked-in Codex Desktop/CLI MCP template. Its URL-only entries
-remain `enabled = false`; a trusted local operator can enable `railway` and run
-`codex mcp login railway`. Setup does not copy any MCP server into `$CODEX_HOME`. Hosted ChatGPT and
-Codex Cloud require the separately installed/authenticated workspace app. Start a fresh task after
-consent and verify the actual callable inventory.
+must stay `enabled = false` in git — `npm run check:codex-cloud` hard-fails on any tracked
+`enabled = true`. A trusted local operator opts in outside the committed tree: prefer enabling
+`railway` in `$CODEX_HOME/config.toml`, or make a never-committed local edit to the project file for
+the session, then run `codex mcp login railway`. Setup does not copy any MCP server into
+`$CODEX_HOME`. Hosted ChatGPT and Codex Cloud require the separately installed/authenticated
+workspace app. Start a fresh task after consent and verify the actual callable inventory.
 The root `.mcp.json` is a cross-client Desktop/CLI template and static allowlist only. It does not
 prove hosted Cloud availability. Context7 / library-docs
 MCP is Cursor-side (`.cursor/mcp.json` or a host-injected connector), not part of this Codex Cloud
 Railway + Supabase allowlist.
+
+### Personal Pro split control plane
+
+Personal Pro currently exposes GitHub, Slack, and Linear on the Codex connector settings page; it
+does not expose Railway or Supabase there. Use the smallest functional split instead of copying
+credentials into Cloud:
+
+- **Codex Cloud:** repository work, offline checks, and GitHub reads/publication through the native
+  GitHub connector or Cloud PR controls.
+- **ChatGPT web:** Railway through the official OAuth app and Supabase through the pinned
+  project-scoped read-only app. Keep Railway on **Allow read actions** and ask before every change.
+- **Desktop/CLI:** opt-in local MCP via `$CODEX_HOME/config.toml` (preferred) or a
+  never-committed local enable of the project `.codex/config.toml` `railway` entry, followed by
+  `codex mcp login railway`; this is a local operator fallback, never hosted proof.
+
+The repository checker prints these routes as sanitized `provider_route.*` lines. They describe
+where a capability is allowed, not proof that a host installed or authenticated it. A fresh task
+must still establish the callable inventory.
 
 Production Supabase stays project-scoped and `read_only=true`, with
 `default_tools_approval_mode = "prompt"` so every production metadata/read call requires
@@ -325,13 +361,13 @@ copying credentials into the checkout.
    Do not add provider keys, database URLs, service-role credentials, test-user credentials, or
    `ALLOW_PROVIDER_TESTS`. Connected setup writes only the managed shell-environment policy; it
    never registers hosted MCP apps or writes OAuth tokens.
-2. **Grant the host integrations.** Install Railway's official app and complete Railway OAuth. If a
-   stale custom app or connector named `railway_cloud` shows an authentication-expired reconnect
-   banner, remove or reconnect that host-local app in the MCP/App settings before starting a new
-   task; repository setup cannot refresh hosted OAuth tokens. If the official app is unavailable, an
-   Enterprise/Edu workspace admin enables Developer Mode, creates
-   `Railway — Database` with `https://mcp.railway.com`, runs Scan Tools, and publishes access only
-   to a dedicated RBAC group containing the user. Authorize the Codex GitHub connector for
+2. **Grant the host integrations.** In the Personal Pro workspace, install Railway's official
+   ChatGPT app, complete Railway OAuth, select **Allow read actions**, and keep all changes subject
+   to explicit approval. If a stale custom app or connector named `railway_cloud` shows an
+   authentication-expired reconnect banner, remove or reconnect that host-local app in the MCP/App
+   settings before starting a new task; repository setup cannot refresh hosted OAuth tokens.
+   Personal Pro has no dedicated-group RBAC or per-tool disabling, so do not claim those controls.
+   Authorize the Codex GitHub connector for
    `BigSimmo/Database` with repository write access. Complete Railway OAuth only for workspace
    `bigsimmo's Projects` and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`). Complete
    Supabase OAuth only for the organization containing `Clinical KB Database`; retain project ref
@@ -356,11 +392,10 @@ copying credentials into the checkout.
    tokens. For GitHub, read repository metadata and confirm `BigSimmo/Database` plus the intended
    identity. For Railway, read workspace/project/service metadata and confirm the IDs above without
    triggering a deployment. Record the exact Railway inventory. Set the app to allow reads and ask
-   before changes. In an Enterprise/Edu workspace, also allow `whoami`, `list-projects`,
-   `list-services`, `list-feature-flags`, and `get-feature-flag`; disable `create-project`,
-   `set-feature-flag`, `delete-feature-flag`, `redeploy`, `accept-deploy`, and `railway-agent`, with
-   newly discovered actions disabled by default. Personal workspaces may expose only the global
-   read-versus-change approval control; that does not prove tool-level RBAC. For Supabase, read
+   before changes. The Personal Pro global read-versus-change control does not provide tool-level
+   RBAC. If the account later moves to Enterprise/Edu, an admin may additionally allow only
+   `whoami`, `list-projects`, `list-services`, `list-feature-flags`, and `get-feature-flag`, while
+   disabling write/agent tools and newly discovered actions by default. For Supabase, read
    project/schema metadata and confirm the pinned ref
    without querying clinical row contents. Report only non-secret identity and status metadata.
    OpenAI has no generic connected-profile credential: leave `RAG_PROVIDER_MODE=offline` until a
