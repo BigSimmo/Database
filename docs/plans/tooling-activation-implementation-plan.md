@@ -215,16 +215,16 @@ flowchart TB
 
 **Status:** done 2026-08-01
 
-|                 |                                                                                                                                                                                                     |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Goal**        | Versioned docs for Tailwind 4, Zod 4, Playwright, Vitest                                                                                                                                            |
-| **Kind**        | `local` (+ optional API key)                                                                                                                                                                        |
-| **Files**       | `.cursor/mcp.json` (local stdio `npx -y @upstash/context7-mcp@3.2.5`, `env.CONTEXT7_API_KEY: ${env:CONTEXT7_API_KEY}`); `.cursor/settings.json` (`context7-plugin`); `docs/agents-guide.md`; `.env.example` |
+|                 |                                                                                                                                                                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Goal**        | Versioned docs for Tailwind 4, Zod 4, Playwright, Vitest                                                                                                                                                                           |
+| **Kind**        | `local` (+ optional API key)                                                                                                                                                                                                       |
+| **Files**       | `.cursor/mcp.json` (local stdio `npx -y @upstash/context7-mcp@3.2.5`, `env.CONTEXT7_API_KEY: ${env:CONTEXT7_API_KEY}`); `.cursor/settings.json` (`context7-plugin`); `docs/agents-guide.md`; `.env.example`                        |
 | **Steps**       | Done: local stdio Context7 MCP + plugin enabled (replaced the 2026-08-01 remote URL); agents-guide + `.env.example` document optional operator-local key + reload. **Next 16 = local docs only** (`node_modules/next/dist/docs/`). |
-| **Verify**      | Agent resolves Tailwind/Zod docs without inventing v3 APIs                                                                                                                                          |
-| **Deps**        | None required — optional `CONTEXT7_API_KEY` for higher limits                                                                                                                                       |
-| **Risk / stop** | Token bloat — do not enable every library; keep ≤5 active MCPs                                                                                                                                      |
-| **Parallel**    | With B3, C*, D*                                                                                                                                                                                     |
+| **Verify**      | Agent resolves Tailwind/Zod docs without inventing v3 APIs                                                                                                                                                                         |
+| **Deps**        | None required — optional `CONTEXT7_API_KEY` for higher limits                                                                                                                                                                      |
+| **Risk / stop** | Token bloat — do not enable every library; keep ≤5 active MCPs                                                                                                                                                                     |
+| **Parallel**    | With B3, C*, D*                                                                                                                                                                                                                    |
 
 #### B2 — GitHub Checks:read / Actions MCP
 
