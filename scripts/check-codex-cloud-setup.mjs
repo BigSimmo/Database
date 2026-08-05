@@ -163,7 +163,17 @@ export function validateCodexProjectMcpConfiguration(text) {
   const expectedNames = Object.keys(expectedCodexProjectMcpServers).sort();
   const actualNames = Object.keys(servers).sort();
   if (JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) {
-    errors.push(`.codex/config.toml must register exactly these MCP servers: ${expectedNames.join(", ")}.`);
+    const unexpectedNames = actualNames.filter((name) => !expectedNames.includes(name));
+    const missingNames = expectedNames.filter((name) => !actualNames.includes(name));
+    const details = [
+      unexpectedNames.length ? `unexpected: ${unexpectedNames.join(", ")}` : null,
+      missingNames.length ? `missing: ${missingNames.join(", ")}` : null,
+    ]
+      .filter(Boolean)
+      .join("; ");
+    errors.push(
+      `.codex/config.toml must register exactly these MCP servers: ${expectedNames.join(", ")}.${details ? ` ${details}.` : ""} Use the canonical railway template name; stale railway_cloud registrations are host-local OAuth apps and must not be reintroduced here.`,
+    );
   }
 
   for (const name of expectedNames) {
@@ -210,6 +220,95 @@ export function validateCodexProjectMcpConfiguration(text) {
     }
   }
 
+  return errors;
+}
+
+/** Known hosted connector names that may appear in a fresh-task inventory. */
+export const knownHostedAppInventoryNames = Object.freeze([
+  "github",
+  "railway",
+  "supabase",
+  "figma",
+  "sentry",
+  "figma_cloud",
+  "sentry_cloud",
+  "supabase_cloud",
+]);
+
+/** Host-local names that must be removed before a connected task is trusted. */
+export const staleHostedAppInventoryNames = Object.freeze(["railway_cloud"]);
+
+/**
+ * Read an explicit, non-secret hosted app inventory supplied by a fresh task.
+ * The repository cannot discover this inventory itself.
+ * @param {string[]} args
+ * @returns {string[] | null}
+ */
+export function parseHostedAppInventoryArgument(args) {
+  const prefix = "--hosted-app-inventory=";
+  const argument = args.find((value) => value.startsWith(prefix));
+  if (!argument) return null;
+  return argument
+    .slice(prefix.length)
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Format hosted-app inventory for sanitized capability output.
+ * Never echo arbitrary operator-supplied strings — only allowlisted presence flags.
+ * @param {string[] | null} appNames
+ * @returns {string}
+ */
+export function hostedAppInventoryCapabilityLine(appNames) {
+  if (appNames === null) return "hosted_app.inventory=external-unverified-until-fresh-task";
+  const set = new Set(appNames);
+  const unknownCount = appNames.filter(
+    (name) => !knownHostedAppInventoryNames.includes(name) && !staleHostedAppInventoryNames.includes(name),
+  ).length;
+  const parts = [
+    `count=${appNames.length}`,
+    ...knownHostedAppInventoryNames.map((name) => `${name}=${set.has(name)}`),
+    ...staleHostedAppInventoryNames.map((name) => `stale_${name}=${set.has(name)}`),
+    `unknown=${unknownCount}`,
+  ];
+  return `hosted_app.inventory=provided ${parts.join(" ")}`;
+}
+
+/**
+ * Validate only host-reported app names. This does not turn repository config
+ * into hosted-tool proof or attempt to inspect OAuth state.
+ * @param {string[] | null} appNames
+ * @returns {string[]}
+ */
+export function validateHostedAppInventory(appNames) {
+  if (appNames === null) return [];
+  const errors = [];
+  if (appNames.length === 0) {
+    errors.push("Hosted app inventory was supplied but contained no app names.");
+    return errors;
+  }
+  const invalidNames = appNames.filter((name) => !/^[A-Za-z0-9_.-]+$/.test(name));
+  if (invalidNames.length > 0) {
+    errors.push("Hosted app inventory names may contain only letters, numbers, dot, underscore, and hyphen.");
+  }
+  const unrecognizedNames = appNames.filter(
+    (name) =>
+      /^[A-Za-z0-9_.-]+$/.test(name) &&
+      !knownHostedAppInventoryNames.includes(name) &&
+      !staleHostedAppInventoryNames.includes(name),
+  );
+  if (unrecognizedNames.length > 0) {
+    errors.push(
+      `Hosted app inventory contains unrecognized app names; supply only connector names (${knownHostedAppInventoryNames.join(", ")}), never tokens or secrets.`,
+    );
+  }
+  if (appNames.some((name) => staleHostedAppInventoryNames.includes(name))) {
+    errors.push(
+      "Hosted app inventory contains stale railway_cloud; remove or reconnect that host-local app, then start a fresh task and supply the new inventory.",
+    );
+  }
   return errors;
 }
 
@@ -416,7 +515,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
     `PLAYWRIGHT_OFFLINE_MODE=${approvedModeValue(env.PLAYWRIGHT_OFFLINE_MODE, ["true", "false"])}`,
   ];
   for (const name of providerCredentialVariables) lines.push(`${name}.present=${Boolean(env[name])}`);
-  lines.push("hosted_app.inventory=external-unverified-until-fresh-task");
+  lines.push(hostedAppInventoryCapabilityLine(options.hostedAppInventory ?? null));
   lines.push("provider_route.github=codex-native-connector");
   lines.push("provider_route.railway=chatgpt-official-app");
   lines.push("provider_route.supabase=chatgpt-project-scoped-read-only-app");
@@ -926,6 +1025,8 @@ export async function validateCodexCloudRuntime(env = process.env) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const errors = validateCodexCloudSetup();
+  const hostedAppInventory = parseHostedAppInventoryArgument(process.argv.slice(2));
+  errors.push(...validateHostedAppInventory(hostedAppInventory));
   const runtime = process.argv.includes("--runtime");
   const environment = runtime || process.env.CODEX_CLOUD === "1" || process.argv.includes("--environment");
   if (runtime) errors.push(...(await validateCodexCloudRuntime()));
@@ -941,7 +1042,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   }
   if (environment) {
     console.log("[Codex Cloud Environment] sanitized effective modes and capabilities:");
-    for (const line of sanitizedCloudCapabilityLines()) console.log(`  ${line}`);
+    for (const line of sanitizedCloudCapabilityLines(process.env, { hostedAppInventory })) console.log(`  ${line}`);
   }
   if (errors.length > 0) {
     for (const error of errors) console.error(`[Codex Cloud Check] FAIL: ${error}`);
