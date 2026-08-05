@@ -1005,6 +1005,13 @@ export function MobileResultFilterControl<Value extends string>({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onKeyDown={handleTriggerKeyDown}
+        // Safari (macOS/iOS) does not focus a button on pointer press. While the
+        // menu is open focus sits on an option; without this guard the option
+        // blurs (relatedTarget null), handleBlur closes the menu, and the
+        // subsequent click sees open === false and re-opens it.
+        onMouseDown={(event) => {
+          if (open) event.preventDefault();
+        }}
         onClick={() => (open ? closeMenu() : openMenu(matchedIndex >= 0 ? matchedIndex : 0))}
         className={cn(
           // The sort group next to this control puts min-h-tap on its buttons and

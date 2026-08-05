@@ -414,6 +414,29 @@ describe("MobileResultFilterControl", () => {
     expect(screen.getByRole("menuitemradio", { name: "Crisis" })).toHaveFocus();
   });
 
+  it("toggles closed when the open trigger is clicked again", async () => {
+    const user = userEvent.setup();
+    render(
+      <MobileResultFilterControl
+        label="Show"
+        ariaLabel="Filter by result type"
+        value="crisis"
+        options={[...options]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Filter by result type/ });
+    await user.click(trigger);
+    expect(screen.getByRole("menu")).toBeVisible();
+
+    // Simulate Safari: option is focused, trigger mousedown does not move
+    // focus, then click must close rather than re-open.
+    screen.getByRole("menuitemradio", { name: "Crisis" }).focus();
+    await user.click(trigger);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
   it("does not re-fire onChange when the active option is re-selected", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
