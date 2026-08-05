@@ -32,6 +32,7 @@ const offlineUrlValues = Object.freeze({
   SUPABASE_URL: "http://127.0.0.1:1",
   SUPABASE_DB_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
   DATABASE_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
+  SENTRY_DSN: "http://127.0.0.1:1",
 });
 
 /**
