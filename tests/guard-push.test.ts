@@ -8,7 +8,10 @@ import {
   driftVerdict,
   findPrettierBin,
   formatGuard,
+  HEAVY_RUN_ADMISSION_BUSY_EXIT,
+  HEAVY_RUN_ADMISSION_BUSY_MARKER,
   isCoordinatorBusyOutput,
+  isCoordinatorBusyResult,
   isEslintPolicyFile,
   isTypecheckExcludedPath,
   lintableFiles,
@@ -167,6 +170,17 @@ describe("static guard scope selection", () => {
       true,
     );
     expect(isCoordinatorBusyOutput("error TS2322: Type 'string' is not assignable")).toBe(false);
+  });
+
+  it("prefers structured admission-busy exit/marker over prose that tsc can quote", () => {
+    expect(isCoordinatorBusyResult({ status: HEAVY_RUN_ADMISSION_BUSY_EXIT })).toBe(true);
+    expect(isCoordinatorBusyResult({ status: 1, stderr: `${HEAVY_RUN_ADMISSION_BUSY_MARKER}\nbusy` })).toBe(true);
+    expect(
+      isCoordinatorBusyResult({
+        status: 1,
+        stderr: "error TS2304: Another Database heavyweight command is active",
+      }),
+    ).toBe(false);
   });
 
   it("escalates to repo-wide lint when eslint policy changes", () => {
