@@ -557,10 +557,6 @@ describe("provider-safe test environment", () => {
       NEXT_PUBLIC_DEMO_MODE: "true",
     });
     for (const key of providerEnvironmentKeys) {
-      if (key === "SENTRY_DSN") {
-        expect(environment[key]).toBeUndefined();
-        continue;
-      }
       expect(environment[key]).toBe(offlineUrlValues[key as keyof typeof offlineUrlValues] ?? "");
     }
     // Credentials join the scrub inventory; the two control flags deliberately
@@ -570,7 +566,9 @@ describe("provider-safe test environment", () => {
     expect(providerEnvironmentKeys).not.toContain("SENTRY_ENABLE_LOGS");
     expect(providerEnvironmentKeys).not.toContain("SENTRY_SEND_TEST_LOG");
     expect(environment.SENTRY_AUTH_TOKEN).toBe("");
-    expect(environment.SENTRY_DSN).toBeUndefined();
+    // Explicit blank pins the key so Next/Vite cannot reload a live DSN from .env.local.
+    expect(environment.SENTRY_DSN).toBe("");
+    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe("");
     expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
     expect(environment.SENTRY_SEND_TEST_LOG).toBe("false");
   });

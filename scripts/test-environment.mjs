@@ -52,17 +52,16 @@ export function offlineTestEnvironment(source = process.env, overrides = {}) {
   // repopulating the same names from a repository-local env file. URL-shaped
   // settings use inert loopback values so the runtime env schema still parses.
   //
-  // SENTRY_DSN is deleted rather than blanked or faked, and the distinction
-  // matters in both directions: a blank string fails the runtime schema's
-  // `.url()`, while an inert loopback URL is truthy and would keep the app's
-  // Sentry gates ENABLED for the whole offline run — the opposite of the intent.
+  // Sentry DSNs are blanked (not deleted or faked): an absent key lets Next
+  // reload a live DSN from `.env.local` during Playwright/Lighthouse production
+  // starts, and a truthy inert URL keeps app Sentry gates enabled. Empty string
+  // stays falsy for `SENTRY_DSN?.trim()` and is coerced to unset by optionalUrlEnv.
   for (const key of providerEnvironmentKeys) {
-    if (key === "SENTRY_DSN") {
-      delete environment[key];
-      continue;
-    }
     environment[key] = offlineUrlValues[key] ?? "";
   }
+  // Public client DSN is outside the secret inventory but must still be pinned
+  // blank so offline browser builds cannot re-enable client Sentry from .env.local.
+  environment.NEXT_PUBLIC_SENTRY_DSN = "";
   Object.assign(environment, offlineSentryControlFlags);
 
   return {
