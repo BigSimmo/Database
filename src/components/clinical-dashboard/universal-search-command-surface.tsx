@@ -407,17 +407,17 @@ export function UniversalSearchCommandSurface({
   // The dropdown is a fine-pointer desktop enhancement. Width-only checks let
   // wide, zoomed, or desktop-mode phones open it over the page.
   const dropdownMinimumWidthQuery = commandDropdownMinimumWidthMediaQuery(placement);
+  const [eagerDropdownDisplayable, setEagerDropdownDisplayable] = useState<boolean | null>(null);
   const closeDropdownWhenUndisplayable = useEventCallback(() => {
+    setEagerDropdownDisplayable(false);
     onDropdownOpenChange(false);
     setActiveIndex(-1);
   });
   const mediaDropdownDisplayable = useCommandDropdownDisplayable(placement, closeDropdownWhenUndisplayable);
-  // Local copy so onFocusCapture can eagerly flip true before the shared hook's
-  // post-hydration effect has synchronized the conservative false initial state.
-  const [dropdownDisplayable, setDropdownDisplayable] = useState(false);
-  useEffect(() => {
-    setDropdownDisplayable(mediaDropdownDisplayable);
-  }, [mediaDropdownDisplayable]);
+  // Focus can arrive before the shared hook's post-hydration effect has
+  // synchronized the conservative false initial state. Keep only an event-driven
+  // eager override instead of mirroring hook state from an effect.
+  const dropdownDisplayable = eagerDropdownDisplayable ?? mediaDropdownDisplayable;
   // A true "everything" view: the active mode's own domain is included (no excludeDomain) so
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
@@ -1010,7 +1010,7 @@ export function UniversalSearchCommandSurface({
             pointerMatches: window.matchMedia(commandDropdownPointerMediaQuery).matches,
             maxTouchPoints: navigator.maxTouchPoints,
           });
-          setDropdownDisplayable(displayable);
+          setEagerDropdownDisplayable(displayable);
           if (displayable) onDropdownOpenChange(true);
         }}
         onBlurCapture={(event) => {
