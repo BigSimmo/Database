@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -59,6 +59,43 @@ function CustomBodyHarness() {
   );
 }
 
+function CustomBodySheetReturnFocusHarness() {
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  return (
+    <>
+      <input ref={inputRef} aria-label="Search composer" />
+      <ModeActionPopup
+        open={open}
+        title="Pins and search"
+        titleIcon={Search}
+        buttonLabel="Open pins and search"
+        items={modeActionItemsFor("documents")}
+        onOpenChange={setOpen}
+        onAction={vi.fn()}
+        useSheet
+        sheetReturnFocusRef={returnFocusRef}
+        onBeforeOpen={() => {
+          returnFocusRef.current = null;
+        }}
+        customBody={
+          <button
+            type="button"
+            onClick={() => {
+              returnFocusRef.current = inputRef.current;
+              setOpen(false);
+            }}
+          >
+            Search current area
+          </button>
+        }
+      />
+    </>
+  );
+}
+
 describe("ModeActionPopup state transitions", () => {
   it("starts closed, opens its action menu, and closes after an action", async () => {
     const user = userEvent.setup();
@@ -109,6 +146,16 @@ describe("ModeActionPopup state transitions", () => {
     const dialog = screen.getByRole("dialog", { name: "Pins and search" });
     expect(screen.getByTestId("daily-actions-menu")).toBe(dialog);
     await waitFor(() => expect(screen.getByRole("button", { name: "Last custom action" })).toHaveFocus());
+  });
+
+  it("lets custom sheet actions retarget return focus to the composer", async () => {
+    const user = userEvent.setup();
+    render(<CustomBodySheetReturnFocusHarness />);
+
+    await user.click(screen.getByRole("button", { name: "Open pins and search" }));
+    await user.click(screen.getByRole("button", { name: "Search current area" }));
+
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Search composer" })).toHaveFocus());
   });
 
   it("selects enabled modes and exposes disabled modes without selecting them", async () => {
