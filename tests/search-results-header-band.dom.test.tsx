@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -344,6 +344,9 @@ describe("SearchResultsHeaderBand", () => {
     const utilities = screen.getByTestId("search-query-ribbon-utilities");
     const pageFilters = screen.getByTestId("search-query-ribbon-mobile-controls");
     expect(utilities.lastElementChild).toBe(pageFilters);
+    // Floor keeps the compressible filter slot readable on 320px rails where
+    // every sibling is shrink-0.
+    expect(pageFilters.className).toContain("min-w-[7rem]");
     await user.click(within(utilities).getByRole("button", { name: "A–Z" }));
     const filterTrigger = within(pageFilters).getByRole("button", { name: /Filter by result type/ });
     await user.click(filterTrigger);
@@ -381,6 +384,51 @@ describe("MobileResultFilterControl", () => {
 
     expect(screen.getByRole("menu")).toBeVisible();
     expect(screen.getByRole("menuitemradio", { name: "Crisis" })).toHaveFocus();
+  });
+
+  it("keeps the menu open when a disabled option is tapped", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <MobileResultFilterControl
+        label="Filter"
+        ariaLabel="Apply a quick service filter"
+        value="crisis"
+        options={[...options]}
+        onChange={onChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Apply a quick service filter/ }));
+    expect(screen.getByRole("menu")).toBeVisible();
+
+    // Soft-disabled placeholder (no native `disabled`) — tap must be ignored,
+    // not dismiss the menu the way a Chrome-disabled button blur would.
+    screen.getByRole("menuitemradio", { name: "Crisis" }).focus();
+    await user.click(screen.getByRole("menuitemradio", { name: "Current search" }));
+
+    expect(screen.getByRole("menu")).toBeVisible();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("menuitemradio", { name: "Current search" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("menuitemradio", { name: "Current search" })).not.toBeDisabled();
+  });
+
+  it("does not swallow unmatched typeahead letters with preventDefault", () => {
+    render(
+      <MobileResultFilterControl
+        label="Filter"
+        ariaLabel="Apply a quick service filter"
+        value="crisis"
+        options={[...options]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Apply a quick service filter/ });
+    trigger.focus();
+    // fireEvent returns false when the handler called preventDefault.
+    expect(fireEvent.keyDown(trigger, { key: "z", bubbles: true, cancelable: true })).toBe(true);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
   it("does not treat Ctrl/Cmd/Alt+letter as typeahead", async () => {

@@ -463,9 +463,10 @@ export function SearchResultsHeaderBand({
                 data-testid="search-query-ribbon-mobile-controls"
                 role="group"
                 aria-label={filterLabel}
-                // Allow the slot to compress on tight 320px rails so the value
-                // can truncate; shrink-0 previously forced overflow.
-                className="min-w-0 sm:hidden"
+                // Compress on tight 320px rails so the value can truncate, but
+                // keep a readable floor — every sibling is shrink-0, so without
+                // min-w this slot would absorb all compression down to a sliver.
+                className="min-w-[7rem] sm:hidden"
               >
                 {pageMobileControls}
               </div>
@@ -918,11 +919,12 @@ export function MobileResultFilterControl<Value extends string>({
       options,
       state: typeaheadRef.current,
     });
-    if (matched === null) return false;
-    if (matched >= 0) {
-      if (open) focusOption(matched);
-      else openMenu(matched);
-    }
+    // null = not a typeahead key; -1 = no match. Only swallow the event when
+    // we actually moved focus / opened on a match — leave unmatched letters
+    // free for app shortcuts (e.g. `/` to focus search).
+    if (matched === null || matched < 0) return false;
+    if (open) focusOption(matched);
+    else openMenu(matched);
     return true;
   }
 
@@ -1004,6 +1006,7 @@ export function MobileResultFilterControl<Value extends string>({
           >
             {options.map((option, index) => {
               const isActive = option.value === value;
+              const isDisabled = Boolean(option.disabled);
               return (
                 <button
                   key={option.value}
@@ -1013,25 +1016,38 @@ export function MobileResultFilterControl<Value extends string>({
                   }}
                   role="menuitemradio"
                   aria-checked={isActive}
-                  aria-disabled={option.disabled || undefined}
-                  disabled={option.disabled}
+                  // Soft-disable: native `disabled` swallows mousedown/click in
+                  // Chrome, so the Safari blur guard never runs and a tap on the
+                  // greyed-out row closes the menu. aria-disabled + ignored
+                  // activation keeps the row inert without that side effect.
+                  aria-disabled={isDisabled || undefined}
                   tabIndex={-1}
                   data-value={option.value}
-                  onKeyDown={(event) => handleOptionKeyDown(event, index)}
+                  onKeyDown={(event) => {
+                    if (isDisabled) {
+                      // Keep Home/End/Arrows/typeahead working; block activation.
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        return;
+                      }
+                    }
+                    handleOptionKeyDown(event, index);
+                  }}
                   // Safari (macOS/iOS) often does not focus a button on pointer
                   // press; without this, blur closes the menu before click lands.
+                  // Always preventDefault — including for disabled rows — so a
+                  // tap on the placeholder does not blur the focused option.
                   onMouseDown={(event) => {
-                    if (option.disabled) return;
                     event.preventDefault();
                   }}
                   onClick={() => {
-                    if (option.disabled) return;
+                    if (isDisabled) return;
                     selectOption(option.value);
                   }}
                   className={cn(
                     "flex min-h-tap w-full items-center justify-between gap-2 rounded-lg px-2.5 text-left text-sm font-semibold",
                     focusRing,
-                    option.disabled
+                    isDisabled
                       ? "cursor-not-allowed text-[color:var(--text-soft)] opacity-60"
                       : isActive
                         ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
