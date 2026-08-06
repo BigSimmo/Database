@@ -4,16 +4,10 @@ import { useEffect, useState } from "react";
 
 import { isDocumentViewerOwnedRoute } from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
-import {
-  SecondaryNavigation,
-  type SecondaryNavigationSectionItem,
-} from "@/components/secondary-navigation";
+import { SecondaryNavigation, type SecondaryNavigationSectionItem } from "@/components/secondary-navigation";
 import type { AppModeId } from "@/lib/app-modes";
 import { isInformationPage } from "@/lib/information-pages";
-import {
-  activeModeSecondaryNavigationId,
-  isModeSecondaryNavigationRoute,
-} from "@/lib/mode-secondary-navigation";
+import { activeModeSecondaryNavigationId, isModeSecondaryNavigationRoute } from "@/lib/mode-secondary-navigation";
 
 export type InformationPageSectionDefinition = {
   id: string;
