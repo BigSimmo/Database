@@ -91,25 +91,42 @@ export function isModeSecondaryNavigationRoute(params: {
   hasSubmittedSearch: boolean;
 }): boolean {
   const { modeId, pathname, hasSubmittedSearch } = params;
+
+  // A one-destination mode has no meaningful secondary choice. Suppress it
+  // even after search submission rather than rendering a redundant one-item
+  // strip beneath the universal header.
+  if (modeSecondaryNavigationRegistry[modeId].length < 2) return false;
   if (hasSubmittedSearch) return true;
 
-  // /documents/search is the documents mode home (composer already visible); do
-  // not add a lone Search focus control until a query has been submitted.
-  if (modeId === "documents") return false;
   if (modeId === "differentials") {
-    return pathname === "/differentials/diagnoses" || pathname === "/differentials/presentations";
+    return (
+      pathname === "/differentials" ||
+      pathname === "/differentials/diagnoses" ||
+      pathname === "/differentials/presentations"
+    );
   }
-  if (modeId === "dsm") return pathname === "/dsm/search" || pathname === "/dsm/compare";
+  if (modeId === "dsm") {
+    return pathname === "/dsm" || pathname === "/dsm/search" || pathname === "/dsm/compare";
+  }
   if (modeId === "specifiers") {
-    return pathname === "/specifiers/builder" || pathname === "/specifiers/compare" || pathname === "/specifiers/map";
+    return (
+      pathname === "/specifiers" ||
+      pathname === "/specifiers/builder" ||
+      pathname === "/specifiers/compare" ||
+      pathname === "/specifiers/map"
+    );
   }
   if (modeId === "formulation") {
     return (
-      pathname === "/formulation/builder" || pathname === "/formulation/compare" || pathname === "/formulation/map"
+      pathname === "/formulation" ||
+      pathname === "/formulation/builder" ||
+      pathname === "/formulation/compare" ||
+      pathname === "/formulation/map"
     );
   }
-  if (modeId === "factsheets") return pathname === "/factsheets/search";
-  if (modeId === "therapy-compass") return pathname !== "/therapy-compass";
+  if (modeId === "therapy-compass") {
+    return pathname === "/therapy-compass" || pathname.startsWith("/therapy-compass/");
+  }
   return false;
 }
 
@@ -172,11 +189,12 @@ export function modeSecondaryNavigationHref(params: {
       currentSearchParams.get("b"),
       currentSearchParams.get("selected"),
     ]);
-    if (itemId === "builder")
+    if (itemId === "builder") {
       return navigationHrefWithParams(
         href,
         selections.map((value) => ["specifier", value] as const),
       );
+    }
     if (itemId === "compare") {
       return navigationHrefWithParams(
         href,
@@ -203,11 +221,12 @@ export function modeSecondaryNavigationHref(params: {
     ]);
     const template = currentSearchParams.get("template");
     const templateEntry: Array<readonly [string, string]> = template ? [["template", template]] : [];
-    if (itemId === "builder")
+    if (itemId === "builder") {
       return navigationHrefWithParams(href, [
         ...selections.map((value) => ["mechanism", value] as const),
         ...templateEntry,
       ]);
+    }
     if (itemId === "compare") {
       return navigationHrefWithParams(href, [
         ...selections.slice(0, 2).map((value, index) => [index === 0 ? "a" : "b", value] as const),
