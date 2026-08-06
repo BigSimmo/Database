@@ -817,6 +817,7 @@ export function SearchResultsEmptyState({
   onClearSearch,
   onBrowseAll,
   browseAllLabel = "Browse all sources",
+  degraded = false,
 }: {
   modeId: AppModeId;
   query: string;
@@ -850,6 +851,13 @@ export function SearchResultsEmptyState({
       result set is not the answer. */
   onBrowseAll?: () => void;
   browseAllLabel?: string;
+  /**
+   * The result set is empty because retrieval failed, not because nothing
+   * matched. Replaces the copy rather than annotating it: in a clinical corpus
+   * "no results" is read as "no guidance exists", and that inference must not
+   * be available when the search never actually ran.
+   */
+  degraded?: boolean;
 }) {
   const config = searchCommandSurfaceConfig(modeId);
   const crossModes = (config?.crossModes ?? []).filter((target) => canAccessFavourites || target !== "favourites");
@@ -869,20 +877,28 @@ export function SearchResultsEmptyState({
   // the same defect class as a label that does not match its handler.
   const hasExample = Boolean(config?.examples[0] && onTryExample);
   const hasCrossMode = crossModes.length > 0 && Boolean(onCrossMode);
-  const emptyTitle = filtered
-    ? appliedFilters.length === 1
-      ? `No ${resultNoun} match the selected filter`
-      : `No ${resultNoun} match all ${appliedFilters.length} filters`
-    : `No matches for “${query.trim() || "your search"}”`;
-  const emptyBody = filtered
-    ? "The search itself ran fine — the filters above excluded everything. Remove one to widen it."
-    : hasExample && hasCrossMode
-      ? "Try an example, or jump to another mode."
-      : hasExample
-        ? "Try one of the examples below."
-        : hasCrossMode
-          ? "Try another mode."
-          : "Check the spelling, or try a broader term.";
+  // Degraded outranks filtered, which outranks a plain miss. A search whose
+  // retrieval layer errored has not established that anything is absent, so it
+  // must not borrow either of the copies below: both assert a real zero and
+  // send the reader off to fix a query or a filter that was never the problem.
+  const emptyTitle = degraded
+    ? "Search could not complete"
+    : filtered
+      ? appliedFilters.length === 1
+        ? `No ${resultNoun} match the selected filter`
+        : `No ${resultNoun} match all ${appliedFilters.length} filters`
+      : `No matches for “${query.trim() || "your search"}”`;
+  const emptyBody = degraded
+    ? "Part of the search index did not respond, so this is not a reliable “nothing found”. Retry shortly, and do not read it as an absence of guidance."
+    : filtered
+      ? "The search itself ran fine — the filters above excluded everything. Remove one to widen it."
+      : hasExample && hasCrossMode
+        ? "Try an example, or jump to another mode."
+        : hasExample
+          ? "Try one of the examples below."
+          : hasCrossMode
+            ? "Try another mode."
+            : "Check the spelling, or try a broader term.";
   // Live regions that mount already populated are silent in most screen readers.
   // Deferred population makes the query-only path announce. Filtered-to-zero
   // suppresses the region entirely: the band's `role="status"` already
@@ -955,7 +971,13 @@ export function SearchResultsEmptyState({
           NOT `role="status"`: the band already owns that role on every search
           route and a second one makes singular `getByRole("status")` ambiguous. */}
       <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-        {filtered ? <Funnel className="h-5 w-5" aria-hidden /> : <Search className="h-5 w-5" aria-hidden />}
+        {degraded ? (
+          <CircleAlert className="h-5 w-5" aria-hidden />
+        ) : filtered ? (
+          <Funnel className="h-5 w-5" aria-hidden />
+        ) : (
+          <Search className="h-5 w-5" aria-hidden />
+        )}
       </span>
       <Title className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">{emptyTitle}</Title>
       <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">{emptyBody}</p>

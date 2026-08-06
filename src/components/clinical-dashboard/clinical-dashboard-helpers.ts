@@ -10,10 +10,59 @@ import { makeSearchError } from "@/components/clinical-dashboard/search-utils";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
 import type { ClinicalDocument, ImportBatch, IngestionJob, RagAnswer, RelatedDocument } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
+import type { ClinicalQueryMode } from "@/lib/clinical-query-mode";
 
 // Poll-delay ceiling for setup re-checks; also the clamp ceiling for
 // `normalizedPollDelay`. Shared with the dashboard's polling loop.
 export const setupRecheckPollMs = 60_000;
+
+/**
+ * Re-run a Documents search against a relaxed server-side scope.
+ *
+ * Relaxing a scope filter cannot be a local re-render: `resolveSearchScope`
+ * applies these before retrieval, so when they match nothing the API
+ * short-circuits and the client holds an empty result set with nothing to
+ * un-filter. The search has to go back out, and the URL has to move with it —
+ * it is the *only* place scope filters live, so a stale one would re-apply, on
+ * the next search, the exact constraint just cleared.
+ *
+ * It delegates both of those to the ordinary documents submit rather than
+ * repeating them. Rewriting the URL here and calling the search directly looked
+ * equivalent and was not: Next keeps `useSearchParams()` in sync with
+ * `history.replaceState`, so the rewrite moves `routedSearchContext` and wakes
+ * the auto-run effect. That effect bails while `loading` is true WITHOUT
+ * recording the new submission signature, so when the search settled it woke
+ * again, found a signature it did not recognise, and ran the identical search a
+ * second time. The submit path seeds `autoRunSearchSignatureRef` before it
+ * touches history, which is precisely what stops that — so the fix is to go
+ * through it, not to copy the seeding into a second place that can drift.
+ * (Raised by Devin review on PR #1640.)
+ */
+export function relaxDocumentScopeFilters({
+  filters,
+  query,
+  queryMode,
+  setScopeFilters,
+  submitSearch,
+}: {
+  filters: SearchScopeFilters;
+  query: string;
+  queryMode: ClinicalQueryMode;
+  setScopeFilters: (filters: SearchScopeFilters) => void;
+  /** The dashboard's `ask` — owns URL history, signature seeding, and dispatch. */
+  submitSearch: (
+    searchText: string,
+    context: { queryMode: ClinicalQueryMode; scopeFilters: SearchScopeFilters },
+    replaceExistingAnswer: boolean,
+  ) => unknown;
+}) {
+  setScopeFilters(filters);
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return;
+  // `replaceExistingAnswer` — this replaces the result the reader is looking at
+  // rather than archiving it as a prior turn; it is the same search, relaxed.
+  submitSearch(trimmedQuery, { queryMode, scopeFilters: filters }, true);
+}
 
 export function compactScopeFilters(filters: SearchScopeFilters) {
   const next: SearchScopeFilters = {};
