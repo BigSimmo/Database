@@ -561,6 +561,45 @@ Record one `docs/branch-review-ledger.md` row per PR touched (use `--supersede` 
 
 <!-- END:run-pr-shortcut -->
 
+## Stop when the pull request is open
+
+Opening the PR is the end of the session's handoff, not the start of a supervision
+shift. A session that stays attached to its own PR — polling `gh pr checks`, watching
+workflow runs, re-running failed jobs, syncing the branch from `main` again, replying to
+review bots, or scheduling a wake-up/monitor/loop against it — spends a long tail of
+usage on work the user has not asked for. Claude Code on the web is the worst case: the
+cloud session keeps running after the PR exists, so nothing naturally ends the loop.
+
+After the PR is created — by `gh pr create` or a GitHub MCP `create_pull_request` tool —
+and a PR URL comes back:
+
+- Finish only what the handoff itself still owes: the `npm run ledger:append` row, and
+  the PR URL plus a short summary reported to the user. Then **stop**.
+- Do not follow the PR. CI results, review-bot findings, branch drift, and the merge
+  itself are the user's call, and a later session (or an explicit `Run PR` sweep) is
+  where that work belongs.
+- A failing check discovered _before_ you stopped is still worth reporting in that final
+  summary — reporting it is not the same as staying to fix it.
+
+Enforcement: `.claude/hooks/pr-handoff-stop.sh` (registered in `.claude/settings.json`)
+drops a session-scoped marker when a PR-creating call — `gh pr create` or any
+`create_pull_request` MCP tool — returns a real PR URL. For the rest of that session it
+then denies three things:
+
+- **Shell polling** — `gh pr checks|status|view|diff|list`, `gh run watch|view|list|rerun|download`,
+  `gh api …actions/runs|check-runs|check-suites|/pulls/`, and `sync:pr-branches`.
+- **GitHub MCP PR/CI tools** — anything whose tool name carries `pull_request`,
+  `workflow_run`, `workflow_job`, `check_run`, `check_suite`, `job_log`, or
+  `update_branch`, so a connector is not a way around the shell rule.
+- **Loop machinery** — `Monitor`, `ScheduleWakeup`, and `CronCreate`, which is how a
+  session parks itself on a PR without running a single command.
+
+Committing, pushing, ledger appends, and PR create/merge (`gh pr merge`,
+`merge_pull_request`) stay allowed. Unlock only on an explicit user ask: prefix a shell
+command with `CLAUDE_ALLOW_PR_FOLLOW=1`, or delete the marker the deny message names.
+Sessions that never create a PR are untouched, so `Run PR` sweeps, `pr-ci-fix` work, and
+review sessions on someone else's PR still function normally.
+
 ## PR bundling (reduce one-task-one-PR churn)
 
 Every `newtask`/`handoff` cycle mints a dedicated `claude/<task-slug>` branch and PR, so a
