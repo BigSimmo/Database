@@ -77,7 +77,20 @@ function Probe() {
       <button data-testid="open-sheet-none" onClick={() => b.openSheet("no-artifacts")} />
       <button data-testid="open-brief-none" onClick={() => b.openBrief("no-artifacts")} />
       <button data-testid="go-sheets" onClick={b.goSheets} />
+      <button data-testid="go-brief" onClick={b.goBrief} />
+      <a data-testid="brief-href" href={b.briefHref} />
+      <a data-testid="sheet-href" href={b.sheetHref} />
     </div>
+  );
+}
+
+function renderAt(pathname: string) {
+  nav.pathname = pathname;
+  nav.search = "";
+  return render(
+    <TcProvider>
+      <Probe />
+    </TcProvider>,
   );
 }
 
@@ -131,5 +144,36 @@ describe("Therapy Compass artifact-route navigation", () => {
     );
     fireEvent.click(getByTestId("open-sheet-both"));
     expect(nav.pushes).toContain("/therapy-compass/with-both/sheet");
+  });
+});
+
+// `ModeNav` takes an href and never an onClick, so the two record-scoped
+// destinations have to resolve a slug into a value. These pin the resolution
+// order, and that the imperative twin pushes exactly the same string — a link
+// and a button that disagree about where they go is the failure mode.
+describe("Therapy Compass artifact hrefs", () => {
+  it("prefers the selected record when it ships the artifact", () => {
+    const { getByTestId } = renderAt("/therapy-compass/with-both");
+    expect(getByTestId("brief-href").getAttribute("href")).toBe("/therapy-compass/with-both/brief");
+    expect(getByTestId("sheet-href").getAttribute("href")).toBe("/therapy-compass/with-both/sheet");
+  });
+
+  it("falls back to the first record that has one when the selection does not", () => {
+    // This is the retargeting the product decision deliberately keeps: the
+    // destination is a therapy the reader was not looking at. Pinned here so it
+    // is an explicit, stable choice rather than an accident of iteration order.
+    const { getByTestId } = renderAt("/therapy-compass/no-artifacts");
+    expect(getByTestId("brief-href").getAttribute("href")).toBe("/therapy-compass/with-both/brief");
+    expect(getByTestId("sheet-href").getAttribute("href")).toBe("/therapy-compass/with-both/sheet");
+  });
+
+  it("pushes exactly what it links to", () => {
+    const { getByTestId } = renderAt("/therapy-compass/no-artifacts");
+    fireEvent.click(getByTestId("go-brief"));
+    fireEvent.click(getByTestId("go-sheets"));
+    expect(nav.pushes).toEqual([
+      getByTestId("brief-href").getAttribute("href"),
+      getByTestId("sheet-href").getAttribute("href"),
+    ]);
   });
 });

@@ -49,6 +49,11 @@ export const modeSecondaryNavigationRegistry = {
   ],
   prescribing: [{ id: "search", label: "Search", action: "search" }],
   tools: [{ id: "search", label: "Search", action: "search" }],
+  // Inert: `PageSecondaryNavigation` early-returns on `/therapy-compass*`, and
+  // the mode's live destination list is `useTherapyNavItems` in
+  // `src/components/therapy-compass/nav.tsx`, which feeds the shared `ModeNav`.
+  // Kept because this registry is a 13-mode contract, not because it renders.
+  // Editing these entries changes nothing a user sees.
   "therapy-compass": [
     { id: "search", label: "Search", action: "therapy-search" },
     { id: "recommend", label: "Recommend", action: "therapy-recommend" },

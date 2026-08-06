@@ -6,6 +6,7 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { pageContainer } from "@/components/ui-primitives";
 
 import { useTcBindings } from "../bindings";
 import { TherapyFilterSheet, TherapyFilterTrigger } from "../filter-sheet";
@@ -46,7 +47,7 @@ export function SearchScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
 
   return (
-    <section data-screen-label="Search" className="max-w-[1180px] my-0 mx-auto">
+    <section data-screen-label="Search" className={pageContainer}>
       <SearchResultsHeaderBand
         modeId="therapy-compass"
         query={q}
