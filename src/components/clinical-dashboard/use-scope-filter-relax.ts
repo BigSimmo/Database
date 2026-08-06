@@ -14,20 +14,17 @@ import type { SearchScopeFilters } from "@/lib/search-scope";
  * and unit-tested; this only binds it to the dashboard's state and keeps the
  * identity fixed so the results panel does not re-render per keystroke.
  */
-export function useScopeFilterRelax<Mode>(
+export function useScopeFilterRelax(
   query: string,
   queryMode: ClinicalQueryMode,
-  searchMode: Mode,
   setScopeFilters: (filters: SearchScopeFilters) => void,
-  runSearch: (
-    query: string,
-    mode: Mode,
-    filters: SearchScopeFilters,
-    queryMode: ClinicalQueryMode,
+  submitSearch: (
+    searchText: string,
+    context: { queryMode: ClinicalQueryMode; scopeFilters: SearchScopeFilters },
     replaceExistingAnswer: boolean,
   ) => unknown,
 ) {
   return useEventCallback((filters: SearchScopeFilters) =>
-    relaxDocumentScopeFilters({ filters, query, queryMode, searchMode, setScopeFilters, runSearch }),
+    relaxDocumentScopeFilters({ filters, query, queryMode, setScopeFilters, submitSearch }),
   );
 }

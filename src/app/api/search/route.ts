@@ -607,6 +607,11 @@ function retrievalDecisionTelemetry(telemetry: Record<string, unknown>) {
     // without persisting them the recalibration has no data to work from.
     text_or_relaxation_used: telemetryString(telemetry, "text_or_relaxation_used"),
     synthetic_similarity_count: telemetryNumber(telemetry, "synthetic_similarity_count"),
+    // The degraded-retrieval case is the one most worth diagnosing after the
+    // fact — it is invisible in the result count, which is just zero — and this
+    // whitelist is what both observation writers persist. Omitting it meant the
+    // failure map reached the reader's screen and nothing else.
+    hybrid_rpc_errors: telemetryRecord(telemetry, "hybrid_rpc_errors"),
   };
 }
 
@@ -933,8 +938,6 @@ async function buildScopedSearchPayload(
       visual_direct_image_count: search.telemetry.visual_direct_image_count,
       weighted_top_score: search.telemetry.weighted_top_score,
       rrf_top_score: search.telemetry.rrf_top_score,
-      // Persisted alongside the rest so a degraded search is diagnosable after
-      // the fact, not only visible to the reader who happened to hit it.
       hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
     },
   };

@@ -8,7 +8,6 @@ import type { SetupCheck } from "@/components/clinical-dashboard/DocumentManager
 import { navigationHashes } from "@/components/clinical-dashboard/dashboard-contracts";
 import { makeSearchError } from "@/components/clinical-dashboard/search-utils";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
-import { documentsSearchHref } from "@/lib/document-flow-routes";
 import type { ClinicalDocument, ImportBatch, IngestionJob, RagAnswer, RelatedDocument } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import type { ClinicalQueryMode } from "@/lib/clinical-query-mode";
@@ -23,46 +22,46 @@ export const setupRecheckPollMs = 60_000;
  * Relaxing a scope filter cannot be a local re-render: `resolveSearchScope`
  * applies these before retrieval, so when they match nothing the API
  * short-circuits and the client holds an empty result set with nothing to
- * un-filter. The search has to go back out.
+ * un-filter. The search has to go back out, and the URL has to move with it —
+ * it is the *only* place scope filters live, so a stale one would re-apply, on
+ * the next search, the exact constraint just cleared.
  *
- * The URL is rewritten in the same act because it is the *only* place scope
- * filters live — `ask()` writes them on every documents submit — so leaving it
- * stale would re-apply, on the next search, the exact constraint just cleared.
- * That is what made a scoped-to-zero search self-perpetuating: it survived
- * reloads, bookmarks, back/forward and home-screen shortcuts.
+ * It delegates both of those to the ordinary documents submit rather than
+ * repeating them. Rewriting the URL here and calling the search directly looked
+ * equivalent and was not: Next keeps `useSearchParams()` in sync with
+ * `history.replaceState`, so the rewrite moves `routedSearchContext` and wakes
+ * the auto-run effect. That effect bails while `loading` is true WITHOUT
+ * recording the new submission signature, so when the search settled it woke
+ * again, found a signature it did not recognise, and ran the identical search a
+ * second time. The submit path seeds `autoRunSearchSignatureRef` before it
+ * touches history, which is precisely what stops that — so the fix is to go
+ * through it, not to copy the seeding into a second place that can drift.
+ * (Raised by Devin review on PR #1640.)
  */
-export function relaxDocumentScopeFilters<Mode>({
+export function relaxDocumentScopeFilters({
   filters,
   query,
   queryMode,
-  searchMode,
   setScopeFilters,
-  runSearch,
+  submitSearch,
 }: {
   filters: SearchScopeFilters;
   query: string;
   queryMode: ClinicalQueryMode;
-  searchMode: Mode;
   setScopeFilters: (filters: SearchScopeFilters) => void;
-  runSearch: (
-    query: string,
-    mode: Mode,
-    filters: SearchScopeFilters,
-    queryMode: ClinicalQueryMode,
+  /** The dashboard's `ask` — owns URL history, signature seeding, and dispatch. */
+  submitSearch: (
+    searchText: string,
+    context: { queryMode: ClinicalQueryMode; scopeFilters: SearchScopeFilters },
     replaceExistingAnswer: boolean,
   ) => unknown;
 }) {
   setScopeFilters(filters);
   const trimmedQuery = query.trim();
   if (!trimmedQuery) return;
-  window.history.replaceState(
-    null,
-    "",
-    documentsSearchHref({ query: trimmedQuery, run: true, queryMode, scopeFilters: filters }),
-  );
   // `replaceExistingAnswer` — this replaces the result the reader is looking at
   // rather than archiving it as a prior turn; it is the same search, relaxed.
-  runSearch(trimmedQuery, searchMode, filters, queryMode, true);
+  submitSearch(trimmedQuery, { queryMode, scopeFilters: filters }, true);
 }
 
 export function compactScopeFilters(filters: SearchScopeFilters) {

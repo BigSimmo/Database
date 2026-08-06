@@ -3225,7 +3225,7 @@ export function ClinicalDashboard({
   const handleFollowUpSuggestionPick = useEventCallback(handlePickFollowUpSuggestion);
   const handleCrossModeSearch = useEventCallback(crossModeSearch);
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
-  const handleScopeFiltersChange = useScopeFilterRelax(query, queryMode, searchMode, setScopeFilters, executeSearch);
+  const handleScopeFiltersChange = useScopeFilterRelax(query, queryMode, setScopeFilters, ask);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
