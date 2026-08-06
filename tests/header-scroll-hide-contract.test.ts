@@ -281,7 +281,13 @@ describe("shared header hide/reveal wiring", () => {
     expect(phoneHeaderPortalSource).toContain('window.matchMedia("(max-width: 639px)")');
     expect(phoneHeaderPortalSource).toContain("new MutationObserver(sync)");
 
-    expect(therapyNavSource).toContain("<PhoneHeaderCollapsePortal>");
+    // Therapy claims the same host through `ModeNavHeaderPortal`, the sibling
+    // that resolves it at every width rather than only below the phone seam —
+    // which is what lets the mode bar travel with the header on tablet and
+    // desktop too. Same slot, same before-paint move, same observer discipline.
+    expect(therapyNavSource).not.toContain("PhoneHeaderCollapsePortal");
+    expect(read("src/components/mode-nav/mode-nav-portal.tsx")).toContain("phoneHeaderCollapseAddonSlotId");
+    expect(read("src/components/mode-nav/mode-nav-portal.tsx")).toContain("createPortal(children, host)");
     expect(documentViewerSource).toContain("<PhoneHeaderCollapsePortal>");
     expect(documentViewerSource).toContain("data-document-sticky-header");
     expect(documentViewerSource).toContain("edge-glass-header");

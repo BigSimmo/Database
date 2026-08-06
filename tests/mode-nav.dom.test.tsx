@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Columns3, Search, Sparkles, Waypoints } from "lucide-react";
+import { Columns3, FileText, House, Search, Sparkles, Timer, Waypoints } from "lucide-react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -89,5 +89,67 @@ describe("ModeNav — sheet focus restore follows the opener", () => {
     await waitFor(() => expect(window.document.activeElement).not.toBe(window.document.body));
     expect(window.document.activeElement).toBe(moreTrigger);
     expect(window.document.activeElement).not.toBe(collapsedTrigger);
+  });
+});
+
+// Therapy's seven destinations. Only the first four ever occupy a slot — the
+// bands cap at five, so `home`, `brief` and `sheets` live permanently in the
+// overflow, which is exactly the case that makes the More slot's width matter.
+const sevenItems: ModeNavItem[] = [
+  ...items,
+  { id: "home", label: "Home", href: "/therapy-compass", icon: House },
+  { id: "brief", label: "Brief Intervention", href: "/therapy-compass/act/brief", icon: Timer },
+  { id: "sheets", label: "Patient Sheets", href: "/therapy-compass/act/sheet", icon: FileText },
+];
+
+function moreSlotButton() {
+  const button = window.document.querySelector<HTMLButtonElement>(".mode-nav__bar li[data-until] button");
+  expect(button).not.toBeNull();
+  return button!;
+}
+
+describe("ModeNav — active page held in the overflow", () => {
+  it("keeps More's visible word while carrying the folded page's rule and name", () => {
+    render(<ModeNav items={sevenItems} label="Therapy pages" activeId="brief" />);
+
+    const more = moreSlotButton();
+    // The word is what has a width, and at the 22rem band the slot cannot pay
+    // for "Brief Intervention". The accessible name is free, so it carries the
+    // page — with "More" as its prefix, per WCAG 2.5.3.
+    expect(more.textContent).toBe("More");
+    expect(more.getAttribute("aria-label")).toBe("More — Brief Intervention");
+
+    // No *rendered* slot claims to be the current page. The folded item still
+    // carries `aria-current` on its own link, but that slot has no band and is
+    // `display: none`, so it is out of the accessibility tree — which is why
+    // More has to carry the name instead.
+    for (const slot of window.document.querySelectorAll('.mode-nav__bar li[data-band]:not([data-band="none"])')) {
+      expect(slot.querySelector("[aria-current]")).toBeNull();
+    }
+    expect(window.document.querySelector('.mode-nav__bar li[data-band="none"] a[aria-current="page"]')).not.toBeNull();
+    // The collapsed control is the state with room, so it still names the page.
+    const collapsed = window.document.querySelector(".mode-nav__control button");
+    expect(collapsed?.textContent).toContain("Brief Intervention");
+  });
+
+  it("marks nothing active on a record route, and leaves More plain", () => {
+    // `detail` and `review` are screen names with no item. ModeNav must not
+    // fall back to its own path matching there, or Home — whose href is the
+    // mode base every route starts with — would claim every record page.
+    render(<ModeNav items={sevenItems} label="Therapy pages" activeId="detail" />);
+
+    const more = moreSlotButton();
+    expect(more.textContent).toBe("More");
+    expect(more.getAttribute("aria-label")).toBeNull();
+    expect(window.document.querySelector('[aria-current="page"]')).toBeNull();
+    expect(window.document.querySelector(".mode-nav__control button")?.textContent).toContain("Therapy pages");
+  });
+
+  it("marks the active tab when the page does have a slot", () => {
+    render(<ModeNav items={sevenItems} label="Therapy pages" activeId="compare" />);
+
+    expect(moreSlotButton().getAttribute("aria-label")).toBeNull();
+    const current = window.document.querySelector('.mode-nav__bar a[aria-current="page"]');
+    expect(current?.getAttribute("href")).toBe("/therapy-compass/compare");
   });
 });

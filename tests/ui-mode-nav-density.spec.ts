@@ -21,8 +21,9 @@ import { expect, test, type Page } from "playwright/test";
  * rather than the pixel or two a single machine's measurements would suggest.
  */
 
-const BAND_3_PX = 352; // 22rem — first two destinations + More
-const BAND_4_PX = 528; // 33rem — all four destinations
+const BAND_3_PX = 352; // 22rem — two destinations + More
+const BAND_4_PX = 528; // 33rem — three destinations + More
+const BAND_5_PX = 672; // 42rem — four destinations + More
 
 /**
  * The nav as it is actually anchored, not as it is momentarily served.
@@ -38,10 +39,24 @@ const BAND_4_PX = 528; // 33rem — all four destinations
  */
 const anchoredNav = '[data-testid="universal-header-collapse"] [data-testid="mode-nav"]';
 
-async function gotoTherapySearch(page: Page) {
-  await page.goto("/therapy-compass/search?q=CBT&run=1", { waitUntil: "domcontentloaded" });
+async function gotoTherapy(page: Page, route = "/therapy-compass/search?q=CBT&run=1") {
+  await page.goto(route, { waitUntil: "domcontentloaded" });
   await expect(page.locator(anchoredNav)).toBeVisible({ timeout: 20_000 });
 }
+
+const gotoTherapySearch = (page: Page) => gotoTherapy(page);
+
+/**
+ * A route whose destination is permanently in the overflow.
+ *
+ * Therapy ships seven destinations and the bands cap at five slots, so Brief
+ * Intervention never gets one — which fires `moreHoldsActive`, the branch that
+ * decides what the More slot renders when the current page has folded. If it
+ * ever borrows the folded label, this is the route where "Brief Intervention"
+ * lands beside Search and Compare in a 352px bar and the arithmetic stops
+ * working (~430px of content, 352px of space).
+ */
+const FOLDED_ACTIVE_ROUTE = "/therapy-compass/acceptance-and-commitment-therapy-act/brief";
 
 type NavState = {
   state: "bar" | "collapsed" | "none";
@@ -99,6 +114,7 @@ test.describe("ModeNav density", () => {
     { width: BAND_4_PX - 1, expected: "bar" as const, slots: 3 },
     { width: BAND_4_PX, expected: "bar" as const, slots: 4 },
     { width: BAND_4_PX + 1, expected: "bar" as const, slots: 4 },
+    { width: BAND_5_PX, expected: "bar" as const, slots: 5 },
   ]) {
     test(`shows every label in full at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
@@ -114,6 +130,58 @@ test.describe("ModeNav density", () => {
       expectNoClippedLabels(nav, `${width}px`);
     });
   }
+
+  for (const width of [BAND_3_PX, BAND_4_PX, BAND_5_PX]) {
+    test(`keeps the overflow slot at one width when the current page is folded (${width}px)`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await gotoTherapy(page, FOLDED_ACTIVE_ROUTE);
+
+      await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
+
+      const nav = await readNav(page);
+      expectNoClippedLabels(nav, `${width}px on a folded destination`);
+      // The last slot is the overflow control, and its word does not change
+      // with the route. Borrowing "Brief Intervention" here is what the band
+      // budget cannot pay for; the rule and the accessible name carry the
+      // signal instead, and neither has a width.
+      expect(nav.labels.at(-1)?.text).toBe("More");
+      expect(nav.labels.map((label) => label.text)).not.toContain("Brief Intervention");
+    });
+  }
+
+  test("puts the first tab's ink on the header's content edge from tablet up", async ({ page }) => {
+    // The bar is full-bleed so its rule spans the viewport, but its slots ride
+    // the same centred max-w-7xl column as the header row. Without that the
+    // first tab sits at the viewport edge while the mode pill above it is
+    // centred — the desktop defect this pairing fixes.
+    for (const width of [1024, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await gotoTherapySearch(page);
+
+      await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
+
+      const offsets = await page.evaluate((selector) => {
+        // The SlotInk wrapper, not the label span: the ink starts at the icon.
+        const ink = document.querySelector(`${selector} .mode-nav__bar li:not(.hidden) > a > span`);
+        // The header's own centred row, whose left content edge the ink meets.
+        const headerRow = document.querySelector("#search .max-w-7xl");
+        if (!(ink instanceof HTMLElement) || !(headerRow instanceof HTMLElement)) return null;
+        return { ink: ink.getBoundingClientRect().left, header: headerRow.getBoundingClientRect().left };
+      }, anchoredNav);
+
+      expect(offsets, `${width}px: could not resolve both edges`).not.toBeNull();
+      // 1px of slack for sub-pixel centring of an odd-width column.
+      expect(
+        Math.abs(offsets!.ink - offsets!.header),
+        `${width}px: tab ink vs header content edge`,
+      ).toBeLessThanOrEqual(1);
+
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1),
+        `${width}px: page scrolls sideways`,
+      ).toBe(false);
+    }
+  });
 
   test("falls back to the collapsed control rather than clipping at 200% text", async ({ page }) => {
     // The `rem` unit is the whole mechanism the density bands rest on: raising

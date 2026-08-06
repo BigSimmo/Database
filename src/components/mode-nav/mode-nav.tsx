@@ -154,94 +154,115 @@ export function ModeNav({
   const active = activeId ? items.find((item) => item.id === activeId) : derived;
   const activeIndex = active ? items.indexOf(active) : -1;
 
-  // If the page you are on has folded into the overflow, More takes its label,
-  // icon and rule rather than reading "More" with nothing active — and keeps
-  // its chevron, so it is still obviously the way to the rest.
+  // True when the current page has no slot of its own at any band — it lives
+  // permanently in the overflow. More then takes the active RULE, and only the
+  // rule: it keeps the literal word "More" and its exact width.
+  //
+  // Borrowing the folded item's label instead is what the budget cannot pay
+  // for. The thresholds in globals.css are the measured sum of the slots'
+  // intrinsic widths, so at the 22rem band Search + Compare + the bar's padding
+  // leave the More slot ~107px, of which its own box, icon, gap and chevron
+  // take ~71px — a ~36px label allowance, three characters after the CI
+  // font-metric headroom. "Brief Intervention" wants ~213px. Shortening labels
+  // does not rescue it either; the icon alone is most of the slack. Widening
+  // the thresholds would cost every mode a band.
+  //
+  // `ModeNavItem.label`'s never-abbreviated contract is intact: the label is
+  // not shortened, it is declined. The rule plus the chevron say "the page you
+  // are on is in here", the sheet marks the row `aria-current`, and the
+  // collapsed control below 22rem still names the page in full — the one state
+  // with room for it. The accessible name on the button below carries the name
+  // at every width, at no layout cost.
   const activeBand = activeIndex >= 0 ? plan.firstVisibleBand.get(activeIndex) : undefined;
-  const moreCarriesActive = plan.moreUntil !== null && activeBand === undefined && activeIndex >= 0;
+  const moreHoldsActive = plan.moreUntil !== null && activeBand === undefined && activeIndex >= 0;
 
   const bar = (
+    // The rule spans the viewport while the slots sit on the same centred
+    // column as the header row above them, so the first tab's ink lands on the
+    // header's content edge rather than the viewport's.
     <nav
       aria-label={label}
       data-testid="mode-nav"
-      className="mode-nav border-b border-[color:var(--border)] bg-[color:var(--surface)]"
+      className="mode-nav-rail border-b border-[color:var(--border)] bg-[color:var(--surface)]"
     >
-      {/* Collapsed: the default, and the only state that cannot overflow. */}
-      <div className="mode-nav__control px-4 pb-2.5 pt-1.5">
-        <button
-          type="button"
-          onClick={openSheet}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          className={cn(
-            "flex min-h-12 w-full items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 text-left text-sm-minus font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-lift)]",
-            focusRing,
-          )}
-        >
-          {active ? (
-            <active.icon
-              aria-hidden="true"
-              className="h-[1.0625rem] w-[1.0625rem] text-[color:var(--clinical-accent)]"
-            />
-          ) : null}
-          <span className="min-w-0 flex-1 truncate">{active ? active.label : label}</span>
-          {active ? (
-            <span className="nums shrink-0 text-3xs font-bold text-[color:var(--text-muted)]">
-              {activeIndex + 1}/{items.length}
-            </span>
-          ) : null}
-          <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-        </button>
-      </div>
-
-      {/* Enhanced: the bar, once the container can hold at least three slots.
-          Left padding is the gutter minus the slot padding, so the INK aligns
-          to the mark above it rather than the box. */}
-      <ul className="mode-nav__bar h-12 items-stretch px-1">
-        {items.map((item, index) => {
-          const band = plan.firstVisibleBand.get(index);
-          const isActive = item.id === active?.id;
-          const isOrigin = !isActive && item.id === originId;
-          return (
-            <li
-              key={item.id}
-              data-band={band ?? "none"}
-              className={cn(slotBase, focusRing, band ? undefined : "hidden")}
-            >
-              <Link
-                href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                className={cn("flex h-full w-full items-center justify-center rounded-lg no-underline", focusRing)}
-              >
-                <SlotInk
-                  icon={item.icon}
-                  label={item.label}
-                  count={item.count}
-                  state={isActive ? "on" : isOrigin ? "trail" : "off"}
-                />
-              </Link>
-            </li>
-          );
-        })}
-        {plan.moreUntil !== null ? (
-          <li data-until={plan.moreUntil} className={cn(slotBase, "flex")}>
-            <button
-              type="button"
-              onClick={openSheet}
-              aria-haspopup="dialog"
-              aria-expanded={open}
-              className={cn("flex h-full w-full items-center justify-center rounded-lg", focusRing)}
-            >
-              <SlotInk
-                icon={moreCarriesActive ? active?.icon : undefined}
-                label={moreCarriesActive && active ? active.label : "More"}
-                state={moreCarriesActive ? "on" : "off"}
-                trailing
+      <div className="mode-nav">
+        {/* Collapsed: the default, and the only state that cannot overflow. */}
+        <div className="mode-nav__control px-4 pb-2.5 pt-1.5">
+          <button
+            type="button"
+            onClick={openSheet}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            className={cn(
+              "flex min-h-12 w-full items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 text-left text-sm-minus font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-lift)]",
+              focusRing,
+            )}
+          >
+            {active ? (
+              <active.icon
+                aria-hidden="true"
+                className="h-[1.0625rem] w-[1.0625rem] text-[color:var(--clinical-accent)]"
               />
-            </button>
-          </li>
-        ) : null}
-      </ul>
+            ) : null}
+            <span className="min-w-0 flex-1 truncate">{active ? active.label : label}</span>
+            {active ? (
+              <span className="nums shrink-0 text-3xs font-bold text-[color:var(--text-muted)]">
+                {activeIndex + 1}/{items.length}
+              </span>
+            ) : null}
+            <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+          </button>
+        </div>
+
+        {/* Enhanced: the bar, once the container can hold at least three slots.
+          Left padding is the gutter minus the slot padding, so the INK aligns
+          to the mark above it rather than the box. Together with the slot's own
+          `px-3` this is 1rem, the base header gutter — `.mode-nav-rail` adds
+          only whatever the header gutter has above that. */}
+        <ul className="mode-nav__bar h-12 items-stretch px-1">
+          {items.map((item, index) => {
+            const band = plan.firstVisibleBand.get(index);
+            const isActive = item.id === active?.id;
+            const isOrigin = !isActive && item.id === originId;
+            return (
+              <li
+                key={item.id}
+                data-band={band ?? "none"}
+                className={cn(slotBase, focusRing, band ? undefined : "hidden")}
+              >
+                <Link
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn("flex h-full w-full items-center justify-center rounded-lg no-underline", focusRing)}
+                >
+                  <SlotInk
+                    icon={item.icon}
+                    label={item.label}
+                    count={item.count}
+                    state={isActive ? "on" : isOrigin ? "trail" : "off"}
+                  />
+                </Link>
+              </li>
+            );
+          })}
+          {plan.moreUntil !== null ? (
+            <li data-until={plan.moreUntil} className={cn(slotBase, "flex")}>
+              <button
+                type="button"
+                onClick={openSheet}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                // The visible word stays a prefix of the accessible name (WCAG
+                // 2.5.3), so speech input still reaches it by saying "More".
+                aria-label={moreHoldsActive && active ? `More — ${active.label}` : undefined}
+                className={cn("flex h-full w-full items-center justify-center rounded-lg", focusRing)}
+              >
+                <SlotInk label="More" state={moreHoldsActive ? "on" : "off"} trailing />
+              </button>
+            </li>
+          ) : null}
+        </ul>
+      </div>
     </nav>
   );
 
