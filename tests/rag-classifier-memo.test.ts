@@ -85,6 +85,52 @@ describe("classifier verdict memoization", () => {
     expect(second).toBe(analysis);
   });
 
+  it("does not memoize a rejected verdict for the soft-tail bucket, so a repeat query can recover on the second call", async () => {
+    // "catatonia" is a bare single-word query: low confidence, no medications/thresholds/title
+    // terms, few expanded terms — exactly the soft-tail bucket the unsupported short-circuit
+    // treats specially (isUnsupportedSoftTailAnalysis true), unlike fallbackQueryAnalysis's
+    // multi-word fixture above (confidence 0.45, just above the 0.42 soft-tail ceiling). The
+    // two-call proof Codex review asked for on PR #1646: reject on call 1, recover on call 2 —
+    // that recovery is only reachable if the rejection from call 1 was not memoized.
+    const query = "catatonia";
+    const mock = vi
+      .fn()
+      .mockResolvedValueOnce(classifierResponse({ confidence: 0.3 }))
+      .mockResolvedValueOnce(classifierResponse());
+    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
+    // Mirror production: searchChunksWithTelemetry always passes opts.corpusGrounding, and a
+    // corpus-grounding verdict of "inconclusive" (no matching document title, so the query can't
+    // be deterministically rescued) is what routes a bare in-corpus topic like "catatonia" to the
+    // classifier at all — otherwise the Finding #2 deterministic short-query fallback (rag.ts
+    // ~1122-1134) rescues it before ever calling the classifier, and this test would prove
+    // nothing about the memo. Setting corpusGrounding directly reproduces that gate without
+    // depending on the corpus-grounding module's live database call.
+    const analysis = { ...analyzeClinicalQuery(query), corpusGrounding: "inconclusive" as const };
+    expect(analysis.needsClassifierFallback).toBe(true);
+
+    const first = await rag.analyzeQueryWithClassifierFallback(query, analysis);
+    const second = await rag.analyzeQueryWithClassifierFallback(query, analysis);
+
+    expect(mock).toHaveBeenCalledTimes(2);
+    expect(first).toBe(analysis);
+    expect(first.queryClass).toBe("unsupported_or_general");
+    expect(second.queryClass).toBe("broad_summary");
+    expect(second.needsClassifierFallback).toBe(false);
+  });
+
+  it("still memoizes a rejected verdict outside the soft-tail bucket (existing determinism guarantee)", async () => {
+    const mock = vi.fn(async () => classifierResponse({ confidence: 0.3 }));
+    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+
+    const first = await rag.analyzeQueryWithClassifierFallback(query, analysis);
+    const second = await rag.analyzeQueryWithClassifierFallback(query, analysis);
+
+    expect(mock).toHaveBeenCalledTimes(1);
+    expect(first).toBe(analysis);
+    expect(second).toBe(analysis);
+  });
+
   it("sends only supported structural constraints to Structured Outputs", async () => {
     const mock = vi.fn(async () => classifierResponse());
     const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);

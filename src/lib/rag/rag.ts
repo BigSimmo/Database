@@ -1152,7 +1152,21 @@ export async function analyzeQueryWithClassifierFallback(
 
   try {
     const verdict = await awaitWithCallerSignal(pending, opts?.signal);
-    storeClassifierVerdictMemo(memoKey, verdict);
+    // Finding #11 follow-up: a rejected verdict (still unsupported_or_general / confidence <
+    // 0.58) is normally memoized for the full 15-minute TTL alongside accepted ones, so the
+    // same nondeterministic LLM call never gets a second chance within a session — Codex review
+    // on PR #1646 identified this as the dominant stickiness behind the "catatonia" false
+    // negative, longer-lived than the 60s search-cache TTL. For the soft-tail bucket
+    // specifically (the same fragile, low-confidence, no-deterministic-exclusion-match case the
+    // unsupported short-circuit treats specially — see isUnsupportedSoftTailAnalysis), a
+    // rejected verdict is not memoized, so a repeat query gets a fresh classifier attempt
+    // instead of reproducing the same rejection for the rest of the TTL window. Accepted
+    // verdicts, and rejected verdicts for every other query shape, keep the original
+    // determinism guarantee.
+    const rejected = verdict.confidence < 0.58 || verdict.queryClass === "unsupported_or_general";
+    if (!(rejected && isUnsupportedSoftTailAnalysis(query, analysis))) {
+      storeClassifierVerdictMemo(memoKey, verdict);
+    }
     return applyClassifierVerdict(analysis, verdict);
   } catch (error) {
     if (
