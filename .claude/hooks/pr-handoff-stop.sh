@@ -80,6 +80,12 @@ else
 fi
 
 [ -z "$session_id" ] && session_id="unknown-session"
+# Reject path-injection / odd session ids before they become a marker filename.
+# Claude session ids are alphanumeric with dashes/underscores; anything else
+# collapses to the safe unknown-session fallback.
+if ! printf '%s' "$session_id" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+  session_id="unknown-session"
+fi
 
 # --- marker location ----------------------------------------------------------
 # Absolute git dir so the marker path is valid from any cwd (and for linked
@@ -89,11 +95,18 @@ git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
 marker="$git_dir/claude-pr-handoff-$session_id"
 
 # Drop handoff markers older than a day so the git dir does not accumulate them
-# across sessions. Only touches our own claude-pr-handoff-* files.
+# across sessions. Only touches our own claude-pr-handoff-* files. Never prune
+# the current session's marker — retention is from last activity (refreshed in
+# pre-mode), not from creation, so a long-lived cloud session keeps enforcement.
 prune_stale_markers() {
   local dir="$1"
+  local keep_name="$2"
   [ -d "$dir" ] || return 0
-  find "$dir" -maxdepth 1 -type f -name 'claude-pr-handoff-*' -mtime +1 -delete 2>/dev/null || true
+  if [ -n "$keep_name" ]; then
+    find "$dir" -maxdepth 1 -type f -name 'claude-pr-handoff-*' ! -name "$keep_name" -mtime +1 -delete 2>/dev/null || true
+  else
+    find "$dir" -maxdepth 1 -type f -name 'claude-pr-handoff-*' -mtime +1 -delete 2>/dev/null || true
+  fi
 }
 
 json_escape() {
@@ -121,7 +134,7 @@ matches_pr_write_tool() {
 
 case "$mode" in
 post)
-  prune_stale_markers "$git_dir"
+  prune_stale_markers "$git_dir" "claude-pr-handoff-$session_id"
 
   # A PR-creating call that actually returned a PR URL. Both halves matter:
   # without the URL check a failed create would end the session with no PR to
@@ -130,7 +143,9 @@ post)
   if is_shell_tool && printf '%s' "$command_text" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create'; then
     created=0
   fi
-  if printf '%s' "$tool_name" | grep -Eqi 'create_?pull_?request'; then
+  # End-anchor required: create_pull_request_review / _review_comment must NOT
+  # count as opening a PR (pre-mode already uses the same anchored shape).
+  if printf '%s' "$tool_name" | grep -Eqi 'create_?pull_?request$'; then
     created=0
   fi
   [ "$created" -eq 0 ] || exit 0
@@ -148,6 +163,8 @@ post)
 
 pre)
   [ -f "$marker" ] || exit 0
+  # Refresh mtime so prune retention tracks last activity, not creation time.
+  touch "$marker" 2>/dev/null || true
   matches_pr_write_tool && exit 0
 
   reason=""
