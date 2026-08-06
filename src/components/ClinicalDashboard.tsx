@@ -3652,14 +3652,21 @@ export function ClinicalDashboard({
                         className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
                       />
                       <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                      {/* Invisible tap-sized hit target around a compact visible face (the
+                          sourceCapsuleHit/sourceCapsule pattern). The banner has no vertical
+                          padding, so a bare min-h-tap button filled the whole content box and
+                          sat 1px off the banner border; the face keeps 8px of clearance while
+                          the button itself stays a 48px tap target. */}
                       <button
                         type="button"
                         onClick={stopSearch}
                         data-testid="stop-answer"
-                        className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                        className="group inline-flex min-h-tap shrink-0 items-center justify-center rounded-full outline-none"
                       >
-                        <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
-                        Stop
+                        <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition group-hover:bg-[color:var(--surface-subtle)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none">
+                          <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
+                          Stop
+                        </span>
                       </button>
                     </div>
                   ) : null)}
