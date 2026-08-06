@@ -40,6 +40,14 @@ const cleanLandingPath: Record<AppModeId, string> = {
   factsheets: "/factsheets",
 };
 
+const multiPageModes = new Set<AppModeId>([
+  "differentials",
+  "dsm",
+  "specifiers",
+  "formulation",
+  "therapy-compass",
+]);
+
 describe("mode secondary navigation registry", () => {
   it("covers all 13 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
@@ -52,14 +60,14 @@ describe("mode secondary navigation registry", () => {
     }
   });
 
-  it("suppresses clean landing pages but renders after a submitted mode search", () => {
+  it("suppresses clean landing pages and submitted searches for one-destination modes", () => {
     for (const modeId of appModeIds) {
       expect(
         isModeSecondaryNavigationRoute({ modeId, pathname: cleanLandingPath[modeId], hasSubmittedSearch: false }),
       ).toBe(false);
       expect(
         isModeSecondaryNavigationRoute({ modeId, pathname: cleanLandingPath[modeId], hasSubmittedSearch: true }),
-      ).toBe(true);
+      ).toBe(multiPageModes.has(modeId));
     }
   });
 
@@ -87,7 +95,7 @@ describe("mode secondary navigation registry", () => {
     ).toBe(false);
   });
 
-  it("suppresses /documents/search until a query is submitted", () => {
+  it("never adds a redundant menu to the single-page Documents workflow", () => {
     expect(
       isModeSecondaryNavigationRoute({
         modeId: "documents",
@@ -101,7 +109,7 @@ describe("mode secondary navigation registry", () => {
         pathname: "/documents/search",
         hasSubmittedSearch: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("translates compatible workflow selection state into each destination URL", () => {
