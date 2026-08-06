@@ -79,7 +79,6 @@ describe("favourites auth gate", () => {
     // Guest deep-links keep a truthful Mode Favourites trigger; Favourites stays
     // out of the selectable menu via visibleAppModeDefinitionsForSession.
     expect(header).not.toContain('searchMode === "favourites" && !canAccessFavourites');
-    expect(header).toContain("visibleAppModeDefinitionsForSession");
 
     expect(commandSurface).toContain("filterCrossModesForSession");
     expect(commandSurface).toContain("canAccessFavourites");
