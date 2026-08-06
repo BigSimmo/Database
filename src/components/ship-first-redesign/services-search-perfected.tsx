@@ -134,8 +134,8 @@ function ServiceRow({
             ))}
           </div>
         </div>
-        <span className="text-[color:var(--text-soft)]" aria-hidden>
-          <Bookmark className="h-4 w-4" />
+        <span className="text-[color:var(--text-soft)]">
+          <Bookmark className="h-4 w-4" aria-hidden="true" />
         </span>
       </div>
       <div className="mt-2 flex justify-end">
