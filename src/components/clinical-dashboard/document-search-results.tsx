@@ -800,12 +800,9 @@ function DocumentPagePreview({ document, href }: { document: DocumentMatch; href
   const lineWidths = [74, 88, 63, 79, 56];
   const coverEndpoint = document.coverImageId ? `/api/images/${document.coverImageId}/signed-url` : "";
   const { url: coverUrl, failed: coverFailed } = useSignedImageUrl(coverEndpoint, Boolean(coverEndpoint));
-  const [coverLoaded, setCoverLoaded] = useState(false);
+  const [loadedCoverUrl, setLoadedCoverUrl] = useState<string | null>(null);
   const showCover = Boolean(coverEndpoint && coverUrl && !coverFailed);
-
-  useEffect(() => {
-    setCoverLoaded(false);
-  }, [coverUrl]);
+  const coverLoaded = Boolean(coverUrl && loadedCoverUrl === coverUrl);
 
   return (
     <Link
@@ -821,7 +818,7 @@ function DocumentPagePreview({ document, href }: { document: DocumentMatch; href
           src={coverUrl!}
           alt=""
           aria-hidden="true"
-          onLoad={() => setCoverLoaded(true)}
+          onLoad={() => setLoadedCoverUrl(coverUrl)}
           className={cn(
             "absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-[var(--duration-deliberate)] motion-reduce:transition-none",
             coverLoaded ? "opacity-100" : "opacity-0",

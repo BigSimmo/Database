@@ -63,7 +63,7 @@ print(json.dumps(cover))
       }
       try {
         resolve(JSON.parse(stdout.trim()));
-      } catch (error) {
+      } catch {
         reject(new Error(`invalid cover JSON: ${stdout}\n${stderr}`));
       }
     });
