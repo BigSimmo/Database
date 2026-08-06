@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 
+import { pageContainer } from "@/components/ui-primitives";
+
 import { useTcBindings } from "../bindings";
 import { card, heroCard, outlineControl, therapyBtn } from "../controls";
 import { complexityLabel, parseSteps, summarise } from "../data/select";
@@ -31,7 +33,7 @@ export function DetailScreen() {
   const steps = parseSteps(t.deliverySteps);
 
   return (
-    <section data-screen-label="Detail" className="max-w-[1240px] my-0 mx-auto">
+    <section data-screen-label="Detail" className={pageContainer}>
       <button
         type="button"
         className={`${therapyBtn} flex items-center gap-2 mb-4 py-1.5 px-1 border-0 bg-transparent text-[color:var(--clinical-accent)] text-sm font-semibold cursor-pointer`}

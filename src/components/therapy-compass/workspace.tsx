@@ -4,14 +4,15 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { cn, pageContainer } from "@/components/ui-primitives";
 
 import { TcProvider, useTcBindings } from "./bindings";
 import { accentControl, therapyBtn } from "./controls";
-import { TherapyCompassNav, TherapyModeNav } from "./nav";
+import { TherapyModeNav } from "./nav";
 
 function TherapyCompassFooter() {
   return (
-    <div data-therapy-no-print className="mx-auto mt-[30px] max-w-[1240px] border-t border-[color:var(--border)] pt-5">
+    <div data-therapy-no-print className={cn(pageContainer, "mt-[30px] border-t border-[color:var(--border)] pt-5")}>
       <ModeHomeVerificationFooter label="Decision support" body="Source-grounded — review status before clinical use" />
     </div>
   );
@@ -60,29 +61,15 @@ function TherapyCompassMain({
   const useMainLandmark = asMain || homeNeedsMainLandmark;
   const Tag = useMainLandmark ? "main" : "div";
   return (
-    <Tag className={useMainLandmark ? "min-w-0 px-4 pt-5 pb-8 sm:px-10 sm:pt-8 sm:pb-10" : "min-w-0"}>
+    // Horizontal padding matches `--header-edge-pad` (1rem, 1.5rem from lg) so
+    // the body's content edge lands on the same column as the header row and
+    // the mode nav's first tab. The cap itself lives on the `<section>` inside,
+    // reproducing the header's padding-outside-max-width geometry.
+    <Tag className={useMainLandmark ? "min-w-0 px-4 pt-5 pb-8 sm:pt-8 sm:pb-10 lg:px-6" : "min-w-0"}>
       {b.error ? <TherapyCompassDataError /> : children}
       {showFooter ? <TherapyCompassFooter /> : null}
     </Tag>
   );
-}
-
-/**
- * Picks the mode's navigation for the current screen.
- *
- * Search is the first route on the shared `ModeNav`, which pins itself inside
- * the universal header's collapse track and so hides and reveals with it at
- * every width. Every other route keeps the original pill strip until the
- * rollout continues.
- *
- * This reads `isSearch` from bindings rather than comparing the pathname again:
- * `resolveRoute` is the single canonical pathname-to-screen mapping, and
- * `usePathname()` in the workspace below is called outside `TcProvider`, where
- * `useTcBindings` is not available.
- */
-function TherapyNavSlot() {
-  const b = useTcBindings();
-  return b.isSearch ? <TherapyModeNav /> : <TherapyCompassNav />;
 }
 
 /** Shared Therapy workspace chrome for every `/therapy-compass/*` route. */
@@ -96,7 +83,12 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
         data-therapy-root
         className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))]"
       >
-        {isHome ? null : <TherapyNavSlot />}
+        {/* Every route but the mode home carries the shared bar, which pins
+            itself inside the universal header's collapse track and so hides and
+            reveals with it at every width. Home keeps none: `ModeHomeTemplate`
+            already surfaces the same destinations as tiles, which is the
+            convention every mode home follows. */}
+        {isHome ? null : <TherapyModeNav />}
         <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
           {children}
         </TherapyCompassMain>
