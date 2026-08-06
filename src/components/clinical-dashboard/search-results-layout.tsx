@@ -56,7 +56,7 @@ export function SearchResultsLayout({
       data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
       className={cn(searchPageShell, canvasClassName ?? searchPageCanvas, className)}
     >
-      <div className={cn(searchPageContainer, "grid gap-4")}>
+      <div className={cn(searchPageContainer, "grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4")}>
         {header}
         {summary}
         <div className={cn(searchResultsBodyGrid, !hasSidebar && "xl:grid-cols-1")}>

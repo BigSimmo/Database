@@ -572,7 +572,7 @@ export function CalculatorsSearchPage() {
           dockHidden && "max-sm:pb-0",
         )}
         header={
-          <div className="grid gap-3">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
             {/* Desktop: universal-style composer at the top, matching the site-wide
                 search header. Phones get the docked bottom composer below. */}
             <div className="hidden sm:block">
