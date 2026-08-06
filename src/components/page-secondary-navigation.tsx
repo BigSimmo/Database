@@ -1,20 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { isDocumentViewerOwnedRoute } from "@/components/clinical-dashboard/mobile-composer-reserve";
+import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
 import {
   SecondaryNavigation,
-  type SecondaryNavigationItem,
   type SecondaryNavigationSectionItem,
 } from "@/components/secondary-navigation";
-import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
+import type { AppModeId } from "@/lib/app-modes";
 import { isInformationPage } from "@/lib/information-pages";
 import {
   activeModeSecondaryNavigationId,
   isModeSecondaryNavigationRoute,
-  modeSecondaryNavigationEntries,
-  modeSecondaryNavigationHref,
 } from "@/lib/mode-secondary-navigation";
 
 export type InformationPageSectionDefinition = {
@@ -152,15 +150,19 @@ export function informationPageSectionDefinitions(pathname: string): readonly In
   if (
     pathname.startsWith("/specifiers/") &&
     !["/specifiers/builder", "/specifiers/compare", "/specifiers/map"].includes(pathname)
-  )
+  ) {
     return specifierSections;
+  }
   if (
     pathname.startsWith("/formulation/") &&
     !["/formulation/builder", "/formulation/compare", "/formulation/map"].includes(pathname)
-  )
+  ) {
     return formulationSections;
+  }
   if (pathname.startsWith("/differentials/presentations/")) return differentialPresentationSections;
-  if (pathname.endsWith("/differentials") && pathname.startsWith("/dsm/diagnoses/")) return dsmDifferentialSections;
+  if (pathname.endsWith("/differentials") && pathname.startsWith("/dsm/diagnoses/")) {
+    return dsmDifferentialSections;
+  }
   if (pathname.startsWith("/dsm/diagnoses/")) return dsmDiagnosisSections;
   if (pathname.startsWith("/documents/") && pathname !== "/documents/search") return documentSections;
   return [];
@@ -248,7 +250,6 @@ export function PageSecondaryNavigation({
   modeId,
   pathname,
   hasSubmittedSearch,
-  onSearch,
   /**
    * Bridged query string from GlobalStandaloneSearchShellBody. Must not call
    * useSearchParams here — that reintroduces a nested Suspense boundary under
@@ -256,7 +257,6 @@ export function PageSecondaryNavigation({
    */
   searchParamString = "",
   sticky = true,
-  stickyTop,
 }: {
   modeId: AppModeId;
   pathname: string;
@@ -269,36 +269,6 @@ export function PageSecondaryNavigation({
   const informationDefinitions = informationPageSectionDefinitions(pathname);
   const locallyOwnedInformationNavigation = hasLocalInformationPageNavigation(pathname);
   const activeId = activeModeSecondaryNavigationId(modeId, pathname);
-  const modeLabel = appModeDefinition(modeId).label;
-  const modeAriaLabel = modeLabel.toLowerCase().endsWith("mode") ? modeLabel : `${modeLabel} mode`;
-  const modeItems = useMemo<SecondaryNavigationItem[]>(
-    () =>
-      modeSecondaryNavigationEntries(modeId).map((entry) =>
-        entry.href
-          ? {
-              kind: "route" as const,
-              id: entry.id,
-              label: entry.label,
-              shortLabel: entry.shortLabel,
-              href: modeSecondaryNavigationHref({
-                modeId,
-                itemId: entry.id,
-                href: entry.href,
-                currentSearchParams: new URLSearchParams(searchParamString),
-              }),
-              current: entry.id === activeId,
-            }
-          : {
-              kind: "action" as const,
-              id: entry.id,
-              label: entry.label,
-              shortLabel: entry.shortLabel,
-              onSelect: onSearch,
-              current: entry.id === activeId,
-            },
-      ),
-    [activeId, modeId, onSearch, searchParamString],
-  );
 
   // Therapy Compass owns both its workflow bindings and its dynamic detail
   // sections inside TcProvider; rendering the shell registry as well would
@@ -309,13 +279,5 @@ export function PageSecondaryNavigation({
     return <AvailableInformationPageNavigation definitions={informationDefinitions} sticky={sticky} />;
   }
   if (!isModeSecondaryNavigationRoute({ modeId, pathname, hasSubmittedSearch })) return null;
-  return (
-    <SecondaryNavigation
-      ariaLabel={modeAriaLabel}
-      items={modeItems}
-      activeId={activeId}
-      sticky={sticky}
-      stickyTop={stickyTop}
-    />
-  );
+  return <RegistryModeNav modeId={modeId} activeId={activeId} searchParamString={searchParamString} />;
 }
