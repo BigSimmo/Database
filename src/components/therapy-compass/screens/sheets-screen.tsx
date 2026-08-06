@@ -2,6 +2,8 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 
+import { pageContainer } from "@/components/ui-primitives";
+
 import { useTcBindings } from "../bindings";
 import { parseSteps, searchTherapies } from "../data/select";
 import { ChevronDownIcon, PrinterIcon, ScaleIcon, SearchIcon } from "../icons";
@@ -25,7 +27,7 @@ export function SheetsScreen() {
   const sheetTitle = t.name.replace(/\s*\([^)]*\)\s*$/, "");
 
   return (
-    <section data-screen-label="Patient sheet" className="max-w-[1240px] my-0 mx-auto">
+    <section data-screen-label="Patient sheet" className={pageContainer}>
       <div data-therapy-no-print className="flex items-start justify-between gap-5 mb-5 flex-wrap">
         <div>
           <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
