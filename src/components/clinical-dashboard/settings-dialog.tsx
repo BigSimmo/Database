@@ -86,6 +86,16 @@ const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string;
 // geometry reads.
 const settingsRailMediaQuery = "(min-width: 1024px)";
 
+// Scroll offsets are fractional on hidpi displays, so "the same position" needs
+// a pixel or two of slack.
+const scrollSettleTolerance = 2;
+
+/**
+ * A section chosen from the rail, held while the scroll travels to it and until
+ * the reader scrolls somewhere else themselves.
+ */
+type PinnedSection = { id: SettingsSectionId; offset: number; distance: number; settled: boolean };
+
 function sectionDomId(id: SettingsSectionId) {
   return `settings-section-${id}`;
 }
@@ -127,7 +137,7 @@ export function SettingsDialog({
   // subtract it.
   const headerRef = useRef<HTMLElement | null>(null);
   // Section chosen from the rail, held until the reader scrolls for themselves.
-  const pinnedSectionRef = useRef<SettingsSectionId | null>(null);
+  const pinnedSectionRef = useRef<PinnedSection | null>(null);
   const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
 
   const { theme, preference: themePreference, setPreference: setThemePreference } = useTheme();
@@ -162,6 +172,11 @@ export function SettingsDialog({
     setPrevOpen(open);
     if (open) {
       setActiveSection("account");
+      // The Sheet unmounts its children while closed, so the scroll port comes
+      // back at offset 0 — but this component stays mounted, so a pin left over
+      // from the last visit would survive and hold the spy inert on the fresh
+      // surface.
+      pinnedSectionRef.current = null;
       setPrivacyNotice(null);
       setDataCounts(readDataCounts());
       setEmailEntryOpen(false);
@@ -192,16 +207,11 @@ export function SettingsDialog({
    * rail highlighting the one above it.
    */
   const syncActiveSection = useCallback((container: HTMLDivElement) => {
-    // A rail click pins its own selection. The last sections are shorter than
-    // the scroll port, so they physically cannot be scrolled to the marker line
-    // — geometry alone would answer a click on "Shortcuts" by highlighting
-    // whichever neighbour happens to sit at the top of the runway's end.
-    if (pinnedSectionRef.current) return;
     if (typeof window !== "undefined" && !window.matchMedia(settingsRailMediaQuery).matches) return;
     const maxOffset = container.scrollHeight - container.clientHeight;
     // The final section is shorter than the scroll port, so its heading can
     // never reach the marker line. The end of the runway belongs to it.
-    if (maxOffset > 0 && maxOffset - container.scrollTop <= 2) {
+    if (maxOffset > 0 && maxOffset - container.scrollTop <= scrollSettleTolerance) {
       setActiveSection(SETTINGS_SECTIONS[SETTINGS_SECTIONS.length - 1].id);
       return;
     }
@@ -228,7 +238,7 @@ export function SettingsDialog({
   const scrollToSection = useCallback(
     (id: SettingsSectionId) => {
       setActiveSection(id);
-      pinnedSectionRef.current = id;
+      pinnedSectionRef.current = null;
       const container = scrollRef.current;
       const target = container?.querySelector<HTMLElement>(`[data-settings-section="${id}"]`);
       if (!container || !target) return;
@@ -238,27 +248,62 @@ export function SettingsDialog({
       const headerOffset = headerRef.current?.offsetHeight ?? 0;
       const top =
         container.scrollTop + target.getBoundingClientRect().top - container.getBoundingClientRect().top - headerOffset;
+      // Clamp to what the port can actually reach. The last sections are shorter
+      // than the port, so their ideal offset lies past the end of the runway —
+      // an unclamped target is one the scroll can never arrive at, and the pin
+      // below would wait for that arrival forever.
+      const maxOffset = Math.max(0, container.scrollHeight - container.clientHeight);
+      const offset = Math.min(Math.max(0, top), maxOffset);
+      const distance = Math.abs(container.scrollTop - offset);
+      pinnedSectionRef.current = { id, offset, distance, settled: distance <= scrollSettleTolerance };
       // `behavior: "auto"` defers to the container's `scroll-smooth`, which is
       // exactly what reduced motion must not do — ask for "instant" explicitly.
-      container.scrollTo({ top: Math.max(0, top), behavior: prefersReducedMotion ? "instant" : "smooth" });
+      container.scrollTo({ top: offset, behavior: prefersReducedMotion ? "instant" : "smooth" });
     },
     [preferences.motion],
   );
+
+  /**
+   * Decide whether a scroll belongs to the reader or to a rail click still in
+   * flight, and return whether the spy may act on it.
+   *
+   * Driven by scroll position, never by which input event arrived. Releasing on
+   * `wheel`/`touchmove`/`keydown` alone missed the one interaction this dialog
+   * just regained — dragging the native scrollbar emits `scroll` and nothing
+   * else — which left the rail highlighting the clicked section while the reader
+   * was somewhere else entirely.
+   */
+  const admitScrollToSpy = useCallback((container: HTMLDivElement) => {
+    const pin = pinnedSectionRef.current;
+    if (!pin) return true;
+    const distance = Math.abs(container.scrollTop - pin.offset);
+    if (distance <= scrollSettleTolerance) {
+      // Arrived. Hold the highlight here: a section shorter than the port cannot
+      // reach the marker line, so geometry would answer a click on "Shortcuts"
+      // with whichever neighbour sits at the top of the runway's end.
+      pin.settled = true;
+      pin.distance = distance;
+      return false;
+    }
+    if (!pin.settled && distance < pin.distance) {
+      // Still closing the gap, so this is the click's own scroll animation.
+      pin.distance = distance;
+      return false;
+    }
+    // Either the reader scrolled after it settled, or they took the scroll over
+    // mid-flight and the gap stopped shrinking. The choice is theirs now.
+    pinnedSectionRef.current = null;
+    return true;
+  }, []);
 
   const handleScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
       const el = event.currentTarget;
       reportScroll({ offset: el.scrollTop, maxOffset: el.scrollHeight - el.clientHeight, source: el });
-      syncActiveSection(el);
+      if (admitScrollToSpy(el)) syncActiveSection(el);
     },
-    [reportScroll, syncActiveSection],
+    [admitScrollToSpy, reportScroll, syncActiveSection],
   );
-
-  // Any scroll the reader drives themselves releases the rail's pinned choice,
-  // so the highlight tracks reading again from the next scroll event onwards.
-  const releaseSectionPin = useCallback(() => {
-    pinnedSectionRef.current = null;
-  }, []);
 
   async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -370,9 +415,6 @@ export function SettingsDialog({
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          onWheel={releaseSectionPin}
-          onTouchMove={releaseSectionPin}
-          onKeyDown={releaseSectionPin}
           className="relative min-h-0 w-full overflow-y-auto scroll-smooth bg-[color:var(--background)] polished-scroll lg:bg-transparent lg:px-7"
         >
           {/* Edge-to-edge glass header: full-bleed scrim covers the notch/status-bar

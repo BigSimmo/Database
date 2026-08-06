@@ -1414,8 +1414,46 @@ test.describe("Clinical KB UI smoke coverage", () => {
       expect((await scrollState()).panelClipped).toBe(false);
     }
 
+    // A rail click holds its own highlight — the last sections are shorter than
+    // the scroll port and can never reach the marker line — but only until the
+    // reader scrolls somewhere else. Dragging the native scrollbar moves
+    // `scrollTop` and emits `scroll` alone, with no wheel/touch/key event, so
+    // assign `scrollTop` directly to reproduce exactly that interaction.
+    await settings.getByRole("button", { name: "Help & About", exact: true }).click();
+    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await settings
+      .locator("[data-settings-section]")
+      .first()
+      .evaluate((section) => {
+        const port = section.closest<HTMLElement>("[class*='overflow-y-auto']");
+        if (port) port.scrollTop = 0;
+      });
+    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+
     await close.click();
     await expect(settings).toBeHidden();
+
+    // The pin must not outlive the dialog: the Sheet unmounts its children, but
+    // the component stays mounted, so a stale pin would hold the spy inert.
+    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(settings).toBeVisible();
+    await settings
+      .locator("[data-settings-section]")
+      .first()
+      .evaluate((section) => {
+        const port = section.closest<HTMLElement>("[class*='overflow-y-auto']");
+        if (port) port.scrollTop = port.scrollHeight;
+      });
+    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
   });
 
   test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
