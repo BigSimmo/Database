@@ -227,15 +227,42 @@ describe("ModeNav overflow slot", () => {
     // name below may and does carry the folded page's label.
     const slotInk = moreSlot.match(/<SlotInk[^/]*\/>/)?.[0] ?? "";
     expect(slotInk).toContain('label="More"');
+    expect(slotInk).toContain('state="off"');
     expect(slotInk).not.toContain("active");
     expect(slotInk).not.toContain("icon");
-    // The rule is the whole visible signal, and it costs no width.
-    expect(slotInk).toContain('state={moreHoldsActive ? "on" : "off"}');
   });
 
-  it("still names the folded page to assistive technology", () => {
-    // Visible "More" stays a prefix of the accessible name (WCAG 2.5.3).
-    expect(moreSlot).toContain("`More — ${active.label}`");
+  it("lets CSS decide whether More is carrying the current page", () => {
+    // The component knows which band would reveal the item; only the container
+    // query knows the band. Deciding in the component alone can only ask "does
+    // this item have a band at all", which is silent for every page whose band
+    // the current width has not reached — five of Therapy's seven on a phone.
+    expect(modeNavSource).toContain("data-active-from={activeFrom}");
+    expect(modeNavSource).toContain('activeBand ?? "none"');
+    expect(modeNavSource).not.toContain("moreHoldsActive");
+
+    // Off by default; on only while the page has no visible slot of its own.
+    expect(modeNavCss).toMatch(/\.mode-nav__more\[data-active-from\]\s*\.mode-nav__rule/);
+    for (const band of ["3", "4", "5"]) {
+      expect(modeNavCss).toContain(`.mode-nav__more[data-active-from="${band}"] .mode-nav__rule`);
+    }
+    // Band 4 turns off at 33rem and band 5 at 42rem — the same widths that
+    // reveal those slots — so nothing is ever marked twice.
+    const at33 = modeNavCss.slice(modeNavCss.indexOf("@container mode-nav (min-width: 33rem)"));
+    expect(at33).toContain('.mode-nav__more[data-active-from="4"] .mode-nav__rule');
+    const at42 = modeNavCss.slice(modeNavCss.indexOf("@container mode-nav (min-width: 42rem)"));
+    expect(at42).toContain('.mode-nav__more[data-active-from="5"] .mode-nav__rule');
+  });
+
+  it("names the carried page to assistive technology at exactly those widths", () => {
+    // Composed into the accessible name, not an aria-label, so `display: none`
+    // can take it out of the accessibility tree per band. Visible "More" stays
+    // the name's prefix (WCAG 2.5.3).
+    expect(moreSlot).toContain('className="mode-nav__more-name sr-only"');
+    expect(moreSlot).toContain(", current page: {active.label}");
+    expect(moreSlot).not.toMatch(/aria-label=/);
+    expect(modeNavCss).toMatch(/\.mode-nav__more-name\s*\{\s*display:\s*none/);
+    expect(modeNavCss).toContain(".mode-nav__more[data-active-from] .mode-nav__more-name");
   });
 });
 

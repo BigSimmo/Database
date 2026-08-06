@@ -2528,6 +2528,48 @@ td,
   display: none;
 }
 
+/* Which page you are on, when its own slot is not on screen.
+   ------------------------------------------------------------------------
+   `data-active-from` is the band at which the current page's slot appears, or
+   `none` when it never gets one. Until the container reaches that band the
+   page has no visible tab, so More carries its rule and its off-screen name;
+   at and above it, the page's own `aria-current` tab does, and these turn off
+   so nothing is marked or announced twice.
+
+   This has to be CSS. The component knows which band would reveal the item and
+   nothing else; the container query knows the band and nothing else. Deciding
+   in the component alone can only ask "does this item have a band at all",
+   which is silent for every page whose band the current width has not reached
+   — five of Therapy's seven pages on a phone. */
+.mode-nav__more-name {
+  display: none;
+}
+
+.mode-nav__more[data-active-from] .mode-nav__more-name {
+  display: inline;
+}
+
+.mode-nav__more[data-active-from] .mode-nav__ink {
+  color: var(--text-heading);
+}
+
+.mode-nav__more[data-active-from] .mode-nav__rule {
+  background-color: var(--clinical-accent);
+}
+
+/* Band 3 is every band, so a page that appears there is never carried here. */
+.mode-nav__more[data-active-from="3"] .mode-nav__more-name {
+  display: none;
+}
+
+.mode-nav__more[data-active-from="3"] .mode-nav__ink {
+  color: var(--text-muted);
+}
+
+.mode-nav__more[data-active-from="3"] .mode-nav__rule {
+  background-color: transparent;
+}
+
 @container mode-nav (min-width: 22rem) {
   .mode-nav__control {
     display: none;
@@ -2551,6 +2593,19 @@ td,
   .mode-nav__slot[data-until="3"] {
     display: none;
   }
+
+  /* The page's own slot is on screen from here, so it owns the mark. */
+  .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
 }
 
 @container mode-nav (min-width: 42rem) {
@@ -2560,6 +2615,18 @@ td,
 
   .mode-nav__slot[data-until="4"] {
     display: none;
+  }
+
+  .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav__more[data-active-from="5"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav__more[data-active-from="5"] .mode-nav__rule {
+    background-color: transparent;
   }
 }
 

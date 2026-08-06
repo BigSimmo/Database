@@ -50,7 +50,7 @@ function SlotInk({
       className={cn(
         // One weight in every state. Bolding the active label changes its width,
         // which shifts the rule and every neighbour on each navigation.
-        "relative flex h-5 min-w-0 items-center gap-2 text-sm-minus font-semibold tracking-[-0.008em]",
+        "mode-nav__ink relative flex h-5 min-w-0 items-center gap-2 text-sm-minus font-semibold tracking-[-0.008em]",
         // The 2px rule takes space at the bottom of the bar, so a centred label
         // sits optically high without this compensating offset.
         "mt-0.5",
@@ -93,7 +93,7 @@ function SlotInk({
       <span
         aria-hidden="true"
         className={cn(
-          "absolute inset-x-0 -bottom-[0.8125rem] rounded-t-[2px]",
+          "mode-nav__rule absolute inset-x-0 -bottom-[0.8125rem] rounded-t-[2px]",
           state === "on"
             ? "h-0.5 bg-[color:var(--clinical-accent)]"
             : state === "trail"
@@ -154,27 +154,31 @@ export function ModeNav({
   const active = activeId ? items.find((item) => item.id === activeId) : derived;
   const activeIndex = active ? items.indexOf(active) : -1;
 
-  // True when the current page has no slot of its own at any band — it lives
-  // permanently in the overflow. More then takes the active RULE, and only the
-  // rule: it keeps the literal word "More" and its exact width.
+  // The band at which the current page gets a slot of its own, or "none" when
+  // it never does. Published as an attribute because deciding whether More
+  // should carry the page's rule needs BOTH halves of the answer and neither
+  // layer has both: the component knows which band would reveal the item, and
+  // only CSS knows which band the container is actually in. A JS-only test can
+  // ask "does this item have a band at all", which is what the old flag did —
+  // and that is silent for every item that has a band the current width has
+  // not reached. With Therapy's seven destinations that was five of seven
+  // pages showing nothing active on a phone.
   //
-  // Borrowing the folded item's label instead is what the budget cannot pay
-  // for. The thresholds in globals.css are the measured sum of the slots'
-  // intrinsic widths, so at the 22rem band Search + Compare + the bar's padding
-  // leave the More slot ~107px, of which its own box, icon, gap and chevron
-  // take ~71px — a ~36px label allowance, three characters after the CI
-  // font-metric headroom. "Brief Intervention" wants ~213px. Shortening labels
-  // does not rescue it either; the icon alone is most of the slack. Widening
-  // the thresholds would cost every mode a band.
+  // More carries the RULE and an off-screen name, never the label. The
+  // thresholds in globals.css are the measured sum of the slots' intrinsic
+  // widths, so at the 22rem band Search + Compare + the bar's padding leave the
+  // More slot ~107px, of which its own box, icon, gap and chevron take ~71px —
+  // a ~36px label allowance, three characters after the CI font-metric
+  // headroom. "Brief Intervention" wants ~213px. Shortening labels does not
+  // rescue it either; the icon alone is most of the slack. Widening the
+  // thresholds would cost every mode a band.
   //
   // `ModeNavItem.label`'s never-abbreviated contract is intact: the label is
-  // not shortened, it is declined. The rule plus the chevron say "the page you
+  // not shortened, it is declined. The rule and the chevron say "the page you
   // are on is in here", the sheet marks the row `aria-current`, and the
-  // collapsed control below 22rem still names the page in full — the one state
-  // with room for it. The accessible name on the button below carries the name
-  // at every width, at no layout cost.
+  // collapsed control below 22rem names the page in full.
   const activeBand = activeIndex >= 0 ? plan.firstVisibleBand.get(activeIndex) : undefined;
-  const moreHoldsActive = plan.moreUntil !== null && activeBand === undefined && activeIndex >= 0;
+  const activeFrom = plan.moreUntil !== null && activeIndex >= 0 ? (activeBand ?? "none") : undefined;
 
   const bar = (
     // The rule spans the viewport while the slots sit on the same centred
@@ -246,18 +250,28 @@ export function ModeNav({
             );
           })}
           {plan.moreUntil !== null ? (
-            <li data-until={plan.moreUntil} className={cn(slotBase, "flex")}>
+            <li
+              data-until={plan.moreUntil}
+              data-active-from={activeFrom}
+              className={cn(slotBase, "mode-nav__more", "flex")}
+            >
               <button
                 type="button"
                 onClick={openSheet}
                 aria-haspopup="dialog"
                 aria-expanded={open}
-                // The visible word stays a prefix of the accessible name (WCAG
-                // 2.5.3), so speech input still reaches it by saying "More".
-                aria-label={moreHoldsActive && active ? `More — ${active.label}` : undefined}
                 className={cn("flex h-full w-full items-center justify-center rounded-lg", focusRing)}
               >
-                <SlotInk label="More" state={moreHoldsActive ? "on" : "off"} trailing />
+                <SlotInk label="More" state="off" trailing />
+                {/* Composed into the accessible name rather than set as an
+                    `aria-label`, because whether it applies depends on the
+                    container band and only CSS can answer that. `display: none`
+                    takes it out of the accessibility tree at the widths where
+                    the page has its own visible `aria-current` tab, so it is
+                    never announced twice. The visible word stays the name's
+                    prefix (WCAG 2.5.3), so speech input still reaches it by
+                    saying "More". */}
+                {active ? <span className="mode-nav__more-name sr-only">, current page: {active.label}</span> : null}
               </button>
             </li>
           ) : null}

@@ -142,10 +142,64 @@ test.describe("ModeNav density", () => {
       expectNoClippedLabels(nav, `${width}px on a folded destination`);
       // The last slot is the overflow control, and its word does not change
       // with the route. Borrowing "Brief Intervention" here is what the band
-      // budget cannot pay for; the rule and the accessible name carry the
+      // budget cannot pay for; the rule and the off-screen name carry the
       // signal instead, and neither has a width.
       expect(nav.labels.at(-1)?.text).toBe("More");
       expect(nav.labels.map((label) => label.text)).not.toContain("Brief Intervention");
+    });
+  }
+
+  /**
+   * Every Therapy destination, at every band, must say where you are.
+   *
+   * `search`/`compare` always have their own slot, `recommend` appears at 33rem
+   * and `pathways` at 42rem, and `brief` never does — so the mark moves between
+   * the page's own tab and the More slot as the container narrows. A component
+   * that decides this alone can only see "has a band at all", which leaves five
+   * of the seven pages showing nothing on a phone. Exactly one of the two must
+   * be marked at any width: never zero, never both.
+   */
+  for (const width of [BAND_3_PX, BAND_4_PX, BAND_5_PX]) {
+    test(`marks the current page exactly once at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+
+      for (const [route, label] of [
+        ["/therapy-compass/search?q=CBT&run=1", "Search"],
+        ["/therapy-compass/compare", "Compare"],
+        ["/therapy-compass/recommend", "Recommend"],
+        ["/therapy-compass/pathways", "Pathways"],
+        [FOLDED_ACTIVE_ROUTE, "Brief Intervention"],
+      ] as const) {
+        await gotoTherapy(page, route);
+        await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
+
+        const marked = await page.evaluate((selector) => {
+          const accent = getComputedStyle(document.documentElement).getPropertyValue("--clinical-accent").trim();
+          const onScreen = (node: Element) => {
+            const slot = node.closest("li");
+            return Boolean(slot) && getComputedStyle(slot!).display !== "none";
+          };
+          const painted = (node: Element) => {
+            const value = getComputedStyle(node).backgroundColor;
+            return value !== "rgba(0, 0, 0, 0)" && value !== "transparent";
+          };
+          const bar = document.querySelector(`${selector} .mode-nav__bar`);
+          const rules = [...(bar?.querySelectorAll(".mode-nav__rule") ?? [])].filter(
+            (rule) => onScreen(rule) && painted(rule),
+          );
+          const names = [...(bar?.querySelectorAll(".mode-nav__more-name") ?? [])].filter(
+            (name) => getComputedStyle(name).display !== "none",
+          );
+          return { accent, rules: rules.length, names: names.map((name) => name.textContent ?? "") };
+        }, anchoredNav);
+
+        expect(marked.rules, `${route} at ${width}px: painted rules`).toBe(1);
+        // And the announced name agrees: present only while More is carrying it.
+        expect(marked.names.length, `${route} at ${width}px: announced names`).toBeLessThanOrEqual(1);
+        if (marked.names.length === 1) {
+          expect(marked.names[0], `${route} at ${width}px`).toBe(`, current page: ${label}`);
+        }
+      }
     });
   }
 

@@ -108,16 +108,20 @@ function moreSlotButton() {
   return button!;
 }
 
+const moreSlot = () => window.document.querySelector<HTMLElement>(".mode-nav__bar li.mode-nav__more");
+
 describe("ModeNav — active page held in the overflow", () => {
   it("keeps More's visible word while carrying the folded page's rule and name", () => {
     render(<ModeNav items={sevenItems} label="Therapy pages" activeId="brief" />);
 
     const more = moreSlotButton();
-    // The word is what has a width, and at the 22rem band the slot cannot pay
-    // for "Brief Intervention". The accessible name is free, so it carries the
-    // page — with "More" as its prefix, per WCAG 2.5.3.
-    expect(more.textContent).toBe("More");
-    expect(more.getAttribute("aria-label")).toBe("More — Brief Intervention");
+    // The visible word is what has a width, and at the 22rem band the slot
+    // cannot pay for "Brief Intervention". The off-screen name is free, and
+    // "More" stays its prefix per WCAG 2.5.3. `none` means the page never gets
+    // a slot at any band, so CSS keeps both the rule and the name on.
+    expect(more.querySelector("span.truncate")?.textContent).toBe("More");
+    expect(more.querySelector(".mode-nav__more-name")?.textContent).toBe(", current page: Brief Intervention");
+    expect(moreSlot()?.getAttribute("data-active-from")).toBe("none");
 
     // No *rendered* slot claims to be the current page. The folded item still
     // carries `aria-current` on its own link, but that slot has no band and is
@@ -138,18 +142,31 @@ describe("ModeNav — active page held in the overflow", () => {
     // mode base every route starts with — would claim every record page.
     render(<ModeNav items={sevenItems} label="Therapy pages" activeId="detail" />);
 
-    const more = moreSlotButton();
-    expect(more.textContent).toBe("More");
-    expect(more.getAttribute("aria-label")).toBeNull();
+    expect(moreSlotButton().textContent).toBe("More");
+    expect(moreSlot()?.hasAttribute("data-active-from")).toBe(false);
+    expect(window.document.querySelector(".mode-nav__more-name")).toBeNull();
     expect(window.document.querySelector('[aria-current="page"]')).toBeNull();
     expect(window.document.querySelector(".mode-nav__control button")?.textContent).toContain("Therapy pages");
   });
 
-  it("marks the active tab when the page does have a slot", () => {
-    render(<ModeNav items={sevenItems} label="Therapy pages" activeId="compare" />);
-
-    expect(moreSlotButton().getAttribute("aria-label")).toBeNull();
-    const current = window.document.querySelector('.mode-nav__bar a[aria-current="page"]');
-    expect(current?.getAttribute("href")).toBe("/therapy-compass/compare");
+  it("publishes the band that reveals the current page, so CSS can decide", () => {
+    // Only the container query knows the width. The component's job is to say
+    // which band would show the page its own tab; `3` means every band, so More
+    // never carries it, and `5` means only the widest.
+    for (const [activeId, band, href] of [
+      ["compare", "3", "/therapy-compass/compare"],
+      ["recommend", "4", "/therapy-compass/recommend"],
+      ["pathways", "5", "/therapy-compass/pathways"],
+    ] as const) {
+      const { unmount } = render(<ModeNav items={sevenItems} label="Therapy pages" activeId={activeId} />);
+      expect(moreSlot()?.getAttribute("data-active-from"), activeId).toBe(band);
+      // The page's own slot always carries `aria-current`; CSS decides which of
+      // the two is on screen at a given width.
+      expect(
+        window.document.querySelector(`.mode-nav__bar a[aria-current="page"]`)?.getAttribute("href"),
+        activeId,
+      ).toBe(href);
+      unmount();
+    }
   });
 });
