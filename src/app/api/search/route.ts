@@ -897,6 +897,7 @@ async function buildScopedSearchPayload(
       weak_source_count: relevance.weakSourceCount,
       retrieval_strategy: search.telemetry.retrieval_strategy,
       retrieval_plan: search.telemetry.retrieval_plan,
+      corpus_grounding: search.telemetry.corpus_grounding,
       smart_api_intent: smartApiPlan.intent,
       smart_api_response_mode: smartApiPlan.responseMode,
       smart_api_display_mode: smartApiPlan.displayMode,
