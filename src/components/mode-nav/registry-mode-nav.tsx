@@ -4,10 +4,7 @@ import { FileText, GitCompareArrows, ListChecks, Network, Search, type LucideIco
 
 import { ModeNav, type ModeNavItem } from "@/components/mode-nav/mode-nav";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
-import {
-  modeSecondaryNavigationEntries,
-  modeSecondaryNavigationHref,
-} from "@/lib/mode-secondary-navigation";
+import { modeSecondaryNavigationEntries, modeSecondaryNavigationHref } from "@/lib/mode-secondary-navigation";
 
 const iconByItemId: Record<string, LucideIcon> = {
   search: Search,
