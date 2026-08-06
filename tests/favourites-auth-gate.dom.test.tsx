@@ -102,7 +102,7 @@ describe("favourites auth gate DOM", () => {
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/services" },
-      { name: "Medications", href: "/?mode=prescribing" },
+      { name: "Medication", href: "/?mode=prescribing" },
       { name: "Factsheets", href: "/factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
@@ -212,9 +212,16 @@ describe("favourites auth gate DOM", () => {
     expect(within(signedInMenu).getByRole("menuitemradio", { name: /Favourites/i })).toBeTruthy();
   });
 
-  it("does not label the mode trigger as Favourites for gated guest deep links", () => {
+  it("labels gated guest deep links truthfully without exposing Favourites as a selectable mode", async () => {
+    const user = userEvent.setup();
     render(<MasterSearchHeader {...headerProps(false)} searchMode="favourites" />);
-    expect(screen.getByRole("button", { name: /Mode Answer/i })).toBeVisible();
-    expect(screen.queryByRole("button", { name: /Mode Favourites/i })).toBeNull();
+
+    const modeTrigger = screen.getByRole("button", { name: /Mode Favourites/i });
+    expect(modeTrigger).toBeVisible();
+    await user.click(modeTrigger);
+
+    const guestMenu = await screen.findByRole("menu", { name: "Choose app mode" });
+    expect(within(guestMenu).queryByRole("menuitemradio", { name: /Favourites/i })).toBeNull();
+    expect(within(guestMenu).getByRole("menuitemradio", { name: /Answer/i })).toBeTruthy();
   });
 });
