@@ -1171,8 +1171,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await waitForDemoDashboardReady(page);
 
     // No stored preference (PT-10): the collapsed icon rail is the default,
-    // so first-run desktop shows the collapsed sidebar; expanding is remembered.
-    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
+    // so first-run desktop shows the collapsed rail, not the labelled panel;
+    // expanding is remembered. #clinical-tools-sidebar only mounts when
+    // expanded, so its absence (not just hidden) is the collapsed signal.
+    await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
+    await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Collapse sidebar" })).toHaveCount(0);
   });
