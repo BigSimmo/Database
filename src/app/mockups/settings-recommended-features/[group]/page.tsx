@@ -3,23 +3,57 @@ import { notFound } from "next/navigation";
 
 import {
   SettingsRecommendedFeaturesMockupPage,
-  SETTINGS_FEATURE_GROUPS,
   type SettingsFeatureGroupId,
 } from "@/components/settings-recommended-features-mockups";
 
-const GROUP_IDS = SETTINGS_FEATURE_GROUPS.map((group) => group.id);
+const GROUPS: ReadonlyArray<{
+  id: SettingsFeatureGroupId;
+  title: string;
+  summary: string;
+}> = [
+  {
+    id: "source-evidence",
+    title: "Source & evidence",
+    summary: "Control how answers prefer, show, and reconcile clinical sources.",
+  },
+  {
+    id: "answer-reading",
+    title: "Answer reading",
+    summary: "Make answers easier to verify, copy, and read in clinical settings.",
+  },
+  {
+    id: "clinical-workflow",
+    title: "Clinical workflow",
+    summary: "Start in the right mode and keep practice context ready without PHI.",
+  },
+  {
+    id: "privacy-trust",
+    title: "Privacy & trust",
+    summary: "Keep the app honest about data mode, sync, and PHI boundaries.",
+  },
+  {
+    id: "productivity",
+    title: "Productivity",
+    summary: "Speed up repeated clinical lookups and document review habits.",
+  },
+  {
+    id: "accessibility-device",
+    title: "Accessibility / device",
+    summary: "Tune display and device behaviour for ward phones and shared workstations.",
+  },
+];
 
 type PageProps = {
   params: Promise<{ group: string }>;
 };
 
 export function generateStaticParams() {
-  return GROUP_IDS.map((group) => ({ group }));
+  return GROUPS.map((group) => ({ group: group.id }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { group: groupId } = await params;
-  const group = SETTINGS_FEATURE_GROUPS.find((item) => item.id === groupId);
+  const group = GROUPS.find((item) => item.id === groupId);
   if (!group) return { title: "Settings Feature Mockup - Clinical KB" };
   return {
     title: `${group.title} Settings Mockup - Clinical KB`,
@@ -29,6 +63,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function SettingsRecommendedFeatureGroupMockupRoute({ params }: PageProps) {
   const { group: groupId } = await params;
-  if (!GROUP_IDS.includes(groupId as SettingsFeatureGroupId)) notFound();
-  return <SettingsRecommendedFeaturesMockupPage initialGroupId={groupId as SettingsFeatureGroupId} />;
+  const group = GROUPS.find((item) => item.id === groupId);
+  if (!group) notFound();
+  return <SettingsRecommendedFeaturesMockupPage initialGroupId={group.id} />;
 }
