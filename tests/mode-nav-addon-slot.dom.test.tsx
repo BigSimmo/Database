@@ -5,7 +5,7 @@ import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { isHeaderAddonSlotOwnedRoute } from "@/components/mode-nav/header-addon-slot";
-import { PageSecondaryNavigation } from "@/components/page-secondary-navigation";
+import { hasLocalInformationPageNavigation, PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
 import { MODE_NAV_ADOPTED_MODES, modeUsesHeaderModeNav } from "@/lib/mode-secondary-navigation";
 
@@ -36,6 +36,45 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/differentials/presentations/acute-confusion-encephalopathy")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/documents/search")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/differentials/diagnoses")).toBe(false);
+  });
+
+  it("is covered, route for route, by the locally-owned early return", () => {
+    // This is the load-bearing assertion. Nothing in `PageSecondaryNavigation`
+    // states "do not mount a bar where the page owns the slot" — what keeps the
+    // slot to one occupant is that every claimant route happens to also be
+    // `hasLocalInformationPageNavigation`, which returns null well before the
+    // mode branch. Two independently maintained lists agreeing by coincidence.
+    //
+    // A future claimant outside that cover reaches the mode branch and mounts a
+    // second header into an occupied slot. This fails when that happens, and
+    // the fix is an explicit guard at the mode branch.
+    for (const pathname of [
+      "/differentials/diagnoses/delirium",
+      "/documents/11111111-1111-4111-8111-111111111111",
+      "/documents/11111111-1111-4111-8111-111111111111/source",
+    ]) {
+      expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
+      expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
+    }
+  });
+
+  it("renders no bar on a claimant route, even for an adopted mode", async () => {
+    // Behavioural pin on the outcome the cover above produces. Differentials is
+    // adopted and carries three destinations, so the old incidental protection
+    // — fewer than MODE_NAV_MIN_ITEMS, ModeNav renders nothing — no longer
+    // applies to it.
+    expect(modeUsesHeaderModeNav("differentials")).toBe(true);
+
+    const view = renderIntoHeaderWithAddonSlot(
+      <PageSecondaryNavigation
+        modeId="differentials"
+        pathname="/differentials/diagnoses/delirium"
+        hasSubmittedSearch
+        onSearch={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(view.occupants()).toHaveLength(0));
+    view.cleanupSlot();
   });
 
   it("gives an adopted mode's own workflow route exactly one bar in the slot", async () => {

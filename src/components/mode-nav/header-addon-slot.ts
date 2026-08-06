@@ -1,26 +1,26 @@
 import { isDocumentViewerOwnedRoute } from "@/components/clinical-dashboard/mobile-composer-reserve";
 
 /**
- * Routes whose page already portals a header into the single addon slot.
+ * Routes whose page already portals a header into the header's single addon
+ * slot, which holds ONE page-owned header.
  *
- * The slot holds ONE page-owned header. Until #1642 nothing enforced that: the
- * only modes with a claimant — `documents` and `differentials` — also had fewer
- * than `MODE_NAV_MIN_ITEMS` destinations, so `ModeNav` rendered nothing and the
- * two could not collide. That is incidental protection, and it expires the
- * moment a claimant's mode gains a second destination.
+ * This exists because nothing states that invariant. What has always enforced
+ * it is a coincidence: `documents` and `differentials`, the only modes with a
+ * claimant, had fewer than `MODE_NAV_MIN_ITEMS` destinations, so `ModeNav`
+ * rendered nothing. Differentials now has three, and the protection that
+ * replaced it is a second coincidence — every claimant route is also
+ * `hasLocalInformationPageNavigation`, which returns null in
+ * `PageSecondaryNavigation` before the mode branch is reached.
  *
- * `/differentials/diagnoses/<slug>` is exactly that case. It is
- * `hasLocalInformationPageNavigation`, so it skips the information-sections
- * branch, and `isModeSecondaryNavigationRoute` returns true on it whenever a
- * search has been submitted — which, once Differentials carries three
- * destinations, mounts a second header into a slot `DifferentialDetailPage`
- * already owns.
+ * Both are properties of separate lists that happen to agree, not rules. This
+ * predicate makes the claimant set explicit so the agreement is checkable:
+ * `tests/mode-nav-addon-slot.dom.test.tsx` asserts every route here is covered
+ * by that early return, and fails when a future claimant is not — which is the
+ * point at which the mode branch needs a guard of its own.
  *
  * Claimants are named individually rather than derived, because the only
  * evidence that a route claims the slot is that its component renders
- * `PhoneHeaderCollapsePortal`. `tests/mode-nav-addon-slot.dom.test.tsx` asserts
- * exactly one occupant per route and fails if a new claimant appears without an
- * entry here.
+ * `PhoneHeaderCollapsePortal`.
  */
 export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // DocumentViewer.tsx

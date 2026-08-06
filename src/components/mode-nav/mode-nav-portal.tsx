@@ -27,12 +27,14 @@ import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
  *
  * Slot ownership: the addon slot holds ONE page-owned header. `DocumentViewer`
  * and the differentials detail page already claim it on phones, so a mode whose
- * routes include those pages must not also mount a bar there. That used to hold
- * by accident — both modes had fewer than two destinations, so `ModeNav`
- * rendered nothing — and the accident expired when Differentials gained a
- * third. `isHeaderAddonSlotOwnedRoute` now states it, and
- * `tests/mode-nav-addon-slot.dom.test.tsx` asserts one occupant per route and
- * fails when a new claimant appears without an entry.
+ * routes include those pages must not also mount a bar there. That has never
+ * been stated anywhere: it held because both modes had fewer than two
+ * destinations so `ModeNav` rendered nothing, and now holds because every
+ * claimant route is also `hasLocalInformationPageNavigation`, which
+ * `PageSecondaryNavigation` returns null on before reaching the mode branch.
+ * `isHeaderAddonSlotOwnedRoute` names the claimants and
+ * `tests/mode-nav-addon-slot.dom.test.tsx` fails when a new one falls outside
+ * that cover.
  */
 export function ModeNavHeaderPortal({ children }: { children: ReactNode }) {
   const [host, setHost] = useState<HTMLElement | null>(null);

@@ -161,11 +161,13 @@ describe("ModeNav header anchoring", () => {
     expect(read("src/components/differentials/differential-detail-page.tsx")).toContain("PhoneHeaderCollapsePortal");
     expect(modeNavSource).toMatch(/items\.length < MODE_NAV_MIN_ITEMS\) return null/);
 
-    // The guard, and the render-level proof that it holds on those routes.
+    // What replaced it: every claimant route is `hasLocalInformationPageNavigation`,
+    // which returns before the mode branch. That is checked route-for-route,
+    // and at render, in `tests/mode-nav-addon-slot.dom.test.tsx`.
     expect(read("src/components/page-secondary-navigation.tsx")).toContain(
-      "if (isHeaderAddonSlotOwnedRoute(pathname)) return null;",
+      "if (locallyOwnedInformationNavigation) return null;",
     );
-    expect(read("tests/mode-nav-addon-slot.dom.test.tsx")).toContain("/differentials/diagnoses/delirium");
+    expect(read("tests/mode-nav-addon-slot.dom.test.tsx")).toContain("hasLocalInformationPageNavigation(pathname)");
   });
 });
 

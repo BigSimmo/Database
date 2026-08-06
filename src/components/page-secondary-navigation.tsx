@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { isDocumentViewerOwnedRoute } from "@/components/clinical-dashboard/mobile-composer-reserve";
-import { isHeaderAddonSlotOwnedRoute } from "@/components/mode-nav/header-addon-slot";
 import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
 import {
   SecondaryNavigation,
@@ -312,12 +311,16 @@ export function PageSecondaryNavigation({
     return <AvailableInformationPageNavigation definitions={informationDefinitions} sticky={sticky} />;
   }
   if (!isModeSecondaryNavigationRoute({ modeId, pathname, hasSubmittedSearch })) return null;
+  // An adopted mode's bar portals into the header's single addon slot, which
+  // holds ONE page-owned header. What keeps it to one is the
+  // `locallyOwnedInformationNavigation` return above: every route that portals
+  // its own header (`DocumentViewer`, `differential-detail-page`) is also
+  // locally-owned information navigation, so it never reaches here. That is a
+  // coincidence of two separate lists, not a stated rule —
+  // `isHeaderAddonSlotOwnedRoute` names the claimants and
+  // `tests/mode-nav-addon-slot.dom.test.tsx` fails if a future one falls
+  // outside that cover, which is when this needs its own guard.
   if (modeUsesHeaderModeNav(modeId)) {
-    // The header addon slot holds one page-owned header. A route whose page
-    // already portals one into it must not also mount the bar there; see
-    // `isHeaderAddonSlotOwnedRoute` for why the old two-destination minimum
-    // stopped covering this.
-    if (isHeaderAddonSlotOwnedRoute(pathname)) return null;
     return <RegistryModeNav modeId={modeId} activeId={activeId} searchParamString={searchParamString} />;
   }
   return (
