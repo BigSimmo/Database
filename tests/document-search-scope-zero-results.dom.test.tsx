@@ -138,6 +138,58 @@ describe("documents zero-result state with an active scope filter", () => {
   });
 });
 
+describe("documents zero-result state when retrieval degraded", () => {
+  const degradedScope: SearchScopeSummary = {
+    summary: "All public documents",
+    activeFilterCount: 0,
+    matchedDocumentCount: null,
+    warnings: [],
+    retrieval: { degraded: true, reason: "retrieval_rpc_error:match_document_chunks_text" },
+  };
+
+  it("refuses to present a failed search as an absence of guidance", () => {
+    render(<DocumentSearchResultsPanel {...baseProps} searchScope={degradedScope} scopeFilters={{}} />);
+
+    // The clinical point: `searchTextChunkCandidates` returns [] when an RPC
+    // errors, so a broken index rendered as a confident "nothing found" — and a
+    // clinician reads that as "no guideline covers this".
+    expect(screen.getByText(/search could not complete/i)).toBeInTheDocument();
+    expect(screen.getByText(/not a reliable .nothing found./i)).toBeInTheDocument();
+    expect(screen.queryByText(/check the spelling/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no matches for/i)).not.toBeInTheDocument();
+  });
+
+  it("outranks the filtered-to-zero copy, which also asserts a real zero", () => {
+    render(
+      <DocumentSearchResultsPanel
+        {...baseProps}
+        searchScope={{ ...degradedScope, activeFilterCount: 1 }}
+        scopeFilters={{ topics: ["agitation"] }}
+        onScopeFiltersChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/search could not complete/i)).toBeInTheDocument();
+    expect(screen.queryByText(/the filters above excluded everything/i)).not.toBeInTheDocument();
+    // The relax control still stands: the filter may well be wrong too, and the
+    // reader should not have to clear a degraded search to reach it.
+    expect(screen.getByRole("button", { name: /remove .*topic: agitation/i })).toBeInTheDocument();
+  });
+
+  it("says nothing about degradation when retrieval was healthy", () => {
+    render(
+      <DocumentSearchResultsPanel
+        {...baseProps}
+        searchScope={{ ...degradedScope, retrieval: null }}
+        scopeFilters={{}}
+      />,
+    );
+
+    expect(screen.queryByText(/search could not complete/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/no matches for/i)).toBeInTheDocument();
+  });
+});
+
 describe("scope filter chips", () => {
   it("names the group so a bare value is not ambiguous", () => {
     expect(scopeFilterChips({ topics: ["agitation"], sites: ["FSH"], locality: "local" })).toEqual([

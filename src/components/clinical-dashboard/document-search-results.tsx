@@ -1660,6 +1660,8 @@ function DocumentSearchResultsPanelImpl({
             onClearFilters={
               scopeAppliedFilters.length > 0 && onScopeFiltersChange ? () => onScopeFiltersChange({}) : undefined
             }
+            // A retrieval layer errored, so this zero is not evidence of absence.
+            degraded={Boolean(searchScope?.retrieval?.degraded)}
             onBrowseAll={onOpenLibrary}
             browseAllLabel={
               documentCount > 0 ? `Browse all ${documentCount.toLocaleString()} sources` : "Browse all sources"

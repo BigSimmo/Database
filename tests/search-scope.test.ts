@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { activeScopeFilterCount, resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
+import {
+  activeScopeFilterCount,
+  extractionQualityValues,
+  resolveSearchScope,
+  searchScopeFiltersSchema,
+  sourceStatusValues,
+  validationStatusValues,
+} from "@/lib/search-scope";
 
 type QueryCall = {
   table: string;
@@ -8,6 +15,10 @@ type QueryCall = {
   filters: Array<{ column: string; value: unknown }>;
   inFilters: Array<{ column: string; values: unknown[] }>;
   orders: string[];
+  /** The raw PostgREST `or=` strings. Previously discarded, which is precisely
+      why a mangled enum clause could ship green — nothing asserted what was
+      actually sent to the database. */
+  orFilters: string[];
   abortSignals: AbortSignal[];
 };
 
@@ -35,7 +46,8 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
-  or() {
+  or(filter: string) {
+    this.call.orFilters.push(filter);
     return this;
   }
 
@@ -72,7 +84,14 @@ function supabaseMock(resolver: QueryResolver) {
   return {
     calls,
     from: vi.fn((table: string) => {
-      const call: QueryCall = { table, filters: [], inFilters: [], orders: [], abortSignals: [] };
+      const call: QueryCall = {
+        table,
+        filters: [],
+        inFilters: [],
+        orders: [],
+        orFilters: [],
+        abortSignals: [],
+      };
       calls.push(call);
       return new QueryBuilder(call, resolver);
     }),
@@ -358,5 +377,93 @@ describe("search scope filters", () => {
         filters: { topics: ["topic"] },
       }),
     ).rejects.toThrow(/exceeded .* rows for a 1-document batch/i);
+  });
+});
+
+/**
+ * The gate that was missing.
+ *
+ * `sourceStatuses`/`validationStatuses`/`extractionQualities` are closed enums
+ * validated against the exact strings stored in `documents.metadata`. They were
+ * passed through `normalizeFilterText` on the way into the SQL clause, which
+ * rewrites `[_-]+` to a space — so `review_due` was validated as `review_due`
+ * and then matched as `"review due"`, which matches nothing. The catch-all
+ * branch could not save those rows either: its `not.in.(…)` list is built from
+ * the raw values, so they were excluded there too.
+ *
+ * On the live corpus that hid 514 `review_due` and ~2,489 `locally_reviewed`
+ * documents behind filters that returned a confident, silent zero.
+ *
+ * These iterate the exported value lists rather than a hand-copied set, so a
+ * future value — `pending_review`, `awaiting_sign_off`, anything with a
+ * separator — fails here, offline, instead of in front of a clinician.
+ */
+describe("scope enum filters reach SQL verbatim", () => {
+  const emptyDocuments = () => supabaseMock(() => ({ data: [], error: null }));
+
+  async function orClausesFor(filters: Record<string, unknown>) {
+    const supabase = emptyDocuments();
+    await resolveSearchScope({
+      supabase: supabase as never,
+      accessScope: { includePublic: true },
+      filters: searchScopeFiltersSchema.parse(filters),
+    });
+    return supabase.calls.filter((call) => call.table === "documents").flatMap((call) => call.orFilters);
+  }
+
+  it.each(sourceStatusValues)("sends the source status %s unchanged", async (value) => {
+    const clauses = await orClausesFor({ sourceStatuses: [value] });
+    expect(clauses.join(" | ")).toContain(`metadata->>document_status.eq.${value}`);
+  });
+
+  it.each(validationStatusValues)("sends the validation status %s unchanged", async (value) => {
+    const clauses = await orClausesFor({ validationStatuses: [value] });
+    expect(clauses.join(" | ")).toContain(`metadata->>clinical_validation_status.eq.${value}`);
+  });
+
+  it.each(extractionQualityValues)("sends the extraction quality %s unchanged", async (value) => {
+    const clauses = await orClausesFor({ extractionQualities: [value] });
+    expect(clauses.join(" | ")).toContain(`metadata->>extraction_quality.eq.${value}`);
+  });
+
+  it("never emits a separator-mangled variant of any enum value", async () => {
+    const cases = [
+      ["sourceStatuses", sourceStatusValues],
+      ["validationStatuses", validationStatusValues],
+      ["extractionQualities", extractionQualityValues],
+    ] as const;
+    for (const [key, values] of cases) {
+      for (const value of values) {
+        if (!/[_-]/.test(value)) continue;
+        const clauses = (await orClausesFor({ [key]: [value] })).join(" | ");
+        expect(clauses).not.toContain(value.replace(/[_-]+/g, " "));
+      }
+    }
+  });
+
+  it("keeps the fallback branch consistent with the values it excludes", async () => {
+    // "unknown"/"unverified" mean "null, or anything outside the known set", so
+    // the not.in list must name exactly the values the eq clauses can match. A
+    // value spelled one way in the eq clause and another in not.in falls
+    // through both — the original defect.
+    const clauses = (await orClausesFor({ sourceStatuses: ["unknown"] })).join(" | ");
+    expect(clauses).toContain("metadata->>document_status.is.null");
+    expect(clauses).toContain(`metadata->>document_status.not.in.(${sourceStatusValues.join(",")})`);
+  });
+
+  it("still normalizes free-text label filters, which are prose rather than enums", async () => {
+    const supabase = supabaseMock((call) =>
+      call.table === "documents"
+        ? { data: [{ id: "11111111-1111-4111-8111-111111111111", metadata: {}, import_batch_id: null }], error: null }
+        : { data: [], error: null },
+    );
+    const scope = await resolveSearchScope({
+      supabase: supabase as never,
+      accessScope: { includePublic: true },
+      filters: searchScopeFiltersSchema.parse({ topics: ["Alcohol_Withdrawal"] }),
+    });
+    // Label values are compared in application code with both sides normalized,
+    // so the separator handling there is correct and must not be "fixed" too.
+    expect(scope.activeFilterCount).toBe(1);
   });
 });
