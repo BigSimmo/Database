@@ -645,22 +645,6 @@ export function DocumentDrawer({
   }, [documents]);
 
   const isAdminMode = mode === "admin" && canManageDocuments;
-  const modeLabel =
-    mode === "recent"
-      ? "Recent documents"
-      : mode === "source"
-        ? "Source PDFs"
-        : mode === "admin"
-          ? statusFilterLabel(statusFilter)
-          : "Sources";
-  const modeSummary =
-    mode === "recent"
-      ? "Recently updated indexed sources."
-      : mode === "source"
-        ? "PDF source documents ready to open."
-        : mode === "admin"
-          ? "Document maintenance and indexing tools."
-          : "Search and open indexed clinical sources.";
   const filterValue = filter.toLowerCase();
 
   const filtered = documents
@@ -737,14 +721,6 @@ export function DocumentDrawer({
 
   return (
     <div className="space-y-3">
-      <div className={cn(panelSubtle, "flex flex-wrap items-center justify-between gap-2 p-3")}>
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">{modeLabel}</p>
-          <p className={cn("text-xs", textMuted)}>
-            {modeSummary} {filtered.length} matching document{filtered.length === 1 ? "" : "s"}.
-          </p>
-        </div>
-      </div>
       <label className="relative block">
         <Search aria-hidden="true" className={fieldIcon} />
         <input
@@ -1073,7 +1049,7 @@ export function DocumentDrawer({
           filtered.slice(0, 12).map((document) => {
             const selected = selectedDocumentIds.includes(document.id);
             return (
-              <div key={document.id} className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div key={document.id} className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                 <div className="min-w-0">
                   <Link
                     href={`/documents/${document.id}`}
@@ -1104,7 +1080,7 @@ export function DocumentDrawer({
                   />
                   <SourceProvenance metadata={document.metadata} />
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                   <StatusBadge status={document.status} />
                   <SourceDesignationBadge metadata={document.metadata} />
                   <SourceStatusBadge metadata={document.metadata} />
