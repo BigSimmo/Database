@@ -3417,10 +3417,8 @@ export function ClinicalDashboard({
             // the content.
             searchMode === "answer" &&
               "pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]",
-            // Non-answer modes overlay their phone chrome, so the stack is out of
-            // flow below `sm` and this surface owns the clearance. It must stay
-            // constant across hide/reveal — a reserve that animated or zeroed on
-            // hide is the layout shift overlay exists to remove.
+            // Non-answer modes overlay their phone chrome, so this surface owns
+            // the clearance. Constant across hide/reveal by design.
             searchMode !== "answer" && "max-sm:pt-[var(--phone-overlay-chrome-h)]",
             searchMode === "answer"
               ? compactMobileModeHome
@@ -3450,7 +3448,9 @@ export function ClinicalDashboard({
               data-testid="private-scope-unavailable"
               className={cn(
                 "sticky z-20 mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8",
-                searchMode === "answer" ? "top-[calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]" : "top-2",
+                searchMode === "answer"
+                  ? "top-[calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"
+                  : "top-2 max-sm:top-[calc(var(--phone-overlay-chrome-h)+0.5rem)]",
               )}
             >
               <p>
