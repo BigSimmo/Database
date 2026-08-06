@@ -227,6 +227,39 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
     // put an unexplained red in the required gate; shipping it silently weakened
     // would have been worse. Recorded as a follow-up instead.
   },
+  {
+    className: "mode-nav__rule",
+    description: "mode nav overflow rule marks the page held in More",
+    // Brief Intervention is the seventh of Therapy's seven destinations, so it
+    // never gets a slot of its own at any band and More carries its rule at
+    // every width — including the default desktop viewport this spec runs at.
+    route: "/therapy-compass/acceptance-and-commitment-therapy-act/brief",
+    // Scoped through the collapse host: Next streams the server-rendered copy
+    // while the client tree hydrates, so a bare testid can resolve to two navs.
+    selector: '[data-testid="universal-header-collapse"] [data-testid="mode-nav"] .mode-nav__more .mode-nav__rule',
+    // Exactly the regression this registry exists for. SlotInk renders the rule
+    // with Tailwind's `bg-transparent`, and the unlayered rule here is what
+    // paints it. Move that rule into a layer and it loses to the utility: the
+    // element still has every class, still has its 2px box, and marks nothing —
+    // so on a phone five of Therapy's seven pages would silently stop saying
+    // where you are.
+    computed: { height: "2px" },
+    nonInert: ["backgroundColor"],
+    colorToken: { property: "backgroundColor", token: "--clinical-accent" },
+  },
+  {
+    className: "mode-nav__ink",
+    description: "mode nav overflow ink takes heading weight when it holds the page",
+    route: "/therapy-compass/acceptance-and-commitment-therapy-act/brief",
+    selector: '[data-testid="universal-header-collapse"] [data-testid="mode-nav"] .mode-nav__more .mode-nav__ink',
+    // The other half of the mark, and a genuine cascade fight: SlotInk sets
+    // `text-[color:var(--text-muted)]` for the off state, and this unlayered
+    // rule has to beat it. Losing leaves the ink muted while the rule below it
+    // is accent — a half-marked control that looks like a rendering bug.
+    computed: {},
+    nonInert: ["color"],
+    colorToken: { property: "color", token: "--text-heading" },
+  },
 ];
 
 /**
@@ -291,6 +324,12 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   "pwa-install-sheet": "install sheet — presence covered by ui-pwa, effect not contracted",
   "search-band-count": "count weight/colour; the zero-result state needs a deterministic empty fixture first",
   "search-band-rule": "gradient divider — forced-colors fallback covered by ui-accessibility",
+
+  // Selector scope, not an effect. `.mode-nav__more` carries no visual property
+  // of its own — it is the ancestor that scopes the overflow slot's rules — and
+  // both effects it scopes are contracted above on `mode-nav__rule` and
+  // `mode-nav__ink`, at the same route and band.
+  "mode-nav__more": "scoping ancestor only; the rules it scopes are contracted on mode-nav__rule and mode-nav__ink",
 
   // Therapy Compass residuals moved out of the deleted parallel stylesheet.
   // Phone/print behaviour is pinned by therapy-compass-responsive-contract; no
