@@ -356,7 +356,7 @@ function QuickActions({
                 {mobile ? action.label : action.desktopLabel}
               </span>
               {!mobile ? (
-                <span className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                <span className="mt-0.5 block text-xs font-medium leading-4 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
                   {app.bestFor}
                 </span>
               ) : null}
@@ -452,7 +452,7 @@ function ToolCard({
       <ToolIcon app={app} size="lg" />
       <span className="min-w-0">
         <span className="block text-base font-extrabold leading-5 text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="mt-2 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+        <span className="mt-2 block text-sm font-medium leading-5 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
           {app.description}
         </span>
         <span className="mt-3 block text-xs font-bold text-[color:var(--text-heading)]">
@@ -499,7 +499,7 @@ function MobileToolRow({
       <ToolIcon app={app} size="sm" />
       <span className="min-w-0">
         <span className="block truncate text-sm font-extrabold text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="mt-1 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
+        <span className="mt-1 block text-xs font-medium leading-4 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
           {app.description}
         </span>
       </span>
