@@ -70,9 +70,9 @@ describe("useViewerGestures wheel zoom (jsdom)", () => {
           const options = call[2];
           return Boolean(
             options &&
-              typeof options === "object" &&
-              "passive" in options &&
-              !("capture" in (options as AddEventListenerOptions)),
+            typeof options === "object" &&
+            "passive" in options &&
+            !("capture" in (options as AddEventListenerOptions)),
           );
         })
         .map((call) => call[2] as AddEventListenerOptions);
@@ -100,9 +100,7 @@ describe("useViewerGestures wheel zoom (jsdom)", () => {
     expect(onZoomBy).toHaveBeenCalledTimes(1);
 
     const wheelCalls = addSpy.mock.calls.filter((call) => call[0] === "wheel");
-    expect(wheelCalls.some((call) => (call[2] as AddEventListenerOptions | undefined)?.passive === false)).toBe(
-      true,
-    );
+    expect(wheelCalls.some((call) => (call[2] as AddEventListenerOptions | undefined)?.passive === false)).toBe(true);
 
     addSpy.mockRestore();
   });

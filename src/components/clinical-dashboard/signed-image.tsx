@@ -58,9 +58,7 @@ export const SignedImage = memo(function SignedImage({
    */
   priority?: boolean;
 }) {
-  const [shouldLoad, setShouldLoad] = useState(
-    () => priority || Boolean(getCachedSignedUrl(endpoint)),
-  );
+  const [shouldLoad, setShouldLoad] = useState(() => priority || Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);

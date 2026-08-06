@@ -50,7 +50,7 @@ describe("DocumentFrame contract", () => {
   it("announces canvas-level PDF preview failures after the frame is already ready", () => {
     expect(frameSource).toContain('role="alert"');
     expect(pdfOwnerSource).toContain('role="alert"');
-    expect(pdfOwnerSource).toContain('announce(error');
+    expect(pdfOwnerSource).toContain("announce(error");
     expect(pdfOwnerSource).toContain('from "@/components/ui/live-announcer"');
     expect(imageOwnerSource).toContain('role="alert"');
   });
