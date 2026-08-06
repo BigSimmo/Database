@@ -522,7 +522,7 @@ describe("AnswerCard", () => {
     // #207: the adoption failure this guards is a silent one — the card renders,
     // the prose is fine, and the caution the product shows today is simply gone.
     //
-    // Narrowed 7 Aug 2026 (#227 over #207). What #207 protects is that the caution
+    // Narrowed 3 Aug 2026 (#227 over #207). What #207 protects is that the caution
     // survives, not that a *banner* carries it. For `ungrounded` the notice states it
     // in words and the banner only restates it, so the assertion now pins the two
     // channels that genuinely carry the state and pins the duplicate OUT — a banner

@@ -145,6 +145,7 @@
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
+        "tests/ui-smoke.spec.ts",
         "tests/ui-v2-answer-safety.dom.test.tsx"
       ],
       "baseline": {
@@ -3045,7 +3046,7 @@
         "files": []
       },
       "permittedComponentFamilies": ["answer", "controls", "feedback", "layout", "source"],
-      "sanctionedSpecialPatterns": ["AnswerResultSurface", "RetrievalStateBanner", "VerificationNotice"],
+      "sanctionedSpecialPatterns": ["AnswerResultSurface", "RetrievalStateBanner"],
       "roots": [
         {
           "file": "src/components/clinical-dashboard/answer-result-surface.tsx",

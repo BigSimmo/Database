@@ -1618,9 +1618,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
 
     await expect(page.getByRole("button", { name: "Ask a question" })).toHaveCount(0);
-    const questionBubble = page.getByTestId("user-question-bubble");
-    await expect(questionBubble).toBeVisible();
-    await expect(questionBubble).toContainText(question);
+    const questionEcho = page.getByTestId("answer-card-query");
+    await expect(questionEcho).toBeVisible();
+    await expect(questionEcho).toContainText(question);
 
     const plainAnswer = page.getByTestId("plain-answer-response");
     await expect(plainAnswer).toBeVisible();
@@ -1793,7 +1793,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 
     const hierarchy = await page.evaluate(() => {
-      const question = document.querySelector('[data-testid="user-question-bubble"]');
+      const question = document.querySelector('[data-testid="answer-card-query"]');
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
       const support = document.querySelector('[data-testid="answer-support-card"]');
       const table = document.querySelector('[aria-label="Inline table preview"]');
@@ -2462,9 +2462,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
     await expect.poll(() => answerRequests[0]).toBe(question);
 
-    const questionBubble = page.getByTestId("user-question-bubble");
-    await expect(questionBubble).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await expect(questionBubble).toContainText(question);
+    const questionEcho = page.getByTestId("answer-card-query");
+    await expect(questionEcho).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(questionEcho).toContainText(question);
     await expect(page.getByTestId("plain-answer-response")).toContainText("synthetic clozapine table image highlights");
     await expect(visibleQuestionInput(page)).toHaveValue("");
     await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
@@ -2548,8 +2548,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
 
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
-    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
+    // Live answer owns the query echo via AnswerCard; prior turns keep UserQuestionBubble.
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+    await expect(page.getByTestId("answer-card-query")).toContainText(firstQuestion);
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(0);
     await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible();
 
     const composer = visibleQuestionInput(page);
@@ -2560,9 +2562,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, followUp);
     await visibleAnswerSubmitButton(page).click();
 
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
-    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(followUp);
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+    await expect(page.getByTestId("answer-card-query")).toContainText(followUp);
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1);
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
     await expect(composer).toHaveValue("");
@@ -2573,10 +2576,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.reload();
     await waitForDemoDashboardReady(page);
     await expect(async () => {
-      await expect(page.getByTestId("user-question-bubble")).toHaveCount(2);
+      await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
+      await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
     }).toPass({ timeout: 15_000 });
-    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
-    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(followUp);
+    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
+    await expect(page.getByTestId("answer-card-query")).toContainText(followUp);
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
   });
 
@@ -2595,8 +2599,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(suggestionText).toBeTruthy();
     await suggestion.click();
 
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(suggestionText ?? "");
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+    await expect(page.getByTestId("answer-card-query")).toContainText(suggestionText ?? "");
   });
 
   test("quote follow-up stages a composer draft from evidence quotes", async ({ page }) => {

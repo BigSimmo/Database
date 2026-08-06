@@ -88,7 +88,7 @@ export function AnswerCard({
             and on print alike. */}
         <VerificationNotice {...verification} />
         {/*
-         * Ledger `#227` over `#207`, decided 7 Aug 2026. `#207` required a banner on
+         * Ledger `#227` over `#207`, decided 3 Aug 2026. `#207` required a banner on
          * every degraded state, on the reasoning that an adoption failure here is
          * silent — "the card renders, the prose is fine, and the caution the product
          * shows today is simply gone". That reasoning holds only where the banner is

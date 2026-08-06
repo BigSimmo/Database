@@ -8,11 +8,7 @@ import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react"
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
-import {
-  isPreformattedGroundedAnswer,
-  NaturalLanguageAnswer,
-  UserQuestionBubble,
-} from "@/components/clinical-dashboard/answer-content";
+import { isPreformattedGroundedAnswer, NaturalLanguageAnswer } from "@/components/clinical-dashboard/answer-content";
 import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import {
   AnswerSupportSummaryCard,
@@ -239,8 +235,6 @@ function StagedAnswerResultSurfaceImpl({
   return (
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
       <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
-        <UserQuestionBubble query={query} />
-
         <div
           data-testid="table-specific-answer-layout"
           data-desktop-table-aside={centralTables.length ? "true" : "false"}
@@ -264,18 +258,20 @@ function StagedAnswerResultSurfaceImpl({
                 overdue. Both now come from the projection. `source_only` is the
                 one kind that carries no count, hence the `in` guard.
 
-                The card owns the notice, the banner and their order now. The
-                banner it raises is scoped to `stale_evidence`/`partial_retrieval`
-                — the two kinds that say something the notice cannot (#227 over
-                #207; see answer-card.tsx). This surface no longer decides that. */}
+                The card owns the notice, the banner, the query echo, and their
+                order now. The banner it raises is scoped to
+                `stale_evidence`/`partial_retrieval` — the two kinds that say
+                something the notice cannot (#227 over #207; see answer-card.tsx).
+                This surface no longer decides that. */}
             {answerState.kind === "ready" ? (
-              <AnswerCard state={answerState} verification={answerVerification}>
+              <AnswerCard state={answerState} verification={answerVerification} query={query}>
                 {answerProse}
               </AnswerCard>
             ) : (
               <AnswerCard
                 state={answerState}
                 verification={answerVerification}
+                query={query}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button

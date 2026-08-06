@@ -1142,7 +1142,7 @@ describe("design-system adoption manifest", () => {
         [...component.testFiles].sort(),
       );
     }
-    // `Quantity` and `AnswerCard` left this list on 7 Aug 2026 when the live answer
+    // `Quantity` and `AnswerCard` left this list on 6 Aug 2026 when the live answer
     // surface adopted the card (`answer-result-surface.tsx`). The remaining two are
     // still genuinely reference-only; the assertion is a snapshot of adoption state,
     // so moving a component out of it is the expected shape of an adoption change,
