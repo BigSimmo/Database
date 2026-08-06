@@ -119,8 +119,12 @@ describe("shared header hide/reveal wiring", () => {
     expect(shellSource).toContain('wide: "sticky"');
     // ClinicalDashboard uses the document on browser phones and <main> in
     // standalone/sm+; both feed the same collapse reporter. Its non-answer modes
-    // keep the wide collapse and overlay on phones.
-    expect(dashboardSource).toContain('{ strategy: "collapse", wide: "collapse", phoneMotion: "overlay"');
+    // keep the wide collapse and overlay on phones. The descriptor lives beside
+    // the chrome state it depends on, in use-dashboard-chrome-coordinator.
+    expect(dashboardSource).toContain("hideOnScroll={resolveDashboardHideOnScroll(searchMode, chromeScrollHidden)}");
+    expect(dashboardCoordinatorSource).toContain(
+      '{ strategy: "collapse", wide: "collapse", phoneMotion: "overlay", scrollHidden }',
+    );
     // Both phone stacks stay `display: contents` at sm+ so the wide layout keeps
     // the top bar and composer as direct children of the host's own column.
     expect(headerSource.match(/"phone-sticky-header-stack sm:contents"/g)).toHaveLength(2);
@@ -147,7 +151,7 @@ describe("shared header hide/reveal wiring", () => {
     // layout shift by construction.
     expect(reserveSource).not.toContain("isCollapseMotionPhoneRoute");
     expect(shellSource).not.toContain("isCollapseMotionPhoneRoute");
-    expect(dashboardSource).toContain('phoneMotion: "overlay"');
+    expect(dashboardCoordinatorSource).toContain('phoneMotion: "overlay"');
     expect(headerSource).toContain("data-phone-motion={phoneMotion}");
     expect(headerSource).toContain("max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0");
     // Overlay must reach the collapse-at-every-width branch too (the
@@ -193,7 +197,7 @@ describe("shared header hide/reveal wiring", () => {
     // Both hosts overlay their phone chrome, so both publish and consume the
     // reserve. The dashboard's answer mode keeps its own glass-bar reserve on
     // <main>, so its clearance is scoped to the other modes.
-    expect(dashboardSource).toContain("usePhoneOverlayChromeReserve()");
+    expect(dashboardCoordinatorSource).toContain("usePhoneOverlayChromeReserve()");
     expect(dashboardSource).toContain('searchMode !== "answer" && "max-sm:pt-[var(--phone-overlay-chrome-h)]"');
     expect(reserveHookSource).toContain('const reserveProperty = "--phone-overlay-chrome-h"');
     // The property must be seeded in CSS and refined before paint. A passive

@@ -87,8 +87,10 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
 import { focusComposerInput as scheduleComposerFocus } from "@/components/clinical-dashboard/focus-composer-input";
-import { useDashboardChromeCoordinator } from "@/components/clinical-dashboard/use-dashboard-chrome-coordinator";
-import { usePhoneOverlayChromeReserve } from "@/components/clinical-dashboard/use-phone-overlay-chrome-reserve";
+import {
+  resolveDashboardHideOnScroll,
+  useDashboardChromeCoordinator,
+} from "@/components/clinical-dashboard/use-dashboard-chrome-coordinator";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
@@ -363,10 +365,6 @@ export function ClinicalDashboard({
     reserveTransitioning,
     setBottomComposerHidden,
   } = useDashboardChromeCoordinator(searchMode);
-  // Publishes `--phone-overlay-chrome-h` for the non-answer modes' overlaid
-  // phone header. Answer mode reserves its own glass-bar height on <main> and is
-  // unaffected; the hook no-ops above the phone breakpoint.
-  usePhoneOverlayChromeReserve();
   const focusComposerInput = useCallback(
     (retainTarget = false) => scheduleComposerFocus(composerInputRef, retainTarget),
     [composerInputRef],
@@ -3388,22 +3386,7 @@ export function ClinicalDashboard({
           // Mode homes keep the composer in the centred hero slot at every
           // breakpoint; documents, therapy, and other homes share the phone/tablet structure.
           heroComposerBreakpoint={heroComposerBreakpoint}
-          // Answer view: the header overlays <main> at every width (main reserves
-          // matching top padding) so content frosts under the glass bar, and it
-          // slides away/returns with scroll direction. Other modes still collapse
-          // the row at tablet and desktop widths, where an absolute header would
-          // bury their in-flow composer — but on phones they overlay too
-          // (`phoneMotion`), because collapsing the row there animates the header
-          // height plus the top safe area back into the scroller and drags the
-          // reader's position with it (measured 72px on a zero-inset phone, more
-          // wherever the OS reports a top inset). `<main>` reserves the constant
-          // `--phone-overlay-chrome-h` instead. Both document and bounded app
-          // scrollports feed the shared hide reporter.
-          hideOnScroll={
-            searchMode === "answer"
-              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: chromeScrollHidden }
-              : { strategy: "collapse", wide: "collapse", phoneMotion: "overlay", scrollHidden: chromeScrollHidden }
-          }
+          hideOnScroll={resolveDashboardHideOnScroll(searchMode, chromeScrollHidden)}
           onBottomComposerHiddenChange={setBottomComposerHidden}
         />
 
@@ -3433,12 +3416,10 @@ export function ClinicalDashboard({
             // the content.
             searchMode === "answer" &&
               "pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]",
-            // Non-answer modes overlay their phone chrome (see `hideOnScroll`
-            // above), so the stack is out of flow below `sm` and this surface
-            // owns the constant clearance beneath it. It must not vary with the
-            // hide state — a reserve that animated or zeroed on hide is the
-            // layout shift overlay exists to remove. `usePhoneOverlayChromeReserve`
-            // refines the CSS seed to the measured stack height.
+            // Non-answer modes overlay their phone chrome, so the stack is out of
+            // flow below `sm` and this surface owns the clearance. It must stay
+            // constant across hide/reveal — a reserve that animated or zeroed on
+            // hide is the layout shift overlay exists to remove.
             searchMode !== "answer" && "max-sm:pt-[var(--phone-overlay-chrome-h)]",
             searchMode === "answer"
               ? compactMobileModeHome
