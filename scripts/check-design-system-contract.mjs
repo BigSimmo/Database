@@ -25,6 +25,7 @@ const SOURCE_EXTENSIONS = new Set([".css", ".ts", ".tsx"]);
 const RAW_COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch)\(/gi;
 /** Whole-file backstop for literal shadow utilities the AST class-root pass can miss. */
 const LITERAL_SHADOW_TEXT = /(?:^|[\s"'`])shadow-\[(?!var\()[^\]]+\]/g;
+const ARBITRARY_TRACKING_TEXT = /(?:^|[\s"'`])tracking-\[(?!var\()[^\]]+\]/g;
 const CUSTOM_CONTROL_CLASS_PROP =
   /(?:closeButtonClassName|sheetCloseButtonClassName|buttonClassName|triggerClassName)\s*=\s*(?:"([^"]*)"|`([^`]*)`)/g;
 
@@ -150,6 +151,7 @@ for (const file of files) {
   const classTextSource = withoutComments(source);
   const textLegacyTap = countMatches(classTextSource, LEGACY_TAP_CLASS);
   const textLiteralShadow = countMatches(classTextSource, LITERAL_SHADOW_TEXT);
+  const textArbitraryTracking = countMatches(classTextSource, ARBITRARY_TRACKING_TEXT);
   assert(
     classAnalysis.legacyTapClasses.length >= textLegacyTap,
     `${file.relativePath} has ${textLegacyTap} legacy tap class text match(es) but the AST class-root pass only saw ${classAnalysis.legacyTapClasses.length}`,
@@ -157,6 +159,10 @@ for (const file of files) {
   assert(
     classAnalysis.literalShadowClasses.length >= textLiteralShadow,
     `${file.relativePath} has ${textLiteralShadow} literal shadow class text match(es) but the AST class-root pass only saw ${classAnalysis.literalShadowClasses.length}`,
+  );
+  assert(
+    classAnalysis.arbitraryTracking.length >= textArbitraryTracking,
+    `${file.relativePath} has ${textArbitraryTracking} arbitrary tracking text match(es) but the AST class-root pass only saw ${classAnalysis.arbitraryTracking.length}`,
   );
   const fileEdgeFindings = classAnalysis.edgeOwnershipConflicts;
   recordDebt("edgeOwnershipConflicts", file.relativePath, fileEdgeFindings.length);
