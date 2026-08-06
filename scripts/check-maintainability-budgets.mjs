@@ -7,7 +7,8 @@ const budgets = new Map([
   ["src/components/ClinicalDashboard.tsx", 4140],
   // Evidence coverage, per-request hydration, and second-stage ranking live in
   // focused rag modules; keep the reclaimed budget so it cannot silently drift back.
-  ["src/lib/rag/rag.ts", 4351],
+  // 4362: soft-tail answer-cache skip call site (logic in rag-query-guard.ts).
+  ["src/lib/rag/rag.ts", 4362],
   ["src/components/DocumentViewer.tsx", 1734],
   ["supabase/functions/indexing-v3-agent/index.ts", 2191],
 ]);
