@@ -285,6 +285,11 @@ assert(
 
 const semanticSources = [
   "src/components/therapy-compass/nav.tsx",
+  // Therapy's navigation is the shared `ModeNav` now, so the current-page
+  // semantics live there rather than in the mode's own file. Following the
+  // component keeps this assertion true of the rendered markup instead of
+  // passing on a file that no longer draws the navigation.
+  "src/components/mode-nav/mode-nav.tsx",
   "src/components/therapy-compass/therapy-card.tsx",
   "src/components/therapy-compass/screens/brief-screen.tsx",
   "src/components/therapy-compass/screens/compare-screen.tsx",

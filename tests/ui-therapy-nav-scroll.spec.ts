@@ -4,10 +4,11 @@ import { resolve } from "node:path";
 import { appendPrimaryScrollSpacer, readPrimaryScrollGeometry, scrollPrimarySurface } from "./playwright-scroll";
 
 /**
- * Therapy section nav must hide/reveal with the universal top bar on phones.
- * Sticky-in-content left the strip pinned after header collapse (the defect
- * these checks guard). The nav portals into universal-header-collapse below
- * the phone seam so one scroll signal owns both surfaces.
+ * Therapy's mode nav must hide/reveal with the universal top bar on phones.
+ * Sticky-in-content left the old pill strip pinned after header collapse (the
+ * defect these checks guard). The bar portals into universal-header-collapse —
+ * at every width now, not only below the phone seam — so one scroll signal owns
+ * both surfaces.
  */
 
 const phoneViewport = { width: 390, height: 844 };
@@ -41,10 +42,10 @@ async function installTherapyFixtures(page: Page) {
 }
 
 async function gotoTherapyCompare(page: Page) {
-  // Compare, not search: `/therapy-compass/search` moved to the shared `ModeNav`
-  // (see `ui-mode-nav-density.spec.ts`). Every other Therapy route still ships
-  // the original pill strip, so this route keeps that strip's coverage alive
-  // until the rollout continues.
+  // Compare rather than search: both now ship the same shared bar, and this
+  // route is the one that used to carry the pill strip, so it keeps the
+  // anchoring coverage pointed where the defect actually lived. Density and
+  // label fit are covered separately in `ui-mode-nav-density.spec.ts`.
   await page.goto("/therapy-compass/compare", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
   await page.addStyleTag({
@@ -58,27 +59,27 @@ test.beforeEach(async ({ page }) => {
   await installTherapyFixtures(page);
 });
 
-test("phone Therapy section nav hides and returns with the universal header", async ({ page }) => {
+test("phone Therapy mode nav hides and returns with the universal header", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
   await gotoTherapyCompare(page);
 
   const collapseHost = page.getByTestId("universal-header-collapse");
-  const sectionNav = page.getByTestId("therapy-compass-section-nav");
+  const modeNav = page.locator('[data-testid="universal-header-collapse"] [data-testid="mode-nav"]');
   const addonHost = page.getByTestId("header-collapse-addon");
 
   await expect(collapseHost).toBeVisible();
-  await expect(sectionNav).toBeVisible();
+  await expect(modeNav).toBeVisible();
   await expect(addonHost).toBeVisible();
 
-  // Anchored: the portaled strip lives inside the collapse row, not sticky in content.
+  // Anchored: the portaled bar lives inside the collapse row, not sticky in content.
   await expect
-    .poll(async () => sectionNav.evaluate((node) => Boolean(node.closest('[data-testid="universal-header-collapse"]'))))
+    .poll(async () => modeNav.evaluate((node) => Boolean(node.closest('[data-testid="universal-header-collapse"]'))))
     .toBe(true);
   await expect
     .poll(async () =>
       page.evaluate(() => {
-        const inContent = document.querySelector("#main-content [data-testid='therapy-compass-section-nav']");
+        const inContent = document.querySelector("#main-content [data-testid='mode-nav']");
         return inContent === null;
       }),
     )
@@ -104,7 +105,7 @@ test("phone Therapy section nav hides and returns with the universal header", as
   await expect
     .poll(async () =>
       page.evaluate(() => {
-        const nav = document.querySelector('[data-testid="therapy-compass-section-nav"]');
+        const nav = document.querySelector('[data-testid="universal-header-collapse"] [data-testid="mode-nav"]');
         const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
         if (!(nav instanceof HTMLElement) || !(collapse instanceof HTMLElement)) return false;
         const navRect = nav.getBoundingClientRect();
@@ -119,8 +120,8 @@ test("phone Therapy section nav hides and returns with the universal header", as
   }
 
   await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true", { timeout: 5_000 });
-  await expect(sectionNav).toBeVisible();
-  const box = await sectionNav.boundingBox();
+  await expect(modeNav).toBeVisible();
+  const box = await modeNav.boundingBox();
   expect(box).not.toBeNull();
   expect(box!.y).toBeGreaterThanOrEqual(0);
   expect(box!.height).toBeGreaterThan(8);

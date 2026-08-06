@@ -33,6 +33,8 @@ const composerSlotSource = read("src/lib/mode-home-composer.ts");
 const phoneHeaderPortalSource = read("src/components/clinical-dashboard/phone-header-collapse-portal.tsx");
 const phoneFooterPortalSource = read("src/components/clinical-dashboard/phone-footer-layer-portal.tsx");
 const therapyNavSource = read("src/components/therapy-compass/nav.tsx");
+const modeNavSource = read("src/components/mode-nav/mode-nav.tsx");
+const modeNavPortalSource = read("src/components/mode-nav/mode-nav-portal.tsx");
 const documentViewerSource = read("src/components/DocumentViewer.tsx");
 const calculatorSearchSource = read("src/components/calculators/search-page.tsx");
 const documentViewerChromeHookSource = read("src/components/clinical-dashboard/use-document-viewer-chrome-scroll.ts");
@@ -326,7 +328,21 @@ describe("shared header hide/reveal wiring", () => {
     expect(phoneHeaderPortalSource).toContain('window.matchMedia("(max-width: 639px)")');
     expect(phoneHeaderPortalSource).toContain("new MutationObserver(sync)");
 
-    expect(therapyNavSource).toContain("<PhoneHeaderCollapsePortal>");
+    // Therapy claims the same host through `ModeNavHeaderPortal`, the sibling
+    // that resolves it at every width rather than only below the phone seam —
+    // which is what lets the mode bar travel with the header on tablet and
+    // desktop too. Same slot, same before-paint move, same observer discipline.
+    //
+    // Assert the whole chain, not just the absence of the legacy portal: Therapy
+    // renders the shared bar, and the shared bar is what claims the slot. Checked
+    // negatively alone, a `nav.tsx` that had dropped navigation entirely would
+    // still pass. Therapy never names the portal itself — it delegates to
+    // `ModeNav` — so the positive half of the assertion has to follow that hop.
+    expect(therapyNavSource).toContain("<ModeNav ");
+    expect(modeNavSource).toContain("<ModeNavHeaderPortal>{bar}</ModeNavHeaderPortal>");
+    expect(therapyNavSource).not.toContain("PhoneHeaderCollapsePortal");
+    expect(modeNavPortalSource).toContain("phoneHeaderCollapseAddonSlotId");
+    expect(modeNavPortalSource).toContain("createPortal(children, host)");
     expect(documentViewerSource).toContain("<PhoneHeaderCollapsePortal>");
     expect(documentViewerSource).toContain("data-document-sticky-header");
     expect(documentViewerSource).toContain("edge-glass-header");
