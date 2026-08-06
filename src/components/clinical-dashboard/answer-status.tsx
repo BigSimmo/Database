@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useLayoutEffect, useRef, type CSSProperties } from "react";
 import { Check, Circle, Clipboard, ClipboardCheck, History, Loader2, MessageSquareText, Square } from "lucide-react";
 
 import {
@@ -164,6 +164,23 @@ export function AnswerProgressStepper({
     updateInterval: active && !finished && startedAt ? 1_000 : undefined,
   });
   const currentStep = latest ? answerProgressStepIndex(latest.stage) : 0;
+  const stageRailRef = useRef<HTMLDivElement>(null);
+  const currentStageRef = useRef<HTMLLIElement>(null);
+
+  useLayoutEffect(() => {
+    const rail = stageRailRef.current;
+    const currentStage = currentStageRef.current;
+    if (finished || !rail || !currentStage) return;
+
+    const railRect = rail.getBoundingClientRect();
+    const stageRect = currentStage.getBoundingClientRect();
+    const inset = 4;
+    if (stageRect.left < railRect.left + inset) {
+      rail.scrollLeft = Math.max(0, rail.scrollLeft - (railRect.left + inset - stageRect.left));
+    } else if (stageRect.right > railRect.right - inset) {
+      rail.scrollLeft += stageRect.right - (railRect.right - inset);
+    }
+  }, [currentStep, finished]);
 
   const clientElapsedMs = startedAt ? Math.max(0, (finished ? (latest?.receivedAt ?? now) : now) - startedAt) : 0;
   const elapsedMs = finished && latest?.elapsedMs !== undefined ? latest.elapsedMs : clientElapsedMs;
@@ -220,13 +237,14 @@ export function AnswerProgressStepper({
       </div>
 
       {!finished ? (
-        <div className="mt-2 overflow-x-auto pb-1" aria-label="Answer generation stages">
+        <div ref={stageRailRef} className="mt-2 overflow-x-auto pb-1" aria-label="Answer generation stages">
           <ol className="grid min-w-[500px] grid-cols-5 gap-1 sm:min-w-0">
             {answerProgressSteps.map((step, index) => {
               const complete = index < currentStep;
               const current = index === currentStep;
               return (
                 <li
+                  ref={current ? currentStageRef : undefined}
                   key={step.stage}
                   data-state={complete ? "complete" : current ? "current" : "pending"}
                   className={cn(

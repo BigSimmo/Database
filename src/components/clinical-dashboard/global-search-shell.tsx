@@ -792,6 +792,7 @@ function GlobalStandaloneSearchShellBody({
             }
             onOpenEvidence={() => navigateToMode("answer", { focus: true })}
             onNewChat={startNewAnswerChat}
+            showDesktopNewChat={!shouldShowDesktopSidebar}
             onOpenMobileSidebar={() => setMobileMenuOpen(true)}
             mobileLeadingAction={
               isInfoPage

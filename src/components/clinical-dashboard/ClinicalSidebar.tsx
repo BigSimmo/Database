@@ -27,7 +27,7 @@ import {
 } from "@/components/ui-primitives";
 
 import { Sheet } from "@/components/ui/sheet";
-import { type AppModeId } from "@/lib/app-modes";
+import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
 
 export type SidebarIdentity = {
   displayName: string;
@@ -58,7 +58,7 @@ const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
   { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
   { id: "services", label: "Services", icon: appModeIcons.services, href: "/services" },
-  { id: "prescribing", label: "Medications", icon: Pill, href: "/?mode=prescribing" },
+  { id: "prescribing", label: appModeDefinition("prescribing").label, icon: Pill, href: "/?mode=prescribing" },
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/factsheets" },
   // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a dashboard-mode alias.
   { id: "tools", label: "Tools", icon: Wrench, href: "/tools" },
