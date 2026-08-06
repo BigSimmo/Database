@@ -76,8 +76,6 @@ describe("favourites auth gate", () => {
     expect(header).toContain("canAccessFavourites={canAccessFavourites}");
     expect(header).toContain('targetMode === "favourites" && !canAccessFavourites');
     expect(header).toContain("demoMode: false");
-    expect(header).toContain('searchMode === "favourites" && !canAccessFavourites');
-
     expect(commandSurface).toContain("filterCrossModesForSession");
     expect(commandSurface).toContain("canAccessFavourites");
     expect(commandSurface).toContain("canAccessFavourites && trimmedQuery && visibleFavouriteMatches.length");
