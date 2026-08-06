@@ -19,10 +19,11 @@ type Point = { x: number; y: number };
  * lightbox pans/zooms with a CSS transform. This hook only interprets input:
  *
  * - Ctrl/⌘ + wheel (and trackpad pinch, which surfaces as ctrl+wheel) → `onZoomBy`.
- *   Lightbox mode (`wheelNeedsModifier=false`) attaches a non-passive listener so it
- *   can `preventDefault` the browser's page zoom. Modifier-gated surfaces keep a
- *   passive listener so plain scrolling stays compositor-friendly (#214); pointer
- *   pinch remains the reliable multi-touch zoom path there.
+ *   The native wheel listener is always non-passive while `wheelZoom` is on so
+ *   `preventDefault` can suppress the browser's page zoom (Sentry 15760049). Plain
+ *   wheel on modifier-gated surfaces early-returns without `preventDefault`, so
+ *   native scrolling still works; the listener stays scoped to the viewer holder
+ *   rather than `document` (#214 amended — fully-passive double-zooms).
  * - Two-pointer pinch → `onZoomBy` with the live distance ratio.
  * - One-pointer drag → `onPanBy` with frame deltas.
  *
@@ -69,21 +70,20 @@ export function useViewerGestures({
     if (!element || !wheelZoom) return () => undefined;
 
     function onWheel(event: WheelEvent) {
+      // Modifier-gated surfaces (PDF): plain wheel is native scroll — bail without
+      // preventDefault. Ctrl/⌘ + wheel (and trackpad pinch) must cancel the
+      // browser zoom or the page zooms on top of the document (double-zoom).
       if (wheelNeedsModifier && !(event.ctrlKey || event.metaKey)) return;
-      // Non-passive only when unmodified wheel zoom is active (lightbox). On
-      // modifier-gated surfaces the listener stays passive so plain scrolling
-      // stays on the compositor (#214); preventDefault is then a no-op and
-      // pointer pinch remains the reliable multi-touch zoom path.
-      if (!wheelNeedsModifier && event.cancelable) event.preventDefault();
+      if (event.cancelable) event.preventDefault();
       // deltaY is negative when zooming in. exp() keeps the step proportional so
       // fast scrolls zoom more without overshooting on a trackpad pinch.
       onZoomByRef.current(Math.exp(-event.deltaY / 300));
     }
 
-    // Lightbox (wheelNeedsModifier=false): every wheel zooms → must be non-passive.
-    // PDF / scroll-backed (default): passive so INP is not blocked by a listener
-    // that usually returns without preventDefault.
-    element.addEventListener("wheel", onWheel, { passive: wheelNeedsModifier });
+    // Non-passive while wheel zoom is enabled: preventDefault is required for
+    // Ctrl/⌘ + wheel and trackpad pinch on both lightbox and PDF surfaces.
+    // Scoped to this holder element (not document) so the cost stays local.
+    element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
   }, [targetRef, wheelZoom, wheelNeedsModifier]);
 

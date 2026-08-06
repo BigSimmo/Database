@@ -5,9 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { useViewerGestures } from "@/components/document-viewer/use-viewer-gestures";
 
 // useViewerGestures interprets raw wheel/pointer input into onZoomBy/onPanBy
-// callbacks. Modifier-gated zoom uses a native passive wheel listener (#214);
-// lightbox mode uses non-passive so it can preventDefault. jsdom dispatches
-// real DOM events so we can assert the modifier gating, passive flag, and the
+// callbacks. Wheel zoom always uses a native non-passive listener so
+// preventDefault can suppress browser page zoom on Ctrl/⌘+wheel and trackpad
+// pinch (Sentry 15760049 / #214 amended). jsdom dispatches real DOM events so
+// we can assert modifier gating, the passive flag, preventDefault, and the
 // pointer pan/pinch maths here.
 
 type HarnessProps = Omit<Parameters<typeof useViewerGestures>[0], "targetRef">;
@@ -42,14 +43,14 @@ describe("useViewerGestures wheel zoom (jsdom)", () => {
     expect(onZoomBy.mock.calls[1][0]).toBeLessThan(1);
   });
 
-  it("attaches a passive wheel listener when zoom needs a modifier (PDF scroll path)", () => {
+  it("attaches a non-passive wheel listener for modifier-gated PDF zoom", () => {
     const addEventListener = vi.spyOn(HTMLElement.prototype, "addEventListener");
     const onZoomBy = vi.fn();
     render(<GestureHarness onZoomBy={onZoomBy} />);
 
     const wheelCalls = addEventListener.mock.calls.filter(([type]) => type === "wheel");
     expect(wheelCalls.length).toBeGreaterThan(0);
-    expect(wheelCalls.some(([, , options]) => (options as AddEventListenerOptions)?.passive === true)).toBe(true);
+    expect(wheelCalls.some(([, , options]) => (options as AddEventListenerOptions)?.passive === false)).toBe(true);
     addEventListener.mockRestore();
   });
 
@@ -62,6 +63,23 @@ describe("useViewerGestures wheel zoom (jsdom)", () => {
     expect(wheelCalls.length).toBeGreaterThan(0);
     expect(wheelCalls.some(([, , options]) => (options as AddEventListenerOptions)?.passive === false)).toBe(true);
     addEventListener.mockRestore();
+  });
+
+  it("calls preventDefault on Ctrl/⌘ + wheel so the browser does not page-zoom", () => {
+    const onZoomBy = vi.fn();
+    render(<GestureHarness onZoomBy={onZoomBy} />);
+
+    const event = new WheelEvent("wheel", {
+      deltaY: -100,
+      ctrlKey: true,
+      cancelable: true,
+      bubbles: true,
+    });
+    const preventDefault = vi.spyOn(event, "preventDefault");
+    stage().dispatchEvent(event);
+
+    expect(onZoomBy).toHaveBeenCalledTimes(1);
+    expect(preventDefault).toHaveBeenCalled();
   });
 
   it("zooms on a plain wheel when the modifier is not required (lightbox mode)", () => {

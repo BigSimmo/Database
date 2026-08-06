@@ -100,6 +100,69 @@ function findRow(parsed, id) {
   return parsed.rows.find((row) => row.id === id) ?? null;
 }
 
+function isQueueHeaderRow(cells) {
+  return /^Order$/i.test((cells[0] ?? "").trim());
+}
+
+function isQueueSeparatorRow(cells) {
+  return cells.length > 0 && cells.every((cell) => /^:?-+:?$/.test(cell.replace(/\s/g, "")) || cell.trim() === "");
+}
+
+/**
+ * Remove a resolved id from the recommended-execution queue (#201 + /issues done).
+ *
+ * - Drops the id from a composite ID(s) cell and keeps the row when siblings remain.
+ * - Deletes the whole queue row when no cited open id remains.
+ * - Renumbers Order 1..N to close gaps (skill contract).
+ */
+export function pruneResolvedIdFromQueue(markdown, id) {
+  const target = Number(String(id).replace(/^#/, ""));
+  if (!Number.isFinite(target)) return markdown;
+
+  const lines = markdown.split("\n");
+  const queueStart = lines.findIndex((line) => line.startsWith("## Recommended execution queue"));
+  if (queueStart < 0) return markdown;
+  const openStart = lines.findIndex((line) => line.startsWith("## Open items"));
+  const archiveStart = lines.findIndex((line) => line.startsWith("## Resolved / archive"));
+  const limit = openStart >= 0 ? openStart : archiveStart >= 0 ? archiveStart : lines.length;
+
+  // Walk bottom-up so splice indices stay valid while deleting.
+  for (let index = limit - 1; index > queueStart; index -= 1) {
+    const line = lines[index];
+    if (!/^\|/.test(line) || !/\|\s*$/.test(line)) continue;
+    const cells = splitCells(line);
+    if (cells.length < 2 || isQueueHeaderRow(cells) || isQueueSeparatorRow(cells)) continue;
+
+    const idCell = cells[1] ?? "";
+    const cited = [...idCell.matchAll(/#(\d+)/g)].map((match) => Number(match[1]));
+    if (!cited.includes(target)) continue;
+
+    const remaining = cited.filter((number) => number !== target);
+    if (remaining.length === 0) {
+      lines.splice(index, 1);
+      continue;
+    }
+    cells[1] = remaining.map((number) => `\`${canonicalId(number)}\``).join(", ");
+    lines[index] = buildRow(cells);
+  }
+
+  // Close Order gaps after deletions/edits.
+  let order = 1;
+  for (let index = queueStart + 1; index < lines.length; index += 1) {
+    if (openStart >= 0 && index >= openStart) break;
+    if (archiveStart >= 0 && openStart < 0 && index >= archiveStart) break;
+    const line = lines[index];
+    if (!/^\|/.test(line) || !/\|\s*$/.test(line)) continue;
+    const cells = splitCells(line);
+    if (cells.length < 2 || isQueueHeaderRow(cells) || isQueueSeparatorRow(cells)) continue;
+    cells[0] = String(order);
+    lines[index] = buildRow(cells);
+    order += 1;
+  }
+
+  return lines.join("\n");
+}
+
 /**
  * Apply an edit, then re-run the gate on the result. Returning the markdown
  * only when it passes is what makes a wrong-table insert impossible rather than
@@ -169,11 +232,15 @@ export function resolveIssue(markdown, id, outcome, options = {}) {
 
     const lines = current.split("\n");
     lines.splice(row.line - 1, 1);
-    const afterRemoval = parseIssues(lines.join("\n"));
+    // Prune the queue before re-parsing so #201 does not refuse the write when
+    // the ID(s) cell still cites the id we just moved to archive.
+    const withoutOpen = pruneResolvedIdFromQueue(lines.join("\n"), id);
+    const afterRemoval = parseIssues(withoutOpen);
+    const nextLines = withoutOpen.split("\n");
     const anchor = lastRowIndex(afterRemoval, "archive");
     if (anchor === null) throw new Error("the archive table has no rows to append after");
-    lines.splice(anchor + 1, 0, archived);
-    return lines.join("\n");
+    nextLines.splice(anchor + 1, 0, archived);
+    return nextLines.join("\n");
   });
 }
 
@@ -205,7 +272,17 @@ function selfTest() {
   const fixture = [
     "# Outstanding",
     "",
-    "<!-- issues:next-id=7 -->",
+    "<!-- issues:next-id=17 -->",
+    "",
+    "## Recommended execution queue",
+    "",
+    "<!-- prettier-ignore -->",
+    "",
+    "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome |",
+    "| ----: | -------------- | -------- | --- | --- | --- | --- |",
+    "| 1 | `#005` | A2 | High | now | 1h | solo |",
+    "| 2 | `#013`, `#016` | A3 | High | later | 1d | composite |",
+    "| 3 | `#006` | A3 | High | later | 1h | trailing |",
     "",
     "## Open items",
     "",
@@ -213,6 +290,8 @@ function selfTest() {
     "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
     "| #005 | P2 | issue | first | detail one | src | 2026-01-01 |",
     "| #006 | P3 | task | second | detail two | src | 2026-01-02 |",
+    "| #013 | P3 | task | left | detail | src | 2026-01-03 |",
+    "| #016 | P3 | task | right | detail | src | 2026-01-04 |",
     "",
     "## Resolved / archive",
     "",
@@ -236,15 +315,15 @@ function selfTest() {
   const addedParsed = parseIssues(added);
   check(
     "add uses the marker id",
-    addedParsed.rows.some((r) => r.id === "#007" && r.table === "open"),
+    addedParsed.rows.some((r) => r.id === "#017" && r.table === "open"),
   );
-  check("add bumps the marker", addedParsed.nextId === 8);
-  check("add appends after the last open row", added.indexOf("#007") > added.indexOf("#006"));
-  check("add stays out of the archive", !addedParsed.rows.some((r) => r.id === "#007" && r.table === "archive"));
+  check("add bumps the marker", addedParsed.nextId === 18);
+  check("add appends after the last open row", added.indexOf("#017") > added.indexOf("#016"));
+  check("add stays out of the archive", !addedParsed.rows.some((r) => r.id === "#017" && r.table === "archive"));
 
   // The wrong-table failure that motivated this writer: appending must not land
   // in the archive even though an archived row sits later in the file.
-  check("add lands before the archive heading", added.indexOf("| #007 ") < added.indexOf("## Resolved / archive"));
+  check("add lands before the archive heading", added.indexOf("| #017 ") < added.indexOf("## Resolved / archive"));
 
   // escaping: a pipe in prose must not become a column.
   const piped = addIssue(
@@ -252,7 +331,7 @@ function selfTest() {
     { pri: "P2", type: "task", summary: "a | b", detail: "c | d" },
     { date: "2026-02-02" },
   );
-  const pipedRow = parseIssues(piped).rows.find((r) => r.id === "#007");
+  const pipedRow = parseIssues(piped).rows.find((r) => r.id === "#017");
   check("pipes are escaped, not new cells", splitCells(pipedRow.raw).length === OPEN_CELLS);
   check("escaped pipe survives in the text", pipedRow.raw.includes("a \\| b"));
 
@@ -265,6 +344,15 @@ function selfTest() {
   check("done reshapes to archive width", splitCells(moved[0].raw).length === ARCHIVE_CELLS);
   check("done keeps the summary", moved[0].raw.includes("first"));
   check("done records the outcome", moved[0].raw.includes("Resolved by PR #1"));
+  // #201: resolving must prune the queue so guarded() does not refuse the write.
+  check("done drops solo queue row for #005", !resolved.includes("`#005`"));
+  check("done renumbers remaining queue orders", /\|\s*1\s*\|\s*`#013`/.test(resolved));
+  check("done keeps composite sibling after solo prune", resolved.includes("`#016`"));
+
+  // Composite queue cell: remove only the resolved id, keep the sibling.
+  const composite = resolveIssue(fixture, "#013", "Resolved left side", { date: "2026-03-04" });
+  check("done keeps composite sibling id", /`#016`/.test(composite) && !/`#013`/.test(composite));
+  check("done does not drop the composite queue row", composite.includes("composite"));
 
   // update: edits in place, same table, same width.
   const updated = updateIssue(fixture, "#006", { detail: "replaced | detail" });
