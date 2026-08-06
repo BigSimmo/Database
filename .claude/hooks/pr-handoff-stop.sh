@@ -36,35 +36,73 @@ mode="${1:-}"
 payload="$(cat 2>/dev/null || true)"
 [ -z "$payload" ] && exit 0
 
+# Extract a JSON string value for key $1 from the raw payload (first match).
+# Handles only simple double-quoted values (no escapes). Empty on miss.
+json_string_field() {
+  local key="$1"
+  printf '%s' "$payload" \
+    | grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" \
+    | head -n1 \
+    | sed -E 's/.*"([^"]*)"$/\1/'
+}
+
 # --- payload fields -----------------------------------------------------------
-# jq when available (exact); otherwise fall back to scanning the raw payload,
-# which is a superset of the command text and good enough for substring matching.
+# jq when available (exact). Without jq:
+#   - tool_name / session_id from crude key extraction
+#   - command_text from tool_input command/script/code/input fields when present,
+#     else the whole payload (pre-mode shell deny still needs a searchable string)
+#   - tool_output ONLY from the substring after "tool_response" — never the whole
+#     payload. Falling back to the whole payload would let a failed `gh pr create`
+#     whose *input* mentions another PR URL write the handoff marker.
 if command -v jq >/dev/null 2>&1; then
   tool_name="$(printf '%s' "$payload" | jq -r '.tool_name // empty' 2>/dev/null || true)"
-  command_text="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
+  # Bash uses .command; PowerShell payloads may use script/code/input instead.
+  command_text="$(printf '%s' "$payload" | jq -r '
+    .tool_input.command // .tool_input.script // .tool_input.code // .tool_input.input // empty
+  ' 2>/dev/null || true)"
   tool_output="$(printf '%s' "$payload" | jq -r '[.tool_response] | tostring' 2>/dev/null || true)"
   session_id="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null || true)"
 else
-  tool_name="$(printf '%s' "$payload" \
-    | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' \
-    | head -n1 | sed -E 's/.*"([^"]*)"$/\1/')"
-  command_text="$payload"
-  tool_output="$payload"
-  session_id="$(printf '%s' "$payload" \
-    | grep -o '"session_id"[[:space:]]*:[[:space:]]*"[^"]*"' \
-    | head -n1 | sed -E 's/.*"([^"]*)"$/\1/')"
+  tool_name="$(json_string_field tool_name)"
+  session_id="$(json_string_field session_id)"
+  command_text="$(json_string_field command)"
+  [ -z "$command_text" ] && command_text="$(json_string_field script)"
+  [ -z "$command_text" ] && command_text="$(json_string_field code)"
+  [ -z "$command_text" ] && command_text="$(json_string_field input)"
+  # pre-mode shell deny: if no command field was found, scan the raw payload.
+  # post-mode never uses command_text as the URL source (see tool_output below).
+  [ -z "$command_text" ] && command_text="$payload"
+  if printf '%s' "$payload" | grep -Fq '"tool_response"'; then
+    tool_output="${payload#*\"tool_response\"}"
+  else
+    tool_output=""
+  fi
 fi
 
 [ -z "$session_id" ] && session_id="unknown-session"
 
 # --- marker location ----------------------------------------------------------
-# Inside the git dir so it is never committed, and resolves per-worktree.
-git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
+# Absolute git dir so the marker path is valid from any cwd (and for linked
+# worktrees). Falls back to TMPDIR outside a repo.
+git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
 [ -z "$git_dir" ] && git_dir="${TMPDIR:-/tmp}"
 marker="$git_dir/claude-pr-handoff-$session_id"
 
+# Drop handoff markers older than a day so the git dir does not accumulate them
+# across sessions. Only touches our own claude-pr-handoff-* files.
+prune_stale_markers() {
+  local dir="$1"
+  [ -d "$dir" ] || return 0
+  find "$dir" -maxdepth 1 -type f -name 'claude-pr-handoff-*' -mtime +1 -delete 2>/dev/null || true
+}
+
 json_escape() {
-  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '
+  # Escape backslash/quote, fold newlines to spaces, and strip other C0 control
+  # characters so a future multi-line deny reason cannot emit unparseable JSON.
+  printf '%s' "$1" \
+    | tr '\n\r\t' '   ' \
+    | tr -d '\000-\010\013\014\016-\037' \
+    | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }
 
 is_shell_tool() {
@@ -83,6 +121,8 @@ matches_pr_write_tool() {
 
 case "$mode" in
 post)
+  prune_stale_markers "$git_dir"
+
   # A PR-creating call that actually returned a PR URL. Both halves matter:
   # without the URL check a failed create would end the session with no PR to
   # hand off.
@@ -94,6 +134,9 @@ post)
     created=0
   fi
   [ "$created" -eq 0 ] || exit 0
+  # Require a non-empty tool_output that itself carries a PR URL. An empty
+  # tool_output (jq-less payload with no tool_response key) must not match.
+  [ -n "$tool_output" ] || exit 0
   printf '%s' "$tool_output" | grep -Eq 'github\.com/[^ "]+/pull/[0-9]+' || exit 0
 
   printf 'pr-opened %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" >"$marker" 2>/dev/null || true
@@ -118,6 +161,7 @@ pre)
   esac
 
   # 2. GitHub MCP tools that read or mutate PR / CI state.
+  # Keep this token list in sync with the PreToolUse matcher in .claude/settings.json.
   if [ -z "$reason" ] && printf '%s' "$tool_name" \
     | grep -Eqi 'pull_?request|workflow_run|workflow_job|check_run|check_suite|job_log|pr_status|update_branch'; then
     reason='Blocked: this session already opened its pull request, so reading or nudging its CI and review state is the wasted-usage loop AGENTS.md "Stop when the pull request is open" rules out. Hand the PR URL to the user and stop.'
@@ -125,6 +169,8 @@ pre)
 
   # 3. Shell polling. Narrow on purpose: committing, pushing, ledger appends, and
   #    `gh pr merge` (already gated on explicit user confirmation) stay allowed.
+  #    Matches are substring-based (cheap, no shell parse); false positives that
+  #    only *mention* a blocked token can use CLAUDE_ALLOW_PR_FOLLOW=1.
   if [ -z "$reason" ] && is_shell_tool; then
     printf '%s' "$command_text" | grep -q 'CLAUDE_ALLOW_PR_FOLLOW=1' && exit 0
     follow_re='gh[[:space:]]+pr[[:space:]]+(checks|status|view|diff|list)'
