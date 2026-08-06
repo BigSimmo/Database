@@ -18,9 +18,9 @@ import { appModeDefinitions, visibleAppModeDefinitions, type AppModeId } from "@
 /**
  * Design scratch: phone "Choose mode" sheet — review + YES comps.
  *
- * YES 01 (sectioned list) is the perfected master: every review finding closed,
- * sticky offset debt removed, current mode folded into the sheet header, and
- * selection is interactive so the study can be judged as a real switcher.
+ * YES 01 is a dense glance list: no Find/Diagnose/Care sections. Organisation
+ * slowed picking; height goes to modes. Keyboard roving, contained preview
+ * scroll, and lifted selection into the phone frame stay.
  */
 
 type GroupId = "find" | "diagnose" | "care";
@@ -64,60 +64,45 @@ function modeOf(id: AppModeId) {
 const reviewFindings = [
   {
     severity: "P1",
-    title: "Flat list, no clinical intent",
+    title: "Hard to pick at a glance",
     detail:
-      "Thirteen equal-weight rows force linear scanning. Answer, DSM, and Medication compete visually even though they serve different jobs.",
+      "Section headers, hints, counts, and roomy rows spend height on organisation. On a phone sheet that means fewer modes visible and more scrolling before you can choose.",
   },
   {
     severity: "P1",
     title: "Descriptions truncate on phone",
     detail:
-      "Live rows use `truncate` on a single line, so the subtitle that differentiates modes disappears on a 390 px sheet.",
+      "Live rows use `truncate` on a single line — fine for density if the title carries the choice. Titles must stay fully readable.",
   },
   {
     severity: "P2",
-    title: "Selected state is easy to miss mid-scroll",
-    detail:
-      "Soft fill + check is correct, but there is no sticky ‘current mode’ context above the list, so returning from a long scroll loses place.",
-  },
-  {
-    severity: "P2",
-    title: "Thumb targets are dense for a primary switcher",
-    detail:
-      "32 px icon wells inside 52 px rows pack the sheet, but the mode switcher is a high-frequency control — it should feel larger than a desktop menu ported down.",
+    title: "Selected state is easy to miss",
+    detail: "Soft fill alone is weak mid-list. A left rail + check keeps place without a second sticky card.",
   },
   {
     severity: "P3",
     title: "Header copy is generic",
     detail:
-      "‘Choose mode / Switch the clinical workspace mode’ names the UI, not the clinician’s current place. A current-mode line orients faster.",
+      "‘Choose mode / Switch the clinical workspace mode’ names the UI. A one-line Currently · {mode} orients faster.",
   },
 ] as const;
 
 const perfectedResolutions = [
   {
-    issue: "Flat catalogue",
-    fix: "Find / Diagnose / Care sections with sticky labels and counts — scan by clinical job.",
+    issue: "Organisation tax",
+    fix: "No Find / Diagnose / Care sections, sticky labels, or count badges — one flat list.",
   },
   {
-    issue: "Truncated subtitles",
-    fix: "Two-line `line-clamp-2` descriptions; inactive titles stay full `--text-heading` weight.",
+    issue: "Wasted vertical space",
+    fix: "Tight rows (min-h-12, 32 px icons, single-line subtitle) so nearly the full catalogue fits at once.",
   },
   {
-    issue: "Lost place mid-scroll",
-    fix: "Current mode lives in the non-scrolling sheet header; section labels stick at `top-0` — no fragile offset.",
+    issue: "Lost selection",
+    fix: "Header Currently · {mode} plus soft fill, left rail, and check — no bulky current card.",
   },
   {
-    issue: "Dense thumb targets",
-    fix: "`min-h-12` rows, 44 px icon wells, 10 px row gap rhythm — primary switcher, not a desktop menu port.",
-  },
-  {
-    issue: "Generic header",
-    fix: "Header reads “Currently · Answer” with the live icon; updates when you pick another mode.",
-  },
-  {
-    issue: "Duplicate current chrome",
-    fix: "Removed the bulky sticky “Now in” card that stole first-viewport height and repeated the selected row.",
+    issue: "Keyboard / scroll a11y",
+    fix: "Arrow/Home/End roving focus; preview scroll stays inside the sheet body.",
   },
 ] as const;
 
@@ -130,28 +115,28 @@ const variants: Array<{
 }> = [
   {
     id: "sections",
-    title: "Sectioned clinical list — perfected",
-    verdict: "YES · Master for intent",
+    title: "Dense glance list",
+    verdict: "YES · Fastest pick",
     description:
-      "Every review finding closed. Current mode sits in the sheet header, section labels are the only sticky layer, rows are phone-native, and selection is interactive. This is the direction to land.",
+      "Flat catalogue, no clinical lanes. Most modes visible at once; pick by name without scrolling through section chrome. This is the shipping recommendation.",
     changes: [
-      "Header carries “Currently · {mode}” — orients without a second card.",
-      "Sticky section labels only (`top-0`); no magic `4.6rem` offset under a strip.",
-      "`min-h-12` rows, 44 px wells, two-line descriptions, readable inactive titles.",
-      "Tap a mode: header and selection update together — proven in the Switched frame.",
+      "No section headers, hints, or counts — organisation was slowing choice.",
+      "Compact min-h-12 rows with 32 px icon wells and one-line subtitles.",
+      "Header carries Currently · {mode}; selection is interactive and lifts into the top-bar pill.",
+      "Arrow/Home/End roving focus; proof-frame scroll stays inside the sheet.",
     ],
   },
   {
     id: "deck",
     title: "Icon deck with lane chips",
-    verdict: "YES · Best overview",
+    verdict: "Alternate · Overview",
     description:
-      "Two-column mode cards plus Find / Diagnose / Care filter chips. Prefer this if browsing all modes matters more than a vertical reading order. YES 01 remains the shipping recommendation.",
+      "Two-column cards with Find / Diagnose / Care filters. Kept only as an alternate if browsing by lane matters more than a single glance pick.",
     changes: [
       "Lane chips filter the deck without opening a second surface.",
       "Current mode sits in a full-width identity card above the grid.",
-      "Cards are icon-forward with two-line labels; selected card uses accent ring + check.",
-      "Same Sheet chrome (grip, title, close, safe-area) so the concept can drop into the live Sheet.",
+      "Cards are icon-forward; selected card uses accent ring + check.",
+      "More organisation than YES 01 — use only if that trade-off is wanted.",
     ],
   },
 ];
@@ -373,56 +358,52 @@ function ModeRow({
       onKeyDown={(event) => onKeyDown(event, index)}
       style={{ animationDelay: `${Math.min(index, 8) * 28}ms` }}
       className={cn(
-        "relative grid min-h-12 w-full grid-cols-[2.75rem_minmax(0,1fr)_1.75rem] items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition-[background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-safe:animate-[cascade-fade-up_var(--duration-moderate)_var(--ease-out-soft)_both] motion-reduce:animate-none motion-reduce:transition-none",
+        "relative grid min-h-12 w-full grid-cols-[2rem_minmax(0,1fr)_1.25rem] items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-[background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
         focusRing,
         active
-          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)] shadow-[var(--shadow-inset)]"
+          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)]"
           : "text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
       )}
     >
       {active ? (
         <span
           aria-hidden="true"
-          className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-[color:var(--clinical-accent)]"
+          className="absolute inset-y-1.5 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
         />
       ) : null}
       <span
         className={cn(
-          "grid h-11 w-11 place-items-center rounded-xl border transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none",
+          "grid h-8 w-8 place-items-center rounded-lg border",
           active
             ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
             : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
         )}
       >
-        <Icon aria-hidden="true" className="h-5 w-5" />
+        <Icon aria-hidden="true" className="h-4 w-4" />
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
           {mode.label}
         </span>
-        <span className="mt-0.5 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
+        <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
           {mode.description}
         </span>
       </span>
-      <span className="grid place-items-center">
-        {active ? (
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)]">
-            <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.5} />
-          </span>
-        ) : (
-          <span aria-hidden="true" className="h-6 w-6" />
-        )}
-      </span>
+      {active ? (
+        <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" strokeWidth={2.5} />
+      ) : (
+        <span aria-hidden="true" className="h-4 w-4" />
+      )}
     </button>
   );
 }
 
-const SECTIONED_MODE_IDS = GROUPS.flatMap((group) => group.modes);
+const FLAT_MODE_IDS = visibleAppModeDefinitions("production").map((mode) => mode.id);
+const MID_SCROLL_MODE: AppModeId = "differentials";
 
 /**
- * Perfected YES 01. Current mode is header chrome (never a second sticky card).
- * Section labels are the sole sticky layer. Selection is live and controlled by
- * the phone frame so the top-bar pill stays in sync.
+ * YES 01 — dense glance list. Flat catalogue, no section organisation.
+ * Selection is controlled by the phone frame so the top-bar pill stays in sync.
  */
 function SectionedListSheet({
   selected,
@@ -433,12 +414,10 @@ function SectionedListSheet({
   onSelectedChange: (id: AppModeId) => void;
   preview?: SectionsPreview;
 }) {
-  const instanceId = useId();
   const bodyRef = useRef<HTMLDivElement>(null);
-  const diagnoseRef = useRef<HTMLElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const selectedIndex = Math.max(0, SECTIONED_MODE_IDS.indexOf(selected));
-  // Roving tabindex: keyboard moves focusIndex; remount (via PhoneFrame key) resets it.
+  const selectedIndex = Math.max(0, FLAT_MODE_IDS.indexOf(selected));
+  const midScrollIndex = Math.max(0, FLAT_MODE_IDS.indexOf(MID_SCROLL_MODE));
   const [focusIndex, setFocusIndex] = useState(selectedIndex);
   // Proof-frame scroll uses the mount selection only — live taps must not re-scroll.
   const mountSelectedIndexRef = useRef(selectedIndex);
@@ -448,25 +427,23 @@ function SectionedListSheet({
     // Constrain preview scroll to the sheet body — scrollIntoView would yank
     // every scrollable ancestor, including the document, past the study heading.
     // Run once per proof-frame mount only: re-running on live selection taps
-    // would yank the Scrolled frame back to Diagnose after every mode pick.
+    // would yank the Scrolled frame after every mode pick.
     const frame = window.requestAnimationFrame(() => {
       const body = bodyRef.current;
       if (!body) return;
       if (preview === "scrolled") {
-        const target = diagnoseRef.current;
+        const target = optionRefs.current[midScrollIndex];
         if (target) scrollContainerToTarget(body, target, "start");
         return;
       }
-      // Switched: bring the newly current mode into view so selection is not
-      // off-screen under Find while the header already says DSM-5 / Care / etc.
       const target = optionRefs.current[mountSelectedIndexRef.current];
       if (target) scrollContainerToTarget(body, target, "center");
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [preview]);
+  }, [preview, midScrollIndex]);
 
   function focusModeOption(index: number) {
-    const next = Math.max(0, Math.min(SECTIONED_MODE_IDS.length - 1, index));
+    const next = Math.max(0, Math.min(FLAT_MODE_IDS.length - 1, index));
     setFocusIndex(next);
     optionRefs.current[next]?.focus();
   }
@@ -483,13 +460,13 @@ function SectionedListSheet({
       focusModeOption(0);
     } else if (event.key === "End") {
       event.preventDefault();
-      focusModeOption(SECTIONED_MODE_IDS.length - 1);
+      focusModeOption(FLAT_MODE_IDS.length - 1);
     }
   }
 
   function selectMode(id: AppModeId) {
     onSelectedChange(id);
-    const nextIndex = SECTIONED_MODE_IDS.indexOf(id);
+    const nextIndex = FLAT_MODE_IDS.indexOf(id);
     if (nextIndex >= 0) setFocusIndex(nextIndex);
   }
 
@@ -505,52 +482,22 @@ function SectionedListSheet({
         aria-label="Choose app mode"
         data-perfected="yes-01"
         data-preview={preview}
-        className="px-2.5 pb-2 pt-1"
+        className="grid gap-0 px-1.5 py-1"
       >
-        {GROUPS.map((group, groupIndex) => {
-          const sectionRef = group.id === "diagnose" ? diagnoseRef : undefined;
-          const rowOffset = GROUPS.slice(0, groupIndex).reduce((total, entry) => total + entry.modes.length, 0);
-          const headingId = `${instanceId}-group-${group.id}`;
-          return (
-            <section key={group.id} ref={sectionRef} aria-labelledby={headingId} className="pt-3 first:pt-1.5">
-              <div className="sticky top-0 z-[1] -mx-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 px-2.5 py-1.5 backdrop-blur-md">
-                <div className="flex items-baseline justify-between gap-3">
-                  <div className="min-w-0">
-                    <h4
-                      id={headingId}
-                      className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--text-soft)]"
-                    >
-                      {group.label}
-                    </h4>
-                    <p className="truncate text-3xs font-medium text-[color:var(--text-muted)]">{group.hint}</p>
-                  </div>
-                  <span className="nums shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-3xs font-bold tabular-nums text-[color:var(--text-soft)]">
-                    {group.modes.length}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-1.5 grid gap-1">
-                {group.modes.map((modeId, modeIndex) => {
-                  const flatIndex = rowOffset + modeIndex;
-                  return (
-                    <ModeRow
-                      key={modeId}
-                      modeId={modeId}
-                      active={modeId === selected}
-                      index={flatIndex}
-                      tabIndex={flatIndex === focusIndex ? 0 : -1}
-                      onSelect={selectMode}
-                      onKeyDown={handleModeOptionKeyDown}
-                      buttonRef={(element) => {
-                        optionRefs.current[flatIndex] = element;
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+        {FLAT_MODE_IDS.map((modeId, flatIndex) => (
+          <ModeRow
+            key={modeId}
+            modeId={modeId}
+            active={modeId === selected}
+            index={flatIndex}
+            tabIndex={flatIndex === focusIndex ? 0 : -1}
+            onSelect={selectMode}
+            onKeyDown={handleModeOptionKeyDown}
+            buttonRef={(element) => {
+              optionRefs.current[flatIndex] = element;
+            }}
+          />
+        ))}
       </div>
     </SheetChrome>
   );
@@ -710,7 +657,7 @@ function SectionsPhoneFrame({
       </figcaption>
       <div
         data-variant="sections"
-        data-sections-preview={sectionsPreview}
+        data-dense-preview={sectionsPreview}
         className={cn(
           "relative isolate flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
           large ? "h-[46rem]" : "h-[30rem]",
@@ -780,11 +727,11 @@ function ReviewPanel() {
         Design review · Phone sheet
       </p>
       <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-[color:var(--text-heading)]">
-        What the current Choose mode gets wrong
+        Glance first, organise later
       </h2>
       <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
-        The live bottom sheet is structurally sound (Sheet focus, menuitemradio, portal). The polish gap is scan and
-        hierarchy on a long clinical catalogue — not interaction plumbing.
+        Sectioned Find / Diagnose / Care lanes looked tidy but spent height on chrome. Mode choice on phone is a glance
+        task — more visible rows beat clinical grouping.
       </p>
       <ul className="mt-4 space-y-3">
         {reviewFindings.map((finding) => (
@@ -804,7 +751,7 @@ function ReviewPanel() {
       </ul>
       <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-[color:var(--text-muted)]">
         <Search aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
-        YES 01 perfected closes every finding above. Prefer it for shipping; YES 02 stays the overview alternate.
+        YES 01 is the dense flat list. YES 02 keeps lanes only as an optional overview alternate.
       </p>
     </aside>
   );
@@ -837,35 +784,35 @@ export function PhoneModeSheetYesMockups() {
             Phone · Choose mode sheet
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[color:var(--text-heading)] sm:text-4xl">
-            YES 01 perfected
+            Dense glance list
           </h1>
           <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
-            The sectioned clinical list, taken to master: every review finding closed, no duplicate current chrome, a
-            single sticky layer, phone-native targets, and live selection. YES 02 remains the overview alternate.
+            Organisation and roomy section chrome made mode choice slower. YES 01 is a flat, tight list so you can see
+            and pick a mode in one glance — no Find / Diagnose / Care lanes.
           </p>
         </header>
 
-        <section aria-labelledby="perfected-pair-title" className="mt-10">
+        <section aria-labelledby="dense-pair-title" className="mt-10">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
-                Perfected · Three states
+                YES 01 · Three states
               </p>
               <h2
-                id="perfected-pair-title"
+                id="dense-pair-title"
                 className="mt-1 text-2xl font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]"
               >
                 Rest · Scrolled · Switched
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-[color:var(--text-muted)]">
-              Open on Answer, scroll into Diagnose with sticky labels, then land on DSM-5 — header and selection stay in
+              Most of the catalogue visible on open. Scroll only for the tail; switch keeps header and selection in
               sync.
             </p>
           </div>
           <div className="flex flex-wrap items-start gap-5">
-            <PhoneFrame variant="sections" large caption="Rest · Answer selected" sectionsPreview="rest" />
-            <PhoneFrame variant="sections" large caption="Scrolled · Diagnose sticky" sectionsPreview="scrolled" />
+            <PhoneFrame variant="sections" large caption="Rest · most modes visible" sectionsPreview="rest" />
+            <PhoneFrame variant="sections" large caption="Scrolled · mid catalogue" sectionsPreview="scrolled" />
             <PhoneFrame
               variant="sections"
               large
@@ -881,11 +828,10 @@ export function PhoneModeSheetYesMockups() {
             id="resolutions-title"
             className="text-lg font-semibold tracking-[-0.02em] text-[color:var(--text-heading)]"
           >
-            All issues resolved
+            What changed after feedback
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)]">
-            The earlier YES 01 draft still carried a bulky sticky “Now in” card and a fragile `top-[4.6rem]` offset. The
-            perfected sheet removes both.
+            Dropped section organisation and vertical padding that made the sheet feel spacious but harder to scan.
           </p>
           <div className="mt-4">
             <PerfectedResolutions />
@@ -946,9 +892,9 @@ export function PhoneModeSheetYesMockups() {
               </ul>
 
               {variant.id === "sections" ? (
-                <PhoneFrame variant="sections" large caption="Detail · Perfected sectioned list" />
+                <PhoneFrame variant="sections" large caption="Detail · Dense glance list" />
               ) : (
-                <PhoneFrame variant="deck" large caption="Detail · Icon deck" />
+                <PhoneFrame variant="deck" large caption="Detail · Icon deck (alternate)" />
               )}
             </section>
           ))}

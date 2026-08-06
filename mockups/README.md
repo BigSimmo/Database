@@ -45,7 +45,7 @@ Some document-search mockups include live handoff routes (for example `document-
 
 ## Phone Choose mode sheet YES comps
 
-Runnable study at [`/mockups/phone-mode-sheet-yes`](../src/app/mockups/phone-mode-sheet-yes/page.tsx): design review of the shipping phone mode sheet plus **YES 01 perfected** (sectioned clinical list — shipping recommendation) and YES 02 (icon deck alternate). Shared mockup chrome is suppressed so only the in-frame sheet is judged.
+Runnable study at [`/mockups/phone-mode-sheet-yes`](../src/app/mockups/phone-mode-sheet-yes/page.tsx): design review plus **YES 01 dense glance list** (flat catalogue, no Find/Diagnose/Care lanes — shipping recommendation) and YES 02 icon-deck alternate. Shared mockup chrome is suppressed so only the in-frame sheet is judged.
 
 ## Mode-page redesign comps (2026-07-31)
 
