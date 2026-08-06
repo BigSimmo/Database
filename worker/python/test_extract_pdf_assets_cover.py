@@ -29,8 +29,9 @@ class CoverPageExtractionTests(unittest.TestCase):
             self.assertGreaterEqual(cover["height"], 64)
             self.assertEqual(cover["metadata"]["source_kind"], "cover_page")
             self.assertEqual(cover["metadata"]["clinical_use_class"], "decorative_or_empty")
-            # Clinical crops may also be present; covers must not replace them.
-            self.assertTrue(any(image.get("sourceKind") != "cover_page" for image in result["images"]) or True)
+            # Cover must remain non-searchable and must not be the only way to
+            # identify the image list shape used by the indexer.
+            self.assertNotEqual(cover.get("searchable"), True)
 
 
 if __name__ == "__main__":

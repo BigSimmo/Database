@@ -799,10 +799,12 @@ function DocumentPagePreview({ document, href }: { document: DocumentMatch; href
   const pageNumber = document.bestPages[0] ?? 1;
   const lineWidths = [74, 88, 63, 79, 56];
   const coverEndpoint = document.coverImageId ? `/api/images/${document.coverImageId}/signed-url` : "";
-  const { url: coverUrl, failed: coverFailed } = useSignedImageUrl(coverEndpoint, Boolean(coverEndpoint));
+  const { url: coverUrl, failed: coverFailed, markFailed } = useSignedImageUrl(coverEndpoint, Boolean(coverEndpoint));
   const [loadedCoverUrl, setLoadedCoverUrl] = useState<string | null>(null);
-  const showCover = Boolean(coverEndpoint && coverUrl && !coverFailed);
+  const hasCoverUrl = Boolean(coverEndpoint && coverUrl && !coverFailed);
   const coverLoaded = Boolean(coverUrl && loadedCoverUrl === coverUrl);
+  const showSkeleton = Boolean(coverEndpoint && !coverFailed && !coverLoaded);
+  const showFallback = Boolean(!coverLoaded && (!coverEndpoint || coverFailed));
 
   return (
     <Link
@@ -811,7 +813,7 @@ function DocumentPagePreview({ document, href }: { document: DocumentMatch; href
       data-testid="document-page-preview"
       className="group relative flex h-28 w-20 shrink-0 flex-col overflow-hidden rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transform-none motion-reduce:transition-none sm:h-32 sm:w-24"
     >
-      {showCover ? (
+      {hasCoverUrl ? (
         // Private signed covers stay unoptimized so bearer URLs never enter `/_next/image`.
         // eslint-disable-next-line @next/next/no-img-element -- signed private URL; avoid optimizer cache
         <img
@@ -819,16 +821,15 @@ function DocumentPagePreview({ document, href }: { document: DocumentMatch; href
           alt=""
           aria-hidden="true"
           onLoad={() => setLoadedCoverUrl(coverUrl)}
+          onError={markFailed}
           className={cn(
             "absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-[var(--duration-deliberate)] motion-reduce:transition-none",
             coverLoaded ? "opacity-100" : "opacity-0",
           )}
         />
       ) : null}
-      {coverEndpoint && !showCover && !coverFailed ? (
-        <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
-      ) : null}
-      {!showCover && (!coverEndpoint || coverFailed) ? (
+      {showSkeleton ? <Skeleton className="absolute inset-0 h-full w-full rounded-none" /> : null}
+      {showFallback ? (
         <span className="relative flex h-full flex-col p-2 sm:p-2.5" aria-hidden="true">
           <span className="flex items-center justify-between text-[color:var(--clinical-accent)]">
             <FileText className="h-3.5 w-3.5" aria-hidden="true" />
