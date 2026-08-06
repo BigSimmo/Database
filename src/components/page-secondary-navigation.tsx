@@ -327,7 +327,7 @@ export function PageSecondaryNavigation({
     <SecondaryNavigation
       ariaLabel={modeAriaLabel}
       items={modeItems}
-      activeId={activeId}
+      activeId={activeId ?? undefined}
       sticky={sticky}
       stickyTop={stickyTop}
     />

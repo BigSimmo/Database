@@ -56,7 +56,10 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
     <FormulationPageShell>
       <FormulationBreadcrumbs current={mechanism.name} />
 
-      <section className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <section
+        id="formulation-overview"
+        className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+      >
         <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
           <span className="grid h-14 w-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
             <Network className="h-7 w-7" aria-hidden />
@@ -96,9 +99,13 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
         </div>
       </section>
 
-      <section aria-labelledby="what-matters-now" className={cn(formulationCard, "overflow-hidden")}>
+      <section
+        id="formulation-what-matters-now"
+        aria-labelledby="formulation-what-matters-now-label"
+        className={cn(formulationCard, "overflow-hidden")}
+      >
         <div className="border-b border-[color:var(--border)] px-4 py-2.5 sm:px-5">
-          <p id="what-matters-now" className={eyebrowText}>
+          <p id="formulation-what-matters-now-label" className={eyebrowText}>
             What matters now
           </p>
         </div>
@@ -118,7 +125,7 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
             body="Use sequence, function, patient language, and disconfirming evidence to decide whether this hypothesis adds explanatory value."
           />
 
-          <section className={cn(formulationCard, "overflow-hidden")}>
+          <section id="formulation-fit" className={cn(formulationCard, "overflow-hidden")}>
             <GuidanceSection icon={Check} title="When this fits" items={mechanism.fitIndicators} tone="success" open />
             <GuidanceSection
               icon={ShieldAlert}
@@ -134,7 +141,7 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
             />
           </section>
 
-          <section className={cn(formulationCard, "overflow-hidden")}>
+          <section id="formulation-five-ps" className={cn(formulationCard, "overflow-hidden")}>
             <div className="border-b border-[color:var(--border)] px-4 py-3 sm:px-5">
               <p className={eyebrowText}>Across the formulation</p>
               <h2 className="mt-1 text-lg font-extrabold text-[color:var(--text-heading)]">
@@ -173,7 +180,7 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
             </article>
           </section>
 
-          <section className={cn(formulationCard, "grid gap-4 p-4 sm:p-5")}>
+          <section id="formulation-treatment" className={cn(formulationCard, "grid gap-4 p-4 sm:p-5")}>
             <div className="flex items-start gap-3">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                 <Target className="h-5 w-5" aria-hidden />
@@ -286,7 +293,7 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
         </aside>
       </div>
 
-      <FormulationSafetyNote />
+      <FormulationSafetyNote id="formulation-evidence" />
     </FormulationPageShell>
   );
 }

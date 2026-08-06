@@ -45,9 +45,10 @@ export function MechanismBadge({ label = "Formulation mechanism" }: { label?: st
   );
 }
 
-export function FormulationSafetyNote({ compact = false }: { compact?: boolean }) {
+export function FormulationSafetyNote({ compact = false, id }: { compact?: boolean; id?: string }) {
   return (
     <aside
+      id={id}
       className={cn(
         "flex items-start gap-2.5 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-sm leading-5 text-[color:var(--text-muted)]",
         compact ? "px-3 py-2.5" : "p-4",

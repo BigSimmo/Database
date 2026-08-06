@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 import { appModeIds, type AppModeId } from "@/lib/app-modes";
 import { isInformationPage } from "@/lib/information-pages";
 import {
+  MODE_NAV_ADOPTED_MODES,
+  activeModeSecondaryNavigationId,
   isModeSecondaryNavigationRoute,
   modeSecondaryNavigationHref,
   modeSecondaryNavigationRegistry,
+  routedModeSecondaryNavigationCount,
 } from "@/lib/mode-secondary-navigation";
 
 const expectedLabels: Record<AppModeId, string[]> = {
@@ -131,6 +134,30 @@ describe("mode secondary navigation registry", () => {
         currentSearchParams: new URLSearchParams("q=confusion&ids=delirium%2Cdementia"),
       }),
     ).toBe("/differentials/presentations?q=confusion&ids=delirium%2Cdementia");
+  });
+
+  it("adopts only modes with two or more routed destinations (explicit list, not silent derivation)", () => {
+    for (const modeId of MODE_NAV_ADOPTED_MODES) {
+      expect(
+        routedModeSecondaryNavigationCount(modeId),
+        `${modeId} is adopted but has fewer than two routed entries`,
+      ).toBeGreaterThanOrEqual(2);
+    }
+
+    for (const modeId of appModeIds) {
+      if (modeId === "therapy-compass") continue; // owns ModeNav via useTherapyNavItems
+      if (routedModeSecondaryNavigationCount(modeId) < 2) {
+        expect(MODE_NAV_ADOPTED_MODES).not.toContain(modeId);
+      }
+    }
+  });
+
+  it("does not mark Find/Search current on record routes that match no destination", () => {
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/with-anxious-distress")).toBeNull();
+    expect(activeModeSecondaryNavigationId("formulation", "/formulation/avoidance")).toBeNull();
+    expect(activeModeSecondaryNavigationId("dsm", "/dsm/diagnoses/major-depressive-disorder")).toBeNull();
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder")).toBe("builder");
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers")).toBe("search");
   });
 });
 

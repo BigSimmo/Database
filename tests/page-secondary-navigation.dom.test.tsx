@@ -85,6 +85,60 @@ describe("PageSecondaryNavigation", () => {
     }
   });
 
+  it("binds specifier section targets to IDs rendered by specifier record pages", () => {
+    const recordPage = readFileSync(join(process.cwd(), "src/components/specifiers/specifier-record-page.tsx"), "utf8");
+    const referencePage = readFileSync(
+      join(process.cwd(), "src/components/specifiers/specifier-reference-page.tsx"),
+      "utf8",
+    );
+    for (const targetId of informationPageSectionDefinitions("/specifiers/with-anxious-distress").flatMap(
+      (section) => section.targetIds,
+    )) {
+      // Fit is enrichment-gated on the catalogue reference page; the curated
+      // record page must always expose every declared target.
+      expect(recordPage).toContain(`id="${targetId}"`);
+      if (targetId !== "specifier-fit") {
+        expect(referencePage).toContain(`id="${targetId}"`);
+      }
+    }
+    expect(referencePage).toContain('id="specifier-fit"');
+  });
+
+  it("binds formulation section targets to IDs rendered by formulation-mechanism-page", () => {
+    const mechanismPage = readFileSync(
+      join(process.cwd(), "src/components/formulation/formulation-mechanism-page.tsx"),
+      "utf8",
+    );
+    for (const targetId of informationPageSectionDefinitions("/formulation/avoidance").flatMap(
+      (section) => section.targetIds,
+    )) {
+      expect(mechanismPage).toContain(`id="${targetId}"`);
+    }
+  });
+
+  it("renders On this page for a specifier record when its section targets are present", async () => {
+    render(
+      <div>
+        <PageSecondaryNavigation
+          modeId="specifiers"
+          pathname="/specifiers/with-anxious-distress"
+          hasSubmittedSearch={false}
+          onSearch={vi.fn()}
+        />
+        <section id="specifier-overview" />
+        <section id="specifier-fit" />
+        <section id="specifier-wording" />
+        <aside id="specifier-evidence" />
+      </div>,
+    );
+
+    const onThisPage = await screen.findByRole("navigation", { name: "On this page" });
+    expect(onThisPage).toBeVisible();
+    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "#specifier-overview");
+    expect(screen.getByRole("link", { name: "Fit & exclusions" })).toHaveAttribute("href", "#specifier-fit");
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
+  });
+
   it("does not add a navigation row to a clean no-query landing page", () => {
     render(
       <PageSecondaryNavigation modeId="services" pathname="/services" hasSubmittedSearch={false} onSearch={vi.fn()} />,

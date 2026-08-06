@@ -44,7 +44,8 @@ export function RegistryModeNav({
   searchParamString = "",
 }: {
   modeId: AppModeId;
-  activeId: string;
+  /** `null` marks no destination as current (record/detail routes). */
+  activeId: string | null;
   searchParamString?: string;
 }) {
   const currentSearchParams = new URLSearchParams(searchParamString);

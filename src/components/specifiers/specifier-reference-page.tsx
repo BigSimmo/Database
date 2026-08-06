@@ -136,7 +136,10 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
       <SpecifierBreadcrumbs current={item.label} />
 
       {/* Hero */}
-      <section className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <section
+        id="specifier-overview"
+        className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+      >
         <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
           <span className="grid h-14 w-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
             <Tags className="h-7 w-7" aria-hidden />
@@ -219,7 +222,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
           ) : null}
 
           {enrichment ? (
-            <section className={cn(specifierCard, "grid gap-4 p-4 sm:p-5")}>
+            <section id="specifier-fit" className={cn(specifierCard, "grid gap-4 p-4 sm:p-5")}>
               <div className="flex items-start gap-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                   <Check className="h-5 w-5" aria-hidden />
@@ -266,7 +269,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
             </dl>
           </section>
 
-          <section className={cn(specifierCard, "p-4")}>
+          <section id="specifier-wording" className={cn(specifierCard, "p-4")}>
             <p className={eyebrowText}>Diagnosis</p>
             <p className="mt-2 text-sm font-bold leading-6 text-[color:var(--text-heading)]">{item.disorderName}</p>
             <div className="mt-2">
@@ -301,7 +304,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
         </aside>
       </div>
 
-      <SpecifierSafetyNote />
+      <SpecifierSafetyNote id="specifier-evidence" />
     </SpecifierPageShell>
   );
 }

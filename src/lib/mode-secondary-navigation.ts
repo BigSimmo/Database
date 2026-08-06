@@ -104,20 +104,39 @@ export function modeSecondaryNavigationEntries(modeId: AppModeId): readonly Mode
   return modeSecondaryNavigationRegistry[modeId];
 }
 
-export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: string): string {
+/** Count of registry entries that carry an href (eligible ModeNav slots). */
+export function routedModeSecondaryNavigationCount(modeId: AppModeId): number {
+  return modeSecondaryNavigationEntries(modeId).filter((entry) => Boolean(entry.href)).length;
+}
+
+/**
+ * Which destination is current for `modeId` on `pathname`.
+ *
+ * Returns `null` when no registered destination owns the route (record/detail
+ * pages, unknown in-mode paths). Callers that always pass this into `ModeNav`
+ * must treat `null` as "no `aria-current`", not fall back to the first slot —
+ * otherwise Find/Search is falsely marked current on every unmatched path.
+ */
+export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: string): string | null {
   if (modeId === "differentials") {
     if (pathname.startsWith("/differentials/diagnoses")) return "diagnoses";
     if (pathname.startsWith("/differentials/presentations")) return "compare";
-    return "search";
+    if (pathname === "/differentials" || pathname.startsWith("/differentials?")) return "search";
+    return null;
   }
-  if (modeId === "dsm") return pathname.startsWith("/dsm/compare") ? "compare" : "search";
+  if (modeId === "dsm") {
+    if (pathname.startsWith("/dsm/compare")) return "compare";
+    if (pathname === "/dsm" || pathname === "/dsm/search" || pathname.startsWith("/dsm?")) return "search";
+    return null;
+  }
   if (modeId === "specifiers" || modeId === "formulation") {
     if (pathname.includes("/builder")) return "builder";
     if (pathname.includes("/compare")) return "compare";
     if (pathname.includes("/map")) return "map";
-    return "search";
+    if (pathname === `/${modeId}` || pathname.startsWith(`/${modeId}?`)) return "search";
+    return null;
   }
-  return modeSecondaryNavigationRegistry[modeId][0].id;
+  return modeSecondaryNavigationRegistry[modeId][0]?.id ?? null;
 }
 
 export function isModeSecondaryNavigationRoute(params: {
