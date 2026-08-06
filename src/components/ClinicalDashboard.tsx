@@ -50,6 +50,7 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
@@ -2073,17 +2074,9 @@ export function ClinicalDashboard({
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
-      // A source-library search that returns nothing is a RESULT, not a failure:
-      // the payload still carries `scope` (summary, activeFilterCount,
-      // matchedDocumentCount, warnings) and `sourceGovernanceWarnings`, which
-      // together are the only explanation of WHY it is empty. Discarding it and
-      // throwing the 404 sentinel instead is what left a scoped-to-zero search
-      // rendering the answer-mode "Answer unavailable" banner over a generic
-      // "check the spelling" — with the active scope filter neither named nor
-      // clearable, so every subsequent query in the mode returned zero too.
-      // Differentials already relied on this (its ranked catalogue loads
-      // independently and must not be hidden by empty document evidence); the
-      // documents path needs it for the same reason.
+      // An empty source-library search is a RESULT, not a failure: the payload
+      // carries the `scope`/`sourceGovernanceWarnings` explaining WHY it is
+      // empty, and the 404 sentinel discarded them. See `scopeFilterChips`.
       let emptySourceLibraryPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
@@ -2122,9 +2115,6 @@ export function ClinicalDashboard({
                 );
 
           if (!resultUsable(payload)) {
-            // Keep the LAST empty payload: the keyword variant below runs
-            // against the same scope, so its scope/warnings describe the state
-            // the reader is actually looking at.
             if (payload.kind === "documents") emptySourceLibraryPayload = payload;
             lastError = makeSearchError("No usable results were found.", 404, false);
             if (!entry.isKeyword) {
@@ -3235,22 +3225,7 @@ export function ClinicalDashboard({
   const handleFollowUpSuggestionPick = useEventCallback(handlePickFollowUpSuggestion);
   const handleCrossModeSearch = useEventCallback(crossModeSearch);
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
-  // Relaxing a scope filter has to re-run the search, not just re-render: these
-  // filters are resolved server-side before retrieval, so the current (empty)
-  // result set holds nothing to un-filter locally. The URL carries the scope
-  // too — `ask()` writes it on every documents submit — so it is updated in the
-  // same act or the next search would re-apply the constraint just cleared.
-  const handleScopeFiltersChange = useEventCallback((filters: SearchScopeFilters) => {
-    setScopeFilters(filters);
-    const trimmedQuery = query.trim();
-    if (!trimmedQuery) return;
-    window.history.replaceState(
-      null,
-      "",
-      documentsSearchHref({ query: trimmedQuery, run: true, queryMode, scopeFilters: filters }),
-    );
-    void executeSearch(trimmedQuery, searchMode, filters, queryMode, true);
-  });
+  const handleScopeFiltersChange = useScopeFilterRelax(query, queryMode, searchMode, setScopeFilters, executeSearch);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {

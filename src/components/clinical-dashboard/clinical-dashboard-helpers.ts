@@ -8,12 +8,62 @@ import type { SetupCheck } from "@/components/clinical-dashboard/DocumentManager
 import { navigationHashes } from "@/components/clinical-dashboard/dashboard-contracts";
 import { makeSearchError } from "@/components/clinical-dashboard/search-utils";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
+import { documentsSearchHref } from "@/lib/document-flow-routes";
 import type { ClinicalDocument, ImportBatch, IngestionJob, RagAnswer, RelatedDocument } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
+import type { ClinicalQueryMode } from "@/lib/clinical-query-mode";
 
 // Poll-delay ceiling for setup re-checks; also the clamp ceiling for
 // `normalizedPollDelay`. Shared with the dashboard's polling loop.
 export const setupRecheckPollMs = 60_000;
+
+/**
+ * Re-run a Documents search against a relaxed server-side scope.
+ *
+ * Relaxing a scope filter cannot be a local re-render: `resolveSearchScope`
+ * applies these before retrieval, so when they match nothing the API
+ * short-circuits and the client holds an empty result set with nothing to
+ * un-filter. The search has to go back out.
+ *
+ * The URL is rewritten in the same act because it is the *only* place scope
+ * filters live — `ask()` writes them on every documents submit — so leaving it
+ * stale would re-apply, on the next search, the exact constraint just cleared.
+ * That is what made a scoped-to-zero search self-perpetuating: it survived
+ * reloads, bookmarks, back/forward and home-screen shortcuts.
+ */
+export function relaxDocumentScopeFilters<Mode>({
+  filters,
+  query,
+  queryMode,
+  searchMode,
+  setScopeFilters,
+  runSearch,
+}: {
+  filters: SearchScopeFilters;
+  query: string;
+  queryMode: ClinicalQueryMode;
+  searchMode: Mode;
+  setScopeFilters: (filters: SearchScopeFilters) => void;
+  runSearch: (
+    query: string,
+    mode: Mode,
+    filters: SearchScopeFilters,
+    queryMode: ClinicalQueryMode,
+    replaceExistingAnswer: boolean,
+  ) => unknown;
+}) {
+  setScopeFilters(filters);
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return;
+  window.history.replaceState(
+    null,
+    "",
+    documentsSearchHref({ query: trimmedQuery, run: true, queryMode, scopeFilters: filters }),
+  );
+  // `replaceExistingAnswer` — this replaces the result the reader is looking at
+  // rather than archiving it as a prior turn; it is the same search, relaxed.
+  runSearch(trimmedQuery, searchMode, filters, queryMode, true);
+}
 
 export function compactScopeFilters(filters: SearchScopeFilters) {
   const next: SearchScopeFilters = {};
