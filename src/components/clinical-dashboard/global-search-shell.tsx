@@ -999,7 +999,8 @@ function GlobalStandaloneSearchShellBody({
               section ids. Specifiers and Formulation keep their existing local
               Subnav (SpecifierSubnav / FormulationSubnav), so the shared mode bar
               is skipped for them to avoid a duplicate row on their workflow routes.
-              Rendered in normal flow (sticky={false}) so it never contends with
+              Mode navigation portals into the collapsing header; the "On this page"
+              bar renders in normal flow (sticky={false}) so it never contends with
               the universal collapsing header or page-flow search chrome.
             */}
             {!pendingModeNavigation && searchMode !== "specifiers" && searchMode !== "formulation" ? (
@@ -1008,7 +1009,6 @@ function GlobalStandaloneSearchShellBody({
                 pathname={pathname}
                 hasSubmittedSearch={hasSubmittedModeSearch}
                 searchParamString={searchParamString}
-                onSearch={() => inputRef.current?.focus({ preventScroll: true })}
                 sticky={false}
               />
             ) : null}

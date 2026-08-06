@@ -20,14 +20,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   formulation: ["Find", "Build", "Compare", "Map"],
   prescribing: ["Search"],
   tools: ["Search"],
-  "therapy-compass": [
-    "Search",
-    "Recommend",
-    "Compare",
-    "Pathways",
-    "Brief Intervention",
-    "Patient Sheets",
-  ],
+  "therapy-compass": ["Search", "Recommend", "Compare", "Pathways", "Brief Intervention", "Patient Sheets"],
   factsheets: ["Search"],
 };
 

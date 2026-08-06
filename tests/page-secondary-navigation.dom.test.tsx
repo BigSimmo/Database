@@ -44,14 +44,7 @@ describe("PageSecondaryNavigation", () => {
     ["/services/community-team", ["Overview", "Quick facts", "Referral", "Criteria", "Verification"]],
     [
       "/forms/form-1",
-      [
-        "Overview",
-        "Decision context",
-        "Priority facts",
-        "Legal boundary",
-        "Form information",
-        "Source / verification",
-      ],
+      ["Overview", "Decision context", "Priority facts", "Legal boundary", "Form information", "Source / verification"],
     ],
     ["/specifiers/with-anxious-distress", ["Overview", "Fit & exclusions", "Wording / coding", "Evidence / source"]],
     [
@@ -111,9 +104,7 @@ describe("PageSecondaryNavigation", () => {
   });
 
   it("does not add a navigation row to a clean one-destination landing page", () => {
-    render(
-      <PageSecondaryNavigation modeId="services" pathname="/services" hasSubmittedSearch={false} onSearch={vi.fn()} />,
-    );
+    render(<PageSecondaryNavigation modeId="services" pathname="/services" hasSubmittedSearch={false} />);
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
     expect(screen.queryByTestId("mode-nav")).toBeNull();
   });
@@ -128,7 +119,7 @@ describe("PageSecondaryNavigation", () => {
     ["tools", "/tools"],
     ["factsheets", "/factsheets/search"],
   ] as const)("keeps the one-destination %s mode free of a redundant menu", (modeId, pathname) => {
-    render(<PageSecondaryNavigation modeId={modeId} pathname={pathname} hasSubmittedSearch onSearch={vi.fn()} />);
+    render(<PageSecondaryNavigation modeId={modeId} pathname={pathname} hasSubmittedSearch />);
 
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
     expect(screen.queryByTestId("mode-nav")).toBeNull();
@@ -136,26 +127,13 @@ describe("PageSecondaryNavigation", () => {
 
   it.each([
     ["differentials", "/differentials", "Differentials pages", "Search", "/differentials?focus=1"],
-    [
-      "differentials",
-      "/differentials/diagnoses",
-      "Differentials pages",
-      "Diagnoses",
-      "/differentials/diagnoses",
-    ],
+    ["differentials", "/differentials/diagnoses", "Differentials pages", "Diagnoses", "/differentials/diagnoses"],
     ["dsm", "/dsm", "DSM-5 Diagnosis pages", "Search", "/dsm?focus=1"],
     ["dsm", "/dsm/compare", "DSM-5 Diagnosis pages", "Compare", "/dsm/compare"],
   ] as const)(
     "renders the %s workflow as the shared header-integrated mode nav",
     (modeId, pathname, ariaLabel, activeLabel, activeHref) => {
-      render(
-        <PageSecondaryNavigation
-          modeId={modeId}
-          pathname={pathname}
-          hasSubmittedSearch={false}
-          onSearch={vi.fn()}
-        />,
-      );
+      render(<PageSecondaryNavigation modeId={modeId} pathname={pathname} hasSubmittedSearch={false} />);
 
       expect(screen.getByRole("navigation", { name: ariaLabel })).toHaveAttribute("data-testid", "mode-nav");
       expect(screen.getByRole("link", { name: activeLabel })).toHaveAttribute("aria-current", "page");
@@ -183,12 +161,7 @@ describe("PageSecondaryNavigation", () => {
   it("replaces mode navigation with only the information sections present in the record", async () => {
     render(
       <div>
-        <PageSecondaryNavigation
-          modeId="services"
-          pathname="/services/community-team"
-          hasSubmittedSearch
-          onSearch={vi.fn()}
-        />
+        <PageSecondaryNavigation modeId="services" pathname="/services/community-team" hasSubmittedSearch />
         <section id="service-overview" />
         <section id="service-criteria" />
       </div>,
@@ -205,12 +178,7 @@ describe("PageSecondaryNavigation", () => {
 
   it("leaves locally controlled information and Therapy workflow navigation to their page owners", async () => {
     const { rerender } = render(
-      <PageSecondaryNavigation
-        modeId="prescribing"
-        pathname="/medications/sertraline"
-        hasSubmittedSearch
-        onSearch={vi.fn()}
-      />,
+      <PageSecondaryNavigation modeId="prescribing" pathname="/medications/sertraline" hasSubmittedSearch />,
     );
     await waitFor(() => expect(screen.queryByTestId("secondary-navigation")).toBeNull());
     expect(screen.queryByTestId("mode-nav")).toBeNull();
@@ -220,7 +188,6 @@ describe("PageSecondaryNavigation", () => {
         modeId="therapy-compass"
         pathname="/therapy-compass/search"
         hasSubmittedSearch={false}
-        onSearch={vi.fn()}
       />,
     );
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
@@ -231,7 +198,6 @@ describe("PageSecondaryNavigation", () => {
         modeId="documents"
         pathname="/documents/11111111-1111-4111-8111-111111111111"
         hasSubmittedSearch
-        onSearch={vi.fn()}
       />,
     );
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();

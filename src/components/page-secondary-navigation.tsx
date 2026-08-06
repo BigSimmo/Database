@@ -250,15 +250,18 @@ export function PageSecondaryNavigation({
    * the standalone shell body (search-chrome invariant 17).
    */
   searchParamString = "",
+  /**
+   * Only reaches the "On this page" bar. The mode bar is the header-integrated
+   * `ModeNav`, which portals into the collapsing header and owns its own
+   * placement, so no positioning prop is accepted for it.
+   */
   sticky = true,
 }: {
   modeId: AppModeId;
   pathname: string;
   hasSubmittedSearch: boolean;
-  onSearch: () => void;
   searchParamString?: string;
   sticky?: boolean;
-  stickyTop?: number | string;
 }) {
   const informationDefinitions = informationPageSectionDefinitions(pathname);
   const locallyOwnedInformationNavigation = hasLocalInformationPageNavigation(pathname);
