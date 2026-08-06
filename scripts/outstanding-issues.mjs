@@ -146,11 +146,13 @@ export function pruneResolvedIdFromQueue(markdown, id) {
     lines[index] = buildRow(cells);
   }
 
-  // Close Order gaps after deletions/edits.
+  // Close Order gaps after deletions/edits. Recompute the section boundary:
+  // every deletion above shifted the headings' indices down.
+  const nextOpenStart = lines.findIndex((line) => line.startsWith("## Open items"));
+  const nextArchiveStart = lines.findIndex((line) => line.startsWith("## Resolved / archive"));
+  const renumberLimit = nextOpenStart >= 0 ? nextOpenStart : nextArchiveStart >= 0 ? nextArchiveStart : lines.length;
   let order = 1;
-  for (let index = queueStart + 1; index < lines.length; index += 1) {
-    if (openStart >= 0 && index >= openStart) break;
-    if (archiveStart >= 0 && openStart < 0 && index >= archiveStart) break;
+  for (let index = queueStart + 1; index < renumberLimit; index += 1) {
     const line = lines[index];
     if (!/^\|/.test(line) || !/\|\s*$/.test(line)) continue;
     const cells = splitCells(line);
@@ -353,6 +355,50 @@ function selfTest() {
   const composite = resolveIssue(fixture, "#013", "Resolved left side", { date: "2026-03-04" });
   check("done keeps composite sibling id", /`#016`/.test(composite) && !/`#013`/.test(composite));
   check("done does not drop the composite queue row", composite.includes("composite"));
+
+  // Multi-row queue prune must not walk into Open items with a stale boundary
+  // (Devin: Order renumber overwrote the open ID header after enough deletions).
+  const multiQueue = [
+    "# Outstanding",
+    "",
+    "<!-- issues:next-id=17 -->",
+    "",
+    "## Recommended execution queue",
+    "",
+    "<!-- prettier-ignore -->",
+    "",
+    "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome |",
+    "| ----: | --- | --- | --- | --- | --- | --- |",
+    "| 1 | `#005` | A2 | High | now | 1h | a |",
+    "| 2 | `#005` | A2 | High | now | 1h | b |",
+    "| 3 | `#005` | A2 | High | now | 1h | c |",
+    "| 4 | `#005` | A2 | High | now | 1h | d |",
+    "| 5 | `#005` | A2 | High | now | 1h | e |",
+    "| 6 | `#005` | A2 | High | now | 1h | f |",
+    "",
+    "",
+    "",
+    "## Open items",
+    "",
+    "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+    "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
+    "| #005 | P2 | issue | first | detail one | src | 2026-01-01 |",
+    "| #006 | P3 | task | second | detail two | src | 2026-01-02 |",
+    "",
+    "## Resolved / archive",
+    "",
+    "| ID | Type | Summary | Outcome | Resolved |",
+    "| ---- | ---- | ---- | ---- | ---- |",
+    "| #001 | task | old | done long ago | 2025-12-01 |",
+    "",
+  ].join("\n");
+  const multiResolved = resolveIssue(multiQueue, "#005", "Resolved multi-queue", { date: "2026-03-05" });
+  check("multi-queue prune keeps open ID header", multiResolved.includes("| ID | Pri | Type | Summary |"));
+  check("multi-queue prune does not order-stamp open header", !/\|\s*1\s*\|\s*Pri\s*\|/.test(multiResolved));
+  check(
+    "multi-queue prune still archives #005",
+    parseIssues(multiResolved).rows.some((r) => r.id === "#005" && r.table === "archive"),
+  );
 
   // update: edits in place, same table, same width.
   const updated = updateIssue(fixture, "#006", { detail: "replaced | detail" });
