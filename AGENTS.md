@@ -586,7 +586,7 @@ drops a session-scoped marker when a PR-creating call — `gh pr create` or any
 `create_pull_request` MCP tool — returns a real PR URL. For the rest of that session it
 then denies three things:
 
-- **Shell polling** — `gh pr checks|status|view|diff|list`, `gh run watch|view|list|rerun|download`,
+- **Shell polling** — `gh pr checks|status|view|diff|list|comment|review`, `gh run watch|view|list|rerun|download`,
   `gh api …actions/runs|check-runs|check-suites|/pulls/`, and `sync:pr-branches`.
 - **GitHub MCP PR/CI tools** — anything whose tool name carries `pull_request`,
   `workflow_run`, `workflow_job`, `check_run`, `check_suite`, `job_log`, or

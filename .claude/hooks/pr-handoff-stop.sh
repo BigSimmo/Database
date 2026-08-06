@@ -139,20 +139,12 @@ git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
 [ -z "$git_dir" ] && git_dir="${TMPDIR:-/tmp}"
 marker="$git_dir/claude-pr-handoff-$session_id"
 
-# Drop handoff markers older than a day so the git dir does not accumulate them
-# across sessions. Only touches our own claude-pr-handoff-* files. Never prune
-# the current session's marker — retention is from last activity (refreshed in
-# pre-mode), not from creation, so a long-lived cloud session keeps enforcement.
-prune_stale_markers() {
-  local dir="$1"
-  local keep_name="$2"
-  [ -d "$dir" ] || return 0
-  if [ -n "$keep_name" ]; then
-    find "$dir" -maxdepth 1 -type f -name 'claude-pr-handoff-*' ! -name "$keep_name" -mtime +1 -delete 2>/dev/null || true
-  else
-    find "$dir" -maxdepth 1 -type f -name 'claude-pr-handoff-*' -mtime +1 -delete 2>/dev/null || true
-  fi
-}
+# Intentionally do not prune sibling sessions' markers. Post-mode runs on every
+# Bash/PowerShell call (settings matcher), so age-based deletion of *other*
+# sessions' files would disarm a long-lived handoff session that only uses
+# Read/Edit after opening its PR (those tools never refresh mtime via pre-mode
+# touch). Markers are one-line files under the git dir and disappear with the
+# worktree; leftover orphans are cheap hygiene, not worth silent enforcement loss.
 
 json_escape() {
   # Escape backslash/quote, fold newlines to spaces, and strip other C0 control
@@ -179,8 +171,6 @@ matches_pr_write_tool() {
 
 case "$mode" in
 post)
-  prune_stale_markers "$git_dir" "claude-pr-handoff-$session_id"
-
   # A PR-creating call that actually returned a PR URL. Both halves matter:
   # without the URL check a failed create would end the session with no PR to
   # hand off.
@@ -199,7 +189,13 @@ post)
   [ -n "$tool_output" ] || exit 0
   printf '%s' "$tool_output" | grep -Eq 'github\.com/[^ "]+/pull/[0-9]+' || exit 0
 
-  printf 'pr-opened %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" >"$marker" 2>/dev/null || true
+  # Only tell the model tools are denied when the marker actually landed. A
+  # failed write (permissions / full disk) must fail open with no context —
+  # otherwise the model stops while pre-mode never enforces.
+  if ! printf 'pr-opened %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" >"$marker" 2>/dev/null; then
+    exit 0
+  fi
+  [ -f "$marker" ] || exit 0
 
   context='The pull request is open. That is the end of this session'\''s handoff. Record the ledger row if it is still owed, give the user the PR URL and a short summary, then stop. Do NOT watch CI, poll checks, read workflow runs or job logs, re-run workflows, sync the branch from main, answer review bots, or park a Monitor / ScheduleWakeup / cron loop on this PR — following the PR from here is the wasted-usage loop this repo has explicitly ruled out (AGENTS.md "Stop when the pull request is open"). Those tools are now denied for the rest of this session. If the user asks for CI babysitting afterwards, that is their call and it is allowed then.'
   printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' "$(json_escape "$context")"
@@ -239,7 +235,9 @@ pre)
     printf '%s' "$command_text" \
       | grep -Eq '^[[:space:]]*CLAUDE_ALLOW_PR_FOLLOW=1([[:space:]]|$)' \
       && exit 0
-    follow_re='gh[[:space:]]+pr[[:space:]]+(checks|status|view|diff|list)'
+    # comment/review cover the "answer review bots" loop named in AGENTS.md;
+    # merge stays allowed (explicit-confirmation rule elsewhere).
+    follow_re='gh[[:space:]]+pr[[:space:]]+(checks|status|view|diff|list|comment|review)'
     follow_re="$follow_re"'|gh[[:space:]]+run[[:space:]]+(watch|view|list|rerun|download)'
     follow_re="$follow_re"'|gh[[:space:]]+api[^|;]*(actions/runs|check-runs|check-suites|/pulls/)'
     follow_re="$follow_re"'|sync:pr-branches'
