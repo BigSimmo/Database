@@ -894,15 +894,14 @@ export async function fetchRelatedDocuments(args: {
   const documentIds = Array.from(grouped.keys());
   if (documentIds.length === 0) return [];
 
-  const visualCountsPromise =
+  const visualEnrichmentPromise =
     args.includeVisualCounts === false
-      ? Promise.resolve(new Map<string, { imageCount: number; tableCount: number }>())
-      : fetchDocumentVisualCounts(args.supabase, documentIds, args.signal);
-  const coverIdsPromise =
-    args.includeVisualCounts === false
-      ? Promise.resolve(new Map<string, string>())
-      : fetchDocumentCoverImageIds(args.supabase, documentIds, args.signal);
-  const [metadataRows, visualCounts, coverImageIds] = await Promise.all([
+      ? Promise.resolve({
+          counts: new Map<string, { imageCount: number; tableCount: number }>(),
+          coverImageIds: new Map<string, string>(),
+        })
+      : fetchDocumentVisualEnrichment(args.supabase, documentIds, args.signal);
+  const [metadataRows, visualEnrichment] = await Promise.all([
     fetchRelatedDocumentMetadata({
       supabase: args.supabase,
       ownerId: args.ownerId,
@@ -910,8 +909,7 @@ export async function fetchRelatedDocuments(args: {
       documentIds,
       signal: args.signal,
     }),
-    visualCountsPromise,
-    coverIdsPromise,
+    visualEnrichmentPromise,
   ]);
   const labelsByDocument = new Map<string, DocumentLabel[]>();
   const summariesByDocument = new Map<string, string | null>();
@@ -928,7 +926,7 @@ export async function fetchRelatedDocuments(args: {
       const docLabels = labelsByDocument.get(document.document_id) ?? [];
       const matchingLabel = docLabels.find((label) => queryTokens.has(label.label.toLowerCase()));
       const summary = summariesByDocument.get(document.document_id) ?? null;
-      const counts = visualCounts.get(document.document_id);
+      const counts = visualEnrichment.counts.get(document.document_id);
       return {
         document_id: document.document_id,
         title: document.title,
@@ -939,7 +937,7 @@ export async function fetchRelatedDocuments(args: {
         best_chunk_ids: document.best_chunk_ids.slice(0, 5),
         image_count: Math.max(document.image_count, counts?.imageCount ?? 0),
         table_count: counts?.tableCount ?? 0,
-        cover_image_id: coverImageIds.get(document.document_id) ?? null,
+        cover_image_id: visualEnrichment.coverImageIds.get(document.document_id) ?? null,
         match_reason: matchingLabel
           ? `Matched label: ${matchingLabel.label}`
           : `Matched ${document.best_chunk_ids.length} indexed passage${document.best_chunk_ids.length === 1 ? "" : "s"}`,
@@ -951,13 +949,24 @@ export async function fetchRelatedDocuments(args: {
 }
 
 export async function fetchDocumentVisualCounts(supabase: SupabaseClient, documentIds: string[], signal?: AbortSignal) {
+  const enrichment = await fetchDocumentVisualEnrichment(supabase, documentIds, signal);
+  return enrichment.counts;
+}
+
+/** One document_images round-trip for clinical counts + cover thumbnail ids. */
+export async function fetchDocumentVisualEnrichment(
+  supabase: SupabaseClient,
+  documentIds: string[],
+  signal?: AbortSignal,
+) {
   const counts = new Map<string, { imageCount: number; tableCount: number }>();
+  const coverImageIds = new Map<string, string>();
   const uniqueIds = Array.from(new Set(documentIds));
-  if (uniqueIds.length === 0) return counts;
+  if (uniqueIds.length === 0) return { counts, coverImageIds };
 
   let query = supabase
     .from("document_images")
-    .select("document_id,source_kind,searchable,image_type,clinical_relevance_score,metadata")
+    .select("id,document_id,page_number,source_kind,searchable,image_type,clinical_relevance_score,metadata")
     .in("document_id", uniqueIds)
     .neq("image_type", "logo_decorative");
   if (signal) query = query.abortSignal(signal);
@@ -969,6 +978,11 @@ export async function fetchDocumentVisualCounts(supabase: SupabaseClient, docume
   for (const row of data ?? []) {
     const documentId = String(row.document_id);
     const current = counts.get(documentId) ?? { imageCount: 0, tableCount: 0 };
+    if (row.source_kind === "cover_page") {
+      if (!coverImageIds.has(documentId) && row.id) coverImageIds.set(documentId, String(row.id));
+      counts.set(documentId, current);
+      continue;
+    }
     if (isClinicalImageEvidence(row)) {
       current.imageCount += 1;
       if (row.source_kind === "table_crop") current.tableCount += 1;
@@ -976,7 +990,7 @@ export async function fetchDocumentVisualCounts(supabase: SupabaseClient, docume
     counts.set(documentId, current);
   }
 
-  return counts;
+  return { counts, coverImageIds };
 }
 
 /** Resolve first-page cover image ids for search-card thumbnails (non-searchable). */
@@ -985,25 +999,8 @@ export async function fetchDocumentCoverImageIds(
   documentIds: string[],
   signal?: AbortSignal,
 ) {
-  const covers = new Map<string, string>();
-  const uniqueIds = Array.from(new Set(documentIds));
-  if (uniqueIds.length === 0) return covers;
-
-  let query = supabase
-    .from("document_images")
-    .select("id,document_id,page_number,source_kind")
-    .in("document_id", uniqueIds)
-    .eq("source_kind", "cover_page")
-    .order("page_number", { ascending: true });
-  if (signal) query = query.abortSignal(signal);
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-
-  for (const row of data ?? []) {
-    const documentId = String(row.document_id);
-    if (!covers.has(documentId) && row.id) covers.set(documentId, String(row.id));
-  }
-  return covers;
+  const enrichment = await fetchDocumentVisualEnrichment(supabase, documentIds, signal);
+  return enrichment.coverImageIds;
 }
 
 export function toDocumentMatch(document: RelatedDocument): DocumentMatch {
