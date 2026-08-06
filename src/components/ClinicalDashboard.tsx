@@ -92,7 +92,10 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
 import { focusComposerInput as scheduleComposerFocus } from "@/components/clinical-dashboard/focus-composer-input";
-import { useDashboardChromeCoordinator } from "@/components/clinical-dashboard/use-dashboard-chrome-coordinator";
+import {
+  resolveDashboardHideOnScroll,
+  useDashboardChromeCoordinator,
+} from "@/components/clinical-dashboard/use-dashboard-chrome-coordinator";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
@@ -3388,16 +3391,7 @@ export function ClinicalDashboard({
           // Mode homes keep the composer in the centred hero slot at every
           // breakpoint; documents, therapy, and other homes share the phone/tablet structure.
           heroComposerBreakpoint={heroComposerBreakpoint}
-          // Answer view: the header overlays <main> at every width (main reserves
-          // matching top padding) so content frosts under the glass bar, and it
-          // slides away/returns with scroll direction. Other modes collapse the
-          // row so an absolute header cannot bury their in-flow composer. Both
-          // document and bounded app scrollports feed the shared hide reporter.
-          hideOnScroll={
-            searchMode === "answer"
-              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: chromeScrollHidden }
-              : { strategy: "collapse", wide: "collapse", scrollHidden: chromeScrollHidden }
-          }
+          hideOnScroll={resolveDashboardHideOnScroll(searchMode, chromeScrollHidden)}
           onBottomComposerHiddenChange={setBottomComposerHidden}
         />
 
@@ -3427,6 +3421,9 @@ export function ClinicalDashboard({
             // the content.
             searchMode === "answer" &&
               "pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]",
+            // Non-answer modes overlay their phone chrome, so this surface owns
+            // the clearance. Constant across hide/reveal by design.
+            searchMode !== "answer" && "max-sm:pt-[var(--phone-overlay-chrome-h)]",
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
@@ -3455,7 +3452,9 @@ export function ClinicalDashboard({
               data-testid="private-scope-unavailable"
               className={cn(
                 "sticky z-20 mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8",
-                searchMode === "answer" ? "top-[calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]" : "top-2",
+                searchMode === "answer"
+                  ? "top-[calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"
+                  : "top-2 max-sm:top-[calc(var(--phone-overlay-chrome-h)+0.5rem)]",
               )}
             >
               <p>
