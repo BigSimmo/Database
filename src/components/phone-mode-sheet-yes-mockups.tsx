@@ -94,7 +94,7 @@ const perfectedResolutions = [
   },
   {
     issue: "Wasted vertical space",
-    fix: "Tight rows (min-h-12, 32 px icons, single-line subtitle) so nearly the full catalogue fits at once.",
+    fix: "Title-only min-h-12 rows (32 px icons) so the full production catalogue fits in one glance.",
   },
   {
     issue: "Lost selection",
@@ -120,23 +120,23 @@ const variants: Array<{
     description:
       "Flat catalogue, no clinical lanes. Most modes visible at once; pick by name without scrolling through section chrome. This is the shipping recommendation.",
     changes: [
-      "No section headers, hints, or counts — organisation was slowing choice.",
-      "Compact min-h-12 rows with 32 px icon wells and one-line subtitles.",
-      "Header carries Currently · {mode}; selection is interactive and lifts into the top-bar pill.",
+      "No Find / Diagnose / Care headers, hints, or counts.",
+      "Title-only min-h-12 rows — descriptions stay in aria-label, not the scan line.",
+      "Header carries Currently · {mode}; selection lifts into the top-bar pill.",
       "Arrow/Home/End roving focus; proof-frame scroll stays inside the sheet.",
     ],
   },
   {
     id: "deck",
     title: "Icon deck with lane chips",
-    verdict: "Alternate · Overview",
+    verdict: "Not recommended",
     description:
-      "Two-column cards with Find / Diagnose / Care filters. Kept only as an alternate if browsing by lane matters more than a single glance pick.",
+      "Find / Diagnose / Care organisation plus roomy cards. Shown only to contrast why glance picking loses with this layout.",
     changes: [
-      "Lane chips filter the deck without opening a second surface.",
-      "Current mode sits in a full-width identity card above the grid.",
-      "Cards are icon-forward; selected card uses accent ring + check.",
-      "More organisation than YES 01 — use only if that trade-off is wanted.",
+      "Lane chips and section labels spend height on organisation.",
+      "Current-mode identity card and two-line card copy add more chrome.",
+      "Fewer modes visible before scroll — harder to choose at a glance.",
+      "Kept as a rejected alternate, not a shipping candidate.",
     ],
   },
 ];
@@ -353,12 +353,13 @@ function ModeRow({
       type="button"
       role="menuitemradio"
       aria-checked={active}
+      aria-label={`${mode.label}. ${mode.description}`}
       tabIndex={tabIndex}
       onClick={() => onSelect(modeId)}
       onKeyDown={(event) => onKeyDown(event, index)}
       style={{ animationDelay: `${Math.min(index, 8) * 28}ms` }}
       className={cn(
-        "relative grid min-h-12 w-full grid-cols-[2rem_minmax(0,1fr)_1.25rem] items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-[background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+        "relative grid min-h-12 w-full grid-cols-[2rem_minmax(0,1fr)_1.25rem] items-center gap-2 rounded-lg px-2 py-1 text-left transition-[background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
         focusRing,
         active
           ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)]"
@@ -368,7 +369,7 @@ function ModeRow({
       {active ? (
         <span
           aria-hidden="true"
-          className="absolute inset-y-1.5 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
+          className="absolute inset-y-1 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
         />
       ) : null}
       <span
@@ -381,13 +382,8 @@ function ModeRow({
       >
         <Icon aria-hidden="true" className="h-4 w-4" />
       </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
-          {mode.label}
-        </span>
-        <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-          {mode.description}
-        </span>
+      <span className="min-w-0 truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
+        {mode.label}
       </span>
       {active ? (
         <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" strokeWidth={2.5} />
@@ -751,7 +747,7 @@ function ReviewPanel() {
       </ul>
       <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-[color:var(--text-muted)]">
         <Search aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
-        YES 01 is the dense flat list. YES 02 keeps lanes only as an optional overview alternate.
+        YES 01 is the dense flat list. Organised Find / Diagnose / Care layouts are rejected for this sheet.
       </p>
     </aside>
   );
@@ -787,8 +783,8 @@ export function PhoneModeSheetYesMockups() {
             Dense glance list
           </h1>
           <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
-            Organisation and roomy section chrome made mode choice slower. YES 01 is a flat, tight list so you can see
-            and pick a mode in one glance — no Find / Diagnose / Care lanes.
+            Feedback: space and organisation made mode choice harder at a glance. YES 01 drops Find / Diagnose / Care
+            lanes and subtitle chrome so the full mode catalogue is scannable in one open.
           </p>
         </header>
 
@@ -806,7 +802,7 @@ export function PhoneModeSheetYesMockups() {
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-[color:var(--text-muted)]">
-              Most of the catalogue visible on open. Scroll only for the tail; switch keeps header and selection in
+              Title-only rows — no section chrome. Full catalogue visible on open; switch keeps header and selection in
               sync.
             </p>
           </div>
@@ -894,7 +890,7 @@ export function PhoneModeSheetYesMockups() {
               {variant.id === "sections" ? (
                 <PhoneFrame variant="sections" large caption="Detail · Dense glance list" />
               ) : (
-                <PhoneFrame variant="deck" large caption="Detail · Icon deck (alternate)" />
+                <PhoneFrame variant="deck" large caption="Rejected · Organised icon deck" />
               )}
             </section>
           ))}
