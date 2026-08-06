@@ -131,8 +131,8 @@
       "source": "src/components/ui/answer-card.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/clinical-dashboard/answer-result-surface.tsx"],
+      "productImportFiles": ["src/components/clinical-dashboard/answer-result-surface.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -155,8 +155,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -471,6 +471,7 @@
         "src/components/ui/verification-notice.tsx"
       ],
       "productImportFiles": [
+        "src/components/ui/answer-card.tsx",
         "src/components/ui/retrieval-state-banner.tsx",
         "src/components/ui/verification-notice.tsx"
       ],
@@ -978,7 +979,11 @@
         "src/components/ui/answer-card.tsx",
         "src/components/ui/date-display.tsx"
       ],
-      "productImportFiles": ["src/components/AccessibleTable.tsx", "src/components/ui/date-display.tsx"],
+      "productImportFiles": [
+        "src/components/AccessibleTable.tsx",
+        "src/components/ui/answer-card.tsx",
+        "src/components/ui/date-display.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1155,7 +1160,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": ["src/components/ui/answer-card.tsx"],
-      "productImportFiles": [],
+      "productImportFiles": ["src/components/ui/answer-card.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1175,8 +1180,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -1214,11 +1219,8 @@
       "source": "src/components/ui/retrieval-state-banner.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [
-        "src/components/clinical-dashboard/answer-result-surface.tsx",
-        "src/components/ui/answer-card.tsx"
-      ],
-      "productImportFiles": ["src/components/clinical-dashboard/answer-result-surface.tsx"],
+      "directImportFiles": ["src/components/ui/answer-card.tsx"],
+      "productImportFiles": ["src/components/ui/answer-card.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1640,7 +1642,7 @@
         "src/components/ui/citation.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
       ],
-      "productImportFiles": ["src/components/ui/retrieval-state-banner.tsx"],
+      "productImportFiles": ["src/components/ui/answer-card.tsx", "src/components/ui/retrieval-state-banner.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1853,11 +1855,8 @@
       "source": "src/components/ui/verification-notice.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [
-        "src/components/clinical-dashboard/answer-result-surface.tsx",
-        "src/components/ui/answer-card.tsx"
-      ],
-      "productImportFiles": ["src/components/clinical-dashboard/answer-result-surface.tsx"],
+      "directImportFiles": ["src/components/ui/answer-card.tsx"],
+      "productImportFiles": ["src/components/ui/answer-card.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -3051,12 +3050,12 @@
         {
           "file": "src/components/clinical-dashboard/answer-result-surface.tsx",
           "exists": true,
-          "imports": ["RetrievalStateBanner", "Sheet", "VerificationNotice"],
+          "imports": ["AnswerCard", "Sheet"],
           "importedFamilies": ["answer", "layout"],
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["AnswerResultSurface", "VerificationNotice", "RetrievalStateBanner"]
+          "sanctionedPatternsPresent": ["AnswerResultSurface", "RetrievalStateBanner"]
         },
         {
           "file": "src/components/clinical-dashboard/answer-thread-turn.tsx",
@@ -3239,7 +3238,7 @@
   "summary": {
     "registeredComponentCount": 53,
     "previewCount": 53,
-    "productImportedComponentCount": 27,
+    "productImportedComponentCount": 29,
     "rootCount": 55,
     "productionRouteCount": 47,
     "nextUiEntryCount": 99

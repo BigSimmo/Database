@@ -521,6 +521,13 @@ describe("AnswerCard", () => {
   it("renders an ungrounded answer as structurally degraded, never as a plain ready card", () => {
     // #207: the adoption failure this guards is a silent one — the card renders,
     // the prose is fine, and the caution the product shows today is simply gone.
+    //
+    // Narrowed 7 Aug 2026 (#227 over #207). What #207 protects is that the caution
+    // survives, not that a *banner* carries it. For `ungrounded` the notice states it
+    // in words and the banner only restates it, so the assertion now pins the two
+    // channels that genuinely carry the state and pins the duplicate OUT — a banner
+    // reappearing here is the #227 regression, measured at 147px of phone scroll
+    // against a budget of 8.
     render(
       <AnswerCard
         state={{ kind: "ungrounded", reason: "grounded_false", sourceCount: 2 }}
@@ -533,8 +540,69 @@ describe("AnswerCard", () => {
 
     const card = screen.getByTestId("answer-card");
     expect(card).toHaveAttribute("data-state", "ungrounded");
-    expect(within(card).getByTestId("retrieval-state-banner")).toHaveAttribute("data-state", "ungrounded");
     expect(within(card).getByTestId("verification-notice")).toHaveAttribute("data-state", "ungrounded");
+    expect(within(card).queryByTestId("retrieval-state-banner")).not.toBeInTheDocument();
+  });
+
+  it("keeps the banner for the two kinds that say something the notice cannot", () => {
+    // `stale_evidence` names WHICH sources are overdue; `partial_retrieval` names HOW
+    // MUCH was missed. Neither is derivable from the notice wording, so these two are
+    // exactly where the duplicate is not a duplicate (#227).
+    const { unmount } = render(
+      <AnswerCard
+        state={{
+          kind: "stale_evidence",
+          sourceCount: 1,
+          overdue: [
+            {
+              sourceId: "doc-1",
+              title: "WA Clozapine Protocol",
+              locator: "p. 12",
+              reviewDueOn: "2025-11-01",
+              status: "review_due",
+            },
+          ],
+        }}
+        verification={{ state: "stale_evidence" }}
+        onOpenSource={vi.fn()}
+      >
+        <p>Titrate slowly.</p>
+      </AnswerCard>,
+    );
+    expect(screen.getByTestId("retrieval-state-banner")).toHaveAttribute("data-state", "stale_evidence");
+    unmount();
+
+    render(
+      <AnswerCard
+        state={{
+          kind: "partial_retrieval",
+          retrieved: 2,
+          requested: 3,
+          missing: [{ sourceId: "doc-9", title: "Missing guideline" }],
+        }}
+        verification={{ state: "partial_retrieval", sourceCount: 3 }}
+        onOpenSource={vi.fn()}
+      >
+        <p>Titrate slowly.</p>
+      </AnswerCard>,
+    );
+    expect(screen.getByTestId("retrieval-state-banner")).toHaveAttribute("data-state", "partial_retrieval");
+  });
+
+  it("still carries the caution for source_only without a second rendering of it", () => {
+    render(
+      <AnswerCard
+        state={{ kind: "source_only", reason: "quality_gate" }}
+        verification={{ state: "source_only" }}
+        onOpenSource={vi.fn()}
+      >
+        <p>Titrate slowly.</p>
+      </AnswerCard>,
+    );
+    const card = screen.getByTestId("answer-card");
+    expect(card).toHaveAttribute("data-state", "source_only");
+    expect(within(card).getByTestId("verification-notice")).toHaveAttribute("data-state", "source_only");
+    expect(within(card).queryByTestId("retrieval-state-banner")).not.toBeInTheDocument();
   });
 
   it("raises the banner for a degraded answer and wires its re-verification route", async () => {
