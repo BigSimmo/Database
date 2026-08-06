@@ -819,7 +819,7 @@ async function openMobileClinicalGuideMenu(page: Page) {
     { name: "Answer", href: "/?mode=answer" },
     { name: "Documents", href: "/?mode=documents" },
     { name: "Services", href: "/services" },
-    { name: "Medications", href: "/?mode=prescribing" },
+    { name: "Medication", href: "/?mode=prescribing" },
     { name: "Factsheets", href: "/factsheets" },
     { name: "Tools", href: "/tools" },
   ]);
@@ -1254,7 +1254,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/services" },
-      { name: "Medications", href: "/?mode=prescribing" },
+      { name: "Medication", href: "/?mode=prescribing" },
       { name: "Factsheets", href: "/factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
@@ -1265,9 +1265,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
           links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
         ),
     ).toEqual([{ name: "Favourites", href: "/favourites" }]);
-    // Specialist catalogues stay out of the persistent rail (MODE picker / Tools hub).
+    // Medication is a canonical rail mode; remaining specialist catalogues stay out of the rail.
     await expect(page.getByRole("link", { name: "Differentials", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Medication", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Medication", exact: true })).toHaveCount(1);
     await expect(page.getByRole("link", { name: "Therapy", exact: true })).toHaveCount(0);
 
     await expectNoPageHorizontalOverflow(page);
@@ -1281,7 +1281,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { path: "/?mode=answer", label: "Answer" },
       { path: "/?mode=documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
-      { path: "/?mode=prescribing", label: "Medications" },
+      { path: "/?mode=prescribing", label: "Medication" },
       { path: "/?mode=tools", label: "Tools" },
     ] as const) {
       await gotoApp(page, route.path);
@@ -3089,7 +3089,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Start a new chat" }).click();
+    // Desktop hides the header New chat when the sidebar already owns it.
+    await page.getByRole("complementary", { name: "Clinical Guide" }).getByRole("button", { name: "New chat" }).click();
     await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
