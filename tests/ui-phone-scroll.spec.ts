@@ -217,101 +217,124 @@ test("phone portaled addon focus clears when its focused control navigates away"
   ).toHaveAttribute("data-scroll-hidden", "true");
 });
 
+/**
+ * Overlay hide/reveal moves the chrome, never the reader's place on the page.
+ *
+ * This used to assert the opposite mechanism — that the collapse row animated
+ * through intermediate *heights* down to zero. That animation was the defect:
+ * releasing the header row and its top safe area back into the scroller moved
+ * the content under the reader's finger by the released height (measured 147px
+ * on `/therapy-compass/pathways`, 121px on this route, 137px on a differential
+ * detail, 72px on the dashboard's non-answer modes with no top inset reported).
+ * Overlay translates the same stack at a constant height instead, so the two
+ * assertions that matter now are that `chromeTop` animates monotonically off
+ * the top edge, and that `contentAnchor` — the content edge's position in the
+ * document — never moves at all.
+ */
 test("phone header hide and reveal animate monotonically without a geometry jump", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
   await gotoPhoneSurface(page, "/therapy-compass/search?q=CBT&run=1");
   await addPhoneScrollRunway(page);
 
-  const hideFrames = await page.evaluate(async () => {
-    const main = document.getElementById("main-content");
-    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
-    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
-    if (!main || !collapse || !safeArea) throw new Error("phone collapse geometry was not rendered");
-    const mainOwnsScroll =
-      /^(?:auto|scroll|overlay)$/.test(getComputedStyle(main).overflowY) && main.scrollHeight > main.clientHeight + 1;
-    const scrollOwner = mainOwnsScroll ? main : (document.scrollingElement ?? document.documentElement);
-    const frames: Array<{ hidden: boolean; chromeHeight: number; mainTop: number; scrollTop: number }> = [];
-    for (let frame = 0; frame < 55; frame += 1) {
-      if (frame < 20) {
-        scrollOwner.scrollTop += 8;
-        (mainOwnsScroll ? main : window).dispatchEvent(new Event("scroll", { bubbles: true }));
+  const sampleFrames = (direction: "down" | "up") =>
+    page.evaluate(async (gesture: "down" | "up") => {
+      const main = document.getElementById("main-content");
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+      const stack = collapse?.closest<HTMLElement>(".phone-sticky-header-stack") ?? collapse;
+      if (!main || !collapse || !safeArea || !stack) throw new Error("phone chrome geometry was not rendered");
+      const mainOwnsScroll =
+        /^(?:auto|scroll|overlay)$/.test(getComputedStyle(main).overflowY) && main.scrollHeight > main.clientHeight + 1;
+      const scrollOwner = mainOwnsScroll ? main : (document.scrollingElement ?? document.documentElement);
+      const totalFrames = gesture === "down" ? 55 : 45;
+      const gestureFrames = gesture === "down" ? 20 : 6;
+      const frames: Array<{
+        hidden: boolean;
+        chromeHeight: number;
+        chromeTop: number;
+        mainTop: number;
+        scrollTop: number;
+        contentAnchor: number;
+      }> = [];
+      for (let frame = 0; frame < totalFrames; frame += 1) {
+        if (frame < gestureFrames) {
+          scrollOwner.scrollTop += gesture === "down" ? 8 : -8;
+          (mainOwnsScroll ? main : window).dispatchEvent(new Event("scroll", { bubbles: true }));
+        }
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+        const mainTop = main.getBoundingClientRect().top;
+        frames.push({
+          hidden: collapse.getAttribute("data-scroll-hidden") === "true",
+          chromeHeight: collapse.getBoundingClientRect().height + safeArea.getBoundingClientRect().height,
+          // Overlay translates the stack rather than collapsing it, so its
+          // viewport offset is what animates.
+          chromeTop: stack.getBoundingClientRect().top,
+          mainTop,
+          scrollTop: scrollOwner.scrollTop,
+          // Where the content edge sits in the document. Scrolling changes
+          // mainTop and scrollTop together and leaves this fixed; only a layout
+          // release above the content can move it.
+          contentAnchor: mainTop + scrollOwner.scrollTop,
+        });
       }
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
-      frames.push({
-        hidden: collapse.getAttribute("data-scroll-hidden") === "true",
-        chromeHeight: collapse.getBoundingClientRect().height + safeArea.getBoundingClientRect().height,
-        mainTop: main.getBoundingClientRect().top,
-        scrollTop: scrollOwner.scrollTop,
-      });
-    }
-    return frames;
-  });
+      return frames;
+    }, direction);
 
+  const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
+
+  const hideFrames = await sampleFrames("down");
   const firstHiddenFrame = hideFrames.findIndex((frame) => frame.hidden);
   expect(firstHiddenFrame, "the stepped descent triggers hide").toBeGreaterThan(-1);
   const hiding = hideFrames.slice(firstHiddenFrame);
   expect(
-    new Set(hiding.map((frame) => Math.round(frame.chromeHeight))).size,
+    new Set(hiding.map((frame) => Math.round(frame.chromeTop))).size,
     "hide has intermediate frames",
   ).toBeGreaterThan(3);
   for (let index = 1; index < hiding.length; index += 1) {
-    expect(hiding[index].chromeHeight, "chrome height never reverses during hide").toBeLessThanOrEqual(
-      hiding[index - 1].chromeHeight + 1,
-    );
-    expect(hiding[index].mainTop, "content edge never reverses during hide").toBeLessThanOrEqual(
-      hiding[index - 1].mainTop + 1,
+    expect(hiding[index].chromeTop, "chrome offset never reverses during hide").toBeLessThanOrEqual(
+      hiding[index - 1].chromeTop + 1,
     );
     expect(hiding[index].scrollTop, "downward intent remains monotonic during hide").toBeGreaterThanOrEqual(
       hiding[index - 1].scrollTop - 1,
     );
   }
-  expect(hiding.at(-1)?.chromeHeight ?? -1, "hide settles at zero chrome height").toBeLessThanOrEqual(1);
+  expect(
+    spread(hideFrames.map((frame) => frame.chromeHeight)),
+    "overlay hide releases no chrome height into the scroller",
+  ).toBeLessThanOrEqual(1);
+  expect(
+    spread(hideFrames.map((frame) => frame.contentAnchor)),
+    "hiding the chrome never moves the reader's place on the page",
+  ).toBeLessThanOrEqual(1);
+  const settledChromeHeight = hiding.at(-1)?.chromeHeight ?? 0;
+  expect(settledChromeHeight, "the chrome keeps its full height while hidden").toBeGreaterThan(100);
+  expect(hiding.at(-1)?.chromeTop ?? 0, "hide settles with the stack clear of the top edge").toBeLessThanOrEqual(
+    -(settledChromeHeight - 1),
+  );
 
-  const revealFrames = await page.evaluate(async () => {
-    const main = document.getElementById("main-content");
-    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
-    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
-    if (!main || !collapse || !safeArea) throw new Error("phone collapse geometry was not rendered");
-    const mainOwnsScroll =
-      /^(?:auto|scroll|overlay)$/.test(getComputedStyle(main).overflowY) && main.scrollHeight > main.clientHeight + 1;
-    const scrollOwner = mainOwnsScroll ? main : (document.scrollingElement ?? document.documentElement);
-    const frames: Array<{ hidden: boolean; chromeHeight: number; mainTop: number; scrollTop: number }> = [];
-    for (let frame = 0; frame < 45; frame += 1) {
-      if (frame < 6) {
-        scrollOwner.scrollTop -= 8;
-        (mainOwnsScroll ? main : window).dispatchEvent(new Event("scroll", { bubbles: true }));
-      }
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
-      frames.push({
-        hidden: collapse.getAttribute("data-scroll-hidden") === "true",
-        chromeHeight: collapse.getBoundingClientRect().height + safeArea.getBoundingClientRect().height,
-        mainTop: main.getBoundingClientRect().top,
-        scrollTop: scrollOwner.scrollTop,
-      });
-    }
-    return frames;
-  });
-
+  const revealFrames = await sampleFrames("up");
   const firstRevealedFrame = revealFrames.findIndex((frame) => !frame.hidden);
   expect(firstRevealedFrame, "the upward gesture triggers reveal").toBeGreaterThan(-1);
   const revealing = revealFrames.slice(firstRevealedFrame);
   expect(
-    new Set(revealing.map((frame) => Math.round(frame.chromeHeight))).size,
+    new Set(revealing.map((frame) => Math.round(frame.chromeTop))).size,
     "reveal has intermediate frames",
   ).toBeGreaterThan(3);
   for (let index = 1; index < revealing.length; index += 1) {
-    expect(revealing[index].chromeHeight, "chrome height never reverses during reveal").toBeGreaterThanOrEqual(
-      revealing[index - 1].chromeHeight - 1,
-    );
-    expect(revealing[index].mainTop, "content edge never reverses during reveal").toBeGreaterThanOrEqual(
-      revealing[index - 1].mainTop - 1,
+    expect(revealing[index].chromeTop, "chrome offset never reverses during reveal").toBeGreaterThanOrEqual(
+      revealing[index - 1].chromeTop - 1,
     );
     expect(revealing[index].scrollTop, "upward intent remains monotonic during reveal").toBeLessThanOrEqual(
       revealing[index - 1].scrollTop + 1,
     );
   }
+  expect(
+    spread(revealFrames.map((frame) => frame.contentAnchor)),
+    "revealing the chrome never moves the reader's place on the page",
+  ).toBeLessThanOrEqual(1);
   expect(revealing.at(-1)?.chromeHeight ?? 0, "reveal restores the full phone chrome").toBeGreaterThan(100);
+  expect(revealing.at(-1)?.chromeTop ?? -1, "reveal returns the stack to the top edge").toBeGreaterThanOrEqual(-1);
 });
 
 /** Phone edge-to-edge guard for the shared header on Therapy results. */

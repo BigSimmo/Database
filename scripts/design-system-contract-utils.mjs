@@ -226,6 +226,16 @@ const SAFE_TRANSITION_PROPERTIES = new Set([
   "opacity",
   "box-shadow",
   "transform",
+  // The individual transform properties. Tailwind 4 compiles `translate-*`,
+  // `scale-*` and `rotate-*` to these rather than to `transform`, so a
+  // transition list that names them is the same compositor-only animation
+  // `transform` already covers — it cannot trigger layout. Omitting them made
+  // this ratchet flag the phone chrome's `transition-[transform,translate,
+  // opacity]` as layout debt alongside genuine `grid-template-rows`/`height`
+  // entries, which is the opposite of what the metric measures.
+  "translate",
+  "scale",
+  "rotate",
   "filter",
   "backdrop-filter",
   "visibility",

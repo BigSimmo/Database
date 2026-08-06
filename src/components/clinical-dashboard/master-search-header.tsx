@@ -2344,7 +2344,7 @@ export function MasterSearchHeader({
           className={cn(
             "phone-sticky-header-stack sm:contents",
             phoneOverlayMotion &&
-              "phone-overlay-header max-sm:transition-[transform,opacity] motion-reduce:max-sm:transition-none",
+              "phone-overlay-header max-sm:transition-[transform,translate,opacity] motion-reduce:max-sm:transition-none",
             phoneOverlayMotion &&
               (headerChromeHidden
                 ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
@@ -2375,11 +2375,40 @@ export function MasterSearchHeader({
       );
     }
 
+    // `collapsesAtEveryWidth` hosts (ClinicalDashboard's non-answer modes) take
+    // the same phone overlay treatment as the sticky stack above: the phone
+    // stack leaves flow and translates, so hiding costs the scroller no layout.
+    // The wide layout is untouched — `sm:contents` still hands the top bar and
+    // composer to the host's own column, and the collapse grid keeps its `sm:`
+    // 1fr -> 0fr release.
     return (
-      <div className="phone-sticky-header-stack sm:contents">
+      <div
+        data-phone-motion={phoneMotion}
+        data-scroll-hidden={phoneOverlayMotion && headerChromeHidden ? "true" : undefined}
+        className={cn(
+          "phone-sticky-header-stack sm:contents",
+          phoneOverlayMotion &&
+            "phone-overlay-header max-sm:transition-[transform,translate,opacity] motion-reduce:max-sm:transition-none",
+          phoneOverlayMotion &&
+            (headerChromeHidden
+              ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+              : "max-sm:opacity-100 max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]"),
+        )}
+      >
         {chromeSafeAreaTop}
         {collapsingTopBar}
-        {searchComposer}
+        {/*
+          Same containing-block trap as the sticky stack: the hidden state's
+          transform would make this element the containing block for a fixed
+          phone dock, resolving its `bottom: 0` against the header instead of
+          the viewport. Portal the dock to the frame footer host on phones;
+          `sm+` keeps it inline for the host's own column.
+        */}
+        {phoneOverlayMotion && usesPhoneBottomDock ? (
+          <PhoneFooterLayerPortal>{searchComposer}</PhoneFooterLayerPortal>
+        ) : (
+          searchComposer
+        )}
       </div>
     );
   }
