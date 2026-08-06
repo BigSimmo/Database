@@ -1740,7 +1740,17 @@ export async function searchChunksWithTelemetry(
     telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
-    await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+    // Finding #11 follow-up: the soft-tail bucket (low confidence, few expanded terms, no
+    // deterministic exclusion match) can be resolved by a nondeterministic LLM classifier call
+    // or by corpus grounding returning "inconclusive" rather than "in_corpus_topic" for content
+    // that lacks a matching document title (e.g. "catatonia" is well represented in chunk text
+    // but no document is titled "Catatonia"). Caching that zero would make a single unlucky
+    // classification sticky for every later caller within the cache TTL, so this specific bucket
+    // is deliberately never cached. The three deterministic exclusion patterns above it in
+    // shouldShortCircuitUnsupportedSearch are stable true negatives and stay cached as before.
+    if (!isUnsupportedSoftTailAnalysis(retrievalQuery, queryAnalysis)) {
+      await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+    }
     return finishSearch(searchTiming, { results: [] as SearchResult[], telemetry });
   }
 
