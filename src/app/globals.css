@@ -384,6 +384,12 @@
      the layered .edge-glass-header base and the unlayered max-width:639px
      guard so the values cannot drift apart. lg overrides to 1.5rem. */
   --header-edge-pad: 1rem;
+  /* Distance from `.mode-nav__bar`'s box edge to the first tab's INK: the
+     bar's own `px-1` plus the slot's `px-3`. It happens to equal the base
+     header gutter, which is why phone alignment was already correct. The mode
+     nav subtracts it from its gutter and adds it back to its max-width so the
+     ink — not the box — lands on the header's content edge at every width. */
+  --mode-nav-ink-offset: 1rem;
   /* Borderless app-shell/header height (the min-h-14 bar). Page shells fill the
      viewport below it via calc(100dvh - var(--shell-header-h)); one token so the
      header height and those page-fill floors cannot silently drift apart. */
@@ -2410,6 +2416,12 @@ td,
    the universal header's collapse track, so it hides and reveals as one object
    with the header at every width and owns no scroll listener of its own.
 
+   Two elements, and which one carries what is load-bearing: `.mode-nav-rail`
+   is full-bleed and owns the paint plus the header's inline gutter, and the
+   `.mode-nav` element inside it is capped to the header's own column and owns
+   the container query. See the note above `@utility mode-nav` for why the
+   query cannot live on the rail.
+
    Density is chosen by CONTAINER width in `rem` — never by device width, and
    never by runtime measurement. The unit is the mechanism: raising the browser
    or OS text size grows the root font, so a phone crosses a threshold exactly
@@ -2449,10 +2461,51 @@ td,
    rather than shipping clipped words.
    ───────────────────────────────────────────────────────────────────────── */
 
+/* The centred column, and the ONLY container-query container. Measuring the
+   full-bleed rail instead would report a width the slots do not have — on a
+   1920px desktop it reads 1920px while the bar has 1312px — so density would
+   be decided against a width that does not exist. This element carries no
+   padding of its own, so its inline-size is unambiguous.
+
+   80rem is the header row's own `max-w-7xl`; the ink offset is added back on
+   both sides because the bar's first tab sits that far inside its box. Below
+   `lg` the rail's gutter computes to zero, so the container is exactly the
+   viewport and the calibrated 22/33/42rem bands are untouched on phone and
+   tablet. */
 @utility mode-nav {
   container-type: inline-size;
   container-name: mode-nav;
   min-width: 0;
+  width: 100%;
+  margin-inline: auto;
+  max-width: calc(80rem + 2 * var(--mode-nav-ink-offset));
+}
+
+/* The rail is full-bleed so its bottom rule spans the viewport, exactly as
+   `.secondary-navigation` does, while the capped column above puts the slots on
+   the same centred rail as the header row — otherwise the first tab sits at the
+   viewport edge on a desktop while the mode pill above it is centred.
+
+   The addon slot the bar portals into is a SIBLING of `.edge-glass-header`, not
+   a descendant, so none of the header's gutter is inherited. The bar already
+   carries 1rem of ink offset of its own (the `<ul>`'s `px-1` plus the slot's
+   `px-3`), which is exactly the base gutter and is why phone alignment was
+   already right. The rail therefore contributes only what the header gutter has
+   ABOVE that — nothing at base, 0.5rem from `lg` — so the ink follows the
+   header without the container query losing width the density bands are
+   calibrated against. The gutter reads `--header-edge-pad` rather than a
+   literal for the reason stated on `.edge-glass-header`: a literal here is how
+   the two drift apart. */
+.mode-nav-rail {
+  padding-left: calc(max(var(--header-edge-pad), var(--safe-area-left)) - var(--mode-nav-ink-offset));
+  padding-right: calc(max(var(--header-edge-pad), var(--safe-area-right)) - var(--mode-nav-ink-offset));
+}
+
+@media (min-width: 1024px) {
+  .mode-nav-rail {
+    padding-left: calc(max(1.5rem, var(--safe-area-left)) - var(--mode-nav-ink-offset));
+    padding-right: calc(max(1.5rem, var(--safe-area-right)) - var(--mode-nav-ink-offset));
+  }
 }
 
 .mode-nav__bar {
@@ -2473,6 +2526,48 @@ td,
 .mode-nav__slot[data-band="4"],
 .mode-nav__slot[data-band="5"] {
   display: none;
+}
+
+/* Which page you are on, when its own slot is not on screen.
+   ------------------------------------------------------------------------
+   `data-active-from` is the band at which the current page's slot appears, or
+   `none` when it never gets one. Until the container reaches that band the
+   page has no visible tab, so More carries its rule and its off-screen name;
+   at and above it, the page's own `aria-current` tab does, and these turn off
+   so nothing is marked or announced twice.
+
+   This has to be CSS. The component knows which band would reveal the item and
+   nothing else; the container query knows the band and nothing else. Deciding
+   in the component alone can only ask "does this item have a band at all",
+   which is silent for every page whose band the current width has not reached
+   — five of Therapy's seven pages on a phone. */
+.mode-nav__more-name {
+  display: none;
+}
+
+.mode-nav__more[data-active-from] .mode-nav__more-name {
+  display: inline;
+}
+
+.mode-nav__more[data-active-from] .mode-nav__ink {
+  color: var(--text-heading);
+}
+
+.mode-nav__more[data-active-from] .mode-nav__rule {
+  background-color: var(--clinical-accent);
+}
+
+/* Band 3 is every band, so a page that appears there is never carried here. */
+.mode-nav__more[data-active-from="3"] .mode-nav__more-name {
+  display: none;
+}
+
+.mode-nav__more[data-active-from="3"] .mode-nav__ink {
+  color: var(--text-muted);
+}
+
+.mode-nav__more[data-active-from="3"] .mode-nav__rule {
+  background-color: transparent;
 }
 
 @container mode-nav (min-width: 22rem) {
@@ -2498,6 +2593,19 @@ td,
   .mode-nav__slot[data-until="3"] {
     display: none;
   }
+
+  /* The page's own slot is on screen from here, so it owns the mark. */
+  .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
 }
 
 @container mode-nav (min-width: 42rem) {
@@ -2507,6 +2615,18 @@ td,
 
   .mode-nav__slot[data-until="4"] {
     display: none;
+  }
+
+  .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav__more[data-active-from="5"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav__more[data-active-from="5"] .mode-nav__rule {
+    background-color: transparent;
   }
 }
 
@@ -3515,31 +3635,6 @@ html.theme-transitioning *:after {
  * toggle ::before track, and thin scrollbars. Everything else in the old
  * therapy-compass.css parallel system is token-backed Tailwind on the components.
  * ============================================================================= */
-
-/* Portaled under the universal header on phones: the collapse row owns
-   stacking/hide, so sticky would fight the shared chrome geometry. */
-#phone-header-collapse-addon-slot [data-testid="therapy-compass-section-nav"] {
-  position: relative;
-  top: auto;
-  z-index: auto;
-}
-
-[data-therapy-scroll] {
-  scrollbar-color: var(--border-strong) transparent;
-  scrollbar-width: thin;
-}
-
-[data-therapy-scroll]::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-[data-therapy-scroll]::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
-  border-radius: 8px;
-  background: var(--border-strong);
-  background-clip: content-box;
-}
 
 .therapy-compare-grid {
   display: grid;

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { pageContainer } from "@/components/ui-primitives";
+
 import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { parseSteps, summarise } from "../data/select";
@@ -58,7 +60,7 @@ export function BriefScreen() {
   ].join("\n");
 
   return (
-    <section data-screen-label="Brief" className="max-w-[1240px] my-0 mx-auto">
+    <section data-screen-label="Brief" className={pageContainer}>
       <div className="flex items-start justify-between gap-5 mb-5 flex-wrap">
         <div>
           <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
