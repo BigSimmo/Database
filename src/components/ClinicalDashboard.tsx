@@ -11,7 +11,6 @@ import {
   FolderOpen,
   Heart,
   ListChecks,
-  Loader2,
   Quote,
   RefreshCw,
   Search,
@@ -72,7 +71,12 @@ import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-
 import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer, ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
-import { AnswerEmptyState, AnswerProgressStepper, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import {
+  AnswerEmptyState,
+  AnswerProgressStepper,
+  AnswerSkeleton,
+  SearchProgressBanner,
+} from "@/components/clinical-dashboard/answer-status";
 import {
   type AnswerProgressUpdate,
   type TimedAnswerProgressUpdate,
@@ -3643,25 +3647,7 @@ export function ClinicalDashboard({
                       />
                     ) : null
                   ) : loading && answerProgress ? (
-                    <div
-                      role="status"
-                      className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
-                    >
-                      <Loader2
-                        aria-hidden="true"
-                        className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
-                      />
-                      <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
-                      <button
-                        type="button"
-                        onClick={stopSearch}
-                        data-testid="stop-answer"
-                        className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                      >
-                        <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
-                        Stop
-                      </button>
-                    </div>
+                    <SearchProgressBanner message={answerProgress} onStop={stopSearch} />
                   ) : null)}
 
                 {showUniversalAlsoMatches && activeModeResultKind === "tools" ? (
