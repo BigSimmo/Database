@@ -2,6 +2,15 @@
 
 This folder collects notes for mockup routes that live under `src/app/mockups/`.
 
+## Clinician workflow features (2026-08)
+
+Interactive study for features 07–15 (Continue strip, Split reading, Prefer local, Refer, Forms pathway, Prescribing source pack, Evidence preview, Phone Filter sheet, Ward handoff):
+
+- Route: `/mockups/clinician-workflow-features`
+- Component: `src/components/clinician-workflow-features-mockups.tsx`
+- Uses design-system `Chip`, `Button`, `Sheet`, `VerificationNotice` and Clinical White tokens.
+- Shared search chrome is suppressed (study owns its frames and sheets).
+
 ## Authoritative route list
 
 The generated route map in [`docs/site-map.md`](../docs/site-map.md) (mockups section) is the source of truth for runnable mockup URLs. Regenerate it after adding or removing mockup routes:

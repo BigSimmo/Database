@@ -36,6 +36,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isWarningConsolidationMockup = pathname === "/mockups/warning-consolidation";
   const isWarningLineMockup = pathname === "/mockups/warning-line";
   const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
+  // Own feature frames + sheets; shared composer would compete with the study.
+  const isClinicianWorkflowFeaturesMockup = pathname === "/mockups/clinician-workflow-features";
   // Draws its own sticky chrome + device frames for /privacy; shared shell would
   // read as a second real header over the study.
   const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
@@ -88,6 +90,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup &&
+        !isClinicianWorkflowFeaturesMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
@@ -104,6 +107,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup &&
+        !isClinicianWorkflowFeaturesMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
