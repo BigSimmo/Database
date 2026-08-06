@@ -124,6 +124,25 @@ describe("unsupported short-circuit cache write", () => {
     expect(setCachedSearch).toHaveBeenCalledTimes(1);
   }, 60_000);
 
+  it("still caches a deterministic out-of-corpus zero even though it looks soft-tail-shaped", async () => {
+    // Devin review on PR #1646: isUnsupportedSoftTailAnalysis only looks at the query text and
+    // deterministic analysis, not queryAnalysis.corpusGrounding, so a real "out_of_corpus" verdict
+    // (a deterministic, corpus-derived true negative reached without any LLM call) must be
+    // excluded from the soft-tail cache-write skip, or every repeat re-runs classifyCorpusGrounding
+    // and the trigram-correction RPC for a query that will always come back empty.
+    const { searchChunksWithTelemetry, setCachedSearch } = await loadSearch("out_of_corpus");
+
+    const result = await searchChunksWithTelemetry({
+      query: "catatonia",
+      ownerId,
+      lexicalOnly: true,
+    });
+
+    expect(result.results).toEqual([]);
+    expect(result.telemetry.retrieval_strategy).toBe("unsupported_short_circuit");
+    expect(setCachedSearch).toHaveBeenCalledTimes(1);
+  }, 60_000);
+
   it("rescues an in-corpus bare topic before ever reaching the short circuit", async () => {
     const { searchChunksWithTelemetry, setCachedSearch } = await loadSearch("in_corpus_topic");
 

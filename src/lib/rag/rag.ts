@@ -951,6 +951,9 @@ type ClassifierVerdict = z.infer<typeof queryClassifierVerdictSchema>;
 // a query's classification for the whole TTL. The full corpus-grounded relevance fix remains
 // scoped to RAG optimisation Phase 2.
 const classifierVerdictMemoTtlMs = 15 * 60 * 1000;
+// Finding #11 follow-up: bounds retries for a rejected soft-tail verdict (see
+// isUnsupportedSoftTailAnalysis) instead of the full 15-minute TTL or unbounded re-classification.
+const rejectedSoftTailMemoTtlMs = 60 * 1000;
 const classifierVerdictMemoMaxEntries = 500;
 const classifierVerdictMemo = new Map<string, { expiresAt: number; verdict: ClassifierVerdict }>();
 const classifierVerdictInflight = new Map<string, Promise<ClassifierVerdict>>();
@@ -970,12 +973,12 @@ function classifierVerdictMemoKey(query: string, analysis: ClinicalQueryAnalysis
 }
 
 /** Store classifier verdict memo. */
-function storeClassifierVerdictMemo(key: string, verdict: ClassifierVerdict) {
+function storeClassifierVerdictMemo(key: string, verdict: ClassifierVerdict, ttlMs = classifierVerdictMemoTtlMs) {
   if (classifierVerdictMemo.size >= classifierVerdictMemoMaxEntries) {
     const oldestKey = classifierVerdictMemo.keys().next().value;
     if (oldestKey !== undefined) classifierVerdictMemo.delete(oldestKey);
   }
-  classifierVerdictMemo.set(key, { expiresAt: Date.now() + classifierVerdictMemoTtlMs, verdict });
+  classifierVerdictMemo.set(key, { expiresAt: Date.now() + ttlMs, verdict });
 }
 
 /** Reset classifier verdict memo for tests. */
@@ -1152,21 +1155,10 @@ export async function analyzeQueryWithClassifierFallback(
 
   try {
     const verdict = await awaitWithCallerSignal(pending, opts?.signal);
-    // Finding #11 follow-up: a rejected verdict (still unsupported_or_general / confidence <
-    // 0.58) is normally memoized for the full 15-minute TTL alongside accepted ones, so the
-    // same nondeterministic LLM call never gets a second chance within a session — Codex review
-    // on PR #1646 identified this as the dominant stickiness behind the "catatonia" false
-    // negative, longer-lived than the 60s search-cache TTL. For the soft-tail bucket
-    // specifically (the same fragile, low-confidence, no-deterministic-exclusion-match case the
-    // unsupported short-circuit treats specially — see isUnsupportedSoftTailAnalysis), a
-    // rejected verdict is not memoized, so a repeat query gets a fresh classifier attempt
-    // instead of reproducing the same rejection for the rest of the TTL window. Accepted
-    // verdicts, and rejected verdicts for every other query shape, keep the original
-    // determinism guarantee.
+    // Finding #11 follow-up: bounded TTL for a rejected soft-tail verdict — see the constant above.
     const rejected = verdict.confidence < 0.58 || verdict.queryClass === "unsupported_or_general";
-    if (!(rejected && isUnsupportedSoftTailAnalysis(query, analysis))) {
-      storeClassifierVerdictMemo(memoKey, verdict);
-    }
+    const softTail = rejected && isUnsupportedSoftTailAnalysis(query, analysis);
+    storeClassifierVerdictMemo(memoKey, verdict, softTail ? rejectedSoftTailMemoTtlMs : undefined);
     return applyClassifierVerdict(analysis, verdict);
   } catch (error) {
     if (
@@ -1754,15 +1746,13 @@ export async function searchChunksWithTelemetry(
     telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
-    // Finding #11 follow-up: the soft-tail bucket (low confidence, few expanded terms, no
-    // deterministic exclusion match) can be resolved by a nondeterministic LLM classifier call
-    // or by corpus grounding returning "inconclusive" rather than "in_corpus_topic" for content
-    // that lacks a matching document title (e.g. "catatonia" is well represented in chunk text
-    // but no document is titled "Catatonia"). Caching that zero would make a single unlucky
-    // classification sticky for every later caller within the cache TTL, so this specific bucket
-    // is deliberately never cached. The three deterministic exclusion patterns above it in
-    // shouldShortCircuitUnsupportedSearch are stable true negatives and stay cached as before.
-    if (!isUnsupportedSoftTailAnalysis(retrievalQuery, queryAnalysis)) {
+    // Finding #11 follow-up: a soft-tail zero can come from a nondeterministic LLM call, so
+    // don't cache it — except "out_of_corpus", a deterministic corpus-derived true negative
+    // (classifyCorpusGrounding) reached without any LLM call, which stays cached like the
+    // deterministic exclusion patterns above it.
+    const skipCacheWrite =
+      isUnsupportedSoftTailAnalysis(retrievalQuery, queryAnalysis) && queryAnalysis.corpusGrounding !== "out_of_corpus";
+    if (!skipCacheWrite) {
       await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
     }
     return finishSearch(searchTiming, { results: [] as SearchResult[], telemetry });
