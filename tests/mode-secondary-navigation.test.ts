@@ -40,13 +40,7 @@ const cleanLandingPath: Record<AppModeId, string> = {
   factsheets: "/factsheets",
 };
 
-const multiPageModes = new Set<AppModeId>([
-  "differentials",
-  "dsm",
-  "specifiers",
-  "formulation",
-  "therapy-compass",
-]);
+const multiPageModes = new Set<AppModeId>(["differentials", "dsm", "specifiers", "formulation", "therapy-compass"]);
 
 describe("mode secondary navigation registry", () => {
   it("covers all 13 modes with the approved destinations and no Home item", () => {

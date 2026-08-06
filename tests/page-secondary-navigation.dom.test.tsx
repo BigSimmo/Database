@@ -126,12 +126,7 @@ describe("PageSecondaryNavigation", () => {
     "renders the %s workflow as the shared header-integrated mode nav",
     (modeId, pathname, ariaLabel, activeLabel, activeHref) => {
       render(
-        <PageSecondaryNavigation
-          modeId={modeId}
-          pathname={pathname}
-          hasSubmittedSearch={false}
-          onSearch={vi.fn()}
-        />,
+        <PageSecondaryNavigation modeId={modeId} pathname={pathname} hasSubmittedSearch={false} onSearch={vi.fn()} />,
       );
 
       expect(screen.getByRole("navigation", { name: ariaLabel })).toHaveAttribute("data-testid", "mode-nav");
