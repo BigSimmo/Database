@@ -2073,11 +2073,18 @@ export function ClinicalDashboard({
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
-      // Differentials mode: the ranked catalogue results are the primary
-      // content and load independently of this document-evidence search, so an
-      // empty corpus result is applied (empty evidence) rather than surfaced
-      // as an error that would hide the catalogue view.
-      let emptyDifferentialsPayload: SearchResultModePayload | null = null;
+      // A source-library search that returns nothing is a RESULT, not a failure:
+      // the payload still carries `scope` (summary, activeFilterCount,
+      // matchedDocumentCount, warnings) and `sourceGovernanceWarnings`, which
+      // together are the only explanation of WHY it is empty. Discarding it and
+      // throwing the 404 sentinel instead is what left a scoped-to-zero search
+      // rendering the answer-mode "Answer unavailable" banner over a generic
+      // "check the spelling" — with the active scope filter neither named nor
+      // clearable, so every subsequent query in the mode returned zero too.
+      // Differentials already relied on this (its ranked catalogue loads
+      // independently and must not be hidden by empty document evidence); the
+      // documents path needs it for the same reason.
+      let emptySourceLibraryPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
         if (entry.isKeyword) {
@@ -2115,7 +2122,10 @@ export function ClinicalDashboard({
                 );
 
           if (!resultUsable(payload)) {
-            if (modeSearch.kind === "differentials") emptyDifferentialsPayload = payload;
+            // Keep the LAST empty payload: the keyword variant below runs
+            // against the same scope, so its scope/warnings describe the state
+            // the reader is actually looking at.
+            if (payload.kind === "documents") emptySourceLibraryPayload = payload;
             lastError = makeSearchError("No usable results were found.", 404, false);
             if (!entry.isKeyword) {
               continue;
@@ -2134,8 +2144,8 @@ export function ClinicalDashboard({
         }
       }
 
-      if (!successfulPayload && emptyDifferentialsPayload) {
-        successfulPayload = emptyDifferentialsPayload;
+      if (!successfulPayload && emptySourceLibraryPayload) {
+        successfulPayload = emptySourceLibraryPayload;
       }
 
       if (!successfulPayload) {
@@ -3225,6 +3235,22 @@ export function ClinicalDashboard({
   const handleFollowUpSuggestionPick = useEventCallback(handlePickFollowUpSuggestion);
   const handleCrossModeSearch = useEventCallback(crossModeSearch);
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
+  // Relaxing a scope filter has to re-run the search, not just re-render: these
+  // filters are resolved server-side before retrieval, so the current (empty)
+  // result set holds nothing to un-filter locally. The URL carries the scope
+  // too — `ask()` writes it on every documents submit — so it is updated in the
+  // same act or the next search would re-apply the constraint just cleared.
+  const handleScopeFiltersChange = useEventCallback((filters: SearchScopeFilters) => {
+    setScopeFilters(filters);
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
+    window.history.replaceState(
+      null,
+      "",
+      documentsSearchHref({ query: trimmedQuery, run: true, queryMode, scopeFilters: filters }),
+    );
+    void executeSearch(trimmedQuery, searchMode, filters, queryMode, true);
+  });
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
@@ -3757,6 +3783,8 @@ export function ClinicalDashboard({
                         onOpenLibrary={handleOpenSourceLibrary}
                         onOpenSourcePdf={handleOpenSourcePdfBrowser}
                         onTagSearch={handleDocumentTagSearch}
+                        scopeFilters={searchMode === "documents" ? scopeFilters : null}
+                        onScopeFiltersChange={searchMode === "documents" ? handleScopeFiltersChange : undefined}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />
