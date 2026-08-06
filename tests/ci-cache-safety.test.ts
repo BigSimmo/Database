@@ -114,7 +114,7 @@ describe("CI cache safety", () => {
  * because the defect was in the script's behaviour and a structural assertion would have
  * passed against it (see #094 on gates asserting structure over rendered effect).
  */
-describe("PR required aggregate — cancelled vs failed (#095)", () => {
+describe.skipIf(process.platform === "win32")("PR required aggregate — cancelled vs failed (#095)", () => {
   const script = (() => {
     const lines = workflow.split("\n");
     const stepIndex = lines.findIndex((line) => line.includes("name: Verify required in-scope jobs"));
