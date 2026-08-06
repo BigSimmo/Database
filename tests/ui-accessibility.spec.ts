@@ -233,12 +233,18 @@ test.describe("Clinical KB accessibility coverage", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await mockMinimalDashboardApi(page);
 
+    // New chat lives on both the collapsed rail and the expanded panel. With
+    // collapsed-by-default the expanded panel is unmounted, so scope to the
+    // rail rather than relying on .first() (same hazard the forced-colors
+    // journey below guards against).
+    const railNewChat = page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "New chat" });
+
     // Reduced motion → every scripted scroll must be an instant "auto" jump.
     await page.emulateMedia({ reducedMotion: "reduce" });
     await gotoApp(page);
     await expectDashboardUsable(page);
     await resetBehaviours();
-    await page.getByRole("button", { name: "New chat" }).first().click();
+    await railNewChat.click();
     await expect.poll(readBehaviours).not.toHaveLength(0);
     const reduced = await readBehaviours();
     expect(reduced, "reduced motion must not animate scripted scrolls").not.toContain("smooth");
@@ -247,7 +253,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     // No preference → the same action animates smoothly.
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await resetBehaviours();
-    await page.getByRole("button", { name: "New chat" }).first().click();
+    await railNewChat.click();
     await expect.poll(readBehaviours).not.toHaveLength(0);
     expect(await readBehaviours(), "no-preference should animate scripted scrolls").toContain("smooth");
   });
