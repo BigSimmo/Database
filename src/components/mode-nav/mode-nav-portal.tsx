@@ -25,11 +25,10 @@ import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
  * Falls back to normal flow when no host exists — routes rendered without the
  * universal header, and the server pass — so navigation is never lost.
  *
- * Slot ownership: the addon slot holds ONE page-owned header. `DocumentViewer`
- * and the differentials detail page already claim it on phones, so a mode whose
- * routes include those pages must not also mount a bar there. `ModeNav` renders
- * nothing below two destinations, which is what keeps those modes clear today;
- * `tests/mode-nav-contract.test.ts` fails if that stops being true.
+ * Slot ownership: the addon slot holds ONE page-owned header. Document and
+ * detail-page owners claim it only on routes where the shared shell suppresses
+ * ModeNav first; one-destination modes also render nothing below the two-item
+ * minimum. Contract and route-level tests fail if those ownership gates drift.
  */
 export function ModeNavHeaderPortal({ children }: { children: ReactNode }) {
   const [host, setHost] = useState<HTMLElement | null>(null);
