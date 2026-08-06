@@ -837,6 +837,34 @@ test("Services results keep a continuous browser viewport after shared chrome re
   );
 });
 
+test("calculator results stay inside narrow phone viewports", async ({ page }) => {
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await gotoPhoneSurface(page, "/calculators", 112);
+
+    const pageSurface = page.getByTestId("calculators-search-page");
+    const geometry = await pageSurface.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(geometry.scrollWidth, `${width}px calculator canvas must not clip result controls`).toBeLessThanOrEqual(
+      geometry.clientWidth + 1,
+    );
+
+    for (const control of [
+      page.getByRole("button", { name: "Filters" }),
+      page.getByRole("button", { name: /^Open PHQ-9/ }),
+    ]) {
+      const box = await control.boundingBox();
+      expect(box, `${width}px calculator control should be rendered`).not.toBeNull();
+      expect(box!.x, `${width}px calculator control starts inside the viewport`).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width, `${width}px calculator control ends inside the viewport`).toBeLessThanOrEqual(
+        width + 1,
+      );
+    }
+  }
+});
+
 test("calculators page-owned phone dock uses localized glass and releases its reserve when hidden", async ({
   page,
 }) => {
