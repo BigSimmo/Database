@@ -653,7 +653,7 @@ test("Services results keep a continuous browser viewport after shared chrome re
   expect(visible.dockLeft).toBeCloseTo(0, 0);
   expect(visible.dockRight).toBeCloseTo(phoneViewport.width, 0);
   expect(visible.dockBottom).toBeCloseTo(phoneViewport.height, 0);
-  expect(visible.pillBackground).toMatch(/(?:^rgba\([^)]+,\s*0\.88\)|\/ 0\.88\))/);
+  expect(visible.pillBackground).toMatch(/(?:^rgba\([^)]+,\s*0\.97\)|\/ 0\.97\))/);
 
   const geometry = await readGeometry(page);
   await dragScrollBy(page, Math.min(geometry.maxOffset, 500), 24);
