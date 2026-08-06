@@ -214,6 +214,26 @@ function scrollContainerToTarget(container: HTMLElement, target: HTMLElement, bl
   container.scrollTop += targetCenter - containerCenter;
 }
 
+/** Shared roving-focus state for flat mode catalogues; sheets keep their own key maps. */
+function useRovingModeFocus(selected: AppModeId, onSelectedChange: (id: AppModeId) => void) {
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [focusIndex, setFocusIndex] = useState(Math.max(0, FLAT_MODE_IDS.indexOf(selected)));
+
+  function focusModeOption(index: number) {
+    const next = Math.max(0, Math.min(FLAT_MODE_IDS.length - 1, index));
+    setFocusIndex(next);
+    optionRefs.current[next]?.focus();
+  }
+
+  function selectMode(id: AppModeId) {
+    onSelectedChange(id);
+    const nextIndex = FLAT_MODE_IDS.indexOf(id);
+    if (nextIndex >= 0) setFocusIndex(nextIndex);
+  }
+
+  return { optionRefs, focusIndex, focusModeOption, selectMode };
+}
+
 function CurrentlyLine({ modeId }: { modeId: AppModeId }) {
   const mode = modeOf(modeId);
   const Icon = appModeIcons[modeId];
@@ -365,11 +385,10 @@ function DenseListSheet({
   preview?: DensePreview;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
-  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const selectedIndex = Math.max(0, FLAT_MODE_IDS.indexOf(selected));
   const midScrollIndex = Math.max(0, FLAT_MODE_IDS.indexOf(MID_SCROLL_MODE));
-  const [focusIndex, setFocusIndex] = useState(selectedIndex);
   const mountSelectedIndexRef = useRef(selectedIndex);
+  const { optionRefs, focusIndex, focusModeOption, selectMode } = useRovingModeFocus(selected, onSelectedChange);
 
   useEffect(() => {
     if (preview === "rest") return;
@@ -385,13 +404,7 @@ function DenseListSheet({
       if (target) scrollContainerToTarget(body, target, "center");
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [preview, midScrollIndex]);
-
-  function focusModeOption(index: number) {
-    const next = Math.max(0, Math.min(FLAT_MODE_IDS.length - 1, index));
-    setFocusIndex(next);
-    optionRefs.current[next]?.focus();
-  }
+  }, [preview, midScrollIndex, optionRefs]);
 
   function handleModeOptionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
     if (event.key === "ArrowDown") {
@@ -407,12 +420,6 @@ function DenseListSheet({
       event.preventDefault();
       focusModeOption(FLAT_MODE_IDS.length - 1);
     }
-  }
-
-  function selectMode(id: AppModeId) {
-    onSelectedChange(id);
-    const nextIndex = FLAT_MODE_IDS.indexOf(id);
-    if (nextIndex >= 0) setFocusIndex(nextIndex);
   }
 
   return (
@@ -458,15 +465,7 @@ function FlatTileSheet({
   selected: AppModeId;
   onSelectedChange: (id: AppModeId) => void;
 }) {
-  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const selectedIndex = Math.max(0, FLAT_MODE_IDS.indexOf(selected));
-  const [focusIndex, setFocusIndex] = useState(selectedIndex);
-
-  function focusModeOption(index: number) {
-    const next = Math.max(0, Math.min(FLAT_MODE_IDS.length - 1, index));
-    setFocusIndex(next);
-    optionRefs.current[next]?.focus();
-  }
+  const { optionRefs, focusIndex, focusModeOption, selectMode } = useRovingModeFocus(selected, onSelectedChange);
 
   function handleModeOptionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
     const cols = 2;
@@ -489,12 +488,6 @@ function FlatTileSheet({
       event.preventDefault();
       focusModeOption(FLAT_MODE_IDS.length - 1);
     }
-  }
-
-  function selectMode(id: AppModeId) {
-    onSelectedChange(id);
-    const nextIndex = FLAT_MODE_IDS.indexOf(id);
-    if (nextIndex >= 0) setFocusIndex(nextIndex);
   }
 
   return (
