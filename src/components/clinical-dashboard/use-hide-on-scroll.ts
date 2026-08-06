@@ -116,17 +116,19 @@ export function computeScrollHideUpdate(params: {
   } = params;
   // Ignore iOS rubber-band overscroll at the top.
   if (offset < 0) return { hidden: currentlyHidden, lastOffset, direction, directionTravel };
-  // Offsets from different scroll containers are not comparable. Preserve the
-  // current chrome state and establish a fresh intent baseline for this source.
-  if (sourceChanged) {
-    return { hidden: currentlyHidden, lastOffset: offset, direction: null, directionTravel: 0 };
-  }
-  // The top reveal band is an absolute layout contract, so it outranks the
-  // resize guard below: a viewport change does not stop the reader being at the
-  // top of the range, and holding `hidden` here would strand the chrome
-  // off-screen at offset 0 until the next scroll.
+  // The top reveal band is an absolute layout contract, so it outranks both the
+  // source-change and resize guards below: a container handoff or viewport
+  // change does not stop the reader being at the top of the range, and holding
+  // `hidden` here would strand the chrome off-screen at offset 0 until the next
+  // scroll (#176 / #146).
   if (offset <= topRevealOffset) {
     return { hidden: false, lastOffset: offset, direction: null, directionTravel: 0 };
+  }
+  // Offsets from different scroll containers are not comparable once past the
+  // top band. Preserve the current chrome state and establish a fresh intent
+  // baseline for this source.
+  if (sourceChanged) {
+    return { hidden: currentlyHidden, lastOffset: offset, direction: null, directionTravel: 0 };
   }
   // Viewport resize is not scroll intent. Without this guard, a toolbar shrink
   // (or CI `setViewportSize`) can look like a deliberate upward scroll, reveal

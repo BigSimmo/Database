@@ -5,9 +5,9 @@ import { describe, expect, it, vi } from "vitest";
 import { useViewerGestures } from "@/components/document-viewer/use-viewer-gestures";
 
 // useViewerGestures interprets raw wheel/pointer input into onZoomBy/onPanBy
-// callbacks. Its wheel branch is a *native* non-passive listener (so it can
-// preventDefault the browser's page-zoom), which the node/SSR suite can't reach;
-// jsdom dispatches real DOM events so we can assert the modifier gating and the
+// callbacks. Modifier-gated zoom uses a native passive wheel listener (#214);
+// lightbox mode uses non-passive so it can preventDefault. jsdom dispatches
+// real DOM events so we can assert the modifier gating, passive flag, and the
 // pointer pan/pinch maths here.
 
 type HarnessProps = Omit<Parameters<typeof useViewerGestures>[0], "targetRef">;
@@ -40,6 +40,28 @@ describe("useViewerGestures wheel zoom (jsdom)", () => {
     fireEvent.wheel(stage(), { deltaY: 100, metaKey: true });
     expect(onZoomBy).toHaveBeenCalledTimes(2);
     expect(onZoomBy.mock.calls[1][0]).toBeLessThan(1);
+  });
+
+  it("attaches a passive wheel listener when zoom needs a modifier (PDF scroll path)", () => {
+    const addEventListener = vi.spyOn(HTMLElement.prototype, "addEventListener");
+    const onZoomBy = vi.fn();
+    render(<GestureHarness onZoomBy={onZoomBy} />);
+
+    const wheelCalls = addEventListener.mock.calls.filter(([type]) => type === "wheel");
+    expect(wheelCalls.length).toBeGreaterThan(0);
+    expect(wheelCalls.some(([, , options]) => (options as AddEventListenerOptions)?.passive === true)).toBe(true);
+    addEventListener.mockRestore();
+  });
+
+  it("attaches a non-passive wheel listener when unmodified wheel zooms (lightbox)", () => {
+    const addEventListener = vi.spyOn(HTMLElement.prototype, "addEventListener");
+    const onZoomBy = vi.fn();
+    render(<GestureHarness onZoomBy={onZoomBy} wheelNeedsModifier={false} />);
+
+    const wheelCalls = addEventListener.mock.calls.filter(([type]) => type === "wheel");
+    expect(wheelCalls.length).toBeGreaterThan(0);
+    expect(wheelCalls.some(([, , options]) => (options as AddEventListenerOptions)?.passive === false)).toBe(true);
+    addEventListener.mockRestore();
   });
 
   it("zooms on a plain wheel when the modifier is not required (lightbox mode)", () => {
