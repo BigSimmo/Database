@@ -34,7 +34,14 @@ describe("PageSecondaryNavigation", () => {
     ["/services/community-team", ["Overview", "Quick facts", "Referral", "Criteria", "Verification"]],
     [
       "/forms/form-1",
-      ["Overview", "Decision context", "Priority facts", "Legal boundary", "Form information", "Source / verification"],
+      [
+        "Overview",
+        "Decision context",
+        "Priority facts",
+        "Legal boundary",
+        "Form information",
+        "Source / verification",
+      ],
     ],
     ["/specifiers/with-anxious-distress", ["Overview", "Fit & exclusions", "Wording / coding", "Evidence / source"]],
     [
@@ -85,7 +92,10 @@ describe("PageSecondaryNavigation", () => {
   });
 
   it("binds service section targets to IDs rendered by service-detail-page", () => {
-    const servicePage = readFileSync(join(process.cwd(), "src/components/services/service-detail-page.tsx"), "utf8");
+    const servicePage = readFileSync(
+      join(process.cwd(), "src/components/services/service-detail-page.tsx"),
+      "utf8",
+    );
     for (const targetId of informationPageSectionDefinitions("/services/community-team").flatMap(
       (section) => section.targetIds,
     )) {
@@ -93,7 +103,7 @@ describe("PageSecondaryNavigation", () => {
     }
   });
 
-  it("does not add a navigation row to a clean no-query landing page", () => {
+  it("does not add a navigation row to a clean one-destination landing page", () => {
     render(
       <PageSecondaryNavigation modeId="services" pathname="/services" hasSubmittedSearch={false} onSearch={vi.fn()} />,
     );
@@ -111,14 +121,24 @@ describe("PageSecondaryNavigation", () => {
     ["tools", "/tools"],
     ["factsheets", "/factsheets/search"],
   ] as const)("keeps the one-destination %s mode free of a redundant menu", (modeId, pathname) => {
-    render(<PageSecondaryNavigation modeId={modeId} pathname={pathname} hasSubmittedSearch onSearch={vi.fn()} />);
+    render(
+      <PageSecondaryNavigation modeId={modeId} pathname={pathname} hasSubmittedSearch onSearch={vi.fn()} />,
+    );
 
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
     expect(screen.queryByTestId("mode-nav")).toBeNull();
   });
 
   it.each([
-    ["differentials", "/differentials/diagnoses", "Differentials pages", "Diagnoses", "/differentials/diagnoses"],
+    ["differentials", "/differentials", "Differentials pages", "Search", "/differentials?focus=1"],
+    [
+      "differentials",
+      "/differentials/diagnoses",
+      "Differentials pages",
+      "Diagnoses",
+      "/differentials/diagnoses",
+    ],
+    ["dsm", "/dsm", "DSM-5 Diagnosis pages", "Search", "/dsm?focus=1"],
     ["dsm", "/dsm/compare", "DSM-5 Diagnosis pages", "Compare", "/dsm/compare"],
     ["specifiers", "/specifiers/builder", "Specifiers pages", "Build", "/specifiers/builder"],
     ["formulation", "/formulation/map", "Formulation pages", "Map", "/formulation/map"],
@@ -126,7 +146,12 @@ describe("PageSecondaryNavigation", () => {
     "renders the %s workflow as the shared header-integrated mode nav",
     (modeId, pathname, ariaLabel, activeLabel, activeHref) => {
       render(
-        <PageSecondaryNavigation modeId={modeId} pathname={pathname} hasSubmittedSearch={false} onSearch={vi.fn()} />,
+        <PageSecondaryNavigation
+          modeId={modeId}
+          pathname={pathname}
+          hasSubmittedSearch={false}
+          onSearch={vi.fn()}
+        />,
       );
 
       expect(screen.getByRole("navigation", { name: ariaLabel })).toHaveAttribute("data-testid", "mode-nav");
