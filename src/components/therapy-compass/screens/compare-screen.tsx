@@ -2,6 +2,8 @@
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
+import { pageContainer } from "@/components/ui-primitives";
+
 import { MAX_COMPARE, useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { needsReviewCount, parseSteps, searchTherapies, shortestDelivery, summarise } from "../data/select";
@@ -95,7 +97,7 @@ export function CompareScreen() {
   const cellPad = dense ? "11px 16px" : "15px 20px";
 
   return (
-    <section data-screen-label="Compare" className="max-w-[1240px] my-0 mx-auto">
+    <section data-screen-label="Compare" className={pageContainer}>
       <div className="flex items-start justify-between gap-5 mb-1.5 flex-wrap">
         <div>
           <div className="flex items-baseline gap-3 flex-wrap">

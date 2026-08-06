@@ -49,6 +49,7 @@ import { Sheet } from "@/components/ui/sheet";
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
+  type AppliedFilterChip,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { deriveDocumentSearchUnavailable } from "@/components/clinical-dashboard/document-search-unavailable-status";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -80,6 +81,8 @@ import {
 import type { SourceGovernanceWarning } from "@/lib/source-governance";
 import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
+import type { SearchScopeFilters } from "@/lib/search-scope";
+import { removeScopeFilterValue, scopeFilterChips } from "@/lib/search-scope-filter-chips";
 import type { ClinicalDocument, DocumentMatch, SearchScopeSummary } from "@/lib/types";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
@@ -114,6 +117,7 @@ type SearchRecordMode = "services" | "forms";
 type SearchRecordMatch = ServiceSearchMatch | FormSearchMatch;
 
 const EMPTY_SOURCE_GOVERNANCE_WARNINGS: SourceGovernanceWarning[] = [];
+const EMPTY_APPLIED_FILTERS: AppliedFilterChip[] = [];
 
 const searchRecordConfig: Record<
   SearchRecordMode,
@@ -1301,6 +1305,8 @@ function DocumentSearchResultsPanelImpl({
   onOpenLibrary,
   onOpenSourcePdf,
   onTagSearch,
+  scopeFilters,
+  onScopeFiltersChange,
   showHome = false,
   desktopComposerSlotId,
 }: {
@@ -1326,6 +1332,19 @@ function DocumentSearchResultsPanelImpl({
   onOpenLibrary: () => void;
   onOpenSourcePdf: () => void;
   onTagSearch: (tag: SmartDocumentTag | SmartDocumentTagFacet) => void;
+  /**
+   * The scope filters the current results were requested with. Paired with
+   * `searchScope.activeFilterCount` (the server's count of what it actually
+   * applied) so the zero-result state only claims a filter when retrieval was
+   * really scoped.
+   */
+  scopeFilters?: SearchScopeFilters | null;
+  /**
+   * Re-run the search with a relaxed server-side scope. Required to make the
+   * scoped-to-zero state recoverable: those filters are applied before
+   * retrieval, so no client-side control can undo them. Omit to hide that route.
+   */
+  onScopeFiltersChange?: (filters: SearchScopeFilters) => void;
   showHome?: boolean;
   desktopComposerSlotId?: string;
 }) {
@@ -1501,6 +1520,33 @@ function DocumentSearchResultsPanelImpl({
     setActiveFacetState({ query, keys: [] });
     setActiveResultType("all");
   };
+  /* The scope filters the API applied BEFORE retrieval, as removable chips.
+     Only used on the zero-result path: while matches exist the facet chips above
+     describe what is narrowing the visible list, and stacking both would show a
+     reader two filter shelves doing different jobs. At zero there is no match
+     set to derive facets from, so without these the constraint that emptied the
+     search is invisible — and unclearable, since `showResultsControls` gates the
+     Filter trigger on `matches.length > 0`. */
+  /* A retrieval layer errored, so no count from this search is trustworthy —
+     including a non-zero one. The band owns that claim: it renders `matchCount`
+     inside the only `role="status"` region on the page, and the zero-result
+     state suppresses its own live region while filters are applied, so a
+     degraded+scoped search announced a bare confident "0 documents" and nothing
+     else. `partial` is the band's own word for it ("available sources returned
+     an honest count, but at least one source failed") and is right for BOTH
+     cases: at zero it stops the headline contradicting the panel below it, and
+     above zero it is the only thing that says the list is a floor rather than
+     the answer. (Raised by Devin review on PR #1640.) */
+  const retrievalDegraded = Boolean(searchScope?.retrieval?.degraded);
+  const activeScopeFilters = scopeFilters ?? null;
+  const scopeEmptiedResults = matches.length === 0 && (searchScope?.activeFilterCount ?? 0) > 0;
+  const scopeAppliedFilters = useMemo(() => {
+    if (!scopeEmptiedResults || !activeScopeFilters || !onScopeFiltersChange) return EMPTY_APPLIED_FILTERS;
+    return scopeFilterChips(activeScopeFilters).map((chip) => ({
+      ...chip,
+      onRemove: () => onScopeFiltersChange(removeScopeFilterValue(activeScopeFilters, chip.id)),
+    }));
+  }, [scopeEmptiedResults, activeScopeFilters, onScopeFiltersChange]);
   const showIdentityHeader =
     recordMatchCount > 0 ||
     matches.length > 0 ||
@@ -1532,7 +1578,7 @@ function DocumentSearchResultsPanelImpl({
                     : recordStatus === "refetching"
                       ? "refetching"
                       : "ready"
-              : (unavailable?.status ?? (loading ? "loading" : "ready"))
+              : (unavailable?.status ?? (loading ? "loading" : retrievalDegraded ? "partial" : "ready"))
           }
           faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
           sortValue={sortValue}
@@ -1615,6 +1661,18 @@ function DocumentSearchResultsPanelImpl({
             // the shared state. The inline filtered-to-zero state inside the
             // results grid stays a paragraph: the grid's heading is the band's.
             headingLevel={3}
+            // Names the scope constraint and hands back a relaxed filter set, so
+            // the state reads "No documents match the selected filter … remove
+            // one to widen it" instead of "check the spelling" — the copy this
+            // shared state already carries for filtered-to-zero, which the
+            // documents path could not reach because it only ever passed
+            // client-derived facet chips (always empty at zero matches).
+            appliedFilters={scopeAppliedFilters}
+            onClearFilters={
+              scopeAppliedFilters.length > 0 && onScopeFiltersChange ? () => onScopeFiltersChange({}) : undefined
+            }
+            // A retrieval layer errored, so this zero is not evidence of absence.
+            degraded={retrievalDegraded}
             onBrowseAll={onOpenLibrary}
             browseAllLabel={
               documentCount > 0 ? `Browse all ${documentCount.toLocaleString()} sources` : "Browse all sources"

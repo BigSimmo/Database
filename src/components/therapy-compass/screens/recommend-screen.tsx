@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 
+import { pageContainer } from "@/components/ui-primitives";
+
 import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { RECOMMEND_CONSTRAINTS, summarise } from "../data/select";
@@ -35,7 +37,7 @@ export function RecommendScreen() {
     );
 
   return (
-    <section data-screen-label="Recommend" className="max-w-[1180px] my-0 mx-auto">
+    <section data-screen-label="Recommend" className={pageContainer}>
       <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
         Recommend Tool
       </h1>
