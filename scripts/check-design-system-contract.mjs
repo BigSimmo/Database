@@ -116,6 +116,7 @@ const metrics = {
   legacyPaletteUtilities: 0,
   darkColorOverrides: 0,
   legacyShadowAliases: 0,
+  arbitraryTracking: 0,
   layoutTransitionExceptions: 0,
   textSoftConsumers: 0,
 };
@@ -162,6 +163,7 @@ for (const file of files) {
   recordDebt("legacyPaletteUtilities", file.relativePath, classAnalysis.legacyPaletteUtilities.length);
   recordDebt("darkColorOverrides", file.relativePath, classAnalysis.darkColorOverrides.length);
   recordDebt("legacyShadowAliases", file.relativePath, classAnalysis.legacyShadowAliases.length);
+  recordDebt("arbitraryTracking", file.relativePath, classAnalysis.arbitraryTracking.length);
   densityOverrideFindings.push(...classAnalysis.densityOverrides);
   hardcodedMotionClassFindings.push(...classAnalysis.hardcodedMotionClasses);
   layoutTransitionFindings.push(...classAnalysis.layoutTransitions);
@@ -374,7 +376,7 @@ console.log(
   `Design-system contract passed (${files.length} production files; raw colors ${metrics.rawColorLiterals}; literal shadows ${metrics.literalShadowClasses}; legacy tap classes ${metrics.legacyTapClasses}; edge conflicts ${metrics.edgeOwnershipConflicts}; 1px shadow spreads ${metrics.onePixelShadowSpreads}).`,
 );
 console.log(
-  `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; layout transitions ${metrics.layoutTransitionExceptions}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}.`,
+  `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; layout transitions ${metrics.layoutTransitionExceptions}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}; arbitrary tracking ${metrics.arbitraryTracking}.`,
 );
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);
