@@ -38,6 +38,9 @@ payload="$(cat 2>/dev/null || true)"
 
 # Extract a JSON string value for key $1 from the raw payload (first match).
 # Handles only simple double-quoted values (no escapes). Empty on miss.
+# Callers that need shell-token matching must also scan $payload when
+# jq_available=0 — this helper truncates at the first escaped quote inside
+# the JSON string (e.g. `git commit -m \"msg\" && gh pr checks` → `git commit -m \`).
 json_string_field() {
   local key="$1"
   printf '%s' "$payload" \
@@ -54,7 +57,11 @@ json_string_field() {
 #   - tool_output ONLY from the substring after "tool_response" — never the whole
 #     payload. Falling back to the whole payload would let a failed `gh pr create`
 #     whose *input* mentions another PR URL write the handoff marker.
+#   - shell token matching (pre follow-deny + post `gh pr create` detect) also
+#     scans the raw payload, because quote-naive extraction truncates mid-command
+jq_available=0
 if command -v jq >/dev/null 2>&1; then
+  jq_available=1
   tool_name="$(printf '%s' "$payload" | jq -r '.tool_name // empty' 2>/dev/null || true)"
   # Bash uses .command; PowerShell payloads may use script/code/input instead.
   command_text="$(printf '%s' "$payload" | jq -r '
@@ -78,6 +85,20 @@ else
     tool_output=""
   fi
 fi
+
+# Shell-token haystack: exact command when jq decoded it; when jq is missing,
+# also include the raw payload so an escaped quote inside tool_input.command
+# cannot hide a later follow/create token. URL matching for post-mode still
+# uses tool_output only — never this haystack — so a create whose input merely
+# mentions another PR URL cannot write the marker.
+shell_command_matches() {
+  local re="$1"
+  printf '%s' "$command_text" | grep -Eq "$re" && return 0
+  if [ "$jq_available" -eq 0 ]; then
+    printf '%s' "$payload" | grep -Eq "$re" && return 0
+  fi
+  return 1
+}
 
 [ -z "$session_id" ] && session_id="unknown-session"
 # Reject path-injection / odd session ids before they become a marker filename.
@@ -140,7 +161,7 @@ post)
   # without the URL check a failed create would end the session with no PR to
   # hand off.
   created=1
-  if is_shell_tool && printf '%s' "$command_text" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+create'; then
+  if is_shell_tool && shell_command_matches 'gh[[:space:]]+pr[[:space:]]+create'; then
     created=0
   fi
   # End-anchor required: create_pull_request_review / _review_comment must NOT
@@ -189,12 +210,15 @@ pre)
   #    Matches are substring-based (cheap, no shell parse); false positives that
   #    only *mention* a blocked token can use CLAUDE_ALLOW_PR_FOLLOW=1.
   if [ -z "$reason" ] && is_shell_tool; then
+    # Escape hatch matches the extracted command only. A quote-truncated
+    # command_text still sees a leading CLAUDE_ALLOW_PR_FOLLOW=1 prefix; scanning
+    # the raw payload here would let an incidental mention unlock the deny.
     printf '%s' "$command_text" | grep -q 'CLAUDE_ALLOW_PR_FOLLOW=1' && exit 0
     follow_re='gh[[:space:]]+pr[[:space:]]+(checks|status|view|diff|list)'
     follow_re="$follow_re"'|gh[[:space:]]+run[[:space:]]+(watch|view|list|rerun|download)'
     follow_re="$follow_re"'|gh[[:space:]]+api[^|;]*(actions/runs|check-runs|check-suites|/pulls/)'
     follow_re="$follow_re"'|sync:pr-branches'
-    if printf '%s' "$command_text" | grep -Eq "$follow_re"; then
+    if shell_command_matches "$follow_re"; then
       reason='Blocked: this session already opened its pull request, so following it (CI polling, run logs, branch sync) is the wasted-usage loop AGENTS.md "Stop when the pull request is open" rules out. Hand the PR URL to the user and stop. If the user has asked for this check, re-run it prefixed with CLAUDE_ALLOW_PR_FOLLOW=1.'
     fi
   fi
