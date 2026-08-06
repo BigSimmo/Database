@@ -137,6 +137,13 @@ describe("mode secondary navigation registry", () => {
   });
 
   it("adopts only modes with two or more routed destinations (explicit list, not silent derivation)", () => {
+    // Membership is pinned, not just the criterion. Without this the test is
+    // satisfied by any subset: drop `formulation` from the list and every
+    // remaining mode still has two routed entries, while the negative check
+    // below only inspects modes with fewer than two. A mode silently losing the
+    // bar is the regression this list exists to make impossible.
+    expect([...MODE_NAV_ADOPTED_MODES].sort()).toEqual(["differentials", "dsm", "formulation", "specifiers"]);
+
     for (const modeId of MODE_NAV_ADOPTED_MODES) {
       expect(
         routedModeSecondaryNavigationCount(modeId),
