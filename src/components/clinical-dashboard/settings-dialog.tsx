@@ -411,20 +411,34 @@ export function SettingsDialog({
       if (scrollSpyFrameRef.current != null) return;
       scrollSpyFrameRef.current = window.requestAnimationFrame(() => {
         scrollSpyFrameRef.current = null;
+        // Sheet returns null while closed and unmounts this port, but the dialog
+        // component stays mounted. A frame armed before close must not sync from
+        // the detached node and overwrite the reopen reset (`activeSection` →
+        // account) after the fresh port is already at offset 0.
+        if (scrollRef.current !== el || !el.isConnected) return;
         if (admitScrollToSpy(el)) syncActiveSection(el);
       });
     },
     [admitScrollToSpy, reportScroll, syncActiveSection],
   );
 
+  // Cancel a coalesced spy frame on close (and on unmount). The empty-deps
+  // cleanup alone left the frame live across `open` flips.
   useEffect(() => {
+    if (!open) {
+      if (scrollSpyFrameRef.current != null) {
+        window.cancelAnimationFrame(scrollSpyFrameRef.current);
+        scrollSpyFrameRef.current = null;
+      }
+      return;
+    }
     return () => {
       if (scrollSpyFrameRef.current != null) {
         window.cancelAnimationFrame(scrollSpyFrameRef.current);
         scrollSpyFrameRef.current = null;
       }
     };
-  }, []);
+  }, [open]);
 
   async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

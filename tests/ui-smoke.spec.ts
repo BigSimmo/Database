@@ -1439,9 +1439,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(settings).toBeHidden();
 
     // The pin must not outlive the dialog: the Sheet unmounts its children, but
-    // the component stays mounted, so a stale pin would hold the spy inert.
+    // the component stays mounted, so a stale pin would hold the spy inert. A
+    // coalesced spy rAF armed before close is cancelled on `open` flip (and
+    // dropped if its port is no longer the live ref), so reopen starts on
+    // Account rather than the previous section.
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
+    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
     await port.evaluate((element) => {
       const previous = element.style.scrollBehavior;
       element.style.scrollBehavior = "auto";
