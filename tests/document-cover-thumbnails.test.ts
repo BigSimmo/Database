@@ -13,7 +13,7 @@ describe("document cover thumbnails", () => {
   it("extracts a first-page cover_page artifact in the PDF worker", () => {
     expect(extractorSource).toContain("def save_cover_page(");
     expect(extractorSource).toContain('"sourceKind": "cover_page"');
-    expect(extractorSource).toContain("Always try to capture a first-page cover");
+    expect(extractorSource).toContain("Optional cover after searchable artifacts");
   });
 
   it("persists covers as non-searchable display artifacts outside retrieval inputs", () => {
