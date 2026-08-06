@@ -18,8 +18,11 @@ function getSnapshot() {
   }
   try {
     const storedValue = window.localStorage.getItem(storageKey);
-    // New users get the collapsed sidebar by default; expanding stays a
-    // remembered choice.
+    // Collapsed is the default whenever the key is absent. The key is only
+    // written after an explicit toggle, so browsers that never touched the
+    // control (returning users included) also land on collapsed — matching
+    // the already-closed mobile drawer. Explicit "0"/"1" preferences still
+    // win; expanding remains a remembered choice.
     return storedValue === null ? true : storedValue === "1";
   } catch {
     return true;
