@@ -1366,6 +1366,58 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSetupSurface(setup);
   });
 
+  test("desktop settings scrolls its own column and keeps the rail and close control reachable", async ({ page }) => {
+    // Regression: the panel grid used `lg:h-auto` + `lg:max-h-`, so its single
+    // auto row sized to the full content height, overflowed the capped grid and
+    // was clipped by `overflow-hidden`. The scroll column therefore never
+    // overflowed its own box, `overflow-y-auto` never engaged, and a rail click's
+    // `scrollIntoView` scrolled the clipped grid instead — dragging the rail and
+    // the close control out of the dialog with no way to scroll them back.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const settings = accountSettingsDialog(page);
+    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(settings).toBeVisible();
+
+    const rail = settings.getByRole("navigation", { name: "Settings sections" });
+    const close = settings.getByRole("button", { name: "Close settings" });
+    await expect(rail).toBeVisible();
+
+    const scrollState = async () =>
+      settings
+        .locator("[data-settings-section]")
+        .first()
+        .evaluate((section) => {
+          const port = section.closest<HTMLElement>("[class*='overflow-y-auto']");
+          const panel = port?.parentElement;
+          return {
+            portScrollable: port ? port.scrollHeight > port.clientHeight : false,
+            panelClipped: panel ? panel.scrollHeight > panel.clientHeight : true,
+          };
+        });
+
+    // The settings column owns the overflow; the two-column panel never does.
+    expect(await scrollState()).toEqual({ portScrollable: true, panelClipped: false });
+
+    for (const section of ["Privacy", "Shortcuts", "Help & About"]) {
+      await settings.getByRole("button", { name: section, exact: true }).click();
+      await expect(settings.getByRole("button", { name: section, exact: true })).toHaveAttribute(
+        "aria-current",
+        "true",
+      );
+      // The rail and the only pointer-driven way out both stay inside the panel.
+      await expect(rail).toBeInViewport();
+      await expect(close).toBeInViewport();
+      expect((await scrollState()).panelClipped).toBe(false);
+    }
+
+    await close.click();
+    await expect(settings).toBeHidden();
+  });
+
   test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
     page,
   }) => {

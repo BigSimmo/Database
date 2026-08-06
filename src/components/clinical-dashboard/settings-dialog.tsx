@@ -81,6 +81,11 @@ const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string;
   { value: "system", label: "System", icon: Monitor },
 ];
 
+// The section rail is `hidden lg:flex`, so the scroll-spy has nothing to drive
+// below this seam — and phone scroll is a hot path that should not pay for its
+// geometry reads.
+const settingsRailMediaQuery = "(min-width: 1024px)";
+
 function sectionDomId(id: SettingsSectionId) {
   return `settings-section-${id}`;
 }
@@ -116,13 +121,20 @@ export function SettingsDialog({
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const guideButtonRef = useRef<HTMLButtonElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // The title bar is sticky inside the scroll region on every breakpoint, so its
+  // height is the amount of the scroll port a section would otherwise land
+  // underneath — both the scroll-spy root and the click-to-scroll offset have to
+  // subtract it.
+  const headerRef = useRef<HTMLElement | null>(null);
+  // Section chosen from the rail, held until the reader scrolls for themselves.
+  const pinnedSectionRef = useRef<SettingsSectionId | null>(null);
   const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
 
   const { theme, preference: themePreference, setPreference: setThemePreference } = useTheme();
   const { preferences, setPreference, resetPreferences } = useAppPreferences();
   // Hide-on-scroll for the mobile glass header (phone-gated inside the hook), so
   // the top goes fully edge-to-edge while scrolling — the same behaviour as the
-  // app's search bar. Desktop keeps a static in-panel header.
+  // app's search bar. Desktop keeps its title bar pinned and never hides it.
   const { hidden: headerHidden, reportScroll } = useScrollHideReporter();
 
   const auth = useAuthSession();
@@ -169,39 +181,66 @@ export function SettingsDialog({
     setDataCounts(readDataCounts());
   }, []);
 
-  // Desktop scroll-spy: highlight the section nearest the top of the scroll
-  // region so the rail mirrors what the reader is looking at.
+  /**
+   * Desktop scroll-spy: the rail highlights the last section whose heading has
+   * passed under the sticky title bar.
+   *
+   * Read from geometry on scroll rather than from an IntersectionObserver. An
+   * observer callback receives only the entries whose intersection *changed* in
+   * that batch, so picking "the topmost visible entry" from it picks the topmost
+   * of a partial set — which is how selecting the last rail item could leave the
+   * rail highlighting the one above it.
+   */
+  const syncActiveSection = useCallback((container: HTMLDivElement) => {
+    // A rail click pins its own selection. The last sections are shorter than
+    // the scroll port, so they physically cannot be scrolled to the marker line
+    // — geometry alone would answer a click on "Shortcuts" by highlighting
+    // whichever neighbour happens to sit at the top of the runway's end.
+    if (pinnedSectionRef.current) return;
+    if (typeof window !== "undefined" && !window.matchMedia(settingsRailMediaQuery).matches) return;
+    const maxOffset = container.scrollHeight - container.clientHeight;
+    // The final section is shorter than the scroll port, so its heading can
+    // never reach the marker line. The end of the runway belongs to it.
+    if (maxOffset > 0 && maxOffset - container.scrollTop <= 2) {
+      setActiveSection(SETTINGS_SECTIONS[SETTINGS_SECTIONS.length - 1].id);
+      return;
+    }
+    const marker = container.getBoundingClientRect().top + (headerRef.current?.offsetHeight ?? 0) + 1;
+    let next: SettingsSectionId = SETTINGS_SECTIONS[0].id;
+    for (const element of container.querySelectorAll<HTMLElement>("[data-settings-section]")) {
+      if (element.getBoundingClientRect().top > marker) break;
+      next = element.getAttribute("data-settings-section") as SettingsSectionId;
+    }
+    setActiveSection(next);
+  }, []);
+
   useEffect(() => {
-    if (!open || typeof IntersectionObserver === "undefined") return;
+    if (!open) return;
     const container = scrollRef.current;
-    if (!container) return;
-    const sectionEls = Array.from(container.querySelectorAll<HTMLElement>("[data-settings-section]"));
-    if (sectionEls.length === 0) return;
+    if (container) syncActiveSection(container);
+  }, [open, syncActiveSection]);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        const next = visible[0]?.target.getAttribute("data-settings-section");
-        if (next) setActiveSection(next as SettingsSectionId);
-      },
-      { root: container, rootMargin: "0px 0px -62% 0px", threshold: [0, 0.35] },
-    );
-    sectionEls.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
-  }, [open]);
-
+  // Scroll the settings scroll port itself rather than calling
+  // `target.scrollIntoView()`. `scrollIntoView` walks every scrollable ancestor,
+  // and an ancestor with `overflow: hidden` is still programmatically
+  // scrollable — so it used to drag the whole two-column panel up, taking the
+  // section rail and the close control out of the dialog with it.
   const scrollToSection = useCallback(
     (id: SettingsSectionId) => {
       setActiveSection(id);
+      pinnedSectionRef.current = id;
       const container = scrollRef.current;
       const target = container?.querySelector<HTMLElement>(`[data-settings-section="${id}"]`);
-      if (!target) return;
+      if (!container || !target) return;
       const prefersReducedMotion =
         preferences.motion === "reduced" ||
         (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-      target.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
+      const headerOffset = headerRef.current?.offsetHeight ?? 0;
+      const top =
+        container.scrollTop + target.getBoundingClientRect().top - container.getBoundingClientRect().top - headerOffset;
+      // `behavior: "auto"` defers to the container's `scroll-smooth`, which is
+      // exactly what reduced motion must not do — ask for "instant" explicitly.
+      container.scrollTo({ top: Math.max(0, top), behavior: prefersReducedMotion ? "instant" : "smooth" });
     },
     [preferences.motion],
   );
@@ -210,9 +249,16 @@ export function SettingsDialog({
     (event: UIEvent<HTMLDivElement>) => {
       const el = event.currentTarget;
       reportScroll({ offset: el.scrollTop, maxOffset: el.scrollHeight - el.clientHeight, source: el });
+      syncActiveSection(el);
     },
-    [reportScroll],
+    [reportScroll, syncActiveSection],
   );
+
+  // Any scroll the reader drives themselves releases the rail's pinned choice,
+  // so the highlight tracks reading again from the next scroll event onwards.
+  const releaseSectionPin = useCallback(() => {
+    pinnedSectionRef.current = null;
+  }, []);
 
   async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -283,7 +329,14 @@ export function SettingsDialog({
       contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none max-lg:!pb-0 lg:max-w-[940px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
       bodyClassName="p-0"
     >
-      <div className="relative grid h-full max-h-full min-h-0 overflow-hidden lg:h-auto lg:max-h-[min(88dvh,840px)] lg:grid-cols-[248px_minmax(0,1fr)]">
+      {/* The desktop height must be definite, not `h-auto` + `max-h-`. With an
+          auto height the single grid row sizes to max-content (the full ~2800px
+          of settings), overflows the capped container, and is clipped by
+          `overflow-hidden` — so the scroll column below never overflows its own
+          box and `overflow-y-auto` never engages. That left desktop settings
+          unscrollable, with the section rail stretched off the bottom of the
+          panel. A definite height bounds the row, which bounds the column. */}
+      <div className="relative grid h-full max-h-full min-h-0 overflow-hidden lg:h-[min(88dvh,840px)] lg:grid-cols-[248px_minmax(0,1fr)]">
         <aside className="hidden border-r border-[color:var(--border-lux)] bg-[color:var(--surface)]/72 px-4 pb-5 pt-6 lg:flex lg:flex-col">
           <nav aria-label="Settings sections" className="grid gap-1">
             {SETTINGS_SECTIONS.map((item) => {
@@ -317,17 +370,28 @@ export function SettingsDialog({
         <div
           ref={scrollRef}
           onScroll={handleScroll}
+          onWheel={releaseSectionPin}
+          onTouchMove={releaseSectionPin}
+          onKeyDown={releaseSectionPin}
           className="relative min-h-0 w-full overflow-y-auto scroll-smooth bg-[color:var(--background)] polished-scroll lg:bg-transparent lg:px-7"
         >
           {/* Edge-to-edge glass header: full-bleed scrim covers the notch/status-bar
               band, and it slides away on scroll-down (mobile only) so the top runs
-              edge-to-edge. On lg it reverts to a static in-panel title bar. */}
+              edge-to-edge. On lg it stays pinned as a solid in-panel title bar. */}
           <header
+            ref={headerRef}
             className={cn(
               // No permanent `will-change-transform`: it keeps a compositor layer
               // alive at rest for a header that only transforms during scroll-hide.
               // `transition-transform` already hints the browser for the animation.
-              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none lg:static lg:z-auto lg:translate-y-0 lg:pb-0 lg:pt-6 lg:bg-transparent! lg:px-0!",
+              //
+              // Desktop keeps the sticky position too. The close control lives in
+              // this bar, so a static bar scrolls the only pointer-driven way out
+              // of settings off the top as soon as the reader reaches a later
+              // section. Sticky needs an opaque panel-surface fill (the component
+              // class is unlayered, hence `!`) so content passes behind it rather
+              // than through it; scroll-hide stays phone-only via `lg:translate-y-0`.
+              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none lg:translate-y-0 lg:pb-3 lg:pt-6 lg:bg-[color:var(--surface-lux)]! lg:px-0!",
               headerHidden ? "-translate-y-full" : "translate-y-0",
             )}
           >
