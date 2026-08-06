@@ -1527,6 +1527,17 @@ function DocumentSearchResultsPanelImpl({
      set to derive facets from, so without these the constraint that emptied the
      search is invisible — and unclearable, since `showResultsControls` gates the
      Filter trigger on `matches.length > 0`. */
+  /* A retrieval layer errored, so no count from this search is trustworthy —
+     including a non-zero one. The band owns that claim: it renders `matchCount`
+     inside the only `role="status"` region on the page, and the zero-result
+     state suppresses its own live region while filters are applied, so a
+     degraded+scoped search announced a bare confident "0 documents" and nothing
+     else. `partial` is the band's own word for it ("available sources returned
+     an honest count, but at least one source failed") and is right for BOTH
+     cases: at zero it stops the headline contradicting the panel below it, and
+     above zero it is the only thing that says the list is a floor rather than
+     the answer. (Raised by Devin review on PR #1640.) */
+  const retrievalDegraded = Boolean(searchScope?.retrieval?.degraded);
   const activeScopeFilters = scopeFilters ?? null;
   const scopeEmptiedResults = matches.length === 0 && (searchScope?.activeFilterCount ?? 0) > 0;
   const scopeAppliedFilters = useMemo(() => {
@@ -1567,7 +1578,7 @@ function DocumentSearchResultsPanelImpl({
                     : recordStatus === "refetching"
                       ? "refetching"
                       : "ready"
-              : (unavailable?.status ?? (loading ? "loading" : "ready"))
+              : (unavailable?.status ?? (loading ? "loading" : retrievalDegraded ? "partial" : "ready"))
           }
           faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
           sortValue={sortValue}
@@ -1661,7 +1672,7 @@ function DocumentSearchResultsPanelImpl({
               scopeAppliedFilters.length > 0 && onScopeFiltersChange ? () => onScopeFiltersChange({}) : undefined
             }
             // A retrieval layer errored, so this zero is not evidence of absence.
-            degraded={Boolean(searchScope?.retrieval?.degraded)}
+            degraded={retrievalDegraded}
             onBrowseAll={onOpenLibrary}
             browseAllLabel={
               documentCount > 0 ? `Browse all ${documentCount.toLocaleString()} sources` : "Browse all sources"

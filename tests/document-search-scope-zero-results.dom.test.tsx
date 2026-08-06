@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { DocumentSearchResultsPanel } from "@/components/clinical-dashboard/document-search-results";
 import { removeScopeFilterValue, scopeFilterChips } from "@/lib/search-scope-filter-chips";
-import type { SearchScopeSummary } from "@/lib/types";
+import type { DocumentMatch, SearchScopeSummary } from "@/lib/types";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -53,6 +53,20 @@ const baseProps = {
  * for the requested filters: it short-circuits before retrieval, so the result
  * set is empty and `scope` carries the only explanation.
  */
+const agitationMatch: DocumentMatch = {
+  document_id: "22222222-2222-4222-8222-222222222222",
+  title: "Pharmacological Management Of Agitation And Arousal",
+  file_name: "agitation-arousal.pdf",
+  labels: [],
+  summarySnippet: "Acute agitation management.",
+  bestPages: [4],
+  bestChunkIds: ["33333333-3333-4333-8333-333333333333"],
+  imageCount: 0,
+  tableCount: 0,
+  matchReason: "Matched 1 indexed passage",
+  score: 0.82,
+};
+
 const scopedToZero: SearchScopeSummary = {
   summary: "No matching documents",
   activeFilterCount: 1,
@@ -174,6 +188,35 @@ describe("documents zero-result state when retrieval degraded", () => {
     // The relax control still stands: the filter may well be wrong too, and the
     // reader should not have to clear a degraded search to reach it.
     expect(screen.getByRole("button", { name: /remove .*topic: agitation/i })).toBeInTheDocument();
+  });
+
+  it("stops the headline asserting a trustworthy count above the failure notice", () => {
+    render(<DocumentSearchResultsPanel {...baseProps} searchScope={degradedScope} scopeFilters={{}} />);
+
+    // The band renders `matchCount` inside the only role="status" region here,
+    // and the empty state suppresses its own live region once filters apply —
+    // so a bare "0 documents" was the single thing announced, directly above
+    // text saying the search could not complete.
+    expect(screen.getByRole("status")).toHaveTextContent(/some sources unavailable/i);
+  });
+
+  it("marks a degraded search that DID return documents, which showed nothing before", () => {
+    // The more dangerous half: with results on screen the zero-result state
+    // never renders, so a partial list read as the complete answer.
+    render(
+      <DocumentSearchResultsPanel
+        {...baseProps}
+        matches={[agitationMatch]}
+        searchScope={degradedScope}
+        scopeFilters={{}}
+      />,
+    );
+
+    // Result cards carry their own sr-only copy-status region, so scope the
+    // assertion to the band rather than assuming a single status role.
+    const announced = screen.getAllByRole("status").map((node) => node.textContent ?? "");
+    expect(announced.some((text) => /some sources unavailable/i.test(text))).toBe(true);
+    expect(screen.queryByText(/search could not complete/i)).not.toBeInTheDocument();
   });
 
   it("says nothing about degradation when retrieval was healthy", () => {
