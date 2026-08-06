@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { MODE_NAV_BANDS, MODE_NAV_MIN_ITEMS, planModeNavBands } from "@/components/mode-nav/mode-nav-bands";
+import { MODE_NAV_ADOPTED_MODES, modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
 
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
@@ -273,6 +274,40 @@ describe("ModeNav overflow slot", () => {
     expect(moreSlot).not.toMatch(/aria-label=/);
     expect(modeNavCss).toMatch(/\.mode-nav__more-name\s*\{\s*display:\s*none/);
     expect(modeNavCss).toContain(".mode-nav__more[data-active-from] .mode-nav__more-name");
+  });
+});
+
+describe("ModeNav density coverage", () => {
+  const densitySpec = read("tests/ui-mode-nav-density.spec.ts");
+  const covered = new Map(
+    [...densitySpec.matchAll(/\{ modeId: "([a-z-]+)", route: "[^"]+", items: (\d+) \}/g)].map((match) => [
+      match[1],
+      Number(match[2]),
+    ]),
+  );
+
+  it("drives every adopted mode, not just the first consumer", () => {
+    // The spec's own promise — a mode whose labels outgrow the thresholds fails
+    // there rather than shipping clipped words — held for exactly one mode
+    // while every route it drove was `/therapy-compass/*`. A mode can adopt the
+    // bar, pass every offline gate, and never have its labels measured at a
+    // band boundary. This is what makes that impossible.
+    for (const modeId of MODE_NAV_ADOPTED_MODES) {
+      expect(covered.has(modeId), `${modeId} adopted the bar but the density spec never loads it`).toBe(true);
+    }
+    // Therapy is not registry-driven (`useTherapyNavItems`), so it is not in
+    // MODE_NAV_ADOPTED_MODES — and it is the mode with the long labels.
+    expect(covered.get("therapy-compass")).toBe(7);
+  });
+
+  it("keeps each mode's declared destination count in step with the registry", () => {
+    // The expected slot count per band is derived from this number. If it
+    // drifts, the spec asserts the wrong arity and a missing slot reads as a
+    // pass.
+    for (const modeId of MODE_NAV_ADOPTED_MODES) {
+      const routed = modeSecondaryNavigationEntries(modeId).filter((entry) => entry.href).length;
+      expect(covered.get(modeId), `${modeId} destination count`).toBe(routed);
+    }
   });
 });
 
