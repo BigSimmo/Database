@@ -201,6 +201,7 @@ export function MasterSearchHeader({
   onMobileBack,
   hideOnScroll,
   onBottomComposerHiddenChange,
+  showDesktopNewChat = true,
   canAccessFavourites = false,
   onRequestAccountSetup,
 }: {
@@ -305,6 +306,8 @@ export function MasterSearchHeader({
   };
   /** Notify hosts when the phone bottom composer is actually hidden (not merely scrolled). */
   onBottomComposerHiddenChange?: (hidden: boolean) => void;
+  /** Keep the phone new-chat action, but hide its desktop copy when a visible sidebar already owns the action. */
+  showDesktopNewChat?: boolean;
   /**
    * Favourites are account-scoped. When false, omit Favourites from the mode menu
    * and route favourites actions to account setup instead of switching mode.
@@ -324,10 +327,9 @@ export function MasterSearchHeader({
   });
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);
-  // Guests on /favourites keep the route gate, but the mode trigger must not claim
-  // Favourites is a selectable guest mode when it is omitted from the menu.
-  const modeTriggerId = searchMode === "favourites" && !canAccessFavourites ? "answer" : searchMode;
-  const selectedAppMode = appModeDefinition(modeTriggerId);
+  // The trigger names the route the user is viewing. Session filtering still
+  // keeps gated modes out of the selectable menu below.
+  const selectedAppMode = appModeDefinition(searchMode);
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
   const isWorkflowHeader = headerVariant === "workflow";
@@ -2161,7 +2163,10 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={onNewChat}
-              className="universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
+              className={cn(
+                "universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]",
+                !showDesktopNewChat && "md:hidden",
+              )}
               aria-label="Start a new chat"
               title="New chat"
             >
