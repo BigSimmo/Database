@@ -1067,13 +1067,6 @@ def extract(pdf_path, output_dir, budget=None):
     warnings = []
     budget.set_page_count(document.page_count)
 
-    # Always try to capture a first-page cover for document search cards.
-    # Covers are non-searchable display artifacts — they must not enter retrieval.
-    if document.page_count > 0:
-        cover = save_cover_page(document[0], output_dir, budget, warnings)
-        if cover:
-            images.append(cover)
-
     for page_index, page in enumerate(document):
         page_number = page_index + 1
         text = page.get_text("text", sort=True) or ""
@@ -1288,6 +1281,16 @@ def extract(pdf_path, output_dir, budget=None):
                 )
                 if crop:
                     images.append(crop)
+
+    # Optional cover after searchable artifacts so a near-limit budget cannot
+    # fail indexing because the decorative thumbnail consumed the last slot.
+    if document.page_count > 0:
+        try:
+            cover = save_cover_page(document[0], output_dir, budget, warnings)
+            if cover:
+                images.append(cover)
+        except ExtractionBudgetExceeded as exc:
+            warnings.append(f"cover_page_skipped: {exc}")
 
     return {
         "pages": pages,

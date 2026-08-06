@@ -8,7 +8,7 @@
  * Safety:
  * - Requires explicit --apply (dry-run by default)
  * - Never marks covers searchable / never attaches them to chunks
- * - Skips documents that already have a cover_page image
+ * - Prefers documents that do not already have a cover_page image
  *
  * Usage:
  *   node scripts/backfill-document-covers.mjs
@@ -40,23 +40,44 @@ import fitz
 sys.path.insert(0, ${JSON.stringify(path.join(process.cwd(), "worker/python"))})
 import extract_pdf_assets as extractor
 doc = fitz.open(${JSON.stringify(pdfPath)})
-cover = extractor.save_cover_page(doc[0], ${JSON.stringify(outputDir)}, extractor.ExtractionBudget(), [])
+budget = extractor.ExtractionBudget()
+budget.set_page_count(doc.page_count)
+cover = extractor.save_cover_page(doc[0], ${JSON.stringify(outputDir)}, budget, [])
 doc.close()
 print(json.dumps(cover))
 `;
   const scriptPath = path.join(outputDir, "render_cover.py");
   await writeFile(scriptPath, script, "utf8");
   return await new Promise((resolve, reject) => {
-    const child = spawn("python3", [scriptPath], { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(process.env.PYTHON_BIN || "python3", [scriptPath], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let stdout = "";
     let stderr = "";
+    let settled = false;
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      if (!settled) {
+        settled = true;
+        reject(new Error("cover render timed out"));
+      }
+    }, 60_000);
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString("utf8");
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString("utf8");
     });
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      if (settled) return;
+      settled = true;
+      reject(new Error(`failed to start python: ${error.message}`));
+    });
     child.on("close", (code) => {
+      clearTimeout(timer);
+      if (settled) return;
+      settled = true;
       if (code !== 0) {
         reject(new Error(stderr || `python exited ${code}`));
         return;
@@ -116,84 +137,115 @@ async function main() {
   let skipped = 0;
   let failed = 0;
 
+  async function patchCoverImageId(targetDocumentId, coverImageId) {
+    const { data: fresh, error: freshError } = await supabase
+      .from("documents")
+      .select("metadata")
+      .eq("id", targetDocumentId)
+      .single();
+    if (freshError) throw new Error(freshError.message);
+    const current =
+      fresh?.metadata && typeof fresh.metadata === "object" && !Array.isArray(fresh.metadata) ? fresh.metadata : {};
+    if (current.cover_image_id === coverImageId) return false;
+    const { error: patchError } = await supabase
+      .from("documents")
+      .update({ metadata: { ...current, cover_image_id: coverImageId } })
+      .eq("id", targetDocumentId);
+    if (patchError) throw new Error(patchError.message);
+    return true;
+  }
+
   for (const doc of candidates) {
-    if (!apply) {
-      console.log(`dry-run would create cover for ${doc.id} (${doc.title || doc.file_name})`);
-      continue;
-    }
-
-    const workDir = await mkdtemp(path.join(tmpdir(), "cover-backfill-"));
     try {
-      const { data: blob, error: downloadError } = await supabase.storage
-        .from(documentBucket)
-        .download(doc.storage_path);
-      if (downloadError || !blob) throw new Error(downloadError?.message || "download failed");
-      const pdfPath = path.join(workDir, "source.pdf");
-      await writeFile(pdfPath, Buffer.from(await blob.arrayBuffer()));
-      const cover = await runPythonCover(pdfPath, workDir);
-      if (!cover?.path) throw new Error("cover render returned empty");
-
-      const bytes = await readFile(cover.path);
-      const generationId =
-        typeof doc.metadata?.index_generation_id === "string" && doc.metadata.index_generation_id
-          ? doc.metadata.index_generation_id
-          : randomUUID();
-      const imagePrefix = doc.owner_id ? `${doc.owner_id}/images/${doc.id}` : `local/${doc.id}`;
-      const imagePath = `${imagePrefix}/${generationId}/cover-page-1.png`;
-      const upload = await supabase.storage.from(imageBucket).upload(imagePath, bytes, {
-        contentType: "image/png",
-        upsert: true,
-      });
-      if (upload.error) throw new Error(upload.error.message);
-
-      const imageHash = createHash("sha256").update(bytes).digest("hex");
-      const { data: inserted, error: insertError } = await supabase
+      const { data: existingCovers, error: coverError } = await supabase
         .from("document_images")
-        .insert({
-          document_id: doc.id,
-          page_number: 1,
-          storage_path: imagePath,
-          mime_type: "image/png",
-          caption: "Document cover page preview.",
-          bbox: cover.bbox ?? null,
-          image_type: "unclear",
-          searchable: false,
-          clinical_relevance_score: 0,
-          source_kind: "cover_page",
-          width: cover.width ?? null,
-          height: cover.height ?? null,
-          image_hash: imageHash,
-          labels: ["cover-page"],
-          index_generation_id: generationId,
-          metadata: {
-            ...(cover.metadata ?? {}),
-            source_kind: "cover_page",
-            clinical_use_class: "decorative_or_empty",
-            index_generation_id: generationId,
-            backfill: "document-cover-thumbnails",
-          },
-        })
         .select("id")
-        .single();
-      if (insertError) throw new Error(insertError.message);
+        .eq("document_id", doc.id)
+        .eq("source_kind", "cover_page")
+        .limit(1);
+      if (coverError) throw new Error(coverError.message);
+      if (existingCovers?.length) {
+        const existingId = existingCovers[0].id;
+        if (apply && doc.metadata?.cover_image_id !== existingId) {
+          await patchCoverImageId(doc.id, existingId);
+          console.log(`recovered cover metadata ${existingId} for ${doc.id}`);
+        } else {
+          console.log(`skip ${doc.id} already has cover ${existingId}`);
+        }
+        skipped += 1;
+        continue;
+      }
 
-      const nextMetadata = {
-        ...(doc.metadata && typeof doc.metadata === "object" ? doc.metadata : {}),
-        cover_image_id: inserted.id,
-      };
-      const { error: patchError } = await supabase
-        .from("documents")
-        .update({ metadata: nextMetadata })
-        .eq("id", doc.id);
-      if (patchError) throw new Error(patchError.message);
+      if (!apply) {
+        console.log(`dry-run would create cover for ${doc.id} (${doc.title || doc.file_name})`);
+        continue;
+      }
 
-      created += 1;
-      console.log(`created cover ${inserted.id} for ${doc.id}`);
+      const workDir = await mkdtemp(path.join(tmpdir(), "cover-backfill-"));
+      try {
+        const { data: blob, error: downloadError } = await supabase.storage
+          .from(documentBucket)
+          .download(doc.storage_path);
+        if (downloadError || !blob) throw new Error(downloadError?.message || "download failed");
+        const pdfPath = path.join(workDir, "source.pdf");
+        await writeFile(pdfPath, Buffer.from(await blob.arrayBuffer()));
+        const cover = await runPythonCover(pdfPath, workDir);
+        if (!cover?.path) throw new Error("cover render returned empty");
+
+        const bytes = await readFile(cover.path);
+        const generationId =
+          typeof doc.metadata?.index_generation_id === "string" && doc.metadata.index_generation_id
+            ? doc.metadata.index_generation_id
+            : randomUUID();
+        const imagePrefix = doc.owner_id ? `${doc.owner_id}/images/${doc.id}` : `local/${doc.id}`;
+        const imagePath = `${imagePrefix}/${generationId}/cover-page-1.png`;
+        const upload = await supabase.storage.from(imageBucket).upload(imagePath, bytes, {
+          contentType: "image/png",
+          upsert: true,
+        });
+        if (upload.error) throw new Error(upload.error.message);
+
+        const imageHash = createHash("sha256").update(bytes).digest("hex");
+        const { data: inserted, error: insertError } = await supabase
+          .from("document_images")
+          .insert({
+            document_id: doc.id,
+            page_number: 1,
+            storage_path: imagePath,
+            mime_type: "image/png",
+            caption: "Document cover page preview.",
+            bbox: cover.bbox ?? null,
+            image_type: "unclear",
+            searchable: false,
+            clinical_relevance_score: 0,
+            source_kind: "cover_page",
+            width: cover.width ?? null,
+            height: cover.height ?? null,
+            image_hash: imageHash,
+            labels: ["cover-page"],
+            index_generation_id: generationId,
+            metadata: {
+              ...(cover.metadata ?? {}),
+              source_kind: "cover_page",
+              clinical_use_class: "decorative_or_empty",
+              index_generation_id: generationId,
+              backfill: "document-cover-thumbnails",
+            },
+          })
+          .select("id")
+          .single();
+        if (insertError) throw new Error(insertError.message);
+
+        await patchCoverImageId(doc.id, inserted.id);
+
+        created += 1;
+        console.log(`created cover ${inserted.id} for ${doc.id}`);
+      } finally {
+        await rm(workDir, { recursive: true, force: true });
+      }
     } catch (error) {
       failed += 1;
       console.error(`failed ${doc.id}:`, error instanceof Error ? error.message : error);
-    } finally {
-      await rm(workDir, { recursive: true, force: true });
     }
   }
 
