@@ -86,6 +86,9 @@ test("searches patient language, opens a mechanism guide, and carries it into th
   // renders an "On this page" nav whose link carries the same words, and a bare
   // text locator matches both under Playwright strict mode.
   await expect(page.locator("#formulation-what-matters-now-label")).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "On this page" }).getByRole("link", { name: "What matters now", exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Use in formulation", exact: true }).first().click();
   await expect(page.getByRole("heading", { name: "Build a formulation that can be tested" })).toBeVisible();
