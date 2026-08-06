@@ -542,6 +542,7 @@ export async function getSharedCachedSearch(
         shared_cache_status: "hit",
         shared_cache_miss_reason: null,
         query_class: payload.telemetry?.query_class,
+        corpus_grounding: payload.telemetry?.corpus_grounding,
         vector_candidate_count: payload.telemetry?.vector_candidate_count,
         text_candidate_count: payload.telemetry?.text_candidate_count,
         embedding_field_count: payload.telemetry?.embedding_field_count,
