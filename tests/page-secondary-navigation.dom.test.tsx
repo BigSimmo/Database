@@ -2,26 +2,36 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
-vi.mock("next/link", () => ({
-  default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (
-    <a href={href} {...rest}>
+type MockLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
+  children: ReactNode;
+  href: string;
+};
+
+vi.mock("next/link", async () => {
+  const { forwardRef } = await import("react");
+  const MockLink = forwardRef<HTMLAnchorElement, MockLinkProps>(({ children, href, ...rest }, ref) => (
+    <a ref={ref} href={href} {...rest}>
       {children}
     </a>
-  ),
-}));
+  ));
+  MockLink.displayName = "MockNextLink";
+  return { __esModule: true, default: MockLink };
+});
 
+import { FormulationSubnav } from "@/components/formulation/formulation-ui";
 import {
   hasLocalInformationPageNavigation,
   informationPageSectionDefinitions,
   PageSecondaryNavigation,
 } from "@/components/page-secondary-navigation";
+import { SpecifierSubnav } from "@/components/specifiers/specifier-ui";
 
 describe("PageSecondaryNavigation", () => {
   beforeEach(() => {
@@ -140,8 +150,6 @@ describe("PageSecondaryNavigation", () => {
     ],
     ["dsm", "/dsm", "DSM-5 Diagnosis pages", "Search", "/dsm?focus=1"],
     ["dsm", "/dsm/compare", "DSM-5 Diagnosis pages", "Compare", "/dsm/compare"],
-    ["specifiers", "/specifiers/builder", "Specifiers pages", "Build", "/specifiers/builder"],
-    ["formulation", "/formulation/map", "Formulation pages", "Map", "/formulation/map"],
   ] as const)(
     "renders the %s workflow as the shared header-integrated mode nav",
     (modeId, pathname, ariaLabel, activeLabel, activeHref) => {
@@ -160,6 +168,24 @@ describe("PageSecondaryNavigation", () => {
       expect(screen.queryByTestId("secondary-navigation")).toBeNull();
     },
   );
+
+  it.each([
+    ["specifiers", "Build", "/specifiers/builder"],
+    ["formulation", "Map", "/formulation/map"],
+  ] as const)("renders the real %s workflow owner through ModeNav", (modeId, activeLabel, activeHref) => {
+    render(
+      modeId === "specifiers" ? <SpecifierSubnav active="builder" /> : <FormulationSubnav active="map" />,
+    );
+
+    expect(screen.getByTestId("mode-nav")).toHaveAttribute(
+      "aria-label",
+      modeId === "specifiers" ? "Specifiers pages" : "Formulation pages",
+    );
+    expect(screen.getByRole("link", { name: activeLabel })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: activeLabel })).toHaveAttribute("href", activeHref);
+    expect(screen.queryByRole("navigation", { name: /tools/i })).toBeNull();
+    expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+  });
 
   it("replaces mode navigation with only the information sections present in the record", async () => {
     render(
