@@ -50,6 +50,7 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
@@ -2073,11 +2074,10 @@ export function ClinicalDashboard({
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
-      // Differentials mode: the ranked catalogue results are the primary
-      // content and load independently of this document-evidence search, so an
-      // empty corpus result is applied (empty evidence) rather than surfaced
-      // as an error that would hide the catalogue view.
-      let emptyDifferentialsPayload: SearchResultModePayload | null = null;
+      // An empty source-library search is a RESULT, not a failure: the payload
+      // carries the `scope`/`sourceGovernanceWarnings` explaining WHY it is
+      // empty, and the 404 sentinel discarded them. See `scopeFilterChips`.
+      let emptySourceLibraryPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
         if (entry.isKeyword) {
@@ -2115,7 +2115,7 @@ export function ClinicalDashboard({
                 );
 
           if (!resultUsable(payload)) {
-            if (modeSearch.kind === "differentials") emptyDifferentialsPayload = payload;
+            if (payload.kind === "documents") emptySourceLibraryPayload = payload;
             lastError = makeSearchError("No usable results were found.", 404, false);
             if (!entry.isKeyword) {
               continue;
@@ -2134,8 +2134,8 @@ export function ClinicalDashboard({
         }
       }
 
-      if (!successfulPayload && emptyDifferentialsPayload) {
-        successfulPayload = emptyDifferentialsPayload;
+      if (!successfulPayload && emptySourceLibraryPayload) {
+        successfulPayload = emptySourceLibraryPayload;
       }
 
       if (!successfulPayload) {
@@ -3225,6 +3225,7 @@ export function ClinicalDashboard({
   const handleFollowUpSuggestionPick = useEventCallback(handlePickFollowUpSuggestion);
   const handleCrossModeSearch = useEventCallback(crossModeSearch);
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
+  const handleScopeFiltersChange = useScopeFilterRelax(query, queryMode, setScopeFilters, ask);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
@@ -3757,6 +3758,8 @@ export function ClinicalDashboard({
                         onOpenLibrary={handleOpenSourceLibrary}
                         onOpenSourcePdf={handleOpenSourcePdfBrowser}
                         onTagSearch={handleDocumentTagSearch}
+                        scopeFilters={searchMode === "documents" ? scopeFilters : null}
+                        onScopeFiltersChange={searchMode === "documents" ? handleScopeFiltersChange : undefined}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />
