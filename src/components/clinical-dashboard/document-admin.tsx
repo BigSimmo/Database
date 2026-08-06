@@ -1139,10 +1139,3 @@ function documentStatusMatchesFilter(document: ClinicalDocument, filter: Documen
   if (filter === "indexing") return document.status === "queued" || document.status === "processing";
   return document.status === "failed";
 }
-
-function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
-  if (filter === "indexed") return "Indexed documents";
-  if (filter === "indexing") return "Indexing documents";
-  if (filter === "failed") return "Failed documents";
-  return "All documents";
-}
