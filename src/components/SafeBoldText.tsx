@@ -2,7 +2,9 @@
 
 import { parseSafeBoldText } from "@/lib/safe-bold";
 
-export function SafeBoldText({ text }: { text: string }) {
+export type SafeBoldTextProps = { text: string };
+
+export function SafeBoldText({ text }: SafeBoldTextProps) {
   return (
     <>
       {parseSafeBoldText(text).map((segment, index) =>

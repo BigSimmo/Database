@@ -69,6 +69,10 @@ describe("overlay and global CSS contracts", () => {
   it("defines the shared easing tokens only once", () => {
     expect(occurrenceCount(globalStylesSource, "--ease-standard:")).toBe(1);
     expect(occurrenceCount(globalStylesSource, "--ease-emphasized:")).toBe(1);
+    expect(occurrenceCount(globalStylesSource, "--ease-out-keyword:")).toBe(1);
+    // Tailwind v4 owns --ease-out in @layer theme; unlayered :root must not
+    // shadow it or every bare transition-* utility picks up the CSS-keyword curve.
+    expect(globalStylesSource.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(/^\s*--ease-out\s*:/m);
   });
 
   it("keeps one authoritative 430px composer-action sizing block", () => {
@@ -93,12 +97,15 @@ describe("overlay and global CSS contracts", () => {
 
   it("keeps phone header edge padding tokenized and never zeroed by unlayered media", () => {
     // --header-edge-pad is the single phone/sm inset shared by the layered
-    // .edge-glass-header base and the unlayered max-width:639px guard. A bare
-    // max(0px, safe-area) override previously pinned new-chat to the bezel.
+    // .edge-glass-header base, the unlayered max-width:639px guard, and
+    // .mode-nav-rail — which sits directly under the header and has to land on
+    // the same content edge. A bare max(0px, safe-area) override previously
+    // pinned new-chat to the bezel; a literal in the mode nav would be the same
+    // defect one element lower.
     expect(occurrenceCount(globalStylesSource, "--header-edge-pad:")).toBe(1);
     expect(globalStylesSource).toMatch(/--header-edge-pad:\s*1rem;/);
-    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-left))")).toBe(2);
-    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-right))")).toBe(2);
+    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-left))")).toBe(3);
+    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-right))")).toBe(3);
     expect(globalStylesSource).not.toMatch(
       /\.edge-glass-header\s*\{[^}]*padding-left:\s*max\(0px,\s*var\(--safe-area-left\)\)/s,
     );

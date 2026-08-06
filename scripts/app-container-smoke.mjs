@@ -3,7 +3,8 @@
  * app-container-smoke — run the built app image provider-free and verify:
  *   - /api/health returns HTTP 200 with status: ok, openaiConfig: skipped,
  *     supabaseConfig: ok
- *   - PID 1 is the expected next start command
+ *   - PID 1 is the Next production server (`next start` argv, or Next 16's
+ *     rewritten `next-server (v…)` process title after boot)
  *   - container stops cleanly within a bounded timeout
  */
 import { spawnSync } from "node:child_process";
@@ -73,6 +74,10 @@ async function main() {
     "SUPABASE_PROJECT_REF=sjrfecxgysukkwxsowpy",
     "-e",
     "SUPABASE_PROJECT_NAME=Clinical KB Database",
+    // Production instrumentation refuses to boot without a keyed query-hash
+    // secret (min 16 chars). Placeholder is provider-free and CI-only.
+    "-e",
+    "RAG_QUERY_HASH_SECRET=smoke-test-hash-secret",
     "-e",
     "RAG_PROVIDER_MODE=offline",
     "-e",
@@ -88,6 +93,9 @@ async function main() {
   const health = await waitForHealth();
   if (!health) {
     console.error("App health endpoint did not become ready in time");
+    const logs = run(["docker", "logs", "--tail", "80", CONTAINER_NAME]);
+    if (logs.stdout) console.error(logs.stdout);
+    if (logs.stderr) console.error(logs.stderr);
     cleanContainer();
     process.exit(1);
   }
@@ -121,25 +129,48 @@ async function main() {
     "-e",
     "console.log(require('fs').readFileSync('/proc/1/cmdline','utf8').replace(/\\u0000/g,' ').trim())",
   ]);
-  const pid1 = psResult.stdout?.trim();
-  if (!pid1?.includes("next start")) {
-    console.error("PID 1 is not the expected next start command:", pid1);
+  const pid1 = psResult.stdout?.trim() ?? "";
+  // Next 16 rewrites the process title to `next-server (vX.Y.Z)` after
+  // `next start` boots; accept either form so smoke tracks the live server.
+  const pid1LooksLikeNextServer = pid1.includes("next start") || /\bnext-server\b/.test(pid1);
+  if (!pid1LooksLikeNextServer) {
+    console.error("PID 1 is not the expected Next production server:", pid1);
+    const logs = run(["docker", "logs", "--tail", "80", CONTAINER_NAME]);
+    if (logs.stdout) console.error(logs.stdout);
+    if (logs.stderr) console.error(logs.stderr);
     cleanContainer();
     process.exit(1);
   }
 
-  run(["docker", "stop", "-t", String(STOP_TIMEOUT_SECONDS), CONTAINER_NAME]);
+  const stopResult = run(["docker", "stop", "-t", String(STOP_TIMEOUT_SECONDS), CONTAINER_NAME]);
+  if (stopResult.status !== 0) {
+    console.error("docker stop failed:", stopResult.stderr || stopResult.stdout);
+    cleanContainer();
+    process.exit(1);
+  }
+
   const inspectResult = run([
     "docker",
     "inspect",
     "--format",
-    "{{.State.OOMKilled}} {{.State.ExitCode}}",
+    "{{.State.Running}} {{.State.OOMKilled}} {{.State.ExitCode}}",
     CONTAINER_NAME,
   ]);
-  const [oom, exitCode] = inspectResult.stdout?.trim().split(" ") ?? ["true", "-1"];
+  const [running, oom, exitCode] = inspectResult.stdout?.trim().split(" ") ?? ["true", "true", "-1"];
 
+  if (running === "true") {
+    console.error("Container still running after docker stop");
+    cleanContainer();
+    process.exit(1);
+  }
   if (oom === "true") {
     console.error("Container was OOMKilled");
+    cleanContainer();
+    process.exit(1);
+  }
+  // 137 = SIGKILL (128+9). Graceful STOPSIGNAL SIGTERM must not escalate.
+  if (exitCode === "137") {
+    console.error("Container exited 137 (SIGKILL) — graceful stop timed out");
     cleanContainer();
     process.exit(1);
   }

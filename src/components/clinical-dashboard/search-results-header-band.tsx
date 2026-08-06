@@ -4,6 +4,7 @@ import {
   Bookmark,
   ChevronsUpDown,
   CircleAlert,
+  CircleMinus,
   Funnel,
   LayoutList,
   LoaderCircle,
@@ -11,7 +12,7 @@ import {
   Table2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { AsyncButton, cn } from "@/components/ui-primitives";
@@ -75,19 +76,27 @@ const sortOptions: ReadonlyArray<{ value: ResultSortValue; label: string }> = [
     edge only while it actually overflows — a permanent mask would dim the last
     control on the common case where everything fits. */
 function useRailOverflow<Element extends HTMLElement>() {
-  const ref = useRef<Element | null>(null);
+  // The rail is conditional in several modes. A stable object ref leaves the
+  // effect with null on the render before the node appears and no dependency
+  // ever changes to attach the observers. Tracking the node itself makes mount
+  // and replacement observable.
+  const [node, setNode] = useState<Element | null>(null);
   const [overflowing, setOverflowing] = useState(false);
-
-  const measure = useCallback(() => {
-    const node = ref.current;
-    if (!node) return;
-    setOverflowing(node.scrollWidth - node.clientWidth > 1);
+  const ref = useCallback((next: Element | null) => {
+    setNode(next);
+    if (!next) setOverflowing(false);
   }, []);
 
+  const measure = useCallback(() => {
+    if (!node) {
+      setOverflowing(false);
+      return;
+    }
+    setOverflowing(node.scrollWidth - node.clientWidth > 1);
+  }, [node]);
+
   useEffect(() => {
-    const node = ref.current;
     if (!node || typeof ResizeObserver === "undefined") return;
-    measure();
     const resizeObserver = new ResizeObserver(measure);
     resizeObserver.observe(node);
     for (const child of Array.from(node.children)) resizeObserver.observe(child);
@@ -105,7 +114,7 @@ function useRailOverflow<Element extends HTMLElement>() {
       resizeObserver.disconnect();
       mutationObserver?.disconnect();
     };
-  }, [measure]);
+  }, [measure, node]);
 
   return { ref, overflowing } as const;
 }
@@ -135,6 +144,7 @@ export function SearchResultsHeaderBand({
   onSaveSearch,
   utilityControls,
   mobileControls,
+  mobileControlsPlacement,
   filterControls,
   appliedFilters = EMPTY_APPLIED_FILTERS,
   onClearFilters,
@@ -168,6 +178,23 @@ export function SearchResultsHeaderBand({
   utilityControls?: ReactNode;
   /** Compact page-specific controls shown in the utility row below `sm`. */
   mobileControls?: ReactNode;
+  /**
+   * Whether `mobileControls` can share the count line on a phone.
+   *
+   * The one-line bar only works when the phone control is a compact trigger —
+   * documents and therapy-compass pass a badged icon button, which fits beside
+   * the count with room to spare. Six other modes pass `MobileResultFilterControl`,
+   * which is a `w-full` native select (formulation and specifiers pass *two*, in
+   * a two-column grid), and pinning one of those into a 58px line at 320px makes
+   * it unreadable. Those keep their own row.
+   *
+   * The default reads the shape of what was passed rather than asking every
+   * caller: no phone control at all means nothing wide can be there, so the line
+   * collapses; a phone control is assumed wide until its page says otherwise.
+   * That way a new mode that forgets this prop degrades to today's layout
+   * instead of to an unusable one.
+   */
+  mobileControlsPlacement?: "inline" | "row";
   /** Page-specific filters rendered as a full-width row within the shared ribbon. */
   filterControls?: ReactNode;
   /** Applied filters, shown on a labelled shelf under the bar. Each removes in
@@ -232,8 +259,20 @@ export function SearchResultsHeaderBand({
   const hasUtilities = Boolean(
     onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls || (partial && onRetry),
   );
+  // See `mobileControlsPlacement`: absent a declaration, a page control is
+  // assumed to be a full-width select and keeps its own row, and a band with no
+  // page control collapses to one line.
+  // Derive from the raw `mobileControls` prop, not the count-gated
+  // `pageMobileControls`: during `loading`/`faulted` the page control is forced
+  // to null, and keying placement off that flipped six modes between `inline`
+  // (nowrap, 58px) and `row` (wrapping) geometry every search.
+  const inlineControls = (mobileControlsPlacement ?? (mobileControls ? "row" : "inline")) === "inline";
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
   const { ref: railRef, overflowing: railOverflowing } = useRailOverflow<HTMLDivElement>();
+  // The shelf gets its own instance rather than sharing the rail's. They overflow
+  // independently — a mode can have five chips and one utility control, or the
+  // reverse — and a shared flag would fade an edge that is not actually clipped.
+  const { ref: shelfTrackRef, overflowing: shelfOverflowing } = useRailOverflow<HTMLDivElement>();
 
   return (
     <section
@@ -242,37 +281,37 @@ export function SearchResultsHeaderBand({
       data-status={resolvedStatus}
       data-testid="search-query-ribbon"
       className={cn(
-        // `search-band` carries the accent as a real border-top; there is no
-        // overlay bar to be clipped by the corner arc any more.
+        // `search-band` no longer paints the accent — the lead rule does. The
+        // class stays because the forced-colors fault signal hangs off it, and
+        // because the style-contract registry names it.
         "search-band relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
         className,
       )}
     >
-      <div className="flex min-w-0 flex-col sm:min-h-[3.75rem] sm:flex-row sm:items-center">
-        <div className="flex min-w-0 items-center gap-2.5 p-3 sm:gap-3 sm:px-4 sm:py-2.5 sm:pl-5">
+      {/* One line. The band was 123px on a phone to say "12 documents", because
+          the utility rail dropped to its own row and that row was ~85% empty.
+          It wraps only where a page supplies a full-width phone control — see
+          `mobileControlsPlacement`. */}
+      <div
+        className={cn(
+          "flex min-w-0 items-center gap-x-2 px-3 sm:min-h-[3.75rem] sm:flex-nowrap sm:gap-x-2.5 sm:px-4",
+          inlineControls ? "min-h-[3.625rem] flex-nowrap" : "flex-wrap py-2 sm:py-0",
+        )}
+      >
+        {/* `mr-auto` pins the control group to the right edge below `lg`. At `lg`
+            the rail's own `flex-1` consumes the free space first — auto margins
+            only absorb what is left after flexible lengths resolve — so the wide
+            layout is unchanged and no breakpoint had to move. */}
+        <div className={cn("mr-auto flex min-w-0 items-center gap-2 sm:gap-2.5", inlineControls ? null : "py-1")}>
+          {/* The lead rule, replacing the full-width accent border. Rendered in
+              flow rather than absolutely positioned: an absolute bar inside this
+              `overflow-hidden` 12px-radius card had its ends sliced by the corner
+              arc, which is what the border-top was adopted to fix. */}
           <span
-            className={cn(
-              "grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10",
-              faulted || partial
-                ? "bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-                : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-            )}
-          >
-            {/* The tile carries state as shape as well as colour: alert when the
-                search failed or degraded, a spinner while one is running, funnel
-                once the result set is narrowed, search otherwise. A filtered list
-                looks different from an unfiltered one before any text is read, and
-                a failure is visible before it is read. */}
-            {faulted || partial ? (
-              <CircleAlert className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
-            ) : busy ? (
-              <LoaderCircle className="h-4 w-4 motion-safe:animate-spin sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
-            ) : appliedFilters.length > 0 ? (
-              <Funnel className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
-            ) : (
-              <Search className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
-            )}
-          </span>
+            className="search-band-lead shrink-0"
+            data-tone={faulted || partial ? "warning" : "accent"}
+            aria-hidden
+          />
           {/* Count first, query second. The count is the answer to the search; the
               query is what you already typed, and the composer above still shows it.
               Leading with the query spent the band's only heading slot on
@@ -290,7 +329,7 @@ export function SearchResultsHeaderBand({
               makes the single announcement, rather than both speaking. */}
           <span
             className={cn(
-              "shrink-0 whitespace-nowrap",
+              "flex shrink-0 items-center gap-1.5 whitespace-nowrap",
               faulted ? "search-band-fault" : "search-band-count-word",
               busy && "text-[color:var(--clinical-accent)]",
               (faulted || partial) && "text-[color:var(--warning)]",
@@ -300,20 +339,39 @@ export function SearchResultsHeaderBand({
             aria-live={faulted ? "off" : "polite"}
             aria-atomic="true"
           >
+            {/* The state tile is gone, but state must not fall back to hue alone:
+                the tile carried it as shape, and a failed search that is merely a
+                different colour is invisible to a reader who cannot separate the
+                two. The glyph renders only for the states that are not `ready`,
+                so the resting bar stays clean, and it is an SVG stroke — which
+                survives forced colors, where a tinted tile background does not.
+                Shape, glyph presence and the absence of a number are three
+                independent non-chromatic channels. */}
             {resolvedStatus === "loading" ? (
-              <span className="inline-flex items-center gap-1.5">
-                <LoaderCircle className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden />
-                Searching…
-              </span>
+              <LoaderCircle className="h-4 w-4 shrink-0 motion-safe:animate-spin" aria-hidden />
+            ) : faulted || partial ? (
+              <CircleAlert className="h-4 w-4 shrink-0" aria-hidden />
+            ) : null}
+            {resolvedStatus === "loading" ? (
+              "Searching…"
             ) : resolvedStatus === "error" ? (
               "Couldn’t search"
             ) : resolvedStatus === "unauthorized" ? (
               "Sign in to search"
             ) : (
               // `refetching` keeps text content identical to `ready` so the atomic
-              // live region does not re-announce an unchanged count; the dot is
-              // decorative and the dimming is CSS via `data-status`.
-              <span className="inline-flex items-center gap-1.5">
+              // live region does not re-announce an unchanged count. The pulsing
+              // dot is the whole signal and it is decorative.
+              //
+              // This comment used to add "and the dimming is CSS via
+              // `data-status`". There is no `[data-status="refetching"]` rule in
+              // globals.css and there is no evidence there ever was, so the
+              // sentence described an intention rather than the code. Adding the
+              // rule is a visual change across twelve modes and belongs to
+              // whoever decides a background refresh should look different;
+              // asserting it here while it does not exist is what let it go
+              // unnoticed.
+              <>
                 {resolvedStatus === "refetching" ? (
                   <span
                     className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)] motion-safe:animate-pulse"
@@ -332,13 +390,17 @@ export function SearchResultsHeaderBand({
                       is unanchored on a deep link or below the fold — and the mode
                       registry already carries the noun. */}
                   {matchCount === 1 ? singularNoun(inlineNoun(resultNoun)) : inlineNoun(resultNoun)}
+                  {/* Nested in the count phrase, not a sibling flex item: the
+                      status row is `flex … gap-1.5`, so a separate span with a
+                      leading space doubled the gap before the middot and still
+                      left the live-region textContent missing that space. */}
+                  {partial ? (
+                    <span className="text-[color:var(--warning)]" title="Some result sources could not be loaded">
+                      {" · some sources unavailable"}
+                    </span>
+                  ) : null}
                 </span>
-                {partial ? (
-                  <span className="text-[color:var(--warning)]" title="Some result sources could not be loaded">
-                    {" · some sources unavailable"}
-                  </span>
-                ) : null}
-              </span>
+              </>
             )}
           </span>
           {/* The query, stated quietly after the count. The composer holds it too,
@@ -347,9 +409,11 @@ export function SearchResultsHeaderBand({
               always rendered rather than appearing on scroll — conditional chrome
               is what this band spent its last redesign removing — and it is the
               part that truncates when the line runs out, never the number. */}
-          <span className="search-band-rule mx-0.5 h-[0.9375rem] w-px shrink-0" aria-hidden />
+          <span className="search-band-rule mx-0.5 h-[1.125rem] w-px shrink-0" aria-hidden />
           <QueryHeading
-            className="search-band-subject min-w-0 truncate text-[color:var(--text-muted)] lg:max-w-[24rem]"
+            // `min-w-[2rem]` keeps a non-empty box at 320px, so the heading stays
+            // findable and visible when a wide page control squeezes the line.
+            className="search-band-subject min-w-[2rem] truncate text-[color:var(--text-muted)] lg:max-w-[24rem]"
             title={displayQuery}
           >
             {displayQuery}
@@ -358,13 +422,13 @@ export function SearchResultsHeaderBand({
 
         {hasUtilities ? (
           <div
-            ref={railRef}
             data-testid="search-query-ribbon-utilities"
-            data-overflowing={railOverflowing ? "true" : undefined}
             className={cn(
-              "flex min-w-0 items-center gap-1.5 overflow-x-auto px-3 pb-3 lg:flex-1 lg:overflow-x-visible lg:px-0 lg:pb-0 lg:pr-3",
-              "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-              "data-[overflowing=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-1.75rem),transparent)] lg:data-[overflowing=true]:[mask-image:none]",
+              "flex min-w-0 items-center gap-1.5 lg:flex-1",
+              // Row placement: wrap so a `w-full` phone select gets its own line
+              // instead of sharing a shrinkable flex line with Sort. At `sm+` the
+              // phone control is hidden and the track returns to a single row.
+              inlineControls ? "shrink" : "w-full flex-wrap pb-1 sm:w-auto sm:flex-nowrap sm:pb-0",
             )}
           >
             {/* Applied scopes have moved to their own labelled shelf below. They are
@@ -372,6 +436,87 @@ export function SearchResultsHeaderBand({
                 the two, and let a chip be pushed off the right edge of a scrolling
                 rail — losing the only affordance for removing it. */}
             <span className="hidden lg:block lg:flex-1" aria-hidden />
+            {/* Only the optional controls scroll. Filter and Retry are pinned
+                siblings after this track, so neither can be scrolled away — the
+                rail's last child used to be the page filter, which made the one
+                control carrying filter state the first to fall off the right edge
+                once a mode added a Retry or a longer sort label. The overflow,
+                mask and their `lg:` release all stay exactly where they were:
+                moving them down to `sm:` would let a mode with sort + view + save
+                + a page control exceed the width between 640 and 1023px, and
+                `expectNoPageHorizontalOverflow` runs immediately after several
+                ribbon assertions. */}
+            <div
+              ref={railRef}
+              data-testid="search-query-ribbon-utility-track"
+              data-overflowing={railOverflowing ? "true" : undefined}
+              className={cn(
+                "flex min-w-0 shrink items-center gap-1.5 overflow-x-auto lg:overflow-x-visible",
+                "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                "data-[overflowing=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-1.75rem),transparent)] lg:data-[overflowing=true]:[mask-image:none]",
+              )}
+            >
+              {/* Sort inboard: it is set about once a session, so it does not need
+                  to be the easiest thing to hit. Filter is rendered last instead —
+                  it is the only control carrying state, the one you return to
+                  repeatedly, and on a phone the right edge is where the thumb
+                  already is. */}
+              {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
+              {utilityControls}
+              {onViewChange ? (
+                <div
+                  className="inline-flex min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] sm:min-h-10"
+                  role="group"
+                  aria-label="Results view"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={view === "table"}
+                    onClick={() => onViewChange("table")}
+                    className={cn(
+                      "grid min-h-tap min-w-tap place-items-center sm:min-h-10 sm:min-w-10",
+                      focusRing,
+                      view === "table"
+                        ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                        : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                    )}
+                  >
+                    <Table2 className="h-4 w-4" aria-hidden />
+                    <span className="sr-only">Table view</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={view === "list"}
+                    onClick={() => onViewChange("list")}
+                    className={cn(
+                      "grid min-h-tap min-w-tap place-items-center border-l border-[color:var(--border)] sm:min-h-10 sm:min-w-10",
+                      focusRing,
+                      view === "list"
+                        ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                        : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                    )}
+                  >
+                    <LayoutList className="h-4 w-4" aria-hidden />
+                    <span className="sr-only">List view</span>
+                  </button>
+                </div>
+              ) : null}
+              {onSaveSearch ? (
+                <button
+                  type="button"
+                  onClick={onSaveSearch}
+                  className={cn(
+                    "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-[color:var(--text-muted)] search-band-ghost hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                    focusRing,
+                  )}
+                >
+                  <Bookmark className="h-3.5 w-3.5" aria-hidden />
+                  <span className="max-[389px]:sr-only">Save search</span>
+                </button>
+              ) : null}
+            </div>
+            {/* Pinned. Retry is the recovery action in a degraded state — the one
+                control that must never require a horizontal swipe to reach. */}
             {partial && onRetry ? (
               <AsyncButton
                 type="button"
@@ -386,70 +531,23 @@ export function SearchResultsHeaderBand({
                 Retry
               </AsyncButton>
             ) : null}
-            {/* Sort inboard: it is set about once a session, so it does not need
-                to be the easiest thing to hit. Filter is rendered last instead —
-                it is the only control carrying state, the one you return to
-                repeatedly, and on a phone the right edge is where the thumb
-                already is. */}
-            {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
-            {utilityControls}
-            {onViewChange ? (
-              <div
-                className="inline-flex min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
-                role="group"
-                aria-label="Results view"
-              >
-                <button
-                  type="button"
-                  aria-pressed={view === "table"}
-                  onClick={() => onViewChange("table")}
-                  className={cn(
-                    "grid min-h-tap min-w-tap place-items-center sm:min-h-10 sm:min-w-10",
-                    focusRing,
-                    view === "table"
-                      ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-                  )}
-                >
-                  <Table2 className="h-4 w-4" aria-hidden />
-                  <span className="sr-only">Table view</span>
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={view === "list"}
-                  onClick={() => onViewChange("list")}
-                  className={cn(
-                    "grid min-h-tap min-w-tap place-items-center border-l border-[color:var(--border)] sm:min-h-10 sm:min-w-10",
-                    focusRing,
-                    view === "list"
-                      ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-                  )}
-                >
-                  <LayoutList className="h-4 w-4" aria-hidden />
-                  <span className="sr-only">List view</span>
-                </button>
-              </div>
-            ) : null}
-            {onSaveSearch ? (
-              <button
-                type="button"
-                onClick={onSaveSearch}
-                className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-[color:var(--text-muted)] search-band-ghost shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
-                  focusRing,
-                )}
-              >
-                <Bookmark className="h-3.5 w-3.5" aria-hidden />
-                <span className="max-[389px]:sr-only">Save search</span>
-              </button>
-            ) : null}
+            {/* Must remain the last element child of the utilities group: the page
+                filter is the control a thumb reaches for, and `ui-tools` asserts
+                that placement. Pinned outside the scroll track above, so it is now
+                also the control that cannot be scrolled away. */}
             {pageMobileControls ? (
               <div
                 data-testid="search-query-ribbon-mobile-controls"
                 role="group"
                 aria-label={filterLabel}
-                className="min-w-0 shrink-0 sm:hidden"
+                className={cn(
+                  "min-w-0 sm:hidden",
+                  // `basis-full shrink-0` forces a full-width second line in row
+                  // mode so the select keeps its intrinsic width and Sort stays
+                  // on the scroll track above it, rather than both compressing
+                  // at 320–390px.
+                  inlineControls ? "flex shrink items-center" : "w-full basis-full shrink-0",
+                )}
               >
                 {pageMobileControls}
               </div>
@@ -482,36 +580,71 @@ export function SearchResultsHeaderBand({
           data-testid="search-query-ribbon-shelf"
           role="group"
           aria-label="Applied filters"
-          className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex min-w-0 items-center gap-1.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:gap-2 sm:px-3"
         >
-          <span className="search-band-shelf-label shrink-0 uppercase text-[color:var(--text-soft)]">Filtered by</span>
-          {appliedFilters.map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              onClick={filter.onRemove}
-              aria-label={`Remove ${filter.label} filter`}
-              data-selected="true"
-              className={cn(
-                // Hover deepens the chip's own accent rather than swapping to the
-                // neutral border the surface controls use — an accent-soft chip
-                // going grey on hover reads as losing its active state.
-                "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
-                focusRing,
-              )}
-            >
-              <span className="truncate">{filter.label}</span>
-              <X className="h-3 w-3 shrink-0" aria-hidden />
-            </button>
-          ))}
-          <span className="min-w-1 flex-1" aria-hidden />
+          {/* A funnel on a phone, the wordmark from `sm`. A prefixed chip costs
+              roughly 215px of a 350px bar, so every character the label spends is
+              a chip the reader cannot see; the glyph says the same thing in 16px.
+              The group's accessible name is "Applied filters" either way, so both
+              forms are decorative and neither is the label of record. */}
+          <Funnel className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] sm:hidden" aria-hidden />
+          <span className="search-band-shelf-label hidden shrink-0 uppercase text-[color:var(--text-muted)] sm:block">
+            Filtered by
+          </span>
+          {/* The chips get their own scroll track so `Clear` can sit outside it.
+              Previously the whole row scrolled and `Clear` trailed a `flex-1`
+              spacer, so four or five chips collapsed the spacer and pushed the
+              row's only global action past the right edge — reachable only by
+              swiping a row whose scrollbar is hidden. That is the same defect
+              this shelf was built to avoid for the chips themselves. */}
+          <div
+            ref={shelfTrackRef}
+            data-testid="search-query-ribbon-shelf-track"
+            data-overflowing={shelfOverflowing ? "true" : undefined}
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto",
+              "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              // The rail's mask, on the same overflow condition, so a clipped
+              // chip row signals more content the way the rail already does.
+              // Held at `lg:` to match the rail: below it the row can genuinely
+              // clip, above it there is width to spare.
+              "data-[overflowing=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-1.75rem),transparent)] lg:data-[overflowing=true]:[mask-image:none]",
+            )}
+          >
+            {appliedFilters.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={filter.onRemove}
+                aria-label={`Remove ${filter.label} filter`}
+                title={filter.label}
+                data-selected="true"
+                className={cn(
+                  // Hover deepens the chip's own accent rather than swapping to the
+                  // neutral border the surface controls use — an accent-soft chip
+                  // going grey on hover reads as losing its active state.
+                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-[7px] border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                  focusRing,
+                )}
+              >
+                <span className="truncate">{filter.label}</span>
+                <X className="h-3 w-3 shrink-0" aria-hidden />
+              </button>
+            ))}
+          </div>
           {onClearFilters && appliedFilters.length > 1 ? (
             <button
               type="button"
               onClick={onClearFilters}
               data-testid="search-query-ribbon-shelf-clear"
               className={cn(
-                "search-band-ghost shrink-0 rounded-md px-2 py-1 text-[color:var(--text-soft)] underline decoration-transparent underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current",
+                // Matched to the chips rather than kept small. It was `px-2 py-1`
+                // — about 26px beside 48px chips — which made the row's only
+                // global action its hardest target. It stays quiet through weight
+                // and an underline instead. 48px, not the 44px a generic tap rule
+                // would suggest: `min-h-11` reintroduces a fixed `ui-smoke`
+                // sub-pixel flake, and `--spacing-tap` is this repo's floor.
+                "search-band-ghost inline-flex min-h-tap shrink-0 items-center rounded-md px-2 text-[color:var(--text-muted)] underline decoration-[color:var(--border-strong)] underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current sm:min-h-10",
                 focusRing,
               )}
             >
@@ -629,7 +762,7 @@ export function MobileResultFilterControl<Value extends string>({
         className,
       )}
     >
-      <span className="shrink-0 text-[color:var(--text-soft)] max-[359px]:sr-only">{label}</span>
+      <span className="shrink-0 text-[color:var(--text-muted)] max-[359px]:sr-only">{label}</span>
       {/* Two things keep this readable. `truncate` ends a long option ("Current
           search", a service name) in an ellipsis instead of the mid-word cut it used
           to get. And the weight steps down to semibold because the size cannot: the
@@ -650,69 +783,255 @@ export function MobileResultFilterControl<Value extends string>({
         ))}
       </select>
       <ChevronsUpDown
-        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"
+        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--decoration-soft)]"
         aria-hidden
       />
     </label>
   );
 }
 
+/**
+ * The recovery actions on the no-results panel.
+ *
+ * `min-h-tap`, not the 36px this carried before. The height is pre-existing, but
+ * it stopped being incidental once these became the *designated* way out: on the
+ * documents zero-result and filtered-to-zero paths they are the only offered
+ * escape, and on therapy-compass `Clear search` is the only one for a query-only
+ * zero result. Shipping the escape hatch below the floor the same change raised
+ * the facets, the find field and the disclosure headings to would contradict the
+ * rule this component's own redesign argues for. Relaxes to 36px from `sm`,
+ * exactly like the facets.
+ */
+const emptyStateAction =
+  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)] sm:min-h-9";
+
 export function SearchResultsEmptyState({
   modeId,
   query,
+  headingLevel,
   onTryExample,
   onCrossMode,
   canAccessFavourites = false,
+  appliedFilters = EMPTY_APPLIED_FILTERS,
+  onClearFilters,
+  onClearSearch,
+  onBrowseAll,
+  browseAllLabel = "Browse all sources",
+  degraded = false,
 }: {
   modeId: AppModeId;
   query: string;
+  /**
+   * Render the title as a heading at this level instead of a paragraph.
+   *
+   * Opt-in and un-defaulted, for the same reason `EmptyState` is (#1612): most
+   * of the twelve modes rendering this state sit inside a region whose heading
+   * the band already owns, so promoting every title would insert a level the
+   * surrounding outline never declared. The states that own their region — the
+   * main document-search zero-result state — pass the level their outline
+   * requires, and their heading is pinned by `ui-smoke`. Dropping it back to a
+   * paragraph when this shared state replaced `EmptyState` is what turned that
+   * assertion red.
+   */
+  headingLevel?: 2 | 3 | 4 | 5 | 6;
   onTryExample?: (example: string) => void;
   onCrossMode?: (modeId: AppModeId) => void;
   canAccessFavourites?: boolean;
+  /** The same chips the shelf is rendering. When the set is empty *because of
+      these*, the way out is to relax one — not to run a different search. The
+      release that made filters real (#1555) deleted the only copy pointing at
+      them, so a reader filtered to zero was offered an unrelated example and a
+      different mode, never the chips directly above that caused it. */
+  appliedFilters?: AppliedFilterChip[];
+  /** Clears every filter and keeps the query. Omit to hide that route. */
+  onClearFilters?: () => void;
+  /** Clears the query when a mode has no example or cross-mode recovery. */
+  onClearSearch?: () => void;
+  /** Reach rather than refinement: the whole corpus, for when narrowing this
+      result set is not the answer. */
+  onBrowseAll?: () => void;
+  browseAllLabel?: string;
+  /**
+   * The result set is empty because retrieval failed, not because nothing
+   * matched. Replaces the copy rather than annotating it: in a clinical corpus
+   * "no results" is read as "no guidance exists", and that inference must not
+   * be available when the search never actually ran.
+   */
+  degraded?: boolean;
 }) {
   const config = searchCommandSurfaceConfig(modeId);
   const crossModes = (config?.crossModes ?? []).filter((target) => canAccessFavourites || target !== "favourites");
+  const searchConfig = appModeSearchConfig(modeId);
+  const resultNoun = inlineNoun(searchConfig?.resultHeading?.replace(/ matches$/i, "s") ?? "Results");
+  // The last chip, named. Deliberately not described as "the one you just
+  // added": `appliedFilters` arrives in group order, not application order, so
+  // calling it the most recent would be a claim the data cannot support.
+  const lastFilter = appliedFilters.at(-1);
+  const filtered = appliedFilters.length > 0;
+  const Title = headingLevel ? (`h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6") : "p";
+  // What the panel can actually offer, decided before the copy describes it.
+  // `searchCommandSurfaceByMode` is a `Partial<Record<…>>` and therapy-compass
+  // has no entry, so there is neither an example nor a cross-mode route there —
+  // yet the body said "Try an example, or jump to another mode", naming two
+  // controls the reader could not see. Copy that promises absent affordances is
+  // the same defect class as a label that does not match its handler.
+  const hasExample = Boolean(config?.examples[0] && onTryExample);
+  const hasCrossMode = crossModes.length > 0 && Boolean(onCrossMode);
+  // Degraded outranks filtered, which outranks a plain miss. A search whose
+  // retrieval layer errored has not established that anything is absent, so it
+  // must not borrow either of the copies below: both assert a real zero and
+  // send the reader off to fix a query or a filter that was never the problem.
+  const emptyTitle = degraded
+    ? "Search could not complete"
+    : filtered
+      ? appliedFilters.length === 1
+        ? `No ${resultNoun} match the selected filter`
+        : `No ${resultNoun} match all ${appliedFilters.length} filters`
+      : `No matches for “${query.trim() || "your search"}”`;
+  const emptyBody = degraded
+    ? "Part of the search index did not respond, so this is not a reliable “nothing found”. Retry shortly, and do not read it as an absence of guidance."
+    : filtered
+      ? "The search itself ran fine — the filters above excluded everything. Remove one to widen it."
+      : hasExample && hasCrossMode
+        ? "Try an example, or jump to another mode."
+        : hasExample
+          ? "Try one of the examples below."
+          : hasCrossMode
+            ? "Try another mode."
+            : "Check the spelling, or try a broader term.";
+  // Live regions that mount already populated are silent in most screen readers.
+  // Deferred population makes the query-only path announce. Filtered-to-zero
+  // suppresses the region entirely: the band's `role="status"` already
+  // re-announced the zero count for that interaction, and a second polite
+  // region would double-speak.
+  const [liveMessage, setLiveMessage] = useState("");
+  useEffect(() => {
+    // The population happens in the frame callback, never in the effect body.
+    // `react-hooks/set-state-in-effect` blocks the synchronous form and is right
+    // to: the deferred render is the entire mechanism here, so doing it
+    // synchronously would both trip the rule and defeat the purpose.
+    //
+    // Neither clearing call this replaced was doing anything. The region is
+    // rendered only when `!filtered`, so the filtered branch had nothing mounted
+    // to clear; and a re-populating region is already unmounted-then-mounted by
+    // that same gate, so it starts empty on its own.
+    if (filtered) return;
+    const frame = requestAnimationFrame(() => setLiveMessage(`${emptyTitle}. ${emptyBody}`));
+    return () => cancelAnimationFrame(frame);
+  }, [filtered, emptyTitle, emptyBody]);
+  const secondary = [
+    config?.examples[0] && onTryExample ? (
+      <button
+        key="example"
+        type="button"
+        onClick={() => onTryExample(config.examples[0])}
+        className={cn(emptyStateAction, focusRing)}
+      >
+        Try: {config.examples[0]}
+      </button>
+    ) : null,
+    ...crossModes.slice(0, 2).map((target) =>
+      onCrossMode ? (
+        <button
+          key={target}
+          type="button"
+          onClick={() => onCrossMode(target)}
+          className={cn(emptyStateAction, focusRing)}
+        >
+          Search in {target}
+        </button>
+      ) : null,
+    ),
+    onClearSearch ? (
+      <button
+        key="clear-search"
+        type="button"
+        onClick={onClearSearch}
+        data-testid="search-results-empty-clear-search"
+        className={cn(emptyStateAction, focusRing)}
+      >
+        <X className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        Clear search
+      </button>
+    ) : null,
+    onBrowseAll ? (
+      <button key="browse" type="button" onClick={onBrowseAll} className={cn(emptyStateAction, focusRing)}>
+        <LayoutList className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        {browseAllLabel}
+      </button>
+    ) : null,
+  ].filter(Boolean);
 
   return (
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
+      {/* Visible copy is never inside the live region: a region that mounts
+          already populated is silent in most screen readers, and wrapping the
+          visible tree would flash empty for a frame. The sr-only live region
+          below is populated after mount (query-only) or omitted (filtered).
+          NOT `role="status"`: the band already owns that role on every search
+          route and a second one makes singular `getByRole("status")` ambiguous. */}
       <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-        <Search className="h-5 w-5" aria-hidden />
+        {degraded ? (
+          <CircleAlert className="h-5 w-5" aria-hidden />
+        ) : filtered ? (
+          <Funnel className="h-5 w-5" aria-hidden />
+        ) : (
+          <Search className="h-5 w-5" aria-hidden />
+        )}
       </span>
-      <p className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">
-        No matches for &ldquo;{query.trim() || "your search"}&rdquo;
-      </p>
-      <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
-        Try an example, or jump to another mode.
-      </p>
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
-        {config?.examples[0] && onTryExample ? (
-          <button
-            type="button"
-            onClick={() => onTryExample(config.examples[0])}
-            className={cn(
-              "inline-flex min-h-9 items-center rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-              focusRing,
-            )}
-          >
-            Try: {config.examples[0]}
-          </button>
-        ) : null}
-        {crossModes.slice(0, 2).map((target) =>
-          onCrossMode ? (
+      <Title className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">{emptyTitle}</Title>
+      <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">{emptyBody}</p>
+      {!filtered ? (
+        <div aria-live="polite" className="sr-only">
+          {liveMessage}
+        </div>
+      ) : null}
+      {/* Relaxing comes first and is the only accented pair. Naming the filter in
+          the label is what makes it a one-tap undo rather than a second thing to
+          go and find; `Clear all filters` is separate so each label matches its
+          own action, which is also the fix for the single button that said
+          "Clear filters" and called `clearSearch`. */}
+      {filtered ? (
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+          {lastFilter ? (
             <button
-              key={target}
+              key={lastFilter.id}
               type="button"
-              onClick={() => onCrossMode(target)}
+              onClick={lastFilter.onRemove}
+              data-testid="search-results-empty-remove-filter"
               className={cn(
-                "inline-flex min-h-9 items-center rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]",
                 focusRing,
               )}
             >
-              Search in {target}
+              <CircleMinus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              Remove “{lastFilter.label}”
             </button>
-          ) : null,
-        )}
-      </div>
+          ) : null}
+          {onClearFilters && appliedFilters.length > 1 ? (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              data-testid="search-results-empty-clear-filters"
+              className={cn(emptyStateAction, focusRing)}
+            >
+              Clear all filters
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {secondary.length > 0 ? (
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-center gap-1.5",
+            // Demoted below a rule once relaxing is on offer: an example query is
+            // a different search, and the reader has not finished this one.
+            filtered ? "mt-3.5 border-t border-[color:var(--border)] pt-3.5" : "mt-3",
+          )}
+        >
+          {secondary}
+        </div>
+      ) : null}
     </div>
   );
 }

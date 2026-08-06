@@ -53,4 +53,21 @@ describe("InformationPageShell", () => {
     expect(home).toHaveAttribute("href", "/forms?focus=1");
     expect(screen.getByText("Transport")).toHaveAttribute("aria-current", "page");
   });
+
+  it("keeps a linked intermediate crumb a link after the fold onto Breadcrumb", () => {
+    // The DS `Breadcrumb` decides link-vs-text from `href`, not from position.
+    // Deciding on position would turn this middle crumb into dead text the
+    // moment a page put the current record's parent in the trail.
+    render(
+      <InformationPageBreadcrumbs
+        home={{ label: "Forms", href: "/forms" }}
+        crumbs={[{ label: "Catalogue", href: "/forms?tab=catalogue" }]}
+        current="Transport"
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Catalogue" })).toHaveAttribute("href", "/forms?tab=catalogue");
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
+    expect(screen.getByText("Transport")).toHaveAttribute("aria-current", "page");
+  });
 });

@@ -134,7 +134,8 @@ describe("audit navigation and auth regressions", () => {
     );
 
     expect(masterSearchHeaderSource).toContain("function prefetchModeHome(modeId: AppModeId)");
-    expect(masterSearchHeaderSource).toContain("router.prefetch(href)");
+    expect(masterSearchHeaderSource).toContain("router.prefetch(href,");
+    expect(masterSearchHeaderSource).toContain("onInvalidate:");
     expect(modeOptions).toContain("onFocus={() => prefetchModeHome(mode.id)}");
     expect(modeOptions).toContain("onPointerEnter={() => prefetchModeHome(mode.id)}");
     // Menu-open paths warm only the highlighted option — never every visible home.
@@ -154,6 +155,20 @@ describe("audit navigation and auth regressions", () => {
     expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
     expect(universalAlsoMatchesSource).toContain("setViewportReady(true);");
     expect(universalAlsoMatchesSource).toContain('searchPending ? "Searching other modes"');
+  });
+
+  it("mounts Answer-mode also-matches only after generation completes", () => {
+    const alsoMatchesGate = sourceSegment(
+      clinicalDashboardSource,
+      "const showUniversalAlsoMatches =",
+      "const showDesktopHomeComposer =",
+    );
+    expect(alsoMatchesGate).toContain('activeModeResultKind === "tools"');
+    expect(alsoMatchesGate).toContain('activeModeResultKind === "favourites"');
+    expect(alsoMatchesGate).toContain('activeModeResultKind === "answer" && Boolean(answer) && !loading');
+    expect(alsoMatchesGate).not.toContain(
+      'activeModeResultKind === "answer" || activeModeResultKind === "tools" || activeModeResultKind === "favourites"',
+    );
   });
 
   it("gates private polling and mutations on local readiness plus authenticated status", () => {

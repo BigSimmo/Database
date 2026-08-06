@@ -10,8 +10,8 @@ export type WorkerRuntimeControlOptions = {
 export class WorkerAbortError extends Error {
   readonly exitCode: number;
 
-  constructor(message: string, exitCode: number = 1) {
-    super(message);
+  constructor(message: string, exitCode: number = 1, options?: ErrorOptions) {
+    super(message, options);
     this.name = "WorkerAbortError";
     this.exitCode = exitCode;
   }
@@ -19,17 +19,12 @@ export class WorkerAbortError extends Error {
 
 export class WorkerRuntimeControl {
   #stopped = false;
-  #stopPromise: Promise<void>;
-  #resolveStop!: () => void;
   #cleanup: (() => void)[] = [];
   #signalSource?: Pick<EventEmitter, "on" | "off">;
   #attached = false;
 
   constructor(options: WorkerRuntimeControlOptions = {}) {
     this.#signalSource = options.signalSource;
-    this.#stopPromise = new Promise((resolve) => {
-      this.#resolveStop = resolve;
-    });
   }
 
   get isStopped(): boolean {
@@ -39,7 +34,6 @@ export class WorkerRuntimeControl {
   stop(): void {
     if (this.#stopped) return;
     this.#stopped = true;
-    this.#resolveStop();
     for (const cb of this.#cleanup) {
       try {
         cb();
@@ -62,21 +56,17 @@ export class WorkerRuntimeControl {
     if (this.#stopped) return Promise.resolve();
     return new Promise((resolve) => {
       let settled = false;
-      let timer: NodeJS.Timeout;
-
-      const stopUnsub = this.onStop(() => {
+      let stopUnsub = () => {};
+      const settle = () => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve();
-      });
-
-      timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
         stopUnsub();
         resolve();
-      }, ms);
+      };
+
+      const timer = setTimeout(settle, ms);
+      stopUnsub = this.onStop(settle);
     });
   }
 

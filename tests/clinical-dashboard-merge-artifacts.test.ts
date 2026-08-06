@@ -219,8 +219,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(documentViewerSource).toContain("max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]");
     // Hidden document content must not reintroduce Safari toolbar inset padding.
     expect(documentViewerSource).not.toMatch(/composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/);
-    expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
-    expect(documentViewerSource).toContain("max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]");
+    expect(documentViewerSource).toContain("max-sm:duration-[var(--duration-slow)]");
+    expect(documentViewerSource).toContain("max-sm:ease-[var(--ease-chrome-hide)]");
     expect(globalStylesSource).toContain("@media (max-width: 639px) and (prefers-reduced-motion: reduce)");
     expect(globalStylesSource).toContain('#main-content[data-reserve-transitioning="true"]');
     expect(globalStylesSource).toContain('[data-testid="mobile-composer-reserve-pad"]');
@@ -228,7 +228,7 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalStylesSource).not.toMatch(
       /#main-content\s*\{\s*will-change: padding-bottom;\s*transition: padding-bottom 200ms/,
     );
-    expect(globalStylesSource).toContain("transition: padding-bottom 240ms var(--ease-out-soft)");
+    expect(globalStylesSource).toContain("transition: padding-bottom var(--duration-slow) var(--ease-out-soft)");
     expect(globalSearchShellSource).toContain("useReserveTransitionMarker");
     expect(clinicalDashboardSource).toContain("useDashboardChromeCoordinator(searchMode)");
     expect(dashboardChromeCoordinatorSource).toContain("useReserveTransitionMarker");

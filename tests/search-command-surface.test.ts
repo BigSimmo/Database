@@ -1,9 +1,12 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
   commandDropdownCanDisplay,
   commandDropdownMinimumWidthMediaQuery,
   commandDropdownPointerMediaQuery,
+  differentialRedFlagTerms,
   filteredSuggestions,
   isFormCodeQuery,
   searchCommandSurfaceConfig,
@@ -59,5 +62,30 @@ describe("search command surface", () => {
       "clozapine monitoring table",
     );
     expect(filteredSuggestions(config, "missing topic")).toEqual([]);
+  });
+
+  it("exposes differential red-flag search terms", () => {
+    expect(differentialRedFlagTerms).toContain("confusion");
+    expect(differentialRedFlagTerms.length).toBeGreaterThan(3);
+  });
+
+  it("keeps one sm max-height cap per command dropdown placement", () => {
+    const source = readFileSync(
+      new URL("../src/components/clinical-dashboard/universal-search-command-surface.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).not.toContain("sm:max-h-[min(55dvh,26rem)]");
+    expect(source).toContain('opensUpward ? "sm:max-h-[min(38dvh,20rem)]" : "sm:max-h-[min(42dvh,24rem)]"');
+  });
+
+  it("does not let a stale narrow-window focus decision shadow later displayability", () => {
+    const source = readFileSync(
+      new URL("../src/components/clinical-dashboard/universal-search-command-surface.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).not.toContain("setEagerDropdownDisplayable(displayable);");
+    expect(source).toContain("setEagerDropdownDisplayable(displayable ? true : null);");
   });
 });

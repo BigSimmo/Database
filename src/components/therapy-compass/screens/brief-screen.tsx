@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { pageContainer } from "@/components/ui-primitives";
+
 import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { parseSteps, summarise } from "../data/select";
@@ -58,7 +60,7 @@ export function BriefScreen() {
   ].join("\n");
 
   return (
-    <section data-screen-label="Brief" className="max-w-[1240px] my-0 mx-auto">
+    <section data-screen-label="Brief" className={pageContainer}>
       <div className="flex items-start justify-between gap-5 mb-5 flex-wrap">
         <div>
           <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
@@ -117,7 +119,11 @@ export function BriefScreen() {
         {/* records list */}
         <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] p-4">
           <label className="relative flex items-center mb-3">
-            <SearchIcon size={16} strokeWidth={1.8} className="absolute left-[12px] text-[color:var(--text-soft)]" />
+            <SearchIcon
+              size={16}
+              strokeWidth={1.8}
+              className="absolute left-[12px] text-[color:var(--decoration-soft)]"
+            />
             <input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -133,7 +139,7 @@ export function BriefScreen() {
                 <button
                   key={x.slug}
                   type="button"
-                  className={`${therapyBtn} transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:border-l-[3px] aria-pressed:border-l-[color:var(--clinical-accent)] aria-pressed:bg-[color:var(--clinical-accent-soft)]`}
+                  className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:border-l-[3px] aria-pressed:border-l-[color:var(--clinical-accent)] aria-pressed:bg-[color:var(--clinical-accent-soft)]`}
                   onClick={() => b.select(x.slug)}
                   aria-pressed={active}
                 >
@@ -156,7 +162,7 @@ export function BriefScreen() {
               );
             })}
           </div>
-          <div className="text-center text-2xs text-[color:var(--text-soft)] mt-3.5">
+          <div className="text-center text-2xs text-[color:var(--text-muted)] mt-3.5">
             Showing {briefTherapies.length} records
           </div>
         </div>
@@ -213,7 +219,7 @@ export function BriefScreen() {
                         <div className="text-sm-minus leading-normal text-[color:var(--text-muted)]">{step}</div>
                         <button
                           type="button"
-                          className={`${therapyBtn} inline-flex min-h-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--text-soft)] aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:text-[color:var(--clinical-accent)]${copied === `step-${i}` ? " " : ""}`}
+                          className={`${therapyBtn} inline-flex min-h-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--decoration-soft)] aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:text-[color:var(--clinical-accent)]${copied === `step-${i}` ? " " : ""}`}
                           onClick={() => copy(step, `step-${i}`)}
                           title="Copy step"
                         >
@@ -234,7 +240,7 @@ export function BriefScreen() {
 
               {t.clinicianScripts.length ? (
                 <div className="mt-5 pt-4 border-t border-[color:var(--border)]">
-                  <div className="text-xs font-bold tracking-eyebrow text-[color:var(--text-soft)] mb-2.5">
+                  <div className="text-xs font-bold tracking-eyebrow text-[color:var(--text-muted)] mb-2.5">
                     CLINICIAN SCRIPT
                   </div>
                   {t.clinicianScripts.slice(0, 2).map((c, i) => (

@@ -1,6 +1,12 @@
 import ts from "@typescript/typescript6";
+import postcss from "postcss";
 
 const LEGACY_TAP_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*(?:h|w|min-h|min-w|size)-11`;
+const CSS_WHITESPACE = String.raw`(?:\s|\/\*[\s\S]*?\*\/)*`;
+const TEXT_SOFT_CONSUMER = new RegExp(
+  String.raw`\bvar\s*\(${CSS_WHITESPACE}--text-soft(?=${CSS_WHITESPACE}(?:,|\)))`,
+  "g",
+);
 
 export const LEGACY_TAP_CLASS = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`, "g");
 const LEGACY_TAP_CLASS_TEST = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`);
@@ -48,6 +54,84 @@ export const RAW_COLOR_EXEMPTIONS = [
 
 export function hasLegacyTapClass(classText) {
   return LEGACY_TAP_CLASS_TEST.test(classText);
+}
+
+export function findTextSoftConsumersInSource(relativePath, sourceText) {
+  const findings = [];
+
+  function recordMatches(fragment, lineOffset = 0) {
+    for (const match of fragment.matchAll(TEXT_SOFT_CONSUMER)) {
+      const line = lineOffset + fragment.slice(0, match.index).split(/\r?\n/).length;
+      findings.push(`${relativePath}:${line}`);
+    }
+  }
+
+  if (relativePath.endsWith(".css")) {
+    for (const declaration of cssDeclarations(sourceText)) {
+      const value = maskCssValueTrivia(declaration.value);
+      const lineOffset =
+        (declaration.source?.start?.line ?? 1) - 1 + (declaration.raws.between.match(/\r?\n/g)?.length ?? 0);
+      recordMatches(value, lineOffset);
+    }
+    return findings;
+  }
+
+  const languageVariant = relativePath.endsWith(".tsx") ? ts.LanguageVariant.JSX : ts.LanguageVariant.Standard;
+  const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, languageVariant, sourceText);
+  const commentTokens = new Set([ts.SyntaxKind.SingleLineCommentTrivia, ts.SyntaxKind.MultiLineCommentTrivia]);
+  for (let token = scanner.scan(); token !== ts.SyntaxKind.EndOfFileToken; token = scanner.scan()) {
+    if (commentTokens.has(token)) continue;
+    const tokenText = scanner.getTokenText();
+    const tokenOffset = scanner.getTokenPos();
+    const tokenLineOffset = sourceText.slice(0, tokenOffset).split(/\r?\n/).length - 1;
+    recordMatches(tokenText, tokenLineOffset);
+  }
+
+  return findings;
+}
+
+function maskCssValueTrivia(value) {
+  const masked = [...value];
+  let quote = null;
+  let inComment = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    const next = value[index + 1];
+
+    if (inComment) {
+      if (character !== "\r" && character !== "\n") masked[index] = " ";
+      if (character === "*" && next === "/") {
+        masked[index + 1] = " ";
+        index += 1;
+        inComment = false;
+      }
+      continue;
+    }
+
+    if (quote) {
+      if (character !== "\r" && character !== "\n") masked[index] = " ";
+      if (character === "\\" && next !== undefined) {
+        if (next !== "\r" && next !== "\n") masked[index + 1] = " ";
+        index += 1;
+      } else if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (character === "/" && next === "*") {
+      masked[index] = " ";
+      masked[index + 1] = " ";
+      index += 1;
+      inComment = true;
+    } else if (character === '"' || character === "'") {
+      masked[index] = " ";
+      quote = character;
+    }
+  }
+
+  return masked.join("");
 }
 
 export function jsxClassSegments(attribute) {
@@ -109,6 +193,693 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
 
   visit(source);
   return findings;
+}
+
+const BORDER_WIDTH_UTILITY = /^border(?:-[xytrblse])?(?:-(?:0|2|4|8|\[(?!color:)[^\]]+\]))?$/;
+const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
+const DENSITY_HEIGHT_UTILITY = /^(?:h|min-h|max-h|size)-/;
+const DENSITY_TEXT_UTILITY = /^text-(?:2xs|xs|sm-minus|sm|base|lg|xl|[2-9]xl|\[[^\]]*(?:px|rem|em|clamp\()[^\]]*\])$/;
+const HARDCODED_MOTION_UTILITY = /^(?:duration|delay)-(?:\d+|\[(?!var\(--duration-)[^\]]+\])$/;
+const LITERAL_SHADOW_UTILITY = /^shadow-\[(?!var\()[^\]]+\]$/;
+const LEGACY_SHADOW_ALIAS = /var\(--shadow-(?:tight|card|soft|hover|elevated|lux|lift)\)/g;
+const LEGACY_PALETTE_UTILITY =
+  /^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(?:white|black|(?:slate|gray|zinc|neutral|stone)-\d{2,3})(?:\/\d{1,3})?$/;
+const COLOR_VALUE =
+  /^(?:inherit|current|transparent|black|white|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})(?:\/\d{1,3})?$/;
+const ALLOWED_Z_INDEX_RUNGS = new Set([0, 5, 10, 20, 30, 40, 60, 80, 81, 82, 83, 84, 85, 95, 100, 110]);
+const ALLOWED_Z_INDEX_TOKENS = new Set([
+  "--z-raised",
+  "--z-chrome",
+  "--z-overlay",
+  "--z-popover",
+  "--z-modal",
+  "--z-toast",
+]);
+const SAFE_TRANSITION_PROPERTIES = new Set([
+  "none",
+  "color",
+  "background-color",
+  "border-color",
+  "text-decoration-color",
+  "fill",
+  "stroke",
+  "opacity",
+  "box-shadow",
+  "transform",
+  // The individual transform properties. Tailwind 4 compiles `translate-*`,
+  // `scale-*` and `rotate-*` to these rather than to `transform`, so a
+  // transition list that names them is the same compositor-only animation
+  // `transform` already covers — it cannot trigger layout. Omitting them made
+  // this ratchet flag the phone chrome's `transition-[transform,translate,
+  // opacity]` as layout debt alongside genuine `grid-template-rows`/`height`
+  // entries, which is the opposite of what the metric measures.
+  "translate",
+  "scale",
+  "rotate",
+  "filter",
+  "backdrop-filter",
+  "visibility",
+  "scrollbar-color",
+]);
+const CLASS_COMPOSERS = new Set(["cn", "clsx", "cva"]);
+const CLASS_UTILITY_PREFIX =
+  /^(?:-?(?:m|p)[trblxy]?|h|w|min-h|max-h|min-w|max-w|size|text|font|leading|tracking|bg|border|ring|outline|shadow|rounded|opacity|z|top|right|bottom|left|inset|gap|space|grid|flex|block|inline|hidden|relative|absolute|fixed|sticky|overflow|overscroll|object|cursor|select|pointer-events|transition|duration|delay|animate|transform|translate|scale|rotate|skew|origin|items|justify|content|self|place|order|grow|shrink|basis|whitespace|break|truncate|line-clamp|decoration|underline|fill|stroke|from|via|to|backdrop|blur|filter|appearance|sr-only|not-sr-only)(?:-|$)/;
+
+function splitUtilityTokens(text) {
+  return text.split(/\s+/).filter(Boolean);
+}
+
+function splitTailwindVariants(token) {
+  const parts = [];
+  let start = 0;
+  let squareDepth = 0;
+  let roundDepth = 0;
+  for (let index = 0; index < token.length; index += 1) {
+    const character = token[index];
+    if (character === "[") squareDepth += 1;
+    else if (character === "]") squareDepth = Math.max(0, squareDepth - 1);
+    else if (character === "(") roundDepth += 1;
+    else if (character === ")") roundDepth = Math.max(0, roundDepth - 1);
+    else if (character === ":" && squareDepth === 0 && roundDepth === 0) {
+      parts.push(token.slice(start, index));
+      start = index + 1;
+    }
+  }
+  parts.push(token.slice(start));
+  return parts;
+}
+
+function utilityBase(token) {
+  return splitTailwindVariants(token).at(-1)?.replace(/^!/, "") ?? "";
+}
+
+function utilityVariants(token) {
+  return splitTailwindVariants(token).slice(0, -1);
+}
+
+function jsxClassAttributes(node, source) {
+  return node.attributes.properties.filter(
+    (attribute) => ts.isJsxAttribute(attribute) && /(?:^|[A-Z])className$/i.test(attribute.name.getText(source)),
+  );
+}
+
+function combinePossibilities(left, right) {
+  return left.flatMap((leftEntry) =>
+    right.map((rightEntry) => ({
+      usesDensityRecipe: leftEntry.usesDensityRecipe || rightEntry.usesDensityRecipe,
+      tokens: [...leftEntry.tokens, ...rightEntry.tokens],
+    })),
+  );
+}
+
+function tokenEntries(node, source) {
+  const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+  return splitUtilityTokens(node.text).map((token, index) => ({
+    id: `${node.getStart(source)}:${index}:${token}`,
+    line,
+    token,
+  }));
+}
+
+function classExpressionAnalyzer(relativePath, sourceText) {
+  if (!/\.[cm]?[jt]sx?$/.test(relativePath)) return null;
+  const kind = relativePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, kind);
+  const scopeByNode = new WeakMap();
+  const rootScope = { bindings: new Map(), functionScope: true, parent: null };
+  const blockedBinding = Symbol("blocked binding");
+
+  function addBinding(scope, name, binding) {
+    const existing = scope.bindings.get(name) ?? [];
+    existing.push(binding);
+    scope.bindings.set(name, existing);
+  }
+
+  function bindingScopeForVariable(node, scope) {
+    const declarationList = node.parent;
+    if (!ts.isVariableDeclarationList(declarationList)) return scope;
+    if (declarationList.flags & ts.NodeFlags.BlockScoped) return scope;
+    let target = scope;
+    while (target.parent && !target.functionScope) target = target.parent;
+    return target;
+  }
+
+  function createsScope(node) {
+    if (ts.isFunctionLike(node)) return { functionScope: true };
+    if ((ts.isBlock(node) && !ts.isFunctionLike(node.parent)) || ts.isCaseBlock(node)) {
+      return { functionScope: false };
+    }
+    if (ts.isCatchClause(node) || ts.isForStatement(node) || ts.isForInStatement(node) || ts.isForOfStatement(node)) {
+      return { functionScope: false };
+    }
+    return null;
+  }
+
+  function collectBindings(node, parentScope) {
+    const scopeKind = node === source ? null : createsScope(node);
+    const scope = scopeKind
+      ? { bindings: new Map(), functionScope: scopeKind.functionScope, parent: parentScope }
+      : parentScope;
+    scopeByNode.set(node, scope);
+
+    if (ts.isImportDeclaration(node) && node.importClause?.namedBindings) {
+      const namedBindings = node.importClause.namedBindings;
+      if (ts.isNamespaceImport(namedBindings)) {
+        addBinding(scope, namedBindings.name.text, {
+          declaration: namedBindings,
+          densityRecipe: false,
+          initializer: null,
+          namespaceImport: true,
+          start: namedBindings.name.getStart(source),
+        });
+      } else if (ts.isNamedImports(namedBindings)) {
+        for (const specifier of namedBindings.elements) {
+          const imported = specifier.propertyName?.text ?? specifier.name.text;
+          addBinding(scope, specifier.name.text, {
+            declaration: specifier,
+            densityRecipe: imported === "metadataPill" || imported === "metadataPillDensity",
+            initializer: null,
+            namespaceImport: false,
+            start: specifier.name.getStart(source),
+          });
+        }
+      }
+    }
+    if (ts.isParameter(node) && ts.isIdentifier(node.name)) {
+      addBinding(scope, node.name.text, {
+        declaration: node,
+        densityRecipe: false,
+        initializer: node.initializer ?? null,
+        start: node.name.getStart(source),
+      });
+    }
+    if (ts.isVariableDeclaration(node)) {
+      const targetScope = bindingScopeForVariable(node, scope);
+      if (ts.isIdentifier(node.name)) {
+        addBinding(targetScope, node.name.text, {
+          declaration: node,
+          densityRecipe: false,
+          initializer: node.initializer ?? null,
+          namespaceImport: false,
+          start: node.name.getStart(source),
+        });
+      } else if (ts.isObjectBindingPattern(node.name) && node.initializer) {
+        for (const element of node.name.elements) {
+          if (!ts.isIdentifier(element.name)) continue;
+          addBinding(targetScope, element.name.text, {
+            declaration: element,
+            densityRecipe: false,
+            destructuredFrom: node.initializer,
+            initializer: element.initializer ?? null,
+            namespaceImport: false,
+            start: element.name.getStart(source),
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, (child) => collectBindings(child, scope));
+  }
+  collectBindings(source, rootScope);
+
+  function resolveBinding(identifier) {
+    let scope = scopeByNode.get(identifier) ?? rootScope;
+    const referenceStart = identifier.getStart(source);
+    while (scope) {
+      const candidates = scope.bindings.get(identifier.text);
+      if (candidates?.length) {
+        const preceding = candidates.filter((candidate) => candidate.start <= referenceStart).at(-1);
+        return preceding ?? blockedBinding;
+      }
+      scope = scope.parent;
+    }
+    return null;
+  }
+
+  const empty = () => [{ usesDensityRecipe: false, tokens: [] }];
+
+  function possibilities(node, resolving = new Set()) {
+    if (!node) return empty();
+    if (
+      ts.isParenthesizedExpression(node) ||
+      ts.isAsExpression(node) ||
+      ts.isTypeAssertionExpression(node) ||
+      ts.isNonNullExpression(node)
+    ) {
+      return possibilities(node.expression, resolving);
+    }
+    if (ts.isConditionalExpression(node)) {
+      return [...possibilities(node.whenTrue, resolving), ...possibilities(node.whenFalse, resolving)];
+    }
+    if (ts.isBinaryExpression(node)) {
+      if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+        return [...empty(), ...possibilities(node.right, resolving)];
+      }
+      if (
+        node.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+        node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+      ) {
+        return [...possibilities(node.left, resolving), ...possibilities(node.right, resolving)];
+      }
+      return combinePossibilities(possibilities(node.left, resolving), possibilities(node.right, resolving));
+    }
+    if (ts.isCallExpression(node)) {
+      const callee = ts.isIdentifier(node.expression) ? node.expression.text : "";
+      if (
+        ts.isPropertyAccessExpression(node.expression) &&
+        (node.expression.name.text === "filter" || node.expression.name.text === "join")
+      ) {
+        return possibilities(node.expression.expression, resolving);
+      }
+      if (!CLASS_COMPOSERS.has(callee)) return empty();
+      return node.arguments.reduce(
+        (entries, argument) => combinePossibilities(entries, possibilities(argument, resolving)),
+        empty(),
+      );
+    }
+    if (ts.isArrayLiteralExpression(node)) {
+      return node.elements.reduce(
+        (entries, element) => combinePossibilities(entries, possibilities(element, resolving)),
+        empty(),
+      );
+    }
+    if (ts.isObjectLiteralExpression(node)) {
+      return node.properties.reduce((entries, property) => {
+        if (ts.isSpreadAssignment(property))
+          return combinePossibilities(entries, possibilities(property.expression, resolving));
+        if (ts.isShorthandPropertyAssignment(property)) {
+          return combinePossibilities(entries, possibilities(property.name, resolving));
+        }
+        if (!ts.isPropertyAssignment(property)) return entries;
+        const name = property.name;
+        const keyEntries =
+          ts.isStringLiteralLike(name) || ts.isIdentifier(name)
+            ? [{ usesDensityRecipe: false, tokens: tokenEntries(name, source) }]
+            : ts.isComputedPropertyName(name)
+              ? possibilities(name.expression, resolving)
+              : empty();
+        return combinePossibilities(entries, [...empty(), ...keyEntries]);
+      }, empty());
+    }
+    if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      return [{ usesDensityRecipe: false, tokens: tokenEntries(node, source) }];
+    }
+    if (ts.isTemplateExpression(node)) {
+      let entries = [{ usesDensityRecipe: false, tokens: tokenEntries(node.head, source) }];
+      for (const span of node.templateSpans) {
+        entries = combinePossibilities(entries, possibilities(span.expression, resolving));
+        entries = combinePossibilities(entries, [
+          { usesDensityRecipe: false, tokens: tokenEntries(span.literal, source) },
+        ]);
+      }
+      return entries;
+    }
+    if (ts.isIdentifier(node)) {
+      const binding = resolveBinding(node);
+      if (binding === blockedBinding) return empty();
+      if (!binding && (node.text === "metadataPill" || node.text === "metadataPillDensity")) {
+        return [{ usesDensityRecipe: true, tokens: [] }];
+      }
+      if (!binding) return empty();
+      if (binding.densityRecipe) return [{ usesDensityRecipe: true, tokens: [] }];
+      if (resolving.has(binding)) return empty();
+      const next = new Set(resolving);
+      next.add(binding);
+      if (binding.destructuredFrom) {
+        const sourcePossibilities = possibilities(binding.destructuredFrom, next);
+        if (sourcePossibilities.some((entry) => entry.usesDensityRecipe)) {
+          return [{ usesDensityRecipe: true, tokens: [] }];
+        }
+      }
+      if (!binding.initializer) return empty();
+      return possibilities(binding.initializer, next);
+    }
+    if (ts.isPropertyAccessExpression(node)) {
+      const expressionPossibilities = possibilities(node.expression, resolving);
+      if (expressionPossibilities.some((entry) => entry.usesDensityRecipe)) {
+        return [{ usesDensityRecipe: true, tokens: [] }];
+      }
+      if (ts.isIdentifier(node.expression)) {
+        const binding = resolveBinding(node.expression);
+        if (
+          binding &&
+          binding !== blockedBinding &&
+          binding.namespaceImport &&
+          (node.name.text === "metadataPill" || node.name.text === "metadataPillDensity")
+        ) {
+          return [{ usesDensityRecipe: true, tokens: [] }];
+        }
+        if (binding && binding !== blockedBinding && binding.initializer && !resolving.has(binding)) {
+          const initializer = binding.initializer;
+          const unwrapped = ts.isAsExpression(initializer) ? initializer.expression : initializer;
+          const property = ts.isObjectLiteralExpression(unwrapped)
+            ? unwrapped.properties.find(
+                (candidate) =>
+                  ts.isPropertyAssignment(candidate) &&
+                  ((ts.isIdentifier(candidate.name) && candidate.name.text === node.name.text) ||
+                    (ts.isStringLiteralLike(candidate.name) && candidate.name.text === node.name.text)),
+              )
+            : null;
+          if (property && ts.isPropertyAssignment(property)) {
+            const next = new Set(resolving);
+            next.add(binding);
+            return possibilities(property.initializer, next);
+          }
+        }
+      }
+      return empty();
+    }
+    if (ts.isElementAccessExpression(node)) {
+      const expressionPossibilities = possibilities(node.expression, resolving);
+      if (expressionPossibilities.some((entry) => entry.usesDensityRecipe)) {
+        return [{ usesDensityRecipe: true, tokens: [] }];
+      }
+      if (!ts.isIdentifier(node.expression)) return empty();
+      const binding = resolveBinding(node.expression);
+      if (!binding || binding === blockedBinding || !binding.initializer || resolving.has(binding)) return empty();
+      const initializer = ts.isAsExpression(binding.initializer) ? binding.initializer.expression : binding.initializer;
+      if (!ts.isObjectLiteralExpression(initializer)) return empty();
+      const requested = ts.isStringLiteralLike(node.argumentExpression) ? node.argumentExpression.text : null;
+      const next = new Set(resolving);
+      next.add(binding);
+      return initializer.properties.flatMap((property) => {
+        if (!ts.isPropertyAssignment(property)) return [];
+        const propertyName =
+          ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name) ? property.name.text : null;
+        if (requested !== null && propertyName !== requested) return [];
+        return possibilities(property.initializer, next);
+      });
+    }
+    return empty();
+  }
+
+  function looksLikeClassExpression(node) {
+    const tokens = [];
+    function collect(candidate) {
+      if (ts.isStringLiteralLike(candidate) || ts.isTemplateLiteralToken(candidate)) {
+        tokens.push(...splitUtilityTokens(candidate.text).map(utilityBase));
+      }
+      ts.forEachChild(candidate, collect);
+    }
+    collect(node);
+    if (tokens.length === 0) return false;
+    const utilityCount = tokens.filter((token) => CLASS_UTILITY_PREFIX.test(token)).length;
+    return utilityCount >= 1 && utilityCount / tokens.length >= 0.5;
+  }
+
+  const classRoots = [];
+  function collectClassRoots(node, insideClassAttribute = false) {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      for (const attribute of jsxClassAttributes(node, source)) {
+        if (!ts.isJsxAttribute(attribute) || !attribute.initializer) continue;
+        const expression = ts.isJsxExpression(attribute.initializer)
+          ? attribute.initializer.expression
+          : attribute.initializer;
+        if (expression) classRoots.push({ expression, owner: node, tag: node.tagName.getText(source) });
+      }
+    }
+    if (ts.isCallExpression(node)) {
+      const callee = ts.isIdentifier(node.expression) ? node.expression.text : "";
+      if (CLASS_COMPOSERS.has(callee) && !insideClassAttribute)
+        classRoots.push({ expression: node, owner: node, tag: callee });
+    }
+    if (ts.isVariableDeclaration(node) && node.initializer && looksLikeClassExpression(node.initializer)) {
+      const statement = node.parent?.parent;
+      const exported =
+        statement &&
+        ts.isVariableStatement(statement) &&
+        statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+      const recipeName =
+        ts.isIdentifier(node.name) &&
+        /(?:class|classes|recipe|control|surface|pill|chip|button)$/i.test(node.name.text);
+      if (exported || recipeName) classRoots.push({ expression: node.initializer, owner: node, tag: "recipe" });
+    }
+    const nextInside =
+      insideClassAttribute || (ts.isJsxAttribute(node) && /(?:^|[A-Z])className$/i.test(node.name.getText(source)));
+    if (ts.isReturnStatement(node) && node.expression && looksLikeClassExpression(node.expression)) {
+      let owner = node.parent;
+      while (
+        owner &&
+        !ts.isFunctionDeclaration(owner) &&
+        !ts.isFunctionExpression(owner) &&
+        !ts.isArrowFunction(owner)
+      ) {
+        owner = owner.parent;
+      }
+      const functionName =
+        owner && ts.isFunctionDeclaration(owner)
+          ? owner.name?.text
+          : owner?.parent && ts.isVariableDeclaration(owner.parent) && ts.isIdentifier(owner.parent.name)
+            ? owner.parent.name.text
+            : "";
+      if (/(?:class|classes|recipe|style)$/i.test(functionName ?? "")) {
+        classRoots.push({ expression: node.expression, owner: node, tag: "recipe" });
+      }
+    }
+    ts.forEachChild(node, (child) => collectClassRoots(child, nextInside));
+  }
+  collectClassRoots(source);
+
+  return { classRoots, possibilities, source };
+}
+
+function isColorUtility(base) {
+  const match = base.match(/^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(.+)$/);
+  if (!match) return false;
+  const value = match[1];
+  return COLOR_VALUE.test(value) || /^\[(?:color:)?(?:var\(|#|rgb|hsl|oklch)/.test(value);
+}
+
+function uniqueTokenEntries(possibilities) {
+  const tokens = new Map();
+  for (const possibility of possibilities) {
+    for (const entry of possibility.tokens) tokens.set(entry.id, entry);
+  }
+  return [...tokens.values()];
+}
+
+export function analyzeClassContractsInSource(relativePath, sourceText) {
+  const analyzer = classExpressionAnalyzer(relativePath, sourceText);
+  const result = {
+    darkColorOverrides: [],
+    densityOverrides: [],
+    edgeOwnershipConflicts: [],
+    hardcodedMotionClasses: [],
+    layoutTransitions: [],
+    legacyShadowAliases: [],
+    legacyTapClasses: [],
+    legacyPaletteUtilities: [],
+    literalShadowClasses: [],
+    unapprovedZIndices: [],
+  };
+  if (!analyzer) return result;
+
+  const allTokens = new Map();
+  for (const root of analyzer.classRoots) {
+    const possibilities = analyzer.possibilities(root.expression);
+    const densityConflictsForRoot = new Set();
+    for (const possibility of possibilities) {
+      const bases = possibility.tokens.map(({ token }) => utilityBase(token));
+      if (
+        bases.some((token) => BORDER_WIDTH_UTILITY.test(token)) &&
+        bases.some((token) => RING_WIDTH_UTILITY.test(token))
+      ) {
+        const line = analyzer.source.getLineAndCharacterOfPosition(root.owner.getStart(analyzer.source)).line + 1;
+        result.edgeOwnershipConflicts.push(`${relativePath}:${line}`);
+        break;
+      }
+      const densityConflicts = possibility.tokens.filter(({ token }) => {
+        const base = utilityBase(token);
+        return DENSITY_HEIGHT_UTILITY.test(base) || DENSITY_TEXT_UTILITY.test(base);
+      });
+      if ((root.tag === "Chip" || possibility.usesDensityRecipe) && densityConflicts.length > 0) {
+        for (const { token } of densityConflicts) densityConflictsForRoot.add(utilityBase(token));
+      }
+    }
+    if (densityConflictsForRoot.size > 0) {
+      const line = analyzer.source.getLineAndCharacterOfPosition(root.owner.getStart(analyzer.source)).line + 1;
+      result.densityOverrides.push(`${relativePath}:${line} (${[...densityConflictsForRoot].join(", ")})`);
+    }
+    for (const entry of uniqueTokenEntries(possibilities)) allTokens.set(entry.id, entry);
+  }
+
+  for (const { token, line } of allTokens.values()) {
+    const base = utilityBase(token);
+    const variants = utilityVariants(token);
+    if (base === "transition-all" || HARDCODED_MOTION_UTILITY.test(base)) {
+      result.hardcodedMotionClasses.push(`${relativePath}:${line} (${token})`);
+    }
+    if (LITERAL_SHADOW_UTILITY.test(base)) result.literalShadowClasses.push(`${relativePath}:${line} (${token})`);
+    if (hasLegacyTapClass(token)) result.legacyTapClasses.push(`${relativePath}:${line} (${token})`);
+    for (const match of token.matchAll(LEGACY_SHADOW_ALIAS)) {
+      result.legacyShadowAliases.push(`${relativePath}:${line} (${match[0]})`);
+    }
+    const transition = base.match(/^transition-\[([^\]]+)\]$/);
+    if (transition) {
+      const properties = transition[1].split(/[,_]/).filter(Boolean);
+      for (const property of properties) {
+        if (!SAFE_TRANSITION_PROPERTIES.has(property)) result.layoutTransitions.push({ relativePath, line, property });
+      }
+    }
+    if (/^-?z-(?:\[|\(|\$|$)/.test(base) || /^-?z-\d+$/.test(base)) {
+      const numeric = base.match(/^(-?)z-(?:\[(-?\d+)\]|(-?\d+))$/);
+      const tokenMatch = base.match(/^z-(?:\[var\((--z-[a-z-]+)\)\]|\((--z-[a-z-]+)\))$/);
+      const numericAllowed = numeric && ALLOWED_Z_INDEX_RUNGS.has(Number(`${numeric[1]}${numeric[2] ?? numeric[3]}`));
+      const tokenAllowed = tokenMatch && ALLOWED_Z_INDEX_TOKENS.has(tokenMatch[1] ?? tokenMatch[2]);
+      if (!numericAllowed && !tokenAllowed) result.unapprovedZIndices.push(`${relativePath}:${line} (${token})`);
+    }
+    if (LEGACY_PALETTE_UTILITY.test(base)) result.legacyPaletteUtilities.push(`${relativePath}:${line} (${token})`);
+    if (variants.includes("dark") && isColorUtility(base)) {
+      result.darkColorOverrides.push(`${relativePath}:${line} (${token})`);
+    }
+  }
+
+  result.edgeOwnershipConflicts = [...new Set(result.edgeOwnershipConflicts)];
+  result.densityOverrides = [...new Set(result.densityOverrides)];
+  return result;
+}
+
+export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).edgeOwnershipConflicts;
+}
+
+export function findDensityRecipeOverridesInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).densityOverrides;
+}
+
+export function findHardcodedMotionClassesInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).hardcodedMotionClasses;
+}
+
+export function findLayoutTransitionClassesInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).layoutTransitions;
+}
+
+export function findUnapprovedZIndexClassesInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).unapprovedZIndices;
+}
+
+export function countLegacyPaletteUtilitiesInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).legacyPaletteUtilities.length;
+}
+
+export function countDarkColorOverridesInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).darkColorOverrides.length;
+}
+
+function splitCssShadowLayers(value) {
+  const layers = [];
+  let start = 0;
+  let depth = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (character === "(") depth += 1;
+    else if (character === ")") depth = Math.max(0, depth - 1);
+    else if (character === "," && depth === 0) {
+      layers.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+  layers.push(value.slice(start));
+  return layers;
+}
+
+function topLevelCssTokens(value) {
+  const tokens = [];
+  let start = 0;
+  let depth = 0;
+  for (let index = 0; index <= value.length; index += 1) {
+    const character = value[index];
+    if (character === "(") depth += 1;
+    else if (character === ")") depth = Math.max(0, depth - 1);
+    if ((index === value.length || /\s/.test(character)) && depth === 0) {
+      const token = value.slice(start, index).trim();
+      if (token) tokens.push(token);
+      start = index + 1;
+    }
+  }
+  return tokens;
+}
+
+function layerHasOnePixelSpread(layer) {
+  const lengths = topLevelCssTokens(layer).filter((token) =>
+    /^-?(?:0|\d*\.?\d+(?:px|rem|em|vh|vw|vmin|vmax))$/.test(token),
+  );
+  return lengths.length >= 4 && lengths[3] === "1px";
+}
+
+function cssDeclarations(sourceText) {
+  const declarations = [];
+  postcss.parse(sourceText).walkDecls((declaration) => declarations.push(declaration));
+  return declarations;
+}
+
+function transitionProperties(declaration) {
+  if (declaration.prop === "transition-property") return declaration.value.split(",").map((value) => value.trim());
+  if (declaration.prop !== "transition") return [];
+  return splitCssShadowLayers(declaration.value)
+    .map((layer) => topLevelCssTokens(layer)[0])
+    .filter(Boolean);
+}
+
+export function analyzeCssContractsInSource(relativePath, sourceText) {
+  const result = {
+    hardcodedMotionDurations: [],
+    layoutTransitions: [],
+    legacyShadowAliases: [],
+    onePixelShadowSpreads: [],
+    rawZIndices: [],
+  };
+  for (const declaration of cssDeclarations(sourceText)) {
+    const line = declaration.source?.start?.line ?? 1;
+    const prop = declaration.prop.toLowerCase();
+    for (const match of declaration.value.matchAll(LEGACY_SHADOW_ALIAS)) {
+      result.legacyShadowAliases.push(`${relativePath}:${line} (${prop} ${match[0]})`);
+    }
+    if (prop === "box-shadow" || /^--(?:e[0-4]|shadow-[a-z0-9-]+)$/.test(prop)) {
+      splitCssShadowLayers(declaration.value).forEach((layer, index) => {
+        if (layerHasOnePixelSpread(layer)) {
+          result.onePixelShadowSpreads.push(`${relativePath}:${line} (${prop} layer ${index + 1})`);
+        }
+      });
+    }
+    if (/^(?:transition|animation)(?:-duration|-delay)?$/.test(prop)) {
+      for (const duration of declaration.value.matchAll(/(?<![-\w])\d*\.?\d+(?:ms|s)\b/g)) {
+        result.hardcodedMotionDurations.push(`${relativePath}:${line} (${prop} ${duration[0]})`);
+      }
+    }
+    for (const property of transitionProperties(declaration)) {
+      if (!SAFE_TRANSITION_PROPERTIES.has(property)) result.layoutTransitions.push({ relativePath, line, property });
+    }
+    if (prop === "z-index" && /^-?\d+$/.test(declaration.value.trim())) {
+      result.rawZIndices.push(`${relativePath}:${line} (${declaration.value.trim()})`);
+    }
+  }
+  return result;
+}
+
+export function countOnePixelShadowSpreadsInSource(sourceText) {
+  return analyzeCssContractsInSource("source.css", sourceText).onePixelShadowSpreads.length;
+}
+
+export function countHardcodedCssMotionDurations(sourceText) {
+  return analyzeCssContractsInSource("source.css", sourceText).hardcodedMotionDurations.length;
+}
+
+export function findCssLayoutTransitionsInSource(relativePath, sourceText) {
+  return analyzeCssContractsInSource(relativePath, sourceText).layoutTransitions;
+}
+
+export function countRawCssZIndicesInSource(sourceText) {
+  return analyzeCssContractsInSource("source.css", sourceText).rawZIndices.length;
+}
+
+export function findDebtPathRegressions(metric, currentByPath, baselineByPath) {
+  return Object.entries(currentByPath)
+    .filter(([relativePath, count]) => count > (baselineByPath?.[relativePath] ?? 0))
+    .map(
+      ([relativePath, count]) =>
+        `${metric} at ${relativePath} increased from ${baselineByPath?.[relativePath] ?? 0} to ${count}`,
+    );
 }
 
 function maskRanges(source, ranges) {

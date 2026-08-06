@@ -21,4 +21,11 @@ describe("worker runtime validation", () => {
     expect(result.ok).toBe(false);
     expect(result.errors.some((e) => e.includes("this-package-does-not-exist-12345"))).toBe(true);
   });
+
+  it("treats bare Node builtin externals as resolved", async () => {
+    const result = await validateRuntime({ externals: ["fs", "child_process"], skipPython: true });
+
+    expect(result.ok).toBe(true);
+    expect(result.externals.every((entry) => entry.ok)).toBe(true);
+  });
 });

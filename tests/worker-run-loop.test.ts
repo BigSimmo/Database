@@ -69,14 +69,20 @@ describe("runWorkerLoop", () => {
 
     expect(processFn).toHaveBeenCalledWith(job);
     expect(ctrl.isStopped).toBe(true);
+    expect(claim).toHaveBeenCalledOnce();
   });
 
-  it("stops claiming new jobs after stop", async () => {
+  it("does not claim new jobs after stop during probe", async () => {
     const ctrl = new WorkerRuntimeControl();
+    let probeCount = 0;
     const claim = vi.fn().mockResolvedValue([fakeJob()]);
-    const probe = vi.fn().mockResolvedValue({ ok: true });
-
-    setTimeout(() => ctrl.stop(), 50);
+    const probe = vi.fn().mockImplementation(async () => {
+      probeCount += 1;
+      if (probeCount === 1) {
+        ctrl.stop();
+      }
+      return { ok: true };
+    });
 
     await runWorkerLoop({
       once: false,
@@ -84,17 +90,15 @@ describe("runWorkerLoop", () => {
       healthBackoffMs: 1000,
       maxClaimFailures: 3,
       claim,
-      process: vi.fn().mockImplementation(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 5));
-      }),
+      process: vi.fn(),
       probe,
       backoff: (n) => n * 10,
       controller: ctrl,
       log: () => {},
     });
 
-    expect(claim).toHaveBeenCalled();
-    // After stop, no further claim should happen beyond the in-flight one.
+    expect(ctrl.isStopped).toBe(true);
+    expect(claim).not.toHaveBeenCalled();
   });
 
   it("aborts with exit code 1 in once mode when probe fails", async () => {
@@ -138,5 +142,57 @@ describe("runWorkerLoop", () => {
     });
 
     expect(claim).toHaveBeenCalled();
+  });
+
+  it("captures claim exceptions only on the threshold transition", async () => {
+    const ctrl = new WorkerRuntimeControl();
+    const claim = vi.fn().mockRejectedValue(new Error("claim error"));
+    const probe = vi.fn().mockResolvedValue({ ok: true });
+    const captureException = vi.fn();
+
+    setTimeout(() => ctrl.stop(), 200);
+
+    await runWorkerLoop({
+      once: false,
+      pollMs: 1000,
+      healthBackoffMs: 20,
+      maxClaimFailures: 2,
+      claim,
+      process: vi.fn(),
+      probe,
+      backoff: () => 10,
+      controller: ctrl,
+      log: () => {},
+      captureException,
+    });
+
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException.mock.calls[0]?.[1]).toBe("claim");
+  });
+
+  it("captures process exceptions without aborting the batch", async () => {
+    const ctrl = new WorkerRuntimeControl();
+    const jobs = [fakeJob("job-1"), fakeJob("job-2")];
+    const processFn = vi.fn().mockRejectedValueOnce(new Error("process boom")).mockResolvedValueOnce(undefined);
+    const captureException = vi.fn();
+    const claim = vi.fn().mockResolvedValueOnce(jobs).mockResolvedValue([]);
+
+    await runWorkerLoop({
+      once: true,
+      pollMs: 1000,
+      healthBackoffMs: 1000,
+      maxClaimFailures: 3,
+      claim,
+      process: processFn,
+      probe: vi.fn().mockResolvedValue({ ok: true }),
+      backoff: (n) => n * 10,
+      controller: ctrl,
+      log: () => {},
+      captureException,
+    });
+
+    expect(processFn).toHaveBeenCalledTimes(2);
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException.mock.calls[0]?.[1]).toBe("process");
   });
 });

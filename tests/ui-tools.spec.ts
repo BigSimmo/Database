@@ -817,6 +817,20 @@ test.describe("Clinical KB tools launcher", () => {
       const subtitle = heading.locator("xpath=following-sibling::p[1]");
       await expect(subtitle).toBeVisible();
       const subtitleFontSize = await subtitle.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+      const expectedTypeSizes = await page.evaluate(() => {
+        const resolveFontSize = (token: string) => {
+          const probe = document.createElement("span");
+          probe.style.fontSize = `var(${token})`;
+          document.body.append(probe);
+          const size = Number.parseFloat(getComputedStyle(probe).fontSize);
+          probe.remove();
+          return size;
+        };
+        return {
+          hero: resolveFontSize("--text-hero"),
+          subtitle: resolveFontSize("--text-sm"),
+        };
+      });
 
       const metrics = {
         iconWidth: Math.round(iconBox?.width ?? 0),
@@ -828,8 +842,8 @@ test.describe("Clinical KB tools launcher", () => {
       // (48px since PR 5b), not a standalone pixel choice.
       expect(metrics.iconWidth).toBe(48);
       expect(metrics.iconHeight).toBe(48);
-      expect(metrics.headingFontSize).toBeCloseTo(23.2, 1);
-      expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
+      expect(metrics.headingFontSize).toBeCloseTo(expectedTypeSizes.hero, 1);
+      expect(metrics.subtitleFontSize).toBeCloseTo(expectedTypeSizes.subtitle, 1);
 
       await expectNoPageHorizontalOverflow(page);
     });
@@ -994,7 +1008,9 @@ test.describe("Clinical KB tools launcher", () => {
           timeout: 20_000,
         });
         if (route.ribbonQuery) {
-          const ribbon = page.getByTestId("search-query-ribbon");
+          // Prefer the settled visible ribbon — CI can leave a hidden Next
+          // streaming `#S:1` clone beside the live band (outstanding #093).
+          const ribbon = visibleByTestId(page, "search-query-ribbon");
           await expect(ribbon, `${route.path} at ${viewport.name}`).toBeVisible({ timeout: 20_000 });
           await expect(ribbon.getByRole("heading", { name: route.ribbonQuery })).toBeVisible();
           await expect(ribbon.getByRole("status")).toBeVisible();

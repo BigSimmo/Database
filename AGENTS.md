@@ -238,7 +238,10 @@ action must perform one; a page that ships must be reachable.
   `<button>`; `tests/route-reachability.test.ts` (in `npm run test`) fails when a production page
   route has no inbound nav link unless it is consciously added to that test's documented
   allowlist (redirect targets / legacy-compat routes). Both run in `verify:cheap` and CI. Mockups
-  (`src/app/mockups/**`, `*-mockups.tsx`) are design-scratch and exempt from both.
+  (`src/app/mockups/**`, `*-mockups.tsx`) are design-scratch and exempt from both — **and from
+  nothing else**. Mockups are compiled like any other source: they are typechecked, and their client
+  chunks count toward `check:bundle-budget`'s repo-wide total, so a mockup-only PR can still fail
+  `Build` (PR #1580, `+10.1%` against a 10% tolerance). Do not read "exempt" as "free".
 - **Never** add a production page route without either an inbound link or a documented
   reachability allowlist entry plus an `/issues` note, and never silence the button-wiring rule
   with a blanket disable — wire the control or make it an explicit placeholder.
@@ -366,7 +369,7 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
 - Production services `Database` (Next.js app tier, serves `https://psychiatry.tools`) and `worker` (ingestion) auto-deploy from `BigSimmo/Database` pushes to `main`; the `staging` environment runs the `app` service.
 - The older Railway project `clinical-kb` (`4361c04f-dd3c-4ee9-9e97-49e4e5707b70`) is superseded with zero active deployments; treat it as stale — never `railway link` to it or deploy there.
 - The similarly named Supabase project `Clinical KB Database` is the database/auth tier, not a Railway project; see "Supabase project safety" above.
-- Railway CLI/MCP auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects. The project-scoped Railway MCP server is registered in `.mcp.json`.
+- Railway CLI token auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects; Cloud runtime acceptance no longer installs or probes the CLI, so that substitution rule is documentation-enforced until an operator workflow reintroduces CLI checks. Desktop/CLI MCP uses the secret-free `railway` entry (enable in `$CODEX_HOME/config.toml` or via a never-committed local edit — never commit `enabled = true`) plus `codex mcp login railway`; neither repository MCP file activates a hosted ChatGPT/Codex app.
 - Railway deploys and mutations fall under the "API and provider confirmation boundary" below; verify target project/environment IDs before any mutation.
 
 <!-- END:railway-project-safety -->
@@ -866,10 +869,23 @@ Codex Cloud uses an isolated Linux container and does not inherit desktop files,
 credentials, OAuth sessions, MCP authentication, local services, or uncommitted work.
 Use `docs/codex-cloud.md` as the environment contract:
 
-- Setup: `bash scripts/setup-codex-cloud.sh`.
-- Maintenance: `bash scripts/maintain-codex-cloud.sh`.
+- Configure setup as `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
+- Configure maintenance as `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
 - Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
   Use `connected` only when the user explicitly authorizes the required provider access.
+- When MCP tools are already callable in a Cloud session and the task needs them, use the host
+  plugin/connector inventory. The production Supabase target is limited to prompted, read-only
+  `docs` and `development` metadata tools; do not enable database, SQL, row, or log tools.
+  Write-capable Figma, Railway, and Sentry tools still require explicit confirmation. Paid API
+  canaries (`eval:rag`, `eval:retrieval:quality`, `eval:quality`, `verify:release`,
+  `test:live`, `check:supabase-project`) still need explicit confirmation. Project
+  `.codex/config.toml` keeps Desktop/CLI MCP entries `enabled = false` in git (`check:codex-cloud`
+  fails if any tracked entry is enabled). Opt in locally via `$CODEX_HOME/config.toml` (preferred)
+  or a never-committed project-file edit, then `codex mcp login railway`. Cloud setup never writes
+  Railway or Supabase MCP registrations to `$CODEX_HOME`. Hosted ChatGPT/Codex requires an
+  installed, workspace-authorized, OAuth-authenticated app, and a fresh task must prove the callable
+  inventory with read-only identity calls. Root `.mcp.json` is a static cross-client template, not
+  hosted runtime proof.
 - Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
   read-only identity, branch, status, worktree, and Git-operation checks. Proceed only in a
   clean disposable checkout on a task-specific non-protected branch.
@@ -880,16 +896,28 @@ Use `docs/codex-cloud.md` as the environment contract:
 - Repository setup cannot grant GitHub installation permissions, workspace RBAC, network
   policy, or provider credentials. Treat those as product/account settings and verify them
   separately without printing secret values.
-- In a Cloud agent shell, `npm run check:codex-cloud` validates the tracked contract and
-  effective access-profile modes. Use `npm run check:codex-cloud -- --runtime` for the
-  complete installed toolchain and browser executables. Also run
-  `npm run check:runtime` and `npm run check:installed-lock-parity` before trusting a new
-  or reset environment. A skipped browser install is not full browser readiness. Output is
-  limited to approved mode values, presence booleans, repository identity, and MCP
-  server/command/environment-variable names; never print credential values.
+- In a fresh Cloud task, run `bash scripts/check-codex-cloud-raw-env.sh` before sourcing a
+  profile or entering a login shell. It must report only provider variable names and presence,
+  never values. Treat exit `1` / `FAIL`+`STOP` as a hard stop for any unexpected inherited name.
+  Only exit `2` / `FAIL-KNOWN` for `OPENAI_BASE_URL` alone may use the restricted
+  profile-and-shim continue path; do not generalize that allowance. Exit `2` is still a failed raw
+  boundary — future automation must not treat non-1 as success or as a blind retry. That name can
+  redirect OpenAI-bound traffic, so never invoke OpenAI clients from the raw parent or any binary
+  that bypasses the profile/`node`/`npm`/`npx` scrub. Then run
+  `npm run check:codex-cloud` directly; it must report the static-and-environment PASS line. Run
+  `npm run check:codex-cloud -- --runtime` with `CODEX_CLOUD_EXPECTED_BASE_SHA` set to the
+  intended merge/base commit when the checkout has only a task HEAD. Setup and maintenance may
+  report freshness as unverified so provisioning remains repairable, but explicit acceptance must
+  not pass an arbitrary HEAD. The command shims load the generated profile for normal `node`,
+  `npm`, and `npx` work. Also run `npm run check:runtime` and
+  `npm run check:installed-lock-parity` before trusting a new or reset environment. A skipped
+  browser install is not full browser readiness. Output is limited to approved mode values,
+  presence booleans, full Git commit identities, and MCP server/command/environment-variable
+  names; never print credential values.
 - Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
   Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
-  agent phase; do not copy them into files to bypass that boundary.
+  agent phase unless the platform explicitly exposes a secret to the named task phase; do not
+  copy them into files to bypass that boundary.
 - Provider-backed checks, hosted CI mutations, deployment, production data access, and
   Git publishing still require the explicit authorization defined above.
 - The ordinary offline Cloud profile intentionally cannot perform authenticated production or
@@ -898,24 +926,39 @@ Use `docs/codex-cloud.md` as the environment contract:
   `.github/workflows/authenticated-live-tests.yml` GitHub Actions workflow, its explicit
   dispatch confirmation, and the `Database / production` environment, never by exposing
   credentials to the Codex Cloud agent shell.
-- Railway reads require both the pinned CLI and a dedicated `RAILWAY_API_TOKEN`. Never substitute
-  `RAILWAY_TOKEN`. GitHub CLI authentication, the credential-free `origin` URL, and shell Git
-  authentication are separate capabilities; never add a PAT or token-bearing credential helper.
-- The Codex GitHub connection used to clone a repository is separate from agent-shell
-  `git push` or `gh` authentication. Reconnect the repository in Codex settings if a
-  controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
+- The active hosted workspace is **Personal Pro**. Use Railway's installed official ChatGPT app
+  with browser OAuth and **Allow read actions**; Personal Pro does not provide the dedicated-group
+  RBAC or per-tool action disabling assumed by Enterprise/Edu instructions. Prove Railway with the
+  callable tool inventory and a read-only identity/project-list call. Repository setup and local
+  MCP config cannot activate it, and the Codex Cloud connector page currently offers no Railway
+  connector. Use the documented split control plane: Codex Cloud for code and its native GitHub
+  connector, ChatGPT web for Railway and project-scoped read-only Supabase. Every provider change
+  still requires explicit approval. Enterprise/Edu custom-app controls are a future governance
+  option, not the current workspace classification.
+  CLI token auth is a separate operator capability: it requires a separately installed Railway CLI
+  and a dedicated
+  `RAILWAY_API_TOKEN`, and must never substitute `RAILWAY_TOKEN` or expose either token to an
+  ordinary agent shell. GitHub connector access, GitHub CLI authentication, the credential-free
+  `origin` URL, and shell Git authentication are separate capabilities.
 - For an explicitly authorised GitHub task, use the authenticated GitHub connector/MCP
   tools as the default remote control plane. Use them for repository, PR, issue, review
   thread, and Actions work, including inline-thread replies/resolution, Actions
   run/job/log/artifact inspection, and approved branch, file, or PR mutations. Missing
   `gh`, shell GitHub credentials, or direct shell network access is not a loss of this
-  capability and must not prompt a PAT workaround. The intended connection is `BigSimmo`
-  with administrator access to this repository. Use shell `git` or `gh` only for a
-  genuine connector gap and only when the task permits it.
-- Confirm the exact repository and PR/thread/job before a write, and verify the
-  connector result before treating the write as successful. If the connector lacks a
-  needed GitHub setting or organisation control, report that limit rather than attempting a
-  credential, secret, or shell-based bypass.
+  capability. The intended connection is `BigSimmo` with repository write access.
+  Reserve administrator access for separately approved operations.
+- In Codex Cloud, use native Push, the authenticated GitHub connector, or GitHub's UI for branch
+  publication and cleanup. `CODEX_CLOUD_GITHUB_PAT` is excluded from every Cloud agent shell.
+  The helper `bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>` is
+  operator-only outside Codex Cloud; it must reject `CODEX_CLOUD=1`, validate the exact
+  non-protected ref and credential-free origin, and never print the token. If the native or
+  connector path is unavailable, report the platform limit rather than copying a PAT into a
+  profile, remote URL, cached file, or agent environment.
+- Confirm the exact repository and PR/thread/job before a write, and verify the connector
+  result before treating the write as successful. A repository cannot sanitize a variable
+  already inherited by the top-level task process; the tracked shims protect normal
+  `node`/`npm`/`npx` commands. Report raw-parent exposure as a Codex Cloud launcher defect
+  rather than weakening the provider-variable contract.
 - Cloud browser proof is Playwright/Chromium, Firefox, or WebKit container evidence, not
   physical iPhone Safari/PWA acceptance.
 
@@ -923,6 +966,7 @@ Use `docs/codex-cloud.md` as the environment contract:
 
 Durable notes for Cloud Agents. Standard commands live in `README.md` and `package.json`; only non-obvious caveats are captured here.
 
+- Context7 peer-library docs habit (and the Next 16 local-docs carve-out) lives in `docs/agents-guide.md`. Project MCP is local `@upstash/context7-mcp@3.2.5` with `CONTEXT7_API_KEY` from env/Secrets. If the host-injected Context7 MCP returns quota exceeded, use `npx ctx7 library|docs …` with the same secret — do not invent peer APIs from training data.
 - Runtime: the app hard-requires Node 24.x / npm 11.x (`engine-strict`, and `scripts/dev-free-port.mjs` exits on any other major). Node 24 is installed via nvm and symlinked into `/usr/local/cargo/bin` (first entry in `PATH`) so `node`/`npm` resolve to v24 in every shell. If a shell ever resolves `/exec-daemon/node` (v22) instead, prepend the installed nvm Node 24 bin to `PATH` (for example `"$HOME/.nvm/versions/node/v24.18.1/bin"`; run `ls "$HOME/.nvm/versions/node"` to confirm the exact patch version).
 - Live vs demo mode: the app auto-detects. When the Supabase + OpenAI env vars below are present (set them as Cloud Agent **Secrets** so they inject into `.env.local`/`process.env`), `isDemoMode()` (`src/lib/env.ts`) is false and the app runs against the live `Clinical KB Database` project (~2000 indexed docs) with OpenAI answer generation. When they are absent, dev auto-falls back to demo mode using the synthetic corpus in `src/lib/demo-data.ts` / `public/demo-documents/`. Required for live mode: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_PROJECT_REF`, `SUPABASE_PROJECT_NAME`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…`), `SUPABASE_SERVICE_ROLE_KEY` (accepts the `sb_secret_…` secret key), `OPENAI_API_KEY`. Keep `RAG_PROVIDER_MODE=auto` so OpenAI is used with graceful source-only fallback. `E2E_USER_EMAIL`/`E2E_USER_PASSWORD` power CI env-check and Playwright.
 - Live-mode caveat: `RAG_PROVIDER_MODE=auto` attempts OpenAI (fast → strong route); if generation fails the built-in quality gates it silently degrades to a deterministic "Source-only" answer that still cites real documents — this is expected, not a failure. The header sign-in UI exposes magic-link + OAuth only (no password field), but the `/api/answer` + retrieval flow works server-side without a browser session.
@@ -933,7 +977,7 @@ Durable notes for Cloud Agents. Standard commands live in `README.md` and `packa
   connector/MCP tools first for PR, issue, comment, review-thread, and Actions tasks they
   support (including run/job/log/artifact inspection and review-thread replies/resolution).
   A missing `gh` CLI is not a blocker for connector-supported work; never add a PAT as a
-  workaround. The intended connection is `BigSimmo` with administrator access to this
-  repository. Verify the exact target and connector result before any write. Ordinary
+  workaround. The intended connection is `BigSimmo` with repository write access.
+  Reserve administrator access for separately approved operations. Verify the exact target and connector result before any write. Ordinary
   authorised shell `git` branch publication remains allowed; use shell `gh` only for a
   genuine connector gap and only when the task permits it.

@@ -4,6 +4,7 @@ import { createContext, useContext, useMemo, useState, useDeferredValue, type Re
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useTherapyData } from "./data/use-therapy-data";
+import { THERAPY_CATALOGUE_SUMMARY } from "./data/generated-assets";
 import {
   EMPTY_SEARCH,
   RECOMMEND_CONSTRAINTS,
@@ -15,7 +16,24 @@ import {
 } from "./data/select";
 import type { Pathway, ReferenceData, Therapy } from "./data/types";
 
-const KNOWN_SCREENS = ["search", "detail", "compare", "recommend", "pathways", "brief", "home", "sheets"] as const;
+export const KNOWN_SCREENS = [
+  "search",
+  "detail",
+  "compare",
+  "recommend",
+  "pathways",
+  "brief",
+  "home",
+  "sheets",
+] as const;
+/**
+ * The screens with a module of their own. Anything else `resolveRoute` produces
+ * — `review` today — falls through to the generic screen, which is what
+ * `isOther` below reports. Exported so the mode nav can declare its item ids
+ * against it: an id that is not a screen name could never be matched by the
+ * `activeId` the nav passes.
+ */
+export type TherapyScreen = (typeof KNOWN_SCREENS)[number];
 export const MAX_COMPARE = 4;
 
 // Therapy Compass now owns a route family under this base. Screen state is derived
@@ -51,6 +69,7 @@ export type TcBindings = {
   error: string | null;
   retryData: () => void | Promise<void>;
   therapies: Therapy[];
+  therapyCount: number;
   unreviewedTherapies: Therapy[];
   reviewCount: number;
   pathways: Pathway[];
@@ -68,24 +87,18 @@ export type TcBindings = {
   goSheets: () => void;
   goDetail: () => void;
   goReview: () => void;
-  isSearch: boolean;
-  isDetail: boolean;
-  isCompare: boolean;
-  isRecommend: boolean;
-  isPathways: boolean;
-  isBrief: boolean;
   isHome: boolean;
-  isSheets: boolean;
   isOther: boolean;
   otherLabel: string;
-  navHome: string;
-  navSearch: string;
-  navRecommend: string;
-  navCompare: string;
-  navPathways: string;
-  navBrief: string;
-  navSheets: string;
-  navReview: string;
+  /**
+   * Real URLs for the two record-scoped destinations, resolved the same way
+   * `goBrief`/`goSheets` resolve their targets. `ModeNav` takes an href and
+   * never an onClick, so the resolution has to be a value rather than a
+   * handler — and one shared helper feeds both, so a link and its imperative
+   * twin can never disagree about where they go.
+   */
+  briefHref: string;
+  sheetHref: string;
 
   // ---- active therapy (detail / brief / sheet) ------------------------
   selectedSlug: string | null;
@@ -106,6 +119,7 @@ export type TcBindings = {
   toggleSheetOnly: () => void;
   toggleReviewedOnly: () => void;
   clearSearch: () => void;
+  clearSearchFilters: () => void;
 
   // ---- compare --------------------------------------------------------
   compareSlugs: string[];
@@ -185,17 +199,6 @@ export type TcBindings = {
 
 const TcContext = createContext<TcBindings | null>(null);
 
-function navStyle(active: boolean): string {
-  return [
-    "inline-flex min-h-tap flex-none items-center justify-center gap-2 whitespace-nowrap rounded-md border border-transparent bg-transparent px-[13px] py-2 text-sm-minus font-medium text-[color:var(--text-muted)] no-underline",
-    "hover:enabled:border-[color:var(--border-strong)] hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
-    active
-      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] font-semibold text-[color:var(--clinical-accent-hover)]"
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
 function tabStyle(active: boolean): string {
   return [
     "inline-flex min-h-tap items-center justify-center border-0 border-b-2 border-b-transparent bg-transparent px-1 py-2.5 text-sm font-medium text-[color:var(--text-muted)]",
@@ -231,16 +234,19 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { screen, slug: routeSlug } = resolveRoute(pathname);
+  const isHome = screen === "home";
   // Search needs the complete prose corpus to preserve its existing weighted
-  // matches (#1471). Home uses the smallest landing projection; pathways use
-  // the thin browse index — keeping the 2.5 MB full dataset off those paints.
-  const catalogue = screen === "home" ? "home" : screen === "pathways" ? "index" : "full";
+  // matches (#1471). Home paints from generated summary metadata without a
+  // catalogue request; pathways use the thin browse index.
+  const catalogue = screen === "pathways" ? "index" : "full";
   const { data, loading, error, retry } = useTherapyData({
     catalogue,
     includePathways: screen === "pathways",
     includeReference: false,
+    enabled: !isHome,
   });
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
+  const therapyCount = isHome ? THERAPY_CATALOGUE_SUMMARY.totalCount : therapies.length;
   const pathways = useMemo(() => data?.pathways ?? [], [data]);
 
   // The active screen and therapy are derived from the URL: each workspace route
@@ -345,12 +351,32 @@ export function TcProvider({ children }: { children: ReactNode }) {
     const openSheetOr = (slug: string) => {
       if (hasSheet(slug)) openSlug(slug, "sheet");
     };
+    // One resolver for both the href and the imperative push. The generated
+    // default is unconditional rather than home-only: a `<Link>` needs a real
+    // URL for SSR, prefetch and middle-click, and `THERAPY_CATALOGUE_SUMMARY`
+    // is static module data available before the catalogue has loaded. The
+    // consequence is deliberate — these destinations are always navigable, so
+    // with nothing selected they open the first record carrying the artifact.
+    const artifactSlug = (has: (therapy: Therapy) => boolean, fallback: string) => {
+      const selected = effectiveSelectedSlug ? bySlug.get(effectiveSelectedSlug) : undefined;
+      if (selected && has(selected)) return selected.slug;
+      return therapies.find(has)?.slug ?? fallback;
+    };
+    const briefHref = `${BASE}/${artifactSlug(
+      (therapy) => therapy.briefInterventionAvailable,
+      THERAPY_CATALOGUE_SUMMARY.defaultBriefSlug,
+    )}/brief`;
+    const sheetHref = `${BASE}/${artifactSlug(
+      (therapy) => therapy.patientSheetAvailable,
+      THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug,
+    )}/sheet`;
 
     return {
       loading,
       error,
       retryData: retry,
       therapies,
+      therapyCount,
       unreviewedTherapies,
       reviewCount: unreviewedTherapies.length,
       pathways,
@@ -363,38 +389,17 @@ export function TcProvider({ children }: { children: ReactNode }) {
       goRecommend: () => go("recommend"),
       goCompare: () => go("compare"),
       goPathways: () => go("pathways"),
-      goBrief: () => {
-        const target = hasBrief(effectiveSelectedSlug)
-          ? effectiveSelectedSlug
-          : therapies.find((therapy) => therapy.briefInterventionAvailable)?.slug;
-        if (target) openBriefOr(target);
-      },
-      goSheets: () => {
-        const target = hasSheet(effectiveSelectedSlug)
-          ? effectiveSelectedSlug
-          : therapies.find((therapy) => therapy.patientSheetAvailable)?.slug;
-        if (target) openSheetOr(target);
-      },
+      // Same value the nav links to, so the button and the link can never
+      // disagree about the destination.
+      goBrief: () => router.push(briefHref),
+      goSheets: () => router.push(sheetHref),
       goDetail: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug) : go("home")),
       goReview: () => go("review"),
-      isSearch: screen === "search",
-      isDetail: screen === "detail",
-      isCompare: screen === "compare",
-      isRecommend: screen === "recommend",
-      isPathways: screen === "pathways",
-      isBrief: screen === "brief",
       isHome: screen === "home",
-      isSheets: screen === "sheets",
-      isOther: !KNOWN_SCREENS.includes(screen as (typeof KNOWN_SCREENS)[number]),
+      isOther: !KNOWN_SCREENS.includes(screen as TherapyScreen),
       otherLabel: screen.charAt(0).toUpperCase() + screen.slice(1),
-      navHome: navStyle(screen === "home"),
-      navSearch: navStyle(screen === "search"),
-      navRecommend: navStyle(screen === "recommend"),
-      navCompare: navStyle(screen === "compare"),
-      navPathways: navStyle(screen === "pathways"),
-      navBrief: navStyle(screen === "brief"),
-      navSheets: navStyle(screen === "sheets"),
-      navReview: navStyle(screen === "review"),
+      briefHref,
+      sheetHref,
 
       selectedSlug: effectiveSelectedSlug,
       selectedTherapy,
@@ -434,6 +439,10 @@ export function TcProvider({ children }: { children: ReactNode }) {
       toggleSheetOnly: () => setSearch((prev) => ({ ...prev, sheetOnly: !prev.sheetOnly })),
       toggleReviewedOnly: () => setSearch((prev) => ({ ...prev, reviewedOnly: !prev.reviewedOnly })),
       clearSearch: () => setSearch(EMPTY_SEARCH),
+      // Filter-only clear. The results-band shelf lists filters and says so
+      // ("Filtered by"), so its Clear must not delete the search term the user
+      // is reading — that is a control doing more than it advertises.
+      clearSearchFilters: () => setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query })),
 
       compareSlugs,
       compareTherapies,
@@ -519,6 +528,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
     retry,
     data,
     therapies,
+    therapyCount,
     bySlug,
     unreviewedTherapies,
     pathways,

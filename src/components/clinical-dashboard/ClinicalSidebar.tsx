@@ -170,7 +170,7 @@ export function ClinicalSidebarContent({
 
         <section className="min-w-0 shrink-0">
           <div className="mb-2 flex items-center justify-between gap-2 px-1">
-            <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Recent chats</p>
+            <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Recent chats</p>
           </div>
           <div className="grid gap-1">
             {visibleRecentQueries.length ? (
@@ -211,7 +211,7 @@ export function ClinicalSidebarContent({
 
         <section className="min-w-0 shrink-0">
           <div className="mb-2 flex items-center justify-between gap-2 px-1">
-            <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Navigation</p>
+            <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Navigation</p>
           </div>
           <nav aria-label="Navigation" className="grid gap-0.5">
             {visibleSidebarToolItems.map((item) => {
@@ -236,7 +236,7 @@ export function ClinicalSidebarContent({
                   <Icon
                     className={cn(
                       "h-4 w-4 shrink-0",
-                      active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                      active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
                     )}
                   />
                   <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
@@ -249,7 +249,7 @@ export function ClinicalSidebarContent({
         {showAccountLibrary ? (
           <section className="min-w-0 shrink-0">
             <div className="mb-2 flex items-center justify-between gap-2 px-1">
-              <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
+              <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                 Your library
               </p>
             </div>
@@ -273,7 +273,7 @@ export function ClinicalSidebarContent({
                     <Icon
                       className={cn(
                         "h-4 w-4 shrink-0",
-                        active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                        active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
                       )}
                     />
                     <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>

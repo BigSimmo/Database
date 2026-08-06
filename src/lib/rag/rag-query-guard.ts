@@ -32,3 +32,40 @@ export function isUnsupportedSoftTailAnalysis(query: string, analysis: ClinicalQ
   if (clearlyNonClinicalConsumerPattern.test(query)) return false;
   return analysis.confidence <= 0.42 && analysis.expandedTerms.length <= 5;
 }
+
+/**
+ * Soft-tail zeros should skip search/answer cache writes only when a nondeterministic
+ * classifier call could have produced them. Without an API key the classifier path is
+ * unreachable (`analyzeQueryWithClassifierFallback` returns early), and an
+ * `"out_of_corpus"` grounding verdict is a deterministic corpus-derived true negative —
+ * both stay cacheable.
+ */
+export function shouldSkipUnsupportedSoftTailCacheWrite(
+  query: string,
+  analysis: ClinicalQueryAnalysis,
+  options: {
+    openAiApiKeyPresent: boolean;
+    corpusGrounding?: ClinicalQueryAnalysis["corpusGrounding"];
+  },
+): boolean {
+  if (!options.openAiApiKeyPresent) return false;
+  const grounding = options.corpusGrounding ?? analysis.corpusGrounding;
+  if (grounding === "out_of_corpus") return false;
+  return isUnsupportedSoftTailAnalysis(query, analysis);
+}
+
+/** Answer-path counterpart: only skip when the empty unsupported refusal came from the soft-tail short circuit. */
+export function shouldSkipUnsupportedSoftTailAnswerCacheWrite(args: {
+  resultCount: number;
+  retrievalStrategy: string | undefined;
+  query: string;
+  analysis: ClinicalQueryAnalysis;
+  openAiApiKeyPresent: boolean;
+  corpusGrounding?: ClinicalQueryAnalysis["corpusGrounding"];
+}): boolean {
+  if (args.resultCount > 0 || args.retrievalStrategy !== "unsupported_short_circuit") return false;
+  return shouldSkipUnsupportedSoftTailCacheWrite(args.query, args.analysis, {
+    openAiApiKeyPresent: args.openAiApiKeyPresent,
+    corpusGrounding: args.corpusGrounding,
+  });
+}

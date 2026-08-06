@@ -23,7 +23,7 @@ const VARIANT: Record<ButtonVariant, string> = {
   ghost:
     "bg-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
   danger:
-    "bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)] shadow-[var(--shadow-tight)] hover:brightness-110 active:brightness-95",
+    "bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--danger-solid-hover)] active:bg-[color:var(--danger-solid-active)]",
 };
 
 // Height is the tap target and never drops below `--spacing-tap` (48px); `size` moves the optical

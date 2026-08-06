@@ -35,7 +35,6 @@ cd "$repo_root"
 
 expected_node_major="$(tr -cd '0-9' < .node-version)"
 expected_npm_version="$(sed -n 's/.*"packageManager"[[:space:]]*:[[:space:]]*"npm@\([^"]*\)".*/\1/p' package.json | head -n 1)"
-railway_cli_version="5.30.1"
 codex_cli_version="0.146.0"
 expected_cloud_python="3.12"
 [[ -n "$expected_node_major" ]] || fail "Could not read the Node major from .node-version."
@@ -60,6 +59,7 @@ install_npm_cli() {
   [[ "$actual_version" = "$expected_version" ]] || fail "${command_name} ${expected_version} is required; detected ${actual_version:-unavailable}."
 }
 
+setup_step="node-runtime"
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 setup_step="node-runtime"
 actual_node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
@@ -79,6 +79,25 @@ if [[ "$(npm --version)" != "$expected_npm_version" ]]; then
   hash -r
 fi
 
+setup_step="runtime-profile"
+access_profile="${CODEX_CLOUD_ACCESS_PROFILE:-offline}"
+case "$access_profile" in
+  offline|connected) ;;
+  *) fail "Unsupported CODEX_CLOUD_ACCESS_PROFILE: $access_profile" ;;
+esac
+
+# Resolve the retrieval mode at setup time so the generated profile pins the
+# value configured in the Codex environment. The agent shell does not inherit
+# these variables, so a runtime `${RAG_PROVIDER_MODE:-auto}` fallback would
+# override a connected environment configured for offline retrieval.
+if [[ "$access_profile" = "connected" ]]; then
+  rag_provider_mode="${RAG_PROVIDER_MODE:-offline}"
+  [[ "$rag_provider_mode" = "offline" ]] ||
+    fail "Ordinary Codex Cloud must keep RAG_PROVIDER_MODE=offline; run live OpenAI checks only in the protected provider workflow."
+else
+  rag_provider_mode="offline"
+fi
+
 runtime_profile="$HOME/.clinical-kb-codex-cloud.sh"
 setup_step="runtime-profile"
 cat > "$runtime_profile" <<EOF
@@ -91,13 +110,13 @@ fi
 export PATH="\$HOME/.local/bin:\$HOME/.deno/bin:\$HOME/.cache/clinical-kb-codex/ocr-venv-${expected_cloud_python}/bin:\$PATH"
 export CODEX_CLOUD_OCR_PYTHON="\$HOME/.cache/clinical-kb-codex/ocr-venv-${expected_cloud_python}/bin/python"
 export CODEX_CLOUD=1
-export CODEX_CLOUD_ACCESS_PROFILE="\${CODEX_CLOUD_ACCESS_PROFILE:-offline}"
+export CODEX_CLOUD_ACCESS_PROFILE="${access_profile}"
 export NEXT_PUBLIC_DEMO_MODE="\${NEXT_PUBLIC_DEMO_MODE:-true}"
 export PLAYWRIGHT_OFFLINE_MODE="\${PLAYWRIGHT_OFFLINE_MODE:-true}"
 unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy
-# Connected access is provided by OAuth-backed MCP servers and the GitHub
-# connector, never by raw provider variables in the agent shell. Scrub the
-# complete inventory in both profiles in case setup-only secrets were inherited.
+# Connected access is provided by host-installed, OAuth-backed apps, never by
+# repository MCP registration or raw provider variables in the agent shell.
+# Scrub the complete inventory in both profiles in case setup-only secrets were inherited.
 unset OPENAI_API_KEY OPENAI_ORG_ID OPENAI_PROJECT_ID OPENAI_BASE_URL
 unset NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY NEXT_PUBLIC_SUPABASE_ANON_KEY
 unset SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY
@@ -105,13 +124,14 @@ unset SUPABASE_PROJECT_REF SUPABASE_PROJECT_NAME SUPABASE_STAGING_PROJECT_REF SU
 unset SUPABASE_ACCESS_TOKEN SUPABASE_SERVICE_ROLE_KEY SUPABASE_DB_URL DATABASE_URL POSTGRES_PASSWORD
 unset CROSS_TENANT_SERVICE_ROLE_KEY
 unset RAILWAY_API_TOKEN RAILWAY_TOKEN
-unset GH_TOKEN GITHUB_TOKEN GITLAB_TOKEN GLAB_TOKEN CODEX_TRIGGER_TOKEN
+unset GH_TOKEN GITHUB_TOKEN GITLAB_TOKEN GLAB_TOKEN CODEX_TRIGGER_TOKEN CODEX_CLOUD_GITHUB_PAT
 unset HEALTH_DEEP_PROBE_SECRET INDEXING_V3_AGENT_SECRET
 unset FIGMA_CLIENT_ID FIGMA_CLIENT_SECRET FIGMA_ACCESS_TOKEN FIGMA_PERSONAL_ACCESS_TOKEN
 unset FIGMA_TOKEN FIGMA_NPM_TOKEN
+unset SENTRY_AUTH_TOKEN SENTRY_DSN NEXT_PUBLIC_SENTRY_DSN
 unset E2E_AUTH_ENABLED E2E_USER_EMAIL E2E_USER_PASSWORD ALLOW_PROVIDER_TESTS
 if [ "\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]; then
-  export RAG_PROVIDER_MODE="\${RAG_PROVIDER_MODE:-auto}"
+  export RAG_PROVIDER_MODE="${rag_provider_mode}"
 else
   export CODEX_CLOUD_ACCESS_PROFILE=offline
   export RAG_PROVIDER_MODE=offline
@@ -119,6 +139,88 @@ else
   export PLAYWRIGHT_OFFLINE_MODE=true
 fi
 EOF
+
+# Codex spawns commands through a policy in ~/.codex/config.toml. Inheriting the
+# whole environment while relying only on the CLI's name-based default excludes
+# leaks provider variables that do not look credential-like (e.g. SUPABASE_URL,
+# DATABASE_URL) into shells that never source the runtime profile above, so
+# exclude the full provider inventory explicitly. Only the managed block is
+# rewritten; any other Codex CLI settings (mcp_servers, model, profiles, notify)
+# already in the file are preserved across setup/maintenance re-runs.
+codex_shell_policy_excludes=(
+  OPENAI_API_KEY OPENAI_ORG_ID OPENAI_PROJECT_ID OPENAI_BASE_URL
+  NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY NEXT_PUBLIC_SUPABASE_ANON_KEY
+  SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY
+  SUPABASE_PROJECT_REF SUPABASE_PROJECT_NAME SUPABASE_STAGING_PROJECT_REF SUPABASE_STAGING_PROJECT_NAME
+  SUPABASE_ACCESS_TOKEN SUPABASE_SERVICE_ROLE_KEY SUPABASE_DB_URL DATABASE_URL POSTGRES_PASSWORD
+  CROSS_TENANT_SERVICE_ROLE_KEY
+  RAILWAY_API_TOKEN RAILWAY_TOKEN
+  GH_TOKEN GITHUB_TOKEN GITLAB_TOKEN GLAB_TOKEN CODEX_TRIGGER_TOKEN CODEX_CLOUD_GITHUB_PAT
+  HEALTH_DEEP_PROBE_SECRET INDEXING_V3_AGENT_SECRET
+  FIGMA_CLIENT_ID FIGMA_CLIENT_SECRET FIGMA_ACCESS_TOKEN FIGMA_PERSONAL_ACCESS_TOKEN
+  FIGMA_TOKEN FIGMA_NPM_TOKEN
+  SENTRY_AUTH_TOKEN SENTRY_DSN NEXT_PUBLIC_SENTRY_DSN
+  E2E_AUTH_ENABLED E2E_USER_EMAIL E2E_USER_PASSWORD ALLOW_PROVIDER_TESTS
+)
+codex_exclude_toml=""
+for exclude_var in "${codex_shell_policy_excludes[@]}"; do
+  [[ -n "$codex_exclude_toml" ]] && codex_exclude_toml+=", "
+  codex_exclude_toml+="\"$exclude_var\""
+done
+
+codex_config_dir="$HOME/.codex"
+codex_config_file="$codex_config_dir/config.toml"
+mkdir -p "$codex_config_dir"
+codex_policy_begin="# BEGIN clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)"
+codex_policy_end="# END clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)"
+if [[ -f "$codex_config_file" ]]; then
+  # An interrupted prior write can leave BEGIN without END. The sed range below
+  # would then delete from BEGIN to EOF and discard unrelated settings, so fail
+  # before rewriting rather than silently truncating preserved config.
+  if grep -Fq "$codex_policy_begin" "$codex_config_file" && ! grep -Fq "$codex_policy_end" "$codex_config_file"; then
+    fail "Incomplete managed shell policy block in $codex_config_file; remove the incomplete BEGIN marker before re-running setup."
+  fi
+  codex_config_preserved="$(sed "/^${codex_policy_begin}\$/,/^${codex_policy_end}\$/d" "$codex_config_file")"
+  # After stripping the managed block, reject every supported TOML declaration
+  # of shell_environment_policy before appending ours. This covers bare or
+  # quoted table headers, dotted keys, and inline tables, while full-line
+  # comments are ignored.
+  if printf '%s\n' "$codex_config_preserved" | sed '/^[[:space:]]*#/d' | grep -Eq \
+    '^[[:space:]]*\[[^]]*shell_environment_policy[^]]*\]|^[[:space:]]*[^[:space:]]*shell_environment_policy[^[:space:]]*[[:space:]]*\.|^[[:space:]]*[^[:space:]]*shell_environment_policy[^[:space:]]*[[:space:]]*=[[:space:]]*\{'; then
+    fail "Unmanaged [shell_environment_policy] table found in $codex_config_file; remove it before re-running setup."
+  fi
+else
+  codex_config_preserved=""
+fi
+
+# Write beside the destination then rename it atomically. If setup is
+# interrupted or output fails, the existing Codex configuration remains intact.
+codex_config_candidate="$(mktemp "$codex_config_dir/.config.toml.XXXXXX")"
+trap 'rm -f "$codex_config_candidate"' EXIT
+{
+  if [[ -n "$codex_config_preserved" ]]; then
+    printf '%s\n' "$codex_config_preserved"
+  fi
+  printf '%s\n' "$codex_policy_begin"
+  printf '[shell_environment_policy]\n'
+  printf 'inherit = "all"\n'
+  printf 'ignore_default_excludes = false\n'
+  printf 'exclude = [%s]\n' "$codex_exclude_toml"
+  printf '%s\n' "$codex_policy_end"
+} > "$codex_config_candidate"
+if [[ "${CODEX_CLOUD_SETUP_TEST_FAIL_ATOMIC_WRITE:-0}" = "1" ]]; then
+  log "Forcing failure after writing the atomic candidate (test harness)."
+  false
+fi
+mv -f "$codex_config_candidate" "$codex_config_file"
+trap - EXIT
+
+# Test harness only: write the runtime profile + shell policy, then stop before
+# toolchain installs so unit tests can exercise config merge without npm/Playwright.
+if [[ "${CODEX_CLOUD_SETUP_STOP_AFTER_POLICY:-0}" = "1" ]]; then
+  log "Stopping after shell-policy write (test harness)."
+  exit 0
+fi
 
 profile_source='[ -f "$HOME/.clinical-kb-codex-cloud.sh" ] && . "$HOME/.clinical-kb-codex-cloud.sh"'
 for shell_profile in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.bash_profile"; do
@@ -135,17 +237,20 @@ log "Installing locked Node dependencies."
 setup_step="node-dependencies"
 npm ci --include=dev
 
-install_npm_cli "@railway/cli" "$railway_cli_version" "railway"
+setup_step="codex-cli"
 install_npm_cli "@openai/codex" "$codex_cli_version" "codex"
 
+setup_step="git-remote"
 node scripts/ensure-codex-cloud-git-remote.mjs --configure-gh-helper
 
+setup_step="deno-runtime"
 if ! command -v deno >/dev/null 2>&1 || [[ "$(deno --version 2>/dev/null | sed -n '1s/^deno \([0-9]*\).*/\1/p')" != "2" ]]; then
   log "Installing Deno 2.x."
   npm install --global 'deno@2'
   hash -r
 fi
 
+setup_step="system-packages"
 python_bin="$(command -v python3 || command -v python || true)"
 setup_step="system-packages"
 system_packages=()
@@ -186,6 +291,11 @@ log "Installing Python worker requirements."
 setup_step="python-worker-requirements"
 "$ocr_venv/bin/python" -m pip install --disable-pip-version-check --require-hashes -r worker/python/requirements-cloud.txt
 "$ocr_venv/bin/python" -m pip check
+requirements_marker="$ocr_venv/.requirements-cloud.sha256"
+requirements_marker_candidate="${requirements_marker}.tmp"
+sha256sum worker/python/requirements-cloud.txt | awk '{print $1}' > "$requirements_marker_candidate"
+mv -f "$requirements_marker_candidate" "$requirements_marker"
+"$ocr_venv/bin/python" -c 'from importlib.metadata import version; print("medspacy=%s spacy=%s" % (version("medspacy"), version("spacy")))'
 export CODEX_CLOUD_OCR_PYTHON="$ocr_venv/bin/python"
 
 if [[ "${CODEX_CLOUD_SKIP_BROWSER_INSTALL:-0}" = "1" ]]; then
@@ -201,7 +311,7 @@ npm run check:runtime
 npm run check:installed-lock-parity
 npm run check:worker-python-locks:static
 npm run check:codex-cloud
-npm run check:codex-cloud -- --runtime
+CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime
 npm run diagnose:codex-cloud
 trap - ERR
 log "Setup complete with ${CODEX_CLOUD_ACCESS_PROFILE} access profile."

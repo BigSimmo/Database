@@ -36,6 +36,17 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isWarningConsolidationMockup = pathname === "/mockups/warning-consolidation";
   const isWarningLineMockup = pathname === "/mockups/warning-line";
   const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
+  // Draws its own sticky chrome + device frames for /privacy; shared shell would
+  // read as a second real header over the study.
+  const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
+  const isPrivacyLiveSignalPerfectedMockup = pathname === "/mockups/privacy-live-signal-perfected";
+  // These studies draw complete app shells and their own search composers, so
+  // shared chrome would make the interaction studies ambiguous.
+  const isSearchLensMenuMockup = pathname === "/mockups/search-lens-menu";
+  const isPinnedPlusMenuMockup = pathname === "/mockups/pinned-plus-menu";
+  // Draws its own phone frames with an in-frame Choose mode sheet; shared chrome
+  // would read as a second real header over the study.
+  const isPhoneModeSheetYesMockup = pathname === "/mockups/phone-mode-sheet-yes";
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
@@ -76,7 +87,12 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
-        !isAnswerHomeProposalMockup
+        !isAnswerHomeProposalMockup &&
+        !isPrivacyPageDirectionsMockup &&
+        !isPrivacyLiveSignalPerfectedMockup &&
+        !isSearchLensMenuMockup &&
+        !isPinnedPlusMenuMockup &&
+        !isPhoneModeSheetYesMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -87,7 +103,12 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
-        !isAnswerHomeProposalMockup
+        !isAnswerHomeProposalMockup &&
+        !isPrivacyPageDirectionsMockup &&
+        !isPrivacyLiveSignalPerfectedMockup &&
+        !isSearchLensMenuMockup &&
+        !isPinnedPlusMenuMockup &&
+        !isPhoneModeSheetYesMockup
       }
     >
       {children}

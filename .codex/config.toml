@@ -1,18 +1,36 @@
-# Secret-free, project-scoped MCP registrations shared by trusted Codex hosts.
-# OAuth credentials remain in each Codex host's credential store.
+# Secret-free MCP registrations for trusted Codex Desktop/CLI hosts.
+# OAuth credentials remain in each host credential store — never commit them here.
+#
+# checked-in policy:
+# - enabled = false so ordinary/offline Codex sessions do not initialize providers
+#   (check:codex-cloud fails if any tracked entry is enabled; opt in via
+#   $CODEX_HOME/config.toml or a never-committed local edit)
+# - production Supabase uses "prompt" so every metadata/read operation requires
+#   explicit approval; write-capable Figma/Railway/Sentry tools use "writes"
+# - Paid API canaries (eval:rag, eval:retrieval:quality, eval:quality, verify:release,
+#   test:live, check:supabase-project) still need explicit confirmation per AGENTS.md
+# Hosted ChatGPT/Codex tools come only from installed, authenticated apps; this file is not runtime proof.
 
 [mcp_servers.figma_cloud]
 url = "https://mcp.figma.com/mcp"
 enabled = false
+default_tools_approval_mode = "writes"
 
 [mcp_servers.supabase_cloud]
-url = "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=docs%2Cdatabase%2Cdebugging%2Cdevelopment"
+# Production project, read_only=true, docs/development metadata only; database and debugging groups are excluded.
+# OAuth scopes come from the hosted Supabase consent screen; do not broaden this URL.
+url = "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=docs%2Cdevelopment"
 enabled = false
+default_tools_approval_mode = "prompt"
 
-[mcp_servers.railway_cloud]
-url = "https://mcp.railway.com/"
+# Named `railway` (not `railway_cloud`) so `codex mcp login railway` matches the
+# entry name. Other providers keep the `_cloud` suffix; this asymmetry is intentional.
+[mcp_servers.railway]
+url = "https://mcp.railway.com"
 enabled = false
+default_tools_approval_mode = "writes"
 
 [mcp_servers.sentry_cloud]
 url = "https://mcp.sentry.dev/mcp"
 enabled = false
+default_tools_approval_mode = "writes"

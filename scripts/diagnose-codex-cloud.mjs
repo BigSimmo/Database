@@ -32,7 +32,6 @@ export function diagnoseCodexCloud({
       fix: "Run the repository Cloud setup so it installs the packageManager version from package.json.",
     });
   }
-
   const expectedPython = workerPythonLockTargets.cloud.pythonVersion;
   const actualLockPython = cloudLockContents ? lockPythonVersion(cloudLockContents) : null;
   if (!cloudLockContents) {
@@ -54,14 +53,19 @@ export function diagnoseCodexCloud({
       fix: `Regenerate it with Python ${expectedPython}: ${workerPythonLockTargets.cloud.generateCommand}.`,
     });
   }
-  if (pythonVersion && !pythonVersion.startsWith(`${expectedPython}.`) && pythonVersion !== expectedPython) {
+  if (!pythonVersion) {
+    issues.push({
+      code: "CLOUD_PYTHON_RUNTIME",
+      issue: `The Cloud OCR Python interpreter could not be executed; Python ${expectedPython} is required.`,
+      fix: `Rerun Cloud setup so it creates the Python ${expectedPython} OCR environment, or select Python ${expectedPython} in the Cloud environment.`,
+    });
+  } else if (!pythonVersion.startsWith(`${expectedPython}.`) && pythonVersion !== expectedPython) {
     issues.push({
       code: "CLOUD_PYTHON_RUNTIME",
       issue: `Cloud OCR uses Python ${pythonVersion}; the Cloud lock targets Python ${expectedPython}.`,
       fix: `Select Python ${expectedPython} in the Cloud environment, or deliberately add and validate a lock for the new runtime.`,
     });
   }
-
   if (setupExitCode && setupExitCode !== "0") {
     const pythonStep = setupStep === "python-worker-requirements";
     issues.push({
@@ -83,9 +87,8 @@ function commandVersion(command, args = ["--version"]) {
 
 function npmVersion() {
   if (process.env.npm_execpath) return commandVersion(process.execPath, [process.env.npm_execpath, "--version"]);
-  if (process.platform === "win32") {
+  if (process.platform === "win32")
     return commandVersion(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", "npm.cmd --version"]);
-  }
   return commandVersion("npm");
 }
 
@@ -105,7 +108,6 @@ export function main() {
     setupStep: argument("--setup-step"),
     setupExitCode: argument("--exit-code"),
   });
-
   console.log(`[Codex Cloud Diagnose] status=${issues.length === 0 ? "HEALTHY" : "DEGRADED"} issues=${issues.length}`);
   for (const issue of issues) {
     console.log(`[Codex Cloud Diagnose] ISSUE ${issue.code}: ${issue.issue}`);
@@ -115,6 +117,4 @@ export function main() {
   return issues.length === 0 ? 0 : 1;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exitCode = main();
-}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = main();

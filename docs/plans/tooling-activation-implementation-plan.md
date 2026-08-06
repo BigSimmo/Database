@@ -4,7 +4,7 @@
 **Repo:** Clinical KB (`BigSimmo/Database`)  
 **Related ledger:** `#025`, `#027`, `#028` (text stale — SDK already landed), redesign `#162`–`#164`  
 **Created:** 2026-08-01  
-**Local progress:** Context7 remote MCP in `.cursor/mcp.json` (`https://mcp.context7.com/mcp`, optional `CONTEXT7_API_KEY` via `${env:…}`); `context7-plugin` in `.cursor/settings.json`; habit doc in `docs/agents-guide.md` + `.env.example`; `node scripts/design-sync.mjs`; `node scripts/capture-mockup-screenshots.mjs` (npm aliases deferred — they trip container/build CI scope)
+**Local progress:** Context7 local stdio MCP in `.cursor/mcp.json` (`npx -y @upstash/context7-mcp@3.2.5`, optional `CONTEXT7_API_KEY` via `${env:…}`; earlier remote `https://mcp.context7.com/mcp` retired); `context7-plugin` in `.cursor/settings.json`; habit doc in `docs/agents-guide.md` + `.env.example`; `node scripts/design-sync.mjs`; `node scripts/capture-mockup-screenshots.mjs` (npm aliases deferred — they trip container/build CI scope)
 
 ---
 
@@ -71,7 +71,7 @@ Do **not** run ops/provider steps until the matching box is explicitly approved 
 
 ### MCP installs (low risk, still confirm if pinning into repo)
 
-- [x] Add Context7 to project or user MCP config — done 2026-08-01; remote URL + docs in `docs/agents-guide.md` / `.env.example`; optional `CONTEXT7_API_KEY` remains operator-local
+- [x] Add Context7 to project or user MCP config — done 2026-08-01 (remote initially; now local stdio `@upstash/context7-mcp@3.2.5`) + docs in `docs/agents-guide.md` / `.env.example`; optional `CONTEXT7_API_KEY` remains operator-local
 - [x] Confirm Next 16 docs stay **local** (`node_modules/next/dist/docs/`) — Context7 for peers only — acknowledged in agents-guide
 
 ### CI baselines (writes committed artifacts)
@@ -215,16 +215,16 @@ flowchart TB
 
 **Status:** done 2026-08-01
 
-|                 |                                                                                                                                                                                                     |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Goal**        | Versioned docs for Tailwind 4, Zod 4, Playwright, Vitest                                                                                                                                            |
-| **Kind**        | `local` (+ optional API key)                                                                                                                                                                        |
-| **Files**       | `.cursor/mcp.json` (remote `https://mcp.context7.com/mcp`, header `CONTEXT7_API_KEY: ${env:CONTEXT7_API_KEY}`); `.cursor/settings.json` (`context7-plugin`); `docs/agents-guide.md`; `.env.example` |
-| **Steps**       | Done: remote Context7 MCP + plugin enabled; agents-guide + `.env.example` document optional operator-local key. **Next 16 = local docs only** (`node_modules/next/dist/docs/`).                     |
-| **Verify**      | Agent resolves Tailwind/Zod docs without inventing v3 APIs                                                                                                                                          |
-| **Deps**        | None required — optional `CONTEXT7_API_KEY` for higher limits                                                                                                                                       |
-| **Risk / stop** | Token bloat — do not enable every library; keep ≤5 active MCPs                                                                                                                                      |
-| **Parallel**    | With B3, C*, D*                                                                                                                                                                                     |
+|                 |                                                                                                                                                                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Goal**        | Versioned docs for Tailwind 4, Zod 4, Playwright, Vitest                                                                                                                                                                           |
+| **Kind**        | `local` (+ optional API key)                                                                                                                                                                                                       |
+| **Files**       | `.cursor/mcp.json` (local stdio `npx -y @upstash/context7-mcp@3.2.5`, `env.CONTEXT7_API_KEY: ${env:CONTEXT7_API_KEY}`); `.cursor/settings.json` (`context7-plugin`); `docs/agents-guide.md`; `.env.example`                        |
+| **Steps**       | Done: local stdio Context7 MCP + plugin enabled (replaced the 2026-08-01 remote URL); agents-guide + `.env.example` document optional operator-local key + reload. **Next 16 = local docs only** (`node_modules/next/dist/docs/`). |
+| **Verify**      | Agent resolves Tailwind/Zod docs without inventing v3 APIs                                                                                                                                                                         |
+| **Deps**        | None required — optional `CONTEXT7_API_KEY` for higher limits                                                                                                                                                                      |
+| **Risk / stop** | Token bloat — do not enable every library; keep ≤5 active MCPs                                                                                                                                                                     |
+| **Parallel**    | With B3, C*, D*                                                                                                                                                                                                                    |
 
 #### B2 — GitHub Checks:read / Actions MCP
 
@@ -406,7 +406,8 @@ Return: checklist of done/blocked + evidence lines.
 ```text
 You are executing WS-B of docs/plans/tooling-activation-implementation-plan.md.
 B3: done 2026-08-01 — Railway + Supabase MCP habit in docs/agents-guide.md; do not redo unless stale.
-B1: done 2026-08-01 — remote Context7 in .cursor/mcp.json (https://mcp.context7.com/mcp); context7-plugin enabled; agents-guide + .env.example; Next 16 stays in node_modules/next/dist/docs/. Do not redo.
+B1: done 2026-08-01 — Context7 in .cursor/mcp.json (initially remote; now local stdio `@upstash/context7-mcp@3.2.5`); context7-plugin enabled; agents-guide + .env.example; Next 16 stays in node_modules/next/dist/docs/. Do not redo.
+B1 follow-up: local stdio Context7 (`@upstash/context7-mcp@3.2.5`) + env key + contract test + peer-list docs; host MCP may still ignore Secrets — fall back to `npx ctx7`.
 B2: only if user approved — wire GitHub MCP (PRs+Actions toolsets) and/or Checks:Read; verify listing PR checks works.
 Keep active MCP count small.
 Do not mutate GitHub repo settings without approval. Return: diff summary + verify steps run.
@@ -445,7 +446,7 @@ Do not change RAG. Return: files committed (or ready to commit) + CI job names t
 | Webhooks setup  | `docs/webhooks.md`                                                                                                   |
 | Sentry envelope | `docs/error-tracking.md`                                                                                             |
 | Issues          | `docs/outstanding-issues.md` `#025` `#027` `#028` `#162`–`#164`                                                      |
-| MCP             | `.mcp.json` (Railway), `.cursor/mcp.json` (Supabase read-only + Context7 remote)                                     |
+| MCP             | `.mcp.json` (Railway), `.cursor/mcp.json` (Supabase read-only + Context7 local stdio)                                |
 | Env names       | `.env.example` (`RAILWAY_WEBHOOK_SECRET`, `SUPABASE_INGESTION_WEBHOOK_SECRET`, `SLACK_*`, `DISCORD_*`, `SENTRY_DSN`) |
 | Mockup comps    | `public/mockups/mode-page-redesign-2026-07/README.md`                                                                |
 | Visual suite    | `tests/ui-visual-baseline.spec.ts`, `npm run test:e2e:visual`                                                        |

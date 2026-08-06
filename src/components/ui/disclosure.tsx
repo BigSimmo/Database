@@ -15,6 +15,7 @@ export type DisclosureProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   className?: string;
+  headingLevel?: 2 | 3 | 4 | 5 | 6;
 };
 
 /**
@@ -42,12 +43,14 @@ export function Disclosure({
   open: controlledOpen,
   onOpenChange,
   className,
+  headingLevel = 3,
 }: DisclosureProps) {
   const id = useId();
   const panelId = `${id}-panel`;
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const Heading = `h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6";
 
   function toggle() {
     const next = !open;
@@ -63,7 +66,7 @@ export function Disclosure({
         className,
       )}
     >
-      <h3 className="m-0">
+      <Heading className="m-0">
         <button
           type="button"
           id={`${id}-trigger`}
@@ -86,7 +89,7 @@ export function Disclosure({
           </span>
           {meta ? <span className="nums shrink-0 text-xs text-[color:var(--text-muted)]">{meta}</span> : null}
         </button>
-      </h3>
+      </Heading>
       <div
         id={panelId}
         role="region"
@@ -100,20 +103,19 @@ export function Disclosure({
   );
 }
 
+export type DisclosureGroupProps = {
+  items: Array<{ id: string; title: ReactNode; description?: ReactNode; meta?: ReactNode; content: ReactNode }>;
+  exclusive?: boolean;
+  className?: string;
+  headingLevel?: 2 | 3 | 4 | 5 | 6;
+};
+
 /**
  * A stack of disclosures. `exclusive` makes it an accordion (one open at a time);
  * the default lets several stay open, which is usually right for reference
  * content where a reader compares two sections.
  */
-export function DisclosureGroup({
-  items,
-  exclusive = false,
-  className,
-}: {
-  items: Array<{ id: string; title: ReactNode; description?: ReactNode; meta?: ReactNode; content: ReactNode }>;
-  exclusive?: boolean;
-  className?: string;
-}) {
+export function DisclosureGroup({ items, exclusive = false, className, headingLevel = 3 }: DisclosureGroupProps) {
   const [openIds, setOpenIds] = useState<string[]>([]);
 
   return (
@@ -124,6 +126,7 @@ export function DisclosureGroup({
           title={item.title}
           description={item.description}
           meta={item.meta}
+          headingLevel={headingLevel}
           open={openIds.includes(item.id)}
           onOpenChange={(next) =>
             setOpenIds((current) => {

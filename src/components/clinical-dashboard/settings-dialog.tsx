@@ -45,17 +45,12 @@ import {
 } from "@/components/clinical-dashboard/use-app-preferences";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { clearRecentQueries, countRecentQueries } from "@/lib/recent-query-storage";
-import {
-  cn,
-  fieldControlWithIcon,
-  fieldIcon,
-  floatingControl,
-  InlineNotice,
-  primaryControl,
-  toggleThumbSurface,
-} from "@/components/ui-primitives";
+import { cn, floatingControl, InlineNotice, primaryControl, toggleThumbSurface } from "@/components/ui-primitives";
 import { ProviderBrandMark } from "@/components/clinical-dashboard/provider-brand-icons";
+import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { TextField } from "@/components/ui/text-field";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ThemePreference } from "@/lib/theme";
 
@@ -135,6 +130,9 @@ export function SettingsDialog({
   const savedCount = Object.values(accountData.favourites).reduce((total, items) => total + items.length, 0);
   const [settingsEmail, setSettingsEmail] = useState("");
   const [emailEntryOpen, setEmailEntryOpen] = useState(false);
+  // Guest account card uses a create / sign-in toggle. Both paths use the same
+  // magic-link OTP; the mode only drives which control is pressed and focused.
+  const [accountEntryMode, setAccountEntryMode] = useState<"create" | "sign-in">("create");
   const [accountNotice, setAccountNotice] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("account");
   const [dataCounts, setDataCounts] = useState<{ recent: number; saved: number }>(() => readDataCounts());
@@ -154,6 +152,10 @@ export function SettingsDialog({
       setActiveSection("account");
       setPrivacyNotice(null);
       setDataCounts(readDataCounts());
+      setEmailEntryOpen(false);
+      setAccountEntryMode("create");
+      setSettingsEmail("");
+      setAccountNotice(null);
     }
   }
 
@@ -219,7 +221,8 @@ export function SettingsDialog({
     await auth.signInWithEmail(settingsEmail.trim());
   }
 
-  function openSettingsEmailEntry() {
+  function openSettingsEmailEntry(mode: "create" | "sign-in" = "create") {
+    setAccountEntryMode(mode);
     setEmailEntryOpen(true);
     setAccountNotice(null);
   }
@@ -252,7 +255,9 @@ export function SettingsDialog({
       settingsEmailInputRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(focusFrame);
-  }, [emailEntryOpen]);
+    // Re-focus when the create / sign-in toggle changes so Sign in still does
+    // visible work if the email form is already open.
+  }, [emailEntryOpen, accountEntryMode]);
 
   const closeButton = (
     <button
@@ -303,8 +308,8 @@ export function SettingsDialog({
               );
             })}
           </nav>
-          <p className="mt-auto flex items-center gap-2 px-1 pt-6 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-            <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          <p className="mt-auto flex items-center gap-2 px-1 pt-6 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" />
             Stored on this device. No PHI.
           </p>
         </aside>
@@ -322,7 +327,7 @@ export function SettingsDialog({
               // No permanent `will-change-transform`: it keeps a compositor layer
               // alive at rest for a header that only transforms during scroll-hide.
               // `transition-transform` already hints the browser for the animation.
-              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-300 motion-reduce:transition-none lg:static lg:z-auto lg:translate-y-0 lg:pb-0 lg:pt-6 lg:bg-transparent! lg:px-0!",
+              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none lg:static lg:z-auto lg:translate-y-0 lg:pb-0 lg:pt-6 lg:bg-transparent! lg:px-0!",
               headerHidden ? "-translate-y-full" : "translate-y-0",
             )}
           >
@@ -375,20 +380,18 @@ export function SettingsDialog({
                   </div>
                   {signedOutAccount ? (
                     <div className="hidden w-[220px] shrink-0 grid-cols-1 gap-2 lg:grid">
-                      <button
-                        type="button"
-                        onClick={openSettingsEmailEntry}
-                        className={cn(primaryControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
-                      >
-                        Create account
-                      </button>
-                      <button
-                        type="button"
-                        onClick={openSettingsEmailEntry}
-                        className={cn(floatingControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
-                      >
-                        Sign in
-                      </button>
+                      <AccountEntryModeButton
+                        mode="create"
+                        active={accountEntryMode === "create"}
+                        onSelect={openSettingsEmailEntry}
+                        className="min-h-10 whitespace-nowrap px-3 text-sm leading-none"
+                      />
+                      <AccountEntryModeButton
+                        mode="sign-in"
+                        active={accountEntryMode === "sign-in"}
+                        onSelect={openSettingsEmailEntry}
+                        className="min-h-10 whitespace-nowrap px-3 text-sm leading-none"
+                      />
                     </div>
                   ) : (
                     <div className="hidden shrink-0 items-center gap-2 lg:flex">
@@ -401,20 +404,18 @@ export function SettingsDialog({
                 {signedOutAccount ? (
                   <div className="mt-4 grid gap-3">
                     <div className="grid grid-cols-2 gap-2 lg:hidden">
-                      <button
-                        type="button"
-                        onClick={openSettingsEmailEntry}
-                        className={cn(primaryControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
-                      >
-                        Create account
-                      </button>
-                      <button
-                        type="button"
-                        onClick={openSettingsEmailEntry}
-                        className={cn(floatingControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
-                      >
-                        Sign in
-                      </button>
+                      <AccountEntryModeButton
+                        mode="create"
+                        active={accountEntryMode === "create"}
+                        onSelect={openSettingsEmailEntry}
+                        className="min-h-10 whitespace-nowrap px-2.5 text-sm leading-none"
+                      />
+                      <AccountEntryModeButton
+                        mode="sign-in"
+                        active={accountEntryMode === "sign-in"}
+                        onSelect={openSettingsEmailEntry}
+                        className="min-h-10 whitespace-nowrap px-2.5 text-sm leading-none"
+                      />
                     </div>
 
                     {emailEntryOpen ? (
@@ -422,29 +423,22 @@ export function SettingsDialog({
                         onSubmit={submitSettingsEmail}
                         className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
                       >
-                        <label className="block">
-                          <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
-                            Email address
-                          </span>
-                          <div className="relative">
-                            <Mail aria-hidden="true" className={fieldIcon} />
-                            <input
-                              ref={settingsEmailInputRef}
-                              type="email"
-                              inputMode="email"
-                              autoComplete="email"
-                              enterKeyHint="go"
-                              autoCapitalize="none"
-                              autoCorrect="off"
-                              spellCheck={false}
-                              required
-                              value={settingsEmail}
-                              onChange={(event) => setSettingsEmail(event.target.value)}
-                              placeholder="you@clinic.example"
-                              className={fieldControlWithIcon}
-                            />
-                          </div>
-                        </label>
+                        <TextField
+                          ref={settingsEmailInputRef}
+                          label="Email address"
+                          icon={Mail}
+                          type="email"
+                          inputMode="email"
+                          autoComplete="email"
+                          enterKeyHint="go"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          required
+                          value={settingsEmail}
+                          onChange={(event) => setSettingsEmail(event.target.value)}
+                          placeholder="you@clinic.example"
+                        />
                         <button
                           type="submit"
                           disabled={settingsAuthBusy || !settingsEmail.trim() || !auth.isConfigured}
@@ -460,7 +454,7 @@ export function SettingsDialog({
                       </form>
                     ) : null}
 
-                    <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
+                    <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-muted)]">
                       <span className="h-px flex-1 bg-[color:var(--border)]" />
                       <span>or continue with</span>
                       <span className="h-px flex-1 bg-[color:var(--border)]" />
@@ -476,13 +470,13 @@ export function SettingsDialog({
                         provider="Microsoft"
                         onClick={() => void chooseSettingsProvider("Microsoft")}
                       />
-                      <SettingsProviderRow provider="email" onClick={openSettingsEmailEntry} />
+                      <SettingsProviderRow provider="email" onClick={() => openSettingsEmailEntry(accountEntryMode)} />
                     </div>
 
                     <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
                       <LockKeyhole
                         aria-hidden="true"
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]"
                       />
                       Accounts sync favourites and preferences across signed-in devices. Do not enter PHI.
                     </p>
@@ -531,18 +525,32 @@ export function SettingsDialog({
               noteId="settings-clinical-defaults-note"
             >
               <SettingsGroup>
-                <SettingsField icon={Globe2} label="Jurisdiction" htmlFor="settings-jurisdiction">
+                <SettingsField
+                  icon={Globe2}
+                  label="Jurisdiction"
+                  htmlFor="settings-jurisdiction"
+                  labelId="settings-jurisdiction-label"
+                >
                   <SettingsSelect
                     id="settings-jurisdiction"
+                    label="Jurisdiction"
+                    labelledBy="settings-jurisdiction-label"
                     describedBy="settings-clinical-defaults-note"
                     value={preferences.jurisdiction}
                     onChange={(value) => setPreference("jurisdiction", value)}
                     options={JURISDICTION_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsField icon={CircleUserRound} label="Default population" htmlFor="settings-population">
+                <SettingsField
+                  icon={CircleUserRound}
+                  label="Default population"
+                  htmlFor="settings-population"
+                  labelId="settings-population-label"
+                >
                   <SettingsSelect
                     id="settings-population"
+                    label="Default population"
+                    labelledBy="settings-population-label"
                     describedBy="settings-clinical-defaults-note"
                     value={preferences.population}
                     onChange={(value) => setPreference("population", value)}
@@ -561,6 +569,7 @@ export function SettingsDialog({
                   <SegmentedControl
                     ariaLabelledBy="settings-answer-style-label"
                     ariaDescribedBy="settings-clinical-defaults-note"
+                    layout="equal"
                     value={preferences.answerStyle}
                     onChange={(value) => setPreference("answerStyle", value)}
                     options={ANSWER_STYLE_OPTIONS}
@@ -581,6 +590,7 @@ export function SettingsDialog({
                 >
                   <SegmentedControl
                     ariaLabelledBy="settings-appearance-label"
+                    layout="equal"
                     value={themePreference}
                     onChange={setThemePreference}
                     options={APPEARANCE_OPTIONS}
@@ -589,6 +599,7 @@ export function SettingsDialog({
                 <SettingsField icon={SettingsIcon} label="Interface density" labelId="settings-density-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-density-label"
+                    layout="equal"
                     value={preferences.density}
                     onChange={(value) => setPreference("density", value)}
                     options={DENSITY_OPTIONS}
@@ -597,6 +608,7 @@ export function SettingsDialog({
                 <SettingsField icon={PanelTop} label="Default landing view" labelId="settings-landing-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-landing-label"
+                    layout="equal"
                     value={preferences.landing}
                     onChange={(value) => setPreference("landing", value)}
                     options={LANDING_OPTIONS}
@@ -816,9 +828,9 @@ function NotYetActiveBadge({ id }: { id?: string }) {
   return (
     <span
       id={id}
-      className="mt-1 inline-flex w-fit items-center gap-1 text-2xs font-medium leading-4 text-[color:var(--text-soft)]"
+      className="mt-1 inline-flex w-fit items-center gap-1 text-2xs font-medium leading-4 text-[color:var(--text-muted)]"
     >
-      <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--text-soft)]" />
+      <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--decoration-soft)]" />
       Not active yet
     </span>
   );
@@ -878,88 +890,48 @@ function SettingsField({
   );
 }
 
-function SegmentedControl<T extends string>({
-  value,
-  onChange,
-  options,
-  ariaLabelledBy,
-  ariaDescribedBy,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-  options: ReadonlyArray<{ value: T; label: string; icon?: LucideIcon }>;
-  ariaLabelledBy?: string;
-  ariaDescribedBy?: string;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-labelledby={ariaLabelledBy}
-      aria-describedby={ariaDescribedBy}
-      // Segments size to their content and wrap onto a second row on narrow
-      // screens rather than truncating long labels ("Comprehensive"); each row's
-      // items grow to fill the width so the control still reads as a unit.
-      className="flex w-full flex-wrap gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {options.map((option) => {
-        const checked = option.value === value;
-        const Icon = option.icon;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={checked}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              "flex min-h-tap flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
-              checked
-                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
-                : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            {Icon ? <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : null}
-            <span>{option.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
+/**
+ * The visible row text stays a real `<label htmlFor>` so clicking it focuses the
+ * select, and `aria-labelledby` points back at that same label so it also owns
+ * the accessible name. The DS `Select` keeps its own `sr-only` label — a field
+ * without one is not a field — but `aria-labelledby` takes precedence, so the
+ * name is the row's words once rather than two `<label for>` elements
+ * concatenated into one.
+ *
+ * The earlier fold dropped `htmlFor` to avoid that concatenation and lost
+ * click-to-focus with it. Correct name and clickable label are not a trade: this
+ * is the shape that gives both.
+ */
 function SettingsSelect<T extends string>({
   id,
+  label,
+  labelledBy,
   value,
   onChange,
   options,
   describedBy,
 }: {
   id: string;
+  label: string;
+  labelledBy?: string;
   value: T;
   onChange: (value: T) => void;
   options: ReadonlyArray<{ value: T; label: string }>;
   describedBy?: string;
 }) {
   return (
-    <div className="relative w-full lg:w-56">
-      <select
-        id={id}
-        value={value}
-        aria-describedby={describedBy}
-        onChange={(event) => onChange(event.target.value as T)}
-        className="w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] py-2 pl-3 pr-9 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <ChevronRight
-        aria-hidden="true"
-        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-[color:var(--text-soft)]"
-      />
-    </div>
+    <Select
+      id={id}
+      label={label}
+      hideLabel
+      value={value}
+      aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
+      onChange={(event) => onChange(event.target.value as T)}
+      options={options.map((option) => ({ value: option.value, label: option.label }))}
+      fieldClassName="w-full lg:w-56"
+      className="font-semibold text-[color:var(--text-heading)]"
+    />
   );
 }
 
@@ -1075,7 +1047,7 @@ function SettingsActionRow({
       {meta ? (
         <span className="shrink-0 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{meta}</span>
       ) : null}
-      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
     </button>
   );
 }
@@ -1095,6 +1067,29 @@ function ShortcutRow({ label, keys }: { label: string; keys: string[] }) {
         ))}
       </span>
     </div>
+  );
+}
+
+function AccountEntryModeButton({
+  mode,
+  active,
+  onSelect,
+  className,
+}: {
+  mode: "create" | "sign-in";
+  active: boolean;
+  onSelect: (mode: "create" | "sign-in") => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(mode)}
+      aria-pressed={active}
+      className={cn(active ? primaryControl : floatingControl, className)}
+    >
+      {mode === "create" ? "Create account" : "Sign in"}
+    </button>
   );
 }
 
@@ -1143,7 +1138,7 @@ function SettingsProviderRow({
         </span>
       ) : null}
       {!disabledReason ? (
-        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
       ) : null}
     </button>
   );

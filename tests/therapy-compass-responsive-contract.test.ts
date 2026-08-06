@@ -56,20 +56,43 @@ describe("Therapy Compass responsive contract", () => {
     expect(workspaceSource).toContain("data-therapy-root");
     expect(workspaceSource).toContain("bg-[color:var(--background)]");
     expect(workspaceSource).not.toContain("var(--surface-chrome)");
-    expect(therapyNavSource).toContain("justify-center");
-    expect(therapyNavSource).toContain("overflow-x-auto");
-    expect(therapyNavSource).toContain("w-fit");
-    expect(therapyNavSource).toContain("max-w-full");
-    expect(globalsSource).toContain('#phone-header-collapse-addon-slot [data-testid="therapy-compass-section-nav"]');
+    // The sideways-scrolling pill strip is retired: Therapy's nav is the shared
+    // bar, which folds its overflow into a sheet rather than off the screen
+    // edge. Its own density and centring contract lives in mode-nav-contract.
+    expect(therapyNavSource).toContain("ModeNav");
+    expect(therapyNavSource).not.toContain("overflow-x-auto");
+    expect(therapyNavSource).not.toContain("w-fit");
     expect(globalsSource).toContain("position: relative;");
   });
 
-  it("portals the section nav into the header collapse host on phones", () => {
+  it("anchors the mode nav in the header collapse host", () => {
     expect(modeHomeComposerSource).toContain(
       'export const phoneHeaderCollapseAddonSlotId = "phone-header-collapse-addon-slot"',
     );
-    expect(therapyNavSource).toContain("PhoneHeaderCollapsePortal");
-    expect(therapyNavSource).toContain('data-testid="therapy-compass-section-nav"');
+    // The portal is `ModeNavHeaderPortal`'s job now, not the mode's — it claims
+    // the same slot at every width rather than only below the phone seam.
+    expect(read("src/components/mode-nav/mode-nav-portal.tsx")).toContain("phoneHeaderCollapseAddonSlotId");
+    expect(therapyNavSource).not.toContain("PhoneHeaderCollapsePortal");
+  });
+
+  it("puts every therapy screen on the shared content rail", () => {
+    // Three rails used to disagree: header max-w-7xl, bar full-bleed, body on
+    // bespoke 1240/1180px caps. `pageContainer` is the repo's canonical token.
+    for (const [name, source] of [
+      ["detail", detailSource],
+      ["compare", compareSource],
+      ["recommend", recommendSource],
+      ["pathways", pathwaysSource],
+      ["brief", briefSource],
+      ["sheets", sheetsSource],
+      ["other", otherSource],
+    ] as const) {
+      expect(source, `${name} screen`).toContain("pageContainer");
+      expect(source, `${name} screen`).not.toContain("max-w-[1240px]");
+      expect(source, `${name} screen`).not.toContain("max-w-[1180px]");
+    }
+    expect(workspaceSource).toContain("pageContainer");
+    expect(workspaceSource).not.toContain("sm:px-10");
   });
 
   it("keeps phone reflow and comparison scroll residuals in globals.css", () => {
@@ -88,6 +111,10 @@ describe("Therapy Compass responsive contract", () => {
     expect(modeHomeTemplateSource).toContain("sm:rounded-lg sm:border");
     expect(modeHomeTemplateSource).not.toContain("lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
     expect(modeHomeTemplateSource).toContain("sm:flex-wrap");
+    // The shared 8px gap keeps Therapy's five common searches on one 960px
+    // row before and after the Geist font swap. A 10px desktop override made
+    // the final row 961px, wrapped one pill, and produced desktop CLS 0.126.
+    expect(modeHomeTemplateSource).not.toContain("sm:gap-2.5");
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     expect(homeSource).toContain("ModeHomeVerificationFooter");
     expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(1);

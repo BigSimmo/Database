@@ -24,9 +24,15 @@ describe("Codex Cloud diagnostics", () => {
       setupStep: "python-worker-requirements",
       setupExitCode: "1",
     });
-
     expect(issues.map((issue) => issue.code)).toEqual(["CLOUD_PYTHON_LOCK_TARGET", "SETUP_COMMAND_FAILED"]);
     expect(issues[0]?.fix).toContain("Python 3.12");
     expect(issues[1]?.fix).toContain("pip error immediately above");
+  });
+
+  it("reports an unavailable Cloud Python interpreter", () => {
+    const issues = diagnoseCodexCloud({ ...healthy, pythonVersion: null });
+    expect(issues.map((issue) => issue.code)).toEqual(["CLOUD_PYTHON_RUNTIME"]);
+    expect(issues[0]?.issue).toContain("could not be executed");
+    expect(issues[0]?.fix).toContain("Python 3.12");
   });
 });
