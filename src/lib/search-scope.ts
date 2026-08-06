@@ -19,8 +19,13 @@ const labelTypes = [
   "document_intent",
   "content_feature",
 ] as const satisfies readonly DocumentLabelType[];
-const sourceStatusValues = ["current", "review_due", "outdated", "unknown"] as const;
-const validationStatusValues = ["unverified", "locally_reviewed", "approved"] as const;
+// Exported and used as the single source for both the request schema and the
+// SQL clauses. Two hand-kept copies is how `review_due` came to be validated
+// against one list and matched against a mangled version of another; tests
+// iterate these directly so a value added here cannot ship unverified.
+export const sourceStatusValues = ["current", "review_due", "outdated", "unknown"] as const;
+export const validationStatusValues = ["unverified", "locally_reviewed", "approved"] as const;
+export const extractionQualityValues = ["good", "partial", "poor", "unknown"] as const;
 const documentScopeQueryPageSize = 1000;
 // PostgREST/Supabase silently caps a single response at 1,000 rows. Label loads must
 // page deterministically or later-page matches are dropped from scoped search (#075).
@@ -45,18 +50,9 @@ export const searchScopeFiltersSchema = z
     carePhases: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
     documentIntents: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
     contentFeatures: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
-    sourceStatuses: z
-      .array(z.enum(["current", "review_due", "outdated", "unknown"]))
-      .max(4)
-      .optional(),
-    validationStatuses: z
-      .array(z.enum(["unverified", "locally_reviewed", "approved"]))
-      .max(3)
-      .optional(),
-    extractionQualities: z
-      .array(z.enum(["good", "partial", "poor", "unknown"]))
-      .max(4)
-      .optional(),
+    sourceStatuses: z.array(z.enum(sourceStatusValues)).max(4).optional(),
+    validationStatuses: z.array(z.enum(validationStatusValues)).max(3).optional(),
+    extractionQualities: z.array(z.enum(extractionQualityValues)).max(4).optional(),
     locality: z.enum(["local", "non_local"]).optional(),
     importBatchIds: z.array(z.string().uuid()).max(25).optional(),
     collections: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
@@ -114,6 +110,26 @@ function escapePostgrestValue(value: string) {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
+/**
+ * Build the metadata-enum OR clauses for a status-like filter.
+ *
+ * Enum values are matched VERBATIM. They arrive already validated by
+ * `searchScopeFiltersSchema` against the exact strings stored in `metadata`, so
+ * there is nothing to normalise — and normalising actively breaks them:
+ * `normalizeFilterText` rewrites `[_-]+` to a space, so `review_due` became
+ * `"review due"` and `locally_reviewed` became `"locally reviewed"`, neither of
+ * which can ever equal the stored value. The fallback below made it worse, not
+ * better: its `not.in.(…)` list is built from the RAW `knownValues`, so those
+ * same documents were excluded there too and fell through every branch.
+ *
+ * Measured on the live corpus before this fix: selecting "Review due" matched 0
+ * of 514 such documents, "Locally reviewed" 0 of ~2,489, and even selecting
+ * every status value reached only 2,105 of 2,619 indexed documents.
+ *
+ * `normalizeFilterText` is still right for the free-text label filters
+ * (medications, topics, sites…), where the caller types prose and both sides of
+ * the comparison get normalised. It is only wrong for closed enums.
+ */
 function buildStatusFallbackClauses(args: {
   fieldName: string;
   values?: string[];
@@ -121,12 +137,12 @@ function buildStatusFallbackClauses(args: {
   knownValues: readonly string[];
   orParts: string[];
 }) {
-  const normalizedValues = (args.values ?? []).map(normalizeFilterText);
-  for (const value of normalizedValues) {
+  const values = args.values ?? [];
+  for (const value of values) {
     args.orParts.push(`${args.fieldName}.eq.${value}`);
   }
 
-  if (!normalizedValues.includes(args.fallbackValue)) {
+  if (!values.includes(args.fallbackValue)) {
     return;
   }
 
@@ -308,9 +324,11 @@ export async function resolveSearchScope(args: {
       documentQuery = documentQuery.or(orParts.join(","));
     }
     if (filters.extractionQualities?.length) {
-      const orParts = filters.extractionQualities.map(
-        (q) => `metadata->>extraction_quality.eq.${normalizeFilterText(q)}`,
-      );
+      // Verbatim, for the same reason as buildStatusFallbackClauses: these are
+      // schema-validated enums. Today's values happen to survive normalisation
+      // (no underscores), which is exactly why the defect hid here — the next
+      // value added would silently match nothing.
+      const orParts = filters.extractionQualities.map((q) => `metadata->>extraction_quality.eq.${q}`);
       if (filters.extractionQualities.includes("unknown")) orParts.push("metadata->>extraction_quality.is.null");
       documentQuery = documentQuery.or(orParts.join(","));
     }
