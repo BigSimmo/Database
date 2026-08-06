@@ -96,15 +96,15 @@ describe("SignedImage failure/retry (jsdom)", () => {
     });
     vi.stubGlobal(
       "IntersectionObserver",
-      vi.fn(function MockIntersectionObserver(this: IntersectionObserver) {
-        this.observe = observe;
-        this.unobserve = vi.fn();
-        this.disconnect = vi.fn();
-        this.takeRecords = vi.fn(() => []);
-        this.root = null;
-        this.rootMargin = "";
-        this.thresholds = [];
-      }) as unknown as typeof IntersectionObserver,
+      vi.fn(() => ({
+        observe,
+        unobserve: vi.fn(),
+        disconnect: vi.fn(),
+        takeRecords: () => [],
+        root: null,
+        rootMargin: "",
+        thresholds: [],
+      })) as unknown as typeof IntersectionObserver,
     );
     vi.stubGlobal("fetch", fetchMock);
 
