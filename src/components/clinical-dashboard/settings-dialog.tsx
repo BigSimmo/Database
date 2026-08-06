@@ -273,9 +273,16 @@ export function SettingsDialog({
       const pin = pinnedSectionRef.current;
       if (pin) {
         // Content/viewport growth can make the click target unreachable; keep
-        // the pin, but clamp its offset so arrival remains possible.
+        // the pin, but clamp its offset so arrival remains possible. Reset
+        // distance from the live scrollTop too: leaving the pre-clamp gap
+        // would make the next scroll frame look like a takeover (distance
+        // suddenly larger than pin.distance) and drop the hold mid-animation.
         const maxOffset = Math.max(0, container.scrollHeight - container.clientHeight);
-        if (pin.offset > maxOffset) pin.offset = maxOffset;
+        if (pin.offset > maxOffset) {
+          pin.offset = maxOffset;
+          pin.distance = Math.abs(container.scrollTop - pin.offset);
+          pin.settled = pin.distance <= scrollSettleTolerance;
+        }
         return;
       }
       syncActiveSection(container);
