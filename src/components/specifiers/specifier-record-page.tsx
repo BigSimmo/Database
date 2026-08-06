@@ -20,7 +20,6 @@ import {
   SpecifierFamilyBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierSubnav,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { compareRecordsHref, GuidanceSection, RecordFact } from "@/components/clinical-record-panels";
@@ -33,10 +32,7 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
 
   return (
     <SpecifierPageShell>
-      <div className="grid gap-3">
-        <SpecifierBreadcrumbs current={record.shortName} />
-        <SpecifierSubnav active="search" />
-      </div>
+      <SpecifierBreadcrumbs current={record.shortName} />
 
       <section className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">

@@ -22,7 +22,6 @@ import {
   SpecifierBreadcrumbs,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierSubnav,
   categoryShortName,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
@@ -134,10 +133,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
 
   return (
     <SpecifierPageShell>
-      <div className="grid gap-3">
-        <SpecifierBreadcrumbs current={item.label} />
-        <SpecifierSubnav active="search" />
-      </div>
+      <SpecifierBreadcrumbs current={item.label} />
 
       {/* Hero */}
       <section className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">

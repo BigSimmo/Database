@@ -89,7 +89,7 @@ export type RoutedModeSecondaryNavigationId = Extract<RegistryEntry, { href: str
  * `PageSecondaryNavigation` early-returns on `/therapy-compass*` and the mode
  * feeds `ModeNav` from `useTherapyNavItems` instead.
  */
-export const MODE_NAV_ADOPTED_MODES = ["dsm"] as const satisfies readonly AppModeId[];
+export const MODE_NAV_ADOPTED_MODES = ["dsm", "specifiers", "formulation"] as const satisfies readonly AppModeId[];
 
 export function modeUsesHeaderModeNav(modeId: AppModeId): boolean {
   return (MODE_NAV_ADOPTED_MODES as readonly AppModeId[]).includes(modeId);

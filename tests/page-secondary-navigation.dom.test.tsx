@@ -4,6 +4,11 @@ import { join } from "node:path";
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// `ModeNav` reads the path only as a fallback for a missing `activeId`, which
+// neither consumer relies on — but it still calls the hook, so an adopted mode
+// needs a router here.
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+
 import {
   hasLocalInformationPageNavigation,
   informationPageSectionDefinitions,
@@ -87,13 +92,16 @@ describe("PageSecondaryNavigation", () => {
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
   });
 
-  it("renders mode navigation after submission and on explicit workflow routes", () => {
-    const { rerender } = render(
-      <PageSecondaryNavigation modeId="answer" pathname="/" hasSubmittedSearch onSearch={vi.fn()} />,
-    );
+  it("keeps a single-destination mode on the in-flow strip after submission", () => {
+    // `answer` registers one action-kind entry. Adopting the bar there would
+    // delete that control rather than port it, so the strip stays.
+    render(<PageSecondaryNavigation modeId="answer" pathname="/" hasSubmittedSearch onSearch={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Ask" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
+  });
 
-    rerender(
+  it("gives an adopted mode the shared header bar on its workflow routes", () => {
+    render(
       <PageSecondaryNavigation
         modeId="specifiers"
         pathname="/specifiers/compare"
@@ -101,8 +109,18 @@ describe("PageSecondaryNavigation", () => {
         onSearch={vi.fn()}
       />,
     );
+    const bar = screen.getByTestId("mode-nav");
+    expect(bar).toHaveAttribute("aria-label", "Specifiers pages");
     expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Build" })).toHaveAttribute("href", "/specifiers/builder");
+    // Registry order is load-bearing: only the first two slots survive the
+    // narrowest band, so Find and Build must be the ones that stay.
+    expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual([
+      "Find",
+      "Build",
+      "Compare",
+      "Map",
+    ]);
   });
 
   it("replaces mode navigation with only the information sections present in the record", async () => {

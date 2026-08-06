@@ -996,13 +996,15 @@ function GlobalStandaloneSearchShellBody({
               clean mode homes, locally-owned detail routes (medications,
               factsheets, differentials diagnoses), and Therapy Compass, and only
               renders an "On this page" bar where a record exposes the shared
-              section ids. Specifiers and Formulation keep their existing local
-              Subnav (SpecifierSubnav / FormulationSubnav), so the shared mode bar
-              is skipped for them to avoid a duplicate row on their workflow routes.
-              Rendered in normal flow (sticky={false}) so it never contends with
-              the universal collapsing header or page-flow search chrome.
+              section ids. Specifiers and Formulation used to be excluded here
+              because they carried their own in-page Subnav; both now take the
+              shared header bar, so the exclusion would suppress their only
+              navigation. Rendered in normal flow (sticky={false}) so it never
+              contends with the universal collapsing header or page-flow search
+              chrome; an adopted mode's bar portals itself into the header from
+              there and leaves this wrapper empty.
             */}
-            {!pendingModeNavigation && searchMode !== "specifiers" && searchMode !== "formulation" ? (
+            {!pendingModeNavigation ? (
               <PageSecondaryNavigation
                 modeId={searchMode}
                 pathname={pathname}

@@ -20,7 +20,6 @@ import {
   FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
-  FormulationSubnav,
   MechanismBadge,
   MechanismDomainChips,
   SectionHeading,
@@ -55,10 +54,7 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
 
   return (
     <FormulationPageShell>
-      <div className="grid gap-3">
-        <FormulationBreadcrumbs current={mechanism.name} />
-        <FormulationSubnav active="search" />
-      </div>
+      <FormulationBreadcrumbs current={mechanism.name} />
 
       <section className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
