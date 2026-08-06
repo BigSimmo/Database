@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { PhoneModeSheetYesMockups } from "@/components/phone-mode-sheet-yes-mockups";
 
 export const metadata: Metadata = {
-  title: "Phone mode sheet YES 01 perfected - Clinical KB",
+  title: "Phone mode sheet glance YES comps - Clinical KB",
   description:
-    "Perfected phone Choose mode sheet: sectioned clinical list with all review findings closed, plus the icon-deck alternate.",
+    "New phone Choose mode sheet YES comps: dense title list and flat icon tiles, without Find/Diagnose/Care organisation.",
 };
 
 export default function PhoneModeSheetYesMockupPage() {

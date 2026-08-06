@@ -16,42 +16,24 @@ import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeDefinitions, visibleAppModeDefinitions, type AppModeId } from "@/lib/app-modes";
 
 /**
- * Design scratch: phone "Choose mode" sheet — review + YES comps.
+ * Design scratch: phone "Choose mode" sheet — new YES comps (2026-08).
  *
- * YES 01 (sectioned list) is the perfected master: every review finding closed,
- * sticky offset debt removed, current mode folded into the sheet header, and
- * selection is interactive so the study can be judged as a real switcher.
+ * Feedback rejected Find / Diagnose / Care organisation and roomy spacing —
+ * they made mode choice harder at a glance. Both YES directions stay flat.
+ *
+ * YES 01 — Dense title list (shipping recommendation)
+ * YES 02 — Flat icon tiles (alternate glance layout, still no lanes)
  */
 
-type GroupId = "find" | "diagnose" | "care";
-type VariantId = "current" | "sections" | "deck";
-type SectionsPreview = "rest" | "scrolled" | "switched";
+type VariantId = "current" | "dense" | "tiles";
+type DensePreview = "rest" | "scrolled" | "switched";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-const GROUPS: Array<{ id: GroupId; label: string; hint: string; modes: AppModeId[] }> = [
-  {
-    id: "find",
-    label: "Find",
-    hint: "Answers, sources, services",
-    modes: ["answer", "documents", "services", "forms", "favourites"],
-  },
-  {
-    id: "diagnose",
-    label: "Diagnose",
-    hint: "Criteria, clues, mechanisms",
-    modes: ["differentials", "dsm", "specifiers", "formulation"],
-  },
-  {
-    id: "care",
-    label: "Care",
-    hint: "Meds, tools, therapy",
-    modes: ["prescribing", "tools", "therapy-compass", "factsheets"],
-  },
-];
-
 const ACTIVE_MODE: AppModeId = "answer";
+const FLAT_MODE_IDS = visibleAppModeDefinitions("production").map((mode) => mode.id);
+const MID_SCROLL_MODE: AppModeId = "differentials";
 
 function modeOf(id: AppModeId) {
   const definition = appModeDefinitions.find((mode) => mode.id === id);
@@ -64,60 +46,24 @@ function modeOf(id: AppModeId) {
 const reviewFindings = [
   {
     severity: "P1",
-    title: "Flat list, no clinical intent",
+    title: "Organisation slowed the pick",
     detail:
-      "Thirteen equal-weight rows force linear scanning. Answer, DSM, and Medication compete visually even though they serve different jobs.",
+      "Find / Diagnose / Care headers, hints, and counts spent height on chrome. Mode choice on phone is a glance task — more visible rows beat clinical grouping.",
   },
   {
     severity: "P1",
-    title: "Descriptions truncate on phone",
-    detail:
-      "Live rows use `truncate` on a single line, so the subtitle that differentiates modes disappears on a 390 px sheet.",
+    title: "Subtitles cost catalogue height",
+    detail: "Two-line rows hide modes below the fold. Titles carry the choice; descriptions can live in aria-label.",
   },
   {
     severity: "P2",
-    title: "Selected state is easy to miss mid-scroll",
-    detail:
-      "Soft fill + check is correct, but there is no sticky ‘current mode’ context above the list, so returning from a long scroll loses place.",
-  },
-  {
-    severity: "P2",
-    title: "Thumb targets are dense for a primary switcher",
-    detail:
-      "32 px icon wells inside 52 px rows pack the sheet, but the mode switcher is a high-frequency control — it should feel larger than a desktop menu ported down.",
+    title: "Selected state must survive density",
+    detail: "Soft fill alone is weak mid-list. A left rail + check keeps place without a second sticky card.",
   },
   {
     severity: "P3",
-    title: "Header copy is generic",
-    detail:
-      "‘Choose mode / Switch the clinical workspace mode’ names the UI, not the clinician’s current place. A current-mode line orients faster.",
-  },
-] as const;
-
-const perfectedResolutions = [
-  {
-    issue: "Flat catalogue",
-    fix: "Find / Diagnose / Care sections with sticky labels and counts — scan by clinical job.",
-  },
-  {
-    issue: "Truncated subtitles",
-    fix: "Two-line `line-clamp-2` descriptions; inactive titles stay full `--text-heading` weight.",
-  },
-  {
-    issue: "Lost place mid-scroll",
-    fix: "Current mode lives in the non-scrolling sheet header; section labels stick at `top-0` — no fragile offset.",
-  },
-  {
-    issue: "Dense thumb targets",
-    fix: "`min-h-12` rows, 44 px icon wells, 10 px row gap rhythm — primary switcher, not a desktop menu port.",
-  },
-  {
-    issue: "Generic header",
-    fix: "Header reads “Currently · Answer” with the live icon; updates when you pick another mode.",
-  },
-  {
-    issue: "Duplicate current chrome",
-    fix: "Removed the bulky sticky “Now in” card that stole first-viewport height and repeated the selected row.",
+    title: "Header should orient, not instruct",
+    detail: "Currently · {mode} orients faster than ‘Switch the clinical workspace mode’.",
   },
 ] as const;
 
@@ -129,29 +75,29 @@ const variants: Array<{
   changes: string[];
 }> = [
   {
-    id: "sections",
-    title: "Sectioned clinical list — perfected",
-    verdict: "YES · Master for intent",
+    id: "dense",
+    title: "Dense title list",
+    verdict: "YES · Fastest pick",
     description:
-      "Every review finding closed. Current mode sits in the sheet header, section labels are the only sticky layer, rows are phone-native, and selection is interactive. This is the direction to land.",
+      "Flat catalogue, title-only rows. Nearly every mode visible on open — pick by name without scrolling through section chrome. Shipping recommendation.",
     changes: [
-      "Header carries “Currently · {mode}” — orients without a second card.",
-      "Sticky section labels only (`top-0`); no magic `4.6rem` offset under a strip.",
-      "`min-h-12` rows, 44 px wells, two-line descriptions, readable inactive titles.",
-      "Tap a mode: header and selection update together — proven in the Switched frame.",
+      "No Find / Diagnose / Care headers, hints, or counts.",
+      "Title-only min-h-12 rows; description stays in aria-label.",
+      "Header carries Currently · {mode}; selection lifts into the top-bar pill.",
+      "Arrow / Home / End roving focus; preview scroll stays inside the sheet.",
     ],
   },
   {
-    id: "deck",
-    title: "Icon deck with lane chips",
-    verdict: "YES · Best overview",
+    id: "tiles",
+    title: "Flat icon tiles",
+    verdict: "YES · Icon-forward",
     description:
-      "Two-column mode cards plus Find / Diagnose / Care filter chips. Prefer this if browsing all modes matters more than a vertical reading order. YES 01 remains the shipping recommendation.",
+      "Same flat catalogue, presented as a compact two-column tile grid. Still no clinical lanes — icon + label for glance recognition.",
     changes: [
-      "Lane chips filter the deck without opening a second surface.",
-      "Current mode sits in a full-width identity card above the grid.",
-      "Cards are icon-forward with two-line labels; selected card uses accent ring + check.",
-      "Same Sheet chrome (grip, title, close, safe-area) so the concept can drop into the live Sheet.",
+      "One continuous grid — no section labels or lane chips.",
+      "Compact tiles (icon + title) keep all modes in view.",
+      "Selected tile uses accent wash, ring, and corner check.",
+      "Use when icon recognition matters more than a single text column.",
     ],
   },
 ];
@@ -268,11 +214,23 @@ function scrollContainerToTarget(container: HTMLElement, target: HTMLElement, bl
   container.scrollTop += targetCenter - containerCenter;
 }
 
+function CurrentlyLine({ modeId }: { modeId: AppModeId }) {
+  const mode = modeOf(modeId);
+  const Icon = appModeIcons[modeId];
+
+  return (
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+        <Icon aria-hidden="true" className="h-3 w-3" />
+      </span>
+      <span className="min-w-0 truncate">
+        Currently <span className="font-semibold text-[color:var(--text-heading)]">{mode.label}</span>
+      </span>
+    </span>
+  );
+}
+
 function CurrentShippingSheet() {
-  // `visibleAppModeDefinitions("production")`, not a local `!mode.devOnly`:
-  // `devOnly` is optional on the union, so reading it off every member does not
-  // typecheck (TS2339). app-modes.ts already exports this guard — passing
-  // "production" reproduces the intent here, which is the shipping mode list.
   const modes = visibleAppModeDefinitions("production");
 
   return (
@@ -326,23 +284,7 @@ function CurrentShippingSheet() {
   );
 }
 
-function CurrentlyLine({ modeId }: { modeId: AppModeId }) {
-  const mode = modeOf(modeId);
-  const Icon = appModeIcons[modeId];
-
-  return (
-    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-        <Icon aria-hidden="true" className="h-3 w-3" />
-      </span>
-      <span className="min-w-0 truncate">
-        Currently <span className="font-semibold text-[color:var(--text-heading)]">{mode.label}</span>
-      </span>
-    </span>
-  );
-}
-
-function ModeRow({
+function DenseModeRow({
   modeId,
   active,
   index,
@@ -368,105 +310,85 @@ function ModeRow({
       type="button"
       role="menuitemradio"
       aria-checked={active}
+      aria-label={`${mode.label}. ${mode.description}`}
       tabIndex={tabIndex}
       onClick={() => onSelect(modeId)}
       onKeyDown={(event) => onKeyDown(event, index)}
       style={{ animationDelay: `${Math.min(index, 8) * 28}ms` }}
       className={cn(
-        "relative grid min-h-12 w-full grid-cols-[2.75rem_minmax(0,1fr)_1.75rem] items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition-[background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-safe:animate-[cascade-fade-up_var(--duration-moderate)_var(--ease-out-soft)_both] motion-reduce:animate-none motion-reduce:transition-none",
+        "relative grid min-h-12 w-full grid-cols-[2rem_minmax(0,1fr)_1.25rem] items-center gap-2 rounded-lg px-2 py-1 text-left transition-[background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
         focusRing,
         active
-          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)] shadow-[var(--shadow-inset)]"
+          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)]"
           : "text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
       )}
     >
       {active ? (
         <span
           aria-hidden="true"
-          className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-[color:var(--clinical-accent)]"
+          className="absolute inset-y-1 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
         />
       ) : null}
       <span
         className={cn(
-          "grid h-11 w-11 place-items-center rounded-xl border transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none",
+          "grid h-8 w-8 place-items-center rounded-lg border",
           active
             ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
             : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
         )}
       >
-        <Icon aria-hidden="true" className="h-5 w-5" />
+        <Icon aria-hidden="true" className="h-4 w-4" />
       </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
-          {mode.label}
-        </span>
-        <span className="mt-0.5 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-          {mode.description}
-        </span>
+      <span className="min-w-0 truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
+        {mode.label}
       </span>
-      <span className="grid place-items-center">
-        {active ? (
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)]">
-            <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.5} />
-          </span>
-        ) : (
-          <span aria-hidden="true" className="h-6 w-6" />
-        )}
-      </span>
+      {active ? (
+        <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" strokeWidth={2.5} />
+      ) : (
+        <span aria-hidden="true" className="h-4 w-4" />
+      )}
     </button>
   );
 }
 
-const SECTIONED_MODE_IDS = GROUPS.flatMap((group) => group.modes);
-
 /**
- * Perfected YES 01. Current mode is header chrome (never a second sticky card).
- * Section labels are the sole sticky layer. Selection is live and controlled by
- * the phone frame so the top-bar pill stays in sync.
+ * YES 01 — dense title list. Flat catalogue, no section organisation.
+ * Selection is controlled by the phone frame so the top-bar pill stays in sync.
  */
-function SectionedListSheet({
+function DenseListSheet({
   selected,
   onSelectedChange,
   preview = "rest",
 }: {
   selected: AppModeId;
   onSelectedChange: (id: AppModeId) => void;
-  preview?: SectionsPreview;
+  preview?: DensePreview;
 }) {
-  const instanceId = useId();
   const bodyRef = useRef<HTMLDivElement>(null);
-  const diagnoseRef = useRef<HTMLElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const selectedIndex = Math.max(0, SECTIONED_MODE_IDS.indexOf(selected));
-  // Roving tabindex: keyboard moves focusIndex; remount (via PhoneFrame key) resets it.
+  const selectedIndex = Math.max(0, FLAT_MODE_IDS.indexOf(selected));
+  const midScrollIndex = Math.max(0, FLAT_MODE_IDS.indexOf(MID_SCROLL_MODE));
   const [focusIndex, setFocusIndex] = useState(selectedIndex);
-  // Proof-frame scroll uses the mount selection only — live taps must not re-scroll.
   const mountSelectedIndexRef = useRef(selectedIndex);
 
   useEffect(() => {
     if (preview === "rest") return;
-    // Constrain preview scroll to the sheet body — scrollIntoView would yank
-    // every scrollable ancestor, including the document, past the study heading.
-    // Run once per proof-frame mount only: re-running on live selection taps
-    // would yank the Scrolled frame back to Diagnose after every mode pick.
     const frame = window.requestAnimationFrame(() => {
       const body = bodyRef.current;
       if (!body) return;
       if (preview === "scrolled") {
-        const target = diagnoseRef.current;
+        const target = optionRefs.current[midScrollIndex];
         if (target) scrollContainerToTarget(body, target, "start");
         return;
       }
-      // Switched: bring the newly current mode into view so selection is not
-      // off-screen under Find while the header already says DSM-5 / Care / etc.
       const target = optionRefs.current[mountSelectedIndexRef.current];
       if (target) scrollContainerToTarget(body, target, "center");
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [preview]);
+  }, [preview, midScrollIndex]);
 
   function focusModeOption(index: number) {
-    const next = Math.max(0, Math.min(SECTIONED_MODE_IDS.length - 1, index));
+    const next = Math.max(0, Math.min(FLAT_MODE_IDS.length - 1, index));
     setFocusIndex(next);
     optionRefs.current[next]?.focus();
   }
@@ -483,13 +405,13 @@ function SectionedListSheet({
       focusModeOption(0);
     } else if (event.key === "End") {
       event.preventDefault();
-      focusModeOption(SECTIONED_MODE_IDS.length - 1);
+      focusModeOption(FLAT_MODE_IDS.length - 1);
     }
   }
 
   function selectMode(id: AppModeId) {
     onSelectedChange(id);
-    const nextIndex = SECTIONED_MODE_IDS.indexOf(id);
+    const nextIndex = FLAT_MODE_IDS.indexOf(id);
     if (nextIndex >= 0) setFocusIndex(nextIndex);
   }
 
@@ -503,52 +425,135 @@ function SectionedListSheet({
       <div
         role="menu"
         aria-label="Choose app mode"
-        data-perfected="yes-01"
+        data-perfected="yes-01-dense"
         data-preview={preview}
-        className="px-2.5 pb-2 pt-1"
+        className="grid gap-0 px-1.5 py-1"
       >
-        {GROUPS.map((group, groupIndex) => {
-          const sectionRef = group.id === "diagnose" ? diagnoseRef : undefined;
-          const rowOffset = GROUPS.slice(0, groupIndex).reduce((total, entry) => total + entry.modes.length, 0);
-          const headingId = `${instanceId}-group-${group.id}`;
+        {FLAT_MODE_IDS.map((modeId, flatIndex) => (
+          <DenseModeRow
+            key={modeId}
+            modeId={modeId}
+            active={modeId === selected}
+            index={flatIndex}
+            tabIndex={flatIndex === focusIndex ? 0 : -1}
+            onSelect={selectMode}
+            onKeyDown={handleModeOptionKeyDown}
+            buttonRef={(element) => {
+              optionRefs.current[flatIndex] = element;
+            }}
+          />
+        ))}
+      </div>
+    </SheetChrome>
+  );
+}
+
+/**
+ * YES 02 — flat icon tiles. Still no Find / Diagnose / Care lanes.
+ */
+function FlatTileSheet({
+  selected,
+  onSelectedChange,
+}: {
+  selected: AppModeId;
+  onSelectedChange: (id: AppModeId) => void;
+}) {
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const selectedIndex = Math.max(0, FLAT_MODE_IDS.indexOf(selected));
+  const [focusIndex, setFocusIndex] = useState(selectedIndex);
+
+  function focusModeOption(index: number) {
+    const next = Math.max(0, Math.min(FLAT_MODE_IDS.length - 1, index));
+    setFocusIndex(next);
+    optionRefs.current[next]?.focus();
+  }
+
+  function handleModeOptionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
+    const cols = 2;
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      focusModeOption(index + 1);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      focusModeOption(index - 1);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusModeOption(index + cols);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusModeOption(index - cols);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusModeOption(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusModeOption(FLAT_MODE_IDS.length - 1);
+    }
+  }
+
+  function selectMode(id: AppModeId) {
+    onSelectedChange(id);
+    const nextIndex = FLAT_MODE_IDS.indexOf(id);
+    if (nextIndex >= 0) setFocusIndex(nextIndex);
+  }
+
+  return (
+    <SheetChrome
+      title="Choose mode"
+      descriptionContent={<CurrentlyLine modeId={selected} />}
+      closeLabel="Close mode menu"
+    >
+      <div
+        role="menu"
+        aria-label="Choose app mode"
+        data-perfected="yes-02-tiles"
+        className="grid grid-cols-2 gap-2 px-3 py-3"
+      >
+        {FLAT_MODE_IDS.map((modeId, flatIndex) => {
+          const mode = modeOf(modeId);
+          const Icon = appModeIcons[modeId];
+          const active = modeId === selected;
           return (
-            <section key={group.id} ref={sectionRef} aria-labelledby={headingId} className="pt-3 first:pt-1.5">
-              <div className="sticky top-0 z-[1] -mx-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 px-2.5 py-1.5 backdrop-blur-md">
-                <div className="flex items-baseline justify-between gap-3">
-                  <div className="min-w-0">
-                    <h4
-                      id={headingId}
-                      className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--text-soft)]"
-                    >
-                      {group.label}
-                    </h4>
-                    <p className="truncate text-3xs font-medium text-[color:var(--text-muted)]">{group.hint}</p>
-                  </div>
-                  <span className="nums shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-3xs font-bold tabular-nums text-[color:var(--text-soft)]">
-                    {group.modes.length}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-1.5 grid gap-1">
-                {group.modes.map((modeId, modeIndex) => {
-                  const flatIndex = rowOffset + modeIndex;
-                  return (
-                    <ModeRow
-                      key={modeId}
-                      modeId={modeId}
-                      active={modeId === selected}
-                      index={flatIndex}
-                      tabIndex={flatIndex === focusIndex ? 0 : -1}
-                      onSelect={selectMode}
-                      onKeyDown={handleModeOptionKeyDown}
-                      buttonRef={(element) => {
-                        optionRefs.current[flatIndex] = element;
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </section>
+            <button
+              key={modeId}
+              ref={(element) => {
+                optionRefs.current[flatIndex] = element;
+              }}
+              type="button"
+              role="menuitemradio"
+              aria-checked={active}
+              aria-label={`${mode.label}. ${mode.description}`}
+              tabIndex={flatIndex === focusIndex ? 0 : -1}
+              onClick={() => selectMode(modeId)}
+              onKeyDown={(event) => handleModeOptionKeyDown(event, flatIndex)}
+              style={{ animationDelay: `${Math.min(flatIndex, 8) * 24}ms` }}
+              className={cn(
+                "relative flex min-h-[4.75rem] flex-col items-start gap-2 rounded-2xl border p-3 text-left transition",
+                focusRing,
+                active
+                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-tight)]"
+                  : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
+              )}
+            >
+              {active ? (
+                <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)]">
+                  <Check aria-hidden="true" className="h-3 w-3" strokeWidth={2.5} />
+                </span>
+              ) : null}
+              <span
+                className={cn(
+                  "grid h-9 w-9 place-items-center rounded-xl border",
+                  active
+                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
+                    : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text)]",
+                )}
+              >
+                <Icon aria-hidden="true" className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 pr-5 text-sm font-semibold leading-tight tracking-[-0.01em] text-[color:var(--text-heading)]">
+                {mode.label}
+              </span>
+            </button>
           );
         })}
       </div>
@@ -556,150 +561,17 @@ function SectionedListSheet({
   );
 }
 
-function IconDeckSheet() {
-  const instanceId = useId();
-  const [lane, setLane] = useState<"all" | GroupId>("all");
-  const active = modeOf(ACTIVE_MODE);
-  const ActiveIcon = appModeIcons[ACTIVE_MODE];
-  const visibleGroups = lane === "all" ? GROUPS : GROUPS.filter((group) => group.id === lane);
-
-  return (
-    <SheetChrome title="Choose mode" description="Browse the clinical workspace." closeLabel="Close mode menu">
-      <div className="space-y-3 px-3 pb-3 pt-3">
-        <div className="rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] p-3">
-          <div className="flex items-center gap-3">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]">
-              <ActiveIcon aria-hidden="true" className="h-6 w-6" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--clinical-accent)]">
-                Current mode
-              </span>
-              <span className="block truncate text-base font-semibold text-[color:var(--text-heading)]">
-                {active.label}
-              </span>
-              <span className="mt-0.5 line-clamp-2 text-2xs leading-4 text-[color:var(--text-muted)]">
-                {active.description}
-              </span>
-            </span>
-          </div>
-        </div>
-
-        <div
-          role="group"
-          aria-label="Filter modes by clinical lane"
-          className="flex gap-1.5 overflow-x-auto polished-scroll pb-0.5"
-        >
-          {(
-            [
-              { id: "all" as const, label: "All" },
-              ...GROUPS.map((group) => ({ id: group.id, label: group.label })),
-            ] as const
-          ).map((chip) => {
-            const selected = lane === chip.id;
-            return (
-              <button
-                key={chip.id}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => setLane(chip.id)}
-                className={cn(
-                  "inline-flex h-tap shrink-0 items-center rounded-full border px-3.5 text-xs font-semibold transition",
-                  focusRing,
-                  selected
-                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                )}
-              >
-                {chip.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div role="menu" aria-label="Choose app mode" className="space-y-4">
-          {visibleGroups.map((group) => {
-            const headingId = `${instanceId}-deck-${group.id}`;
-            return (
-              <section key={group.id} aria-labelledby={headingId}>
-                <div className="mb-1.5 flex items-baseline justify-between gap-2 px-0.5">
-                  <h4
-                    id={headingId}
-                    className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--text-soft)]"
-                  >
-                    {group.label}
-                  </h4>
-                  <span className="text-3xs font-medium text-[color:var(--text-muted)]">{group.hint}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {group.modes.map((modeId) => {
-                    const mode = modeOf(modeId);
-                    const Icon = appModeIcons[modeId];
-                    const isActive = modeId === ACTIVE_MODE;
-                    return (
-                      <button
-                        key={modeId}
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={isActive}
-                        onClick={() => undefined}
-                        className={cn(
-                          "relative flex min-h-[6.5rem] flex-col items-start gap-2 rounded-2xl border p-3 text-left transition",
-                          focusRing,
-                          isActive
-                            ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-tight)]"
-                            : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
-                        )}
-                      >
-                        {isActive ? (
-                          <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)]">
-                            <Check aria-hidden="true" className="h-3.5 w-3.5" />
-                          </span>
-                        ) : null}
-                        <span
-                          className={cn(
-                            "grid h-10 w-10 place-items-center rounded-xl border",
-                            isActive
-                              ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
-                              : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text)]",
-                          )}
-                        >
-                          <Icon aria-hidden="true" className="h-5 w-5" />
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold leading-tight text-[color:var(--text-heading)]">
-                            {mode.label}
-                          </span>
-                          <span className="mt-1 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-                            {mode.description}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      </div>
-    </SheetChrome>
-  );
-}
-
-function SectionsPhoneFrame({
+function DensePhoneFrame({
   large = false,
   caption,
-  sectionsPreview = "rest",
+  densePreview = "rest",
   initialMode,
 }: {
   large?: boolean;
   caption: string;
-  sectionsPreview?: SectionsPreview;
+  densePreview?: DensePreview;
   initialMode: AppModeId;
 }) {
-  // Owned here so the top-bar pill tracks live sheet selection. Parent keys this
-  // component on preview/initialMode so state resets without a sync effect.
   const [selectedMode, setSelectedMode] = useState<AppModeId>(initialMode);
   const modeLabel = modeOf(selectedMode).label;
 
@@ -709,8 +581,8 @@ function SectionsPhoneFrame({
         <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{caption}</p>
       </figcaption>
       <div
-        data-variant="sections"
-        data-sections-preview={sectionsPreview}
+        data-variant="dense"
+        data-dense-preview={densePreview}
         className={cn(
           "relative isolate flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
           large ? "h-[46rem]" : "h-[30rem]",
@@ -718,7 +590,39 @@ function SectionsPhoneFrame({
       >
         <UniversalHeader modeLabel={modeLabel} />
         <DimmedHome modeLabel={modeLabel} />
-        <SectionedListSheet selected={selectedMode} onSelectedChange={setSelectedMode} preview={sectionsPreview} />
+        <DenseListSheet selected={selectedMode} onSelectedChange={setSelectedMode} preview={densePreview} />
+      </div>
+    </figure>
+  );
+}
+
+function TilesPhoneFrame({
+  large = false,
+  caption,
+  initialMode,
+}: {
+  large?: boolean;
+  caption: string;
+  initialMode: AppModeId;
+}) {
+  const [selectedMode, setSelectedMode] = useState<AppModeId>(initialMode);
+  const modeLabel = modeOf(selectedMode).label;
+
+  return (
+    <figure className={cn("m-0 max-w-full min-w-0", large ? "w-[390px]" : "w-[340px]")}>
+      <figcaption className="mb-2.5">
+        <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{caption}</p>
+      </figcaption>
+      <div
+        data-variant="tiles"
+        className={cn(
+          "relative isolate flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
+          large ? "h-[46rem]" : "h-[30rem]",
+        )}
+      >
+        <UniversalHeader modeLabel={modeLabel} />
+        <DimmedHome modeLabel={modeLabel} />
+        <FlatTileSheet selected={selectedMode} onSelectedChange={setSelectedMode} />
       </div>
     </figure>
   );
@@ -728,26 +632,31 @@ function PhoneFrame({
   variant,
   large = false,
   caption,
-  sectionsPreview = "rest",
+  densePreview = "rest",
   initialMode,
 }: {
   variant: VariantId;
   large?: boolean;
   caption: string;
-  sectionsPreview?: SectionsPreview;
+  densePreview?: DensePreview;
   initialMode?: AppModeId;
 }) {
-  if (variant === "sections") {
-    const sectionsInitial = initialMode ?? ACTIVE_MODE;
+  if (variant === "dense") {
+    const denseInitial = initialMode ?? ACTIVE_MODE;
     return (
-      <SectionsPhoneFrame
-        key={`${sectionsPreview}-${sectionsInitial}`}
+      <DensePhoneFrame
+        key={`${densePreview}-${denseInitial}`}
         large={large}
         caption={caption}
-        sectionsPreview={sectionsPreview}
-        initialMode={sectionsInitial}
+        densePreview={densePreview}
+        initialMode={denseInitial}
       />
     );
+  }
+
+  if (variant === "tiles") {
+    const tilesInitial = initialMode ?? ACTIVE_MODE;
+    return <TilesPhoneFrame key={tilesInitial} large={large} caption={caption} initialMode={tilesInitial} />;
   }
 
   const modeLabel = modeOf(ACTIVE_MODE).label;
@@ -767,7 +676,6 @@ function PhoneFrame({
         <UniversalHeader modeLabel={modeLabel} />
         <DimmedHome modeLabel={modeLabel} />
         {variant === "current" ? <CurrentShippingSheet /> : null}
-        {variant === "deck" ? <IconDeckSheet /> : null}
       </div>
     </figure>
   );
@@ -780,11 +688,11 @@ function ReviewPanel() {
         Design review · Phone sheet
       </p>
       <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-[color:var(--text-heading)]">
-        What the current Choose mode gets wrong
+        Glance first — no lanes
       </h2>
       <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
-        The live bottom sheet is structurally sound (Sheet focus, menuitemradio, portal). The polish gap is scan and
-        hierarchy on a long clinical catalogue — not interaction plumbing.
+        Organisation and roomy spacing made mode choice harder at a glance. Both YES directions stay flat so more modes
+        are visible on open.
       </p>
       <ul className="mt-4 space-y-3">
         {reviewFindings.map((finding) => (
@@ -804,27 +712,9 @@ function ReviewPanel() {
       </ul>
       <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-[color:var(--text-muted)]">
         <Search aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
-        YES 01 perfected closes every finding above. Prefer it for shipping; YES 02 stays the overview alternate.
+        YES 01 is the dense title list. YES 02 is flat icon tiles — still no Find / Diagnose / Care.
       </p>
     </aside>
-  );
-}
-
-function PerfectedResolutions() {
-  return (
-    <ul className="grid gap-2 sm:grid-cols-2">
-      {perfectedResolutions.map((item) => (
-        <li
-          key={item.issue}
-          className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-3"
-        >
-          <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--clinical-accent)]">
-            Resolved · {item.issue}
-          </p>
-          <p className="mt-1.5 text-xs leading-5 text-[color:var(--text-muted)]">{item.fix}</p>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -837,58 +727,66 @@ export function PhoneModeSheetYesMockups() {
             Phone · Choose mode sheet
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[color:var(--text-heading)] sm:text-4xl">
-            YES 01 perfected
+            New YES comps · glance without organisation
           </h1>
           <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
-            The sectioned clinical list, taken to master: every review finding closed, no duplicate current chrome, a
-            single sticky layer, phone-native targets, and live selection. YES 02 remains the overview alternate.
+            Two large directions. Both drop Find / Diagnose / Care lanes and roomy chrome so you can see and pick a mode
+            in one glance.
           </p>
         </header>
 
-        <section aria-labelledby="perfected-pair-title" className="mt-10">
+        <section aria-labelledby="dense-pair-title" className="mt-10">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
-                Perfected · Three states
+                YES 01 · Three states
               </p>
               <h2
-                id="perfected-pair-title"
+                id="dense-pair-title"
                 className="mt-1 text-2xl font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]"
               >
-                Rest · Scrolled · Switched
+                Dense title list
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-[color:var(--text-muted)]">
-              Open on Answer, scroll into Diagnose with sticky labels, then land on DSM-5 — header and selection stay in
-              sync.
+              Title-only rows — no section chrome. Full catalogue scannable on open; switch keeps header and selection
+              in sync.
             </p>
           </div>
           <div className="flex flex-wrap items-start gap-5">
-            <PhoneFrame variant="sections" large caption="Rest · Answer selected" sectionsPreview="rest" />
-            <PhoneFrame variant="sections" large caption="Scrolled · Diagnose sticky" sectionsPreview="scrolled" />
+            <PhoneFrame variant="dense" large caption="Rest · most modes visible" densePreview="rest" />
+            <PhoneFrame variant="dense" large caption="Scrolled · mid catalogue" densePreview="scrolled" />
             <PhoneFrame
-              variant="sections"
+              variant="dense"
               large
               caption="Switched · DSM-5 current"
-              sectionsPreview="switched"
+              densePreview="switched"
               initialMode="dsm"
             />
           </div>
         </section>
 
-        <section aria-labelledby="resolutions-title" className="mt-12">
-          <h2
-            id="resolutions-title"
-            className="text-lg font-semibold tracking-[-0.02em] text-[color:var(--text-heading)]"
-          >
-            All issues resolved
-          </h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)]">
-            The earlier YES 01 draft still carried a bulky sticky “Now in” card and a fragile `top-[4.6rem]` offset. The
-            perfected sheet removes both.
-          </p>
-          <div className="mt-4">
-            <PerfectedResolutions />
+        <section aria-labelledby="tiles-pair-title" className="mt-14">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
+                YES 02 · Icon-forward
+              </p>
+              <h2
+                id="tiles-pair-title"
+                className="mt-1 text-2xl font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]"
+              >
+                Flat icon tiles
+              </h2>
+            </div>
+            <p className="max-w-xl text-sm leading-6 text-[color:var(--text-muted)]">
+              Same flat catalogue as a two-column tile grid — still no clinical lanes. Tap to switch; header tracks the
+              pick.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-start gap-5">
+            <PhoneFrame variant="tiles" large caption="Rest · Answer selected" />
+            <PhoneFrame variant="tiles" large caption="Switched · Tools selected" initialMode="tools" />
           </div>
         </section>
 
@@ -902,10 +800,10 @@ export function PhoneModeSheetYesMockups() {
                 id="current-title"
                 className="mt-1 text-2xl font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]"
               >
-                Flat list sheet
+                Flat list with subtitles
               </h2>
             </div>
-            <PhoneFrame variant="current" caption="Current · truncated flat list" />
+            <PhoneFrame variant="current" caption="Current · title + truncated description" />
           </section>
           <ReviewPanel />
         </div>
@@ -945,10 +843,10 @@ export function PhoneModeSheetYesMockups() {
                 ))}
               </ul>
 
-              {variant.id === "sections" ? (
-                <PhoneFrame variant="sections" large caption="Detail · Perfected sectioned list" />
+              {variant.id === "dense" ? (
+                <PhoneFrame variant="dense" large caption="Detail · Dense title list" />
               ) : (
-                <PhoneFrame variant="deck" large caption="Detail · Icon deck" />
+                <PhoneFrame variant="tiles" large caption="Detail · Flat icon tiles" />
               )}
             </section>
           ))}
