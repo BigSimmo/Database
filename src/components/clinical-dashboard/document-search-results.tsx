@@ -60,11 +60,13 @@ import {
   DocumentBadge,
   documentActionClass,
 } from "@/components/clinical-dashboard/document-ui";
+import { useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
 import {
   cn,
   floatingControl,
   LoadingPanel,
   metadataPillDensity,
+  Skeleton,
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
@@ -796,36 +798,65 @@ const resultMenuItemClass =
 function DocumentPagePreview({ document, href }: { document: DocumentMatch; href: string }) {
   const pageNumber = document.bestPages[0] ?? 1;
   const lineWidths = [74, 88, 63, 79, 56];
+  const coverEndpoint = document.coverImageId ? `/api/images/${document.coverImageId}/signed-url` : "";
+  const { url: coverUrl, failed: coverFailed } = useSignedImageUrl(coverEndpoint, Boolean(coverEndpoint));
+  const [coverLoaded, setCoverLoaded] = useState(false);
+  const showCover = Boolean(coverEndpoint && coverUrl && !coverFailed);
+
+  useEffect(() => {
+    setCoverLoaded(false);
+  }, [coverUrl]);
 
   return (
     <Link
       href={href}
       aria-label={`Preview page ${pageNumber} of ${document.title}`}
       data-testid="document-page-preview"
-      className="group relative flex h-28 w-20 shrink-0 flex-col overflow-hidden rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transform-none motion-reduce:transition-none sm:h-32 sm:w-24 sm:p-2.5"
+      className="group relative flex h-28 w-20 shrink-0 flex-col overflow-hidden rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transform-none motion-reduce:transition-none sm:h-32 sm:w-24"
     >
-      <span className="flex items-center justify-between text-[color:var(--clinical-accent)]" aria-hidden="true">
-        <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="h-1.5 w-5 rounded-full bg-[color:var(--clinical-accent-soft)]" />
-      </span>
-      <span className="mt-3 space-y-1.5" aria-hidden="true">
-        {lineWidths.map((width, index) => (
-          <span
-            key={`${document.document_id}-preview-line-${index}`}
-            className={cn(
-              "block h-1 rounded-full bg-[color:var(--border-strong)]",
-              index < 2 && "bg-[color:var(--clinical-accent)]",
-            )}
-            style={{ width: `${width}%` }}
-          />
-        ))}
-      </span>
-      <span className="mt-auto grid grid-cols-3 gap-1 opacity-80 transition group-hover:opacity-100" aria-hidden="true">
-        <span className="h-3 rounded-sm bg-[color:var(--clinical-accent-soft)]" />
-        <span className="h-3 rounded-sm bg-[color:var(--surface-subtle)]" />
-        <span className="h-3 rounded-sm bg-[color:var(--clinical-accent-soft)]" />
-      </span>
-      <span className="absolute bottom-1.5 right-1.5 rounded bg-[color:var(--surface-raised)] px-1.5 py-0.5 text-3xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+      {showCover ? (
+        // Private signed covers stay unoptimized so bearer URLs never enter `/_next/image`.
+        // eslint-disable-next-line @next/next/no-img-element -- signed private URL; avoid optimizer cache
+        <img
+          src={coverUrl!}
+          alt=""
+          aria-hidden="true"
+          onLoad={() => setCoverLoaded(true)}
+          className={cn(
+            "absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-[var(--duration-deliberate)] motion-reduce:transition-none",
+            coverLoaded ? "opacity-100" : "opacity-0",
+          )}
+        />
+      ) : null}
+      {coverEndpoint && !showCover && !coverFailed ? (
+        <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
+      ) : null}
+      {!showCover && (!coverEndpoint || coverFailed) ? (
+        <span className="relative flex h-full flex-col p-2 sm:p-2.5" aria-hidden="true">
+          <span className="flex items-center justify-between text-[color:var(--clinical-accent)]">
+            <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="h-1.5 w-5 rounded-full bg-[color:var(--clinical-accent-soft)]" />
+          </span>
+          <span className="mt-3 space-y-1.5">
+            {lineWidths.map((width, index) => (
+              <span
+                key={`${document.document_id}-preview-line-${index}`}
+                className={cn(
+                  "block h-1 rounded-full bg-[color:var(--border-strong)]",
+                  index < 2 && "bg-[color:var(--clinical-accent)]",
+                )}
+                style={{ width: `${width}%` }}
+              />
+            ))}
+          </span>
+          <span className="mt-auto grid grid-cols-3 gap-1 opacity-80 transition group-hover:opacity-100">
+            <span className="h-3 rounded-sm bg-[color:var(--clinical-accent-soft)]" />
+            <span className="h-3 rounded-sm bg-[color:var(--surface-subtle)]" />
+            <span className="h-3 rounded-sm bg-[color:var(--clinical-accent-soft)]" />
+          </span>
+        </span>
+      ) : null}
+      <span className="absolute bottom-1.5 right-1.5 rounded bg-[color:var(--surface-raised)]/95 px-1.5 py-0.5 text-3xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
         {pageNumber}
       </span>
     </Link>

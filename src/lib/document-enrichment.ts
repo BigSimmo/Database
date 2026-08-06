@@ -898,7 +898,11 @@ export async function fetchRelatedDocuments(args: {
     args.includeVisualCounts === false
       ? Promise.resolve(new Map<string, { imageCount: number; tableCount: number }>())
       : fetchDocumentVisualCounts(args.supabase, documentIds, args.signal);
-  const [metadataRows, visualCounts] = await Promise.all([
+  const coverIdsPromise =
+    args.includeVisualCounts === false
+      ? Promise.resolve(new Map<string, string>())
+      : fetchDocumentCoverImageIds(args.supabase, documentIds, args.signal);
+  const [metadataRows, visualCounts, coverImageIds] = await Promise.all([
     fetchRelatedDocumentMetadata({
       supabase: args.supabase,
       ownerId: args.ownerId,
@@ -907,6 +911,7 @@ export async function fetchRelatedDocuments(args: {
       signal: args.signal,
     }),
     visualCountsPromise,
+    coverIdsPromise,
   ]);
   const labelsByDocument = new Map<string, DocumentLabel[]>();
   const summariesByDocument = new Map<string, string | null>();
@@ -934,6 +939,7 @@ export async function fetchRelatedDocuments(args: {
         best_chunk_ids: document.best_chunk_ids.slice(0, 5),
         image_count: Math.max(document.image_count, counts?.imageCount ?? 0),
         table_count: counts?.tableCount ?? 0,
+        cover_image_id: coverImageIds.get(document.document_id) ?? null,
         match_reason: matchingLabel
           ? `Matched label: ${matchingLabel.label}`
           : `Matched ${document.best_chunk_ids.length} indexed passage${document.best_chunk_ids.length === 1 ? "" : "s"}`,
@@ -973,6 +979,33 @@ export async function fetchDocumentVisualCounts(supabase: SupabaseClient, docume
   return counts;
 }
 
+/** Resolve first-page cover image ids for search-card thumbnails (non-searchable). */
+export async function fetchDocumentCoverImageIds(
+  supabase: SupabaseClient,
+  documentIds: string[],
+  signal?: AbortSignal,
+) {
+  const covers = new Map<string, string>();
+  const uniqueIds = Array.from(new Set(documentIds));
+  if (uniqueIds.length === 0) return covers;
+
+  let query = supabase
+    .from("document_images")
+    .select("id,document_id,page_number,source_kind")
+    .in("document_id", uniqueIds)
+    .eq("source_kind", "cover_page")
+    .order("page_number", { ascending: true });
+  if (signal) query = query.abortSignal(signal);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+
+  for (const row of data ?? []) {
+    const documentId = String(row.document_id);
+    if (!covers.has(documentId) && row.id) covers.set(documentId, String(row.id));
+  }
+  return covers;
+}
+
 export function toDocumentMatch(document: RelatedDocument): DocumentMatch {
   return {
     document_id: document.document_id,
@@ -984,6 +1017,7 @@ export function toDocumentMatch(document: RelatedDocument): DocumentMatch {
     bestChunkIds: document.best_chunk_ids,
     imageCount: document.image_count,
     tableCount: document.table_count ?? 0,
+    coverImageId: document.cover_image_id ?? null,
     matchReason: document.match_reason,
     score: document.score,
   };

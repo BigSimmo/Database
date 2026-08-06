@@ -27,6 +27,40 @@ function metadataRpc() {
   }));
 }
 
+function createDocumentImagesQuery(kind: "visual" | "cover") {
+  const visualRows = [
+    {
+      document_id: "document-1",
+      source_kind: "table_crop",
+      searchable: true,
+      image_type: "table",
+      clinical_relevance_score: 0.9,
+      metadata: { clinical_use_class: "clinical_evidence" },
+    },
+  ];
+  const coverRows = [
+    {
+      id: "cover-1",
+      document_id: "document-1",
+      page_number: 1,
+      source_kind: "cover_page",
+    },
+  ];
+  const result = {
+    data: kind === "cover" ? coverRows : visualRows,
+    error: null,
+  };
+  const query: Record<string, unknown> = {};
+  const self = () => query;
+  query.select = vi.fn(self);
+  query.in = vi.fn(self);
+  query.neq = vi.fn(async () => result);
+  query.eq = vi.fn(self);
+  query.order = vi.fn(async () => result);
+  query.abortSignal = vi.fn(async () => result);
+  return query;
+}
+
 describe("related-document visual counts", () => {
   it("skips the visual-count query when includeVisualCounts is false", async () => {
     const from = vi.fn(() => {
@@ -46,26 +80,11 @@ describe("related-document visual counts", () => {
   });
 
   it("keeps visual counts enabled by default", async () => {
-    const query = {
-      select: vi.fn(),
-      in: vi.fn(),
-      neq: vi.fn(async () => ({
-        data: [
-          {
-            document_id: "document-1",
-            source_kind: "table_crop",
-            searchable: true,
-            image_type: "table",
-            clinical_relevance_score: 0.9,
-            metadata: { clinical_use_class: "clinical_evidence" },
-          },
-        ],
-        error: null,
-      })),
-    };
-    query.select.mockReturnValue(query);
-    query.in.mockReturnValue(query);
-    const from = vi.fn(() => query);
+    let call = 0;
+    const from = vi.fn(() => {
+      call += 1;
+      return createDocumentImagesQuery(call === 1 ? "visual" : "cover");
+    });
     const supabase = { rpc: metadataRpc(), from };
 
     const related = await fetchRelatedDocuments({
@@ -75,7 +94,12 @@ describe("related-document visual counts", () => {
     });
 
     expect(from).toHaveBeenCalledWith("document_images");
-    expect(related[0]).toMatchObject({ document_id: "document-1", image_count: 1, table_count: 1 });
+    expect(related[0]).toMatchObject({
+      document_id: "document-1",
+      image_count: 1,
+      table_count: 1,
+      cover_image_id: "cover-1",
+    });
   });
 
   it("attaches the caller signal to metadata RPC builders", async () => {
