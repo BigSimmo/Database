@@ -166,6 +166,16 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder")).toBe("builder");
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers")).toBe("search");
   });
+
+  it("matches workflow destinations by path segment, not substring", () => {
+    // A slug that happens to contain "map"/"compare"/"builder" must not claim
+    // the workflow slot — `includes` would false-match these.
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/map-like-distress")).toBeNull();
+    expect(activeModeSecondaryNavigationId("formulation", "/formulation/compare-threat")).toBeNull();
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder-notes")).toBeNull();
+    expect(activeModeSecondaryNavigationId("formulation", "/formulation/map")).toBe("map");
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/compare")).toBe("compare");
+  });
 });
 
 describe("information page classification", () => {

@@ -130,9 +130,12 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     return null;
   }
   if (modeId === "specifiers" || modeId === "formulation") {
-    if (pathname.includes("/builder")) return "builder";
-    if (pathname.includes("/compare")) return "compare";
-    if (pathname.includes("/map")) return "map";
+    // Exact segment prefixes, not `includes`: a future slug containing
+    // "map"/"compare"/"builder" must not steal `aria-current` from Find.
+    // Matches the exact-path checks in `isModeSecondaryNavigationRoute`.
+    if (pathname === `/${modeId}/builder` || pathname.startsWith(`/${modeId}/builder/`)) return "builder";
+    if (pathname === `/${modeId}/compare` || pathname.startsWith(`/${modeId}/compare/`)) return "compare";
+    if (pathname === `/${modeId}/map` || pathname.startsWith(`/${modeId}/map/`)) return "map";
     if (pathname === `/${modeId}` || pathname.startsWith(`/${modeId}?`)) return "search";
     return null;
   }
