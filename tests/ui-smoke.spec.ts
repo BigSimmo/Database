@@ -1164,24 +1164,24 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("desktop sidebar defaults to the labelled state for new users", async ({ page }) => {
+  test("desktop sidebar defaults to the collapsed state for new users", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
-    // No stored preference (PT-10): the labelled navigation remains the default,
-    // so first-run desktop shows the labelled sidebar; collapse is remembered.
+    // No stored preference (PT-10): the collapsed icon rail is the default,
+    // so first-run desktop shows the collapsed sidebar; expanding is remembered.
     await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toHaveCount(0);
   });
 
   test("desktop sidebar mode sync and accessibility affordances stay coherent", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    // This journey exercises the remembered-collapsed rail; new users now
-    // default to the labelled sidebar, so seed the stored preference.
+    // This journey starts from the collapsed rail (now the default for new
+    // users too) and exercises expanding/collapsing it.
     await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/?mode=tools");
 
@@ -1231,8 +1231,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
-    // With the labelled default the expanded panel exists in the DOM but stays
-    // display:none below lg; tablet must still only present the icon rail.
+    // If the expanded panel exists in the DOM (e.g. a remembered expanded
+    // preference), it stays display:none below lg; tablet must still only
+    // present the icon rail.
     await expect(page.locator("#clinical-tools-sidebar")).toBeHidden();
     await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
 

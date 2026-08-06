@@ -528,8 +528,8 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("mode toggle stays global on the services home route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    // Asserts the collapsed rail affordance below; seed the remembered
-    // preference now that new users default to the labelled sidebar.
+    // Asserts the collapsed rail affordance below; explicit for clarity even
+    // though collapsed is now the default for new users too.
     await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoLauncher(page, "/?mode=answer");
 

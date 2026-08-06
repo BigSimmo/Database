@@ -18,11 +18,11 @@ function getSnapshot() {
   }
   try {
     const storedValue = window.localStorage.getItem(storageKey);
-    // New users get the labelled (expanded) sidebar: eight icon-only
-    // destinations demand recall/hover; collapsing stays a remembered choice.
-    return storedValue === null ? false : storedValue === "1";
+    // New users get the collapsed sidebar by default; expanding stays a
+    // remembered choice.
+    return storedValue === null ? true : storedValue === "1";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -35,7 +35,7 @@ function subscribe(onChange: () => void) {
   };
 }
 
-const useSidebarCollapsedStore = createBrowserStore(subscribe, getSnapshot, false);
+const useSidebarCollapsedStore = createBrowserStore(subscribe, getSnapshot, true);
 
 /**
  * Desktop sidebar collapse state shared across shells and persisted per
