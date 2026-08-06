@@ -379,8 +379,14 @@ export function SettingsDialog({
       pin.distance = distance;
       return false;
     }
-    if (!pin.settled && distance < pin.distance) {
-      // Still closing the gap, so this is the click's own scroll animation.
+    // Use `<=`, not `<`: a coalesced rAF can run after the pin is armed but
+    // before smooth-scroll has moved `scrollTop`. Strict `<` treats that
+    // no-progress frame as a reader takeover and drops the pin immediately,
+    // so a rapid second rail click (or any scroll listener still in flight)
+    // loses the hold before the animation starts.
+    if (!pin.settled && distance <= pin.distance) {
+      // Still closing the gap (or not yet moved), so this is the click's own
+      // scroll animation.
       pin.distance = distance;
       return false;
     }
