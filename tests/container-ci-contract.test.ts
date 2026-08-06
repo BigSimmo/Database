@@ -54,4 +54,29 @@ describe("container delivery contract", () => {
       expect(dockerignore, `missing Docker exclusion: ${entry}`).toContain(entry);
     }
   });
+
+  it("pins the Node base image to a multi-platform digest", () => {
+    const dockerfile = read("Dockerfile");
+    const worker = read("Dockerfile.worker");
+    const digest = /sha256:[a-f0-9]{64}/;
+
+    expect(dockerfile).toMatch(digest);
+    expect(dockerfile).toContain("FROM node-base");
+    expect(worker).toMatch(digest);
+    expect(worker).toContain("FROM node-base");
+  });
+
+  it("requires both images to stop on SIGTERM", () => {
+    expect(read("Dockerfile")).toContain("STOPSIGNAL SIGTERM");
+    expect(read("Dockerfile.worker")).toContain("STOPSIGNAL SIGTERM");
+  });
+
+  it("runs a provider-free runtime validator inside the worker image", () => {
+    expect(read("Dockerfile.worker")).toContain("dist/worker/validate-runtime.mjs");
+  });
+
+  it("includes the new Docker hardening scripts", () => {
+    expect(read(".github/workflows/docker-image.yml")).toContain("check-image-content-contract");
+    expect(read(".github/workflows/docker-image.yml")).toContain("app-container-smoke");
+  });
 });
