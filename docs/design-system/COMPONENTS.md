@@ -65,7 +65,7 @@ print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
 | Button                       | danger hover/active tokens and the 48px comment are resolved; ref forwarding and the client boundary remain                                                                                                          | follow-on                |
 | AsyncButton                  | `type` applied after spread (default `button`; explicit `submit` preserved). Prefer `Button` busy API for new sites.                                                                                                 | **done** (PR-A)          |
 | IconButton                   | disabled encoding uses `controlDisabled` (opacity retired in PR-A)                                                                                                                                                   | **done** (PR-A)          |
-| ToggleSwitch                 | operable branch requires `aria-label`; opacity disabled retired; knob now travels on `transform` (`translate-x-4`), tokenised duration, reduced-motion opt-out                                                       | PR 9 (motion)            |
+| ToggleSwitch                 | operable branch requires `aria-label`; opacity disabled retired; knob now travels on `transform` (`translate-x-4`), tokenised duration, reduced-motion opt-out                                                       | **done** (motion)        |
 | Chip                         | final `appearance`/size API, removable label contract, tap target and full-value title                                                                                                                               | **done**                 |
 | TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · no external id/refs (placeholder off decoration tier in PR-A)                                                                         | PR 7                     |
 | Checkbox/RadioGroup          | RadioGroup controlled/uncontrolled union done; raw dimensions · unsanitised ids · no group hint/error                                                                                                                | PR 7                     |
@@ -647,8 +647,11 @@ on it.
 `interactive` (label + checked + onCheckedChange required) · `status` (label + checked;
 `role="img"`-style read-only, still named). **Rules.** Compact 40×24 face is fine; the
 _target_ meets the tap floor via a transparent hit area · knob motion is `transform` with
-the physical curve · reduced motion snaps. **Open defects → PR.** unnameable, `left`/
-`right` animation, opacity disabled → PR 4, PR 9.
+the physical curve · reduced motion snaps. **Resolved (6 Aug 2026).** operable branch
+requires `aria-label`; opacity disabled retired; knob travels on `transform`
+(`translate-x-0` / `translate-x-4`) with tokenised duration and `motion-reduce` opt-out —
+no longer animates `left`/`right`. **Open defects → PR.** none remaining on this
+component; broader Gate 9 motion sweep still tracks other surfaces.
 
 ### 9.5 `Chip`
 
@@ -810,8 +813,10 @@ focus/announce policy → PR 3, PR 8.
 links carry the `ExternalLink` icon and an explicit new-tab policy, not an accidental
 universal · `DownloadLink`'s `download` semantics are not overridable by spread; `tone`
 is destructured, never leaked to the DOM · `LinkAction`'s arrow animates with `transform`,
-never `gap`. **Open defects → PR.** tone leak, spread override, gap animation, raw
-underline offset → PR 9.
+never `gap`. **Resolved (6 Aug 2026).** `tone` is destructured before the spread in
+`TextLink`, `ExternalTextLink`, and `DownloadLink`. **Open defects → PR.** `download`
+still overridable by spread · `LinkAction` `gap` animation · new-tab policy implicit /
+raw underline offset → PR 9.
 
 ### 9.21 `Tooltip`
 
