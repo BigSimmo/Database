@@ -20,7 +20,14 @@ const expectedLabels: Record<AppModeId, string[]> = {
   formulation: ["Find", "Build", "Compare", "Map"],
   prescribing: ["Search"],
   tools: ["Search"],
-  "therapy-compass": ["Search", "Recommend", "Compare", "Pathways", "Brief Intervention", "Patient Sheets"],
+  "therapy-compass": [
+    "Search",
+    "Recommend",
+    "Compare",
+    "Pathways",
+    "Brief Intervention",
+    "Patient Sheets",
+  ],
   factsheets: ["Search"],
 };
 
@@ -40,7 +47,13 @@ const cleanLandingPath: Record<AppModeId, string> = {
   factsheets: "/factsheets",
 };
 
-const multiPageModes = new Set<AppModeId>(["differentials", "dsm", "specifiers", "formulation", "therapy-compass"]);
+const multiPageModes = new Set<AppModeId>([
+  "differentials",
+  "dsm",
+  "specifiers",
+  "formulation",
+  "therapy-compass",
+]);
 
 describe("mode secondary navigation registry", () => {
   it("covers all 13 modes with the approved destinations and no Home item", () => {
@@ -54,14 +67,23 @@ describe("mode secondary navigation registry", () => {
     }
   });
 
-  it("suppresses clean landing pages and submitted searches for one-destination modes", () => {
+  it("shows clean homes only for multi-page modes and suppresses every one-destination mode", () => {
     for (const modeId of appModeIds) {
+      const expected = multiPageModes.has(modeId);
       expect(
-        isModeSecondaryNavigationRoute({ modeId, pathname: cleanLandingPath[modeId], hasSubmittedSearch: false }),
-      ).toBe(false);
+        isModeSecondaryNavigationRoute({
+          modeId,
+          pathname: cleanLandingPath[modeId],
+          hasSubmittedSearch: false,
+        }),
+      ).toBe(expected);
       expect(
-        isModeSecondaryNavigationRoute({ modeId, pathname: cleanLandingPath[modeId], hasSubmittedSearch: true }),
-      ).toBe(multiPageModes.has(modeId));
+        isModeSecondaryNavigationRoute({
+          modeId,
+          pathname: cleanLandingPath[modeId],
+          hasSubmittedSearch: true,
+        }),
+      ).toBe(expected);
     }
   });
 
