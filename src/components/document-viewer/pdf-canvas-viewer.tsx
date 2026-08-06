@@ -17,6 +17,7 @@ import {
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 
 import { cn, floatingControl, toolbarButton } from "@/components/ui-primitives";
+import { announce } from "@/components/ui/live-announcer";
 import { useViewerGestures } from "@/components/document-viewer/use-viewer-gestures";
 
 const iconButton = toolbarButton;
@@ -102,6 +103,17 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   useEffect(() => {
     urlRef.current = url;
   }, [url]);
+
+  // Announce canvas-level failures that happen while DocumentFrame is already
+  // "ready" (signed URL issued) — otherwise a post-load render failure is silent
+  // for screen-reader users (#219).
+  useEffect(() => {
+    if (!error) return;
+    announce(error, {
+      priority: "assertive",
+      eventId: `pdf-canvas-preview:${url}:${error}`,
+    });
+  }, [error, url]);
 
   // Report an expired URL at most once per URL, so a load failure and a
   // subsequent render failure don't both fire a refresh for the same URL.
@@ -526,7 +538,10 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
           </div>
         )}
         {error ? (
-          <div className="grid min-h-72 place-items-center text-center text-sm text-[color:var(--text-muted)]">
+          <div
+            role="alert"
+            className="grid min-h-72 place-items-center text-center text-sm text-[color:var(--text-muted)]"
+          >
             <div>
               <FileText aria-hidden="true" className="mx-auto mb-2 h-8 w-8" />
               <p>{error}</p>
