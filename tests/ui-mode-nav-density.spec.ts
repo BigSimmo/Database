@@ -58,6 +58,15 @@ const gotoTherapySearch = (page: Page) => gotoTherapy(page);
  */
 const FOLDED_ACTIVE_ROUTE = "/therapy-compass/acceptance-and-commitment-therapy-act/brief";
 
+/**
+ * The other permanently-folded destination. Both record-scoped pages reach the
+ * More slot by the same route through `data-active-from="none"`, but they are
+ * separate items with separate labels — and "Patient Sheets" is the second
+ * longest label in the set, so it is the one that would expose a regression
+ * where the slot sizes to its content after all.
+ */
+const FOLDED_SHEET_ROUTE = "/therapy-compass/acceptance-and-commitment-therapy-act/sheet";
+
 type NavState = {
   state: "bar" | "collapsed" | "none";
   labels: { text: string; clipped: boolean; scrollWidth: number; clientWidth: number }[];
@@ -132,21 +141,26 @@ test.describe("ModeNav density", () => {
   }
 
   for (const width of [BAND_3_PX, BAND_4_PX, BAND_5_PX]) {
-    test(`keeps the overflow slot at one width when the current page is folded (${width}px)`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 900 });
-      await gotoTherapy(page, FOLDED_ACTIVE_ROUTE);
+    for (const [route, label] of [
+      [FOLDED_ACTIVE_ROUTE, "Brief Intervention"],
+      [FOLDED_SHEET_ROUTE, "Patient Sheets"],
+    ] as const) {
+      test(`keeps the overflow slot at one width on ${label} (${width}px)`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await gotoTherapy(page, route);
 
-      await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
+        await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
 
-      const nav = await readNav(page);
-      expectNoClippedLabels(nav, `${width}px on a folded destination`);
-      // The last slot is the overflow control, and its word does not change
-      // with the route. Borrowing "Brief Intervention" here is what the band
-      // budget cannot pay for; the rule and the off-screen name carry the
-      // signal instead, and neither has a width.
-      expect(nav.labels.at(-1)?.text).toBe("More");
-      expect(nav.labels.map((label) => label.text)).not.toContain("Brief Intervention");
-    });
+        const nav = await readNav(page);
+        expectNoClippedLabels(nav, `${width}px on ${label}`);
+        // The last slot is the overflow control, and its word does not change
+        // with the route. Borrowing the folded page's label is what the band
+        // budget cannot pay for; the rule and the off-screen name carry the
+        // signal instead, and neither has a width.
+        expect(nav.labels.at(-1)?.text).toBe("More");
+        expect(nav.labels.map((slot) => slot.text)).not.toContain(label);
+      });
+    }
   }
 
   /**
@@ -169,6 +183,7 @@ test.describe("ModeNav density", () => {
         ["/therapy-compass/recommend", "Recommend"],
         ["/therapy-compass/pathways", "Pathways"],
         [FOLDED_ACTIVE_ROUTE, "Brief Intervention"],
+        [FOLDED_SHEET_ROUTE, "Patient Sheets"],
       ] as const) {
         await gotoTherapy(page, route);
         await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
