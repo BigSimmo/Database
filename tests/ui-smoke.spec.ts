@@ -1386,18 +1386,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const close = settings.getByRole("button", { name: "Close settings" });
     await expect(rail).toBeVisible();
 
+    const port = settings.getByTestId("settings-scroll-port");
+
     const scrollState = async () =>
-      settings
-        .locator("[data-settings-section]")
-        .first()
-        .evaluate((section) => {
-          const port = section.closest<HTMLElement>("[class*='overflow-y-auto']");
-          const panel = port?.parentElement;
-          return {
-            portScrollable: port ? port.scrollHeight > port.clientHeight : false,
-            panelClipped: panel ? panel.scrollHeight > panel.clientHeight : true,
-          };
-        });
+      port.evaluate((element) => {
+        const panel = element.parentElement;
+        return {
+          portScrollable: element.scrollHeight > element.clientHeight,
+          panelClipped: panel ? panel.scrollHeight > panel.clientHeight : true,
+        };
+      });
 
     // The settings column owns the overflow; the two-column panel never does.
     expect(await scrollState()).toEqual({ portScrollable: true, panelClipped: false });
@@ -1418,19 +1416,20 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // the scroll port and can never reach the marker line — but only until the
     // reader scrolls somewhere else. Dragging the native scrollbar moves
     // `scrollTop` and emits `scroll` alone, with no wheel/touch/key event, so
-    // assign `scrollTop` directly to reproduce exactly that interaction.
+    // assign `scrollTop` directly to reproduce exactly that interaction. Force
+    // `scroll-behavior: auto` first: the port carries Tailwind `scroll-smooth`,
+    // and a bare `scrollTop` write would otherwise animate.
     await settings.getByRole("button", { name: "Help & About", exact: true }).click();
     await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
       "aria-current",
       "true",
     );
-    await settings
-      .locator("[data-settings-section]")
-      .first()
-      .evaluate((section) => {
-        const port = section.closest<HTMLElement>("[class*='overflow-y-auto']");
-        if (port) port.scrollTop = 0;
-      });
+    await port.evaluate((element) => {
+      const previous = element.style.scrollBehavior;
+      element.style.scrollBehavior = "auto";
+      element.scrollTop = 0;
+      element.style.scrollBehavior = previous;
+    });
     await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
       "aria-current",
       "true",
@@ -1443,13 +1442,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // the component stays mounted, so a stale pin would hold the spy inert.
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
-    await settings
-      .locator("[data-settings-section]")
-      .first()
-      .evaluate((section) => {
-        const port = section.closest<HTMLElement>("[class*='overflow-y-auto']");
-        if (port) port.scrollTop = port.scrollHeight;
-      });
+    await port.evaluate((element) => {
+      const previous = element.style.scrollBehavior;
+      element.style.scrollBehavior = "auto";
+      element.scrollTop = element.scrollHeight;
+      element.style.scrollBehavior = previous;
+    });
     await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
       "aria-current",
       "true",

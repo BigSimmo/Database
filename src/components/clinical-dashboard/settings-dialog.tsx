@@ -81,14 +81,21 @@ const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string;
   { value: "system", label: "System", icon: Monitor },
 ];
 
-// The section rail is `hidden lg:flex`, so the scroll-spy has nothing to drive
-// below this seam — and phone scroll is a hot path that should not pay for its
-// geometry reads.
+// The section rail is `hidden lg:flex`. Match the repo's desktop seam literally
+// (`1024px` in globals.css / JS media queries), not Tailwind's `64rem` token —
+// rem-based seams drift from that CSS when the root font size is not 16px.
 const settingsRailMediaQuery = "(min-width: 1024px)";
 
 // Scroll offsets are fractional on hidpi displays, so "the same position" needs
-// a pixel or two of slack.
+// a pixel or two of slack. The spy marker uses the same tolerance so a settle
+// that lands within it still answers as the clicked section.
 const scrollSettleTolerance = 2;
+
+// Sticky title bar clearance for focus-scroll into section content. Matches the
+// desktop header's pt-6 + title leading-8 + pb-3 budget with a little slack so
+// keyboard focus does not land under the opaque bar.
+const settingsSectionScrollMarginClass =
+  "scroll-mt-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] lg:scroll-mt-24";
 
 /**
  * A section chosen from the rail, held while the scroll travels to it and until
@@ -138,6 +145,9 @@ export function SettingsDialog({
   const headerRef = useRef<HTMLElement | null>(null);
   // Section chosen from the rail, held until the reader scrolls for themselves.
   const pinnedSectionRef = useRef<PinnedSection | null>(null);
+  // Memoised so phone scroll does not reconstruct a MediaQueryList on every event.
+  const settingsRailMqlRef = useRef<MediaQueryList | null>(null);
+  const scrollSpyFrameRef = useRef<number | null>(null);
   const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
 
   const { theme, preference: themePreference, setPreference: setThemePreference } = useTheme();
@@ -202,21 +212,38 @@ export function SettingsDialog({
    * rail highlighting the one above it.
    */
   const syncActiveSection = useCallback((container: HTMLDivElement) => {
-    if (typeof window !== "undefined" && !window.matchMedia(settingsRailMediaQuery).matches) return;
-    const maxOffset = container.scrollHeight - container.clientHeight;
-    // The final section is shorter than the scroll port, so its heading can
-    // never reach the marker line. The end of the runway belongs to it.
-    if (maxOffset > 0 && maxOffset - container.scrollTop <= scrollSettleTolerance) {
-      setActiveSection(SETTINGS_SECTIONS[SETTINGS_SECTIONS.length - 1].id);
+    const railMql = settingsRailMqlRef.current;
+    if (
+      railMql ? !railMql.matches : typeof window !== "undefined" && !window.matchMedia(settingsRailMediaQuery).matches
+    ) {
       return;
     }
-    const marker = container.getBoundingClientRect().top + (headerRef.current?.offsetHeight ?? 0) + 1;
-    let next: SettingsSectionId = SETTINGS_SECTIONS[0].id;
-    for (const element of container.querySelectorAll<HTMLElement>("[data-settings-section]")) {
+    const sectionEls = container.querySelectorAll<HTMLElement>("[data-settings-section]");
+    if (sectionEls.length === 0) return;
+    const maxOffset = container.scrollHeight - container.clientHeight;
+    // The final rendered section is shorter than the scroll port, so its heading
+    // can never reach the marker line. The end of the runway belongs to it —
+    // take the id from the DOM, not from SETTINGS_SECTIONS, so a conditional
+    // section cannot desync the two sources of truth.
+    if (maxOffset > 0 && maxOffset - container.scrollTop <= scrollSettleTolerance) {
+      const lastId = sectionEls[sectionEls.length - 1]?.getAttribute("data-settings-section");
+      if (lastId) setActiveSection(lastId as SettingsSectionId);
+      return;
+    }
+    const marker =
+      container.getBoundingClientRect().top + (headerRef.current?.offsetHeight ?? 0) + scrollSettleTolerance;
+    let next =
+      (sectionEls[0]?.getAttribute("data-settings-section") as SettingsSectionId | null) ?? SETTINGS_SECTIONS[0].id;
+    for (const element of sectionEls) {
       if (element.getBoundingClientRect().top > marker) break;
       next = element.getAttribute("data-settings-section") as SettingsSectionId;
     }
     setActiveSection(next);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    settingsRailMqlRef.current = window.matchMedia(settingsRailMediaQuery);
   }, []);
 
   useEffect(() => {
@@ -229,6 +256,63 @@ export function SettingsDialog({
     pinnedSectionRef.current = null;
     const container = scrollRef.current;
     if (container) syncActiveSection(container);
+  }, [open, syncActiveSection]);
+
+  // Geometry changes (viewport resize, panel height tracking 88dvh, email form
+  // expanding a section) used to re-fire via IntersectionObserver. Re-run the
+  // spy on resize / content size without releasing an in-flight rail pin.
+  useEffect(() => {
+    if (!open || typeof ResizeObserver === "undefined") return;
+    let cancelled = false;
+    let observer: ResizeObserver | null = null;
+    let frame = 0;
+
+    const reevaluate = () => {
+      const container = scrollRef.current;
+      if (!container) return;
+      const pin = pinnedSectionRef.current;
+      if (pin) {
+        // Content/viewport growth can make the click target unreachable; keep
+        // the pin, but clamp its offset so arrival remains possible.
+        const maxOffset = Math.max(0, container.scrollHeight - container.clientHeight);
+        if (pin.offset > maxOffset) pin.offset = maxOffset;
+        return;
+      }
+      syncActiveSection(container);
+    };
+
+    const detachWindow = () => {
+      window.removeEventListener("resize", reevaluate);
+      settingsRailMqlRef.current?.removeEventListener("change", reevaluate);
+    };
+
+    const attach = () => {
+      const container = scrollRef.current;
+      if (!container || cancelled) return false;
+      observer = new ResizeObserver(reevaluate);
+      observer.observe(container);
+      for (const child of container.children) {
+        if (child instanceof Element) observer.observe(child);
+      }
+      window.addEventListener("resize", reevaluate);
+      settingsRailMqlRef.current?.addEventListener("change", reevaluate);
+      return true;
+    };
+
+    if (!attach()) {
+      // Sheet children mount with `open`; one frame is enough for the ref.
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        attach();
+      });
+    }
+
+    return () => {
+      cancelled = true;
+      if (frame) window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      detachWindow();
+    };
   }, [open, syncActiveSection]);
 
   // Scroll the settings scroll port itself rather than calling
@@ -257,9 +341,18 @@ export function SettingsDialog({
       const offset = Math.min(Math.max(0, top), maxOffset);
       const distance = Math.abs(container.scrollTop - offset);
       pinnedSectionRef.current = { id, offset, distance, settled: distance <= scrollSettleTolerance };
-      // `behavior: "auto"` defers to the container's `scroll-smooth`, which is
-      // exactly what reduced motion must not do — ask for "instant" explicitly.
-      container.scrollTo({ top: offset, behavior: prefersReducedMotion ? "instant" : "smooth" });
+      // Avoid `behavior: "instant"` / `"auto"`: `"auto"` defers to the container's
+      // `scroll-smooth`, and engines that do not recognise `"instant"` can fall
+      // back to that CSS smooth path — the exact reduced-motion failure. Write
+      // `scrollTop` under an inline `scroll-behavior: auto` instead.
+      if (prefersReducedMotion) {
+        const previousBehavior = container.style.scrollBehavior;
+        container.style.scrollBehavior = "auto";
+        container.scrollTop = offset;
+        container.style.scrollBehavior = previousBehavior;
+      } else {
+        container.scrollTo({ top: offset, behavior: "smooth" });
+      }
     },
     [preferences.motion],
   );
@@ -301,10 +394,24 @@ export function SettingsDialog({
     (event: UIEvent<HTMLDivElement>) => {
       const el = event.currentTarget;
       reportScroll({ offset: el.scrollTop, maxOffset: el.scrollHeight - el.clientHeight, source: el });
-      if (admitScrollToSpy(el)) syncActiveSection(el);
+      // Coalesce spy geometry reads to one frame, matching useHideOnScroll.
+      if (scrollSpyFrameRef.current != null) return;
+      scrollSpyFrameRef.current = window.requestAnimationFrame(() => {
+        scrollSpyFrameRef.current = null;
+        if (admitScrollToSpy(el)) syncActiveSection(el);
+      });
     },
     [admitScrollToSpy, reportScroll, syncActiveSection],
   );
+
+  useEffect(() => {
+    return () => {
+      if (scrollSpyFrameRef.current != null) {
+        window.cancelAnimationFrame(scrollSpyFrameRef.current);
+        scrollSpyFrameRef.current = null;
+      }
+    };
+  }, []);
 
   async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -416,6 +523,7 @@ export function SettingsDialog({
         <div
           ref={scrollRef}
           onScroll={handleScroll}
+          data-testid="settings-scroll-port"
           className="relative min-h-0 w-full overflow-y-auto scroll-smooth bg-[color:var(--background)] polished-scroll lg:bg-transparent lg:px-7"
         >
           {/* Edge-to-edge glass header: full-bleed scrim covers the notch/status-bar
@@ -431,10 +539,13 @@ export function SettingsDialog({
               // Desktop keeps the sticky position too. The close control lives in
               // this bar, so a static bar scrolls the only pointer-driven way out
               // of settings off the top as soon as the reader reaches a later
-              // section. Sticky needs an opaque panel-surface fill (the component
-              // class is unlayered, hence `!`) so content passes behind it rather
-              // than through it; scroll-hide stays phone-only via `lg:translate-y-0`.
-              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none lg:translate-y-0 lg:pb-3 lg:pt-6 lg:bg-[color:var(--surface-lux)]! lg:px-0!",
+              // section. Sticky needs an opaque panel-surface fill so content
+              // passes behind it rather than through it. `.edge-glass-header` is
+              // in `@layer components`, so plain utilities already win — do not
+              // use `!`, which would also beat the unlayered a11y fallbacks
+              // (forced-colors Canvas / reduced-transparency `--surface`).
+              // Scroll-hide stays phone-only via `lg:translate-y-0`.
+              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none lg:translate-y-0 lg:pb-3 lg:pt-6 lg:bg-[color:var(--surface-lux)] lg:px-0",
               headerHidden ? "-translate-y-full" : "translate-y-0",
             )}
           >
@@ -885,7 +996,7 @@ function SettingsSection({
       id={sectionDomId(id)}
       data-settings-section={id}
       aria-labelledby={headingId}
-      className="scroll-mt-4 pt-4 first:pt-0 lg:pt-6"
+      className={cn(settingsSectionScrollMarginClass, "pt-4 first:pt-0 lg:pt-6")}
     >
       <h3
         id={headingId}
@@ -1145,7 +1256,10 @@ function SettingsActionRow({
       disabled={disabled}
       aria-label={actionLabel}
       data-testid={settingsRowTestId(label)}
-      className="flex w-full items-center gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-55 lg:hover:bg-[color:var(--surface-lux)]/55"
+      className={cn(
+        settingsSectionScrollMarginClass,
+        "flex w-full items-center gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-55 lg:hover:bg-[color:var(--surface-lux)]/55",
+      )}
     >
       <IconBadge icon={Icon} />
       <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
