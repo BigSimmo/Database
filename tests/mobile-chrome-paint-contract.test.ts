@@ -31,7 +31,7 @@ describe("mobile chrome paint baseline", () => {
       /\.answer-footer-search-dock\.answer-footer-search-edge\[data-scroll-hidden="true"\][\s\S]*?opacity: 0;[\s\S]*?pointer-events: none/,
     );
     expect(phoneStyles).toMatch(
-      /\.answer-footer-search-dock \.answer-footer-search-pill[\s\S]*?color-mix\(in srgb, var\(--surface\) 88%, transparent\)/,
+      /\.answer-footer-search-dock \.answer-footer-search-pill[\s\S]*?color-mix\(in srgb, var\(--surface\) 97%, transparent\)/,
     );
     expect(phoneStyles).toMatch(
       /\.answer-footer-search-dock\[data-scroll-hidden="true"\] \.answer-footer-search-backdrop[\s\S]*?opacity: 0;[\s\S]*?visibility: hidden;[\s\S]*?transition-delay: 0ms, 240ms/,

@@ -1059,13 +1059,19 @@ summary::-webkit-details-marker {
   overflow: hidden;
   /* Localized glass only: tint around the pill, then return to true zero at
      the physical edge. A high terminal tint reads as an opaque safe-area bar
-     on light pages even though color-mix technically contains transparency. */
+     on light pages even though color-mix technically contains transparency.
+     The 78%/96% pair holds that tint through the safe-area padding band
+     below the pill and only releases to zero in the last 4% — a page card
+     mid-scroll there previously read fully crisp under the pill (search-bar
+     overlap defect, 2026-08-06), because the old 78% -> 100% taper gave up
+     more than a fifth of the scrim's height with no coverage at all. */
   background: linear-gradient(
     180deg,
     transparent 0%,
     color-mix(in srgb, var(--background) 8%, transparent) 30%,
     color-mix(in srgb, var(--background) 28%, transparent) 58%,
     color-mix(in srgb, var(--background) 18%, transparent) 78%,
+    color-mix(in srgb, var(--background) 18%, transparent) 96%,
     transparent 100%
   );
   backdrop-filter: blur(2px) saturate(130%);
@@ -1075,6 +1081,7 @@ summary::-webkit-details-marker {
     rgb(0 0 0 / 32%) 26%,
     black 50%,
     rgb(0 0 0 / 45%) 78%,
+    rgb(0 0 0 / 45%) 96%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(
@@ -1083,6 +1090,7 @@ summary::-webkit-details-marker {
     rgb(0 0 0 / 32%) 26%,
     black 50%,
     rgb(0 0 0 / 45%) 78%,
+    rgb(0 0 0 / 45%) 96%,
     transparent 100%
   );
   opacity: 1;
@@ -1108,6 +1116,7 @@ summary::-webkit-details-marker {
     rgb(0 0 0 / 30%) 24%,
     black 48%,
     rgb(0 0 0 / 40%) 72%,
+    rgb(0 0 0 / 40%) 95%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(
@@ -1116,6 +1125,7 @@ summary::-webkit-details-marker {
     rgb(0 0 0 / 30%) 24%,
     black 48%,
     rgb(0 0 0 / 40%) 72%,
+    rgb(0 0 0 / 40%) 95%,
     transparent 100%
   );
 }
@@ -1128,6 +1138,7 @@ summary::-webkit-details-marker {
     transparent 46%,
     black 64%,
     rgb(0 0 0 / 35%) 80%,
+    rgb(0 0 0 / 35%) 97%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(
@@ -1136,6 +1147,7 @@ summary::-webkit-details-marker {
     transparent 46%,
     black 64%,
     rgb(0 0 0 / 35%) 80%,
+    rgb(0 0 0 / 35%) 97%,
     transparent 100%
   );
 }
@@ -1154,6 +1166,7 @@ summary::-webkit-details-marker {
       color-mix(in srgb, var(--background) 16%, transparent) 34%,
       color-mix(in srgb, var(--background) 38%, transparent) 62%,
       color-mix(in srgb, var(--background) 20%, transparent) 80%,
+      color-mix(in srgb, var(--background) 20%, transparent) 96%,
       transparent 100%
     );
   }
@@ -1200,6 +1213,7 @@ summary::-webkit-details-marker {
       color-mix(in srgb, var(--background) 24%, transparent) 34%,
       color-mix(in srgb, var(--background) 52%, transparent) 62%,
       color-mix(in srgb, var(--background) 32%, transparent) 80%,
+      color-mix(in srgb, var(--background) 32%, transparent) 96%,
       transparent 100%
     );
   }
@@ -2155,7 +2169,11 @@ summary::-webkit-details-marker {
 
   .answer-footer-search-dock .answer-footer-search-pill {
     border-color: var(--border-strong);
-    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    /* Matches the base (non-dock) pill's 97% — 88% left enough see-through
+       that scrolled card text stayed legible behind the pill on real devices
+       (search-bar overlap defect, 2026-08-06). backdrop-filter blur is a
+       bonus frost on top, not the only thing hiding the text underneath. */
+    background: color-mix(in srgb, var(--surface) 97%, transparent);
     box-shadow:
       0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
       0 1px 3px rgb(16 24 40 / 5%);
