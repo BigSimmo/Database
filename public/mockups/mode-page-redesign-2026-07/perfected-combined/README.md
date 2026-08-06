@@ -19,3 +19,5 @@ Clinical White / Sky Graphite only (`docs/design-system.md`, `docs/redesign/perm
 - **Services shortlist is progressive** — tiny step dots; shortlist banner only when items are selected; no always-on decision panel.
 
 Static PNGs for design review. Production UI is unchanged until implementation PRs for `#162`–`#164`.
+
+Interactive follow-on (answer safety, tools, services, favourites, documents filter, save-to-favourites): [`/mockups/ship-first-redesign`](/mockups/ship-first-redesign).

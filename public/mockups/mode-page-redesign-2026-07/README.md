@@ -50,6 +50,12 @@ Recommended directions only, **desktop + phone in one image** each (Clinical Whi
 
 See [`perfected-combined/README.md`](./perfected-combined/README.md).
 
+## Interactive perfected gallery
+
+Runnable design-scratch route (dev / mockups-enabled only):
+
+- [`/mockups/ship-first-redesign`](/mockups/ship-first-redesign) — desktop + phone interactive frames for all six ship-first items (answer safety, tools, services, favourites, documents filter, save-to-favourites), refining the static comps above plus the answer/warning studies.
+
 ## Implementation queue
 
-Tracked in `docs/outstanding-issues.md` as `#162` (Tools), `#163` (Services), `#164` (Favourites hybrid).
+Tracked in `docs/outstanding-issues.md` as `#162` (Tools), `#163` (Services), `#164` (Favourites hybrid), plus `#165`/`#166` (answer safety), `#170`/`#171` (documents filter).
