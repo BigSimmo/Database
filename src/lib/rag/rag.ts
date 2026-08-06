@@ -951,8 +951,7 @@ type ClassifierVerdict = z.infer<typeof queryClassifierVerdictSchema>;
 // a query's classification for the whole TTL. The full corpus-grounded relevance fix remains
 // scoped to RAG optimisation Phase 2.
 const classifierVerdictMemoTtlMs = 15 * 60 * 1000;
-// Finding #11 follow-up: bounds retries for a rejected soft-tail verdict (see
-// isUnsupportedSoftTailAnalysis) instead of the full 15-minute TTL or unbounded re-classification.
+// Finding #11 follow-up: bounds retries for a rejected soft-tail verdict (isUnsupportedSoftTailAnalysis).
 const rejectedSoftTailMemoTtlMs = 60 * 1000;
 const classifierVerdictMemoMaxEntries = 500;
 const classifierVerdictMemo = new Map<string, { expiresAt: number; verdict: ClassifierVerdict }>();
@@ -1746,12 +1745,13 @@ export async function searchChunksWithTelemetry(
     telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
-    // Finding #11 follow-up: a soft-tail zero can come from a nondeterministic LLM call, so
-    // don't cache it — except "out_of_corpus", a deterministic corpus-derived true negative
-    // (classifyCorpusGrounding) reached without any LLM call, which stays cached like the
-    // deterministic exclusion patterns above it.
+    // Finding #11 follow-up: skip caching a soft-tail zero only when a nondeterministic LLM
+    // classifier could actually have produced it (OPENAI_API_KEY present, rag.ts:1139) and
+    // corpus grounding didn't already deterministically decide it ("out_of_corpus").
     const skipCacheWrite =
-      isUnsupportedSoftTailAnalysis(retrievalQuery, queryAnalysis) && queryAnalysis.corpusGrounding !== "out_of_corpus";
+      Boolean(env.OPENAI_API_KEY) &&
+      isUnsupportedSoftTailAnalysis(retrievalQuery, queryAnalysis) &&
+      queryAnalysis.corpusGrounding !== "out_of_corpus";
     if (!skipCacheWrite) {
       await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
     }

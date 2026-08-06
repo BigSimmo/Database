@@ -43,7 +43,10 @@ class EmptyQuery implements PromiseLike<{ data: unknown[]; error: null }> {
   }
 }
 
-async function loadSearch(corpusGroundingVerdict: "inconclusive" | "out_of_corpus" | "in_corpus_topic") {
+async function loadSearch(
+  corpusGroundingVerdict: "inconclusive" | "out_of_corpus" | "in_corpus_topic",
+  options: { openAiApiKey?: string } = {},
+) {
   const setCachedSearch = vi.fn(async () => undefined);
 
   vi.doMock("@/lib/rag/rag-cache", async () => {
@@ -68,6 +71,18 @@ async function loadSearch(corpusGroundingVerdict: "inconclusive" | "out_of_corpu
   vi.doMock("@/lib/corpus-grounding", () => ({
     classifyCorpusGrounding: vi.fn(async () => ({ verdict: corpusGroundingVerdict, anchorTerms: [], absentTerms: [] })),
   }));
+  // A rejected classifier verdict — only reachable, and only mock-invoked, when the test opts
+  // into a non-empty OPENAI_API_KEY below (Devin review: the classifier is unreachable at all
+  // without a key, so that case must stay deterministic and cacheable).
+  vi.doMock("@/lib/openai", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../src/lib/openai")>();
+    return {
+      ...actual,
+      generateParsedTextResult: vi.fn(async () => ({
+        parsed: { queryClass: "unsupported_or_general", confidence: 0.3, reasons: ["test"], expandedTerms: [] },
+      })),
+    };
+  });
   vi.doMock("@/lib/rag/rag-provider", () => ({
     isSourceOnlyMode: () => true,
     allowsAutoDegrade: () => true,
@@ -81,7 +96,7 @@ async function loadSearch(corpusGroundingVerdict: "inconclusive" | "out_of_corpu
       from: vi.fn(() => new EmptyQuery()),
     }),
   }));
-  vi.stubEnv("OPENAI_API_KEY", "");
+  vi.stubEnv("OPENAI_API_KEY", options.openAiApiKey ?? "");
 
   const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
   return { searchChunksWithTelemetry, setCachedSearch };
@@ -96,8 +111,10 @@ describe("unsupported short-circuit cache write", () => {
     vi.unstubAllEnvs();
   });
 
-  it("does not cache a zero result for the soft-tail bucket (corpus grounding inconclusive)", async () => {
-    const { searchChunksWithTelemetry, setCachedSearch } = await loadSearch("inconclusive");
+  it("does not cache a zero result for the soft-tail bucket when a classifier could have decided it (OPENAI_API_KEY set)", async () => {
+    const { searchChunksWithTelemetry, setCachedSearch } = await loadSearch("inconclusive", {
+      openAiApiKey: "test-key",
+    });
 
     const result = await searchChunksWithTelemetry({
       query: "catatonia",
@@ -108,6 +125,24 @@ describe("unsupported short-circuit cache write", () => {
     expect(result.results).toEqual([]);
     expect(result.telemetry.retrieval_strategy).toBe("unsupported_short_circuit");
     expect(setCachedSearch).not.toHaveBeenCalled();
+  }, 60_000);
+
+  it("caches a soft-tail zero when no classifier was ever reachable (no OPENAI_API_KEY — deterministic)", async () => {
+    // Devin review on PR #1646: without a key, analyzeQueryWithClassifierFallback returns before
+    // any classifier call (rag.ts:1139), so the "inconclusive" corpus-grounding verdict is the
+    // whole story — same query, same DB state, same empty result every time. Skipping the cache
+    // write here bought nothing but repeat classifyCorpusGrounding + trigram-RPC cost.
+    const { searchChunksWithTelemetry, setCachedSearch } = await loadSearch("inconclusive");
+
+    const result = await searchChunksWithTelemetry({
+      query: "catatonia",
+      ownerId,
+      lexicalOnly: true,
+    });
+
+    expect(result.results).toEqual([]);
+    expect(result.telemetry.retrieval_strategy).toBe("unsupported_short_circuit");
+    expect(setCachedSearch).toHaveBeenCalledTimes(1);
   }, 60_000);
 
   it("still caches the deterministic unavailable-document-noise short circuit", async () => {
