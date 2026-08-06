@@ -102,10 +102,7 @@ describe("PageSecondaryNavigation", () => {
   });
 
   it("binds service section targets to IDs rendered by service-detail-page", () => {
-    const servicePage = readFileSync(
-      join(process.cwd(), "src/components/services/service-detail-page.tsx"),
-      "utf8",
-    );
+    const servicePage = readFileSync(join(process.cwd(), "src/components/services/service-detail-page.tsx"), "utf8");
     for (const targetId of informationPageSectionDefinitions("/services/community-team").flatMap(
       (section) => section.targetIds,
     )) {
@@ -131,9 +128,7 @@ describe("PageSecondaryNavigation", () => {
     ["tools", "/tools"],
     ["factsheets", "/factsheets/search"],
   ] as const)("keeps the one-destination %s mode free of a redundant menu", (modeId, pathname) => {
-    render(
-      <PageSecondaryNavigation modeId={modeId} pathname={pathname} hasSubmittedSearch onSearch={vi.fn()} />,
-    );
+    render(<PageSecondaryNavigation modeId={modeId} pathname={pathname} hasSubmittedSearch onSearch={vi.fn()} />);
 
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
     expect(screen.queryByTestId("mode-nav")).toBeNull();
@@ -173,9 +168,7 @@ describe("PageSecondaryNavigation", () => {
     ["specifiers", "Build", "/specifiers/builder"],
     ["formulation", "Map", "/formulation/map"],
   ] as const)("renders the real %s workflow owner through ModeNav", (modeId, activeLabel, activeHref) => {
-    render(
-      modeId === "specifiers" ? <SpecifierSubnav active="builder" /> : <FormulationSubnav active="map" />,
-    );
+    render(modeId === "specifiers" ? <SpecifierSubnav active="builder" /> : <FormulationSubnav active="map" />);
 
     expect(screen.getByTestId("mode-nav")).toHaveAttribute(
       "aria-label",
