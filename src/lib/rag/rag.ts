@@ -204,6 +204,8 @@ export { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry
 import {
   clearlyOutsideCorpusMedicalPattern,
   isUnsupportedSoftTailAnalysis,
+  shouldSkipUnsupportedSoftTailAnswerCacheWrite,
+  shouldSkipUnsupportedSoftTailCacheWrite,
   unavailableDocumentNoisePattern,
 } from "@/lib/rag/rag-query-guard";
 export { shouldShortCircuitUnsupportedSearch } from "@/lib/rag/rag-query-guard";
@@ -1745,14 +1747,12 @@ export async function searchChunksWithTelemetry(
     telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
-    // Finding #11 follow-up: skip caching a soft-tail zero only when a nondeterministic LLM
-    // classifier could actually have produced it (OPENAI_API_KEY present, rag.ts:1139) and
-    // corpus grounding didn't already deterministically decide it ("out_of_corpus").
-    const skipCacheWrite =
-      Boolean(env.OPENAI_API_KEY) &&
-      isUnsupportedSoftTailAnalysis(retrievalQuery, queryAnalysis) &&
-      queryAnalysis.corpusGrounding !== "out_of_corpus";
-    if (!skipCacheWrite) {
+    // Skip only when a reachable classifier could have produced a nondeterministic soft-tail zero.
+    if (
+      !shouldSkipUnsupportedSoftTailCacheWrite(retrievalQuery, queryAnalysis, {
+        openAiApiKeyPresent: Boolean(env.OPENAI_API_KEY),
+      })
+    ) {
       await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
     }
     return finishSearch(searchTiming, { results: [] as SearchResult[], telemetry });
@@ -2961,7 +2961,18 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    if (answerRouteResultCanBeCached(routeDeadline))
+    // Soft-tail unsupported refusals must not stick in the 5-minute answer cache.
+    if (
+      answerRouteResultCanBeCached(routeDeadline) &&
+      !shouldSkipUnsupportedSoftTailAnswerCacheWrite({
+        resultCount: results.length,
+        retrievalStrategy: search.telemetry.retrieval_strategy,
+        query: answerFocusQuery,
+        analysis: queryAnalysis,
+        openAiApiKeyPresent: Boolean(env.OPENAI_API_KEY),
+        corpusGrounding: search.telemetry.corpus_grounding,
+      })
+    )
       await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
     routeDeadline.dispose();
     return finalizedAnswer;

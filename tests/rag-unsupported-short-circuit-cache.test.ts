@@ -179,7 +179,7 @@ describe("unsupported short-circuit cache write", () => {
   }, 60_000);
 
   it("rescues an in-corpus bare topic before ever reaching the short circuit", async () => {
-    const { searchChunksWithTelemetry, setCachedSearch } = await loadSearch("in_corpus_topic");
+    const { searchChunksWithTelemetry } = await loadSearch("in_corpus_topic");
 
     const result = await searchChunksWithTelemetry({
       query: "catatonia",
@@ -187,7 +187,9 @@ describe("unsupported short-circuit cache write", () => {
       lexicalOnly: true,
     });
 
+    // Pin the rescue itself. Do not assert on setCachedSearch here: with an empty mocked
+    // Supabase client the retrieval path may write nothing for unrelated reasons, so a
+    // "not called" expectation would pass for the wrong reason if candidates later appear.
     expect(result.telemetry.retrieval_strategy).not.toBe("unsupported_short_circuit");
-    expect(setCachedSearch).not.toHaveBeenCalled();
   }, 60_000);
 });

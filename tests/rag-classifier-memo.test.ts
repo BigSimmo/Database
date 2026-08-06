@@ -21,8 +21,9 @@ async function loadWithClassifierMock(mock: ReturnType<typeof vi.fn>) {
   });
   const rag = await import("../src/lib/rag/rag");
   const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const { isUnsupportedSoftTailAnalysis } = await import("../src/lib/rag/rag-query-guard");
   rag.resetClassifierVerdictMemoForTests();
-  return { rag, analyzeClinicalQuery };
+  return { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis };
 }
 
 function classifierResponse(overrides: Record<string, unknown> = {}) {
@@ -39,20 +40,24 @@ function classifierResponse(overrides: Record<string, unknown> = {}) {
 
 function fallbackQueryAnalysis(
   analyzeClinicalQuery: (typeof import("../src/lib/clinical-search"))["analyzeClinicalQuery"],
+  isUnsupportedSoftTailAnalysis: (typeof import("../src/lib/rag/rag-query-guard"))["isUnsupportedSoftTailAnalysis"],
 ) {
   // A bare condition query above the short-query deterministic fallback threshold still needs
   // the LLM fallback (confidence below 0.58 with class unsupported_or_general).
   const query = "bipolar disorder long term care";
   const analysis = analyzeClinicalQuery(query);
   expect(analysis.needsClassifierFallback).toBe(true);
+  // Pin the non-soft-tail shape explicitly so a scoring tweak cannot silently move this
+  // fixture into the soft-tail bucket (and vice versa) without failing loudly.
+  expect(isUnsupportedSoftTailAnalysis(query, analysis)).toBe(false);
   return { query, analysis };
 }
 
 describe("classifier verdict memoization", () => {
   it("does not re-call the model for a repeated query and returns an identical verdict", async () => {
     const mock = vi.fn(async () => classifierResponse());
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
 
     const first = await rag.analyzeQueryWithClassifierFallback(query, analysis);
     const second = await rag.analyzeQueryWithClassifierFallback(query, analysis);
@@ -73,8 +78,8 @@ describe("classifier verdict memoization", () => {
 
   it("memoizes rejected verdicts so a rejection is also deterministic", async () => {
     const mock = vi.fn(async () => classifierResponse({ confidence: 0.3 }));
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
 
     const first = await rag.analyzeQueryWithClassifierFallback(query, analysis);
     const second = await rag.analyzeQueryWithClassifierFallback(query, analysis);
@@ -91,6 +96,7 @@ describe("classifier verdict memoization", () => {
   // multi-word fixture above (confidence 0.45, just above the 0.42 soft-tail ceiling).
   function softTailQueryAnalysis(
     analyzeClinicalQuery: (typeof import("../src/lib/clinical-search"))["analyzeClinicalQuery"],
+    isUnsupportedSoftTailAnalysis: (typeof import("../src/lib/rag/rag-query-guard"))["isUnsupportedSoftTailAnalysis"],
   ) {
     const query = "catatonia";
     // Mirror production: searchChunksWithTelemetry always passes opts.corpusGrounding, and a
@@ -102,13 +108,16 @@ describe("classifier verdict memoization", () => {
     // depending on the corpus-grounding module's live database call.
     const analysis = { ...analyzeClinicalQuery(query), corpusGrounding: "inconclusive" as const };
     expect(analysis.needsClassifierFallback).toBe(true);
+    // Pin soft-tail eligibility explicitly so a scoring tweak cannot silently move this
+    // fixture out of the soft-tail bucket without failing loudly.
+    expect(isUnsupportedSoftTailAnalysis(query, analysis)).toBe(true);
     return { query, analysis };
   }
 
   it("still memoizes a rejected soft-tail verdict within its short TTL (bounded, not unlimited retries)", async () => {
     const mock = vi.fn(async () => classifierResponse({ confidence: 0.3 }));
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = softTailQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = softTailQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
 
     const first = await rag.analyzeQueryWithClassifierFallback(query, analysis);
     const second = await rag.analyzeQueryWithClassifierFallback(query, analysis);
@@ -127,8 +136,8 @@ describe("classifier verdict memoization", () => {
       .fn()
       .mockResolvedValueOnce(classifierResponse({ confidence: 0.3 }))
       .mockResolvedValueOnce(classifierResponse());
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = softTailQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = softTailQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
 
     const first = await rag.analyzeQueryWithClassifierFallback(query, analysis);
     vi.setSystemTime(new Date("2026-07-06T00:01:01Z"));
@@ -141,23 +150,10 @@ describe("classifier verdict memoization", () => {
     expect(second.needsClassifierFallback).toBe(false);
   });
 
-  it("still memoizes a rejected verdict outside the soft-tail bucket (existing determinism guarantee)", async () => {
-    const mock = vi.fn(async () => classifierResponse({ confidence: 0.3 }));
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
-
-    const first = await rag.analyzeQueryWithClassifierFallback(query, analysis);
-    const second = await rag.analyzeQueryWithClassifierFallback(query, analysis);
-
-    expect(mock).toHaveBeenCalledTimes(1);
-    expect(first).toBe(analysis);
-    expect(second).toBe(analysis);
-  });
-
   it("sends only supported structural constraints to Structured Outputs", async () => {
     const mock = vi.fn(async () => classifierResponse());
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
 
     await rag.analyzeQueryWithClassifierFallback(query, analysis);
 
@@ -175,8 +171,8 @@ describe("classifier verdict memoization", () => {
         expandedTerms: Array.from({ length: 11 }, (_, index) => `term-${index}`),
       }),
     );
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
 
     const first = await rag.analyzeQueryWithClassifierFallback(query, analysis);
     const second = await rag.analyzeQueryWithClassifierFallback(query, analysis);
@@ -189,8 +185,8 @@ describe("classifier verdict memoization", () => {
   it("threads a pseudonymous safety identifier for an authenticated classifier request", async () => {
     vi.stubEnv("OPENAI_SAFETY_IDENTIFIER_SECRET", "test-secret-that-is-at-least-thirty-two-characters");
     const mock = vi.fn(async () => classifierResponse());
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
 
     await rag.analyzeQueryWithClassifierFallback(query, analysis, { ownerId: "owner-a" });
 
@@ -202,8 +198,8 @@ describe("classifier verdict memoization", () => {
 
   it("does not memoize transport errors — the next request retries the classifier", async () => {
     const mock = vi.fn().mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce(classifierResponse());
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
 
     const first = await rag.analyzeQueryWithClassifierFallback(query, analysis);
     const second = await rag.analyzeQueryWithClassifierFallback(query, analysis);
@@ -221,8 +217,8 @@ describe("classifier verdict memoization", () => {
           resolveCall = resolve;
         }),
     );
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
 
     const firstPromise = rag.analyzeQueryWithClassifierFallback(query, analysis);
     const secondPromise = rag.analyzeQueryWithClassifierFallback(query, analysis);
@@ -236,8 +232,8 @@ describe("classifier verdict memoization", () => {
 
   it("skips the classifier when fallback is not required", async () => {
     const mock = vi.fn();
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
     const fallback = { ...analysis, needsClassifierFallback: false, queryClass: "unsupported_or_general" as const };
     const result = await rag.analyzeQueryWithClassifierFallback(query, fallback);
 
@@ -249,8 +245,8 @@ describe("classifier verdict memoization", () => {
   it("re-calls the model after the memo TTL expires", async () => {
     vi.useFakeTimers({ now: new Date("2026-07-06T00:00:00Z") });
     const mock = vi.fn(async () => classifierResponse());
-    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
-    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+    const { rag, analyzeClinicalQuery, isUnsupportedSoftTailAnalysis } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery, isUnsupportedSoftTailAnalysis);
 
     await rag.analyzeQueryWithClassifierFallback(query, analysis);
     vi.setSystemTime(new Date("2026-07-06T00:16:00Z"));
