@@ -2,7 +2,20 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+}));
+
+vi.mock("next/link", () => ({
+  default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
 
 import {
   hasLocalInformationPageNavigation,
@@ -85,25 +98,48 @@ describe("PageSecondaryNavigation", () => {
       <PageSecondaryNavigation modeId="services" pathname="/services" hasSubmittedSearch={false} onSearch={vi.fn()} />,
     );
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
   });
 
-  it("renders mode navigation after submission and on explicit workflow routes", () => {
-    const { rerender } = render(
-      <PageSecondaryNavigation modeId="answer" pathname="/" hasSubmittedSearch onSearch={vi.fn()} />,
-    );
-    expect(screen.getByRole("button", { name: "Ask" })).toHaveAttribute("aria-current", "page");
+  it.each([
+    ["answer", "/"],
+    ["documents", "/documents/search"],
+    ["services", "/services"],
+    ["forms", "/forms"],
+    ["favourites", "/favourites"],
+    ["prescribing", "/medications"],
+    ["tools", "/tools"],
+    ["factsheets", "/factsheets/search"],
+  ] as const)("keeps the one-destination %s mode free of a redundant menu", (modeId, pathname) => {
+    render(<PageSecondaryNavigation modeId={modeId} pathname={pathname} hasSubmittedSearch onSearch={vi.fn()} />);
 
-    rerender(
-      <PageSecondaryNavigation
-        modeId="specifiers"
-        pathname="/specifiers/compare"
-        hasSubmittedSearch={false}
-        onSearch={vi.fn()}
-      />,
-    );
-    expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Build" })).toHaveAttribute("href", "/specifiers/builder");
+    expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
   });
+
+  it.each([
+    ["differentials", "/differentials/diagnoses", "Differentials pages", "Diagnoses", "/differentials/diagnoses"],
+    ["dsm", "/dsm/compare", "DSM-5 Diagnosis pages", "Compare", "/dsm/compare"],
+    ["specifiers", "/specifiers/builder", "Specifiers pages", "Build", "/specifiers/builder"],
+    ["formulation", "/formulation/map", "Formulation pages", "Map", "/formulation/map"],
+  ] as const)(
+    "renders the %s workflow as the shared header-integrated mode nav",
+    (modeId, pathname, ariaLabel, activeLabel, activeHref) => {
+      render(
+        <PageSecondaryNavigation
+          modeId={modeId}
+          pathname={pathname}
+          hasSubmittedSearch={false}
+          onSearch={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByRole("navigation", { name: ariaLabel })).toHaveAttribute("data-testid", "mode-nav");
+      expect(screen.getByRole("link", { name: activeLabel })).toHaveAttribute("aria-current", "page");
+      expect(screen.getByRole("link", { name: activeLabel })).toHaveAttribute("href", activeHref);
+      expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+    },
+  );
 
   it("replaces mode navigation with only the information sections present in the record", async () => {
     render(
@@ -125,6 +161,7 @@ describe("PageSecondaryNavigation", () => {
     expect(screen.getByRole("link", { name: "Criteria" })).toHaveAttribute("href", "#service-criteria");
     expect(screen.queryByRole("link", { name: "Quick facts" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
   });
 
   it("leaves locally controlled information and Therapy workflow navigation to their page owners", async () => {
@@ -137,6 +174,7 @@ describe("PageSecondaryNavigation", () => {
       />,
     );
     await waitFor(() => expect(screen.queryByTestId("secondary-navigation")).toBeNull());
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
 
     rerender(
       <PageSecondaryNavigation
@@ -147,6 +185,7 @@ describe("PageSecondaryNavigation", () => {
       />,
     );
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
 
     rerender(
       <PageSecondaryNavigation
@@ -157,5 +196,6 @@ describe("PageSecondaryNavigation", () => {
       />,
     );
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
   });
 });
