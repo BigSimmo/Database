@@ -196,6 +196,19 @@ raises rate limits. Set it as a user/OS env var or in Cursor MCP env (`.env.loca
 alone does not feed MCP). Context7 works without a key at lower limits. Full setup
 notes: `docs/agents-guide.md`. Never commit the API key.
 
+### Figma
+
+The Cursor **Figma** plugin plus `.cursor/mcp.json` (`https://mcp.figma.com/mcp`)
+give design ↔ code access (capture live UI, read/write frames, Code Connect).
+Enable the plugin / MCP server, complete browser OAuth once, then verify with a
+prompt such as: _"Call Figma whoami and report only handle and plan tier."_
+
+**Cursor Cloud Agents:** official Figma remote MCP is **not supported** there today
+(Cloud/Automations return Forbidden; OAuth from desktop does not carry over). Use
+**Cursor Desktop** (or Codex with its Figma plugin) for Figma MCP. Repo
+`.cursor/mcp.json` still helps the IDE; it does not unlock Cloud Agents. Details:
+`docs/agents-guide.md`, `docs/codex-cloud.md`.
+
 ## Documentation
 
 Full categorized index: `docs/README.md` (maintained docs vs point-in-time

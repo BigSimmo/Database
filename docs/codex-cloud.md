@@ -173,6 +173,25 @@ acceptance, then runtime acceptance. Any runtime, dependency, CLI, Deno, Python/
 drift reruns the full setup instead of repairing only `node_modules`. All profile insertions,
 CLI installs, and remote repair are idempotent.
 
+### Automatic setup diagnostics
+
+Cloud setup tracks its current phase. If a command fails, the error trap runs
+`npm run diagnose:codex-cloud` automatically and prints sanitized `ISSUE` and `FIX` lines after
+the original error. The diagnostic checks the Node/npm contract, the active Cloud Python runtime,
+the runtime-specific Python lock header, and the failed setup phase without printing environment
+values or calling a provider. Run it manually in an agent shell when setup completed but the
+runtime later appears stale:
+
+```bash
+npm run diagnose:codex-cloud
+```
+
+The production worker image and Codex Cloud deliberately use separate hashed Python locks because
+medspaCy 1.3.1 requires spaCy `<3.8` on Python 3.11 but `>=3.8` on Python 3.12. Production uses
+`worker/python/requirements.txt` (Python 3.11); Cloud uses
+`worker/python/requirements-cloud.txt` (Python 3.12). After changing
+`worker/python/requirements.in`, regenerate and verify both locks with their matching interpreters.
+
 ## Acceptance
 
 Run this in a fresh Cloud task before relying on the environment:
@@ -228,6 +247,17 @@ and restart the client if tools do not appear. Schema writes, Edge Function depl
 and storage mutations require a separately configured non-production project or branch; do not
 broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
+
+Figma is intentionally **not** in root `.mcp.json` (that file stays Railway + read-only Supabase
+only, so ordinary Cloud tasks do not pay Figma tool-schema cost). For Codex Cloud design work,
+enable the official Figma plugin and app for the user's workspace/role in Codex, complete its
+browser OAuth, then verify in a fresh Cloud task with a non-secret `whoami` (handle, plan tier/seat
+only — never tokens). Do not add Figma client IDs, client secrets, REST tokens, or npm registry
+tokens to Cloud environment variables: the official MCP manages its own OAuth, while private npm
+registry authentication is a separate operator workflow. **Cursor Desktop** uses the Figma plugin
+and `.cursor/mcp.json`. **Cursor Cloud Agents do not support official Figma MCP today** (desktop
+OAuth does not sync; Cloud/Automations hit Forbidden). Product truth remains
+`docs/design-system/` and the app code; design writes still need explicit task approval.
 
 In a fresh connected Cloud session, run `npm run check:codex-cloud -- --environment` before any
 provider call. The sanitized report must show `CODEX_CLOUD_ACCESS_PROFILE=connected`, every

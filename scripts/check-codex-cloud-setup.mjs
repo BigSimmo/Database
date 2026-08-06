@@ -38,6 +38,12 @@ export const providerCredentialVariables = Object.freeze([
   "HEALTH_DEEP_PROBE_SECRET",
   "INDEXING_V3_AGENT_SECRET",
   "CROSS_TENANT_SERVICE_ROLE_KEY",
+  "FIGMA_CLIENT_ID",
+  "FIGMA_CLIENT_SECRET",
+  "FIGMA_ACCESS_TOKEN",
+  "FIGMA_PERSONAL_ACCESS_TOKEN",
+  "FIGMA_TOKEN",
+  "FIGMA_NPM_TOKEN",
 ]);
 
 function read(relativePath) {
@@ -330,7 +336,7 @@ export function validateCodexCloudSetup() {
   for (const [pattern, message] of [
     [/npm ci --include=dev/, "Cloud setup must install the exact lockfile with dev dependencies."],
     [/deno@2/, "Cloud setup must install Deno 2.x."],
-    [/worker\/python\/requirements\.txt/, "Cloud setup must install Python worker requirements."],
+    [/worker\/python\/requirements-cloud\.txt/, "Cloud setup must install the Python 3.12 Cloud worker lock."],
     [/CODEX_CLOUD_OCR_PYTHON/, "Cloud setup must expose the Python worker environment."],
     [/playwright install --with-deps chromium firefox webkit/, "Cloud setup must install every browser."],
     [/CODEX_CLOUD_ACCESS_PROFILE/, "Cloud setup must support explicit access profiles."],

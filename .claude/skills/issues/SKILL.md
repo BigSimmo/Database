@@ -15,6 +15,8 @@ recall — always read the file first, so the answer is correct even in a fresh 
 ## Trigger
 
 - User types `/issues` (optionally with a subcommand or filter below).
+- User says **`issues list`**: refresh the artifact from the current worktree's
+  `docs/outstanding-issues.md`, then open `C:\Users\joshs\OneDrive\ISSUES-LIST.html` in Codex.
 - User asks to add / close / update / list / capture an outstanding task, recommendation, or issue.
 
 ## Default: `/issues` (read-only)
@@ -102,3 +104,16 @@ git commit -m "issues: <what changed>"
 
 Do not stage or commit anything else, and do not push unless the user asks (or you are already in a
 handoff/upload flow). A plain read-only `/issues` commits nothing.
+
+## Refresh the visual register
+
+`docs/outstanding-issues.md` remains the only source of truth. After every successful add, update,
+done, capture, or ledger sweep—and before opening an `issues list`—refresh the user-facing artifact:
+
+```powershell
+& 'C:\Users\joshs\.codex\scripts\refresh-issues-list.ps1' -LedgerPath (Join-Path (Get-Location) 'docs\outstanding-issues.md')
+```
+
+Require the decisive `ISSUES_LIST_UPDATED` line. The stable artifact is
+`C:\Users\joshs\OneDrive\ISSUES-LIST.html`. If refresh fails, do not undo a valid ledger mutation;
+report that the Markdown source is current and the visual artifact is stale.
