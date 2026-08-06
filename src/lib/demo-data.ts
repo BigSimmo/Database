@@ -492,7 +492,8 @@ export function getDemoDocumentPayload(id: string, chunkId?: string | null) {
   const document = getDemoDocument(id);
   if (!document) return null;
   const pages = demoPages.filter((page) => page.document_id === id);
-  const images = demoImages.filter((image) => image.document_id === id);
+  // Cover thumbnails are search-card display artifacts, not clinical viewer images.
+  const images = demoImages.filter((image) => image.document_id === id && image.source_kind !== "cover_page");
   const labels = demoDocumentLabels.filter((label) => label.document_id === id);
   const summary = demoDocumentSummaries.find((row) => row.document_id === id) ?? null;
   const chunks = demoChunks

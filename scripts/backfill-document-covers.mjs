@@ -85,39 +85,38 @@ async function main() {
   const documentBucket = process.env.SUPABASE_DOCUMENT_BUCKET || "clinical-documents";
   const imageBucket = process.env.SUPABASE_IMAGE_BUCKET || "clinical-images";
 
+  const { data: existingCoverRows, error: existingCoverError } = await supabase
+    .from("document_images")
+    .select("document_id")
+    .eq("source_kind", "cover_page");
+  if (existingCoverError) throw new Error(existingCoverError.message);
+  const coveredIds = new Set((existingCoverRows ?? []).map((row) => String(row.document_id)));
+
   let docsQuery = supabase
     .from("documents")
     .select("id,owner_id,title,file_name,file_type,storage_path,status,metadata")
     .eq("status", "indexed")
     .ilike("file_type", "%pdf%")
-    .order("updated_at", { ascending: false })
-    .limit(Number.isFinite(limit) ? limit : 50);
+    .order("created_at", { ascending: true })
+    .limit(Math.max(Number.isFinite(limit) ? limit * 4 : 200, 200));
   if (documentId) docsQuery = docsQuery.eq("id", documentId);
 
   const { data: documents, error: docsError } = await docsQuery;
   if (docsError) throw new Error(docsError.message);
 
-  const candidates = (documents ?? []).filter((doc) => doc.storage_path);
-  console.log(`Found ${candidates.length} indexed PDF candidate(s). mode=${apply ? "apply" : "dry-run"}`);
+  const candidates = (documents ?? [])
+    .filter((doc) => doc.storage_path)
+    .filter((doc) => !coveredIds.has(String(doc.id)))
+    .slice(0, Number.isFinite(limit) ? limit : 50);
+  console.log(
+    `Found ${candidates.length} uncovered PDF candidate(s) (already covered=${coveredIds.size}). mode=${apply ? "apply" : "dry-run"}`,
+  );
 
   let created = 0;
   let skipped = 0;
   let failed = 0;
 
   for (const doc of candidates) {
-    const { data: existingCovers, error: coverError } = await supabase
-      .from("document_images")
-      .select("id")
-      .eq("document_id", doc.id)
-      .eq("source_kind", "cover_page")
-      .limit(1);
-    if (coverError) throw new Error(coverError.message);
-    if (existingCovers?.length) {
-      skipped += 1;
-      console.log(`skip ${doc.id} already has cover ${existingCovers[0].id}`);
-      continue;
-    }
-
     if (!apply) {
       console.log(`dry-run would create cover for ${doc.id} (${doc.title || doc.file_name})`);
       continue;
