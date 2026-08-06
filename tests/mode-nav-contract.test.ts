@@ -152,12 +152,20 @@ describe("ModeNav header anchoring", () => {
 
   it("keeps the addon slot to a single page-owned header", () => {
     // DocumentViewer and the differentials detail page already claim the slot on
-    // phones. Neither mode may also mount a bar there; today neither can,
-    // because both have fewer than MODE_NAV_MIN_ITEMS destinations and ModeNav
-    // renders nothing. This fails the moment that stops being true.
+    // phones. Neither may also carry a bar. That used to hold only because both
+    // modes had fewer than MODE_NAV_MIN_ITEMS destinations and ModeNav rendered
+    // nothing — incidental protection that expired when Differentials gained a
+    // third destination. The two-item floor stays (a one-item bar is not a
+    // choice), but ownership is now stated by route and proved at render.
     expect(read("src/components/DocumentViewer.tsx")).toContain("PhoneHeaderCollapsePortal");
     expect(read("src/components/differentials/differential-detail-page.tsx")).toContain("PhoneHeaderCollapsePortal");
     expect(modeNavSource).toMatch(/items\.length < MODE_NAV_MIN_ITEMS\) return null/);
+
+    // The guard, and the render-level proof that it holds on those routes.
+    expect(read("src/components/page-secondary-navigation.tsx")).toContain(
+      "if (isHeaderAddonSlotOwnedRoute(pathname)) return null;",
+    );
+    expect(read("tests/mode-nav-addon-slot.dom.test.tsx")).toContain("/differentials/diagnoses/delirium");
   });
 });
 

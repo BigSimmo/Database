@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { isDocumentViewerOwnedRoute } from "@/components/clinical-dashboard/mobile-composer-reserve";
+import { isHeaderAddonSlotOwnedRoute } from "@/components/mode-nav/header-addon-slot";
+import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
 import {
   SecondaryNavigation,
   type SecondaryNavigationItem,
@@ -15,6 +17,7 @@ import {
   isModeSecondaryNavigationRoute,
   modeSecondaryNavigationEntries,
   modeSecondaryNavigationHref,
+  modeUsesHeaderModeNav,
 } from "@/lib/mode-secondary-navigation";
 
 export type InformationPageSectionDefinition = {
@@ -309,6 +312,14 @@ export function PageSecondaryNavigation({
     return <AvailableInformationPageNavigation definitions={informationDefinitions} sticky={sticky} />;
   }
   if (!isModeSecondaryNavigationRoute({ modeId, pathname, hasSubmittedSearch })) return null;
+  if (modeUsesHeaderModeNav(modeId)) {
+    // The header addon slot holds one page-owned header. A route whose page
+    // already portals one into it must not also mount the bar there; see
+    // `isHeaderAddonSlotOwnedRoute` for why the old two-destination minimum
+    // stopped covering this.
+    if (isHeaderAddonSlotOwnedRoute(pathname)) return null;
+    return <RegistryModeNav modeId={modeId} activeId={activeId} searchParamString={searchParamString} />;
+  }
   return (
     <SecondaryNavigation
       ariaLabel={modeAriaLabel}

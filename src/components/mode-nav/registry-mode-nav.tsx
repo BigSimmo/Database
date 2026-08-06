@@ -1,0 +1,74 @@
+"use client";
+
+import { GitCompareArrows, ListChecks, Network, Search, Stethoscope, type LucideIcon } from "lucide-react";
+
+import { ModeNav, type ModeNavItem } from "@/components/mode-nav/mode-nav";
+import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
+import {
+  modeSecondaryNavigationEntries,
+  modeSecondaryNavigationHref,
+  type RoutedModeSecondaryNavigationId,
+} from "@/lib/mode-secondary-navigation";
+
+/**
+ * Exhaustive by type, deliberately. A `?? FileText` fallback compiles for a
+ * registry id nobody has chosen an icon for, and the entry then ships wearing a
+ * document icon that means nothing — a silent default on the one surface where
+ * the icon is half the slot's width. Adding a routed entry to the registry
+ * without an icon fails the typecheck instead.
+ */
+const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
+  search: Search,
+  diagnoses: Stethoscope,
+  compare: GitCompareArrows,
+  builder: ListChecks,
+  map: Network,
+};
+
+/**
+ * Adapts the canonical route registry to the shared header-integrated bar.
+ *
+ * One adapter rather than a hand-written item list per mode: the registry is
+ * already the single source of destinations, labels and query-state carrying
+ * (`modeSecondaryNavigationHref`), and a per-mode list would let the shell and
+ * the mode drift onto different URLs for the same tab.
+ *
+ * `activeId` is always passed explicitly. `ModeNav`'s own path derivation
+ * prefix-matches, and every routed entry whose href is the mode home
+ * (`appModeHomeHref`) would then claim to be the current page on every route in
+ * the mode.
+ */
+export function RegistryModeNav({
+  modeId,
+  activeId,
+  searchParamString = "",
+}: {
+  modeId: AppModeId;
+  activeId: string;
+  searchParamString?: string;
+}) {
+  const currentSearchParams = new URLSearchParams(searchParamString);
+  // Action-only entries are dropped, not adapted: `ModeNavItem` takes an href
+  // by design so deep links, back and prefetch keep working.
+  const items = modeSecondaryNavigationEntries(modeId).flatMap<ModeNavItem>((entry) =>
+    entry.href
+      ? [
+          {
+            id: entry.id,
+            label: entry.label,
+            href: modeSecondaryNavigationHref({
+              modeId,
+              itemId: entry.id,
+              href: entry.href,
+              currentSearchParams,
+            }),
+            // The accessor widens `id` to `string`; the guarantee lives on the
+            // map's key type above, which is derived from the registry literal.
+            icon: iconByItemId[entry.id as RoutedModeSecondaryNavigationId],
+          },
+        ]
+      : [],
+  );
+
+  return <ModeNav items={items} label={`${appModeDefinition(modeId).label} pages`} activeId={activeId} />;
+}

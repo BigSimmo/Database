@@ -65,6 +65,36 @@ export const modeSecondaryNavigationRegistry = {
   factsheets: [{ id: "search", label: "Search", action: "search" }],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
+type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
+
+/**
+ * The ids of registry entries that carry an `href`, and so can become a
+ * `ModeNavItem`. Derived from the registry literal rather than written out, so
+ * adding a routed entry without choosing an icon for it fails the typecheck in
+ * `RegistryModeNav` instead of shipping a silent default.
+ */
+export type RoutedModeSecondaryNavigationId = Extract<RegistryEntry, { href: string }>["id"];
+
+/**
+ * Modes whose destinations render as the shared header bar rather than the
+ * in-flow `SecondaryNavigation` strip.
+ *
+ * Listed rather than derived from "has two or more routed entries". The
+ * derivation is the *criterion*, and `tests/mode-secondary-navigation.test.ts`
+ * checks this set against it — but a registry edit must not silently move a
+ * mode onto a different navigation surface. Adoption is a per-mode decision
+ * with its own density evidence (`tests/ui-mode-nav-density.spec.ts`).
+ *
+ * `therapy-compass` is absent because it never reaches this registry:
+ * `PageSecondaryNavigation` early-returns on `/therapy-compass*` and the mode
+ * feeds `ModeNav` from `useTherapyNavItems` instead.
+ */
+export const MODE_NAV_ADOPTED_MODES = ["dsm"] as const satisfies readonly AppModeId[];
+
+export function modeUsesHeaderModeNav(modeId: AppModeId): boolean {
+  return (MODE_NAV_ADOPTED_MODES as readonly AppModeId[]).includes(modeId);
+}
+
 export function modeSecondaryNavigationEntries(modeId: AppModeId): readonly ModeSecondaryNavigationEntry[] {
   return modeSecondaryNavigationRegistry[modeId];
 }
