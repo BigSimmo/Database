@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { render, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isHeaderAddonSlotOwnedRoute } from "@/components/mode-nav/header-addon-slot";
 import { hasLocalInformationPageNavigation, PageSecondaryNavigation } from "@/components/page-secondary-navigation";
@@ -27,6 +27,12 @@ function renderIntoHeaderWithAddonSlot(ui: React.ReactElement) {
 }
 
 describe("header addon slot ownership", () => {
+  afterEach(() => {
+    for (const slot of document.querySelectorAll(`#${phoneHeaderCollapseAddonSlotId}`)) {
+      slot.remove();
+    }
+  });
+
   it("recognises the routes whose page portals its own header", () => {
     expect(isHeaderAddonSlotOwnedRoute("/differentials/diagnoses/delirium")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/documents/11111111-1111-4111-8111-111111111111")).toBe(true);
