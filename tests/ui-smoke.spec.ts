@@ -4339,6 +4339,59 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(box!.y).toBeLessThanOrEqual(200);
   });
 
+  test("private-scope alert clears the revealed phone header outside the answer view", async ({ page }) => {
+    // Reachable is not the same as visible. The alert is `sticky` inside <main>
+    // with `z-20`, while the phone header owns `z-30` at the viewport top, so an
+    // offset that assumes the header is out of the way leaves the recovery
+    // buttons underneath it. Measured 35px of the alert obscured before this
+    // guard, on a probe shorter than the real two-line alert. It predates phone
+    // overlay motion — a header pinned by `position: sticky` covered it exactly
+    // as much as the fixed overlay does — so assert the geometry, not the
+    // mechanism, and do it on a non-answer mode where the offset differs.
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=documents&scopeRef=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+
+    const alert = page.getByTestId("private-scope-unavailable");
+    await expect(alert).toBeVisible({ timeout: 15000 });
+
+    await appendPrimaryScrollSpacer(page, { heightPx: 2000 });
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
+
+    // Hide the chrome, then bring it back — the state that puts a full-height
+    // header over a sticky alert. Assert the hide, not just the reveal: if
+    // hide-on-scroll stopped firing the chrome would never leave, the upward
+    // scrolls would still end revealed, and the overlap check below would pass
+    // without ever exercising the state it exists to cover.
+    const collapse = page.getByTestId("universal-header-collapse");
+    for (const offset of [80, 160, 260, 380]) {
+      await scrollPrimarySurface(page, offset);
+    }
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+
+    for (const offset of [300, 240, 200]) {
+      await scrollPrimarySurface(page, offset);
+    }
+    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(alert).toBeVisible();
+
+    const overlap = await page.evaluate(() => {
+      const node = document.querySelector('[data-testid="private-scope-unavailable"]');
+      const stack = document.querySelector(".phone-sticky-header-stack");
+      // Throw rather than return a sentinel: a negative number satisfies the
+      // `<= 1` assertion below, so a missing element would report a passing
+      // overlap contract that was never measured.
+      if (!(node instanceof HTMLElement) || !(stack instanceof HTMLElement)) {
+        throw new Error("private-scope alert overlap: the alert or the phone header stack was not rendered");
+      }
+      const a = node.getBoundingClientRect();
+      const h = stack.getBoundingClientRect();
+      return Math.max(0, Math.min(a.bottom, h.bottom) - Math.max(a.top, h.top));
+    });
+    expect(overlap, "the revealed phone header must not cover the recovery alert").toBeLessThanOrEqual(1);
+  });
+
   test("answer glass header hides and returns on desktop widths too", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 860 });
     await gotoApp(page, "/?mode=answer");

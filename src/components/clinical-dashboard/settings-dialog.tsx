@@ -172,11 +172,6 @@ export function SettingsDialog({
     setPrevOpen(open);
     if (open) {
       setActiveSection("account");
-      // The Sheet unmounts its children while closed, so the scroll port comes
-      // back at offset 0 — but this component stays mounted, so a pin left over
-      // from the last visit would survive and hold the spy inert on the fresh
-      // surface.
-      pinnedSectionRef.current = null;
       setPrivacyNotice(null);
       setDataCounts(readDataCounts());
       setEmailEntryOpen(false);
@@ -226,6 +221,12 @@ export function SettingsDialog({
 
   useEffect(() => {
     if (!open) return;
+    // The Sheet unmounts its children while closed, so the scroll port comes
+    // back at offset 0 — but this component stays mounted, so a pin left over
+    // from the last visit would survive and hold the spy inert on the fresh
+    // surface. Cleared here rather than in the open-reset block above, which
+    // runs during render where a ref must not be written.
+    pinnedSectionRef.current = null;
     const container = scrollRef.current;
     if (container) syncActiveSection(container);
   }, [open, syncActiveSection]);
