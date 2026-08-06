@@ -73,6 +73,12 @@ export const appModeHeaderRoutes = [
   { mode: "Factsheets", route: "/factsheets" },
 ];
 
+// Every phone route now overlays its chrome, portaled page navigation included:
+// collapsing the row in flow moved the reader's position by the released header
+// height (measured 147px on /therapy-compass/pathways and 137px on a
+// differential detail) every time the chrome hid. `--phone-overlay-chrome-h` is
+// measured from the live stack, so it absorbs the extra addon band these routes
+// portal into the collapse row.
 export const pageOwnedHeaderRoutes = [
   {
     name: "Therapy section navigation",
@@ -80,11 +86,13 @@ export const pageOwnedHeaderRoutes = [
     // is where the original pill strip still ships.
     route: "/therapy-compass/compare",
     selector: '[data-testid="therapy-compass-section-nav"]',
+    phoneMotion: "overlay" as const,
   },
   {
     name: "Therapy mode navigation",
     route: "/therapy-compass/search?q=CBT&run=1",
     selector: '[data-testid="mode-nav"]',
+    phoneMotion: "overlay" as const,
   },
   {
     name: "document navigation",
@@ -96,6 +104,7 @@ export const pageOwnedHeaderRoutes = [
     name: "differential detail navigation",
     route: "/differentials/diagnoses/delirium",
     selector: '[data-testid="differential-detail-header"]',
+    phoneMotion: "overlay" as const,
   },
 ];
 

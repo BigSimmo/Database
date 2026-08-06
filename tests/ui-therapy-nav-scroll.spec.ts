@@ -97,9 +97,10 @@ test("phone Therapy section nav hides and returns with the universal header", as
   }
 
   await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true", { timeout: 5_000 });
-  // Collapsed chrome is clipped by the 0fr track. With the always-on
-  // chrome-safe-area-top spacer, the collapse host sits below that band — so
-  // "off screen" means above-or-at the spacer bottom, not necessarily y<=1.
+  // Overlay motion translates the whole stack off the top edge at a stable
+  // height, so "hidden" is the nav clearing the viewport top. The two collapse
+  // readings are kept as alternatives: a clipped 0fr track (height <= 1) and a
+  // nav sitting above the always-on chrome-safe-area-top band.
   await expect
     .poll(async () =>
       page.evaluate(() => {
@@ -108,7 +109,7 @@ test("phone Therapy section nav hides and returns with the universal header", as
         if (!(nav instanceof HTMLElement) || !(collapse instanceof HTMLElement)) return false;
         const navRect = nav.getBoundingClientRect();
         const collapseRect = collapse.getBoundingClientRect();
-        return navRect.height <= 1 || navRect.bottom <= collapseRect.top + 1;
+        return navRect.bottom <= 1 || navRect.height <= 1 || navRect.bottom <= collapseRect.top + 1;
       }),
     )
     .toBe(true);
