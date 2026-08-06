@@ -54,11 +54,11 @@ json_string_field() {
 #   - tool_name / session_id from crude key extraction
 #   - command_text from tool_input command/script/code/input fields when present,
 #     else the whole payload (pre-mode shell deny still needs a searchable string)
-#   - tool_output ONLY from the substring after "tool_response" — never the whole
-#     payload. Falling back to the whole payload would let a failed `gh pr create`
-#     whose *input* mentions another PR URL write the handoff marker.
-#   - shell token matching (pre follow-deny + post `gh pr create` detect) also
-#     scans the raw payload, because quote-naive extraction truncates mid-command
+#   - tool_output ONLY from the tool_response region — never the whole payload,
+#     and never a suffix that still contains a later tool_input (so an input URL
+#     cannot satisfy the post-mode URL gate when keys are ordered response-first)
+#   - shell token matching also scans a bounded raw-payload slice when jq is
+#     missing, because quote-naive extraction truncates mid-command
 jq_available=0
 if command -v jq >/dev/null 2>&1; then
   jq_available=1
@@ -76,21 +76,34 @@ else
   [ -z "$command_text" ] && command_text="$(json_string_field script)"
   [ -z "$command_text" ] && command_text="$(json_string_field code)"
   [ -z "$command_text" ] && command_text="$(json_string_field input)"
-  # pre-mode shell deny: if no command field was found, scan the raw payload.
-  # post-mode never uses command_text as the URL source (see tool_output below).
-  [ -z "$command_text" ] && command_text="$payload"
+  # If no command-like field was found, scan the input half of the payload only —
+  # never tool_response — so a printed `gh pr create` cannot look like a create.
+  if [ -z "$command_text" ]; then
+    if printf '%s' "$payload" | grep -Fq '"tool_response"'; then
+      command_text="${payload%%\"tool_response\"*}"
+    else
+      command_text="$payload"
+    fi
+  fi
   if printf '%s' "$payload" | grep -Fq '"tool_response"'; then
-    tool_output="${payload#*\"tool_response\"}"
+    # Prefer a string-valued tool_response when the crude extractor can see it.
+    tool_output="$(json_string_field tool_response)"
+    if [ -z "$tool_output" ]; then
+      # Complex/non-string response: take the slice after tool_response, but
+      # stop before a later tool_input so an input URL cannot pass the gate.
+      tool_output="${payload#*\"tool_response\"}"
+      case "$tool_output" in
+      *\"tool_input\"*) tool_output="${tool_output%%\"tool_input\"*}" ;;
+      esac
+    fi
   else
     tool_output=""
   fi
 fi
 
-# Shell-token haystack: exact command when jq decoded it; when jq is missing,
-# also include the raw payload so an escaped quote inside tool_input.command
-# cannot hide a later follow/create token. URL matching for post-mode still
-# uses tool_output only — never this haystack — so a create whose input merely
-# mentions another PR URL cannot write the marker.
+# Pre-mode follow matching: decoded command, plus (jq-less) the full payload so
+# a quote-truncated command_text cannot hide a later follow token. Over-block is
+# the safe direction here.
 shell_command_matches() {
   local re="$1"
   printf '%s' "$command_text" | grep -Eq "$re" && return 0
@@ -100,12 +113,23 @@ shell_command_matches() {
   return 1
 }
 
-[ -z "$session_id" ] && session_id="unknown-session"
-# Reject path-injection / odd session ids before they become a marker filename.
-# Claude session ids are alphanumeric with dashes/underscores; anything else
-# collapses to the safe unknown-session fallback.
-if ! printf '%s' "$session_id" | grep -Eq '^[A-Za-z0-9_-]+$'; then
-  session_id="unknown-session"
+# Post-mode create-token matching: decoded command, plus (jq-less) only the
+# payload half *before* tool_response. Scanning tool_response would let a
+# command that merely prints `gh pr create` + a PR URL lock the session.
+shell_input_matches() {
+  local re="$1"
+  printf '%s' "$command_text" | grep -Eq "$re" && return 0
+  if [ "$jq_available" -eq 0 ]; then
+    local input_half="${payload%%\"tool_response\"*}"
+    printf '%s' "$input_half" | grep -Eq "$re" && return 0
+  fi
+  return 1
+}
+
+# Missing or unsafe session ids fail open: do not share an unknown-session
+# marker across unrelated malformed payloads (path injection included).
+if [ -z "$session_id" ] || ! printf '%s' "$session_id" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+  exit 0
 fi
 
 # --- marker location ----------------------------------------------------------
@@ -161,7 +185,7 @@ post)
   # without the URL check a failed create would end the session with no PR to
   # hand off.
   created=1
-  if is_shell_tool && shell_command_matches 'gh[[:space:]]+pr[[:space:]]+create'; then
+  if is_shell_tool && shell_input_matches 'gh[[:space:]]+pr[[:space:]]+create'; then
     created=0
   fi
   # End-anchor required: create_pull_request_review / _review_comment must NOT
@@ -210,10 +234,11 @@ pre)
   #    Matches are substring-based (cheap, no shell parse); false positives that
   #    only *mention* a blocked token can use CLAUDE_ALLOW_PR_FOLLOW=1.
   if [ -z "$reason" ] && is_shell_tool; then
-    # Escape hatch matches the extracted command only. A quote-truncated
-    # command_text still sees a leading CLAUDE_ALLOW_PR_FOLLOW=1 prefix; scanning
-    # the raw payload here would let an incidental mention unlock the deny.
-    printf '%s' "$command_text" | grep -q 'CLAUDE_ALLOW_PR_FOLLOW=1' && exit 0
+    # Escape hatch: documented prefix only (not an incidental echo/mention).
+    # A quote-truncated command_text still sees a leading CLAUDE_ALLOW_PR_FOLLOW=1.
+    printf '%s' "$command_text" \
+      | grep -Eq '^[[:space:]]*CLAUDE_ALLOW_PR_FOLLOW=1([[:space:]]|$)' \
+      && exit 0
     follow_re='gh[[:space:]]+pr[[:space:]]+(checks|status|view|diff|list)'
     follow_re="$follow_re"'|gh[[:space:]]+run[[:space:]]+(watch|view|list|rerun|download)'
     follow_re="$follow_re"'|gh[[:space:]]+api[^|;]*(actions/runs|check-runs|check-suites|/pulls/)'
