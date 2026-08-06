@@ -241,6 +241,28 @@ test("answer progress remains user-safe through fallback and keeps a compact com
   });
 
   await expect(progress).toContainText("Building a source-backed answer", { timeout: 5_000 });
+  const stageRail = progress.getByLabel("Answer generation stages");
+  const currentStage = stageRail.locator('li[data-state="current"]');
+  await expect(currentStage).toContainText("Draft answer");
+  const currentStageGeometry = await stageRail.evaluate((rail) => {
+    const activeStage = rail.querySelector<HTMLElement>('li[data-state="current"]');
+    if (!activeStage) return null;
+    const railRect = rail.getBoundingClientRect();
+    const stageRect = activeStage.getBoundingClientRect();
+    return {
+      railLeft: railRect.left,
+      railRight: railRect.right,
+      stageLeft: stageRect.left,
+      stageRight: stageRect.right,
+    };
+  });
+  expect(currentStageGeometry).not.toBeNull();
+  expect(currentStageGeometry?.stageLeft ?? Number.NEGATIVE_INFINITY).toBeGreaterThanOrEqual(
+    (currentStageGeometry?.railLeft ?? 0) - 1,
+  );
+  expect(currentStageGeometry?.stageRight ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
+    (currentStageGeometry?.railRight ?? 0) + 1,
+  );
   // Rolling deployments may still route a new client to an older server that
   // emits provisional token/revising frames. The client must ignore both so
   // unvalidated clinical prose never reaches the page before the final event.

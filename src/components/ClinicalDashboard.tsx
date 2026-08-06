@@ -3362,6 +3362,7 @@ export function ClinicalDashboard({
           onOpenLibrary={openSourceLibrary}
           onOpenSourcePdf={openSourcePdfBrowser}
           onNewChat={startNewChat}
+          showDesktopNewChat={false}
           onOpenMobileSidebar={() => {
             closeDashboardTransientSurfaces("mobileSidebar");
             settingsState.setMobileSidebarOpen(true);
