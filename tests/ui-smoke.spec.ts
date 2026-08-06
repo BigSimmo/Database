@@ -4270,22 +4270,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
 
     // Hide the chrome, then bring it back — the state that puts a full-height
-    // header over a sticky alert.
+    // header over a sticky alert. Assert the hide, not just the reveal: if
+    // hide-on-scroll stopped firing the chrome would never leave, the upward
+    // scrolls would still end revealed, and the overlap check below would pass
+    // without ever exercising the state it exists to cover.
+    const collapse = page.getByTestId("universal-header-collapse");
     for (const offset of [80, 160, 260, 380]) {
       await scrollPrimarySurface(page, offset);
     }
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+
     for (const offset of [300, 240, 200]) {
       await scrollPrimarySurface(page, offset);
     }
-
-    const collapse = page.getByTestId("universal-header-collapse");
     await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect(alert).toBeVisible();
 
     const overlap = await page.evaluate(() => {
       const node = document.querySelector('[data-testid="private-scope-unavailable"]');
       const stack = document.querySelector(".phone-sticky-header-stack");
-      if (!(node instanceof HTMLElement) || !(stack instanceof HTMLElement)) return -1;
+      // Throw rather than return a sentinel: a negative number satisfies the
+      // `<= 1` assertion below, so a missing element would report a passing
+      // overlap contract that was never measured.
+      if (!(node instanceof HTMLElement) || !(stack instanceof HTMLElement)) {
+        throw new Error("private-scope alert overlap: the alert or the phone header stack was not rendered");
+      }
       const a = node.getBoundingClientRect();
       const h = stack.getBoundingClientRect();
       return Math.max(0, Math.min(a.bottom, h.bottom) - Math.max(a.top, h.top));
