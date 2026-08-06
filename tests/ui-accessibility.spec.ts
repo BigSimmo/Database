@@ -374,10 +374,14 @@ test.describe("Clinical KB accessibility coverage", () => {
     await page.emulateMedia({ forcedColors: "active" });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await mockMinimalDashboardApi(page);
+    // Target the expanded sidebar's solid --command "New chat" button. With the
+    // collapsed-by-default rail, getByRole("New chat").first() would hit the
+    // icon-rail control (text-muted), not the solid label this regression guards.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "0"));
     await gotoApp(page);
     await expectDashboardUsable(page);
 
-    const newChat = page.getByRole("button", { name: "New chat" }).first();
+    const newChat = page.locator("#clinical-tools-sidebar").getByRole("button", { name: "New chat" });
     await expect(newChat).toBeVisible();
     const { canvas, buttonLabelColor, tokenColors } = await newChat.evaluate((button) => {
       const probe = document.createElement("span");
