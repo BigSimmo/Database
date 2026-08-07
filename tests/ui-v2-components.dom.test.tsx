@@ -13,12 +13,15 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Disclosure } from "@/components/ui/disclosure";
 import { DownloadLink, ExternalTextLink, TextLink } from "@/components/ui/link";
 import { OverlayPortal, OverlayRoot } from "@/components/ui/overlay-root";
+import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
-import { Progress } from "@/components/ui/progress";
+import { Progress, StageList } from "@/components/ui/progress";
+import { StatusMark, type DocumentStatus } from "@/components/ui/status-mark";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { SearchField, TextField } from "@/components/ui/text-field";
+import type { ClinicalSourceMetadata } from "@/lib/types";
 import { ToastProvider, useToast } from "@/components/ui/toast";
 import { Tooltip } from "@/components/ui/tooltip";
 
@@ -221,7 +224,31 @@ describe("Citation", () => {
   it("renders a static mark when interactive is false", () => {
     render(<Citation index={2} label="NICE" interactive={false} />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByTestId("citation")).toHaveAttribute("aria-label", expect.stringContaining("NICE"));
+    expect(screen.getByTestId("citation")).toHaveTextContent(/NICE/);
+  });
+
+  it("gives the static citation a real accessible name instead of an ignored aria-label", () => {
+    // `aria-label` on a role-less <span> is dropped by assistive technology, so
+    // the static/print citation used to lose both the "Source N" framing and the
+    // currency phrase — `StatusMark` is aria-hidden and contributes nothing.
+    render(<Citation index={7} label="NICE CG90" locator="p. 22" status="outdated" interactive={false} />);
+
+    const chip = screen.getByTestId("citation");
+    expect(chip).not.toHaveAttribute("aria-label");
+    expect(chip).toHaveTextContent("Source 7, NICE CG90, p. 22, outdated source");
+  });
+
+  it("announces the static and interactive citations identically", () => {
+    const { unmount } = render(
+      <Citation index={3} label="RANZCP" locator="p. 12" status="review_due" interactive onActivate={() => {}} />,
+    );
+    const interactiveName = screen.getByRole("button").getAttribute("aria-label");
+    unmount();
+
+    render(<Citation index={3} label="RANZCP" locator="p. 12" status="review_due" interactive={false} />);
+    // The visible face is hidden from the tree, so the sr-only phrase is the
+    // whole accessible text and must match the button's name exactly.
+    expect(screen.getByTestId("citation")).toHaveTextContent(String(interactiveName));
   });
 
   it("keeps list identity stable when citations reorder", () => {
@@ -884,5 +911,335 @@ describe("Links tone contract", () => {
       const link = screen.getByRole("link", { name: new RegExp(name, "i") });
       expect(link).not.toHaveAttribute("tone");
     }
+  });
+});
+
+/*
+ * COMPONENTS §0.4 open-defect ledger — the rows closed by ledger task #263.
+ * Each case names the defect it pins so a later reader can tell an assertion
+ * that is load-bearing from one that is decoration.
+ */
+
+describe("Button — ref forwarding", () => {
+  it("forwards a ref to the underlying button element", () => {
+    const ref = createRef<HTMLButtonElement>();
+    render(<Button ref={ref}>Reindex</Button>);
+
+    expect(ref.current).toBeInstanceOf(HTMLButtonElement);
+    expect(ref.current).toBe(screen.getByRole("button", { name: "Reindex" }));
+  });
+
+  it("passes testId through as data-testid", () => {
+    render(<Button testId="reindex-button">Reindex</Button>);
+    expect(screen.getByTestId("reindex-button")).toHaveAccessibleName("Reindex");
+  });
+});
+
+describe("Progress / StageList", () => {
+  it("drives the indeterminate sweep from the theme animation, not a hardcoded duration", () => {
+    render(<Progress label="Indexing" />);
+    const fill = screen.getByTestId("progress-fill");
+
+    expect(fill.className).toContain("animate-shimmer");
+    // The literal it replaced pinned both the timing and a second easing here.
+    expect(fill.className).not.toMatch(/animate-\[/);
+  });
+
+  it("never announces step 0 — an unstarted job is at its first step", () => {
+    render(
+      <StageList
+        label="Ingestion"
+        stages={[
+          { id: "upload", label: "Upload", state: "pending" },
+          { id: "parse", label: "Parse", state: "pending" },
+          { id: "index", label: "Index", state: "pending" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("stage-list")).toHaveAttribute("aria-label", "Ingestion: step 1 of 3");
+  });
+
+  it("counts the active stage, and clamps at the last one when every stage is done", () => {
+    const { rerender } = render(
+      <StageList
+        label="Ingestion"
+        stages={[
+          { id: "upload", label: "Upload", state: "done" },
+          { id: "parse", label: "Parse", state: "active" },
+          { id: "index", label: "Index", state: "pending" },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("stage-list")).toHaveAttribute("aria-label", "Ingestion: step 2 of 3");
+
+    rerender(
+      <StageList
+        label="Ingestion"
+        stages={[
+          { id: "upload", label: "Upload", state: "done" },
+          { id: "parse", label: "Parse", state: "done" },
+          { id: "index", label: "Index", state: "done" },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("stage-list")).toHaveAttribute("aria-label", "Ingestion: step 3 of 3");
+  });
+
+  it("announces through a dedicated status node rather than making the whole list live", () => {
+    render(
+      <StageList
+        label="Ingestion"
+        stages={[
+          { id: "upload", label: "Upload", state: "done" },
+          { id: "parse", label: "Parse", state: "active", detail: "118 chunks" },
+          { id: "index", label: "Index", state: "pending" },
+        ]}
+      />,
+    );
+
+    const list = screen.getByTestId("stage-list");
+    // aria-live on the <ol> re-read every stage label and detail on each
+    // transition; five stages meant five sentences to learn that step 3 started.
+    expect(list).not.toHaveAttribute("aria-live");
+    // And the status node is a sibling, not a child — an sr-only <li> would have
+    // made a three-stage job announce as "list, 4 items".
+    expect(list.querySelector('[data-testid="stage-list-status"]')).toBeNull();
+
+    const status = screen.getByTestId("stage-list-status");
+    expect(status).toHaveAttribute("role", "status");
+    expect(status).toHaveTextContent("Ingestion: step 2 of 3, Parse");
+  });
+});
+
+describe("StatusMark — design-system vocabulary", () => {
+  it("draws a distinct shape for every state it declares", () => {
+    const states: DocumentStatus[] = ["current", "review_due", "outdated", "unknown"];
+    for (const status of states) {
+      const { unmount } = render(<StatusMark status={status} />);
+      expect(screen.getByTestId("status-mark")).toHaveAttribute("data-status", status);
+      unmount();
+    }
+  });
+
+  it("keeps the application row type conforming to what the mark can draw", () => {
+    // Compile-time half of the decoupling: `StatusMark` no longer aliases its
+    // API off `ClinicalSourceMetadata["document_status"]`, so this assignment is
+    // what fails `typecheck` if the row type grows a fifth value the mark has no
+    // shape for. Previously the alias let it through and it fell silently
+    // through to the `unknown` styling.
+    const appStatus: NonNullable<ClinicalSourceMetadata["document_status"]> = "review_due";
+    const drawable: DocumentStatus = appStatus;
+    expect(drawable).toBe("review_due");
+  });
+});
+
+describe("PageHeader — actions must not starve the title", () => {
+  it("floors the title column and lets the actions column give way", () => {
+    const { container } = render(
+      <PageHeader
+        title="Treatment-resistant depression in the context of comorbid substance use"
+        actions={
+          <>
+            <Button>Print</Button>
+            <Button>Export</Button>
+            <Button variant="primary">Reindex</Button>
+          </>
+        }
+      />,
+    );
+
+    const grid = container.querySelector("header > div");
+    // `[minmax(0,1fr)_auto]` sized the actions track to its full max-content
+    // first and let the title collapse toward zero. The floor is the fix; the
+    // existing flex-wrap only decided where the actions sat, not how wide.
+    expect(grid?.className).toContain("sm:grid-cols-[minmax(20ch,1fr)_minmax(0,auto)]");
+    expect(grid?.className).not.toContain("sm:grid-cols-[minmax(0,1fr)_auto]");
+  });
+});
+
+describe("Disclosure — print", () => {
+  it("expands a collapsed panel for print instead of omitting the section", () => {
+    render(
+      <Disclosure title="Monitoring">
+        <p>Review ECG and electrolytes.</p>
+      </Disclosure>,
+    );
+
+    const panel = screen.getByTestId("disclosure").querySelector('[role="region"]');
+    expect(panel).toHaveAttribute("hidden");
+    expect(panel).toHaveAttribute("data-open", "false");
+    // On paper there is no control to open, so a collapsed section would print
+    // as though the guideline never mentioned it — undetectably.
+    expect(panel?.className).toContain("print:block");
+  });
+
+  it("keeps an open panel visible and still print-expanded", () => {
+    render(
+      <Disclosure title="Monitoring" defaultOpen>
+        <p>Review ECG and electrolytes.</p>
+      </Disclosure>,
+    );
+
+    const panel = screen.getByRole("region");
+    expect(panel).not.toHaveAttribute("hidden");
+    expect(panel).toHaveAttribute("data-open", "true");
+  });
+});
+
+describe("Tabs — invalid selected value", () => {
+  const items = [
+    { id: "answer", label: "Answer" },
+    { id: "sources", label: "Sources" },
+  ];
+
+  it("keeps the strip reachable when value matches no enabled tab", () => {
+    // A stale saved filter or a deep link to a removed tab produced this. Every
+    // tab took tabIndex -1, so Tab skipped the whole strip and the arrow keys
+    // that would have fixed it were unreachable.
+    render(
+      <Tabs label="Answer sections" items={items} value="removed-tab" onChange={() => {}}>
+        <p>panel</p>
+      </Tabs>,
+    );
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.filter((tab) => tab.getAttribute("tabindex") === "0")).toHaveLength(1);
+    expect(screen.getByRole("tab", { name: "Answer" })).toHaveAttribute("tabindex", "0");
+    // Reachability only: nothing is claimed as selected, and onChange is not
+    // fired behind the caller's back.
+    expect(tabs.every((tab) => tab.getAttribute("aria-selected") === "false")).toBe(true);
+  });
+
+  it("does not fire onChange to repair the caller's state", () => {
+    const onChange = vi.fn();
+    render(<Tabs label="Answer sections" items={items} value="removed-tab" onChange={onChange} />);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("skips a disabled tab when picking the reachable fallback", () => {
+    render(
+      <Tabs
+        label="Answer sections"
+        items={[{ id: "answer", label: "Answer", disabled: true }, ...items.slice(1)]}
+        value="removed-tab"
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole("tab", { name: "Sources" })).toHaveAttribute("tabindex", "0");
+  });
+
+  it("keeps the panel wired to a tab that exists", () => {
+    render(
+      <Tabs label="Answer sections" items={items} value="removed-tab" onChange={() => {}}>
+        <p>panel</p>
+      </Tabs>,
+    );
+
+    const panel = screen.getByRole("tabpanel");
+    const owner = screen.getByRole("tab", { name: "Answer" });
+    // Keyed off `value`, both of these dangled at ids no element carried.
+    expect(panel).toHaveAttribute("aria-labelledby", owner.id);
+    expect(owner).toHaveAttribute("aria-controls", panel.id);
+  });
+});
+
+describe("Pagination — clamping, focus and announcement", () => {
+  it("clamps an out-of-range page rather than emitting page 0 or -1", async () => {
+    const onPageChange = vi.fn();
+    render(<Pagination page={0} pageCount={5} onPageChange={onPageChange} />);
+
+    // page=0 arrives from a URL query or a stale saved filter; it is an ordinary
+    // state, not a caller bug.
+    expect(screen.getByRole("button", { name: "Page 1" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Previous page" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(onPageChange).toHaveBeenCalledWith(2);
+  });
+
+  it("clamps a page past the end onto the last page", async () => {
+    const onPageChange = vi.fn();
+    render(<Pagination page={99} pageCount={5} onPageChange={onPageChange} />);
+
+    expect(screen.getByRole("button", { name: "Page 5" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Previous page" }));
+    expect(onPageChange).toHaveBeenCalledWith(4);
+  });
+
+  it("hands focus to the current page when the pressed step button disables itself", async () => {
+    function Harness() {
+      const [page, setPage] = useState(2);
+      return <Pagination page={page} pageCount={2} onPageChange={setPage} />;
+    }
+    render(<Harness />);
+
+    const previous = screen.getByRole("button", { name: "Previous page" });
+    previous.focus();
+    await userEvent.click(previous);
+
+    // Reaching page 1 disables Previous, which used to drop focus to <body> and
+    // lose the reader's place in the list.
+    await waitFor(() => expect(previous).toBeDisabled());
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Page 1" }));
+  });
+
+  it("wraps the control row so a seven-page window fits a 320px viewport", () => {
+    render(<Pagination page={4} pageCount={7} onPageChange={() => {}} />);
+    const row = screen.getByRole("button", { name: "Previous page" }).parentElement;
+    expect(row?.className).toContain("flex-wrap");
+  });
+});
+
+describe("Links — invariants a spread cannot override", () => {
+  it("keeps download set even when a caller spreads over it", () => {
+    // The type omits `download` and the attribute is written after the spread —
+    // two independent guards, because a JS caller can defeat the first.
+    render(
+      <DownloadLink href="/guideline.pdf" format="PDF" size="4 MB" {...({ download: false } as object)}>
+        Guideline
+      </DownloadLink>,
+    );
+
+    expect(screen.getByRole("link", { name: /Guideline/ })).toHaveAttribute("download");
+  });
+
+  it("keeps the external link's target and rel ahead of a spread", () => {
+    render(
+      <ExternalTextLink href="https://example.test" {...({ target: "_self", rel: "" } as object)}>
+        External
+      </ExternalTextLink>,
+    );
+
+    const link = screen.getByRole("link", { name: /External/ });
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+});
+
+describe("Checkbox / RadioGroup — dimensions on the spacing scale", () => {
+  it("sizes the checkbox box and its mixed-state dash without arbitrary literals", () => {
+    const { container } = render(<Checkbox label="Include outdated sources" indeterminate />);
+
+    const box = container.querySelector(".grid.size-4\\.5");
+    expect(box).not.toBeNull();
+    expect(container.innerHTML).not.toContain("size-[1.125rem]");
+    expect(container.innerHTML).not.toContain("h-[2px]");
+  });
+
+  it("keeps the radio control on the same box recipe", () => {
+    const { container } = render(
+      <RadioGroup
+        label="Sort by"
+        name="sort"
+        options={[{ value: "relevance", label: "Relevance" }]}
+        defaultValue="relevance"
+      />,
+    );
+
+    expect(container.querySelector(".size-4\\.5")).not.toBeNull();
+    expect(container.innerHTML).not.toContain("size-[1.125rem]");
   });
 });

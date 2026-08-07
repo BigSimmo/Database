@@ -22,8 +22,11 @@ import { cn, textMuted } from "@/components/ui-primitives";
  * form participation, `:indeterminate`, and correct screen-reader roles for free.
  */
 
-const boxBase =
-  "grid size-[1.125rem] shrink-0 place-items-center rounded-xs border transition motion-reduce:transition-none";
+// `size-4.5` / `h-0.5` below, not `size-[1.125rem]` / `h-[2px]`: same rendered
+// 18px box and 2px mixed-state dash, but expressed on the spacing scale instead
+// of as arbitrary literals, so they move with `--spacing` rather than pinning
+// two magic numbers no other control shares.
+const boxBase = "grid size-4.5 shrink-0 place-items-center rounded-xs border transition motion-reduce:transition-none";
 
 /**
  * Option ids are derived from a sanitised key, never the raw value (COMPONENTS
@@ -145,7 +148,7 @@ export function Checkbox({
           )}
         >
           {indeterminate ? (
-            <span className="h-[2px] w-2.5 rounded-full bg-current" />
+            <span className="h-0.5 w-2.5 rounded-full bg-current" />
           ) : (
             <Check aria-hidden="true" className="size-icon-xs opacity-0 peer-checked:opacity-100" strokeWidth={3} />
           )}
