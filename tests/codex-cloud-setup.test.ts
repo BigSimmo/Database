@@ -157,12 +157,17 @@ describe("Codex Cloud environment contract", () => {
     const env: NodeJS.ProcessEnv = {
       NODE_ENV: "test",
       OPENAI_API_KEY: "never-print-this",
+      FIGMA_CLIENT_SECRET: "never-print-this-figma-secret",
       CROSS_TENANT_SERVICE_ROLE_KEY: "never-print-this-either",
       npm_config_https_proxy: "https://user:secret@example.test",
       HTTP_PROXY: "http://supported.example.test",
     };
 
-    expect(configuredProviderCredentialNames(env)).toEqual(["OPENAI_API_KEY", "CROSS_TENANT_SERVICE_ROLE_KEY"]);
+    expect(configuredProviderCredentialNames(env)).toEqual([
+      "OPENAI_API_KEY",
+      "CROSS_TENANT_SERVICE_ROLE_KEY",
+      "FIGMA_CLIENT_SECRET",
+    ]);
     expect(
       configuredProviderCredentialNames({
         CODEX_CLOUD_GITHUB_PAT: "never-print-this",
@@ -559,6 +564,12 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain('if [[ "$actual_version" != "$expected_version" ]]');
     expect(setup).toContain('"$HOME/.bash_profile"');
     expect(setup.match(/unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy/g)).toHaveLength(2);
+    expect(setup).toContain("worker/python/requirements-cloud.txt");
+    expect(setup).toContain("diagnose-codex-cloud.mjs");
+    expect(setup).toContain("trap diagnose_setup_failure ERR");
+    expect(setup).toContain('setup_step="python-worker-requirements"');
+    expect(setup).toContain("--require-hashes -r worker/python/requirements-cloud.txt");
+    expect(setup).toContain('"$ocr_venv/bin/python" -m pip check');
     expect(setup.indexOf("unset OPENAI_API_KEY")).toBeLessThan(
       setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]'),
     );
