@@ -1206,7 +1206,7 @@ function SearchRecordResults({
             >
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                 <div className="min-w-0">
-                  <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                  <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
                     {service.catalogueLabel ?? "Source-backed record"}
                   </p>
                   <Link
@@ -1249,7 +1249,7 @@ function SearchRecordResults({
                       key={card.id}
                       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5"
                     >
-                      <dt className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                      <dt className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
                         {card.label ?? card.id}
                       </dt>
                       <dd className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">

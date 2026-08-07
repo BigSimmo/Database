@@ -384,7 +384,7 @@ function SafetySnapshot({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className={cn("text-sm font-extrabold uppercase tracking-[0.04em]", theme.heading)}>Safety snapshot</h2>
+            <h2 className={cn("text-sm font-extrabold uppercase tracking-label", theme.heading)}>Safety snapshot</h2>
             <span
               className={cn(
                 "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-extrabold uppercase",

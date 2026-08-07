@@ -141,7 +141,7 @@ function SectionListHeading({ sections, activeId }: { sections: DocumentSection[
 
   return (
     <div className="flex items-baseline justify-between px-0.5 pb-2">
-      <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--clinical-accent)]">
+      <p className="text-3xs font-black uppercase tracking-kicker text-[color:var(--clinical-accent)]">
         In this document
       </p>
       <p className="nums text-3xs font-bold text-[color:var(--text-muted)]">
@@ -184,7 +184,7 @@ export function DocumentViewDensityToggle({
           {compact ? "Long sections collapsed" : "All indexed text shown"}
         </span>
       </span>
-      <span className="text-3xs font-black uppercase tracking-[0.08em]">{compact ? "On" : "Off"}</span>
+      <span className="text-3xs font-black uppercase tracking-eyebrow">{compact ? "On" : "Off"}</span>
     </button>
   );
 }
