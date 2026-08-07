@@ -170,6 +170,8 @@ removed after current-main verification; it is not missing recommended work.
 | 117 | `#253` | A2 | High — phone results UI | Next #1606 merge pass | 1–2 hours | Hand-merge #1606 portal menu against #1615 iOS 16px select fix; re-verify keyboard + lint. **Stop:** do not close #1606 to dodge the conflict. |
 | 118 | `#254` | A2 | Operator — Codex Cloud | Before #1617 leaves draft | 1–2 hours | Re-run Codex Cloud acceptance at the exact current head or mark head-independent evidence. **Stop:** do not treat stale pins as coverage. |
 | 119 | `#255` | A2 | High — Cloud/browser gates | Next environment image update | 2–4 hours | Align Cloud Playwright browser builds with lockfile pin; document CI delegation until then. **Stop:** do not force mismatched Chromium revisions. |
+| 120 | `#256` | A2 | High — mode section nav | Next information-page / mode-nav pass | 2–4 hours | Declared information-page section sets whose target ids nothing renders — verify each set against the rendered DOM per route; render anchors or delete the set. **Stop:** do not audit by grepping for `id=` alone (sectionId props exist). |
+| 121 | `#257` | Optional | High — formulation/specifiers flake | Standing until second reproduction | 15–30 min | Single unreproduced ui-formulation flake when run with ui-specifiers — record a second sighting only; do not quarantine until three on the same SHA. **Stop:** do not weaken assertions after one miss. |
 
 
 <!-- issues:next-id=258 -->

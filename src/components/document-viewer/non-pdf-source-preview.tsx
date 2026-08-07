@@ -120,7 +120,7 @@ function InlineImagePreview({
 
   if (failed) {
     return (
-      <div role="alert" className={placeholderSurface}>
+      <div data-preview-error="true" className={placeholderSurface}>
         <div className="max-w-md">
           <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-8 w-8 text-[color:var(--warning)]" />
           <p className="font-semibold text-[color:var(--text)]">Image preview could not load</p>

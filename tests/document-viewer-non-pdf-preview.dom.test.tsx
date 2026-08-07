@@ -31,7 +31,7 @@ describe("DocumentViewer non-PDF image preview", () => {
 
     fireEvent.error(screen.getByRole("img", { name: "Clinical chart" }));
     expect(assertiveRegion).toHaveTextContent("Image preview could not load");
-    expect(screen.getByRole("alert")).toHaveTextContent("Image preview could not load");
+    expect(document.querySelector('[data-preview-error="true"]')).toHaveTextContent("Image preview could not load");
 
     // A rerender of the same failed transition is not a new event and must not
     // queue a clear/set cycle.

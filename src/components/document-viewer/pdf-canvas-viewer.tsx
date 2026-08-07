@@ -539,7 +539,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
         )}
         {error ? (
           <div
-            role="alert"
+            data-preview-error="true"
             className="grid min-h-72 place-items-center text-center text-sm text-[color:var(--text-muted)]"
           >
             <div>
