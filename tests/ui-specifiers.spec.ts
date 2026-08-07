@@ -112,21 +112,26 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
   await expect(queryRibbon.getByRole("heading", { level: 1, name: "returns every winter" })).toBeVisible();
   await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open With seasonal pattern" })).toBeVisible();
-  const familySelect = queryRibbon.getByTestId("specifier-family-select");
-  const diagnosisSelect = queryRibbon.getByTestId("specifier-diagnosis-select");
-  await expect(familySelect).toBeVisible();
-  await expect(familySelect).toHaveAccessibleName("Filter by specifier family");
-  await expect(diagnosisSelect).toBeVisible();
-  await expect(diagnosisSelect).toHaveAccessibleName("Filter by diagnosis");
+  // Both dimensions used to be side-by-side selects in the ribbon; they are now
+  // one compact trigger opening a sheet that holds both groups.
+  const filterTrigger = queryRibbon.getByTestId("specifier-filter-trigger-phone");
+  await expect(filterTrigger).toBeVisible();
+  await expect(filterTrigger).toHaveAccessibleName(/No filters active/);
   await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
 
-  await familySelect.selectOption("course-onset");
-  await expect(familySelect).toHaveValue("course-onset");
-  await expect(page.getByRole("link", { name: "Open With seasonal pattern" })).toBeVisible();
+  await filterTrigger.click();
+  const familyGroup = page.getByRole("radiogroup", { name: "Family" });
+  const diagnosisGroup = page.getByRole("radiogroup", { name: "Diagnosis" });
+  await familyGroup.getByRole("radio", { name: "Course" }).click();
+  await expect(familyGroup.getByRole("radio", { name: "Course" })).toBeChecked();
+  await diagnosisGroup.getByRole("radio", { name: "Depressive" }).click();
+  await expect(diagnosisGroup.getByRole("radio", { name: "Depressive" })).toBeChecked();
+  await page.getByTestId("specifier-filter-panel-done").click();
 
-  await diagnosisSelect.selectOption("depressive");
+  // Two dimensions applied, counted independently on the badge.
+  await expect(filterTrigger).toHaveAccessibleName(/2 filters active/);
   await expect(page.getByRole("link", { name: "Open With seasonal pattern" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 

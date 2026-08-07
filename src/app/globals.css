@@ -260,6 +260,19 @@
   --border-strong: #c8d2de;
   /* Tracks --border-strong at 55% — re-derive both together. */
   --border-lux: rgb(200 210 222 / 55%);
+  /* Highlight rings on lux surfaces (panel, mobile FAB menu, PWA notice). These
+     exist so the ring carries its own per-theme value and the call site does not
+     need a `dark:` override — the prohibition GATES §3 lists, now gated at zero.
+     Values are byte-equivalent to the utilities they replace: Tailwind emits
+     `color-mix(in oklab, <colour> N%, transparent)` for `ring-<colour>/N`, and
+     mixing any colour with `transparent` yields that colour at alpha N
+     regardless of space, so the glass ring is written in the plainer rgb() form
+     the .dark --surface-highlight already uses.
+       --ring-highlight  tracks --border-strong, 20% light / 10% dark
+       --ring-glass      literal white, 35% light / 10% dark — deliberately NOT
+                         --neutral-0, which inverts to #060708 in dark */
+  --ring-highlight: color-mix(in oklab, var(--border-strong) 20%, transparent);
+  --ring-glass: rgb(255 255 255 / 35%);
   --primary: var(--primary-500);
   --primary-strong: var(--primary-700);
   --primary-soft: #eff5fc;
@@ -532,6 +545,10 @@
   --border: #2b3136;
   --border-strong: #3b444b;
   --border-lux: rgba(255, 255, 255, 0.1);
+  /* Dark halves both highlight rings — the exact values the retired
+     `dark:ring-*` overrides carried. See the :root declarations. */
+  --ring-highlight: color-mix(in oklab, var(--border-strong) 10%, transparent);
+  --ring-glass: rgb(255 255 255 / 10%);
 
   --primary: var(--primary-500);
   --primary-strong: var(--primary-700);
