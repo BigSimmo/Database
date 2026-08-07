@@ -88,7 +88,10 @@ Field mapping into the row (the repo ledger has fixed columns; the extra fields 
 If **no** new items survive the filter, append one dated line to the notes block above the Open
 items table: `> Ledger sweep YYYY-MM-DD: no new outstanding items found.`
 
-After any mutation run `npm run check:outstanding-issues` and paste its decisive line. Then commit
+After any mutation run `npm run check:outstanding-issues` and paste its decisive line. Refresh the
+visual issue register with
+`& 'C:\Users\joshs\.codex\scripts\refresh-issues-list.ps1' -LedgerPath (Join-Path (Get-Location) 'docs\outstanding-issues.md')`
+and require its `ISSUES_LIST_UPDATED` line. Then commit
 **only** `docs/outstanding-issues.md` (`issues: /ledger sweep YYYY-MM-DD`); never push unless the
 user asks or a handoff is already in flight.
 
