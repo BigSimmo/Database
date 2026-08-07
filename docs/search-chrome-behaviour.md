@@ -14,6 +14,45 @@ This repo uses one shared search experience across the global shell, dashboard r
 | Calculators (`/calculators`)        | Page-owned composer (desktop top + phone bottom dock)                      | Calculators page pad; shell reserve stays `0`                                  |
 | Info/detail pages with no composer  | No fixed composer                                                          | Idle shell padding only                                                        |
 
+## Default in-page navigation template
+
+When adding or suggesting **in-page navigation** on any mode page, use the DocumentViewer
+header as the canonical visual and behaviour template. Do not invent a new phone header shape
+or a second scroll-hide owner.
+
+**Reference implementation:** `src/components/DocumentViewer.tsx` (sticky header row) and
+`src/components/document-viewer/section-nav.tsx` (`DocumentSectionTrack`, section sheet / list).
+Ownership and reserves for that chrome are the “Document section navigation” row above;
+detailed DocumentViewer rules remain invariant 22.
+
+**Visual slots (adapt labels, back href, sections, and actions to the mode):**
+
+- Left: back control (icon; text label from `sm` when useful).
+- Center: page title (`h1`) plus chevron disclosure. Line two is the active section in
+  `--clinical-accent` (section icon + label). The title control opens the section list.
+- Right: ellipsis / page-actions control.
+- Bottom edge of the header: weighted segment track showing section position
+  (`DocumentSectionTrack` or an equivalent that preserves weight + active styling).
+- Phone: section list is the shared `Sheet` (not viewport chrome). At `lg+`, keep an
+  in-column section index card when the page has a rail — phones stay on the header
+  disclosure + sheet.
+
+**Scroll / attachment (must match DocumentViewer):**
+
+- Wrap the header in `PhoneHeaderCollapsePortal` so below `sm` it portals into
+  `#phone-header-collapse-addon-slot` under the universal search header and
+  **hides/reveals with that one collapse owner**.
+- At `sm+`, the same subtree stays in its page position (sticky/in-flow as appropriate).
+  Never add a second sticky/fixed phone navigation header inside `#main-content`.
+- Do not give the in-page header its own scroll-hide hook; share the universal collapse
+  signal described under “Scroll hide/reveal”.
+
+**Not this template:** Therapy-style `ModeNav` (multi-route mode tabs via
+`ModeNavHeaderPortal`) is a different pattern for mode-level page switching. Info-page
+`PageHeader` / breadcrumb chrome is also not in-page section navigation. Existing
+simpler collapse headers (for example Differential detail) remain special cases; **new**
+in-page navigation work defaults to the DocumentViewer template above.
+
 ## Invariants
 
 1. Use `src/components/clinical-dashboard/mobile-composer-reserve.ts` as the TypeScript source of truth for phone composer clearances.
