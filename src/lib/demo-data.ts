@@ -94,6 +94,51 @@ export const demoDocuments: ClinicalDocument[] = [
 
 export const demoImages: Array<ChunkImage & { document_id: string; mime_type: string }> = [
   {
+    id: "c0c0c0c0-c0c0-4c0c-8c0c-c0c0c0c0c0c0",
+    document_id: "11111111-1111-4111-8111-111111111111",
+    page_number: 1,
+    storage_path: "/demo-documents/synthetic-lithium-monitoring-cover.png",
+    signed_url: "/demo-documents/synthetic-lithium-monitoring-cover.png",
+    mime_type: "image/png",
+    image_type: "unclear",
+    searchable: false,
+    clinical_relevance_score: 0,
+    source_kind: "cover_page",
+    clinicalUseClass: "decorative_or_empty",
+    clinicalUseReason: "First-page cover thumbnail for search cards; not clinical evidence.",
+    caption: "Document cover page preview.",
+  },
+  {
+    id: "c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1",
+    document_id: "22222222-2222-4222-8222-222222222222",
+    page_number: 1,
+    storage_path: "/demo-documents/synthetic-clozapine-monitoring-cover.png",
+    signed_url: "/demo-documents/synthetic-clozapine-monitoring-cover.png",
+    mime_type: "image/png",
+    image_type: "unclear",
+    searchable: false,
+    clinical_relevance_score: 0,
+    source_kind: "cover_page",
+    clinicalUseClass: "decorative_or_empty",
+    clinicalUseReason: "First-page cover thumbnail for search cards; not clinical evidence.",
+    caption: "Document cover page preview.",
+  },
+  {
+    id: "c2c2c2c2-c2c2-4c2c-8c2c-c2c2c2c2c2c2",
+    document_id: "33333333-3333-4333-8333-333333333333",
+    page_number: 1,
+    storage_path: "/demo-documents/synthetic-risk-flow-cover.png",
+    signed_url: "/demo-documents/synthetic-risk-flow-cover.png",
+    mime_type: "image/png",
+    image_type: "unclear",
+    searchable: false,
+    clinical_relevance_score: 0,
+    source_kind: "cover_page",
+    clinicalUseClass: "decorative_or_empty",
+    clinicalUseReason: "First-page cover thumbnail for search cards; not clinical evidence.",
+    caption: "Document cover page preview.",
+  },
+  {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     document_id: "22222222-2222-4222-8222-222222222222",
     page_number: 2,
@@ -243,7 +288,7 @@ export const demoChunks: SearchResult[] = [
     image_ids: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
     similarity: 0.94,
     source_metadata: syntheticMetadata,
-    images: [demoImages[0]],
+    images: [demoImages.find((image) => image.id === "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")!],
   },
   {
     id: "66666666-6666-4666-8666-666666666661",
@@ -273,7 +318,7 @@ export const demoChunks: SearchResult[] = [
     image_ids: ["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"],
     similarity: 0.9,
     source_metadata: syntheticMetadata,
-    images: [demoImages[1]],
+    images: [demoImages.find((image) => image.id === "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")!],
   },
 ];
 
@@ -447,7 +492,8 @@ export function getDemoDocumentPayload(id: string, chunkId?: string | null) {
   const document = getDemoDocument(id);
   if (!document) return null;
   const pages = demoPages.filter((page) => page.document_id === id);
-  const images = demoImages.filter((image) => image.document_id === id);
+  // Cover thumbnails are search-card display artifacts, not clinical viewer images.
+  const images = demoImages.filter((image) => image.document_id === id && image.source_kind !== "cover_page");
   const labels = demoDocumentLabels.filter((label) => label.document_id === id);
   const summary = demoDocumentSummaries.find((row) => row.document_id === id) ?? null;
   const chunks = demoChunks

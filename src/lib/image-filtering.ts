@@ -251,6 +251,8 @@ export function isClinicalImageEvidence(image: {
   height?: number | null;
   metadata?: unknown;
 }) {
+  // Cover thumbnails are display-only and must never count as clinical evidence.
+  if (image.sourceKind === "cover_page" || image.source_kind === "cover_page") return false;
   if (image.searchable === false || image.image_type === "logo_decorative") return false;
   if (image.clinicalUseClass) return image.clinicalUseClass === "clinical_evidence";
   const metadata = safeMetadata(image.metadata);

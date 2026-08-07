@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { z } from "zod";
-import { demoSearch } from "@/lib/demo-data";
+import { demoImages, demoSearch } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { buildSmartPanel, buildVisualEvidence, diversifySearchResults } from "@/lib/evidence";
 import { annotateDocumentMatches, annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
@@ -209,6 +209,13 @@ function buildDocumentMatchesFromResults(results: SearchResult[], limit: number)
     }
   }
 
+  const coverByDocument = new Map<string, string>();
+  for (const image of demoImages) {
+    if (image.source_kind === "cover_page" && image.id && !coverByDocument.has(image.document_id)) {
+      coverByDocument.set(image.document_id, image.id);
+    }
+  }
+
   return Array.from(grouped.values())
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
@@ -216,6 +223,7 @@ function buildDocumentMatchesFromResults(results: SearchResult[], limit: number)
       ...document,
       imageCount: imageIds.size,
       tableCount: tableImageIds.size,
+      coverImageId: coverByDocument.get(document.document_id) ?? null,
       labels: [],
       summarySnippet: null,
       matchReason: `Matched ${document.bestChunkIds.length} indexed passage${
@@ -879,6 +887,7 @@ async function buildScopedSearchPayload(
       best_chunk_ids: document.best_chunk_ids,
       image_count: document.image_count,
       table_count: document.table_count ?? 0,
+      cover_image_id: document.cover_image_id ?? null,
       match_reason: document.match_reason,
       summary: document.summary ? compactText(document.summary, 360) : null,
       labels: document.labels?.slice(0, 6) ?? [],
