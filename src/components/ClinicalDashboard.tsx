@@ -3062,12 +3062,9 @@ export function ClinicalDashboard({
             activeModeResultKind === "documents" &&
             documentMatches.length === 0 &&
             !modeSearchSubmitted) ||
-          // Prescribing home unmounts as soon as the query is non-empty, so keep
-          // the hero/phone-composer slot only while MedicationHome actually mounts.
-          (searchMode === "prescribing" &&
-            activeModeResultKind === "documents" &&
-            !modeSearchSubmitted &&
-            !query.trim()) ||
+          // Prescribing keeps MedicationHome (and the hero/phone composer) until
+          // an explicit submit — draft keystrokes must not flip to results/dock.
+          (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
           // DifferentialsHome leaves ModeHomeTemplate when a draft query coincides
           // with stale evidence matches — keep the hero slot only while home mounts.
           (activeModeResultKind === "differentials" &&
@@ -3713,7 +3710,7 @@ export function ClinicalDashboard({
                       apiUnavailable={false}
                       setupWarning={null}
                       onSuggestedSearch={setMedicationSearchQuery}
-                      showHome={!query.trim() && !modeSearchSubmitted}
+                      showHome={!modeSearchSubmitted}
                       desktopComposerSlotId={desktopHomeComposerSlotId}
                     />
                   ) : (
