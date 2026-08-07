@@ -11,6 +11,7 @@ import { Chip } from "@/components/ui/chip";
 import { Checkbox, RadioGroup } from "@/components/ui/choice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Disclosure } from "@/components/ui/disclosure";
+import { DownloadLink, ExternalTextLink, TextLink } from "@/components/ui/link";
 import { OverlayPortal, OverlayRoot } from "@/components/ui/overlay-root";
 import { Pagination } from "@/components/ui/pagination";
 import { Progress } from "@/components/ui/progress";
@@ -860,5 +861,28 @@ describe("AnswerFooter", () => {
     expect(footer).toHaveTextContent("Version");
     expect(footer).toHaveTextContent("Review");
     expect(within(footer).getAllByTestId("missing-value").length).toBeGreaterThan(0);
+  });
+});
+
+describe("Links tone contract", () => {
+  it("does not leak tone onto the DOM for TextLink, ExternalTextLink, or DownloadLink", () => {
+    render(
+      <>
+        <TextLink href="/docs" tone="inherit">
+          Internal
+        </TextLink>
+        <ExternalTextLink href="https://example.test" tone="inherit">
+          External
+        </ExternalTextLink>
+        <DownloadLink href="/file.pdf" tone="inherit" format="PDF" size="1 MB">
+          Download
+        </DownloadLink>
+      </>,
+    );
+
+    for (const name of ["Internal", "External", "Download"]) {
+      const link = screen.getByRole("link", { name: new RegExp(name, "i") });
+      expect(link).not.toHaveAttribute("tone");
+    }
   });
 });
