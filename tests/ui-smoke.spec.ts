@@ -1385,6 +1385,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
+    // Sidebar defaults to collapsed for new users; expand so the in-rail Settings
+    // control this journey asserts is reachable (same as the account-setup case).
+    await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
+
     const settings = accountSettingsDialog(page);
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
