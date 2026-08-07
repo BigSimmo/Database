@@ -844,6 +844,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   if (previousAutoOpenDriverRef.current !== autoOpenDriver) {
     previousAutoOpenDriverRef.current = autoOpenDriver;
     if (manualClosedDriver !== null) setManualClosedDriver(null);
+    if (!forceReveal) setCompactOpen(false);
   }
   const autoOpenSuppressed = Boolean(autoOpenDriver) && manualClosedDriver === autoOpenDriver;
 
