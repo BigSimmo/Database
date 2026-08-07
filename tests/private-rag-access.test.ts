@@ -97,7 +97,14 @@ function sampleSearchResult() {
   };
 }
 
-function mockRuntime(options: { demoMode?: boolean } = {}) {
+function mockRuntime(
+  options: {
+    demoMode?: boolean;
+    searchResults?: unknown[];
+    relatedDocuments?: unknown[];
+    smartPanel?: Record<string, unknown>;
+  } = {},
+) {
   vi.resetModules();
 
   class MockAuthenticationError extends Error {
@@ -120,7 +127,7 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
   });
   const unauthorizedResponse = vi.fn(() => Response.json({ error: "Authentication required." }, { status: 401 }));
   const searchChunksWithTelemetry = vi.fn(async () => ({
-    results: [sampleSearchResult()],
+    results: options.searchResults ?? [sampleSearchResult()],
     telemetry: {
       query_class: "document_lookup",
       retrieval_strategy: "hybrid",
@@ -156,7 +163,7 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
     citations: [],
     sources: [],
   }));
-  const fetchRelatedDocuments = vi.fn(async () => []);
+  const fetchRelatedDocuments = vi.fn(async () => options.relatedDocuments ?? []);
   const demoSearch = vi.fn(() => []);
   const demoAnswer = vi.fn(() => ({
     answer: "Demo answer.",
@@ -194,7 +201,7 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
     toDocumentMatch: vi.fn((document: unknown) => document),
   }));
   vi.doMock("@/lib/evidence", () => ({
-    buildSmartPanel: vi.fn(() => ({})),
+    buildSmartPanel: vi.fn(() => options.smartPanel ?? {}),
     buildVisualEvidence: vi.fn(() => []),
     diversifySearchResults: vi.fn((results: unknown[]) => results),
   }));
@@ -276,6 +283,136 @@ describe("private RAG API access", () => {
     expect(mocks.fetchRelatedDocuments).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId: undefined, query: "clozapine monitoring" }),
     );
+  });
+
+  it("deeply projects private search evidence and keeps hidden labels suppressed", async () => {
+    const sourceMetadata = {
+      source_title: "Clozapine monitoring guideline",
+      publisher: "WA Health",
+      jurisdiction: "Australia/WA",
+      version: null,
+      publication_date: null,
+      review_date: null,
+      uploaded_at: null,
+      indexed_at: null,
+      uploaded_by: "search-uploader-private-marker",
+      document_status: "current",
+      clinical_validation_status: "approved",
+      clinical_validation_evidence: { attested_by: "search-reviewer-private-marker" },
+      extraction_quality: "good",
+    };
+    const visibleLabel = {
+      id: "label-visible",
+      document_id: documentId,
+      owner_id: "search-label-owner-private-marker",
+      label: "clozapine",
+      label_type: "medication",
+      source: "manual",
+      confidence: 1,
+      metadata: { review_status: "approved", reviewed_by: "search-label-reviewer-private-marker" },
+    };
+    const hiddenLabel = {
+      ...visibleLabel,
+      id: "label-hidden",
+      label: "hidden-search-label-private-marker",
+      metadata: { review_status: "hidden", reviewed_by: "search-hidden-reviewer-private-marker" },
+    };
+    const citation = {
+      chunk_id: chunkId,
+      document_id: documentId,
+      title: "Clozapine monitoring guideline",
+      file_name: "clozapine.pdf",
+      page_number: 1,
+      chunk_index: 0,
+      source_metadata: sourceMetadata,
+    };
+    const relatedDocument = {
+      document_id: documentId,
+      title: "Clozapine monitoring guideline",
+      file_name: "clozapine.pdf",
+      labels: [visibleLabel, hiddenLabel],
+      summary: `${"Related clinical summary. ".repeat(40)}search-summary-private-tail-marker`,
+      best_pages: [1],
+      best_chunk_ids: [chunkId],
+      image_count: 0,
+      table_count: 0,
+      match_reason: "Matched label: hidden-search-label-private-marker",
+      score: 0.9,
+    };
+    const mocks = mockRuntime({
+      searchResults: [
+        {
+          ...sampleSearchResult(),
+          source_metadata: sourceMetadata,
+          document_labels: [visibleLabel, hiddenLabel],
+          indexing_quality: {
+            document_id: documentId,
+            owner_id: "search-index-owner-private-marker",
+            quality_score: 0.91,
+            extraction_quality: "good",
+            metrics: { raw: "search-index-metrics-private-marker" },
+            issues: ["safe issue"],
+          },
+        },
+      ],
+      relatedDocuments: [relatedDocument],
+      smartPanel: {
+        query: "clozapine monitoring",
+        total_sources: 1,
+        documents: [],
+        quotes: [{ ...citation, quote: "Monitor blood counts.", section_heading: "Monitoring" }],
+        visualEvidence: [],
+        image_count: 0,
+        evidenceSummary: {
+          document_count: 1,
+          total_sources: 1,
+          quote_count: 1,
+          image_count: 0,
+          source_strength: "strong",
+          summary: "One strong source.",
+        },
+        sourceCoverage: { documents_used: 1, pages: [1], strongest_similarity: 0.92, has_images: false },
+        conflictsOrGaps: [],
+        future_panel_secret: "search-panel-private-marker",
+      },
+    });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      jsonRequest("/api/search", {
+        query: "clozapine monitoring",
+        mode: "documents",
+        includeRelatedDocuments: true,
+      }),
+    );
+    const body = await payload(response);
+    const serialized = JSON.stringify(body);
+
+    expect(response.status).toBe(200);
+    for (const privateMarker of [
+      "search-uploader-private-marker",
+      "search-reviewer-private-marker",
+      "search-label-owner-private-marker",
+      "search-label-reviewer-private-marker",
+      "hidden-search-label-private-marker",
+      "search-hidden-reviewer-private-marker",
+      "search-index-owner-private-marker",
+      "search-index-metrics-private-marker",
+      "search-summary-private-tail-marker",
+      "search-panel-private-marker",
+    ]) {
+      expect(serialized).not.toContain(privateMarker);
+    }
+    expect(body).toMatchObject({
+      results: [expect.objectContaining({ indexing_quality: expect.objectContaining({ metrics: {} }) })],
+      relatedDocuments: [expect.objectContaining({ labels: [expect.objectContaining({ label: "clozapine" })] })],
+      documentMatches: [expect.objectContaining({ labels: [expect.objectContaining({ label: "clozapine" })] })],
+      smartPanel: expect.objectContaining({
+        quotes: [expect.objectContaining({ source_metadata: expect.objectContaining({ uploaded_by: null }) })],
+        relatedDocuments: [expect.objectContaining({ labels: [expect.objectContaining({ label: "clozapine" })] })],
+      }),
+    });
+    expect(mocks.searchChunksWithTelemetry).toHaveBeenCalledTimes(1);
   });
 
   it("scopes authenticated real search requests to the authenticated owner", async () => {

@@ -22,6 +22,13 @@ import {
 } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
+import {
+  projectDocumentMatchForClient,
+  projectDocumentLabelsForClient,
+  projectIndexingQualityForClient,
+  projectRelatedDocumentForClient,
+  projectSmartPanelForClient,
+} from "@/lib/client-source-projection";
 import { parseJsonBody } from "@/lib/validation/body";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 import { retrievalHealthFromTelemetry } from "@/lib/search-retrieval-health";
@@ -274,7 +281,9 @@ function buildMatchExplanation(queryTerms: readonly string[], result: SearchResu
   if (result.match_explanation) return result.match_explanation;
   const titleText = `${result.title} ${result.file_name}`.toLowerCase();
   const sectionText = `${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")}`.toLowerCase();
-  const labelText = (result.document_labels ?? []).map((label) => label.label.toLowerCase()).join(" ");
+  const labelText = projectDocumentLabelsForClient(result.document_labels)
+    .map((label) => label.label.toLowerCase())
+    .join(" ");
   const contentText = `${result.retrieval_synopsis ?? ""} ${result.content}`.toLowerCase();
   const tableHit = Boolean(
     result.table_facts?.length ||
@@ -367,7 +376,7 @@ function compactSearchResult(result: SearchResult, queryTerms: readonly string[]
       action: fact.action,
       match_reason: fact.match_reason,
     })),
-    indexing_quality: result.indexing_quality ?? null,
+    indexing_quality: projectIndexingQualityForClient(result.indexing_quality) ?? null,
     images: evidenceImages.map(compactImage),
   };
 }
@@ -404,10 +413,10 @@ function buildDemoSearchPayload(body: SearchRequestBody, fallbackReason?: string
     facets: buildSearchFacets(results),
     visualEvidence: cachedVisualEvidence,
     relevance,
-    smartPanel: {
+    smartPanel: projectSmartPanelForClient({
       ...buildSmartPanel(searchFocusQuery, results, { relevance, visualEvidence: cachedVisualEvidence }),
       relevance,
-    },
+    }),
     smartApiPlan: buildSmartRagApiPlan({
       query: searchFocusQuery,
       queryClass,
@@ -417,7 +426,7 @@ function buildDemoSearchPayload(body: SearchRequestBody, fallbackReason?: string
       preferredResponseMode: isSourceLibrarySearchMode(body.mode) ? "document_lookup" : undefined,
     }),
     relatedDocuments: [],
-    documentMatches,
+    documentMatches: documentMatches.map(projectDocumentMatchForClient),
     demoMode: true,
     degradedMode: fallbackReason ? { active: true, reason: fallbackReason } : searchDegradedModeSignal(),
     ...(fallbackReason ? { fallbackMode: "non_production_demo", fallbackReason } : {}),
@@ -438,20 +447,16 @@ function facetCounts(values: Array<string | null | undefined>, limit = 12) {
 }
 
 function buildSearchFacets(results: SearchResult[]) {
+  const visibleLabels = results.flatMap((result) => projectDocumentLabelsForClient(result.document_labels));
   const labelFacet = (labelType: string) =>
-    facetCounts(
-      results.flatMap(
-        (result) =>
-          result.document_labels?.filter((label) => label.label_type === labelType).map((label) => label.label) ?? [],
-      ),
-    );
+    facetCounts(visibleLabels.filter((label) => label.label_type === labelType).map((label) => label.label));
 
   return {
     status: facetCounts(results.map((result) => result.source_metadata?.document_status)),
     validation: facetCounts(results.map((result) => result.source_metadata?.clinical_validation_status)),
     extractionQuality: facetCounts(results.map((result) => result.source_metadata?.extraction_quality)),
     sections: facetCounts(results.map((result) => result.section_heading)),
-    labels: facetCounts(results.flatMap((result) => result.document_labels?.map((label) => label.label) ?? [])),
+    labels: facetCounts(visibleLabels.map((label) => label.label)),
     sites: labelFacet("site"),
     documentTypes: labelFacet("document_type"),
     services: labelFacet("service"),
@@ -479,7 +484,7 @@ function buildSearchFacets(results: SearchResult[]) {
 function candidatePromotions(query: string, results: SearchResult[]) {
   const queryTerms = normalizedClinicalSearchTokens(query);
   const topLabels = results
-    .flatMap((result) => result.document_labels ?? [])
+    .flatMap((result) => projectDocumentLabelsForClient(result.document_labels))
     .filter((label) => label.confidence >= 0.55)
     .slice(0, 8)
     .map((label) => ({
@@ -873,11 +878,19 @@ async function buildScopedSearchPayload(
     results,
   });
 
+  const clientRelatedDocuments = relatedDocuments.map(projectRelatedDocumentForClient).map((document) => ({
+    ...document,
+    summary: document.summary ? compactText(document.summary, 360) : null,
+    table_count: document.table_count ?? 0,
+    labels: document.labels.slice(0, 6),
+  }));
+
   const payload = {
     results: compactSearchResults(searchFocusQuery, results),
     facets: buildSearchFacets(results),
     visualEvidence,
     relevance,
+<<<<<<< HEAD
     relatedDocuments: relatedDocuments.map((document) => ({
       document_id: document.document_id,
       title: document.title,
@@ -894,6 +907,11 @@ async function buildScopedSearchPayload(
     })),
     documentMatches,
     smartPanel: { ...smartPanel, relevance, relatedDocuments },
+=======
+    relatedDocuments: clientRelatedDocuments,
+    documentMatches: documentMatches.map(projectDocumentMatchForClient),
+    smartPanel: projectSmartPanelForClient({ ...smartPanel, relevance, relatedDocuments: clientRelatedDocuments }),
+>>>>>>> origin/codex/rag-next-issues-20260731
     smartApiPlan,
     scope: { ...scope, queryMode: body.queryMode, retrieval: retrievalHealthFromTelemetry(search.telemetry) },
     sourceGovernanceWarnings: sourceGovernanceWarnings({ results, relevance }),
