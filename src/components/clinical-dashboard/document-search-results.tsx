@@ -364,13 +364,14 @@ function DocumentFilterPanel({
               onOpenLibrary();
             }}
             data-testid="document-filter-browse-library"
-            // `border-0 border-t`, not `border-t` alone. `cn` is a plain join,
-            // not tailwind-merge, so `floatingControl`'s own `border` (all four
-            // sides) survives an added `border-t` and the result is a fully
-            // bordered button whose colour is decided by Tailwind's emission
-            // order between two competing arbitrary utilities — the exact hazard
-            // the facet-chip branches in this file are written to avoid. Zeroing
-            // the box first leaves only the separating rule that was intended.
+            // `border-0 border-t`, not `border-t` alone. `cn` now runs through
+            // tailwind-merge (ledger #218), which lifts half of this: the
+            // competing arbitrary border COLOURS resolve last-wins instead of by
+            // Tailwind's emission order. The width half is not lifted —
+            // tailwind-merge scores bare `border` and `border-t` as different
+            // groups, so `floatingControl`'s all-sides `border` still survives an
+            // added `border-t` and the button would still be fully bordered.
+            // Zeroing the box first is still what leaves only the separating rule.
             className={cn(
               floatingControl,
               "min-h-tap justify-start gap-2 rounded-lg border-0 border-t border-[color:var(--border)] bg-transparent px-1 text-xs sm:min-h-10",
@@ -631,10 +632,14 @@ function DocumentFilterPanel({
                           "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:gap-1 sm:px-2 lg:min-h-8",
                           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                           // Three mutually exclusive branches, not a base plus an
-                          // override: `cn` is a plain join, so two competing
-                          // `border-[color:…]` utilities would both reach the DOM
-                          // and the winner would be decided by stylesheet order
-                          // rather than by intent.
+                          // override: `cn` was a plain join, so two competing
+                          // `border-[color:…]` utilities both reached the DOM and
+                          // the winner was decided by stylesheet order rather than
+                          // by intent. That constraint is lifted (ledger #218) —
+                          // `cn` merges, and a later border colour now wins
+                          // deterministically. The branches are kept as they are
+                          // because collapsing them changes which utilities render;
+                          // that is a visual change, not a dependency swap.
                           selected
                             ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : deadEnd
