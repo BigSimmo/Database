@@ -95,8 +95,9 @@
                          bubbles. An 8px `4xs` step existed here and is retired
                          — unreadable at any density in a clinical product, so
                          nothing below 10px is a legal step. ≤9px snaps here.
-       2xs         11px  small chips / secondary labels (most common small size)
-       (xs 12 · sm 14 · base 16 come from Tailwind's default scale)
+       2xs         11px  Chip `compact` / secondary labels (most common small size)
+       (xs 12 · sm 14 · base 16 come from Tailwind's default scale —
+        Chip `standard` uses xs / 12px; see docs/design-system/TOKENS.md)
        sm-minus    13px  one notch under sm — dense body/labels bigger than xs
        base-minus  15px  one notch under base — comfortable body just under 16
        (lg 18 · xl 20 · 2xl 24 come from Tailwind's default scale)
