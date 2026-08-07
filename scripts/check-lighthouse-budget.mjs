@@ -18,11 +18,15 @@
  *     compare against).
  *   - Within tolerance      -> ok.
  *   - Over tolerance        -> fail when enforcing, warn otherwise.
- *   - Evidence incomplete   -> ALWAYS fail. A route that produced no report is not a
+ *   - Structural incomplete -> ALWAYS fail. A route that produced no report is not a
  *     pass; this is the failure mode `summarise-web-vitals.mjs` documents at length.
+ *   - Browser mismatch      -> fail when enforcing, warn otherwise (runner-image Chrome
+ *     can disagree across jobs during a rollout; see PR #1697). CI pins Playwright
+ *     Chromium so the browser only moves with the lockfile.
  *
  * Refresh the baseline from an intentional, known-good run:
  *   npm run check:lighthouse-budget -- --update
+ *   (`--update` ignores baseline-comparability checks so a Chrome bump can restamp.)
  *
  * Flags: --update, --json, --dir <path>, --require-reports (an empty directory is a
  * failure, not a no-op — used by run-lighthouse-budget.mjs, which owns the reports).
@@ -60,15 +64,26 @@ export function expectedBudgetRuns(budget) {
   return strategies.flatMap((strategy) => slugs.map((slug) => `${strategy}-${slug}`));
 }
 
+/** True when an incompleteness string is a baseline-browser drift, not a missing report. */
+export function isBrowserMismatchProblem(problem) {
+  return String(problem).includes("measured by a different browser");
+}
+
 /**
  * Runs that cannot be graded at all: no report, no usable metrics, or a report that
  * measured a different page than the one requested (a redirect to /login produces
  * perfectly good numbers for the wrong route).
  *
- * Fails closed and is never downgraded by `enforce` — an ungraded route silently
- * counted as a pass is exactly how unmeasured latency claims got acted on before.
+ * Structural incompleteness (missing/bad reports) fails closed and is never
+ * downgraded by `enforce` — an ungraded route silently counted as a pass is exactly
+ * how unmeasured latency claims got acted on before.
+ *
+ * Baseline-comparability problems (missing baseline row, different Chrome) are
+ * included by default so a grade refuses to invent a comparison. Pass
+ * `{ includeBaselineComparability: false }` for `--update`, which exists to rewrite
+ * that baseline — otherwise a runner Chrome bump cannot refresh the file it blocks on.
  */
-export function incompleteBudgetEvidence(rows, budget) {
+export function incompleteBudgetEvidence(rows, budget, { includeBaselineComparability = true } = {}) {
   const tolerance = { ...DEFAULT_TOLERANCE, ...(budget?.tolerance ?? {}) };
   const baseline = budget?.baseline ?? null;
   const hasBaseline = Boolean(baseline) && Object.keys(baseline).length > 0;
@@ -100,7 +115,7 @@ export function incompleteBudgetEvidence(rows, budget) {
     for (const metric of Object.keys(tolerance)) {
       if (typeof row[metric] !== "number") problems.add(`${run}: report has no ${metric} number`);
     }
-    if (!hasBaseline) continue;
+    if (!includeBaselineComparability || !hasBaseline) continue;
     const before = baseline[run];
     // A route or strategy added after the baseline was recorded has nothing to
     // compare against, and gradeRun returns no breaches for a missing row — so an
@@ -175,11 +190,37 @@ export function compareToLighthouseBudget(rows, budget) {
   const baseline = budget?.baseline ?? null;
   const enforce = Boolean(budget?.enforce);
   const incomplete = incompleteBudgetEvidence(rows, budget);
+  const browserMismatches = incomplete.filter(isBrowserMismatchProblem);
+  const structural = incomplete.filter((problem) => !isBrowserMismatchProblem(problem));
 
-  // Incompleteness is fatal regardless of `enforce`: there is nothing to grade, so
-  // "warn" would report a pass for a route that was never measured.
-  if (incomplete.length > 0) {
-    return { status: "fail", reason: "evidence incomplete", breaches: [], incomplete, baseline, enforce, tolerance };
+  // Missing/bad reports are fatal regardless of `enforce`: there is nothing to
+  // grade, so "warn" would report a pass for a route that was never measured.
+  if (structural.length > 0) {
+    return {
+      status: "fail",
+      reason: "evidence incomplete",
+      breaches: [],
+      incomplete: structural,
+      baseline,
+      enforce,
+      tolerance,
+    };
+  }
+
+  // Runner-image Chrome can differ across jobs during a rollout (PR #1697: baseline
+  // Chrome 151 vs measurement Chrome 150). While the gate is advisory, report that
+  // as a warning so the job stays green; once `enforce` is true, fail closed until
+  // `--update` refreshes the baseline on the pinned browser.
+  if (browserMismatches.length > 0) {
+    return {
+      status: enforce ? "fail" : "warn",
+      reason: enforce ? "evidence incomplete" : "baseline browser mismatch — refresh with --update",
+      breaches: [],
+      incomplete: browserMismatches,
+      baseline,
+      enforce,
+      tolerance,
+    };
   }
 
   if (!baseline || Object.keys(baseline).length === 0) {
@@ -187,7 +228,7 @@ export function compareToLighthouseBudget(rows, budget) {
       status: "warn",
       reason: "no baseline recorded — run with --update after a known-good build",
       breaches: [],
-      incomplete,
+      incomplete: [],
       baseline,
       enforce,
       tolerance,
@@ -196,13 +237,13 @@ export function compareToLighthouseBudget(rows, budget) {
 
   const breaches = rows.flatMap((row) => gradeRun(row, baseline[row.run], tolerance));
   if (breaches.length === 0) {
-    return { status: "ok", reason: "within tolerance", breaches, incomplete, baseline, enforce, tolerance };
+    return { status: "ok", reason: "within tolerance", breaches, incomplete: [], baseline, enforce, tolerance };
   }
   return {
     status: enforce ? "fail" : "warn",
     reason: `${breaches.length} metric(s) outside tolerance`,
     breaches,
-    incomplete,
+    incomplete: [],
     baseline,
     enforce,
     tolerance,
@@ -247,7 +288,10 @@ export function renderBudgetTable(rows, result) {
 
   lines.push("");
   if (result.incomplete.length > 0) {
-    lines.push(`**Evidence incomplete.** ${result.incomplete.join("; ")}. Nothing is graded from this run.`);
+    const browserOnly =
+      result.incomplete.length > 0 && result.incomplete.every((problem) => isBrowserMismatchProblem(problem));
+    const label = browserOnly ? "**Baseline browser mismatch.**" : "**Evidence incomplete.**";
+    lines.push(`${label} ${result.incomplete.join("; ")}. Nothing is graded from this run.`);
     return lines.join("\n");
   }
   if (result.status === "warn" && result.breaches.length === 0) {
@@ -317,13 +361,13 @@ function main() {
     return;
   }
 
-  const result = compareToLighthouseBudget(rows, budget);
-
   if (update) {
-    if (result.incomplete.length > 0) {
-      console.error(
-        `::error::refusing to update the baseline from incomplete evidence: ${result.incomplete.join("; ")}`,
-      );
+    // Only structural completeness blocks a refresh. Baseline-comparability checks
+    // (Chrome drift, missing baseline rows) are exactly what --update rewrites; if
+    // they blocked here, a runner Chrome bump could never restamp the baseline.
+    const structural = incompleteBudgetEvidence(rows, budget, { includeBaselineComparability: false });
+    if (structural.length > 0) {
+      console.error(`::error::refusing to update the baseline from incomplete evidence: ${structural.join("; ")}`);
       process.exit(1);
     }
     const next = {
@@ -335,6 +379,8 @@ function main() {
     console.log(`check:lighthouse-budget: baseline updated for ${rows.length} run(s) in lighthouse-budget.json.`);
     return;
   }
+
+  const result = compareToLighthouseBudget(rows, budget);
 
   const table = renderBudgetTable(rows, result);
   console.log(table);

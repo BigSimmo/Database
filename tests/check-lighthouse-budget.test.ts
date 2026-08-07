@@ -10,6 +10,7 @@ import {
   expectedBudgetRuns,
   gradeRun,
   incompleteBudgetEvidence,
+  isBrowserMismatchProblem,
   renderBudgetTable,
 } from "../scripts/check-lighthouse-budget.mjs";
 
@@ -140,6 +141,22 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
 
     expect(problems).toHaveLength(10);
     expect(problems[0]).toContain("measured by a different browser");
+    expect(problems.every(isBrowserMismatchProblem)).toBe(true);
+  });
+
+  it("skips baseline-comparability checks when refreshing the baseline", () => {
+    // --update rewrites chromeVersion and missing rows; if those checks blocked the
+    // refresh, a runner Chrome bump could never restamp the file (PR #1697).
+    const rows = completeRows();
+    const stale = baselineFromRows(
+      rows
+        .filter((entry: Row) => entry.run !== "mobile-forms")
+        .map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })),
+    );
+
+    expect(
+      incompleteBudgetEvidence(rows, budget({ baseline: stale }), { includeBaselineComparability: false }),
+    ).toEqual([]);
   });
 
   it("accepts a baseline that recorded no browser identity at all", () => {
@@ -252,6 +269,30 @@ describe("compareToLighthouseBudget", () => {
     expect(result.incomplete).toEqual(["mobile-forms: no Lighthouse report produced"]);
   });
 
+  it("warns on a browser mismatch when the budget is still advisory", () => {
+    // Runner-image Chrome disagreed across jobs in PR #1697; advisory must not red
+    // for that alone. Numbers are not graded until --update refreshes the baseline.
+    const rows = completeRows();
+    const stale = baselineFromRows(rows.map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })));
+    const result = compareToLighthouseBudget(rows, budget({ baseline: stale, enforce: false }));
+
+    expect(result.status).toBe("warn");
+    expect(result.reason).toContain("baseline browser mismatch");
+    expect(result.breaches).toEqual([]);
+    expect(result.incomplete).toHaveLength(10);
+    expect(result.incomplete.every(isBrowserMismatchProblem)).toBe(true);
+  });
+
+  it("fails on a browser mismatch once the budget is enforcing", () => {
+    const rows = completeRows();
+    const stale = baselineFromRows(rows.map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })));
+    const result = compareToLighthouseBudget(rows, budget({ baseline: stale, enforce: true }));
+
+    expect(result.status).toBe("fail");
+    expect(result.reason).toBe("evidence incomplete");
+    expect(result.incomplete.every(isBrowserMismatchProblem)).toBe(true);
+  });
+
   it("fails on incomplete evidence before it reports a missing baseline", () => {
     const rows = completeRows().filter((entry: Row) => entry.run !== "mobile-forms");
     const result = compareToLighthouseBudget(rows, budget({ baseline: null }));
@@ -326,6 +367,18 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).not.toMatch(/spawnSync\(\s*"npx",/);
     expect(runner).not.toMatch(/spawnSync\(\s*"npx\.cmd",/);
   });
+
+  it("pins Chromium through Playwright in the pre-merge CI job", () => {
+    // The ubuntu-24.04 image Chrome major can differ across runners; PR #1697 failed
+    // advisory Lighthouse on Chrome 151 baseline vs Chrome 150 measurement.
+    const workflow = readFileSync(path.join(process.cwd(), ".github", "workflows", "ci.yml"), "utf8");
+    const lighthouseJob = workflow.split(/\n  lighthouse-budget:/)[1]?.split(/\n  [a-z0-9-]+:/)[0] ?? "";
+
+    expect(lighthouseJob).toContain("uses: ./.github/actions/setup-ui-e2e");
+    expect(lighthouseJob).toContain("CHROME_PATH=");
+    expect(lighthouseJob).toContain("playwright').chromium.executablePath()");
+    expect(lighthouseJob).not.toContain("uses: ./.github/actions/setup-node-cached");
+  });
 });
 
 describe("renderBudgetTable", () => {
@@ -334,6 +387,16 @@ describe("renderBudgetTable", () => {
     const result = compareToLighthouseBudget(rows, budget({ baseline: baselineFromRows(completeRows()) }));
 
     expect(renderBudgetTable(rows, result)).toContain("Evidence incomplete");
+  });
+
+  it("labels a browser-only mismatch distinctly from missing reports", () => {
+    const rows = completeRows();
+    const stale = baselineFromRows(rows.map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })));
+    const result = compareToLighthouseBudget(rows, budget({ baseline: stale, enforce: false }));
+
+    const table = renderBudgetTable(rows, result);
+    expect(table).toContain("Baseline browser mismatch");
+    expect(table).not.toContain("Evidence incomplete");
   });
 
   it("says a warned regression was reported only", () => {

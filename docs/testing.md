@@ -135,6 +135,15 @@ following the same shape as `check:bundle-budget`.
   floor, so 12 ms → 16 ms is not reported as a 33% regression.
 
 Refresh the baseline deliberately after a known-good run: `npm run check:lighthouse-budget -- --update`.
+`--update` only requires structural completeness (reports exist with usable metrics for the right
+pages); Chrome-version drift and missing baseline rows are what the refresh rewrites, so they must
+not block it.
+
+The pre-merge CI job pins Chromium through Playwright (`setup-ui-e2e` + `CHROME_PATH`) rather than
+the ubuntu runner image Chrome. Image Chrome majors can disagree across runners during a rollout,
+which made advisory Lighthouse fail closed as "different browser" with no application regression
+(PR #1697). While `enforce` is still false, a remaining browser mismatch warns instead of failing;
+once enforce flips, mismatch fails until `--update` restamps the baseline on the pinned browser.
 
 This is distinct from `.github/workflows/live-web-vitals.yml`, which measures the deployed origin for
 ledger #017 and is dispatch-only — by the time it runs, `main` has already auto-deployed. Both pin

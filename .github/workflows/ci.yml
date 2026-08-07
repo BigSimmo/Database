@@ -716,13 +716,19 @@ jobs:
         with:
           persist-credentials: false
 
-      # Lighthouse drives the Chrome that ships in the ubuntu-24.04 runner image, so
-      # no browser install is needed here (matching live-web-vitals.yml).
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
+      # Pin Chromium via Playwright (same archive as UI e2e). Relying on the
+      # ubuntu-24.04 image Chrome made the relative baseline fail closed whenever
+      # runners disagreed during a Chrome rollout (PR #1697: Chrome 151 baseline vs
+      # Chrome 150 measurement) even when the metrics themselves were fine.
+      - name: Setup Node, dependencies, and Chromium
+        uses: ./.github/actions/setup-ui-e2e
 
       - name: Measure routes and grade against the baseline
-        run: npm run verify:lighthouse -- --keep --dir lighthouse
+        run: |
+          CHROME_PATH="$(node -e "process.stdout.write(require('playwright').chromium.executablePath())")"
+          export CHROME_PATH
+          echo "Using pinned Chromium at ${CHROME_PATH}"
+          npm run verify:lighthouse -- --keep --dir lighthouse
 
       - name: Upload Lighthouse reports
         if: always()
