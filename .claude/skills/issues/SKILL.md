@@ -44,7 +44,7 @@ Parse the intent from natural language too — the exact syntax is a convenience
   with today's date and a one-line outcome. In the recommended queue, remove only that ID from any
   composite source and rewrite the row for the remaining open work; remove the whole row only when
   no referenced open ID remains, then close the order gap. Archive, never delete.
-- **`/issues update <id> <text>`** — edit an open row's summary or next action in place.
+- **`/issues update <id> <text>`** — edit any open planning or evidence field in place.
 - **`/issues capture`** — scan the current session for recommendations, follow-ups, deferrals, and
   unfixed problems that surfaced but were not recorded. Propose them as a numbered list and add the
   confirmed ones (dedupe against existing rows first — do not re-add something already tracked).
@@ -54,7 +54,9 @@ Parse the intent from natural language too — the exact syntax is a convenience
 When a task in _any_ session ends with unresolved follow-ups — a deferred fix, a "revisit when X"
 recommendation, a known risk, a TODO you had to leave — offer to record them here before the context
 is lost. That is what makes this a memory rather than a static list. Prefer one crisp row over a
-paragraph; put the smallest next action in **Detail / next action**.
+paragraph. Put the buildable problem in **Group / main issue**, the prerequisite in **Before
+starting**, the acceptance result in **Done when**, and retain supporting proof, source, and added
+date in the collapsed **Evidence** details cell.
 
 ## Writing rules
 
@@ -66,6 +68,12 @@ npm run issues:add -- --pri P2 --type issue --summary "…" --detail "…" --sou
 npm run issues:done -- '#151' --outcome "Resolved 2026-07-31 by PR #1494. …"
 npm run issues:update -- '#151' --detail "…"
 ```
+
+Planning fields are optional on the CLI but should be supplied when known: `--status`, `--group`,
+`--before`, `--codex`, `--checks`, `--external`, and `--done`. `--summary` writes the main issue and
+the backwards-compatible `--detail` flag writes the collapsed evidence context. The writer safely
+combines priority/status and group/main issue, and bundles context/source/date behind the expandable
+control. Missing estimates are recorded explicitly for later triage; they are never invented.
 
 It allocates the id from the marker and bumps it, appends into the **open** table (never the
 archive), moves rather than copies on `done`, reshapes to each table's width, escapes `|`, and
