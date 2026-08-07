@@ -19,17 +19,21 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState, useDeferredValue } from "react";
+import { useId, useMemo, useState, useDeferredValue } from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
-  MobileResultFilterControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -594,6 +598,8 @@ export function ServicesNavigatorPage() {
   const activeQuickFilter = serviceQuickFilters.find(
     (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
   );
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
 
   return (
     <SearchResultsLayout
@@ -645,21 +651,16 @@ export function ServicesNavigatorPage() {
             sortValue={sortValue}
             onSortChange={setSortValue}
             filterLabel="Quick service filters"
+            // A compact badged trigger, so it shares the count line.
+            mobileControlsPlacement="inline"
             mobileControls={
-              <MobileResultFilterControl
-                label="Filter"
-                ariaLabel="Apply a quick service filter"
-                testId="service-quick-filter-select"
-                value={activeQuickFilter?.query ?? "current"}
-                options={[
-                  ...(activeQuickFilter
-                    ? []
-                    : [{ value: "current", label: query.trim() ? "Current search" : "All services", disabled: true }]),
-                  ...serviceQuickFilters.map((filter) => ({ value: filter.query, label: filter.label })),
-                ]}
-                onChange={(value) => {
-                  if (value !== "current") applyServiceQuery(value);
-                }}
+              <ResultFilterTrigger
+                panelId={filterPanelId}
+                testId="service-filter-trigger-phone"
+                title="Filter services"
+                open={filterOpen}
+                activeCount={activeQuickFilter ? 1 : 0}
+                onToggle={() => setFilterOpen((current) => !current)}
               />
             }
             filterControls={
@@ -696,6 +697,55 @@ export function ServicesNavigatorPage() {
                 </button>
               </div>
             }
+          />
+          {/* Phone-only by construction: the trigger that opens it lives in the
+              ribbon's `mobileControls` slot, which the band hides from `sm` up.
+              A quick filter rewrites the query rather than narrowing a result
+              set, so applying one closes the sheet — the list underneath is a
+              different search by the time it settles. */}
+          <ResultFilterSheet
+            open={filterOpen}
+            onClose={() => setFilterOpen(false)}
+            panelId={filterPanelId}
+            testId="service-filter-panel"
+            title="Filter services"
+            description="Quick filters run a new service search."
+            groups={[
+              resultFilterGroup({
+                id: "quick-filter",
+                label: "Quick filters",
+                value: activeQuickFilter?.query ?? "current",
+                options: [
+                  // The placeholder is only offered while nothing is applied, and
+                  // it is `disabled` so it cannot be chosen — it names the state
+                  // the reader is already in rather than an action.
+                  ...(activeQuickFilter
+                    ? []
+                    : [
+                        {
+                          value: "current",
+                          label: query.trim() ? "Current search" : "All services",
+                          disabled: true,
+                        },
+                      ]),
+                  ...serviceQuickFilters.map((filter) => ({ value: filter.query, label: filter.label })),
+                ],
+                onChange: (value) => {
+                  if (value === "current") return;
+                  setFilterOpen(false);
+                  applyServiceQuery(value);
+                },
+              }),
+            ]}
+            onClearAll={
+              activeQuickFilter
+                ? () => {
+                    setFilterOpen(false);
+                    setLocalQuery({ urlQuery, value: "" });
+                  }
+                : undefined
+            }
+            footerNote={`${displayedMatches.length} showing`}
           />
         </>
       }
