@@ -36,12 +36,11 @@ export async function runWorkerLoop(deps: WorkerRunLoopDeps): Promise<void> {
     captureException,
   } = deps;
   let consecutiveClaimFailures = 0;
-  let active = 0;
 
-  while (!controller.isStopped || active > 0) {
-    // After stop with no in-flight work, exit without probing or claiming.
-    if (controller.isStopped && active === 0) break;
-
+  // Stop exits via explicit breaks after probe/claim/sleep checks. An in-flight
+  // batch always drains before the next loop condition, so an `active` counter
+  // in the while predicate would always be 0 when evaluated.
+  while (!controller.isStopped) {
     let jobs: JobRow[] = [];
     try {
       const health = await probe();
@@ -85,25 +84,20 @@ export async function runWorkerLoop(deps: WorkerRunLoopDeps): Promise<void> {
     }
 
     if (jobs.length > 0) {
-      active += jobs.length;
-      try {
-        await Promise.all(
-          jobs.map(async (job) => {
-            log(safeIngestionJobLog(job.id), "info");
-            try {
-              await process(job);
-            } catch (error) {
-              log("Ingestion job processing failed", "error", safeErrorLogDetails(error));
-              captureException?.(error, "process");
-              // Do not rethrow: processJob already applies the configured
-              // retry/fail decision; rethrowing would short-circuit the batch
-              // and does not honour the per-job semantics.
-            }
-          }),
-        );
-      } finally {
-        active -= jobs.length;
-      }
+      await Promise.all(
+        jobs.map(async (job) => {
+          log(safeIngestionJobLog(job.id), "info");
+          try {
+            await process(job);
+          } catch (error) {
+            log("Ingestion job processing failed", "error", safeErrorLogDetails(error));
+            captureException?.(error, "process");
+            // Do not rethrow: processJob already applies the configured
+            // retry/fail decision; rethrowing would short-circuit the batch
+            // and does not honour the per-job semantics.
+          }
+        }),
+      );
 
       if (once) break;
       // If stop was requested while the batch ran, we drain first, then exit.
