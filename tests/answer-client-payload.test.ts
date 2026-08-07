@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { toClientAnswerPayload } from "@/lib/answer-client-payload";
 import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
+import { projectDocumentMatchForClient } from "@/lib/client-source-projection";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
@@ -83,6 +84,218 @@ describe("toClientAnswerPayload", () => {
     expect(trimmed.future_server_secret).toBeUndefined();
   });
 
+  it("deeply removes owner and reviewer fields from every browser-bound evidence path", () => {
+    const sourceMetadata = {
+      source_title: "Clozapine monitoring guideline",
+      publisher: "WA Health",
+      jurisdiction: "Australia/WA",
+      version: null,
+      publication_date: null,
+      review_date: null,
+      uploaded_at: null,
+      indexed_at: null,
+      uploaded_by: "uploader-private-marker",
+      document_status: "current",
+      clinical_validation_status: "approved",
+      clinical_validation_evidence: {
+        attested_by: "reviewer-private-marker",
+        evidence_reference: "attestation-private-marker",
+      },
+      extraction_quality: "good",
+    } as NonNullable<SearchResult["source_metadata"]>;
+    const label = {
+      id: "label-1",
+      document_id: "doc-1",
+      owner_id: "label-owner-private-marker",
+      label: "clozapine",
+      label_type: "medication",
+      source: "manual",
+      confidence: 1,
+      metadata: { review_status: "approved", reviewer: "label-metadata-private-marker" },
+    } as const;
+    const hiddenLabel = {
+      ...label,
+      id: "label-hidden",
+      label: "hidden-clinical-label-private-marker",
+      metadata: { review_status: "hidden", reviewed_by: "hidden-reviewer-private-marker" },
+    } as const;
+    const indexingQuality = {
+      document_id: "doc-1",
+      owner_id: "index-owner-private-marker",
+      quality_score: 0.92,
+      extraction_quality: "good",
+      metrics: { raw: "index-metrics-private-marker" },
+      issues: ["safe issue"],
+    };
+    const citation = {
+      chunk_id: "chunk-1",
+      document_id: "doc-1",
+      title: "Clozapine monitoring guideline",
+      file_name: "clozapine.pdf",
+      page_number: 4,
+      chunk_index: 7,
+      source_metadata: sourceMetadata,
+    };
+    const relatedDocument = {
+      document_id: "doc-related",
+      title: "Related guideline",
+      file_name: "related.pdf",
+      labels: [
+        { ...label, id: "label-related", document_id: "doc-related" },
+        { ...hiddenLabel, document_id: "doc-related" },
+      ],
+      summary: "Related summary.",
+      best_pages: [1],
+      best_chunk_ids: ["related-chunk"],
+      image_count: 0,
+      match_reason: "Matched label: hidden-clinical-label-private-marker",
+      score: 0.7,
+    };
+    const quoteCard = {
+      ...citation,
+      quote: "FBC weekly for 18 weeks.",
+      section_heading: "Monitoring",
+    };
+    const bestSource = {
+      ...citation,
+      source_strength: "strong" as const,
+      score: 0.92,
+      snippet: "FBC weekly for 18 weeks.",
+      section_heading: "Monitoring",
+      image_count: 0,
+      viewer_href: "/documents/doc-1",
+    };
+    const answer = {
+      answer: "Use the cited monitoring schedule.",
+      grounded: true,
+      confidence: "high",
+      citations: [citation],
+      sources: [
+        fullSource({
+          source_metadata: sourceMetadata,
+          document_labels: [label, hiddenLabel],
+          indexing_quality: indexingQuality,
+        }),
+      ],
+      quoteCards: [quoteCard],
+      bestSource,
+      relatedDocuments: [relatedDocument],
+      smartPanel: {
+        query: "clozapine monitoring",
+        total_sources: 1,
+        documents: [],
+        quotes: [quoteCard],
+        visualEvidence: [],
+        bestSource,
+        image_count: 0,
+        evidenceSummary: {
+          document_count: 1,
+          total_sources: 1,
+          quote_count: 1,
+          image_count: 0,
+          source_strength: "strong",
+          summary: "One strong source.",
+        },
+        sourceCoverage: { documents_used: 1, pages: [4], strongest_similarity: 0.82, has_images: false },
+        conflictsOrGaps: [],
+        relatedDocuments: [relatedDocument],
+        future_panel_secret: "panel-private-marker",
+      },
+      memoryCardsUsed: [
+        {
+          id: "memory-1",
+          document_id: "doc-1",
+          owner_id: "memory-owner-private-marker",
+          card_type: "section_summary",
+          title: "Private memory",
+          content: "memory-content-private-marker",
+          normalized_terms: [],
+          page_number: 4,
+          source_chunk_ids: ["chunk-1"],
+          source_image_ids: [],
+          confidence: 1,
+          metadata: { raw: "memory-metadata-private-marker" },
+          embedding: [0.1, 0.2],
+        },
+      ],
+      safetyWarnings: [
+        {
+          id: "warning-1",
+          kind: "monitoring",
+          label: "Monitoring",
+          text: "Check the source schedule.",
+          citation,
+          href: "/documents/doc-1",
+        },
+      ],
+      future_answer_secret: "answer-private-marker",
+    } as RagAnswer;
+
+    const payload = buildGovernedAnswerClientResponse(answer).payload as RagAnswer;
+    const serialized = JSON.stringify(payload);
+
+    for (const privateMarker of [
+      "uploader-private-marker",
+      "reviewer-private-marker",
+      "attestation-private-marker",
+      "label-owner-private-marker",
+      "label-metadata-private-marker",
+      "hidden-clinical-label-private-marker",
+      "hidden-reviewer-private-marker",
+      "index-owner-private-marker",
+      "index-metrics-private-marker",
+      "memory-owner-private-marker",
+      "memory-content-private-marker",
+      "memory-metadata-private-marker",
+      "panel-private-marker",
+      "answer-private-marker",
+    ]) {
+      expect(serialized).not.toContain(privateMarker);
+    }
+    expect(payload.sources[0].source_metadata).toMatchObject({
+      document_status: "current",
+      clinical_validation_status: "approved",
+    });
+    expect(payload.sources[0].source_metadata?.uploaded_by).toBeNull();
+    expect(payload.sources[0].document_labels).toEqual([
+      expect.objectContaining({ label: "clozapine", metadata: { review_status: "approved" } }),
+    ]);
+    expect(payload.sources[0].indexing_quality).toMatchObject({
+      quality_score: 0.92,
+      metrics: {},
+      issues: ["safe issue"],
+    });
+    expect(payload.citations[0].source_metadata).toMatchObject({ document_status: "current" });
+    expect(payload.quoteCards?.[0].source_metadata).toMatchObject({ document_status: "current" });
+    expect(payload.bestSource?.source_metadata).toMatchObject({ document_status: "current" });
+    expect(payload.smartPanel?.quotes[0].source_metadata).toMatchObject({ document_status: "current" });
+    expect(payload.smartPanel?.bestSource?.source_metadata).toMatchObject({ document_status: "current" });
+    expect(payload.relatedDocuments?.[0].labels).toEqual([expect.objectContaining({ label: "clozapine" })]);
+    expect(payload.smartPanel?.relatedDocuments?.[0].labels).toEqual([expect.objectContaining({ label: "clozapine" })]);
+    expect(payload.safetyWarnings?.[0].citation.source_metadata).toMatchObject({ document_status: "current" });
+    expect(payload.memoryCardsUsed).toBeUndefined();
+
+    const projectedDocumentMatch = projectDocumentMatchForClient({
+      document_id: "doc-related",
+      title: "Related guideline",
+      file_name: "related.pdf",
+      labels: [
+        { ...label, id: "label-match", document_id: "doc-related" },
+        { ...hiddenLabel, document_id: "doc-related" },
+      ],
+      summarySnippet: "Related summary.",
+      bestPages: [1],
+      bestChunkIds: ["related-chunk"],
+      imageCount: 0,
+      tableCount: 0,
+      matchReason: "Matched label",
+      score: 0.7,
+    });
+    expect(projectedDocumentMatch.labels).toEqual([expect.objectContaining({ label: "clozapine" })]);
+    expect(projectedDocumentMatch.labels[0].owner_id).toBeUndefined();
+    expect(projectedDocumentMatch.labels[0].metadata).toEqual({ review_status: "approved" });
+  });
+
   it("keeps identity, snippet, scoring, and governance fields intact", () => {
     const trimmed = toClientAnswerPayload(answerWith([fullSource()])).sources![0];
     expect(trimmed.id).toBe("chunk-1");
@@ -90,7 +303,7 @@ describe("toClientAnswerPayload", () => {
     expect(trimmed.retrieval_synopsis).toBe("FBC weekly for 18 weeks, then monthly.");
     expect(trimmed.content).toBe("FBC weekly for 18 weeks, then monthly.");
     expect(trimmed.similarity).toBe(0.82);
-    expect(trimmed.source_metadata).toEqual({ document_status: "current" });
+    expect(trimmed.source_metadata).toMatchObject({ document_status: "current", uploaded_by: null });
     expect(trimmed.page_number).toBe(4);
   });
 
@@ -111,7 +324,10 @@ describe("toClientAnswerPayload", () => {
     // Issue 9: governance provenance is retained on safety-finding citations so the
     // safety panel can badge outdated / review-due / unverified sources, consistent
     // with regular source citations (which already keep source_metadata).
-    expect(payload.safetyWarnings![0].citation).toHaveProperty("source_metadata", { document_status: "current" });
+    expect(payload.safetyWarnings![0].citation.source_metadata).toMatchObject({
+      document_status: "current",
+      uploaded_by: null,
+    });
     expect(extractSafetyFindings(payload)).toHaveLength(1);
   });
 
@@ -130,7 +346,7 @@ describe("toClientAnswerPayload", () => {
 
   it("passes through answers without sources", () => {
     const empty = answerWith([]);
-    expect(toClientAnswerPayload(empty)).toBe(empty);
+    expect(toClientAnswerPayload(empty)).toEqual(empty);
   });
 
   it("materially shrinks a representative payload", () => {

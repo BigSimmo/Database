@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readAnswerStream } from "../src/components/clinical-dashboard/search-utils";
 import { isAnswerStreamEventName } from "../src/lib/answer-stream-contract";
 
 describe("answer stream client safety contract", () => {
@@ -8,5 +9,9 @@ describe("answer stream client safety contract", () => {
     expect(isAnswerStreamEventName("error")).toBe(true);
     expect(isAnswerStreamEventName("token")).toBe(false);
     expect(isAnswerStreamEventName("revising")).toBe(false);
+  });
+
+  it("exposes only progress, transport activity, and the authoritative final payload", () => {
+    expect(readAnswerStream).toHaveLength(3);
   });
 });

@@ -66,31 +66,33 @@ describe("answer progress events", () => {
     ).toMatchObject({ resultCount: 2, selectedContextCount: undefined });
   });
 
-  it("shares one SSE parser across answer surfaces and commits completion only with a valid final answer", async () => {
+  it("ignores retired provisional events, reports byte activity, and commits only a valid final answer", async () => {
     const progress: string[] = [];
-    const tokens: string[] = [];
-    let revisions = 0;
-    const body = [
-      'event: progress\ndata: {"stage":"retrieving","message":"private"}',
-      'event: token\ndata: {"delta":"Draft"}',
-      "event: revising\ndata: {}",
-      'event: progress\ndata: {"stage":"complete","message":"private","elapsedMs":1200}',
-      'event: final\ndata: {"answer":"Grounded answer.","grounded":true,"confidence":"medium","citations":[],"sources":[]}',
-      "",
-    ].join("\n\n");
+    let activityCount = 0;
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('event: progress\ndata: {"stage":"retrieving","message":"private"}\n\n'));
+        controller.enqueue(encoder.encode('event: token\ndata: {"delta":"Draft"}\n\nevent: revising\ndata: {}\n\n'));
+        controller.enqueue(
+          encoder.encode(
+            'event: progress\ndata: {"stage":"complete","message":"private","elapsedMs":1200}\n\nevent: final\ndata: {"answer":"Grounded answer.","grounded":true,"confidence":"medium","citations":[],"sources":[]}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
 
     const answer = await readAnswerStream(
       new Response(body, { headers: { "Content-Type": "text/event-stream" } }),
       (event) => progress.push(event.stage),
-      (delta) => tokens.push(delta),
       () => {
-        revisions += 1;
+        activityCount += 1;
       },
     );
 
     expect(progress).toEqual(["retrieving", "complete"]);
-    expect(tokens).toEqual(["Draft"]);
-    expect(revisions).toBe(1);
+    expect(activityCount).toBe(3);
     expect(answer.answer).toBe("Grounded answer.");
   });
 

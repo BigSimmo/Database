@@ -2,6 +2,7 @@ import {
   normalizeAnswerProgressEvent,
   type AnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
+import { isAnswerStreamEventName } from "@/lib/answer-stream-contract";
 import type { RagAnswer } from "@/lib/types";
 
 export { keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
@@ -59,8 +60,6 @@ function findSseSeparator(buffer: string) {
 export async function readAnswerStream(
   response: Response,
   onProgress: (progress: AnswerProgressUpdate) => void,
-  onToken?: (delta: string) => void,
-  onRevising?: () => void,
   onActivity?: () => void,
 ): Promise<AnswerPayload> {
   if (!response.body) throw makeSearchError("Answer stream could not be opened.", undefined, true);
@@ -80,7 +79,9 @@ export async function readAnswerStream(
       if (line.startsWith("data:")) dataLines.push(line.slice("data:".length).trimStart());
     }
 
-    if (dataLines.length === 0) return null;
+    // Rolling deployments may still encounter retired provisional event names.
+    // Ignore them before parsing so no unverified prose can re-enter the client.
+    if (!isAnswerStreamEventName(event) || dataLines.length === 0) return null;
     const data = parseSseData(dataLines);
     if (data === null) return null;
     if (event === "progress") {
@@ -90,18 +91,8 @@ export async function readAnswerStream(
           pendingCompletion = progress;
         } else {
           onProgress(progress);
-          if (progress.stage === "fallback") onRevising?.();
         }
       }
-      return null;
-    }
-    if (event === "token") {
-      const delta = data && typeof data === "object" ? (data as { delta?: unknown }).delta : null;
-      if (typeof delta === "string" && delta) onToken?.(delta);
-      return null;
-    }
-    if (event === "revising") {
-      onRevising?.();
       return null;
     }
     if (event === "error") {
@@ -237,8 +228,8 @@ export function progressForRetry(attempt: number) {
 }
 
 // Inactivity window for an in-flight search/answer request. The answer stream
-// keeps delivering progress events, token deltas, and periodic server
-// heartbeats while generation is running, so a healthy request — even one that
+// keeps delivering progress events and periodic server heartbeats while
+// generation is running, so a healthy request — even one that
 // escalates fast -> strong and runs well past a minute — keeps resetting this
 // window. Only a stream with no bytes for this long is treated as a stall.
 export const answerStallTimeoutMs = 60_000;
@@ -263,7 +254,7 @@ export type AnswerRequestWatchdog = {
  * the stream goes silent for `stallMs` or the request exceeds `maxDurationMs`
  * in total. `touch()` on every received chunk keeps a live-but-slow generation
  * (fast -> strong escalation) from being aborted mid-stream, which previously
- * surfaced as "Answer generation timed out" while tokens were still arriving.
+ * surfaced as "Answer generation timed out" while stream bytes were still arriving.
  */
 export function createAnswerRequestWatchdog(
   onTimeout: () => void,
