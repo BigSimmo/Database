@@ -270,6 +270,35 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).not.toContain("w-full");
   });
 
+  it("makes the inline utilities group refuse to shrink, so the query truncates instead of the controls", () => {
+    render(
+      <SearchResultsHeaderBand
+        modeId="documents"
+        query="lithium monitoring in renal impairment"
+        matchCount={6}
+        onSortChange={vi.fn()}
+        mobileControlsPlacement="inline"
+        mobileControls={<button type="button">Filter</button>}
+      />,
+    );
+
+    // The band's stated priority is that the query is what gives way when the
+    // line runs out. Shipping the inline group as `shrink` inverted that: the
+    // query truncated *and* the utilities were squeezed, so the sort group was
+    // clipped by the track's `overflow-x-auto` and its last option faded out
+    // under the overflow mask. Pinned as a class because jsdom has no layout —
+    // the geometric proof lives in `ui-smoke`, and these two must move together.
+    const utilities = screen.getByTestId("search-query-ribbon-utilities").className;
+    expect(utilities).toContain("shrink-0");
+    // Not a substring accident: `shrink-0` contains `shrink`, so the check that
+    // matters is that the bare shrinking utility is absent.
+    expect(utilities.split(/\s+/)).not.toContain("shrink");
+    // Below 414px one line cannot hold count + query + sort + filter even with
+    // the query fully truncated, so the utilities take their own row there.
+    expect(utilities).toContain("max-[413px]:w-full");
+    expect(utilities).toContain("max-[413px]:basis-full");
+  });
+
   it("keeps row geometry while loading even though the page control is gated off", () => {
     const control = <button type="button">Wide filter</button>;
     const rowClass = (root: HTMLElement) => (root.firstElementChild as HTMLElement | null)?.className ?? "";

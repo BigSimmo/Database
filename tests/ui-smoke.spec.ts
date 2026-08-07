@@ -3561,6 +3561,44 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(mobileFilterTrigger).toBeVisible();
     await expect(mobileFilterTrigger).toHaveAccessibleName(/Filter/);
     await expectMinTouchTarget(mobileFilterTrigger);
+    // The rail must not clip its own controls. #1615 collapsed this band to one
+    // line but left the inline utilities group `shrink`, so an over-subscribed
+    // line paid the shortfall out of the *controls* rather than out of the
+    // truncating query: the sort group was severed by the track's
+    // `overflow-x-auto` and its trailing option was then washed out by the 28px
+    // overflow mask.
+    //
+    // Swept, not asserted once. This viewport is 390px, where the band gives the
+    // utilities their own row and the rail therefore has width to spare — the
+    // regression is invisible here, and a single-width check at 390 passes
+    // against the code that shipped it (verified by reintroducing `shrink`). It
+    // bites on the one-line widths, so the sweep has to cross 414px. 540 is in
+    // the list because a longer query reproduced a 41.9px clip there: width alone
+    // never bounded this. Geometry, not a class name — the class that caused it
+    // read as correct, and `expectNoPageHorizontalOverflow` cannot see an
+    // internal scroller.
+    // Polled, because `useRailOverflow` remeasures through a ResizeObserver a
+    // frame after the viewport changes.
+    const utilityTrack = queryRibbon.getByTestId("search-query-ribbon-utility-track");
+    for (const width of [320, 375, 390, 402, 414, 430, 440, 540]) {
+      await page.setViewportSize({ width, height: 820 });
+      await expect
+        .poll(
+          async () =>
+            utilityTrack.evaluate((track) => {
+              const sort = track.querySelector('[role="group"][aria-label="Sort results"]');
+              const clipped = sort ? sort.getBoundingClientRect().right - track.getBoundingClientRect().right : 0;
+              return {
+                overflow: Math.max(0, track.scrollWidth - track.clientWidth),
+                sortClipped: Math.max(0, Math.round(clipped)),
+                masked: track.getAttribute("data-overflowing") === "true",
+              };
+            }),
+          { message: `results-band utility rail clipped its own controls at ${width}px` },
+        )
+        .toEqual({ overflow: 0, sortClipped: 0, masked: false });
+    }
+    await page.setViewportSize({ width: 390, height: 820 });
     // The panel is what the trigger exists to reach — the state that was
     // unreachable before, because its only mount was gated on a selection that
     // nothing could make.
@@ -3573,8 +3611,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // action. It was first renamed from "Open source filters" — it browses, it
     // does not refine, and the old name made it read as a duplicate of Filter —
     // but renaming treated the symptom. It sat adjacent to Filter in the utility
-    // rail answering a different question, occupied the space the pinned Filter
-    // needs, and was the sole reason the phone rail could overflow at all.
+    // rail answering a different question and occupied the space the pinned Filter
+    // needs. It was once described here as "the sole reason the phone rail could
+    // overflow at all"; that was measured wrong. With Library gone the rail still
+    // overflowed at every common phone width, because the inline utilities group
+    // was `shrink` — see the rail-fit assertion above.
     const libraryButton = filterPanel.getByTestId("document-filter-browse-library");
     await expect(libraryButton).toBeVisible();
     await expect(libraryButton).toHaveText(/Browse all sources/);

@@ -12,10 +12,11 @@ contract: see [search-chrome-behaviour.md](search-chrome-behaviour.md).
 
 ## Anatomy
 
-- **One line, and a lead rule instead of a full-width border.** The band was 123 px on a
-  phone to say "12 documents", because the utility rail dropped to its own row and that row
-  was ~85% empty. It is now 58 px (60 px from `sm`), and the accent is a 2 × 18 px mark
-  inside the padding rather than a line across the whole width — at bar height that line
+- **One line from 414 px, and a lead rule instead of a full-width border.** The band was
+  123 px on a phone to say "12 documents", because the utility rail dropped to its own row
+  and that row was ~85% empty. It is 58 px (60 px from `sm`) wherever one line actually
+  fits, and the accent is a 2 × 18 px mark inside the padding rather than a line across the
+  whole width — at bar height that line
   read as a divider between the composer and the results rather than as the band's own
   accent. The mark is a `border-left` on a zero-width box, not a background: forced colors
   drops backgrounds and maps border colour to `CanvasText`, and `border-style: double` is
@@ -37,6 +38,28 @@ contract: see [search-chrome-behaviour.md](search-chrome-behaviour.md).
   because it is the recovery action in a degraded state. Before this, Filter was the
   track's last child and so the first control to fall off the right edge once a mode added
   anything.
+- **The query yields, never the controls.** The inline utilities group is `shrink-0`. It
+  shipped as `shrink`, so an over-subscribed line paid the shortfall out of both the query
+  _and_ the controls: the sort group was severed by the track's `overflow-x-auto` and its
+  trailing option was then washed out by the 28 px overflow mask, which reads as a
+  rendering fault rather than as "swipe for more". Measured on the live app: clipped at
+  320/375/390/393/402 and 430/440 px, and by 41.9 px at **540 px** with a four-word query —
+  so this was never bounded by phone width. `truncate` + `min-w-[2rem]` on the query
+  heading already exist to absorb exactly this. Below 414 px one line cannot hold count +
+  query + sort + filter even with the query fully truncated, so the utilities take their
+  own full-width row there rather than overflow a band that is `overflow-hidden` and would
+  clip the pinned Filter. `ui-smoke` asserts the rail fits as geometry, not as a class —
+  the class that caused this read as correct, and `expectNoPageHorizontalOverflow` cannot
+  see an internal scroller.
+- **A control composed from a shared recipe must not rely on override order.** `cn` is a
+  plain join, not tailwind-merge. `DocumentFilterTrigger` was `floatingControl` plus an
+  override string, so every contradictory utility reached the DOM and stylesheet order —
+  not intent — picked the winner. `text-sm`/`text-xs` and the two `shadow-*` happened to
+  resolve the way the override wanted; `font-semibold` (600 against the sort group's
+  470/560) and `--border-lux` (a visibly darker stroke than `--border`) never did, so the
+  one control sitting flush against the sort group rendered as a different component. It
+  now uses the band's own control recipe — the same string `Save search` and `Retry` use —
+  with the active/resting colours as mutually exclusive branches.
 - **A full-width phone control keeps its own row.** `mobileControlsPlacement` defaults to
   `row` whenever a page passes `mobileControls`, because six modes pass a `w-full`
   `MobileResultFilterControl` (formulation and specifiers pass _two_, in a two-column grid)
@@ -100,8 +123,11 @@ Two traps met while drawing that line:
   read. It therefore needs an in-context route that preserves the query — but that route
   did not have to be the utility rail, where it sat adjacent to Filter while answering a
   different question (Filter narrows what this query returned; Library opens the whole
-  corpus), made the old name read as a second filter, occupied the space the pinned Filter
-  needs, and was the sole reason the phone rail could overflow at all. It now has two
+  corpus), made the old name read as a second filter, and occupied the space the pinned
+  Filter needs. _(Amended: this also claimed it was "the sole reason the phone rail could
+  overflow at all". That was measured wrong — with Library gone the rail still overflowed at
+  every common phone width, and at 540 px with a longer query. See "The query yields, never
+  the controls".)_ It now has two
   in-context homes that both preserve the query: the filter sheet's footer, under a rule
   and phrased as reach with the corpus count beside it, and the zero-result state. Do not
   delete either without giving nav a query-preserving route first.
