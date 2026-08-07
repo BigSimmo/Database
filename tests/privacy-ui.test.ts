@@ -3,7 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import PrivacyPage from "@/app/privacy/page";
+import { AnswerSafetyNotice } from "@/components/answer-safety-notice";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
+import { ANSWER_SAFETY_OBLIGATION, ANSWER_SAFETY_VERIFY } from "@/lib/ui-copy";
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
@@ -22,6 +24,18 @@ describe("privacy UI", () => {
     expect(markup).toContain('href="/privacy"');
     expect(markup).toContain("Privacy and data processing");
     expect(documentsMarkup).toContain('href="/privacy?from=documents"');
+  });
+
+  it("keeps the same APP-5 obligation on the Answer consolidated safety notice", () => {
+    const card = renderToStaticMarkup(createElement(AnswerSafetyNotice, { density: "card" }));
+    const bar = renderToStaticMarkup(createElement(AnswerSafetyNotice, { density: "bar" }));
+
+    expect(card).toContain(ANSWER_SAFETY_OBLIGATION);
+    expect(bar).toContain(ANSWER_SAFETY_OBLIGATION);
+    expect(card).toContain(ANSWER_SAFETY_VERIFY);
+    expect(bar).toContain(ANSWER_SAFETY_VERIFY);
+    expect(card).toContain('href="/privacy"');
+    expect(bar).toContain("Privacy and data processing");
   });
 
   it("publishes an accessible governance-review draft covering configured data processing", () => {

@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
+import { AnswerSafetyNotice } from "@/components/answer-safety-notice";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
@@ -1875,17 +1876,26 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
-        {/* Single site-wide APP-5 privacy line: every tablet/desktop composer
-            variant renders exactly one compact notice below the pill; no other
-            surface may duplicate it. Phones show it only on the home hero —
-            see showsComposerPrivacyNotice. */}
+        {/* One notice under the composer — never stack a second trust strip on
+            AnswerEmptyState or elsewhere. Answer mode uses the consolidated
+            safety notice (#165/#166); documents/calculators keep APP-5-only
+            PrivacyInputNotice. Phones: home hero only (showsComposerPrivacyNotice). */}
         {showsComposerPrivacyNotice ? (
-          <PrivacyInputNotice
-            id={composerPrivacyWarningId}
-            testId={composerPrivacyWarningId}
-            className="mt-1.5 justify-center px-3 text-center"
-            returnMode={searchMode === "answer" ? undefined : searchMode}
-          />
+          searchMode === "answer" ? (
+            <AnswerSafetyNotice
+              density={isDesktopHomeComposer ? "card" : "bar"}
+              id={composerPrivacyWarningId}
+              testId={composerPrivacyWarningId}
+              className="mt-1.5 px-3"
+            />
+          ) : (
+            <PrivacyInputNotice
+              id={composerPrivacyWarningId}
+              testId={composerPrivacyWarningId}
+              className="mt-1.5 justify-center px-3 text-center"
+              returnMode={searchMode}
+            />
+          )
         ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
             open it even when the footer chip row is not shown. */}
