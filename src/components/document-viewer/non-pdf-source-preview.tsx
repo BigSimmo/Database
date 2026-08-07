@@ -3,8 +3,9 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { memo, useEffect, useId, useRef, useState } from "react";
-import { CircleAlert, Download, ExternalLink, FileText, RefreshCw } from "lucide-react";
+import { CircleAlert, Download, ExternalLink, FileText, Maximize2, RefreshCw } from "lucide-react";
 
+import { ImageLightbox } from "@/components/clinical-dashboard/image-lightbox";
 import { cn, floatingControl } from "@/components/ui-primitives";
 import { announce } from "@/components/ui/live-announcer";
 
@@ -17,7 +18,7 @@ const placeholderSurface =
  * Inline preview for non-PDF source documents.
  *
  * PDFs render in PdfCanvasViewer/NativePdfEmbed; everything else lands here:
- * - image/* → the source image inline (native browser view for full-size/zoom),
+ * - image/* → inline stage + shared ImageLightbox (same gestures as rail crops),
  * - text/* → a pointer to the already-extracted indexed text below,
  * - other (DOCX/XLSX/…) → an honest "download to view" affordance,
  * - no signed URL yet → the original placeholder.
@@ -92,9 +93,8 @@ export const NonPdfSourcePreview = memo(function NonPdfSourcePreview({
 
 /**
  * Inline image with a failure fallback. The source is a direct signed URL owned
- * by the parent (not a re-fetchable endpoint), so on an expired/broken URL it
- * surfaces the same Open/Download recovery affordance rather than a silently
- * broken <img>.
+ * by the parent (not a re-fetchable endpoint). Primary viewing opens the shared
+ * ImageLightbox in URL mode; Open/Download remain secondary recovery affordances.
  */
 function InlineImagePreview({
   signedUrl,
@@ -106,8 +106,10 @@ function InlineImagePreview({
   title: string;
 }) {
   const [failed, setFailed] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const announcementSourceId = useId();
   const failureTransition = useRef(0);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!failed) return;
@@ -153,21 +155,60 @@ function InlineImagePreview({
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 bg-[color:var(--surface-inset)] p-3 sm:p-4">
-      <div className="relative w-full aspect-[4/3] overflow-hidden rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
+    <div className="flex flex-col items-center gap-3 bg-[color:var(--surface-inset)] p-2 sm:p-3">
+      <div className="relative w-full min-h-64 overflow-hidden bg-[color:var(--surface-inset)] sm:min-h-72">
         <img
           src={signedUrl}
           alt={title}
           loading="lazy"
           decoding="async"
           onError={() => setFailed(true)}
-          className="absolute inset-0 h-full w-full object-contain"
+          className="mx-auto max-h-[min(70vh,36rem)] w-full object-contain"
         />
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setLightboxOpen(true)}
+          aria-label={`Expand image: ${title}`}
+          className="absolute inset-0 z-10 flex cursor-zoom-in items-start justify-end p-2 focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+        >
+          <span
+            aria-hidden="true"
+            className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)]/85 p-1 text-[color:var(--text-muted)] shadow-[var(--shadow-tight)] backdrop-blur-md"
+          >
+            <Maximize2 aria-hidden="true" className="h-3.5 w-3.5" />
+          </span>
+        </button>
       </div>
-      <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
-        <ExternalLink aria-hidden="true" className="h-4 w-4" />
-        Open full image
-      </a>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <button type="button" onClick={() => setLightboxOpen(true)} className={cn(secondaryButton, "min-h-tap")}>
+          <Maximize2 aria-hidden="true" className="h-4 w-4" />
+          View immersive
+        </button>
+        <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "min-h-tap")}>
+          <ExternalLink aria-hidden="true" className="h-4 w-4" />
+          Open
+        </a>
+        {downloadSignedUrl ? (
+          <a
+            href={downloadSignedUrl}
+            target="_blank"
+            rel="noreferrer"
+            download
+            className={cn(secondaryButton, "min-h-tap")}
+          >
+            <Download aria-hidden="true" className="h-4 w-4" />
+            Download
+          </a>
+        ) : null}
+      </div>
+      <ImageLightbox
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        url={signedUrl}
+        alt={title}
+        returnFocusRef={triggerRef}
+      />
     </div>
   );
 }
