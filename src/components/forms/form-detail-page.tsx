@@ -696,7 +696,10 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="min-w-0 space-y-4">
-          <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
+          <section
+            id="form-overview"
+            className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5"
+          >
             <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
               <FormCodeBadge code={code} variant="hero" />
               <div className="min-w-0">
@@ -817,7 +820,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             />
           </div>
 
-          <section aria-label="Priority facts" className="space-y-2.5 sm:space-y-3">
+          <section id="form-priority-facts" aria-label="Priority facts" className="space-y-2.5 sm:space-y-3">
             <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
               Priority facts
             </h2>
@@ -828,7 +831,10 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </div>
           </section>
 
-          <section className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/30 p-4 shadow-[var(--shadow-inset)]">
+          <section
+            id="form-legal-boundary"
+            className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/30 p-4 shadow-[var(--shadow-inset)]"
+          >
             <div className="grid gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)]">
               <span className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--warning-soft)] text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
                 <ShieldCheck className="h-5 w-5" aria-hidden />
@@ -850,7 +856,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </div>
           </section>
 
-          <section aria-label="Form information" className="grid gap-2">
+          <section id="form-information" aria-label="Form information" className="grid gap-2">
             {detailRows.map((row) => {
               const label = row.label.toLowerCase();
               const Icon = label.includes("only")
@@ -868,7 +874,12 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             })}
           </section>
 
-          <div className="grid gap-3 lg:hidden">
+          {/* The `-mobile`/`-desktop` id pairs below are the section anchors
+              `formSections` declares. Only one of each pair is ever visible:
+              `AvailableInformationPageNavigation` resolves a section to its
+              first VISIBLE target, and `lg:hidden` / `hidden lg:block` make
+              exactly one side `display:none` per breakpoint. */}
+          <div id="form-source-verification-mobile" className="grid gap-3 lg:hidden">
             <SourceSnapshotCard form={form} />
             <ActionPanel
               sourceHref={form.source?.url ?? null}
@@ -877,14 +888,22 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             />
           </div>
 
-          <div className="lg:hidden">
+          <div id="form-decision-context-mobile" className="lg:hidden">
             <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-mobile" />
           </div>
         </div>
 
         <aside className="polished-scroll hidden min-w-0 space-y-3 lg:sticky lg:top-[5.75rem] lg:block lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
-          <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-desktop" />
-          <SourceSnapshotCard form={form} />
+          <div id="form-decision-context-desktop">
+            <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-desktop" />
+          </div>
+          {/* Anchors the source band. The two RailCards below ("Source status",
+              "Verification") are its siblings in this scrollable rail, so
+              landing here brings them into view without a wrapper spanning
+              all three. */}
+          <div id="form-source-verification-desktop">
+            <SourceSnapshotCard form={form} />
+          </div>
 
           <RailCard icon={FileText} title="Source status">
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
