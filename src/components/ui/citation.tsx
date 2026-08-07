@@ -89,6 +89,18 @@ function statusPhrase(status: DocumentStatus) {
   return "review status unknown";
 }
 
+export type CitationListProps = {
+  citations: Array<{ id: string; citation: ReactNode }>;
+  label?: string;
+  /**
+   * Shown when there are zero citations. An ungrounded statement in a clinical
+   * tool is a governance event, so the empty case says so rather than rendering
+   * nothing and looking identical to a cited one.
+   */
+  emptyNote?: ReactNode;
+  className?: string;
+};
+
 /**
  * A run of citations under an answer paragraph or claim. A list, not a row of
  * loose buttons, so assistive technology announces how many sources back the
@@ -99,17 +111,7 @@ export function CitationList({
   label = "Sources for this answer",
   emptyNote = "No source supports this statement.",
   className,
-}: {
-  citations: ReactNode[];
-  label?: string;
-  /**
-   * Shown when there are zero citations. An ungrounded statement in a clinical
-   * tool is a governance event, so the empty case says so rather than rendering
-   * nothing and looking identical to a cited one.
-   */
-  emptyNote?: ReactNode;
-  className?: string;
-}) {
+}: CitationListProps) {
   if (!citations.length) {
     return (
       <p
@@ -128,9 +130,9 @@ export function CitationList({
       aria-label={`${label} (${citations.length})`}
       className={cn("m-0 flex list-none flex-wrap items-center gap-1.5 p-0", className)}
     >
-      {citations.map((citation, index) => (
-        <li key={index} className="contents">
-          {citation}
+      {citations.map((citation) => (
+        <li key={citation.id} data-citation-id={citation.id} className="contents">
+          {citation.citation}
         </li>
       ))}
     </ul>

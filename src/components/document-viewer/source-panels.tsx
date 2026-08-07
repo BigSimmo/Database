@@ -94,7 +94,7 @@ export function ClinicalSummaryProfile({ profile }: { profile: ClinicalDocumentS
           shows only the structured detail so the same text is not printed twice. */}
       {sections.map((section) => (
         <section key={section.key} className="border-t border-[color:var(--border)] pt-3">
-          <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          <h3 className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             {section.label}
           </h3>
           <ul className={cn(proseMeasure, "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]")}>
@@ -161,7 +161,7 @@ export function FormattedHighYieldSummary({
           key={section.id}
           className={cn((leadVisible || index > 0) && "border-t border-[color:var(--border)] pt-3")}
         >
-          <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          <h3 className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             {section.heading ?? "Key points"}
           </h3>
           <ul className={cn(proseMeasure, "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]")}>
@@ -255,6 +255,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
     columns: image.tableColumns,
   });
   const tableCaption = tableHeading || cleanCaption || "Document table";
+  const hasSourceTableTitle = Boolean(tableHeading || cleanCaption);
   const warnings = tableQualityWarnings(image, hasStructuredTable);
   const sourceImageFirst =
     !hasStructuredTable ||
@@ -299,6 +300,8 @@ export function DocumentImage({ image }: { image: ImageRow }) {
         columns={image.tableColumns}
         compact={false}
         expandOnMobile
+        // Invented fallbacks ("Document table") are accessible-name only — do not paint a fake heading.
+        hidePreviewCaption={!hasSourceTableTitle}
         dialogTitle={tableCaption}
         lowConfidenceFallback={imageBlock}
       />
@@ -312,7 +315,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
   );
   return (
     <figure className={cn(sourceCard, "overflow-hidden p-3")}>
-      <p className={cn("text-xs font-semibold uppercase tracking-[0.08em]", textMuted)}>
+      <p className={cn("text-xs font-semibold uppercase tracking-eyebrow", textMuted)}>
         page {image.page_number ?? "n/a"}
         {image.image_type ? ` · ${image.image_type.replaceAll("_", " ")}` : ""}
         {image.tableRole ? ` · ${image.tableRole}` : ""}
@@ -393,7 +396,7 @@ export function TableReviewPanel({
               key={fact.id}
               className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              <p className="text-xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                 Page {fact.page_number ?? "n/a"} · {reviewClass.replaceAll("_", " ")}
               </p>
               <p className="mt-1 text-sm leading-5 text-[color:var(--text)]">{text || "Table fact has no text."}</p>
@@ -623,7 +626,7 @@ function IndexedSourceText({
             <ul
               key={block.id}
               className={cn(
-                "list-disc space-y-1.5 pl-5 text-base-minus leading-7 text-[color:var(--text)] marker:text-[color:var(--text-soft)]",
+                "list-disc space-y-1.5 pl-5 text-base-minus leading-7 text-[color:var(--text)] marker:text-[color:var(--decoration-soft)]",
                 compact && "text-sm leading-6",
               )}
             >
@@ -637,14 +640,17 @@ function IndexedSourceText({
         }
 
         if (block.type === "table") {
+          const tableCaption = block.caption?.trim() || "Document table";
           return (
             <AccessibleTable
               key={block.id}
-              caption={block.caption}
+              caption={tableCaption}
               rows={block.rows}
               compact={false}
               expandOnMobile
-              dialogTitle={block.caption ?? "Document table"}
+              // Invented fallbacks are accessible-name only — do not paint a fake heading.
+              hidePreviewCaption={!block.caption?.trim()}
+              dialogTitle={tableCaption}
             />
           );
         }
@@ -797,7 +803,10 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     .map((chunk) => chunk.id)
     .join(",")}`;
   const previousAutoOpenDriverRef = useRef<string | null>(null);
-  const manualClosedDriverRef = useRef<string | null>(null);
+  // Track manual close in state (not only a ref) so selected/active chunk
+  // disclosures can stay React-controlled — imperative `.open = true` alone was
+  // lost across re-renders and left deep-linked hits collapsed in Production UI.
+  const [manualClosedDriver, setManualClosedDriver] = useState<string | null>(null);
   const [compactOpen, setCompactOpen] = useState(Boolean(selectedChunkId));
   // Deep-linked chunks and in-document search must keep the panel revealed even
   // when the exclusive accordion briefly closes it (section jumps / sibling
@@ -808,20 +817,21 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     setPrevForceReveal(forceReveal);
     if (forceReveal) setCompactOpen(true);
   }
+  if (previousAutoOpenDriverRef.current !== autoOpenDriver) {
+    previousAutoOpenDriverRef.current = autoOpenDriver;
+    if (manualClosedDriver !== null) setManualClosedDriver(null);
+  }
+  const autoOpenSuppressed = Boolean(autoOpenDriver) && manualClosedDriver === autoOpenDriver;
 
   useEffect(() => {
-    if (previousAutoOpenDriverRef.current !== autoOpenDriver) {
-      previousAutoOpenDriverRef.current = autoOpenDriver;
-      manualClosedDriverRef.current = null;
-    }
-    if (!autoOpenDriver || !autoOpenTargetId || manualClosedDriverRef.current === autoOpenDriver) return;
+    if (!autoOpenDriver || !autoOpenTargetId || autoOpenSuppressed) return;
     const targetDisclosure = document.getElementById(`${idPrefix}-${autoOpenTargetId}`);
     if (!(targetDisclosure instanceof HTMLDetailsElement)) return;
     if (topLevelDisclosureRef.current) topLevelDisclosureRef.current.open = true;
     const wasOpen = targetDisclosure.open;
     openNestedSourceDisclosure(topLevelDisclosureRef.current, targetDisclosure);
     if (!wasOpen) targetDisclosure.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
-  }, [autoOpenDriver, autoOpenTargetId, idPrefix, targetAvailability]);
+  }, [autoOpenDriver, autoOpenTargetId, autoOpenSuppressed, idPrefix, targetAvailability]);
 
   function moveHit(delta: number) {
     if (visibleChunks.length === 0) return;
@@ -835,14 +845,14 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     const isDriverDisclosure = disclosure.id === `${idPrefix}-${autoOpenTargetId}`;
     if (disclosure.open) {
       disclosure.open = false;
-      if (isDriverDisclosure && autoOpenDriver) manualClosedDriverRef.current = autoOpenDriver;
+      if (isDriverDisclosure && autoOpenDriver) setManualClosedDriver(autoOpenDriver);
       return;
     }
-    if (isDriverDisclosure && autoOpenDriver) manualClosedDriverRef.current = null;
+    if (isDriverDisclosure && autoOpenDriver) setManualClosedDriver(null);
     if (!isDriverDisclosure && autoOpenDriver && autoOpenTargetId) {
       const driverDisclosure = document.getElementById(`${idPrefix}-${autoOpenTargetId}`);
       if (driverDisclosure instanceof HTMLDetailsElement && driverDisclosure.open) {
-        manualClosedDriverRef.current = autoOpenDriver;
+        setManualClosedDriver(autoOpenDriver);
       }
     }
     openNestedSourceDisclosure(topLevelDisclosureRef.current, disclosure);
@@ -998,6 +1008,10 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
               visibleChunks.map((chunk) => {
                 const selected = selectedChunkId === chunk.id;
                 const active = activeHit?.id === chunk.id;
+                const isAutoOpenTarget = Boolean(autoOpenTargetId) && chunk.id === autoOpenTargetId;
+                // Keep deep-linked / active-hit passages React-controlled so a
+                // later render cannot collapse the citation the URL asked for.
+                const forceChunkOpen = isAutoOpenTarget && !autoOpenSuppressed;
                 const status = selected
                   ? "Highlighted quoted passage"
                   : active
@@ -1012,6 +1026,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
                     data-testid={selected ? "highlighted-indexed-source-chunk" : "indexed-source-passage-disclosure"}
                     data-source-chunk-id={chunk.id}
                     data-source-active-hit={active || undefined}
+                    open={forceChunkOpen ? true : undefined}
                     className={cn(
                       sourceCard,
                       "group/source-row overflow-hidden p-0 transition source-print",
@@ -1068,7 +1083,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
                           ))}
                         </div>
                       ) : null}
-                      <p className="mb-2 mt-3 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                      <p className="mb-2 mt-3 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                         Excerpt
                       </p>
                       {normalizedSearch ? (

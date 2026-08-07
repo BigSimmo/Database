@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { z } from "zod";
-import { demoSearch } from "@/lib/demo-data";
+import { demoImages, demoSearch } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { buildSmartPanel, buildVisualEvidence, diversifySearchResults } from "@/lib/evidence";
 import { annotateDocumentMatches, annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
@@ -24,6 +24,7 @@ import { publicAccessContext } from "@/lib/public-api-access";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { parseJsonBody } from "@/lib/validation/body";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
+import { retrievalHealthFromTelemetry } from "@/lib/search-retrieval-health";
 import { resolveRetrievalAccessScope } from "@/lib/owner-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import {
@@ -208,6 +209,13 @@ function buildDocumentMatchesFromResults(results: SearchResult[], limit: number)
     }
   }
 
+  const coverByDocument = new Map<string, string>();
+  for (const image of demoImages) {
+    if (image.source_kind === "cover_page" && image.id && !coverByDocument.has(image.document_id)) {
+      coverByDocument.set(image.document_id, image.id);
+    }
+  }
+
   return Array.from(grouped.values())
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
@@ -215,6 +223,7 @@ function buildDocumentMatchesFromResults(results: SearchResult[], limit: number)
       ...document,
       imageCount: imageIds.size,
       tableCount: tableImageIds.size,
+      coverImageId: coverByDocument.get(document.document_id) ?? null,
       labels: [],
       summarySnippet: null,
       matchReason: `Matched ${document.bestChunkIds.length} indexed passage${
@@ -606,6 +615,11 @@ function retrievalDecisionTelemetry(telemetry: Record<string, unknown>) {
     // without persisting them the recalibration has no data to work from.
     text_or_relaxation_used: telemetryString(telemetry, "text_or_relaxation_used"),
     synthetic_similarity_count: telemetryNumber(telemetry, "synthetic_similarity_count"),
+    // The degraded-retrieval case is the one most worth diagnosing after the
+    // fact — it is invisible in the result count, which is just zero — and this
+    // whitelist is what both observation writers persist. Omitting it meant the
+    // failure map reached the reader's screen and nothing else.
+    hybrid_rpc_errors: telemetryRecord(telemetry, "hybrid_rpc_errors"),
   };
 }
 
@@ -873,6 +887,7 @@ async function buildScopedSearchPayload(
       best_chunk_ids: document.best_chunk_ids,
       image_count: document.image_count,
       table_count: document.table_count ?? 0,
+      cover_image_id: document.cover_image_id ?? null,
       match_reason: document.match_reason,
       summary: document.summary ? compactText(document.summary, 360) : null,
       labels: document.labels?.slice(0, 6) ?? [],
@@ -880,7 +895,7 @@ async function buildScopedSearchPayload(
     documentMatches,
     smartPanel: { ...smartPanel, relevance, relatedDocuments },
     smartApiPlan,
-    scope: { ...scope, queryMode: body.queryMode },
+    scope: { ...scope, queryMode: body.queryMode, retrieval: retrievalHealthFromTelemetry(search.telemetry) },
     sourceGovernanceWarnings: sourceGovernanceWarnings({ results, relevance }),
     degradedMode: searchDegradedModeSignal(search.telemetry),
     telemetry: {
@@ -891,6 +906,7 @@ async function buildScopedSearchPayload(
       weak_source_count: relevance.weakSourceCount,
       retrieval_strategy: search.telemetry.retrieval_strategy,
       retrieval_plan: search.telemetry.retrieval_plan,
+      corpus_grounding: search.telemetry.corpus_grounding,
       smart_api_intent: smartApiPlan.intent,
       smart_api_response_mode: smartApiPlan.responseMode,
       smart_api_display_mode: smartApiPlan.displayMode,
@@ -932,6 +948,7 @@ async function buildScopedSearchPayload(
       visual_direct_image_count: search.telemetry.visual_direct_image_count,
       weighted_top_score: search.telemetry.weighted_top_score,
       rrf_top_score: search.telemetry.rrf_top_score,
+      hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
     },
   };
   logRetrievalDiagnostics({ supabase, ownerId, query: body.query, results, telemetry: search.telemetry, relevance });

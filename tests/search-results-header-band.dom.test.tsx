@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   MobileResultFilterControl,
+  SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
 
@@ -169,16 +170,180 @@ describe("SearchResultsHeaderBand", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  // The accent used to be an absolutely-positioned bar inside an overflow:hidden
-  // rounded card, so the corner arc sliced its ends and it tapered away from the
-  // corner while the 1px border curved past it. It is now the card's own
-  // border-top, which mitres into the side borders by construction.
-  it("carries the accent as a border rather than a clipped overlay bar", () => {
+  // The accent was first an absolutely-positioned bar inside an overflow:hidden
+  // rounded card, so the corner arc sliced its ends; then the card's own
+  // border-top; and now an 18px lead mark inside the padding, because at 58px a
+  // line across the full width reads as a divider between the composer and the
+  // results rather than as the band's accent. Still in flow, never absolute —
+  // that is what the clipping fix bought and it must not be spent again.
+  it("carries the accent as an in-flow lead rule, not a clipped overlay bar", () => {
     render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={10} />);
 
     const region = screen.getByRole("region", { name: "Search results for CMHT" });
     expect(region).toHaveClass("search-band");
     expect(region.querySelector("span.absolute")).toBeNull();
+    const lead = region.querySelector(".search-band-lead");
+    expect(lead).not.toBeNull();
+    expect(lead).toHaveAttribute("data-tone", "accent");
+    expect(lead).toHaveAttribute("aria-hidden");
+  });
+
+  // The tile is gone, and with it the shape channel it carried: alert when the
+  // search faulted, a spinner while one ran. The mockup encoded those as colour
+  // alone, which makes a failed search identical to a successful one for a
+  // reader who cannot separate the hues — so state keeps a shape here, on three
+  // independent non-chromatic channels: the mark's stroke count, a glyph that
+  // renders only when something is wrong, and the absence of a number.
+  it.each([
+    ["error" as const, "warning", "Couldn’t search"],
+    ["unauthorized" as const, "warning", "Sign in to search"],
+    ["partial" as const, "warning", "6 services"],
+    ["ready" as const, "accent", "6 services"],
+    ["refetching" as const, "accent", "6 services"],
+  ])("carries %s state as shape, not only hue", (status, tone, text) => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={6} status={status} />);
+
+    const region = screen.getByRole("region", { name: "Search results for CMHT" });
+    expect(region.querySelector(".search-band-lead")).toHaveAttribute("data-tone", tone);
+    expect(screen.getByRole("status")).toHaveTextContent(text);
+
+    // The clinical invariant, restated where the shape is: a faulted search has
+    // no count to report, so no digit may reach the DOM.
+    if (status === "error" || status === "unauthorized") {
+      expect(screen.getByRole("status").textContent ?? "").not.toMatch(/\d/);
+    }
+  });
+
+  it("pins Filter and Retry outside the scrolling track so neither can be swiped away", () => {
+    render(
+      <SearchResultsHeaderBand
+        modeId="favourites"
+        query="ward round"
+        matchCount={3}
+        status="partial"
+        onRetry={vi.fn()}
+        onSortChange={vi.fn()}
+        mobileControlsPlacement="inline"
+        mobileControls={<button type="button">Filter</button>}
+      />,
+    );
+
+    const utilities = screen.getByTestId("search-query-ribbon-utilities");
+    const track = screen.getByTestId("search-query-ribbon-utility-track");
+    const pageFilters = screen.getByTestId("search-query-ribbon-mobile-controls");
+
+    // Only the optional controls scroll. Sort is inside the track; Filter and
+    // Retry are siblings after it. Before this, Filter was the track's last
+    // child, so it was the first control to fall off the right edge once a mode
+    // added anything — the one control carrying filter state.
+    expect(track.contains(screen.getByRole("group", { name: "Sort results" }))).toBe(true);
+    expect(track.contains(pageFilters)).toBe(false);
+    expect(track.contains(screen.getByRole("button", { name: "Retry" }))).toBe(false);
+    expect(track.className).toContain("overflow-x-auto");
+    // Still the last child of the group: `ui-tools` asserts that placement,
+    // because the right edge is where the thumb already is.
+    expect(utilities.lastElementChild).toBe(pageFilters);
+  });
+
+  it("keeps a full-width phone control on its own row unless the page says otherwise", () => {
+    const control = <button type="button">Wide filter</button>;
+
+    const { rerender } = render(
+      <SearchResultsHeaderBand modeId="formulation" query="pattern" matchCount={4} mobileControls={control} />,
+    );
+    // Six modes pass a `w-full` native select here — two of them pass a pair in
+    // a two-column grid — and pinning one into a 58px line at 320px makes it
+    // unreadable. Unannounced page controls therefore keep today's own row.
+    expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).toContain("w-full");
+    expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).toContain("basis-full");
+    expect(screen.getByTestId("search-query-ribbon-utilities").className).toContain("flex-wrap");
+
+    rerender(
+      <SearchResultsHeaderBand
+        modeId="documents"
+        query="pattern"
+        matchCount={4}
+        mobileControlsPlacement="inline"
+        mobileControls={control}
+      />,
+    );
+    expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).not.toContain("w-full");
+  });
+
+  it("makes the inline utilities group refuse to shrink, so the query truncates instead of the controls", () => {
+    render(
+      <SearchResultsHeaderBand
+        modeId="documents"
+        query="lithium monitoring in renal impairment"
+        matchCount={6}
+        onSortChange={vi.fn()}
+        mobileControlsPlacement="inline"
+        mobileControls={<button type="button">Filter</button>}
+      />,
+    );
+
+    // The band's stated priority is that the query is what gives way when the
+    // line runs out. Shipping the inline group as `shrink` inverted that: the
+    // query truncated *and* the utilities were squeezed, so the sort group was
+    // clipped by the track's `overflow-x-auto` and its last option faded out
+    // under the overflow mask. Pinned as a class because jsdom has no layout —
+    // the geometric proof lives in `ui-smoke`, and these two must move together.
+    const utilities = screen.getByTestId("search-query-ribbon-utilities").className;
+    expect(utilities).toContain("shrink-0");
+    // Not a substring accident: `shrink-0` contains `shrink`, so the check that
+    // matters is that the bare shrinking utility is absent.
+    expect(utilities.split(/\s+/)).not.toContain("shrink");
+    // Below 414px one line cannot hold count + query + sort + filter even with
+    // the query fully truncated, so the utilities take their own row there.
+    expect(utilities).toContain("max-[413px]:w-full");
+    expect(utilities).toContain("max-[413px]:basis-full");
+    // `basis-full` is inert without a wrapping parent. Dropping
+    // `max-[413px]:flex-wrap` from the row would leave the band `flex-nowrap`,
+    // push Sort+Filter off-screen inside `overflow-hidden`, and still leave the
+    // child class checks above green — so the parent wrap is part of the same
+    // contract and must move with the child utilities assertions.
+    const rowClass = (screen.getByTestId("search-query-ribbon").firstElementChild as HTMLElement | null)?.className;
+    expect(rowClass).toContain("max-[413px]:flex-wrap");
+  });
+
+  it("keeps row geometry while loading even though the page control is gated off", () => {
+    const control = <button type="button">Wide filter</button>;
+    const rowClass = (root: HTMLElement) => (root.firstElementChild as HTMLElement | null)?.className ?? "";
+    const { rerender } = render(
+      <SearchResultsHeaderBand
+        modeId="services"
+        query="CMHT"
+        matchCount={0}
+        status="loading"
+        onSortChange={vi.fn()}
+        mobileControls={control}
+      />,
+    );
+
+    // Placement must key off the raw `mobileControls` prop. Gating on the
+    // count-trusted control flipped six modes between nowrap/58px and wrapping
+    // geometry the moment results arrived. (`sm:flex-nowrap` is always present;
+    // the loading→ready flip was the unprefixed `flex-nowrap` + `min-h-[3.625rem]`.)
+    expect(screen.queryByTestId("search-query-ribbon-mobile-controls")).toBeNull();
+    const loadingRow = rowClass(screen.getByTestId("search-query-ribbon"));
+    expect(loadingRow).toContain("flex-wrap");
+    expect(loadingRow.split(/\s+/)).not.toContain("flex-nowrap");
+    expect(loadingRow).not.toContain("min-h-[3.625rem]");
+
+    rerender(
+      <SearchResultsHeaderBand
+        modeId="services"
+        query="CMHT"
+        matchCount={6}
+        status="ready"
+        onSortChange={vi.fn()}
+        mobileControls={control}
+      />,
+    );
+    const readyRow = rowClass(screen.getByTestId("search-query-ribbon"));
+    expect(readyRow).toContain("flex-wrap");
+    expect(readyRow.split(/\s+/)).not.toContain("flex-nowrap");
+    expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).toContain("basis-full");
   });
 
   it("lets an explicit status override the deprecated loading shim", () => {
@@ -350,5 +515,127 @@ describe("SearchResultsHeaderBand", () => {
     expect(onSortChange).toHaveBeenCalledWith("alpha");
     expect(onFilterChange).toHaveBeenCalledWith("diagnosis");
     expect(screen.getByTestId("search-query-ribbon-filters")).toHaveClass("hidden", "sm:block");
+  });
+});
+
+describe("SearchResultsEmptyState", () => {
+  const filters = [
+    { id: "medication", label: "Lithium", onRemove: vi.fn() },
+    { id: "action", label: "Discharge", onRemove: vi.fn() },
+  ];
+
+  it("leads with relaxing a filter when the set is empty because of them", async () => {
+    const user = userEvent.setup();
+    const onClearFilters = vi.fn();
+    const onRemove = vi.fn();
+    const onBrowseAll = vi.fn();
+
+    render(
+      <SearchResultsEmptyState
+        modeId="documents"
+        query="lithium monitoring"
+        appliedFilters={[filters[0], { ...filters[1], onRemove }]}
+        onClearFilters={onClearFilters}
+        onBrowseAll={onBrowseAll}
+        browseAllLabel="Browse all 2,014 sources"
+      />,
+    );
+
+    // The heading counts the filters rather than quoting the query: the query is
+    // not what emptied the set, and saying so sends the reader to rewrite the one
+    // thing that was working.
+    expect(screen.getByText("No documents match all 2 filters")).toBeVisible();
+    // The failure is attributed. "The search itself ran fine" is the sentence
+    // that stops a filtered-to-zero result reading as a broken search.
+    expect(screen.getByText(/The search itself ran fine/)).toBeVisible();
+
+    // Naming the filter in the label is what makes it a one-tap undo instead of
+    // a second thing to go and find.
+    await user.click(screen.getByRole("button", { name: "Remove “Discharge”" }));
+    expect(onRemove).toHaveBeenCalledTimes(1);
+
+    // Separate control, separate label — the single button that said "Clear
+    // filters" and reset the query too is exactly what this replaces.
+    await user.click(screen.getByRole("button", { name: "Clear all filters" }));
+    expect(onClearFilters).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("button", { name: "Browse all 2,014 sources" }));
+    expect(onBrowseAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the example and cross-mode routes, demoted below a rule", () => {
+    render(
+      <SearchResultsEmptyState
+        modeId="documents"
+        query="lithium monitoring"
+        appliedFilters={filters}
+        onClearFilters={vi.fn()}
+        onTryExample={vi.fn()}
+      />,
+    );
+
+    const example = screen.getByRole("button", { name: /^Try:/ });
+    expect(example).toBeVisible();
+    // Demotion is structural, not just ordering: an example query is a different
+    // search, and the reader has not finished this one.
+    expect(example.parentElement).toHaveClass("border-t");
+  });
+
+  it("is unchanged when nothing is applied", () => {
+    render(<SearchResultsEmptyState modeId="documents" query="lithium monitoring" onTryExample={vi.fn()} />);
+
+    expect(screen.getByText("No matches for “lithium monitoring”")).toBeVisible();
+    // No `onCrossMode` here, so no mode buttons render and the copy must not
+    // name one. The body describes the controls actually on the panel.
+    expect(screen.getByText("Try one of the examples below.")).toBeVisible();
+    expect(screen.queryByTestId("search-results-empty-remove-filter")).toBeNull();
+    expect(screen.queryByTestId("search-results-empty-clear-filters")).toBeNull();
+    expect(screen.getByRole("button", { name: /^Try:/ }).parentElement).not.toHaveClass("border-t");
+  });
+
+  it("offers no Clear all for a single filter, because Remove already is one", () => {
+    render(
+      <SearchResultsEmptyState
+        modeId="documents"
+        query="lithium monitoring"
+        appliedFilters={[filters[0]]}
+        onClearFilters={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No documents match the selected filter")).toBeVisible();
+    expect(screen.getByTestId("search-results-empty-remove-filter")).toBeVisible();
+    expect(screen.queryByTestId("search-results-empty-clear-filters")).toBeNull();
+  });
+
+  it("announces query-only emptiness and offers a clear-search recovery", async () => {
+    const user = userEvent.setup();
+    const onClearSearch = vi.fn();
+
+    render(
+      <SearchResultsEmptyState modeId="therapy-compass" query="unmatched therapy" onClearSearch={onClearSearch} />,
+    );
+
+    // Queried by text, not by role. The panel keeps a bare `aria-live` region
+    // (populated after mount) rather than `role="status"`: the band already
+    // owns that role on every search route, and a second one made singular
+    // `getByRole("status")` queries across the suite ambiguous.
+    expect(screen.getByText("No matches for “unmatched therapy”")).toBeVisible();
+    // `searchCommandSurfaceByMode` is a `Partial<Record<…>>` with no
+    // therapy-compass entry, so this mode has neither an example nor a
+    // cross-mode route. The body must not tell the reader to "try an example, or
+    // jump to another mode" when the panel renders no control for either.
+    expect(screen.getByText("Check the spelling, or try a broader term.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /^Try:/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Search in / })).toBeNull();
+
+    // The escape hatch sits on the tap floor. It shipped at 36px, which was
+    // survivable while these were secondary actions and is not now that they are
+    // the only offered way out of a zero result — on this mode `Clear search` is
+    // the whole recovery. jsdom cannot measure it, so pin the utility.
+    expect(screen.getByTestId("search-results-empty-clear-search")).toHaveClass("min-h-tap");
+
+    await user.click(screen.getByTestId("search-results-empty-clear-search"));
+    expect(onClearSearch).toHaveBeenCalledTimes(1);
   });
 });

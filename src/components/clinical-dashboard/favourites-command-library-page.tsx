@@ -32,6 +32,7 @@ import {
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, EmptyState } from "@/components/ui-primitives";
+import { Chip, type ChipAppearance } from "@/components/ui/chip";
 import {
   favouriteItems as prototypeFavouriteItems,
   favouriteSets as prototypeFavouriteSets,
@@ -80,20 +81,15 @@ type FavouriteSet = {
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-const typeStyles: Record<FavouriteType, string> = {
-  Medication:
-    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-  Document:
-    "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]",
-  Table: "border-[color:var(--type-table-border)] bg-[color:var(--type-table-soft)] text-[color:var(--type-table)]",
-  "Saved search":
-    "border-[color:var(--type-search-border)] bg-[color:var(--type-search-soft)] text-[color:var(--type-search)]",
-  Source: "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
-  Service:
-    "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
-  Form: "border-[color:var(--type-form-border)] bg-[color:var(--type-form-soft)] text-[color:var(--type-form)]",
-  Differential:
-    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+const typeAppearance: Record<FavouriteType, ChipAppearance> = {
+  Medication: { kind: "information", tone: "accent" },
+  Document: { kind: "category", tone: "document" },
+  Table: { kind: "category", tone: "table" },
+  "Saved search": { kind: "category", tone: "search" },
+  Source: { kind: "category", tone: "source" },
+  Service: { kind: "category", tone: "service" },
+  Form: { kind: "category", tone: "form" },
+  Differential: { kind: "information", tone: "accent" },
 };
 
 const lastUsedByItemId: Record<string, string> = {
@@ -289,16 +285,11 @@ function MiniIconTile({
   );
 }
 
-function SmallChip({ children, className }: { children: React.ReactNode; className?: string }) {
+function SmallChip({ children, appearance }: { children: React.ReactNode; appearance: ChipAppearance }) {
   return (
-    <span
-      className={cn(
-        "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-2xs font-semibold leading-none",
-        className,
-      )}
-    >
+    <Chip size="compact" appearance={appearance}>
       {children}
-    </span>
+    </Chip>
   );
 }
 
@@ -526,7 +517,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
             role="menuitem"
             disabled
             title="Coming soon"
-            className="flex min-h-tap w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text-soft)]"
+            className="flex min-h-tap w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--disabled)]"
           >
             <Folder className="h-4 w-4" aria-hidden />
             Move to set
@@ -555,11 +546,9 @@ function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
           {item.description}
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
+          <SmallChip appearance={typeAppearance[item.type]}>{item.type}</SmallChip>
           {isSourceBacked(item) ? (
-            <SmallChip className="border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]">
-              Source-backed
-            </SmallChip>
+            <SmallChip appearance={{ kind: "status", tone: "success" }}>Source-backed</SmallChip>
           ) : null}
         </div>
       </div>
@@ -601,7 +590,13 @@ function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
 // so the shared primitive's polite announcement is the right default here.
 function FavouritesEmptyMatches() {
   return (
-    <EmptyState icon={Search} title="No favourites match" body="Clear filters or search to show saved clinical work." />
+    <EmptyState
+      icon={Search}
+      title="No favourites match"
+      body="Clear filters or search to show saved clinical work."
+      testId="favourites-empty-matches"
+      live="polite"
+    />
   );
 }
 
@@ -648,7 +643,7 @@ function FavouritesTable({
   return (
     <section className="min-w-0 max-w-full overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] px-3.5 py-2.5">
-        <p className="inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+        <p className="inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]">
           <Heart className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
           <span className="nums font-bold text-[color:var(--text-heading)]">{tableRows.length}</span>
           {tableRows.length === 1 ? "item" : "items"}
@@ -670,13 +665,13 @@ function FavouritesTable({
             </select>
             <ChevronDown
               aria-hidden="true"
-              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--text-soft)]"
+              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--decoration-soft)]"
             />
           </label>
         </div>
       </div>
 
-      <div className="hidden overflow-x-auto sm:block">
+      <div className={tableRows.length === 0 ? "hidden" : "hidden overflow-x-auto sm:block"}>
         <table aria-label="Saved favourites" className="w-full min-w-[34rem] table-fixed border-collapse text-left">
           <thead>
             <tr className="h-9 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -756,7 +751,7 @@ function FavouritesTable({
                     </Link>
                   </td>
                   <td className="px-3 align-middle">
-                    <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
+                    <SmallChip appearance={typeAppearance[item.type]}>{item.type}</SmallChip>
                   </td>
                   <td className="px-3 align-middle">
                     <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
@@ -799,33 +794,25 @@ function FavouritesTable({
                 </tr>
               );
             })}
-            {tableRows.length === 0 ? (
-              <tr>
-                {/* Compact (workspace open) always hides Evidence, so stay at 5 columns.
-                    Otherwise Evidence appears only from 2xl, so span 5 below 2xl and 6 at 2xl+. */}
-                {(compact
-                  ? [{ colSpan: 5, className: "px-4 py-10 text-center" }]
-                  : [
-                      { colSpan: 5, className: "px-4 py-10 text-center 2xl:hidden" },
-                      { colSpan: 6, className: "hidden px-4 py-10 text-center 2xl:table-cell" },
-                    ]
-                ).map(({ colSpan, className }) => (
-                  <td key={`${compact ? "compact" : "full"}-${colSpan}`} colSpan={colSpan} className={className}>
-                    <FavouritesEmptyMatches />
-                  </td>
-                ))}
-              </tr>
-            ) : null}
           </tbody>
         </table>
       </div>
 
-      <div className="grid min-w-0 gap-3 bg-[color:var(--surface-wash)] p-3 sm:hidden">
+      <div
+        className={
+          tableRows.length === 0 ? "hidden" : "grid min-w-0 gap-3 bg-[color:var(--surface-wash)] p-3 sm:hidden"
+        }
+      >
         {tableRows.map((item) => (
           <FavouriteMobileCard key={item.id} item={item} />
         ))}
-        {tableRows.length === 0 ? <FavouritesEmptyMatches /> : null}
       </div>
+
+      {tableRows.length === 0 ? (
+        <div className="bg-[color:var(--surface-wash)] p-3 sm:p-4">
+          <FavouritesEmptyMatches />
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -862,11 +849,9 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
           <div className="min-w-0 flex-1">
             <h3 className="text-lg-minus font-bold leading-tight text-[color:var(--text-heading)]">{item.title}</h3>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
+              <SmallChip appearance={typeAppearance[item.type]}>{item.type}</SmallChip>
               {isSourceBacked(item) ? (
-                <SmallChip className="border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]">
-                  Source-backed
-                </SmallChip>
+                <SmallChip appearance={{ kind: "status", tone: "success" }}>Source-backed</SmallChip>
               ) : null}
             </div>
           </div>
@@ -988,7 +973,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
               type="button"
               disabled
               title="Coming soon"
-              className="inline-flex h-9 cursor-not-allowed items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-soft)]"
+              className="inline-flex h-9 cursor-not-allowed items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--disabled)]"
             >
               <Folder className="h-4 w-4" aria-hidden />
               Move to set

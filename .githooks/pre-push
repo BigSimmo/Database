@@ -1,12 +1,15 @@
 #!/bin/sh
-# Pre-push safety net. Delegates to scripts/guard-push.mjs, which runs the
-# auto-merge race sentinel, format-before-push, and drift-manifest freshness
-# guards. Each guard has an explicit override env var (see the script header).
+# Pre-push safety net. Delegates to scripts/guard-push.mjs, which runs four
+# guards: auto-merge race sentinel, format-before-push, drift-manifest
+# freshness, and static gate (lint + source typecheck). Each guard has an
+# explicit override env var (see the script header) — including
+# SKIP_STATIC_GUARD=1 for the static gate.
 #
 # Installed by scripts/install-git-hooks.mjs via `git config core.hooksPath
 # .githooks` (run automatically on npm install/ci). Git passes the pushed refs
 # on stdin as "<localRef> <localSha> <remoteRef> <remoteSha>" lines, which the
-# script reads to scope the format and drift checks to what is actually pushed.
+# script reads to scope the format, drift, and static checks to what is
+# actually pushed.
 #
 # Set GUARD_PUSH_DISABLE=1 to bypass every guard at once (individual guards also
 # have their own override flags).

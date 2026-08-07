@@ -9,7 +9,6 @@ import {
   FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
-  FormulationSubnav,
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
@@ -117,7 +116,7 @@ function FormulationHome() {
 function EmptySearchResults({ query }: { query: string }) {
   return (
     <div className={cn(formulationCard, "grid justify-items-center gap-3 px-5 py-12 text-center")}>
-      <span className="grid h-12 w-12 place-items-center rounded-xl bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]">
+      <span className="grid h-12 w-12 place-items-center rounded-xl bg-[color:var(--surface-subtle)] text-[color:var(--decoration-soft)]">
         <Search className="h-6 w-6" aria-hidden />
       </span>
       <div className="grid gap-1">
@@ -153,10 +152,7 @@ function FormulationResults({ query }: { query: string }) {
 
   return (
     <FormulationPageShell>
-      <div className="grid gap-3">
-        <FormulationBreadcrumbs />
-        <FormulationSubnav active="search" />
-      </div>
+      <FormulationBreadcrumbs />
 
       <SearchResultsHeaderBand
         modeId="formulation"

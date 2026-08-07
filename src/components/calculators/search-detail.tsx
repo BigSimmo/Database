@@ -113,16 +113,16 @@ function CalculatorResultCard({
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{calc.abbrev}</span>
-            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
               {domainLabels[calc.domain]}
             </span>
           </span>
-          <span className="mt-0.5 block truncate text-2xs font-semibold leading-4 text-[color:var(--text-soft)]">
+          <span className="mt-0.5 block truncate text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
             {calc.name}
           </span>
         </span>
         <ArrowUpRight
-          className="size-icon-md shrink-0 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+          className="size-icon-md shrink-0 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
           aria-hidden="true"
         />
       </span>
@@ -167,15 +167,15 @@ function CalculatorResultRow({
       <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{calc.abbrev}</span>
-          <span className="truncate text-2xs font-semibold text-[color:var(--text-soft)]">{calc.name}</span>
+          <span className="truncate text-2xs font-semibold text-[color:var(--text-muted)]">{calc.name}</span>
           <StartedChip derived={derived} />
         </span>
         <span className="mt-0.5 block truncate text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
           {calc.indication}
         </span>
         {context ? (
-          <span className="mt-1 flex min-w-0 items-center gap-1.5 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-            <Search className="size-icon-xs shrink-0" aria-hidden="true" />
+          <span className="mt-1 flex min-w-0 items-center gap-1.5 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            <Search className="size-icon-xs shrink-0 text-[color:var(--decoration-soft)]" aria-hidden="true" />
             <span className="truncate">
               Matches item: <span className="italic">“{context}”</span>
             </span>
@@ -183,7 +183,7 @@ function CalculatorResultRow({
         ) : null}
       </span>
       <ArrowRight
-        className="size-icon-md shrink-0 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+        className="size-icon-md shrink-0 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
         aria-hidden="true"
       />
     </button>
@@ -250,7 +250,7 @@ export function CalculatorSearchHome({
         }}
         className={cn(chatComposerShell, "mx-auto w-full max-w-2xl")}
       >
-        <span className="grid size-tap shrink-0 place-items-center text-[color:var(--text-soft)]">
+        <span className="grid size-tap shrink-0 place-items-center text-[color:var(--decoration-soft)]">
           <Search className="size-icon-lg" aria-hidden="true" />
         </span>
         <input
@@ -363,7 +363,7 @@ export function CalculatorSearchHome({
         </section>
       )}
 
-      <p className="text-center text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
+      <p className="text-center text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
         Scores support clinical judgement — they never replace a full assessment. Nothing entered here is stored.
       </p>
     </main>
@@ -382,7 +382,7 @@ export function NextActionsPanel({ calc, derived }: { calc: CalculatorFixture; d
     >
       <div className="flex items-center justify-between gap-2">
         <h2 className={cn(eyebrowText, "text-[color:var(--text-muted)]")}>Next clinical actions</h2>
-        <span className="inline-flex min-h-5 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--clinical-accent)]">
+        <span className="inline-flex min-h-5 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">
           <Sparkles className="size-icon-xs" aria-hidden="true" />
           Score-linked
         </span>
@@ -415,7 +415,7 @@ export function NextActionsPanel({ calc, derived }: { calc: CalculatorFixture; d
                     {action.label}
                   </span>
                   {action.detail ? (
-                    <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
+                    <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
                       {action.detail}
                     </span>
                   ) : null}
@@ -424,7 +424,7 @@ export function NextActionsPanel({ calc, derived }: { calc: CalculatorFixture; d
             ))}
           </ol>
           {derived.band ? (
-            <p className="flex flex-wrap items-center gap-1.5 border-t border-[color:var(--border)] pt-2.5 text-2xs font-semibold text-[color:var(--text-soft)]">
+            <p className="flex flex-wrap items-center gap-1.5 border-t border-[color:var(--border)] pt-2.5 text-2xs font-semibold text-[color:var(--text-muted)]">
               For
               <SeverityPill tone={derived.result.tone} label={derived.result.label} />— updates automatically as the
               score changes.
@@ -460,7 +460,7 @@ export function RelatedContentPanel({
     <>
       <span
         className={cn(
-          "inline-flex min-h-5 w-[4.75rem] items-center justify-center rounded-md border px-1.5 text-3xs font-bold uppercase tracking-[0.05em]",
+          "inline-flex min-h-5 w-[4.75rem] items-center justify-center rounded-md border px-1.5 text-3xs font-bold uppercase tracking-label",
           relatedKindChip[item.kind],
         )}
       >
@@ -471,12 +471,12 @@ export function RelatedContentPanel({
           {item.title}
         </span>
         {item.note ? (
-          <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
+          <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
             {item.note}
           </span>
         ) : null}
       </span>
-      <ArrowRight className="size-icon-sm shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
+      <ArrowRight className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" aria-hidden="true" />
     </>
   );
 
@@ -505,7 +505,7 @@ export function RelatedContentPanel({
         )}
       </div>
       {moreAtHigherSeverity ? (
-        <p className="text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
+        <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
           More referral and treatment content surfaces at higher severity bands.
         </p>
       ) : null}
@@ -532,24 +532,24 @@ export function ScorePanel({
           <p className={cn(eyebrowText, "text-[color:var(--text-muted)]")}>Score</p>
           <p className="font-mono text-2xl font-extrabold tabular-nums leading-8 text-[color:var(--text-heading)]">
             {derived.started ? derived.score : "—"}
-            <span className="text-sm font-bold text-[color:var(--text-soft)]"> / {calc.maxScore}</span>
+            <span className="text-sm font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
           </p>
         </div>
         <SeverityPill tone={derived.result.tone} label={derived.started ? derived.result.label : "Not started"} />
       </div>
       <ScoreBandBar calc={calc} score={derived.score} started={derived.started} />
-      <p className="text-2xs font-semibold leading-4 text-[color:var(--text-soft)]">{progressLabel(derived)}</p>
+      <p className="text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">{progressLabel(derived)}</p>
       <BandLegend calc={calc} activeBand={derived.started ? derived.band : undefined} />
       <div className="grid gap-2 border-t border-[color:var(--border)] pt-3">
-        <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-1.5 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-          <Info className="mt-0.5 size-icon-xs shrink-0" aria-hidden="true" />
+        <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-1.5 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+          <Info className="mt-0.5 size-icon-xs shrink-0 text-[color:var(--decoration-soft)]" aria-hidden="true" />
           {calc.scoringNote}
         </p>
         <div className="flex items-center justify-between gap-2">
           <CopyResultButton calc={calc} state={derived} />
           <ResetButton onReset={onReset} disabled={!derived.started} />
         </div>
-        <p className="font-mono text-3xs font-semibold text-[color:var(--text-soft)]">{calc.source}</p>
+        <p className="font-mono text-3xs font-semibold text-[color:var(--text-muted)]">{calc.source}</p>
       </div>
     </section>
   );
@@ -567,11 +567,11 @@ export function CalculatorDetailHeader({ calc }: { calc: CalculatorFixture }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl-minus font-extrabold leading-7 text-[color:var(--text-heading)]">{calc.abbrev}</h1>
-            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
               {domainLabels[calc.domain]}
             </span>
           </div>
-          <p className="mt-0.5 text-sm-minus font-semibold text-[color:var(--text-soft)]">{calc.name}</p>
+          <p className="mt-0.5 text-sm-minus font-semibold text-[color:var(--text-muted)]">{calc.name}</p>
         </div>
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -634,7 +634,7 @@ function CalculatorDetail({
         <div className="flex items-center justify-between gap-2">
           <span className="font-mono text-lg font-extrabold tabular-nums text-[color:var(--text-heading)]">
             {derived.started ? derived.score : "—"}
-            <span className="text-sm-minus font-bold text-[color:var(--text-soft)]"> / {calc.maxScore}</span>
+            <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
           </span>
           <SeverityPill tone={derived.result.tone} label={derived.started ? derived.result.label : "Not started"} />
         </div>

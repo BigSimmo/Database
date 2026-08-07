@@ -33,7 +33,7 @@ import {
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { cn, EmptyState } from "@/components/ui-primitives";
-import { Chip, type ChipTone } from "@/components/ui/chip";
+import { Chip, type ChipStatusTone } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -211,7 +211,7 @@ function ToolIcon({ app, size = "md" }: { app: LauncherApp; size?: "sm" | "md" |
 // are the design system's, so this no longer carries a second copy of the recipe.
 type StatusChipTone = "neutral" | "source" | "safety" | "high";
 
-const statusChipTone: Record<StatusChipTone, ChipTone> = {
+const statusChipTone: Record<StatusChipTone, ChipStatusTone> = {
   neutral: "neutral",
   source: "success",
   safety: "warning",
@@ -225,7 +225,7 @@ const statusChipIcon: Partial<Record<StatusChipTone, LucideIcon>> = {
 
 function StatusChip({ label, tone = "neutral" }: { label: string; tone?: StatusChipTone }) {
   return (
-    <Chip tone={statusChipTone[tone]} icon={statusChipIcon[tone]}>
+    <Chip appearance={{ kind: "status", tone: statusChipTone[tone] }} icon={statusChipIcon[tone]}>
       {label}
     </Chip>
   );
@@ -356,7 +356,7 @@ function QuickActions({
                 {mobile ? action.label : action.desktopLabel}
               </span>
               {!mobile ? (
-                <span className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                <span className="mt-0.5 block text-xs font-medium leading-4 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
                   {app.bestFor}
                 </span>
               ) : null}
@@ -452,7 +452,7 @@ function ToolCard({
       <ToolIcon app={app} size="lg" />
       <span className="min-w-0">
         <span className="block text-base font-extrabold leading-5 text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="mt-2 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+        <span className="mt-2 block text-sm font-medium leading-5 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
           {app.description}
         </span>
         <span className="mt-3 block text-xs font-bold text-[color:var(--text-heading)]">
@@ -499,7 +499,7 @@ function MobileToolRow({
       <ToolIcon app={app} size="sm" />
       <span className="min-w-0">
         <span className="block truncate text-sm font-extrabold text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="mt-1 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
+        <span className="mt-1 block text-xs font-medium leading-4 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
           {app.description}
         </span>
       </span>
@@ -611,7 +611,7 @@ function MobileDetailSections({ app }: { app: LauncherApp }) {
               <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{label}</span>
               <ChevronRight
                 className={cn(
-                  "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                  "h-4 w-4 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
                   expanded && "rotate-90",
                 )}
                 aria-hidden
@@ -866,7 +866,7 @@ export function ApplicationsLauncherWorkspace({
             // The filter/query that empties this list is applied without a navigation,
             // so the state is introduced dynamically and keeps EmptyState's polite
             // announcement rather than appearing silently.
-            <EmptyState icon={Search} title={copy.emptyTitle} body={copy.emptyBody} />
+            <EmptyState icon={Search} title={copy.emptyTitle} body={copy.emptyBody} live="polite" />
           ) : (
             <>
               <div className="hidden grid-cols-2 gap-4 lg:grid xl:grid-cols-3">

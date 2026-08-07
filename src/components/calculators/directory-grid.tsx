@@ -48,18 +48,18 @@ function ExpandedCalculator({
       <aside className="grid h-fit content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-inset)] lg:sticky lg:top-4">
         <div className="flex items-end justify-between gap-2">
           <div>
-            <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]">
+            <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
               Score
             </p>
             <p className="font-mono text-2xl font-extrabold tabular-nums leading-8 text-[color:var(--text-heading)]">
               {state.started ? state.score : "—"}
-              <span className="text-sm font-bold text-[color:var(--text-soft)]"> / {calc.maxScore}</span>
+              <span className="text-sm font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
             </p>
           </div>
           <SeverityPill tone={state.result.tone} label={state.started ? state.result.label : "Not started"} />
         </div>
         <ScoreBandBar calc={calc} score={state.score} started={state.started} />
-        <p className="text-2xs font-semibold leading-4 text-[color:var(--text-soft)]">{progressLabel(state)}</p>
+        <p className="text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">{progressLabel(state)}</p>
         {state.started && state.result.guidance ? (
           <p className="rounded-md bg-[color:var(--surface-inset)] p-2.5 text-sm-minus font-medium leading-5 text-[color:var(--text)]">
             {state.result.guidance}
@@ -68,8 +68,8 @@ function ExpandedCalculator({
         <FlagNotice flags={state.flags} />
         <BandLegend calc={calc} activeBand={state.started ? state.band : undefined} />
         <div className="grid gap-2 border-t border-[color:var(--border)] pt-3">
-          <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-1.5 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-            <Info className="mt-0.5 size-icon-xs shrink-0" aria-hidden="true" />
+          <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-1.5 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            <Info className="mt-0.5 size-icon-xs shrink-0 text-[color:var(--decoration-soft)]" aria-hidden="true" />
             {calc.scoringNote}
           </p>
           {calc.caution ? (
@@ -79,7 +79,7 @@ function ExpandedCalculator({
             <CopyResultButton calc={calc} state={state} />
             <ResetButton onReset={() => onAnswersChange({})} disabled={!state.started} />
           </div>
-          <p className="font-mono text-3xs font-semibold text-[color:var(--text-soft)]">{calc.source}</p>
+          <p className="font-mono text-3xs font-semibold text-[color:var(--text-muted)]">{calc.source}</p>
         </div>
       </aside>
     </div>
@@ -132,11 +132,11 @@ function CalculatorCard({
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{calc.abbrev}</span>
-            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
               {domainLabels[calc.domain]}
             </span>
           </span>
-          <span className="mt-0.5 block truncate text-2xs font-semibold leading-4 text-[color:var(--text-soft)]">
+          <span className="mt-0.5 block truncate text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
             {calc.name}
           </span>
           <span className="mt-2 block text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
@@ -148,7 +148,7 @@ function CalculatorCard({
             "relative grid size-8 shrink-0 place-items-center rounded-md border transition before:absolute before:-inset-2 before:content-['']",
             open
               ? "rotate-180 border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]",
+              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--decoration-soft)]",
           )}
         >
           <ChevronDown className="size-icon-md" aria-hidden="true" />
@@ -214,7 +214,7 @@ export function CalculatorsDirectoryGridMockup() {
             onSubmit={(event) => event.preventDefault()}
             className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-tight)]"
           >
-            <Search className="size-icon-lg text-[color:var(--text-soft)]" aria-hidden="true" />
+            <Search className="size-icon-lg text-[color:var(--decoration-soft)]" aria-hidden="true" />
             <input
               type="search"
               value={query}
@@ -271,7 +271,7 @@ export function CalculatorsDirectoryGridMockup() {
 
         <section aria-label="Planned calculators" className="grid gap-3">
           <div className="flex items-center gap-2">
-            <BookOpen className="size-icon-md text-[color:var(--text-soft)]" aria-hidden="true" />
+            <BookOpen className="size-icon-md text-[color:var(--decoration-soft)]" aria-hidden="true" />
             <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Coming next</h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
@@ -282,13 +282,13 @@ export function CalculatorsDirectoryGridMockup() {
                   key={planned.abbrev}
                   className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] p-3"
                 >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--decoration-soft)]">
                     <Icon className="size-icon-md" aria-hidden="true" />
                   </span>
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
                       <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{planned.abbrev}</span>
-                      <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                      <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
                         Planned
                       </span>
                     </span>
@@ -302,8 +302,11 @@ export function CalculatorsDirectoryGridMockup() {
           </div>
         </section>
 
-        <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-          <ShieldCheck className="mt-0.5 size-icon-sm shrink-0" aria-hidden="true" />
+        <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+          <ShieldCheck
+            className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--decoration-soft)]"
+            aria-hidden="true"
+          />
           Scores support clinical judgement — they never replace a full assessment. Nothing entered here is stored.
         </p>
       </main>

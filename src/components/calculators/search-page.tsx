@@ -214,14 +214,14 @@ function CalculatorTile({
       <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{calc.abbrev}</span>
-          <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+          <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
             {domainLabels[calc.domain]}
           </span>
           {derived.started ? (
             <SeverityPill tone={derived.result.tone} label={`${derived.score} · ${derived.result.label}`} />
           ) : null}
         </span>
-        <span className="mt-0.5 block truncate text-2xs font-semibold leading-4 text-[color:var(--text-soft)]">
+        <span className="mt-0.5 block truncate text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
           {calc.name}
         </span>
         {compact ? null : (
@@ -235,8 +235,8 @@ function CalculatorTile({
           {compact ? null : <MetaPill icon={Sigma} label={`${calc.minScore}–${calc.maxScore}`} />}
         </span>
         {context ? (
-          <span className="mt-2 flex min-w-0 items-center gap-1.5 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-            <Search className="size-icon-xs shrink-0" aria-hidden="true" />
+          <span className="mt-2 flex min-w-0 items-center gap-1.5 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            <Search className="size-icon-xs shrink-0 text-[color:var(--decoration-soft)]" aria-hidden="true" />
             <span className="truncate">
               Matches item: <span className="italic">“{context}”</span>
             </span>
@@ -245,7 +245,7 @@ function CalculatorTile({
       </span>
 
       <ArrowRight
-        className="size-icon-md shrink-0 self-center text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+        className="size-icon-md shrink-0 self-center text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
         aria-hidden="true"
       />
     </button>
@@ -310,7 +310,7 @@ function ResultsHeaderBand({
                   "grid size-9 place-items-center rounded-md transition",
                   active
                     ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "text-[color:var(--text-soft)] hover:text-[color:var(--text)]",
+                    : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
                   focusRing,
                 )}
               >
@@ -369,7 +369,7 @@ function DomainNav({
               <RowIcon
                 className={cn(
                   "size-icon-md",
-                  active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                  active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
                 )}
                 aria-hidden="true"
               />
@@ -381,7 +381,7 @@ function DomainNav({
               >
                 {row.label}
               </span>
-              <span className="font-mono text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">{count}</span>
+              <span className="font-mono text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">{count}</span>
             </button>
           );
         })}
@@ -419,11 +419,11 @@ function ContinuePanel({
             <span className="min-w-0">
               <span className="block truncate text-sm-minus font-bold text-[color:var(--text-heading)]">
                 {calc.abbrev}
-                <span className="ml-1.5 font-mono tabular-nums text-[color:var(--text-soft)]">
+                <span className="ml-1.5 font-mono tabular-nums text-[color:var(--text-muted)]">
                   {derived.score}/{calc.maxScore}
                 </span>
               </span>
-              <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+              <span className="block truncate text-2xs font-semibold text-[color:var(--text-muted)]">
                 {progressLabel(derived)} · {derived.result.label}
               </span>
             </span>
@@ -442,11 +442,11 @@ function AboutPanel() {
         <Info className="size-icon-sm text-[color:var(--clinical-accent)]" aria-hidden="true" />
         About these tools
       </h2>
-      <p className="text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
+      <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
         Scores support clinical judgement — they never replace a full assessment. Every calculator cites its source and
         maps its result to next clinical actions. Nothing you enter is stored.
       </p>
-      <p className="text-2xs font-semibold leading-4 text-[color:var(--text-soft)]">
+      <p className="text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
         {plannedCalculators.length} more calculators (CIWA-Ar, EPDS, COWS) are coming next.
       </p>
     </section>
@@ -572,7 +572,7 @@ export function CalculatorsSearchPage() {
           dockHidden && "max-sm:pb-0",
         )}
         header={
-          <div className="grid gap-3">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
             {/* Desktop: universal-style composer at the top, matching the site-wide
                 search header. Phones get the docked bottom composer below. */}
             <div className="hidden sm:block">
@@ -660,7 +660,7 @@ export function CalculatorsSearchPage() {
           </div>
         ) : (
           <div className="grid justify-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-8 text-center">
-            <span className="grid size-tap place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]">
+            <span className="grid size-tap place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--decoration-soft)]">
               <Search className="size-icon-lg" aria-hidden="true" />
             </span>
             <p className="text-base font-bold text-[color:var(--text-heading)]">

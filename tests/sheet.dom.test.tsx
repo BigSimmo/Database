@@ -1,4 +1,7 @@
-import { render, waitFor } from "@testing-library/react";
+import { useRef, useState } from "react";
+
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Sheet } from "@/components/ui/sheet";
@@ -47,6 +50,91 @@ function Stacked({
 
 function pressEscape() {
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+}
+
+function DetachedResolverFallbackHarness() {
+  const [open, setOpen] = useState(false);
+  const [showResolverTarget, setShowResolverTarget] = useState(false);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+  const staleResolverTargetRef = useRef<HTMLButtonElement | null>(null);
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={openerRef}
+        onClick={() => {
+          setShowResolverTarget(true);
+          setOpen(true);
+        }}
+      >
+        Open sheet
+      </button>
+      {showResolverTarget ? (
+        <button
+          type="button"
+          ref={(element) => {
+            if (element) staleResolverTargetRef.current = element;
+          }}
+        >
+          Stale resolver target
+        </button>
+      ) : null}
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Return focus"
+        returnFocusRef={openerRef}
+        resolveReturnFocusTarget={() => staleResolverTargetRef.current}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setShowResolverTarget(false);
+            setOpen(false);
+          }}
+        >
+          Close sheet
+        </button>
+      </Sheet>
+    </>
+  );
+}
+
+function DynamicReturnFocusHarness() {
+  const [open, setOpen] = useState(false);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+  const updatedTargetRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={openerRef}
+        onClick={() => {
+          returnFocusRef.current = openerRef.current;
+          setOpen(true);
+        }}
+      >
+        Open sheet
+      </button>
+      <button type="button" ref={updatedTargetRef}>
+        Updated return target
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Dynamic return" returnFocusRef={returnFocusRef}>
+        <button
+          type="button"
+          onClick={() => {
+            returnFocusRef.current = updatedTargetRef.current;
+            setOpen(false);
+          }}
+        >
+          Close to updated target
+        </button>
+      </Sheet>
+    </>
+  );
 }
 
 describe("Sheet stacked-overlay coordination", () => {
@@ -133,6 +221,24 @@ describe("Sheet stacked-overlay coordination", () => {
     expect(classes).not.toContain("sm:max-h-[88dvh]");
   });
 
+  it("keeps the dialog mounted in production when the title resolves empty", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const { getByRole, queryByRole } = render(
+        // Callers can satisfy `title: string` with "" from fetched data.
+        <Sheet open onClose={() => {}} title={"" as string} portal testId="unnamed-sheet">
+          <p>Recoverable body</p>
+        </Sheet>,
+      );
+
+      expect(queryByRole("dialog")).not.toBeNull();
+      expect(getByRole("dialog")).toHaveAttribute("aria-label", "Dialog");
+      expect(getByRole("dialog")).toHaveTextContent("Recoverable body");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("upgrades from the close-button fallback to a late-mounted data-sheet-autofocus target", async () => {
     const onClose = vi.fn();
     const { rerender } = render(
@@ -160,5 +266,29 @@ describe("Sheet stacked-overlay coordination", () => {
       expect(findField).not.toBeNull();
       expect(document.activeElement).toBe(findField);
     });
+  });
+
+  it("falls back to returnFocusRef when a resolver target has detached", async () => {
+    const user = userEvent.setup();
+    render(<DetachedResolverFallbackHarness />);
+
+    const opener = screen.getByRole("button", { name: "Open sheet" });
+    await user.click(opener);
+    await waitFor(() => expect(document.body.style.overflow).toBe("hidden"));
+
+    await user.click(screen.getByRole("button", { name: "Close sheet" }));
+
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("reads returnFocusRef at close time so callers can retarget focus", async () => {
+    const user = userEvent.setup();
+    render(<DynamicReturnFocusHarness />);
+
+    await user.click(screen.getByRole("button", { name: "Open sheet" }));
+    await waitFor(() => expect(document.body.style.overflow).toBe("hidden"));
+    await user.click(screen.getByRole("button", { name: "Close to updated target" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Updated return target" })).toHaveFocus());
   });
 });

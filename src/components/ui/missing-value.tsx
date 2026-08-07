@@ -1,4 +1,5 @@
 import { cn } from "@/components/ui-primitives";
+import { createBoundedDiagnosticRecorder } from "@/components/ui/design-system-diagnostics";
 
 /**
  * COMPONENTS §3. In clinical data a bare dash reads as a negative result: an
@@ -24,21 +25,21 @@ const PHRASES: Record<MissingValueReason, string> = {
   extraction_failed: "Unable to extract",
 };
 
-const loggedUnknownReasons = new Set<string>();
+const recordUnknownReason = createBoundedDiagnosticRecorder({
+  emit: (message) => {
+    if (typeof process === "undefined" || process.env?.NODE_ENV !== "test") console.warn(message);
+  },
+});
 
 /** Enum resilience per SPEC §7: an unrecognised reason renders `Unknown` and never throws. */
 export function missingValuePhrase(reason: MissingValueReason): string {
   const phrase = Object.hasOwn(PHRASES, reason) ? PHRASES[reason] : undefined;
   if (typeof phrase === "string") return phrase;
   const key = String(reason);
-  if (!loggedUnknownReasons.has(key)) {
-    loggedUnknownReasons.add(key);
-    if (typeof process === "undefined" || process.env?.NODE_ENV !== "test") {
-      console.warn(
-        JSON.stringify({ level: "warn", message: "missing-value: unrecognized reason", field: "reason", value: key }),
-      );
-    }
-  }
+  recordUnknownReason(
+    key,
+    JSON.stringify({ level: "warn", message: "missing-value: unrecognized reason", field: "reason", value: key }),
+  );
   return PHRASES.unknown;
 }
 

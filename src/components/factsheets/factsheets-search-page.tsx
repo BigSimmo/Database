@@ -51,7 +51,7 @@ export function FactsheetsSearchPage({
       data-testid="factsheets-search-page"
       className="mx-auto w-full max-w-[64rem] px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:px-8"
     >
-      <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--clinical-accent)]">Find a sheet</p>
+      <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">Find a sheet</p>
       <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
         Search patient information
       </h1>
@@ -107,7 +107,7 @@ export function FactsheetsSearchPage({
         }
         filterControls={
           <div className="polished-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto">
-            <span className="hidden shrink-0 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)] sm:inline">
+            <span className="hidden shrink-0 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)] sm:inline">
               Category
             </span>
             {filterChips.map((chip) => {
@@ -134,7 +134,7 @@ export function FactsheetsSearchPage({
 
       {results.length === 0 ? (
         <section className="mt-4 grid justify-items-center gap-3 rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] px-4 py-12 text-center">
-          <span className="grid h-12 w-12 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]">
+          <span className="grid h-12 w-12 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--decoration-soft)]">
             <SearchX className="h-6 w-6" aria-hidden="true" />
           </span>
           <div>
@@ -188,12 +188,12 @@ export function FactsheetsSearchPage({
                   <span className="mt-1 block max-w-2xl text-pretty text-sm-minus leading-5 text-[color:var(--text-muted)]">
                     {sheet.summary}
                   </span>
-                  <span className="mt-2 block text-xs font-bold text-[color:var(--text-soft)]">
+                  <span className="mt-2 block text-xs font-bold text-[color:var(--text-muted)]">
                     {sheet.audience} · {sheet.readTime}
                   </span>
                 </span>
                 <ChevronRight
-                  className="h-5 w-5 shrink-0 self-center text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
+                  className="h-5 w-5 shrink-0 self-center text-[color:var(--decoration-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
                   aria-hidden="true"
                 />
               </Link>
@@ -235,7 +235,7 @@ export function FactsheetsSearchPage({
                 <p className="mt-2 flex-1 text-pretty text-sm-minus leading-5 text-[color:var(--text-muted)]">
                   {sheet.summary}
                 </p>
-                <p className="mt-3.5 text-xs font-bold text-[color:var(--text-soft)]">
+                <p className="mt-3.5 text-xs font-bold text-[color:var(--text-muted)]">
                   {sheet.audience} · {sheet.readTime}
                 </p>
               </Link>

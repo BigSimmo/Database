@@ -13,16 +13,19 @@ import {
   gitCheckoutFreshness,
   localGitBaseline,
   obsoleteNpmProxyVariables,
+  hostedAppInventoryCapabilityLine,
+  parseHostedAppInventoryArgument,
   parseMcpServerMetadata,
   playwrightBrowserErrors,
   providerCredentialVariables,
   pythonWorkerImportError,
   pythonWorkerVersionLine,
   pythonWorkerImports,
-  railwayReadCapability,
   sanitizedCloudCapabilityLines,
   validateCodexCloudEnvironment,
   validateCodexProjectMcpConfiguration,
+  validateHostedAppInventory,
+  validateHostedAppInventoryArguments,
   validateMcpConfiguration,
 } from "../scripts/check-codex-cloud-setup.mjs";
 import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
@@ -154,12 +157,17 @@ describe("Codex Cloud environment contract", () => {
     const env: NodeJS.ProcessEnv = {
       NODE_ENV: "test",
       OPENAI_API_KEY: "never-print-this",
+      FIGMA_CLIENT_SECRET: "never-print-this-figma-secret",
       CROSS_TENANT_SERVICE_ROLE_KEY: "never-print-this-either",
       npm_config_https_proxy: "https://user:secret@example.test",
       HTTP_PROXY: "http://supported.example.test",
     };
 
-    expect(configuredProviderCredentialNames(env)).toEqual(["OPENAI_API_KEY", "CROSS_TENANT_SERVICE_ROLE_KEY"]);
+    expect(configuredProviderCredentialNames(env)).toEqual([
+      "OPENAI_API_KEY",
+      "CROSS_TENANT_SERVICE_ROLE_KEY",
+      "FIGMA_CLIENT_SECRET",
+    ]);
     expect(
       configuredProviderCredentialNames({
         CODEX_CLOUD_GITHUB_PAT: "never-print-this",
@@ -224,7 +232,6 @@ describe("Codex Cloud environment contract", () => {
           repositoryMatch: true,
           credentialsEmbedded: false,
         },
-        railwayCliAvailable: true,
         codexCliAvailable: true,
         safeGitHelper: true,
         checkout: {
@@ -248,8 +255,15 @@ describe("Codex Cloud environment contract", () => {
       },
     );
     const report = lines.join("\n");
+    expect(report).toContain("hosted_workspace.class_documented=personal-pro");
     expect(report).toContain("OPENAI_API_KEY.present=true");
-    expect(report).toContain("mcp.server=railway type=http command=none endpoint=https://mcp.railway.com/");
+    expect(report).toContain("hosted_app.inventory=external-unverified-until-fresh-task");
+    expect(report).toContain("provider_route.github=codex-native-connector");
+    expect(report).toContain("provider_route.railway=chatgpt-official-app");
+    expect(report).toContain("provider_route.supabase=chatgpt-project-scoped-read-only-app");
+    expect(report).toContain(
+      "desktop_cli_mcp.template=railway type=http command=none endpoint=https://mcp.railway.com/",
+    );
     expect(report).toContain(`git.head=${"a".repeat(40)}`);
     expect(report).toContain("git.expected_base_ancestor=true");
     expect(report).toContain("git.checkout_freshness=verified");
@@ -264,7 +278,6 @@ describe("Codex Cloud environment contract", () => {
         },
         {
           origin: { configured: true, repositoryMatch: true, credentialsEmbedded: false },
-          railwayCliAvailable: false,
           codexCliAvailable: false,
           safeGitHelper: false,
           checkout: {
@@ -279,16 +292,6 @@ describe("Codex Cloud environment contract", () => {
         },
       ),
     ).toContain("RAG_PROVIDER_MODE=invalid");
-  });
-
-  it("requires the Railway CLI and dedicated account token without substituting a project token", () => {
-    expect(railwayReadCapability({ RAILWAY_API_TOKEN: "configured" }, true).cliTokenAuthReady).toBe(true);
-    expect(railwayReadCapability({ RAILWAY_TOKEN: "configured" }, true)).toMatchObject({
-      dedicatedCredentialPresent: false,
-      projectCredentialPresent: true,
-      cliTokenAuthReady: false,
-    });
-    expect(railwayReadCapability({ RAILWAY_API_TOKEN: "configured" }, false).cliTokenAuthReady).toBe(false);
   });
 
   it("parses MCP transport metadata without query or environment values", () => {
@@ -335,10 +338,10 @@ describe("Codex Cloud environment contract", () => {
       "Supabase MCP must keep the production project read-only.",
     );
     expect(validateMcpConfiguration(valid.replace('"supabase":', '"unexpected":{},"supabase":'))).toContain(
-      "Cloud MCP configuration must contain only Railway and Supabase.",
+      "Desktop/CLI .mcp.json must contain only Railway and Supabase.",
     );
     expect(validateMcpConfiguration(valid.replace('"railway":{"type"', '"railway":{"headers":{},"type"'))).toContain(
-      "railway MCP must use hosted OAuth without embedded environment variables or headers.",
+      "railway MCP must use OAuth without embedded environment variables or headers.",
     );
     expect(validateMcpConfiguration(valid.replace("&read_only=true", "&read_only=true&token=forbidden"))).toContain(
       "Supabase MCP must not include additional query parameters.",
@@ -351,8 +354,13 @@ describe("Codex Cloud environment contract", () => {
   it("keeps project .codex/config.toml MCP registrations disabled and secret-free", () => {
     const tracked = readFileSync(new URL("../.codex/config.toml", import.meta.url), "utf8");
     expect(validateCodexProjectMcpConfiguration(tracked)).toEqual([]);
+    expect(
+      validateCodexProjectMcpConfiguration(tracked.replace("[mcp_servers.railway]", "[mcp_servers.railway_cloud]")),
+    ).toContain(
+      `.codex/config.toml must register exactly these MCP servers: figma_cloud, railway, sentry_cloud, supabase_cloud. unexpected: railway_cloud; missing: railway. Use the canonical railway template name; stale railway_cloud registrations are host-local OAuth apps and must not be reintroduced here.`,
+    );
     expect(validateCodexProjectMcpConfiguration(tracked.replaceAll("enabled = false", "enabled = true"))).toContain(
-      `.codex/config.toml figma_cloud must set enabled = false (host/connected layers opt in).`,
+      `.codex/config.toml figma_cloud must set enabled = false (opt in via $CODEX_HOME/config.toml or a never-committed local edit; do not commit enabled = true).`,
     );
     expect(
       validateCodexProjectMcpConfiguration(
@@ -434,6 +442,68 @@ describe("Codex Cloud environment contract", () => {
     ).toContain(`.codex/config.toml supabase_cloud must keep the production project read-only.`);
   });
 
+  it("rejects a stale Railway app from an explicitly supplied hosted inventory", () => {
+    const inventory = parseHostedAppInventoryArgument([
+      "--environment",
+      "--hosted-app-inventory=github,railway_cloud,supabase",
+    ]);
+    expect(inventory).toEqual(["github", "railway_cloud", "supabase"]);
+    expect(validateHostedAppInventory(inventory)).toContain(
+      "Hosted app inventory contains stale railway_cloud; remove or reconnect that host-local app, then start a fresh task and supply the new inventory.",
+    );
+    expect(validateHostedAppInventory(["github", "railway", "supabase"])).toEqual([]);
+    expect(validateHostedAppInventory(["GitHub", "Slack", "Linear"])).toEqual([]);
+    expect(validateHostedAppInventory(["github", "custom-app"])).toContain(
+      "Hosted app inventory contains unrecognized connector identifiers; update the checker allowlist before accepting them as evidence.",
+    );
+    const secretShaped = ["xoxb", "12345678"].join("-");
+    expect(validateHostedAppInventory(["github", secretShaped])).toContain(
+      "Hosted app inventory appears to contain a credential; supply connector names only, never tokens or secrets.",
+    );
+    const jwtShaped = [["eyJ", "abcdefgh"].join(""), "ijklmnop", "qrstuvwx"].join(".");
+    expect(validateHostedAppInventory(["github", jwtShaped])).toContain(
+      "Hosted app inventory appears to contain a credential; supply connector names only, never tokens or secrets.",
+    );
+    const capabilityLine = hostedAppInventoryCapabilityLine(["GitHub", "railway", "supabase", "Slack", "Linear"]);
+    expect(capabilityLine).toContain("hosted_app.inventory=provided count=5");
+    expect(capabilityLine).toContain("github=true");
+    expect(capabilityLine).toContain("railway=true");
+    expect(capabilityLine).toContain("supabase=true");
+    expect(capabilityLine).toContain("slack=true");
+    expect(capabilityLine).toContain("linear=true");
+    expect(capabilityLine).toContain("stale_railway_cloud=false");
+    expect(capabilityLine).toContain("unknown=0");
+    const leaked = hostedAppInventoryCapabilityLine(["github", secretShaped]);
+    expect(leaked).toContain("unknown=1");
+    expect(leaked).not.toContain(secretShaped);
+    expect(
+      sanitizedCloudCapabilityLines({}, { hostedAppInventory: ["github", secretShaped] }).join("\n"),
+    ).not.toContain(secretShaped);
+    expect(validateHostedAppInventoryArguments(["--hosted-app-inventory", "github,railway"])).toContain(
+      "Unsupported Cloud-check argument; hosted app inventory must use exactly --hosted-app-inventory=<comma-separated-apps>.",
+    );
+    expect(validateHostedAppInventoryArguments(["--hosted-app-inventroy=github,railway"])).toContain(
+      "Unsupported Cloud-check argument; hosted app inventory must use exactly --hosted-app-inventory=<comma-separated-apps>.",
+    );
+    expect(
+      validateHostedAppInventoryArguments(["--hosted-app-inventory=github", "--hosted-app-inventory=railway"]),
+    ).toContain("Hosted app inventory may be supplied only once.");
+    expect(validateHostedAppInventoryArguments(["--environment", "--runtime"])).toEqual([]);
+
+    const malformedCli = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("../scripts/check-codex-cloud-setup.mjs", import.meta.url)),
+        "--environment",
+        "--hosted-app-inventroy=github",
+      ],
+      { cwd: repoRoot, encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" } },
+    );
+    expect(malformedCli.status).toBe(1);
+    expect(malformedCli.stderr).toContain("Unsupported Cloud-check argument");
+    expect(malformedCli.stdout).not.toContain("hosted_app.inventory=");
+  });
+
   it("probes the raw task environment without printing credential values", () => {
     const secret = "never-print-raw-provider-value";
     const result = spawnSync(bashCommand, ["scripts/check-codex-cloud-raw-env.sh"], {
@@ -443,7 +513,40 @@ describe("Codex Cloud environment contract", () => {
     });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("OPENAI_API_KEY");
+    expect(result.stderr).toContain("STOP:");
     expect(result.stderr).not.toContain(secret);
+  });
+
+  it("name-scopes the documented OPENAI_BASE_URL launcher defect separately from unexpected leaks", () => {
+    const known = spawnSync(bashCommand, ["scripts/check-codex-cloud-raw-env.sh"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, NODE_ENV: "test", OPENAI_BASE_URL: "https://example.invalid" },
+    });
+    expect(known.status).toBe(2);
+    expect(known.stderr).toContain("FAIL-KNOWN:");
+    expect(known.stderr).toContain("OPENAI_BASE_URL");
+    expect(known.stderr).toContain("CONTINUE-RESTRICTED:");
+    expect(known.stderr).toContain("redirect OpenAI-bound traffic");
+    expect(known.stderr).toContain("bypasses the profile/shim scrub");
+    expect(known.stderr).not.toContain("https://example.invalid");
+
+    const mixed = spawnSync(bashCommand, ["scripts/check-codex-cloud-raw-env.sh"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        PATH: process.env.PATH,
+        NODE_ENV: "test",
+        OPENAI_BASE_URL: "https://example.invalid",
+        SUPABASE_SERVICE_ROLE_KEY: "never-print-service-role",
+      },
+    });
+    expect(mixed.status).toBe(1);
+    expect(mixed.stderr).toContain("FAIL:");
+    expect(mixed.stderr).toContain("STOP:");
+    expect(mixed.stderr).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(mixed.stderr).not.toContain("never-print-service-role");
+    expect(mixed.stderr).not.toContain("CONTINUE-RESTRICTED:");
   });
 
   it("keeps setup and maintenance repairs guarded for repeat execution", () => {
@@ -461,6 +564,12 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain('if [[ "$actual_version" != "$expected_version" ]]');
     expect(setup).toContain('"$HOME/.bash_profile"');
     expect(setup.match(/unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy/g)).toHaveLength(2);
+    expect(setup).toContain("worker/python/requirements-cloud.txt");
+    expect(setup).toContain("diagnose-codex-cloud.mjs");
+    expect(setup).toContain("trap diagnose_setup_failure ERR");
+    expect(setup).toContain('setup_step="python-worker-requirements"');
+    expect(setup).toContain("--require-hashes -r worker/python/requirements-cloud.txt");
+    expect(setup).toContain('"$ocr_venv/bin/python" -m pip check');
     expect(setup.indexOf("unset OPENAI_API_KEY")).toBeLessThan(
       setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]'),
     );
@@ -483,6 +592,8 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain("diagnose-codex-cloud.mjs");
     expect(setup).toContain("trap diagnose_setup_failure ERR");
     expect(setup).toContain('setup_step="python-worker-requirements"');
+    expect(setup).not.toContain("@railway/cli");
+    expect(setup).not.toContain('setup_step="railway-cli"');
     expect(setup).toContain("--require-hashes -r worker/python/requirements-cloud.txt");
     expect(setup).toContain('"$ocr_venv/bin/python" -m pip check');
     expect(setup).toContain("CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime");
@@ -540,6 +651,29 @@ describe("Codex Cloud environment contract", () => {
 
   it("pins connected retrieval mode and rejects unsafe shell-policy configs", () => {
     const connectedHome = temporaryDirectory("codex-cloud-connected-");
+    mkdirSync(path.join(connectedHome, ".codex"), { recursive: true });
+    // Seed the previous hosted registration shape between managed markers so re-run
+    // cleanup is proven (fresh empty $HOME alone would not exercise that path).
+    writeFileSync(
+      path.join(connectedHome, ".codex/config.toml"),
+      [
+        "[mcp_servers.keep_outside]",
+        'command = "echo"',
+        "",
+        "# BEGIN clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)",
+        "[mcp_servers.railway_connected]",
+        'url = "https://mcp.railway.com"',
+        "enabled = true",
+        "[mcp_servers.supabase_connected]",
+        'url = "https://mcp.supabase.com/mcp"',
+        "enabled = true",
+        "[shell_environment_policy]",
+        'inherit = "all"',
+        "exclude = []",
+        "# END clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)",
+        "",
+      ].join("\n"),
+    );
     const connected = runSetupPolicyOnly(connectedHome, {
       CODEX_CLOUD_ACCESS_PROFILE: "connected",
       RAG_PROVIDER_MODE: "offline",
@@ -547,11 +681,11 @@ describe("Codex Cloud environment contract", () => {
     expect(connected.status, connected.stderr || connected.stdout).toBe(0);
     const connectedProfile = readRuntimeProfile(connectedHome);
     const connectedConfig = readCodexConfig(connectedHome);
-    expect(connectedConfig).toContain("[mcp_servers.railway_connected]");
-    expect(connectedConfig).toContain("[mcp_servers.supabase_connected]");
-    expect(connectedConfig).toContain("features=docs%2Cdevelopment");
-    expect(connectedConfig.match(/^enabled = true$/gm)).toHaveLength(2);
-    expect(connectedConfig).toContain('default_tools_approval_mode = "prompt"');
+    expect(connectedConfig).toContain("[mcp_servers.keep_outside]");
+    expect(connectedConfig).not.toContain("[mcp_servers.railway_connected]");
+    expect(connectedConfig).not.toContain("[mcp_servers.supabase_connected]");
+    expect(connectedConfig).not.toContain("mcp_servers.railway");
+    expect(connectedConfig).not.toContain("mcp_servers.supabase");
     expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
     expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
     expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");
@@ -642,7 +776,7 @@ describe("Codex Cloud environment contract", () => {
     expect(incomplete.status).not.toBe(0);
     expect(incomplete.stderr).toContain("Incomplete managed shell policy block");
     expect(readFileSync(incompletePath, "utf8")).toBe(incompleteConfig);
-  });
+  }, 120_000);
 
   it("accepts a task-only HEAD only inside Codex Cloud", () => {
     const directory = temporaryGitRepository();

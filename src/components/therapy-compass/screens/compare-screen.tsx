@@ -2,6 +2,8 @@
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
+import { pageContainer } from "@/components/ui-primitives";
+
 import { MAX_COMPARE, useTcBindings } from "../bindings";
 import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { needsReviewCount, parseSteps, searchTherapies, shortestDelivery, summarise } from "../data/select";
@@ -95,7 +97,7 @@ export function CompareScreen() {
   const cellPad = dense ? "11px 16px" : "15px 20px";
 
   return (
-    <section data-screen-label="Compare" className="max-w-[1240px] my-0 mx-auto">
+    <section data-screen-label="Compare" className={pageContainer}>
       <div className="flex items-start justify-between gap-5 mb-1.5 flex-wrap">
         <div>
           <div className="flex items-baseline gap-3 flex-wrap">
@@ -156,13 +158,13 @@ export function CompareScreen() {
             key={t.slug}
             className="flex items-center gap-2 h-[46px] pt-0 pr-2 pb-0 pl-3.5 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
           >
-            <ScaleIcon size={15} className="text-[color:var(--text-soft)]" />
+            <ScaleIcon size={15} className="text-[color:var(--decoration-soft)]" />
             <span className="text-sm-minus font-semibold text-[color:var(--text-heading)] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">
               {t.name}
             </span>
             <button
               type="button"
-              className={`${therapyBtn} inline-flex items-center justify-center w-tap h-tap border-0 bg-transparent text-[color:var(--text-soft)] cursor-pointer rounded-sm`}
+              className={`${therapyBtn} inline-flex items-center justify-center w-tap h-tap border-0 bg-transparent text-[color:var(--decoration-soft)] cursor-pointer rounded-sm`}
               onClick={() => b.removeCompare(t.slug)}
               title={`Remove ${t.name}`}
             >
@@ -238,11 +240,11 @@ export function CompareScreen() {
             style={{ "--tc-compare-columns": cols, "--tc-compare-cell-padding": cellPad } as CSSProperties}
           >
             <div className="therapy-compare-grid bg-[color:var(--surface-subtle)]">
-              <div className="py-4 px-5 text-sm-minus font-semibold text-[color:var(--text-soft)]">Field</div>
+              <div className="py-4 px-5 text-sm-minus font-semibold text-[color:var(--text-muted)]">Field</div>
               {items.map((t) => (
                 <div key={t.slug} className="py-3.5 px-5 border-l border-[color:var(--border)]">
                   <div className="flex items-center gap-[7px]">
-                    <ScaleIcon size={15} className="text-[color:var(--text-soft)]" />
+                    <ScaleIcon size={15} className="text-[color:var(--decoration-soft)]" />
                     <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
                   </div>
                   <div
@@ -278,8 +280,8 @@ export function CompareScreen() {
               );
             })}
           </div>
-          <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-soft)]">
-            <InfoIcon size={15} strokeWidth={1.8} />
+          <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-muted)]">
+            <InfoIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
             Comparisons are source-grounded. Review status reflects the latest source checks.
           </div>
         </>
@@ -303,7 +305,7 @@ function SummaryCell({
     <div
       className={`border-l border-[color:var(--border)] px-[22px] py-5${accent ? " border-l-[3px] border-l-[color:var(--clinical-accent)]" : warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}
     >
-      <div className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-soft)] mb-1.5">{label}</div>
+      <div className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-muted)] mb-1.5">{label}</div>
       <div className="text-sm font-semibold text-[color:var(--text-heading)]">{value}</div>
     </div>
   );
@@ -323,7 +325,7 @@ function AddPicker() {
   return (
     <div className="relative flex-1 min-w-[260px]">
       <label className="relative flex items-center">
-        <SearchIcon size={17} strokeWidth={1.8} className="absolute left-[14px] text-[color:var(--text-soft)]" />
+        <SearchIcon size={17} strokeWidth={1.8} className="absolute left-[14px] text-[color:var(--decoration-soft)]" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}

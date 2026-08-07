@@ -78,4 +78,14 @@ describe("search command surface", () => {
     expect(source).not.toContain("sm:max-h-[min(55dvh,26rem)]");
     expect(source).toContain('opensUpward ? "sm:max-h-[min(38dvh,20rem)]" : "sm:max-h-[min(42dvh,24rem)]"');
   });
+
+  it("does not let a stale narrow-window focus decision shadow later displayability", () => {
+    const source = readFileSync(
+      new URL("../src/components/clinical-dashboard/universal-search-command-surface.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).not.toContain("setEagerDropdownDisplayable(displayable);");
+    expect(source).toContain("setEagerDropdownDisplayable(displayable ? true : null);");
+  });
 });

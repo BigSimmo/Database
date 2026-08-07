@@ -59,6 +59,13 @@
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
 
+  /* Mode-home composer slots reserve their settled portal geometry before the
+     client host adopts them. Without this structural reserve, Therapy moved the
+     entire action stack when hydration relocated the composer (CLS 0.248).
+     These are layout tokens, not a second v2 colour/theme source. */
+  --spacing-mode-home-composer-phone: 7.625rem;
+  --spacing-mode-home-composer-wide: 5.5rem;
+
   /* Icon glyph size scale. Named spacing tokens so icon sizing is a documented
      scale (size-icon-md is the 16px default) instead of raw `h-4 w-4` literals,
      and so a step can carry a responsive variant: `size-icon-md sm:size-icon-lg`.
@@ -88,8 +95,9 @@
                          bubbles. An 8px `4xs` step existed here and is retired
                          — unreadable at any density in a clinical product, so
                          nothing below 10px is a legal step. ≤9px snaps here.
-       2xs         11px  small chips / secondary labels (most common small size)
-       (xs 12 · sm 14 · base 16 come from Tailwind's default scale)
+       2xs         11px  Chip `compact` / secondary labels (most common small size)
+       (xs 12 · sm 14 · base 16 come from Tailwind's default scale —
+        Chip `standard` uses xs / 12px; see docs/design-system/TOKENS.md)
        sm-minus    13px  one notch under sm — dense body/labels bigger than xs
        base-minus  15px  one notch under base — comfortable body just under 16
        (lg 18 · xl 20 · 2xl 24 come from Tailwind's default scale)
@@ -126,10 +134,46 @@
   --leading-display: 1.05;
   --leading-prose: 1.6;
 
-  /* Uppercase eyebrow tracking. 0.08em was spelled as `tracking-[0.08em]` at 60+
-     call sites; this makes it a named utility (`tracking-eyebrow`) with the
-     identical computed value. */
+  /* ---- Letterspacing scale -------------------------------------------------
+     Measured 7 Aug 2026, production only (`*-mockups.tsx` and `mockups/` are
+     design scratch and gate-exempt): 110 arbitrary `tracking-[…]` call sites
+     across 18 distinct values, against one named token. Counting mockups gives
+     372/31 — that is the number to quote about the *sprawl*, not about the debt
+     a gate can act on.
+
+     The real defect is sharper than sprawl. 57 of the 110 sites are a single
+     value, 0.06em — and `--tracking-eyebrow` is declared at 0.08em, so the one
+     named token does not match the value its own call sites overwhelmingly use.
+     That is why it has almost no consumers: the token was named for a number
+     nobody writes.
+
+     Named roles, with the measured production counts each one absorbs:
+
+       --tracking-display  -0.02em  folds: -0.008 (1), -0.01 (3), -0.035 (1), -0.04 (1)
+       --tracking-normal    0       folds: 0.01 (1), 0.02 (2)
+       --tracking-label     0.06em  folds: 0.04 (3), 0.05 (6), 0.06 (57)   <- the mass
+       --tracking-eyebrow   0.08em  folds: 0.08 (8), 0.09 (1)   [pre-existing, value unchanged]
+       --tracking-kicker    0.12em  folds: 0.1 (7), 0.11 (1), 0.12 (14), 0.16 (1)
+
+     Five roles, not seven: production does not justify a second wide step or a
+     separate tight-display step — the negative cluster is six sites total. No
+     fold moves a call site by more than 0.04em, and most by 0.01–0.02em.
+
+     `--tracking-eyebrow` keeps 0.08em deliberately. Retuning it to 0.06em would
+     silently move every existing consumer of the token; that is a different
+     change from naming the scale, and wants its own measured step.
+
+     The `arbitraryTracking` contract ratchet holds the family at its current
+     per-path count (68 statically-resolvable sites across 40 files) so it cannot
+     regrow while the call-site migration waits on the open answer-shell and
+     doc-truth PRs. `tracking-[var(--…)]` is the sanctioned token form and is not
+     counted, exactly as `text-[color:var(--…)]` is exempt from the type-scale
+     check. */
+  --tracking-display: -0.02em;
+  --tracking-normal: 0em;
+  --tracking-label: 0.06em;
   --tracking-eyebrow: 0.08em;
+  --tracking-kicker: 0.12em;
 
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
@@ -208,6 +252,7 @@
   --text-heading: #080b0f;
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
+  --decoration-soft: var(--neutral-500);
   /* Placeholder is still text (≥4.5:1). Same ink as muted until a distinct step
      is needed; also declared on the v2 layer for opt-in adoption. */
   --text-placeholder: var(--neutral-600);
@@ -235,6 +280,8 @@
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #c6dcf2;
   --clinical-accent-contrast: #ffffff;
+  /* Tinted filter-count pill on the results band — quieter than a solid disc. */
+  --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 
   /* Bespoke chat surfaces with no role-token equivalent: warm sand callouts
      and table headers. Per-theme values, not aliases. */
@@ -286,6 +333,8 @@
   --danger-bg: #fef3f2;
   --danger-border: #fda29b;
   --danger-solid: #a3190f;
+  --danger-solid-hover: #85140d;
+  --danger-solid-active: #6f120c;
   --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
@@ -320,6 +369,10 @@
   --disabled: #8794a8;
   --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(4 8 14 / 56%);
+  --z-overlay: 80;
+  --z-popover: 95;
+  --z-modal: 100;
+  --z-toast: 110;
   --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
 
   /* Motion primitives (shared by both themes). The duration values live with
@@ -368,6 +421,12 @@
      the layered .edge-glass-header base and the unlayered max-width:639px
      guard so the values cannot drift apart. lg overrides to 1.5rem. */
   --header-edge-pad: 1rem;
+  /* Distance from `.mode-nav__bar`'s box edge to the first tab's INK: the
+     bar's own `px-1` plus the slot's `px-3`. It happens to equal the base
+     header gutter, which is why phone alignment was already correct. The mode
+     nav subtracts it from its gutter and adds it back to its max-width so the
+     ink — not the box — lands on the header's content edge at every width. */
+  --mode-nav-ink-offset: 1rem;
   /* Borderless app-shell/header height (the min-h-14 bar). Page shells fill the
      viewport below it via calc(100dvh - var(--shell-header-h)); one token so the
      header height and those page-fill floors cannot silently drift apart. */
@@ -466,6 +525,7 @@
   --text-heading: var(--neutral-950);
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
+  --decoration-soft: var(--neutral-500);
   --text-placeholder: var(--neutral-600);
   /* Per-theme values, not neutral-ramp aliases: tracking --neutral-300 left the
      dark border at ~1.35:1 against --surface, i.e. effectively invisible. */
@@ -489,6 +549,7 @@
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #235a7d;
   --clinical-accent-contrast: #082e4d;
+  --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 
   --clinical-chat-sand: #2d2418;
   --clinical-chat-sand-border: #5a4427;
@@ -532,6 +593,8 @@
   --danger-bg: #401c24;
   --danger-border: #7f2e36;
   --danger-solid: #b42318;
+  --danger-solid-hover: #d92d20;
+  --danger-solid-active: #912018;
   --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
@@ -1033,13 +1096,19 @@ summary::-webkit-details-marker {
   overflow: hidden;
   /* Localized glass only: tint around the pill, then return to true zero at
      the physical edge. A high terminal tint reads as an opaque safe-area bar
-     on light pages even though color-mix technically contains transparency. */
+     on light pages even though color-mix technically contains transparency.
+     The 78%/96% pair holds that tint through the safe-area padding band
+     below the pill and only releases to zero in the last 4% — a page card
+     mid-scroll there previously read fully crisp under the pill (search-bar
+     overlap defect, 2026-08-06), because the old 78% -> 100% taper gave up
+     more than a fifth of the scrim's height with no coverage at all. */
   background: linear-gradient(
     180deg,
     transparent 0%,
     color-mix(in srgb, var(--background) 8%, transparent) 30%,
     color-mix(in srgb, var(--background) 28%, transparent) 58%,
     color-mix(in srgb, var(--background) 18%, transparent) 78%,
+    color-mix(in srgb, var(--background) 18%, transparent) 96%,
     transparent 100%
   );
   backdrop-filter: blur(2px) saturate(130%);
@@ -1049,6 +1118,7 @@ summary::-webkit-details-marker {
     rgb(0 0 0 / 32%) 26%,
     black 50%,
     rgb(0 0 0 / 45%) 78%,
+    rgb(0 0 0 / 45%) 96%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(
@@ -1057,6 +1127,7 @@ summary::-webkit-details-marker {
     rgb(0 0 0 / 32%) 26%,
     black 50%,
     rgb(0 0 0 / 45%) 78%,
+    rgb(0 0 0 / 45%) 96%,
     transparent 100%
   );
   opacity: 1;
@@ -1082,6 +1153,7 @@ summary::-webkit-details-marker {
     rgb(0 0 0 / 30%) 24%,
     black 48%,
     rgb(0 0 0 / 40%) 72%,
+    rgb(0 0 0 / 40%) 95%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(
@@ -1090,6 +1162,7 @@ summary::-webkit-details-marker {
     rgb(0 0 0 / 30%) 24%,
     black 48%,
     rgb(0 0 0 / 40%) 72%,
+    rgb(0 0 0 / 40%) 95%,
     transparent 100%
   );
 }
@@ -1102,6 +1175,7 @@ summary::-webkit-details-marker {
     transparent 46%,
     black 64%,
     rgb(0 0 0 / 35%) 80%,
+    rgb(0 0 0 / 35%) 97%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(
@@ -1110,6 +1184,7 @@ summary::-webkit-details-marker {
     transparent 46%,
     black 64%,
     rgb(0 0 0 / 35%) 80%,
+    rgb(0 0 0 / 35%) 97%,
     transparent 100%
   );
 }
@@ -1128,6 +1203,7 @@ summary::-webkit-details-marker {
       color-mix(in srgb, var(--background) 16%, transparent) 34%,
       color-mix(in srgb, var(--background) 38%, transparent) 62%,
       color-mix(in srgb, var(--background) 20%, transparent) 80%,
+      color-mix(in srgb, var(--background) 20%, transparent) 96%,
       transparent 100%
     );
   }
@@ -1174,6 +1250,7 @@ summary::-webkit-details-marker {
       color-mix(in srgb, var(--background) 24%, transparent) 34%,
       color-mix(in srgb, var(--background) 52%, transparent) 62%,
       color-mix(in srgb, var(--background) 32%, transparent) 80%,
+      color-mix(in srgb, var(--background) 32%, transparent) 96%,
       transparent 100%
     );
   }
@@ -1307,7 +1384,10 @@ summary::-webkit-details-marker {
   outline-offset: 2px;
 }
 
-.mode-action-body {
+/* Cap scrolling only inside the anchored popover surface, which defines
+   --mode-action-body-max-height. Sheet/dialog hosts leave the variable unset;
+   applying max-height there would create a nested non-capping scroll region. */
+.mode-action-surface .mode-action-body {
   max-height: var(--mode-action-body-max-height);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1393,7 +1473,7 @@ summary::-webkit-details-marker {
 }
 
 .chat-composer-input::placeholder {
-  color: var(--text-soft);
+  color: var(--text-placeholder);
 }
 
 .chat-composer-icon-button,
@@ -1509,7 +1589,7 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-input::placeholder {
-  color: color-mix(in srgb, var(--text-muted) 72%, var(--text-soft));
+  color: var(--text-placeholder);
   font-weight: 560;
   opacity: 1;
 }
@@ -1538,7 +1618,7 @@ summary::-webkit-details-marker {
 .answer-footer-search-send:disabled {
   opacity: 1;
   background: var(--surface-subtle);
-  color: var(--text-soft);
+  color: var(--disabled);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 42%, transparent);
 }
 
@@ -1638,7 +1718,6 @@ summary::-webkit-details-marker {
     padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
   }
 
-  .medication-also-matches,
   .medication-patient-strip {
     border-right: 0;
     border-left: 0;
@@ -1646,7 +1725,13 @@ summary::-webkit-details-marker {
     box-shadow: none;
   }
 
-  .medication-also-matches,
+  /* Keep the raised-card treatment from UniversalSearchAlsoMatches on phones —
+     inset from the full-bleed workspace rather than flattening to a strip. */
+  .medication-also-matches {
+    margin-left: max(1rem, calc(var(--safe-area-left) + 0.25rem));
+    margin-right: max(1rem, calc(var(--safe-area-right) + 0.25rem));
+  }
+
   .medication-patient-strip > summary,
   .medication-patient-strip > div {
     padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
@@ -1744,7 +1829,7 @@ summary::-webkit-details-marker {
   justify-content: center;
   gap: 0.35rem;
   padding-inline: 0.25rem;
-  color: var(--text-soft);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -1755,7 +1840,7 @@ summary::-webkit-details-marker {
 }
 
 .answer-suggestion-label {
-  color: var(--text-soft);
+  color: var(--text-muted);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -1856,7 +1941,7 @@ summary::-webkit-details-marker {
   height: 0.8125rem;
   flex-shrink: 0;
   margin-right: 0.3125rem;
-  color: var(--text-soft);
+  color: var(--decoration-soft);
 }
 
 .answer-suggestion-chip-label {
@@ -2121,7 +2206,11 @@ summary::-webkit-details-marker {
 
   .answer-footer-search-dock .answer-footer-search-pill {
     border-color: var(--border-strong);
-    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    /* Matches the base (non-dock) pill's 97% — 88% left enough see-through
+       that scrolled card text stayed legible behind the pill on real devices
+       (search-bar overlap defect, 2026-08-06). backdrop-filter blur is a
+       bonus frost on top, not the only thing hiding the text underneath. */
+    background: color-mix(in srgb, var(--surface) 97%, transparent);
     box-shadow:
       0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
       0 1px 3px rgb(16 24 40 / 5%);
@@ -2382,6 +2471,12 @@ td,
    the universal header's collapse track, so it hides and reveals as one object
    with the header at every width and owns no scroll listener of its own.
 
+   Two elements, and which one carries what is load-bearing: `.mode-nav-rail`
+   is full-bleed and owns the paint plus the header's inline gutter, and the
+   `.mode-nav` element inside it is capped to the header's own column and owns
+   the container query. See the note above `@utility mode-nav` for why the
+   query cannot live on the rail.
+
    Density is chosen by CONTAINER width in `rem` — never by device width, and
    never by runtime measurement. The unit is the mechanism: raising the browser
    or OS text size grows the root font, so a phone crosses a threshold exactly
@@ -2421,10 +2516,51 @@ td,
    rather than shipping clipped words.
    ───────────────────────────────────────────────────────────────────────── */
 
+/* The centred column, and the ONLY container-query container. Measuring the
+   full-bleed rail instead would report a width the slots do not have — on a
+   1920px desktop it reads 1920px while the bar has 1312px — so density would
+   be decided against a width that does not exist. This element carries no
+   padding of its own, so its inline-size is unambiguous.
+
+   80rem is the header row's own `max-w-7xl`; the ink offset is added back on
+   both sides because the bar's first tab sits that far inside its box. Below
+   `lg` the rail's gutter computes to zero, so the container is exactly the
+   viewport and the calibrated 22/33/42rem bands are untouched on phone and
+   tablet. */
 @utility mode-nav {
   container-type: inline-size;
   container-name: mode-nav;
   min-width: 0;
+  width: 100%;
+  margin-inline: auto;
+  max-width: calc(80rem + 2 * var(--mode-nav-ink-offset));
+}
+
+/* The rail is full-bleed so its bottom rule spans the viewport, exactly as
+   `.secondary-navigation` does, while the capped column above puts the slots on
+   the same centred rail as the header row — otherwise the first tab sits at the
+   viewport edge on a desktop while the mode pill above it is centred.
+
+   The addon slot the bar portals into is a SIBLING of `.edge-glass-header`, not
+   a descendant, so none of the header's gutter is inherited. The bar already
+   carries 1rem of ink offset of its own (the `<ul>`'s `px-1` plus the slot's
+   `px-3`), which is exactly the base gutter and is why phone alignment was
+   already right. The rail therefore contributes only what the header gutter has
+   ABOVE that — nothing at base, 0.5rem from `lg` — so the ink follows the
+   header without the container query losing width the density bands are
+   calibrated against. The gutter reads `--header-edge-pad` rather than a
+   literal for the reason stated on `.edge-glass-header`: a literal here is how
+   the two drift apart. */
+.mode-nav-rail {
+  padding-left: calc(max(var(--header-edge-pad), var(--safe-area-left)) - var(--mode-nav-ink-offset));
+  padding-right: calc(max(var(--header-edge-pad), var(--safe-area-right)) - var(--mode-nav-ink-offset));
+}
+
+@media (min-width: 1024px) {
+  .mode-nav-rail {
+    padding-left: calc(max(1.5rem, var(--safe-area-left)) - var(--mode-nav-ink-offset));
+    padding-right: calc(max(1.5rem, var(--safe-area-right)) - var(--mode-nav-ink-offset));
+  }
 }
 
 .mode-nav__bar {
@@ -2445,6 +2581,48 @@ td,
 .mode-nav__slot[data-band="4"],
 .mode-nav__slot[data-band="5"] {
   display: none;
+}
+
+/* Which page you are on, when its own slot is not on screen.
+   ------------------------------------------------------------------------
+   `data-active-from` is the band at which the current page's slot appears, or
+   `none` when it never gets one. Until the container reaches that band the
+   page has no visible tab, so More carries its rule and its off-screen name;
+   at and above it, the page's own `aria-current` tab does, and these turn off
+   so nothing is marked or announced twice.
+
+   This has to be CSS. The component knows which band would reveal the item and
+   nothing else; the container query knows the band and nothing else. Deciding
+   in the component alone can only ask "does this item have a band at all",
+   which is silent for every page whose band the current width has not reached
+   — five of Therapy's seven pages on a phone. */
+.mode-nav__more-name {
+  display: none;
+}
+
+.mode-nav__more[data-active-from] .mode-nav__more-name {
+  display: inline;
+}
+
+.mode-nav__more[data-active-from] .mode-nav__ink {
+  color: var(--text-heading);
+}
+
+.mode-nav__more[data-active-from] .mode-nav__rule {
+  background-color: var(--clinical-accent);
+}
+
+/* Band 3 is every band, so a page that appears there is never carried here. */
+.mode-nav__more[data-active-from="3"] .mode-nav__more-name {
+  display: none;
+}
+
+.mode-nav__more[data-active-from="3"] .mode-nav__ink {
+  color: var(--text-muted);
+}
+
+.mode-nav__more[data-active-from="3"] .mode-nav__rule {
+  background-color: transparent;
 }
 
 @container mode-nav (min-width: 22rem) {
@@ -2470,6 +2648,19 @@ td,
   .mode-nav__slot[data-until="3"] {
     display: none;
   }
+
+  /* The page's own slot is on screen from here, so it owns the mark. */
+  .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
 }
 
 @container mode-nav (min-width: 42rem) {
@@ -2479,6 +2670,18 @@ td,
 
   .mode-nav__slot[data-until="4"] {
     display: none;
+  }
+
+  .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav__more[data-active-from="5"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav__more[data-active-from="5"] .mode-nav__rule {
+    background-color: transparent;
   }
 }
 
@@ -2867,7 +3070,7 @@ td,
 
   .polished-scroll:hover,
   .polished-scroll:focus-within {
-    scrollbar-color: color-mix(in srgb, var(--border-strong) 95%, var(--text-soft) 15%) transparent;
+    scrollbar-color: color-mix(in srgb, var(--border-strong) 95%, var(--decoration-soft) 15%) transparent;
   }
 
   .polished-scroll::-webkit-scrollbar {
@@ -2892,7 +3095,7 @@ td,
   }
 
   .polished-scroll:hover::-webkit-scrollbar-thumb {
-    background-color: color-mix(in srgb, var(--border-strong) 90%, var(--text-soft) 15%);
+    background-color: color-mix(in srgb, var(--border-strong) 90%, var(--decoration-soft) 15%);
   }
 
   .polished-scroll::-webkit-scrollbar-thumb:hover {
@@ -2997,6 +3200,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --text: CanvasText;
     --text-muted: CanvasText;
     --text-soft: CanvasText;
+    --decoration-soft: GrayText;
     --text-placeholder: CanvasText;
     --border: ButtonBorder;
     --border-strong: ButtonText;
@@ -3023,6 +3227,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --clinical-accent-soft: Canvas;
     --clinical-accent-border: ButtonBorder;
     --clinical-accent-contrast: ButtonText;
+    --search-band-badge-bg: Highlight;
     --info: LinkText;
     --info-soft: Canvas;
     --success: CanvasText;
@@ -3032,6 +3237,8 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --danger: Mark;
     --danger-soft: Canvas;
     --danger-solid: Mark;
+    --danger-solid-hover: Mark;
+    --danger-solid-active: Mark;
     /* Mark's palette-paired foreground — ButtonText is not guaranteed to
        contrast a Mark fill in arbitrary user schemes. */
     --danger-solid-contrast: MarkText;
@@ -3295,9 +3502,13 @@ html.theme-transitioning *:after {
 }
 
 /* ─── SEARCH RESULTS BAND ──────────────────────────────────────────────────
-   Weight comes down across this surface: nothing is bold, the heaviest step is
-   580, and the query and the figure share it — they are separated by tabular
-   numerals and a hairline rather than by shouting. Expressed here as numeric
+   Weight comes down across this surface: nothing is bold. The one-line anatomy
+   split the two apart rather than sharing a step — the figure carries 600 and
+   the query 450, so the count leads and the query reads as its subject. They
+   are separated by tabular numerals and a hairline rather than by shouting.
+   (This said "the heaviest step is 580, and the query and the figure share it"
+   until the redesign; both numbers changed and the sentence did not.)
+   Expressed here as numeric
    `font-weight` on named classes rather than Tailwind arbitrary values because
    (a) that is the existing idiom in this file, and (b) `check:type-scale
    --strict` is a zero gate on arbitrary `text-[Npx]` utilities. Geist is a
@@ -3307,28 +3518,45 @@ html.theme-transitioning *:after {
    carries the `border` / `border-[color:var(--border)]` utilities — inside a
    layer these rules lose and the accent rail silently renders as a neutral
    1px border. Verify with computed styles, not class presence. */
-/* The accent is the card's real border-top. As an absolutely-positioned bar
-   inside an overflow:hidden 12px-radius card the corner arc sliced its ends —
-   at y=0 the arc is 12px in, at y=2px it is 5.4px in — so the rail started
-   short and tapered while the 1px border curved past it. A border mitres into
-   the side borders and follows the radius by construction. */
-.search-band {
-  border-top: 2px solid var(--clinical-accent);
+/* The accent used to be the card's real border-top, drawn edge to edge. At 58px
+   the band is a bar rather than a card lid, and a line across its whole width
+   reads as a divider between the composer and the results instead of as the
+   band's own mark. It moves inside the padding: 2 x 18px, level with the count.
+
+   Drawn as a `border-left` on a zero-width box rather than as a background, for
+   two reasons that are not stylistic. Forced colors drops backgrounds outright
+   but maps border colour to CanvasText, and `border-left-style: double` is how
+   the faulted state stays structural there — the same idiom the old border-top
+   carried in the forced-colors block below, and the one high-contrast
+   distinction that matters clinically. */
+.search-band-lead {
+  /* `display: block` so width/height apply even if this mark is ever moved out
+     of a flex/grid formatting context. As a bare inline span those dimensions
+     are ignored and the stroke collapses to nothing while class-presence
+     assertions still pass. */
+  display: block;
+  box-sizing: content-box;
+  width: 0;
+  height: 1.125rem;
+  border-left: 2px solid var(--clinical-accent);
+  /* 2 + 4 = 6px, which is the faulted mark's own footprint, so the count does
+     not shift sideways the moment a search degrades. */
+  margin-right: 4px;
 }
-.search-band[data-status="error"],
-.search-band[data-status="unauthorized"] {
-  border-top-color: var(--warning);
+/* Keyed off the element rather than `.search-band[data-status=…] &`: a
+   descendant selector would put `.search-band` back into the unlayered-visual
+   inventory with a live component rule, and the style-contract registry would
+   then require a second contract for a class that no longer paints anything. */
+.search-band-lead[data-tone="warning"] {
+  border-left: 6px double var(--warning);
+  margin-right: 0;
 }
 
-.search-band-query {
-  font-size: 1.21875rem;
-  font-weight: 560;
-  letter-spacing: -0.023em;
-}
-/* The query now sits after the count rather than leading the band, so it steps
-   down to reading weight: it anchors the number without competing with it. */
+/* The query sits after the count rather than leading the band, so it steps down
+   to reading weight: it anchors the number without competing with it, and it is
+   the part that truncates when the line runs out. */
 .search-band-subject {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 450;
   letter-spacing: -0.006em;
 }
@@ -3339,10 +3567,13 @@ html.theme-transitioning *:after {
   font-weight: 560;
   letter-spacing: 0.1em;
 }
+/* The count and its noun are the same size and differ only by weight, so the
+   pair reads as one phrase rather than as a number with a caption. Tabular, so
+   the line does not reflow as the digit count changes under a live region. */
 .search-band-count {
-  font-size: 1.21875rem;
-  font-weight: 580;
-  letter-spacing: -0.016em;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.014em;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
@@ -3353,8 +3584,18 @@ html.theme-transitioning *:after {
   color: var(--text-muted);
 }
 .search-band-count-word {
-  font-size: 0.8125rem;
-  font-weight: 400;
+  font-size: 0.9375rem;
+  font-weight: 450;
+  letter-spacing: -0.014em;
+}
+@media (min-width: 40rem) {
+  .search-band-count,
+  .search-band-count-word {
+    font-size: 1rem;
+  }
+  .search-band-subject {
+    font-size: 0.875rem;
+  }
 }
 .search-band-fault {
   font-size: 0.84375rem;
@@ -3389,24 +3630,38 @@ html.theme-transitioning *:after {
    while still looking correct in review. Rendering (not reading) exposed three
    losses that colour alone was hiding. */
 @media (forced-colors: active) {
-  /* 1 — the rail survives as thickness, not hue: --clinical-accent resolves to
-     LinkText and --border-strong to CanvasText, so "accented" would otherwise
-     collapse into the other three borders. */
-  .search-band {
-    border-top-width: 3px;
+  /* 1 — the lead mark survives as stroke count, not hue: --clinical-accent
+     resolves to LinkText and --warning is not remapped by the token block at
+     all, so "accent" and "warning" would paint the same mark. One stroke is a
+     healthy search; two is a degraded one. */
+  .search-band-lead {
+    border-left-color: CanvasText;
+    height: 1.25rem;
   }
-  /* 2 — a fault becomes a doubled top edge. Structural, not chromatic. This is
-     the one distinction that matters clinically: without it a failed search is
-     visually identical to a successful one. */
+  .search-band-lead[data-tone="warning"] {
+    border-left: 6px double CanvasText;
+  }
+  /* 2 — a fault also doubles the card's own top edge. Structural, not
+     chromatic, and deliberately redundant with the mark above: at 58px an 18px
+     stroke is easy to miss, and this is the one distinction that matters
+     clinically — without it a failed search is visually identical to a
+     successful one. */
   .search-band[data-status="error"],
   .search-band[data-status="unauthorized"] {
-    border-top-width: 6px;
+    border-top-width: 4px;
     border-top-style: double;
+  }
+  /* 3 — the badged filter count is a colour-mixed tint, which forced colors
+     drops entirely, leaving a bare digit against the control's own label. */
+  .search-band-badge {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
   }
   .search-band-fault {
     font-weight: 640;
   }
-  /* 3 — selected sort/chip lose their fill, so carry them on the system's own
+  /* 4 — selected sort/chip lose their fill, so carry them on the system's own
      selection pair. forced-color-adjust is required: Highlight resolves
      semi-transparent and Chromium otherwise paints a Canvas backplate straight
      over the label. */
@@ -3435,31 +3690,6 @@ html.theme-transitioning *:after {
  * toggle ::before track, and thin scrollbars. Everything else in the old
  * therapy-compass.css parallel system is token-backed Tailwind on the components.
  * ============================================================================= */
-
-/* Portaled under the universal header on phones: the collapse row owns
-   stacking/hide, so sticky would fight the shared chrome geometry. */
-#phone-header-collapse-addon-slot [data-testid="therapy-compass-section-nav"] {
-  position: relative;
-  top: auto;
-  z-index: auto;
-}
-
-[data-therapy-scroll] {
-  scrollbar-color: var(--border-strong) transparent;
-  scrollbar-width: thin;
-}
-
-[data-therapy-scroll]::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-[data-therapy-scroll]::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
-  border-radius: 8px;
-  background: var(--border-strong);
-  background-clip: content-box;
-}
 
 .therapy-compare-grid {
   display: grid;

@@ -50,7 +50,7 @@ import {
   codeText,
   EmptyState,
   iconTilePremium,
-  metadataPill,
+  metadataPillDensity,
   panelSubtle,
   proseMeasure,
   sourceCard,
@@ -874,7 +874,7 @@ export function ClinicalNotesChecklistPanel({
         >
           <CircleAlert aria-hidden="true" className="h-5 w-5" />
           <span className="min-w-0">
-            <span className="block text-xs font-bold uppercase tracking-[0.06em]">Safety preview ({warningCount})</span>
+            <span className="block text-xs font-bold uppercase tracking-label">Safety preview ({warningCount})</span>
             <span className="block truncate text-xs font-semibold">Review toxicity symptoms</span>
           </span>
           <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-xs")}>S1</span>
@@ -892,8 +892,8 @@ export function ClinicalNotesChecklistPanel({
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-tap items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]">
-              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
+            <span className="inline-flex min-h-tap items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-muted)]">
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" />
               Source
             </span>
           )}
@@ -1157,7 +1157,7 @@ export function AnswerFeedbackPanel({
           </p>
         </div>
         {pending ? (
-          <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+          <span className={metadataPillDensity.dense}>
             <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
             Saving
           </span>
@@ -1202,7 +1202,12 @@ function RenderModelSourceList({
 }) {
   if (sources.length === 0) {
     return (
-      <EmptyState icon={FileText} title={emptyStates.sourcePassages.title} body={emptyStates.sourcePassages.body} />
+      <EmptyState
+        icon={FileText}
+        title={emptyStates.sourcePassages.title}
+        body={emptyStates.sourcePassages.body}
+        live="polite"
+      />
     );
   }
 
@@ -1363,7 +1368,12 @@ export function QuoteCards({
         }
       />
       {quotes.length === 0 ? (
-        <EmptyState icon={Quote} title={emptyStates.exactQuotes.title} body={emptyStates.exactQuotes.body} />
+        <EmptyState
+          icon={Quote}
+          title={emptyStates.exactQuotes.title}
+          body={emptyStates.exactQuotes.body}
+          live="polite"
+        />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {quotes.map((quote, index) => {

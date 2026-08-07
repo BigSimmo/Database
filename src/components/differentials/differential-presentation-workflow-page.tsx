@@ -136,11 +136,11 @@ function Breadcrumbs() {
       <Link href="/differentials" className="text-[color:var(--clinical-accent)] hover:underline">
         Differentials
       </Link>
-      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
       <Link href="/differentials/presentations" className="text-[color:var(--text-muted)] hover:underline">
         Presentation
       </Link>
-      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
       <span className="truncate text-[color:var(--text-muted)]">Compare</span>
     </nav>
   );
@@ -199,7 +199,7 @@ function DesktopComparisonTable({
           >
             <CircleCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
             {workflow.selectedCount} of {workflow.totalCount} selected
-            <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+            <ChevronDown className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
           </button>
           <button
             type="button"
@@ -361,7 +361,7 @@ function SelectedDifferentialsPanel({
               <CircleCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
               <span className="truncate">{candidate.record.title}</span>
             </Link>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+            <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
           </li>
         ))}
       </ul>
@@ -380,7 +380,7 @@ function HighestUrgencyPanel({
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Highest urgency</h2>
-      <p className="mt-1 text-xs font-medium text-[color:var(--text-soft)]">Based on current selection</p>
+      <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">Based on current selection</p>
       <div className="mt-3 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/80 p-3">
         <EmergencyBadge status="emergent" />
         <ul className="mt-3 grid gap-1.5 text-sm font-semibold text-[color:var(--text-heading)]">
@@ -550,7 +550,7 @@ function MobileComparison({
             <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             {workflow.selectedCount} of {workflow.totalCount} selected
           </span>
-          <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+          <ChevronDown className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
         </button>
         <button
           type="button"
@@ -733,7 +733,7 @@ export function DifferentialPresentationWorkflowPage({
                 </div>
                 <span
                   id="density-controls-unavailable"
-                  className="px-1 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
+                  className="px-1 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]"
                 >
                   Density controls coming soon
                 </span>

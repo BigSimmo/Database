@@ -15,7 +15,17 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
  * count is read out through a low-contrast visible node.
  */
 
-type Priority = "polite" | "assertive";
+export type AnnouncePriority = "polite" | "assertive";
+
+export type AnnounceOptions = {
+  priority?: AnnouncePriority;
+  /**
+   * Identifies one caller-owned transition. Distinct ids let identical wording
+   * represent distinct events inside the repeat window; reusing an id still
+   * suppresses duplicate delivery of the same transition.
+   */
+  eventId?: string;
+};
 
 /** Identical messages inside this window are the same event announced twice. */
 const dedupeWindowMs = 1_000;
@@ -32,7 +42,7 @@ const store = {
   polite: "",
   assertive: "",
   listeners: new Set<Listener>(),
-  queue: [] as Array<{ message: string; priority: Priority }>,
+  queue: [] as Array<{ message: string; priority: AnnouncePriority }>,
   recent: new Map<string, number>(),
   draining: false,
   timer: null as ReturnType<typeof setTimeout> | null,
@@ -70,12 +80,12 @@ function getActiveId() {
   return store.activeId;
 }
 
-function setRegion(priority: Priority, message: string) {
+function setRegion(priority: AnnouncePriority, message: string) {
   if (priority === "assertive") store.assertive = message;
   else store.polite = message;
 }
 
-function currentRegion(priority: Priority) {
+function currentRegion(priority: AnnouncePriority) {
   return priority === "assertive" ? store.assertive : store.polite;
 }
 
@@ -111,12 +121,13 @@ function drain() {
  * `assertive` only for loss-of-work risks such as an expiring session, because
  * assertive interrupts whatever the reader is in the middle of.
  */
-export function announce(message: string, opts?: { priority?: Priority }) {
+export function announce(message: string, opts?: AnnounceOptions) {
   const text = message.trim();
   if (!text) return;
   const priority = opts?.priority ?? "polite";
   const now = Date.now();
-  const key = `${priority}:${text}`;
+  const eventId = opts?.eventId?.trim() || null;
+  const key = JSON.stringify([priority, eventId, text]);
 
   const last = store.recent.get(key);
   if (last !== undefined && now - last < dedupeWindowMs) return;

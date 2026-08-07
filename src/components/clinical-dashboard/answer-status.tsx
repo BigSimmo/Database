@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useLayoutEffect, useRef, type CSSProperties } from "react";
 import { Check, Circle, Clipboard, ClipboardCheck, History, Loader2, MessageSquareText, Square } from "lucide-react";
 
 import {
@@ -146,6 +146,40 @@ function elapsedLabel(elapsedMs: number) {
   return seconds < 1 ? "<1s" : `${seconds}s`;
 }
 
+/**
+ * Single-line progress banner for the non-answer (library/document) search modes,
+ * the flat sibling of AnswerProgressStepper.
+ *
+ * The Stop control is the sourceCapsuleHit/sourceCapsule pattern from
+ * ui-primitives: the button is an invisible 48px tap target and the inner span is
+ * the compact visible pill. The banner carries no vertical padding, so a bare
+ * `min-h-tap` button filled its whole content box and sat 1px off the banner
+ * border; splitting the face out keeps 8px of clearance without shrinking the tap
+ * target, and keeps the focus ring inside the banner.
+ */
+export function SearchProgressBanner({ message, onStop }: { message: string; onStop: () => void }) {
+  return (
+    <div
+      role="status"
+      className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+    >
+      <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+      <span className="min-w-0 flex-1 truncate">{message}</span>
+      <button
+        type="button"
+        onClick={onStop}
+        data-testid="stop-answer"
+        className="group inline-flex min-h-tap shrink-0 items-center justify-center rounded-full outline-none"
+      >
+        <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition group-hover:bg-[color:var(--surface-subtle)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none">
+          <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
+          Stop
+        </span>
+      </button>
+    </div>
+  );
+}
+
 export function AnswerProgressStepper({
   events,
   startedAt,
@@ -164,6 +198,23 @@ export function AnswerProgressStepper({
     updateInterval: active && !finished && startedAt ? 1_000 : undefined,
   });
   const currentStep = latest ? answerProgressStepIndex(latest.stage) : 0;
+  const stageRailRef = useRef<HTMLDivElement>(null);
+  const currentStageRef = useRef<HTMLLIElement>(null);
+
+  useLayoutEffect(() => {
+    const rail = stageRailRef.current;
+    const currentStage = currentStageRef.current;
+    if (finished || !rail || !currentStage) return;
+
+    const railRect = rail.getBoundingClientRect();
+    const stageRect = currentStage.getBoundingClientRect();
+    const inset = 4;
+    if (stageRect.left < railRect.left + inset) {
+      rail.scrollLeft = Math.max(0, rail.scrollLeft - (railRect.left + inset - stageRect.left));
+    } else if (stageRect.right > railRect.right - inset) {
+      rail.scrollLeft += stageRect.right - (railRect.right - inset);
+    }
+  }, [currentStep, finished]);
 
   const clientElapsedMs = startedAt ? Math.max(0, (finished ? (latest?.receivedAt ?? now) : now) - startedAt) : 0;
   const elapsedMs = finished && latest?.elapsedMs !== undefined ? latest.elapsedMs : clientElapsedMs;
@@ -220,13 +271,14 @@ export function AnswerProgressStepper({
       </div>
 
       {!finished ? (
-        <div className="mt-2 overflow-x-auto pb-1" aria-label="Answer generation stages">
+        <div ref={stageRailRef} className="mt-2 overflow-x-auto pb-1" aria-label="Answer generation stages">
           <ol className="grid min-w-[500px] grid-cols-5 gap-1 sm:min-w-0">
             {answerProgressSteps.map((step, index) => {
               const complete = index < currentStep;
               const current = index === currentStep;
               return (
                 <li
+                  ref={current ? currentStageRef : undefined}
                   key={step.stage}
                   data-state={complete ? "complete" : current ? "current" : "pending"}
                   className={cn(

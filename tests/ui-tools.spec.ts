@@ -463,6 +463,34 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("tool descriptions remain complete across supported breakpoints", async ({ page }) => {
+    await gotoLauncher(page, "/tools");
+
+    for (const width of [320, 390, 639, 768, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      const tool =
+        width < 1024
+          ? page.getByTestId("application-row-clinical-kb-search")
+          : page.getByTestId("application-card-clinical-kb-search");
+      const description = tool.getByText("Ask source-backed clinical questions and move straight to evidence.", {
+        exact: true,
+      });
+      await expect(description).toBeVisible();
+      const clipping = await description.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          horizontal: element.scrollWidth > element.clientWidth + 1,
+          vertical: element.scrollHeight > element.clientHeight + 1,
+          lineClamp: style.webkitLineClamp,
+        };
+      });
+      expect(clipping.horizontal).toBe(false);
+      expect(clipping.vertical).toBe(false);
+      expect(clipping.lineClamp).not.toBe("2");
+      await expectNoPageHorizontalOverflow(page);
+    }
+  });
+
   test("launcher links point to the expected in-app modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
@@ -528,8 +556,8 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("mode toggle stays global on the services home route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    // Asserts the collapsed rail affordance below; seed the remembered
-    // preference now that new users default to the labelled sidebar.
+    // Asserts the collapsed rail affordance below; explicit for clarity even
+    // though collapsed is now the default for new users too.
     await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoLauncher(page, "/?mode=answer");
 
@@ -789,6 +817,20 @@ test.describe("Clinical KB tools launcher", () => {
       const subtitle = heading.locator("xpath=following-sibling::p[1]");
       await expect(subtitle).toBeVisible();
       const subtitleFontSize = await subtitle.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+      const expectedTypeSizes = await page.evaluate(() => {
+        const resolveFontSize = (token: string) => {
+          const probe = document.createElement("span");
+          probe.style.fontSize = `var(${token})`;
+          document.body.append(probe);
+          const size = Number.parseFloat(getComputedStyle(probe).fontSize);
+          probe.remove();
+          return size;
+        };
+        return {
+          hero: resolveFontSize("--text-hero"),
+          subtitle: resolveFontSize("--text-sm"),
+        };
+      });
 
       const metrics = {
         iconWidth: Math.round(iconBox?.width ?? 0),
@@ -800,8 +842,8 @@ test.describe("Clinical KB tools launcher", () => {
       // (48px since PR 5b), not a standalone pixel choice.
       expect(metrics.iconWidth).toBe(48);
       expect(metrics.iconHeight).toBe(48);
-      expect(metrics.headingFontSize).toBeCloseTo(23.2, 1);
-      expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
+      expect(metrics.headingFontSize).toBeCloseTo(expectedTypeSizes.hero, 1);
+      expect(metrics.subtitleFontSize).toBeCloseTo(expectedTypeSizes.subtitle, 1);
 
       await expectNoPageHorizontalOverflow(page);
     });
@@ -966,7 +1008,9 @@ test.describe("Clinical KB tools launcher", () => {
           timeout: 20_000,
         });
         if (route.ribbonQuery) {
-          const ribbon = page.getByTestId("search-query-ribbon");
+          // Prefer the settled visible ribbon — CI can leave a hidden Next
+          // streaming `#S:1` clone beside the live band (outstanding #093).
+          const ribbon = visibleByTestId(page, "search-query-ribbon");
           await expect(ribbon, `${route.path} at ${viewport.name}`).toBeVisible({ timeout: 20_000 });
           await expect(ribbon.getByRole("heading", { name: route.ribbonQuery })).toBeVisible();
           await expect(ribbon.getByRole("status")).toBeVisible();

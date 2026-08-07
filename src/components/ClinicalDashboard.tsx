@@ -11,7 +11,6 @@ import {
   FolderOpen,
   Heart,
   ListChecks,
-  Loader2,
   Quote,
   RefreshCw,
   Search,
@@ -50,6 +49,7 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
@@ -71,7 +71,12 @@ import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-
 import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer, ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
-import { AnswerEmptyState, AnswerProgressStepper, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import {
+  AnswerEmptyState,
+  AnswerProgressStepper,
+  AnswerSkeleton,
+  SearchProgressBanner,
+} from "@/components/clinical-dashboard/answer-status";
 import {
   type AnswerProgressUpdate,
   type TimedAnswerProgressUpdate,
@@ -87,7 +92,10 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
 import { focusComposerInput as scheduleComposerFocus } from "@/components/clinical-dashboard/focus-composer-input";
-import { useDashboardChromeCoordinator } from "@/components/clinical-dashboard/use-dashboard-chrome-coordinator";
+import {
+  resolveDashboardHideOnScroll,
+  useDashboardChromeCoordinator,
+} from "@/components/clinical-dashboard/use-dashboard-chrome-coordinator";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
@@ -2073,11 +2081,10 @@ export function ClinicalDashboard({
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
-      // Differentials mode: the ranked catalogue results are the primary
-      // content and load independently of this document-evidence search, so an
-      // empty corpus result is applied (empty evidence) rather than surfaced
-      // as an error that would hide the catalogue view.
-      let emptyDifferentialsPayload: SearchResultModePayload | null = null;
+      // An empty source-library search is a RESULT, not a failure: the payload
+      // carries the `scope`/`sourceGovernanceWarnings` explaining WHY it is
+      // empty, and the 404 sentinel discarded them. See `scopeFilterChips`.
+      let emptySourceLibraryPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
         if (entry.isKeyword) {
@@ -2115,7 +2122,7 @@ export function ClinicalDashboard({
                 );
 
           if (!resultUsable(payload)) {
-            if (modeSearch.kind === "differentials") emptyDifferentialsPayload = payload;
+            if (payload.kind === "documents") emptySourceLibraryPayload = payload;
             lastError = makeSearchError("No usable results were found.", 404, false);
             if (!entry.isKeyword) {
               continue;
@@ -2134,8 +2141,8 @@ export function ClinicalDashboard({
         }
       }
 
-      if (!successfulPayload && emptyDifferentialsPayload) {
-        successfulPayload = emptyDifferentialsPayload;
+      if (!successfulPayload && emptySourceLibraryPayload) {
+        successfulPayload = emptySourceLibraryPayload;
       }
 
       if (!successfulPayload) {
@@ -3225,6 +3232,7 @@ export function ClinicalDashboard({
   const handleFollowUpSuggestionPick = useEventCallback(handlePickFollowUpSuggestion);
   const handleCrossModeSearch = useEventCallback(crossModeSearch);
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
+  const handleScopeFiltersChange = useScopeFilterRelax(query, queryMode, setScopeFilters, ask);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
@@ -3234,7 +3242,7 @@ export function ClinicalDashboard({
     const returnTarget = documentsDrawerReturnFocusRef.current;
     window.requestAnimationFrame(() => {
       const fallbackTarget = Array.from(
-        document.querySelectorAll<HTMLElement>('button[aria-haspopup="menu"][aria-label$=" options"]'),
+        document.querySelectorAll<HTMLElement>('button[aria-haspopup][aria-label$=" options"]'),
       ).find((element) => element.isConnected && element.getClientRects().length > 0);
       const focusTarget = returnTarget?.isConnected ? returnTarget : fallbackTarget;
       focusTarget?.focus({ preventScroll: true });
@@ -3354,6 +3362,7 @@ export function ClinicalDashboard({
           onOpenLibrary={openSourceLibrary}
           onOpenSourcePdf={openSourcePdfBrowser}
           onNewChat={startNewChat}
+          showDesktopNewChat={false}
           onOpenMobileSidebar={() => {
             closeDashboardTransientSurfaces("mobileSidebar");
             settingsState.setMobileSidebarOpen(true);
@@ -3383,16 +3392,7 @@ export function ClinicalDashboard({
           // Mode homes keep the composer in the centred hero slot at every
           // breakpoint; documents, therapy, and other homes share the phone/tablet structure.
           heroComposerBreakpoint={heroComposerBreakpoint}
-          // Answer view: the header overlays <main> at every width (main reserves
-          // matching top padding) so content frosts under the glass bar, and it
-          // slides away/returns with scroll direction. Other modes collapse the
-          // row so an absolute header cannot bury their in-flow composer. Both
-          // document and bounded app scrollports feed the shared hide reporter.
-          hideOnScroll={
-            searchMode === "answer"
-              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: chromeScrollHidden }
-              : { strategy: "collapse", wide: "collapse", scrollHidden: chromeScrollHidden }
-          }
+          hideOnScroll={resolveDashboardHideOnScroll(searchMode, chromeScrollHidden)}
           onBottomComposerHiddenChange={setBottomComposerHidden}
         />
 
@@ -3422,6 +3422,9 @@ export function ClinicalDashboard({
             // the content.
             searchMode === "answer" &&
               "pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]",
+            // Non-answer modes overlay their phone chrome, so this surface owns
+            // the clearance. Constant across hide/reveal by design.
+            searchMode !== "answer" && "max-sm:pt-[var(--phone-overlay-chrome-h)]",
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
@@ -3450,7 +3453,9 @@ export function ClinicalDashboard({
               data-testid="private-scope-unavailable"
               className={cn(
                 "sticky z-20 mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8",
-                searchMode === "answer" ? "top-[calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]" : "top-2",
+                searchMode === "answer"
+                  ? "top-[calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"
+                  : "top-2 max-sm:top-[calc(var(--phone-overlay-chrome-h)+0.5rem)]",
               )}
             >
               <p>
@@ -3643,25 +3648,7 @@ export function ClinicalDashboard({
                       />
                     ) : null
                   ) : loading && answerProgress ? (
-                    <div
-                      role="status"
-                      className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
-                    >
-                      <Loader2
-                        aria-hidden="true"
-                        className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
-                      />
-                      <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
-                      <button
-                        type="button"
-                        onClick={stopSearch}
-                        data-testid="stop-answer"
-                        className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                      >
-                        <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
-                        Stop
-                      </button>
-                    </div>
+                    <SearchProgressBanner message={answerProgress} onStop={stopSearch} />
                   ) : null)}
 
                 {showUniversalAlsoMatches && activeModeResultKind === "tools" ? (
@@ -3757,6 +3744,8 @@ export function ClinicalDashboard({
                         onOpenLibrary={handleOpenSourceLibrary}
                         onOpenSourcePdf={handleOpenSourcePdfBrowser}
                         onTagSearch={handleDocumentTagSearch}
+                        scopeFilters={searchMode === "documents" ? scopeFilters : null}
+                        onScopeFiltersChange={searchMode === "documents" ? handleScopeFiltersChange : undefined}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />
@@ -3845,7 +3834,7 @@ export function ClinicalDashboard({
               )}
               {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
                 <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
-                  <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+                  <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
                     {drawerGroupTitle}
                   </p>
                   {settingsState.documentsDrawerOpen ? (

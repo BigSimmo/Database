@@ -217,7 +217,7 @@ function supportLabel(support: DocumentSummarySupportLevel | null) {
 function SupportStatus({ support }: { support: DocumentSummarySupportLevel | null }) {
   const Icon = support === "direct" ? BadgeCheck : support === "partial" ? CircleDashed : FileText;
   return (
-    <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-soft)]">
+    <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
       <Icon
         aria-hidden="true"
         className={cn(
@@ -287,7 +287,7 @@ function PriorityContent({
             <h3 className="text-xs font-bold text-[color:var(--text-heading)]">{priority.title}</h3>
             <span
               className={cn(
-                "inline-flex min-h-6 items-center rounded-md px-2 text-3xs font-bold uppercase tracking-[0.05em]",
+                "inline-flex min-h-6 items-center rounded-md px-2 text-3xs font-bold uppercase tracking-label",
                 tone.labelClassName,
               )}
             >
@@ -310,7 +310,7 @@ function PriorityContent({
 
   return (
     <section className="grid grid-cols-[2rem_2rem_minmax(0,1fr)_auto] items-start gap-2.5 border-b border-[color:var(--border)] py-3 last:border-b-0 lg:grid-cols-[2rem_2.25rem_minmax(0,1fr)_7rem] lg:gap-3">
-      <span className="nums grid h-7 w-7 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-2xs font-bold text-[color:var(--text-soft)]">
+      <span className="nums grid h-7 w-7 place-items-center rounded-full bg-[color:var(--surface-subtle)] text-2xs font-bold text-[color:var(--text-muted)]">
         {String(index + 1).padStart(2, "0")}
       </span>
       <span className={cn("grid h-8 w-8 place-items-center rounded-lg", tone.iconClassName)}>
@@ -321,7 +321,7 @@ function PriorityContent({
           <h3 className="text-sm font-bold text-[color:var(--text-heading)]">{priority.title}</h3>
           <span
             className={cn(
-              "inline-flex min-h-6 items-center rounded-md px-2 text-3xs font-bold uppercase tracking-[0.05em]",
+              "inline-flex min-h-6 items-center rounded-md px-2 text-3xs font-bold uppercase tracking-label",
               tone.labelClassName,
             )}
           >
@@ -383,12 +383,12 @@ export function DocumentClinicalSummary({
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
                 <Sparkles aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
               </span>
-              <h2 className="text-sm font-bold tracking-[-0.01em] text-[color:var(--text-heading)] sm:text-base">
+              <h2 className="text-sm font-bold tracking-display text-[color:var(--text-heading)] sm:text-base">
                 High-yield clinical summary
               </h2>
             </div>
             {model.sourceBacked ? (
-              <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-soft)]">
+              <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
                 <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[color:var(--success)]" />
                 Source-backed
               </span>
@@ -445,7 +445,7 @@ export function DocumentClinicalSummary({
                 <span className="nums grid h-5 min-w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold text-[color:var(--clinical-accent)]">
                   {model.priorities.length}
                 </span>
-                <span className="text-xs font-medium text-[color:var(--text-soft)]">Expanded clinical context</span>
+                <span className="text-xs font-medium text-[color:var(--text-muted)]">Expanded clinical context</span>
               </span>
               {prioritiesExpanded ? (
                 <ChevronUp aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" strokeWidth={2} />

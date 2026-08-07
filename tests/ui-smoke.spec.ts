@@ -41,6 +41,37 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
+  // Next streaming can leave a hidden DocumentFrame clone (#093); bare getByTestId
+  // then trips strict mode with 2 matches (seen under mobile-composer-reserve-pad).
+  const surround = visibleByTestId(page, "document-frame-surround");
+  const content = visibleByTestId(page, "document-frame-content");
+  await expect(surround).toBeVisible();
+  await expect(content).toBeVisible();
+  await expect(owner).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      const [surroundGeometry, contentBox, ownerBox] = await Promise.all([
+        surround.evaluate((element) => {
+          const style = window.getComputedStyle(element);
+          return {
+            clientWidth: element.clientWidth,
+            paddingLeft: Number.parseFloat(style.paddingLeft),
+            paddingRight: Number.parseFloat(style.paddingRight),
+          };
+        }),
+        content.boundingBox(),
+        owner.boundingBox(),
+      ]);
+      if (!contentBox || !ownerBox) return Number.POSITIVE_INFINITY;
+      const availableWidth =
+        surroundGeometry.clientWidth - surroundGeometry.paddingLeft - surroundGeometry.paddingRight;
+      return Math.max(Math.abs(contentBox.width - availableWidth), Math.abs(ownerBox.width - availableWidth));
+    })
+    .toBeLessThanOrEqual(2);
+}
+
 async function revealPhoneHeaderControl(page: Page, control: Locator) {
   const { scrollTop } = await readPrimaryScrollGeometry(page);
   if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
@@ -790,7 +821,7 @@ async function openMobileClinicalGuideMenu(page: Page) {
     { name: "Answer", href: "/?mode=answer" },
     { name: "Documents", href: "/?mode=documents" },
     { name: "Services", href: "/services" },
-    { name: "Medications", href: "/?mode=prescribing" },
+    { name: "Medication", href: "/?mode=prescribing" },
     { name: "Factsheets", href: "/factsheets" },
     { name: "Tools", href: "/tools" },
   ]);
@@ -1135,24 +1166,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("desktop sidebar defaults to the labelled state for new users", async ({ page }) => {
+  test("desktop sidebar defaults to the collapsed state for new users", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
-    // No stored preference (PT-10): the labelled navigation remains the default,
-    // so first-run desktop shows the labelled sidebar; collapse is remembered.
-    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
+    // No stored preference (PT-10): the collapsed icon rail is the default,
+    // so first-run desktop shows the collapsed rail, not the labelled panel;
+    // expanding is remembered. #clinical-tools-sidebar only mounts when
+    // expanded, so its absence (not just hidden) is the collapsed signal.
+    await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
+    await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toHaveCount(0);
   });
 
   test("desktop sidebar mode sync and accessibility affordances stay coherent", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    // This journey exercises the remembered-collapsed rail; new users now
-    // default to the labelled sidebar, so seed the stored preference.
+    // This journey starts from the collapsed rail (now the default for new
+    // users too) and exercises expanding/collapsing it.
     await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/?mode=tools");
 
@@ -1197,13 +1231,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await mockDemoApi(page);
+    // Seed expanded preference so #clinical-tools-sidebar mounts. Without this
+    // seed the panel is absent (count 0) and toBeHidden() would pass vacuously;
+    // we need the remembered-expanded path where the panel exists but stays
+    // display:none below lg while tablet still only presents the icon rail.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "0"));
     await gotoApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
     await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
-    // With the labelled default the expanded panel exists in the DOM but stays
-    // display:none below lg; tablet must still only present the icon rail.
     await expect(page.locator("#clinical-tools-sidebar")).toBeHidden();
     await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
 
@@ -1225,7 +1262,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/services" },
-      { name: "Medications", href: "/?mode=prescribing" },
+      { name: "Medication", href: "/?mode=prescribing" },
       { name: "Factsheets", href: "/factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
@@ -1236,9 +1273,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
           links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
         ),
     ).toEqual([{ name: "Favourites", href: "/favourites" }]);
-    // Specialist catalogues stay out of the persistent rail (MODE picker / Tools hub).
+    // Medication is a canonical rail mode; the remaining specialist catalogues
+    // stay in the MODE picker / Tools hub rather than duplicating the rail.
     await expect(page.getByRole("link", { name: "Differentials", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Medication", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Medication", exact: true })).toHaveCount(1);
     await expect(page.getByRole("link", { name: "Therapy", exact: true })).toHaveCount(0);
 
     await expectNoPageHorizontalOverflow(page);
@@ -1252,7 +1290,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { path: "/?mode=answer", label: "Answer" },
       { path: "/?mode=documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
-      { path: "/?mode=prescribing", label: "Medications" },
+      { path: "/?mode=prescribing", label: "Medication" },
       { path: "/?mode=tools", label: "Tools" },
     ] as const) {
       await gotoApp(page, route.path);
@@ -1306,8 +1344,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    // Exercises both collapsed and expanded account affordances; seed the
-    // remembered-collapsed preference now that new users default to labelled.
+    // Exercises both collapsed and expanded account affordances; seed collapsed
+    // explicitly (also the new-user default) so the journey starts on the rail.
     await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
@@ -1335,6 +1373,106 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.getByTestId("collapsed-account-settings").click();
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
+  });
+
+  test("desktop settings scrolls its own column and keeps the rail and close control reachable", async ({ page }) => {
+    // Regression: the panel grid used `lg:h-auto` + `lg:max-h-`, so its single
+    // auto row sized to the full content height, overflowed the capped grid and
+    // was clipped by `overflow-hidden`. The scroll column therefore never
+    // overflowed its own box, `overflow-y-auto` never engaged, and a rail click's
+    // `scrollIntoView` scrolled the clipped grid instead — dragging the rail and
+    // the close control out of the dialog with no way to scroll them back.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    // Sidebar defaults to collapsed for new users; expand so the in-rail Settings
+    // control this journey asserts is reachable (same as the account-setup case).
+    await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
+
+    const settings = accountSettingsDialog(page);
+    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(settings).toBeVisible();
+
+    const rail = settings.getByRole("navigation", { name: "Settings sections" });
+    const close = settings.getByRole("button", { name: "Close settings" });
+    await expect(rail).toBeVisible();
+
+    const port = settings.getByTestId("settings-scroll-port");
+
+    const scrollState = async () =>
+      port.evaluate((element) => {
+        const panel = element.parentElement;
+        return {
+          portScrollable: element.scrollHeight > element.clientHeight,
+          panelClipped: panel ? panel.scrollHeight > panel.clientHeight : true,
+        };
+      });
+
+    // The settings column owns the overflow; the two-column panel never does.
+    expect(await scrollState()).toEqual({ portScrollable: true, panelClipped: false });
+
+    for (const section of ["Privacy", "Shortcuts", "Help & About"]) {
+      await settings.getByRole("button", { name: section, exact: true }).click();
+      await expect(settings.getByRole("button", { name: section, exact: true })).toHaveAttribute(
+        "aria-current",
+        "true",
+      );
+      // The rail and the only pointer-driven way out both stay inside the panel.
+      await expect(rail).toBeInViewport();
+      await expect(close).toBeInViewport();
+      expect((await scrollState()).panelClipped).toBe(false);
+    }
+
+    // A rail click holds its own highlight — the last sections are shorter than
+    // the scroll port and can never reach the marker line — but only until the
+    // reader scrolls somewhere else. Dragging the native scrollbar moves
+    // `scrollTop` and emits `scroll` alone, with no wheel/touch/key event, so
+    // assign `scrollTop` directly to reproduce exactly that interaction. Force
+    // `scroll-behavior: auto` first: the port carries Tailwind `scroll-smooth`,
+    // and a bare `scrollTop` write would otherwise animate.
+    await settings.getByRole("button", { name: "Help & About", exact: true }).click();
+    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await port.evaluate((element) => {
+      const previous = element.style.scrollBehavior;
+      element.style.scrollBehavior = "auto";
+      element.scrollTop = 0;
+      element.style.scrollBehavior = previous;
+    });
+    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+
+    await close.click();
+    await expect(settings).toBeHidden();
+
+    // The pin must not outlive the dialog: the Sheet unmounts its children, but
+    // the component stays mounted, so a stale pin would hold the spy inert. A
+    // coalesced spy rAF armed before close is cancelled on `open` flip (and
+    // dropped if its port is no longer the live ref), so reopen starts on
+    // Account rather than the previous section.
+    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(settings).toBeVisible();
+    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await port.evaluate((element) => {
+      const previous = element.style.scrollBehavior;
+      element.style.scrollBehavior = "auto";
+      element.scrollTop = element.scrollHeight;
+      element.style.scrollBehavior = previous;
+    });
+    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
   });
 
   test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
@@ -1537,10 +1675,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(modeSheet).toBeVisible();
 
     // Click the dimmed backdrop (outside the dialog panel) to dismiss.
-    await page
-      .locator(".fixed.inset-0.z-\\[100\\]")
-      .first()
-      .click({ position: { x: 8, y: 8 } });
+    await modeSheet.locator("..").click({ position: { x: 8, y: 8 } });
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeTrigger).toBeFocused();
     await expect(appModeTrigger).toHaveAttribute("aria-expanded", "false");
@@ -1592,9 +1727,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
 
     await expect(page.getByRole("button", { name: "Ask a question" })).toHaveCount(0);
-    const questionBubble = page.getByTestId("user-question-bubble");
-    await expect(questionBubble).toBeVisible();
-    await expect(questionBubble).toContainText(question);
+    const questionEcho = page.getByTestId("answer-card-query");
+    await expect(questionEcho).toBeVisible();
+    await expect(questionEcho).toContainText(question);
 
     const plainAnswer = page.getByTestId("plain-answer-response");
     await expect(plainAnswer).toBeVisible();
@@ -1767,7 +1902,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 
     const hierarchy = await page.evaluate(() => {
-      const question = document.querySelector('[data-testid="user-question-bubble"]');
+      const question = document.querySelector('[data-testid="answer-card-query"]');
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
       const support = document.querySelector('[data-testid="answer-support-card"]');
       const table = document.querySelector('[aria-label="Inline table preview"]');
@@ -2104,30 +2239,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const header = document.querySelector("header");
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
       const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
+      // Include vertical margins: the phone bottom clearance (`max-sm:mb-4`) sits
+      // outside getBoundingClientRect().height and still consumes scroll budget.
+      let alsoMatchesHeight = 0;
+      if (alsoMatches instanceof HTMLElement) {
+        const box = alsoMatches.getBoundingClientRect();
+        const styles = window.getComputedStyle(alsoMatches);
+        alsoMatchesHeight = Math.ceil(
+          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+        );
+      }
       return {
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
-        alsoMatchesHeight: alsoMatches ? Math.ceil(alsoMatches.getBoundingClientRect().height) : 0,
+        alsoMatchesHeight,
       };
     });
     // Content-sized section => no unexplained phantom scroll. Submitted universal
     // matches are real content below the answer, so their compact panel may account
     // for the overflow; the old viewport floor created much more empty scroll.
-    // After the 48px tap / 10px control-radius step, bare short answers still fit
-    // with only a couple of pixels of layout slack — keep the empty-state budget
-    // tight, but allow a small sub-pixel band so radius/tap rounding cannot flake.
-    // Re-pinned from CI run 30820496984 (97 measured), never from a local
-    // reading — this machine reports 29 for the same tree, and finding L records
-    // that the local geometry sits 41-81px below CI here.
-    //
-    // The bare budget moved 8 -> 112 because the product changed, not because
-    // the test was inconvenient: every answer now carries a verification notice
-    // above the prose (PR 13 / #207), so "a bare short answer fits with a couple
-    // of pixels of slack" stopped being true the moment the notice became
-    // unconditional. What this still pins is that the page is sized by its
-    // content: 112 admits the notice and nothing more, so a genuine phantom
-    // viewport-height runway would still fail it. See ledger #226.
-    const permittedOverflow = geo.alsoMatchesHeight > 0 ? geo.alsoMatchesHeight + 24 : 112;
+    // The responsive notice keeps its complete instruction while returning the
+    // unexplained-scroll allowance to the original 8px phone contract. Submitted
+    // universal matches are real content, so subtract their measured height
+    // before applying that phantom-overflow budget. That measured height already
+    // includes the section's phone bottom margin, so the 8px allowance stays put.
+    const permittedOverflow = geo.alsoMatchesHeight + 8;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
@@ -2250,6 +2386,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
+    const relatedItems = page.getByRole("region", { name: "Related pages in other modes" }).getByRole("listitem");
+    await expect(relatedItems).toHaveCount(2);
+    await expect(relatedItems.last()).toBeVisible();
 
     const main = page.locator("main#main-content");
     const header = page.locator("header.universal-header");
@@ -2292,28 +2431,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
       postCollapseMaxOffset: Math.max(0, scrollGeometry.maxScrollTop - collapseBudget),
     };
     expect(scrollGeometry.owner).toBe("document");
-    // Pin the unmodified short-result geometry after the 48px tap step. The
-    // post-collapse range must still clear top-reveal + hide-intent distance
-    // (32px) and stay below the 72px in-flow activation band; synthetic tail
-    // content would hide this distinction. The prior 44px-era ~39px pin moved
-    // up with taller answer controls, so the upper bound tracks that band
-    // rather than the old 48px ceiling.
-    // Re-pinned from CI run 30820496984 (maxOffset 251), never from a local
-    // reading — finding L. Be honest about what moved: the upper bound was
-    // derived as collapse budget (128) + the 72px in-flow activation band, and
-    // the post-collapse runway no longer fits inside that band. Every answer now
-    // carries an unconditional verification notice above the prose (#207), so
-    // this fixture's short answer is taller than the geometry the band was
-    // written against. The collapse budget itself is untouched, because chrome
-    // height did not change — only the content below it. Ledger #226 carries the
-    // decision; the band is a real contract and widening it is a product change,
-    // not a test tweak.
-    expect(geometry.maxOffset).toBeGreaterThan(140);
-    expect(geometry.maxOffset).toBeLessThan(280);
+    // Short answers can straddle the 32px hide-intent threshold as text wraps
+    // across browsers and font renderers. Both geometries are safe: enough
+    // post-collapse range exercises synchronized hide/reveal; a shorter range
+    // must remain pinned by the near-bottom guard while still clearing the dock.
+    // Long-answer hide/reveal is covered independently above.
+    expect(geometry.maxOffset).toBeGreaterThan(100);
+    expect(geometry.maxOffset).toBeLessThan(200);
     expect(geometry.collapseBudget).toBeGreaterThan(112);
     expect(geometry.collapseBudget).toBeLessThan(128);
-    expect(geometry.postCollapseMaxOffset).toBeGreaterThanOrEqual(32);
-    expect(geometry.postCollapseMaxOffset).toBeLessThan(160);
+    expect(geometry.postCollapseMaxOffset).toBeLessThan(72);
     // A jump straight onto the bottom edge (PageDown / full-page flick) lands
     // past the post-collapse range; hiding there would clamp content under the
     // finger, so the near-bottom guard keeps both chrome edges visible.
@@ -2321,41 +2448,69 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await scrollPrimarySurface(page, 0);
-    // Deliberate downward travel that still fits the post-collapse range is
-    // the designed hide path: past the 8px top band plus 24px intent, at or
-    // below the post-collapse maximum (floored so fractional layout readings
-    // can never overshoot the hook's own near-bottom tolerance).
-    await scrollPrimarySurface(page, Math.floor(geometry.postCollapseMaxOffset));
-    await expect(header).toHaveAttribute("data-scroll-hidden", "true");
-    await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
-    // The reserve and both chrome edges animate for 240ms. The hidden state
-    // must survive the browser clamping scrollTop against the shrinking range,
-    // and the actual painted elements must finish outside the viewport.
-    await page.waitForTimeout(320);
-    await expect(header).toHaveAttribute("data-scroll-hidden", "true");
-    await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
-    const settledHiddenGeometry = await page.evaluate(() => {
-      const headerNode = document.querySelector<HTMLElement>("header.universal-header");
-      const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
-      if (!headerNode || !dockNode) throw new Error("Expected shared phone chrome");
-      const headerRect = headerNode.getBoundingClientRect();
-      const dockRect = dockNode.getBoundingClientRect();
-      return {
-        headerBottom: headerRect.bottom,
-        dockTop: dockRect.top,
-        viewportHeight: window.innerHeight,
-      };
-    });
-    expect(settledHiddenGeometry.headerBottom).toBeLessThanOrEqual(1);
-    expect(settledHiddenGeometry.dockTop).toBeGreaterThanOrEqual(settledHiddenGeometry.viewportHeight - 1);
-    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
+    if (geometry.postCollapseMaxOffset >= 32) {
+      // Deliberate downward travel that still fits the post-collapse range is
+      // the designed hide path: past the 8px top band plus 24px intent.
+      await scrollPrimarySurface(page, Math.floor(geometry.postCollapseMaxOffset));
+      await expect(header).toHaveAttribute("data-scroll-hidden", "true");
+      await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+      // The reserve and both chrome edges animate for 240ms. The hidden state
+      // must survive the browser clamping scrollTop against the shrinking range.
+      await page.waitForTimeout(320);
+      await expect(header).toHaveAttribute("data-scroll-hidden", "true");
+      await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+      const settledHiddenGeometry = await page.evaluate(() => {
+        const headerNode = document.querySelector<HTMLElement>("header.universal-header");
+        const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
+        if (!headerNode || !dockNode) throw new Error("Expected shared phone chrome");
+        const headerRect = headerNode.getBoundingClientRect();
+        const dockRect = dockNode.getBoundingClientRect();
+        return {
+          headerBottom: headerRect.bottom,
+          dockTop: dockRect.top,
+          viewportHeight: window.innerHeight,
+        };
+      });
+      expect(settledHiddenGeometry.headerBottom).toBeLessThanOrEqual(1);
+      expect(settledHiddenGeometry.dockTop).toBeGreaterThanOrEqual(settledHiddenGeometry.viewportHeight - 1);
+      await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
 
-    await scrollPrimarySurface(page, 20);
-    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
-    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+      await scrollPrimarySurface(page, 20);
+      await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+      await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    } else {
+      const liveEndpoint = (await readPrimaryScrollGeometry(page)).maxScrollTop;
+      await scrollPrimarySurface(page, liveEndpoint);
+      await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+      await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+      const endpoint = await relatedItems.last().evaluate((item) => {
+        const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
+        if (!dockNode) throw new Error("Expected phone answer dock");
+        return {
+          itemBottom: item.getBoundingClientRect().bottom,
+          dockTop: dockNode.getBoundingClientRect().top,
+        };
+      });
+      expect(endpoint.itemBottom).toBeLessThanOrEqual(endpoint.dockTop + 1);
+    }
 
     await input.click();
     await expect(input).toBeFocused();
+
+    await page.setViewportSize({ width: 320, height: 844 });
+    const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
+    await expect(compactCrossModeRail).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    const compactCrossModeLinks = compactCrossModeRail.getByRole("link");
+    const compactCrossModeActions = compactCrossModeRail.getByRole("button");
+    expect(await compactCrossModeLinks.count()).toBeGreaterThan(0);
+    expect(await compactCrossModeActions.count()).toBeGreaterThan(0);
+    for (const control of await compactCrossModeLinks.all()) {
+      await expectMinTouchTarget(control, 48);
+    }
+    for (const control of await compactCrossModeActions.all()) {
+      await expectMinTouchTarget(control, 48);
+    }
   });
 
   test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
@@ -2427,9 +2582,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
     await expect.poll(() => answerRequests[0]).toBe(question);
 
-    const questionBubble = page.getByTestId("user-question-bubble");
-    await expect(questionBubble).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await expect(questionBubble).toContainText(question);
+    const questionEcho = page.getByTestId("answer-card-query");
+    await expect(questionEcho).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(questionEcho).toContainText(question);
     await expect(page.getByTestId("plain-answer-response")).toContainText("synthetic clozapine table image highlights");
     await expect(visibleQuestionInput(page)).toHaveValue("");
     await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
@@ -2474,12 +2629,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
-    const rail = strip.getByTestId("cross-mode-links-rail");
+    const rail = strip.getByTestId("cross-mode-links-card-rail");
     await expect(rail).toBeVisible();
-    await expect(rail).toHaveClass(/md:flex/);
+    await expect(rail).toHaveCSS("display", "flex");
     await page.keyboard.press("Escape");
-    await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
-    await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
+    await expect(strip.getByText("Medication", { exact: true }).filter({ visible: true })).toBeVisible();
+    const medicationSearch = strip.getByRole("button", { name: "Search Clozapine in Medication" });
+    await expect(medicationSearch).toBeVisible();
+    await expect(strip.getByText("SGA / TRS", { exact: true }).filter({ visible: true })).toBeVisible();
 
     const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");
     if (await followUps.isVisible()) {
@@ -2492,6 +2649,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
     await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
+    await expectMinTouchTarget(medicationLink, 48);
+    await expectMinTouchTarget(medicationSearch, 48);
     await waitForReactEventHandler(medicationLink, "onClick");
     await medicationLink.click();
     await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 45_000 });
@@ -2509,8 +2668,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
 
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
-    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
+    // Live answer owns the query echo via AnswerCard; prior turns keep UserQuestionBubble.
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+    await expect(page.getByTestId("answer-card-query")).toContainText(firstQuestion);
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(0);
     await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible();
 
     const composer = visibleQuestionInput(page);
@@ -2521,9 +2682,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, followUp);
     await visibleAnswerSubmitButton(page).click();
 
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
-    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(followUp);
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+    await expect(page.getByTestId("answer-card-query")).toContainText(followUp);
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1);
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
     await expect(composer).toHaveValue("");
@@ -2534,10 +2696,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.reload();
     await waitForDemoDashboardReady(page);
     await expect(async () => {
-      await expect(page.getByTestId("user-question-bubble")).toHaveCount(2);
+      await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
+      await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
     }).toPass({ timeout: 15_000 });
-    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
-    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(followUp);
+    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
+    await expect(page.getByTestId("answer-card-query")).toContainText(followUp);
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
   });
 
@@ -2556,8 +2719,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(suggestionText).toBeTruthy();
     await suggestion.click();
 
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(suggestionText ?? "");
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+    await expect(page.getByTestId("answer-card-query")).toContainText(suggestionText ?? "");
   });
 
   test("quote follow-up stages a composer draft from evidence quotes", async ({ page }) => {
@@ -3050,7 +3214,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Start a new chat" }).click();
+    // Desktop hides the header New chat when the sidebar already owns it.
+    await page.getByRole("complementary", { name: "Clinical Guide" }).getByRole("button", { name: "New chat" }).click();
     await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
@@ -3267,6 +3432,55 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/[?&]mode=prescribing/);
   });
 
+  test("tablet document chrome keeps one new-chat action and readable Sources rows", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=documents");
+    await expect(page.getByTestId("document-search-empty-state")).toBeVisible({ timeout: 30_000 });
+
+    const visibleNewChatCount = await page.getByRole("button", { name: /new chat/i }).evaluateAll(
+      (buttons) =>
+        buttons.filter((button) => {
+          const rect = button.getBoundingClientRect();
+          const style = getComputedStyle(button);
+          return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+        }).length,
+    );
+    expect(visibleNewChatCount).toBe(1);
+
+    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
+    await browseLibraryButton.click();
+    const sourcesDialog = page.getByRole("dialog", { name: "Sources" });
+    await expect(sourcesDialog).toBeVisible();
+    await expect(sourcesDialog.getByText("Sources", { exact: true })).toHaveCount(1);
+
+    const documentLink = sourcesDialog.getByRole("link", { name: /Synthetic lithium monitoring protocol/i });
+    const addScope = sourcesDialog.getByRole("button", { name: "Add scope" }).first();
+    await expect(documentLink).toBeVisible();
+    await expect(addScope).toBeVisible();
+    const rowGeometry = await sourcesDialog.evaluate((dialog) => {
+      const link = Array.from(dialog.querySelectorAll<HTMLAnchorElement>("a")).find((candidate) =>
+        candidate.textContent?.toLowerCase().includes("synthetic lithium monitoring protocol"),
+      );
+      const scope = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button")).find(
+        (candidate) => candidate.textContent?.trim() === "Add scope",
+      );
+      if (!link || !scope) return null;
+      const linkRect = link.getBoundingClientRect();
+      const scopeRect = scope.getBoundingClientRect();
+      return {
+        linkWidth: linkRect.width,
+        linkBottom: linkRect.bottom,
+        scopeTop: scopeRect.top,
+        horizontalOverflow: dialog.scrollWidth > dialog.clientWidth + 1,
+      };
+    });
+    expect(rowGeometry).not.toBeNull();
+    expect(rowGeometry?.linkWidth ?? 0).toBeGreaterThanOrEqual(180);
+    expect(rowGeometry?.scopeTop ?? 0).toBeGreaterThanOrEqual((rowGeometry?.linkBottom ?? 0) + 8);
+    expect(rowGeometry?.horizontalOverflow).toBe(false);
+  });
+
   test("document search mode lists matching documents and result actions @critical", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
@@ -3347,6 +3561,56 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(mobileFilterTrigger).toBeVisible();
     await expect(mobileFilterTrigger).toHaveAccessibleName(/Filter/);
     await expectMinTouchTarget(mobileFilterTrigger);
+    // The rail must not clip its own controls. #1615 collapsed this band to one
+    // line but left the inline utilities group `shrink`, so an over-subscribed
+    // line paid the shortfall out of the *controls* rather than out of the
+    // truncating query: the sort group was severed by the track's
+    // `overflow-x-auto` and its trailing option was then washed out by the 28px
+    // overflow mask.
+    //
+    // Swept, not asserted once. This viewport is 390px, where the band gives the
+    // utilities their own row and the rail therefore has width to spare — the
+    // regression is invisible here, and a single-width check at 390 passes
+    // against the code that shipped it (verified by reintroducing `shrink`). It
+    // bites on the one-line widths, so the sweep has to cross 414px. 540 is in
+    // the list because a longer query reproduced a 41.9px clip there: width alone
+    // never bounded this. Geometry, not a class name — the class that caused it
+    // read as correct, and `expectNoPageHorizontalOverflow` cannot see an
+    // internal scroller.
+    // Polled, because `useRailOverflow` remeasures through a ResizeObserver a
+    // frame after the viewport changes.
+    const utilityTrack = queryRibbon.getByTestId("search-query-ribbon-utility-track");
+    const utilitiesGroup = queryRibbon.getByTestId("search-query-ribbon-utilities");
+    for (const width of [320, 375, 390, 402, 414, 430, 440, 540]) {
+      await page.setViewportSize({ width, height: 820 });
+      await expect
+        .poll(
+          async () =>
+            utilityTrack.evaluate((track) => {
+              const sort = track.querySelector('[role="group"][aria-label="Sort results"]');
+              const clipped = sort ? sort.getBoundingClientRect().right - track.getBoundingClientRect().right : 0;
+              return {
+                overflow: Math.max(0, track.scrollWidth - track.clientWidth),
+                sortClipped: Math.max(0, Math.round(clipped)),
+                masked: track.getAttribute("data-overflowing") === "true",
+              };
+            }),
+          { message: `results-band utility rail clipped its own controls at ${width}px` },
+        )
+        .toEqual({ overflow: 0, sortClipped: 0, masked: false });
+      // Below 414px the wrap is the active mechanism. Track overflow alone is
+      // blind to wrap failure: if the utilities group is pushed off-screen by
+      // the band's `overflow-hidden`, both `scrollWidth`/`clientWidth` and
+      // `sortClipped` still report zero. Require the group itself to stay in
+      // the viewport at the wrap widths.
+      if (width < 414) {
+        const utilitiesBox = await utilitiesGroup.boundingBox();
+        expect(utilitiesBox, `utilities clipped off-screen at ${width}px`).not.toBeNull();
+        expect(utilitiesBox!.x).toBeGreaterThanOrEqual(0);
+        expect(utilitiesBox!.x + utilitiesBox!.width).toBeLessThanOrEqual(width + 1);
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 820 });
     // The panel is what the trigger exists to reach — the state that was
     // unreachable before, because its only mount was gated on a selection that
     // nothing could make.
@@ -3355,14 +3619,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const filterPanel = page.getByTestId("document-filter-panel");
     await expect(filterPanel).toBeVisible();
     await expect(filterPanel.getByRole("radiogroup", { name: "Source type" })).toBeVisible();
+    // Library lives in the sheet footer now, under a rule and below the commit
+    // action. It was first renamed from "Open source filters" — it browses, it
+    // does not refine, and the old name made it read as a duplicate of Filter —
+    // but renaming treated the symptom. It sat adjacent to Filter in the utility
+    // rail answering a different question and occupied the space the pinned Filter
+    // needs. It was once described here as "the sole reason the phone rail could
+    // overflow at all"; that was measured wrong. With Library gone the rail still
+    // overflowed at every common phone width, because the inline utilities group
+    // was `shrink` — see the rail-fit assertion above.
+    const libraryButton = filterPanel.getByTestId("document-filter-browse-library");
+    await expect(libraryButton).toBeVisible();
+    await expect(libraryButton).toHaveText(/Browse all sources/);
+    await expectMinTouchTarget(libraryButton);
     await filterPanel.getByTestId("document-filter-done").click();
     await expect(filterPanel).toHaveCount(0);
     await expect(mobileFilterTrigger).toHaveAttribute("aria-expanded", "false");
-    // Renamed from "Open source filters": it browses, it does not refine, and
-    // the old name is what made it read as a duplicate of Filter.
-    const ribbonLibraryButton = queryRibbon.getByRole("button", { name: "Open source library" });
-    await expect(ribbonLibraryButton).toBeVisible();
-    await expectMinTouchTarget(ribbonLibraryButton);
+    // Asserted as an absence, not merely tolerated: putting Library back on the
+    // rail re-creates the overflow it was moved to remove, and both of its new
+    // homes (this sheet, and the zero-result state) preserve the query the way
+    // the rail placement was protecting.
+    await expect(queryRibbon.getByRole("button", { name: "Open source library" })).toHaveCount(0);
     await expect(documentWorkspace.getByText("Documents overview")).toHaveCount(0);
     await expect(documentWorkspace.getByRole("button", { name: /Browse library/i })).toHaveCount(0);
     await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
@@ -3383,11 +3660,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
         const railStyle = getComputedStyle(rail);
         const widths = Array.from(rail.children).map((child) => child.getBoundingClientRect().width);
         const firstActionStyle = getComputedStyle(rail.children[0]);
+        const typeProbe = document.createElement("span");
+        typeProbe.style.fontSize = "var(--text-sm)";
+        document.body.append(typeProbe);
+        const expectedActionFontSize = getComputedStyle(typeProbe).fontSize;
+        typeProbe.remove();
         const card = rail.closest("article")?.getBoundingClientRect();
         return {
           display: railStyle.display,
           widths,
           actionFontSize: firstActionStyle.fontSize,
+          expectedActionFontSize,
           actionFontWeight: firstActionStyle.fontWeight,
           actionDirection: firstActionStyle.flexDirection,
           cardLeft: card?.left ?? 0,
@@ -3399,7 +3682,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       expect(actionGeometry.cardRight).toBeLessThanOrEqual(actionGeometry.viewportWidth + 1);
       expect(actionGeometry.display).toBe("grid");
       expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
-      expect(actionGeometry.actionFontSize).toBe("14px");
+      expect(actionGeometry.actionFontSize).toBe(actionGeometry.expectedActionFontSize);
       expect(actionGeometry.actionDirection).toBe("row");
       expect(actionGeometry.actionFontWeight).toBe("800");
       for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
@@ -3500,11 +3783,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await wideFilterTrigger.click();
     const wideFilterPanel = page.getByTestId("document-filter-panel");
     await expect(wideFilterPanel.getByRole("radiogroup", { name: "Source type" })).toBeVisible();
-    await wideFilterPanel.getByTestId("document-filter-done").click();
-    await expect(wideFilterPanel).toHaveCount(0);
     const dashboardMain = page.locator("main#main-content");
     const scrollTopBeforeSources = await dashboardMain.evaluate((element) => element.scrollTop);
-    await ribbonLibraryButton.click();
+    // The corpus is now reached from the sheet's footer rather than the rail,
+    // and reaching it dismisses the sheet: browsing is leaving this surface, so
+    // the Sources drawer must not open underneath a filter panel still covering
+    // the results both of them describe.
+    await wideFilterPanel.getByTestId("document-filter-browse-library").click();
+    await expect(wideFilterPanel).toHaveCount(0);
     const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(resultsLibraryDialog).toBeVisible();
     // Prefer Playwright's focus waiter over a raw activeElement poll — Sheet
@@ -3518,11 +3804,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("details#dashboard-documents-drawer")).not.toHaveAttribute("open", "");
     await page.keyboard.press("Escape");
     await expect(resultsLibraryDialog).toHaveCount(0);
+    // Focus must come back to a real control, never to `body` — closing a modal
+    // into nothing strands a keyboard user at the top of the document.
+    //
+    // It lands on the documents options button rather than on whatever opened
+    // the drawer, because the opener is now the sheet's footer control and the
+    // sheet dismisses itself on the way out, so by the time the drawer closes
+    // its opener has unmounted. That is a fallback, not the ideal — returning to
+    // the filter trigger would be better — but it is a visible, related control
+    // in the same workspace, and it is the app's existing restore target rather
+    // than anything this change introduced.
     await expect
-      .poll(async () => ribbonLibraryButton.evaluate((el) => el === document.activeElement), {
-        timeout: 15_000,
-      })
-      .toBe(true);
+      .poll(
+        async () =>
+          page.evaluate(() => {
+            const active = document.activeElement as HTMLElement | null;
+            if (!active || active === document.body) return "body";
+            return active.getAttribute("aria-label") ?? active.tagName;
+          }),
+        { timeout: 15_000 },
+      )
+      .toBe("Open documents options");
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
@@ -3643,7 +3945,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await submitDocumentSearch(page);
     await expect(page).toHaveURL(/\/documents\/search\?/);
     await expect(page.locator("body")).not.toContainText(/failed to fetch|Search failed/i);
-    await expect(page.getByRole("heading", { name: "No matching documents" }).first()).toBeVisible();
+    // Still a heading, deliberately: #1612 promoted this state's title to `h3`
+    // because it owns its region, and the move to the shared empty state must
+    // not quietly demote it back to a paragraph. Only the copy changed — the
+    // shared state names the query that found nothing.
+    await expect(
+      page.getByRole("heading", { level: 3, name: /No matches for .what is the best coffee machine/ }).first(),
+    ).toBeVisible();
 
     const demoDocId = "11111111-1111-4111-8111-111111111111";
     await gotoApp(page, `/documents/${demoDocId}?chunk=44444444-4444-4444-8444-444444444442`);
@@ -3725,6 +4033,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(downloadButton).toBeEnabled();
     await downloadButton.dblclick();
     await expect.poll(() => signedUrlRequests.filter((kind) => kind === "download").length).toBe(1);
+  });
+
+  test("document frame stretches canvas and native owners at phone and desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 720 });
+    await mockDemoApi(page);
+    await gotoApp(
+      page,
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
+
+    const canvasOwner = page.getByTestId("pdf-fullscreen-root");
+    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expectDocumentOwnerFillsFrame(page, canvasOwner);
+
+    await page.evaluate(() => {
+      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "native");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+    const nativeOwner = page.getByTestId("native-pdf-embed");
+    await expectDocumentOwnerFillsFrame(page, nativeOwner);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expectDocumentOwnerFillsFrame(page, nativeOwner);
+
+    await page.evaluate(() => {
+      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "canvas");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expectDocumentOwnerFillsFrame(page, canvasOwner);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("document viewer puts the PDF preview first with pinned evidence after it on mobile", async ({ page }) => {
@@ -4134,6 +4475,59 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(box).not.toBeNull();
     expect(box!.y).toBeGreaterThanOrEqual(0);
     expect(box!.y).toBeLessThanOrEqual(200);
+  });
+
+  test("private-scope alert clears the revealed phone header outside the answer view", async ({ page }) => {
+    // Reachable is not the same as visible. The alert is `sticky` inside <main>
+    // with `z-20`, while the phone header owns `z-30` at the viewport top, so an
+    // offset that assumes the header is out of the way leaves the recovery
+    // buttons underneath it. Measured 35px of the alert obscured before this
+    // guard, on a probe shorter than the real two-line alert. It predates phone
+    // overlay motion — a header pinned by `position: sticky` covered it exactly
+    // as much as the fixed overlay does — so assert the geometry, not the
+    // mechanism, and do it on a non-answer mode where the offset differs.
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=documents&scopeRef=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+
+    const alert = page.getByTestId("private-scope-unavailable");
+    await expect(alert).toBeVisible({ timeout: 15000 });
+
+    await appendPrimaryScrollSpacer(page, { heightPx: 2000 });
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
+
+    // Hide the chrome, then bring it back — the state that puts a full-height
+    // header over a sticky alert. Assert the hide, not just the reveal: if
+    // hide-on-scroll stopped firing the chrome would never leave, the upward
+    // scrolls would still end revealed, and the overlap check below would pass
+    // without ever exercising the state it exists to cover.
+    const collapse = page.getByTestId("universal-header-collapse");
+    for (const offset of [80, 160, 260, 380]) {
+      await scrollPrimarySurface(page, offset);
+    }
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+
+    for (const offset of [300, 240, 200]) {
+      await scrollPrimarySurface(page, offset);
+    }
+    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(alert).toBeVisible();
+
+    const overlap = await page.evaluate(() => {
+      const node = document.querySelector('[data-testid="private-scope-unavailable"]');
+      const stack = document.querySelector(".phone-sticky-header-stack");
+      // Throw rather than return a sentinel: a negative number satisfies the
+      // `<= 1` assertion below, so a missing element would report a passing
+      // overlap contract that was never measured.
+      if (!(node instanceof HTMLElement) || !(stack instanceof HTMLElement)) {
+        throw new Error("private-scope alert overlap: the alert or the phone header stack was not rendered");
+      }
+      const a = node.getBoundingClientRect();
+      const h = stack.getBoundingClientRect();
+      return Math.max(0, Math.min(a.bottom, h.bottom) - Math.max(a.top, h.top));
+    });
+    expect(overlap, "the revealed phone header must not cover the recovery alert").toBeLessThanOrEqual(1);
   });
 
   test("answer glass header hides and returns on desktop widths too", async ({ page }) => {

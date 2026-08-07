@@ -49,6 +49,7 @@ import { cn, floatingControl, InlineNotice, primaryControl, toggleThumbSurface }
 import { ProviderBrandMark } from "@/components/clinical-dashboard/provider-brand-icons";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { TextField } from "@/components/ui/text-field";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ThemePreference } from "@/lib/theme";
@@ -79,6 +80,28 @@ const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string;
   { value: "dark", label: "Dark", icon: Moon },
   { value: "system", label: "System", icon: Monitor },
 ];
+
+// The section rail is `hidden lg:flex`. Match the repo's desktop seam literally
+// (`1024px` in globals.css / JS media queries), not Tailwind's `64rem` token —
+// rem-based seams drift from that CSS when the root font size is not 16px.
+const settingsRailMediaQuery = "(min-width: 1024px)";
+
+// Scroll offsets are fractional on hidpi displays, so "the same position" needs
+// a pixel or two of slack. The spy marker uses the same tolerance so a settle
+// that lands within it still answers as the clicked section.
+const scrollSettleTolerance = 2;
+
+// Sticky title bar clearance for focus-scroll into section content. Matches the
+// desktop header's pt-6 + title leading-8 + pb-3 budget with a little slack so
+// keyboard focus does not land under the opaque bar.
+const settingsSectionScrollMarginClass =
+  "scroll-mt-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] lg:scroll-mt-24";
+
+/**
+ * A section chosen from the rail, held while the scroll travels to it and until
+ * the reader scrolls somewhere else themselves.
+ */
+type PinnedSection = { id: SettingsSectionId; offset: number; distance: number; settled: boolean };
 
 function sectionDomId(id: SettingsSectionId) {
   return `settings-section-${id}`;
@@ -115,13 +138,23 @@ export function SettingsDialog({
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const guideButtonRef = useRef<HTMLButtonElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // The title bar is sticky inside the scroll region on every breakpoint, so its
+  // height is the amount of the scroll port a section would otherwise land
+  // underneath — both the scroll-spy root and the click-to-scroll offset have to
+  // subtract it.
+  const headerRef = useRef<HTMLElement | null>(null);
+  // Section chosen from the rail, held until the reader scrolls for themselves.
+  const pinnedSectionRef = useRef<PinnedSection | null>(null);
+  // Memoised so phone scroll does not reconstruct a MediaQueryList on every event.
+  const settingsRailMqlRef = useRef<MediaQueryList | null>(null);
+  const scrollSpyFrameRef = useRef<number | null>(null);
   const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
 
   const { theme, preference: themePreference, setPreference: setThemePreference } = useTheme();
   const { preferences, setPreference, resetPreferences } = useAppPreferences();
   // Hide-on-scroll for the mobile glass header (phone-gated inside the hook), so
   // the top goes fully edge-to-edge while scrolling — the same behaviour as the
-  // app's search bar. Desktop keeps a static in-panel header.
+  // app's search bar. Desktop keeps its title bar pinned and never hides it.
   const { hidden: headerHidden, reportScroll } = useScrollHideReporter();
 
   const auth = useAuthSession();
@@ -168,50 +201,244 @@ export function SettingsDialog({
     setDataCounts(readDataCounts());
   }, []);
 
-  // Desktop scroll-spy: highlight the section nearest the top of the scroll
-  // region so the rail mirrors what the reader is looking at.
-  useEffect(() => {
-    if (!open || typeof IntersectionObserver === "undefined") return;
-    const container = scrollRef.current;
-    if (!container) return;
-    const sectionEls = Array.from(container.querySelectorAll<HTMLElement>("[data-settings-section]"));
+  /**
+   * Desktop scroll-spy: the rail highlights the last section whose heading has
+   * passed under the sticky title bar.
+   *
+   * Read from geometry on scroll rather than from an IntersectionObserver. An
+   * observer callback receives only the entries whose intersection *changed* in
+   * that batch, so picking "the topmost visible entry" from it picks the topmost
+   * of a partial set — which is how selecting the last rail item could leave the
+   * rail highlighting the one above it.
+   */
+  const syncActiveSection = useCallback((container: HTMLDivElement) => {
+    const railMql = settingsRailMqlRef.current;
+    if (
+      railMql ? !railMql.matches : typeof window !== "undefined" && !window.matchMedia(settingsRailMediaQuery).matches
+    ) {
+      return;
+    }
+    const sectionEls = container.querySelectorAll<HTMLElement>("[data-settings-section]");
     if (sectionEls.length === 0) return;
+    const maxOffset = container.scrollHeight - container.clientHeight;
+    // The final rendered section is shorter than the scroll port, so its heading
+    // can never reach the marker line. The end of the runway belongs to it —
+    // take the id from the DOM, not from SETTINGS_SECTIONS, so a conditional
+    // section cannot desync the two sources of truth.
+    if (maxOffset > 0 && maxOffset - container.scrollTop <= scrollSettleTolerance) {
+      const lastId = sectionEls[sectionEls.length - 1]?.getAttribute("data-settings-section");
+      if (lastId) setActiveSection(lastId as SettingsSectionId);
+      return;
+    }
+    const marker =
+      container.getBoundingClientRect().top + (headerRef.current?.offsetHeight ?? 0) + scrollSettleTolerance;
+    let next =
+      (sectionEls[0]?.getAttribute("data-settings-section") as SettingsSectionId | null) ?? SETTINGS_SECTIONS[0].id;
+    for (const element of sectionEls) {
+      if (element.getBoundingClientRect().top > marker) break;
+      next = element.getAttribute("data-settings-section") as SettingsSectionId;
+    }
+    setActiveSection(next);
+  }, []);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        const next = visible[0]?.target.getAttribute("data-settings-section");
-        if (next) setActiveSection(next as SettingsSectionId);
-      },
-      { root: container, rootMargin: "0px 0px -62% 0px", threshold: [0, 0.35] },
-    );
-    sectionEls.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
-  }, [open]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    settingsRailMqlRef.current = window.matchMedia(settingsRailMediaQuery);
+  }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    // The Sheet unmounts its children while closed, so the scroll port comes
+    // back at offset 0 — but this component stays mounted, so a pin left over
+    // from the last visit would survive and hold the spy inert on the fresh
+    // surface. Cleared here rather than in the open-reset block above, which
+    // runs during render where a ref must not be written.
+    pinnedSectionRef.current = null;
+    const container = scrollRef.current;
+    if (container) syncActiveSection(container);
+  }, [open, syncActiveSection]);
+
+  // Geometry changes (viewport resize, panel height tracking 88dvh, email form
+  // expanding a section) used to re-fire via IntersectionObserver. Re-run the
+  // spy on resize / content size without releasing an in-flight rail pin.
+  useEffect(() => {
+    if (!open || typeof ResizeObserver === "undefined") return;
+    let cancelled = false;
+    let observer: ResizeObserver | null = null;
+    let frame = 0;
+
+    const reevaluate = () => {
+      const container = scrollRef.current;
+      if (!container) return;
+      const pin = pinnedSectionRef.current;
+      if (pin) {
+        // Content/viewport growth can make the click target unreachable; keep
+        // the pin, but clamp its offset so arrival remains possible. Reset
+        // distance from the live scrollTop too: leaving the pre-clamp gap
+        // would make the next scroll frame look like a takeover (distance
+        // suddenly larger than pin.distance) and drop the hold mid-animation.
+        const maxOffset = Math.max(0, container.scrollHeight - container.clientHeight);
+        if (pin.offset > maxOffset) {
+          pin.offset = maxOffset;
+          pin.distance = Math.abs(container.scrollTop - pin.offset);
+          pin.settled = pin.distance <= scrollSettleTolerance;
+        }
+        return;
+      }
+      syncActiveSection(container);
+    };
+
+    const detachWindow = () => {
+      window.removeEventListener("resize", reevaluate);
+      settingsRailMqlRef.current?.removeEventListener("change", reevaluate);
+    };
+
+    const attach = () => {
+      const container = scrollRef.current;
+      if (!container || cancelled) return false;
+      observer = new ResizeObserver(reevaluate);
+      observer.observe(container);
+      for (const child of container.children) {
+        if (child instanceof Element) observer.observe(child);
+      }
+      window.addEventListener("resize", reevaluate);
+      settingsRailMqlRef.current?.addEventListener("change", reevaluate);
+      return true;
+    };
+
+    if (!attach()) {
+      // Sheet children mount with `open`; one frame is enough for the ref.
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        attach();
+      });
+    }
+
+    return () => {
+      cancelled = true;
+      if (frame) window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      detachWindow();
+    };
+  }, [open, syncActiveSection]);
+
+  // Scroll the settings scroll port itself rather than calling
+  // `target.scrollIntoView()`. `scrollIntoView` walks every scrollable ancestor,
+  // and an ancestor with `overflow: hidden` is still programmatically
+  // scrollable — so it used to drag the whole two-column panel up, taking the
+  // section rail and the close control out of the dialog with it.
   const scrollToSection = useCallback(
     (id: SettingsSectionId) => {
       setActiveSection(id);
+      pinnedSectionRef.current = null;
       const container = scrollRef.current;
       const target = container?.querySelector<HTMLElement>(`[data-settings-section="${id}"]`);
-      if (!target) return;
+      if (!container || !target) return;
       const prefersReducedMotion =
         preferences.motion === "reduced" ||
         (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-      target.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
+      const headerOffset = headerRef.current?.offsetHeight ?? 0;
+      const top =
+        container.scrollTop + target.getBoundingClientRect().top - container.getBoundingClientRect().top - headerOffset;
+      // Clamp to what the port can actually reach. The last sections are shorter
+      // than the port, so their ideal offset lies past the end of the runway —
+      // an unclamped target is one the scroll can never arrive at, and the pin
+      // below would wait for that arrival forever.
+      const maxOffset = Math.max(0, container.scrollHeight - container.clientHeight);
+      const offset = Math.min(Math.max(0, top), maxOffset);
+      const distance = Math.abs(container.scrollTop - offset);
+      pinnedSectionRef.current = { id, offset, distance, settled: distance <= scrollSettleTolerance };
+      // Avoid `behavior: "instant"` / `"auto"`: `"auto"` defers to the container's
+      // `scroll-smooth`, and engines that do not recognise `"instant"` can fall
+      // back to that CSS smooth path — the exact reduced-motion failure. Write
+      // `scrollTop` under an inline `scroll-behavior: auto` instead.
+      if (prefersReducedMotion) {
+        const previousBehavior = container.style.scrollBehavior;
+        container.style.scrollBehavior = "auto";
+        container.scrollTop = offset;
+        container.style.scrollBehavior = previousBehavior;
+      } else {
+        container.scrollTo({ top: offset, behavior: "smooth" });
+      }
     },
     [preferences.motion],
   );
+
+  /**
+   * Decide whether a scroll belongs to the reader or to a rail click still in
+   * flight, and return whether the spy may act on it.
+   *
+   * Driven by scroll position, never by which input event arrived. Releasing on
+   * `wheel`/`touchmove`/`keydown` alone missed the one interaction this dialog
+   * just regained — dragging the native scrollbar emits `scroll` and nothing
+   * else — which left the rail highlighting the clicked section while the reader
+   * was somewhere else entirely.
+   */
+  const admitScrollToSpy = useCallback((container: HTMLDivElement) => {
+    const pin = pinnedSectionRef.current;
+    if (!pin) return true;
+    const distance = Math.abs(container.scrollTop - pin.offset);
+    if (distance <= scrollSettleTolerance) {
+      // Arrived. Hold the highlight here: a section shorter than the port cannot
+      // reach the marker line, so geometry would answer a click on "Shortcuts"
+      // with whichever neighbour sits at the top of the runway's end.
+      pin.settled = true;
+      pin.distance = distance;
+      return false;
+    }
+    // Use `<=`, not `<`: a coalesced rAF can run after the pin is armed but
+    // before smooth-scroll has moved `scrollTop`. Strict `<` treats that
+    // no-progress frame as a reader takeover and drops the pin immediately,
+    // so a rapid second rail click (or any scroll listener still in flight)
+    // loses the hold before the animation starts.
+    if (!pin.settled && distance <= pin.distance) {
+      // Still closing the gap (or not yet moved), so this is the click's own
+      // scroll animation.
+      pin.distance = distance;
+      return false;
+    }
+    // Either the reader scrolled after it settled, or they took the scroll over
+    // mid-flight and the gap stopped shrinking. The choice is theirs now.
+    pinnedSectionRef.current = null;
+    return true;
+  }, []);
 
   const handleScroll = useCallback(
     (event: UIEvent<HTMLDivElement>) => {
       const el = event.currentTarget;
       reportScroll({ offset: el.scrollTop, maxOffset: el.scrollHeight - el.clientHeight, source: el });
+      // Coalesce spy geometry reads to one frame, matching useHideOnScroll.
+      if (scrollSpyFrameRef.current != null) return;
+      scrollSpyFrameRef.current = window.requestAnimationFrame(() => {
+        scrollSpyFrameRef.current = null;
+        // Sheet returns null while closed and unmounts this port, but the dialog
+        // component stays mounted. A frame armed before close must not sync from
+        // the detached node and overwrite the reopen reset (`activeSection` →
+        // account) after the fresh port is already at offset 0.
+        if (scrollRef.current !== el || !el.isConnected) return;
+        if (admitScrollToSpy(el)) syncActiveSection(el);
+      });
     },
-    [reportScroll],
+    [admitScrollToSpy, reportScroll, syncActiveSection],
   );
+
+  // Cancel a coalesced spy frame on close (and on unmount). The empty-deps
+  // cleanup alone left the frame live across `open` flips.
+  useEffect(() => {
+    if (!open) {
+      if (scrollSpyFrameRef.current != null) {
+        window.cancelAnimationFrame(scrollSpyFrameRef.current);
+        scrollSpyFrameRef.current = null;
+      }
+      return;
+    }
+    return () => {
+      if (scrollSpyFrameRef.current != null) {
+        window.cancelAnimationFrame(scrollSpyFrameRef.current);
+        scrollSpyFrameRef.current = null;
+      }
+    };
+  }, [open]);
 
   async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -282,7 +509,14 @@ export function SettingsDialog({
       contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none max-lg:!pb-0 lg:max-w-[940px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
       bodyClassName="p-0"
     >
-      <div className="relative grid h-full max-h-full min-h-0 overflow-hidden lg:h-auto lg:max-h-[min(88dvh,840px)] lg:grid-cols-[248px_minmax(0,1fr)]">
+      {/* The desktop height must be definite, not `h-auto` + `max-h-`. With an
+          auto height the single grid row sizes to max-content (the full ~2800px
+          of settings), overflows the capped container, and is clipped by
+          `overflow-hidden` — so the scroll column below never overflows its own
+          box and `overflow-y-auto` never engages. That left desktop settings
+          unscrollable, with the section rail stretched off the bottom of the
+          panel. A definite height bounds the row, which bounds the column. */}
+      <div className="relative grid h-full max-h-full min-h-0 overflow-hidden lg:h-[min(88dvh,840px)] lg:grid-cols-[248px_minmax(0,1fr)]">
         <aside className="hidden border-r border-[color:var(--border-lux)] bg-[color:var(--surface)]/72 px-4 pb-5 pt-6 lg:flex lg:flex-col">
           <nav aria-label="Settings sections" className="grid gap-1">
             {SETTINGS_SECTIONS.map((item) => {
@@ -307,8 +541,8 @@ export function SettingsDialog({
               );
             })}
           </nav>
-          <p className="mt-auto flex items-center gap-2 px-1 pt-6 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-            <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          <p className="mt-auto flex items-center gap-2 px-1 pt-6 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" />
             Stored on this device. No PHI.
           </p>
         </aside>
@@ -316,17 +550,29 @@ export function SettingsDialog({
         <div
           ref={scrollRef}
           onScroll={handleScroll}
+          data-testid="settings-scroll-port"
           className="relative min-h-0 w-full overflow-y-auto scroll-smooth bg-[color:var(--background)] polished-scroll lg:bg-transparent lg:px-7"
         >
           {/* Edge-to-edge glass header: full-bleed scrim covers the notch/status-bar
               band, and it slides away on scroll-down (mobile only) so the top runs
-              edge-to-edge. On lg it reverts to a static in-panel title bar. */}
+              edge-to-edge. On lg it stays pinned as a solid in-panel title bar. */}
           <header
+            ref={headerRef}
             className={cn(
               // No permanent `will-change-transform`: it keeps a compositor layer
               // alive at rest for a header that only transforms during scroll-hide.
               // `transition-transform` already hints the browser for the animation.
-              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none lg:static lg:z-auto lg:translate-y-0 lg:pb-0 lg:pt-6 lg:bg-transparent! lg:px-0!",
+              //
+              // Desktop keeps the sticky position too. The close control lives in
+              // this bar, so a static bar scrolls the only pointer-driven way out
+              // of settings off the top as soon as the reader reaches a later
+              // section. Sticky needs an opaque panel-surface fill so content
+              // passes behind it rather than through it. `.edge-glass-header` is
+              // in `@layer components`, so plain utilities already win — do not
+              // use `!`, which would also beat the unlayered a11y fallbacks
+              // (forced-colors Canvas / reduced-transparency `--surface`).
+              // Scroll-hide stays phone-only via `lg:translate-y-0`.
+              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none lg:translate-y-0 lg:pb-3 lg:pt-6 lg:bg-[color:var(--surface-lux)] lg:px-0",
               headerHidden ? "-translate-y-full" : "translate-y-0",
             )}
           >
@@ -337,7 +583,7 @@ export function SettingsDialog({
                 <h2
                   id="account-settings-title"
                   aria-label="Account & app"
-                  className="truncate text-xl font-semibold leading-tight tracking-[-0.01em] text-[color:var(--text-heading)] lg:text-2xl lg:leading-8"
+                  className="truncate text-xl font-semibold leading-tight tracking-display text-[color:var(--text-heading)] lg:text-2xl lg:leading-8"
                 >
                   <span className="lg:hidden">Settings</span>
                   <span className="hidden lg:inline">Account &amp; app</span>
@@ -453,7 +699,7 @@ export function SettingsDialog({
                       </form>
                     ) : null}
 
-                    <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
+                    <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-muted)]">
                       <span className="h-px flex-1 bg-[color:var(--border)]" />
                       <span>or continue with</span>
                       <span className="h-px flex-1 bg-[color:var(--border)]" />
@@ -475,7 +721,7 @@ export function SettingsDialog({
                     <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
                       <LockKeyhole
                         aria-hidden="true"
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]"
                       />
                       Accounts sync favourites and preferences across signed-in devices. Do not enter PHI.
                     </p>
@@ -568,6 +814,7 @@ export function SettingsDialog({
                   <SegmentedControl
                     ariaLabelledBy="settings-answer-style-label"
                     ariaDescribedBy="settings-clinical-defaults-note"
+                    layout="equal"
                     value={preferences.answerStyle}
                     onChange={(value) => setPreference("answerStyle", value)}
                     options={ANSWER_STYLE_OPTIONS}
@@ -588,6 +835,7 @@ export function SettingsDialog({
                 >
                   <SegmentedControl
                     ariaLabelledBy="settings-appearance-label"
+                    layout="equal"
                     value={themePreference}
                     onChange={setThemePreference}
                     options={APPEARANCE_OPTIONS}
@@ -596,6 +844,7 @@ export function SettingsDialog({
                 <SettingsField icon={SettingsIcon} label="Interface density" labelId="settings-density-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-density-label"
+                    layout="equal"
                     value={preferences.density}
                     onChange={(value) => setPreference("density", value)}
                     options={DENSITY_OPTIONS}
@@ -604,6 +853,7 @@ export function SettingsDialog({
                 <SettingsField icon={PanelTop} label="Default landing view" labelId="settings-landing-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-landing-label"
+                    layout="equal"
                     value={preferences.landing}
                     onChange={(value) => setPreference("landing", value)}
                     options={LANDING_OPTIONS}
@@ -773,7 +1023,7 @@ function SettingsSection({
       id={sectionDomId(id)}
       data-settings-section={id}
       aria-labelledby={headingId}
-      className="scroll-mt-4 pt-4 first:pt-0 lg:pt-6"
+      className={cn(settingsSectionScrollMarginClass, "pt-4 first:pt-0 lg:pt-6")}
     >
       <h3
         id={headingId}
@@ -823,9 +1073,9 @@ function NotYetActiveBadge({ id }: { id?: string }) {
   return (
     <span
       id={id}
-      className="mt-1 inline-flex w-fit items-center gap-1 text-2xs font-medium leading-4 text-[color:var(--text-soft)]"
+      className="mt-1 inline-flex w-fit items-center gap-1 text-2xs font-medium leading-4 text-[color:var(--text-muted)]"
     >
-      <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--text-soft)]" />
+      <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--decoration-soft)]" />
       Not active yet
     </span>
   );
@@ -881,55 +1131,6 @@ function SettingsField({
           {valueText}
         </span>
       ) : null}
-    </div>
-  );
-}
-
-function SegmentedControl<T extends string>({
-  value,
-  onChange,
-  options,
-  ariaLabelledBy,
-  ariaDescribedBy,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-  options: ReadonlyArray<{ value: T; label: string; icon?: LucideIcon }>;
-  ariaLabelledBy?: string;
-  ariaDescribedBy?: string;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-labelledby={ariaLabelledBy}
-      aria-describedby={ariaDescribedBy}
-      // Segments size to their content and wrap onto a second row on narrow
-      // screens rather than truncating long labels ("Comprehensive"); each row's
-      // items grow to fill the width so the control still reads as a unit.
-      className="flex w-full flex-wrap gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {options.map((option) => {
-        const checked = option.value === value;
-        const Icon = option.icon;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={checked}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              "flex min-h-tap flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
-              checked
-                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
-                : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            {Icon ? <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : null}
-            <span>{option.label}</span>
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -1082,7 +1283,10 @@ function SettingsActionRow({
       disabled={disabled}
       aria-label={actionLabel}
       data-testid={settingsRowTestId(label)}
-      className="flex w-full items-center gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-55 lg:hover:bg-[color:var(--surface-lux)]/55"
+      className={cn(
+        settingsSectionScrollMarginClass,
+        "flex w-full items-center gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-55 lg:hover:bg-[color:var(--surface-lux)]/55",
+      )}
     >
       <IconBadge icon={Icon} />
       <span className="min-w-0 flex-1 truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
@@ -1091,7 +1295,7 @@ function SettingsActionRow({
       {meta ? (
         <span className="shrink-0 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{meta}</span>
       ) : null}
-      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
     </button>
   );
 }
@@ -1182,7 +1386,7 @@ function SettingsProviderRow({
         </span>
       ) : null}
       {!disabledReason ? (
-        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
       ) : null}
     </button>
   );

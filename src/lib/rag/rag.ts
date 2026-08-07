@@ -204,6 +204,8 @@ export { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry
 import {
   clearlyOutsideCorpusMedicalPattern,
   isUnsupportedSoftTailAnalysis,
+  shouldSkipUnsupportedSoftTailAnswerCacheWrite,
+  shouldSkipUnsupportedSoftTailCacheWrite,
   unavailableDocumentNoisePattern,
 } from "@/lib/rag/rag-query-guard";
 export { shouldShortCircuitUnsupportedSearch } from "@/lib/rag/rag-query-guard";
@@ -951,6 +953,8 @@ type ClassifierVerdict = z.infer<typeof queryClassifierVerdictSchema>;
 // a query's classification for the whole TTL. The full corpus-grounded relevance fix remains
 // scoped to RAG optimisation Phase 2.
 const classifierVerdictMemoTtlMs = 15 * 60 * 1000;
+// Finding #11 follow-up: bounds retries for a rejected soft-tail verdict (isUnsupportedSoftTailAnalysis).
+const rejectedSoftTailMemoTtlMs = 60 * 1000;
 const classifierVerdictMemoMaxEntries = 500;
 const classifierVerdictMemo = new Map<string, { expiresAt: number; verdict: ClassifierVerdict }>();
 const classifierVerdictInflight = new Map<string, Promise<ClassifierVerdict>>();
@@ -970,12 +974,12 @@ function classifierVerdictMemoKey(query: string, analysis: ClinicalQueryAnalysis
 }
 
 /** Store classifier verdict memo. */
-function storeClassifierVerdictMemo(key: string, verdict: ClassifierVerdict) {
+function storeClassifierVerdictMemo(key: string, verdict: ClassifierVerdict, ttlMs = classifierVerdictMemoTtlMs) {
   if (classifierVerdictMemo.size >= classifierVerdictMemoMaxEntries) {
     const oldestKey = classifierVerdictMemo.keys().next().value;
     if (oldestKey !== undefined) classifierVerdictMemo.delete(oldestKey);
   }
-  classifierVerdictMemo.set(key, { expiresAt: Date.now() + classifierVerdictMemoTtlMs, verdict });
+  classifierVerdictMemo.set(key, { expiresAt: Date.now() + ttlMs, verdict });
 }
 
 /** Reset classifier verdict memo for tests. */
@@ -1152,7 +1156,10 @@ export async function analyzeQueryWithClassifierFallback(
 
   try {
     const verdict = await awaitWithCallerSignal(pending, opts?.signal);
-    storeClassifierVerdictMemo(memoKey, verdict);
+    // Finding #11 follow-up: bounded TTL for a rejected soft-tail verdict — see the constant above.
+    const rejected = verdict.confidence < 0.58 || verdict.queryClass === "unsupported_or_general";
+    const softTail = rejected && isUnsupportedSoftTailAnalysis(query, analysis);
+    storeClassifierVerdictMemo(memoKey, verdict, softTail ? rejectedSoftTailMemoTtlMs : undefined);
     return applyClassifierVerdict(analysis, verdict);
   } catch (error) {
     if (
@@ -1740,7 +1747,14 @@ export async function searchChunksWithTelemetry(
     telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
-    await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+    // Skip only when a reachable classifier could have produced a nondeterministic soft-tail zero.
+    if (
+      !shouldSkipUnsupportedSoftTailCacheWrite(retrievalQuery, queryAnalysis, {
+        openAiApiKeyPresent: Boolean(env.OPENAI_API_KEY),
+      })
+    ) {
+      await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+    }
     return finishSearch(searchTiming, { results: [] as SearchResult[], telemetry });
   }
 
@@ -2947,7 +2961,18 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    if (answerRouteResultCanBeCached(routeDeadline))
+    // Soft-tail unsupported refusals must not stick in the 5-minute answer cache.
+    if (
+      answerRouteResultCanBeCached(routeDeadline) &&
+      !shouldSkipUnsupportedSoftTailAnswerCacheWrite({
+        resultCount: results.length,
+        retrievalStrategy: search.telemetry.retrieval_strategy,
+        query: answerFocusQuery,
+        analysis: queryAnalysis,
+        openAiApiKeyPresent: Boolean(env.OPENAI_API_KEY),
+        corpusGrounding: search.telemetry.corpus_grounding,
+      })
+    )
       await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
     routeDeadline.dispose();
     return finalizedAnswer;

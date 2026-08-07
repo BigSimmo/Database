@@ -122,7 +122,7 @@ describe("computeScrollHideUpdate", () => {
   it("rebases intent when scroll events switch containers", () => {
     expect(
       computeScrollHideUpdate({
-        offset: 4,
+        offset: 40,
         lastOffset: 500,
         sourceChanged: true,
         currentlyHidden: true,
@@ -131,6 +131,26 @@ describe("computeScrollHideUpdate", () => {
       }),
     ).toEqual({
       hidden: true,
+      lastOffset: 40,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
+  it("reveals chrome when a source switch lands at the top of the new container", () => {
+    // #176: sourceChanged used to return before the top-reveal band, stranding
+    // hidden chrome at offset 0 after a scroll-container handoff.
+    expect(
+      computeScrollHideUpdate({
+        offset: 4,
+        lastOffset: 500,
+        sourceChanged: true,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 300,
+      }),
+    ).toEqual({
+      hidden: false,
       lastOffset: 4,
       direction: null,
       directionTravel: 0,
