@@ -4,6 +4,11 @@ import { join } from "node:path";
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// `ModeNav` reads the path only as a fallback for a missing `activeId`, which
+// neither consumer relies on — but it still calls the hook, so an adopted mode
+// needs a router here.
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+
 import {
   hasLocalInformationPageNavigation,
   informationPageSectionDefinitions,
@@ -80,6 +85,60 @@ describe("PageSecondaryNavigation", () => {
     }
   });
 
+  it("binds specifier section targets to IDs rendered by specifier record pages", () => {
+    const recordPage = readFileSync(join(process.cwd(), "src/components/specifiers/specifier-record-page.tsx"), "utf8");
+    const referencePage = readFileSync(
+      join(process.cwd(), "src/components/specifiers/specifier-reference-page.tsx"),
+      "utf8",
+    );
+    for (const targetId of informationPageSectionDefinitions("/specifiers/with-anxious-distress").flatMap(
+      (section) => section.targetIds,
+    )) {
+      // Fit is enrichment-gated on the catalogue reference page; the curated
+      // record page must always expose every declared target.
+      expect(recordPage).toContain(`id="${targetId}"`);
+      if (targetId !== "specifier-fit") {
+        expect(referencePage).toContain(`id="${targetId}"`);
+      }
+    }
+    expect(referencePage).toContain('id="specifier-fit"');
+  });
+
+  it("binds formulation section targets to IDs rendered by formulation-mechanism-page", () => {
+    const mechanismPage = readFileSync(
+      join(process.cwd(), "src/components/formulation/formulation-mechanism-page.tsx"),
+      "utf8",
+    );
+    for (const targetId of informationPageSectionDefinitions("/formulation/avoidance").flatMap(
+      (section) => section.targetIds,
+    )) {
+      expect(mechanismPage).toContain(`id="${targetId}"`);
+    }
+  });
+
+  it("renders On this page for a specifier record when its section targets are present", async () => {
+    render(
+      <div>
+        <PageSecondaryNavigation
+          modeId="specifiers"
+          pathname="/specifiers/with-anxious-distress"
+          hasSubmittedSearch={false}
+          onSearch={vi.fn()}
+        />
+        <section id="specifier-overview" />
+        <section id="specifier-fit" />
+        <section id="specifier-wording" />
+        <aside id="specifier-evidence" />
+      </div>,
+    );
+
+    const onThisPage = await screen.findByRole("navigation", { name: "On this page" });
+    expect(onThisPage).toBeVisible();
+    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "#specifier-overview");
+    expect(screen.getByRole("link", { name: "Fit & exclusions" })).toHaveAttribute("href", "#specifier-fit");
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
+  });
+
   it("does not add a navigation row to a clean no-query landing page", () => {
     render(
       <PageSecondaryNavigation modeId="services" pathname="/services" hasSubmittedSearch={false} onSearch={vi.fn()} />,
@@ -87,13 +146,16 @@ describe("PageSecondaryNavigation", () => {
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
   });
 
-  it("renders mode navigation after submission and on explicit workflow routes", () => {
-    const { rerender } = render(
-      <PageSecondaryNavigation modeId="answer" pathname="/" hasSubmittedSearch onSearch={vi.fn()} />,
-    );
+  it("keeps a single-destination mode on the in-flow strip after submission", () => {
+    // `answer` registers one action-kind entry. Adopting the bar there would
+    // delete that control rather than port it, so the strip stays.
+    render(<PageSecondaryNavigation modeId="answer" pathname="/" hasSubmittedSearch onSearch={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Ask" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
+  });
 
-    rerender(
+  it("gives an adopted mode the shared header bar on its workflow routes", () => {
+    render(
       <PageSecondaryNavigation
         modeId="specifiers"
         pathname="/specifiers/compare"
@@ -101,8 +163,18 @@ describe("PageSecondaryNavigation", () => {
         onSearch={vi.fn()}
       />,
     );
+    const bar = screen.getByTestId("mode-nav");
+    expect(bar).toHaveAttribute("aria-label", "Specifiers pages");
     expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Build" })).toHaveAttribute("href", "/specifiers/builder");
+    // Registry order is load-bearing: only the first two slots survive the
+    // narrowest band, so Find and Build must be the ones that stay.
+    expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual([
+      "Find",
+      "Build",
+      "Compare",
+      "Map",
+    ]);
   });
 
   it("replaces mode navigation with only the information sections present in the record", async () => {

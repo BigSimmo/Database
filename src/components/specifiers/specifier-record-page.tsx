@@ -20,7 +20,6 @@ import {
   SpecifierFamilyBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierSubnav,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { compareRecordsHref, GuidanceSection, RecordFact } from "@/components/clinical-record-panels";
@@ -33,12 +32,12 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
 
   return (
     <SpecifierPageShell>
-      <div className="grid gap-3">
-        <SpecifierBreadcrumbs current={record.shortName} />
-        <SpecifierSubnav active="search" />
-      </div>
+      <SpecifierBreadcrumbs current={record.shortName} />
 
-      <section className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <section
+        id="specifier-overview"
+        className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+      >
         <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
           <span className="grid h-14 w-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
             <Tags className="h-7 w-7" aria-hidden />
@@ -98,7 +97,7 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
             body="Start with the deciding signal, then test chronology, competing explanations, and the effect on diagnostic wording."
           />
 
-          <section className={cn(specifierCard, "overflow-hidden")}>
+          <section id="specifier-fit" className={cn(specifierCard, "overflow-hidden")}>
             <GuidanceSection icon={Check} title="When this fits" items={record.fit} tone="success" open />
             <GuidanceSection icon={ShieldAlert} title="When this may not fit" items={record.notFit} tone="warning" />
             <GuidanceSection icon={ListChecks} title="Focused checks" items={record.checks} />
@@ -145,7 +144,7 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
             </dl>
           </section>
 
-          <section className={cn(specifierCard, "p-4")}>
+          <section id="specifier-wording" className={cn(specifierCard, "p-4")}>
             <p className={eyebrowText}>Example wording</p>
             <p className="mt-2 text-sm font-bold leading-6 text-[color:var(--text-heading)]">{record.wording}</p>
             <Link
@@ -179,7 +178,7 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
         </aside>
       </div>
 
-      <SpecifierSafetyNote />
+      <SpecifierSafetyNote id="specifier-evidence" />
     </SpecifierPageShell>
   );
 }
