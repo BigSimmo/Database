@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity,
@@ -24,10 +24,12 @@ import {
 } from "lucide-react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
-  MobileResultFilterControl,
-  SearchResultsHeaderBand,
-} from "@/components/clinical-dashboard/search-results-header-band";
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
@@ -814,6 +816,8 @@ function SearchResultsView({
     [catalog.matches],
   );
   const [kindFilter, setKindFilter] = useState<"all" | "presentation" | "diagnosis">("all");
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   // Selection, filter, and sort follow the ranked result set: seed the top two
   // for comparison and drop stale ids whenever a new query changes the results
@@ -951,18 +955,16 @@ function SearchResultsView({
         sortValue={sortValue}
         onSortChange={setSortValue}
         filterLabel="Filter differential result type"
+        // A compact badged trigger, so it shares the count line.
+        mobileControlsPlacement="inline"
         mobileControls={
-          <MobileResultFilterControl
-            label="Show"
-            ariaLabel="Filter by result type"
-            testId="differential-result-type-select"
-            value={kindFilter}
-            options={[
-              { value: "all", label: `All (${results.length})` },
-              { value: "presentation", label: `Presentations (${presentationCount})` },
-              { value: "diagnosis", label: `Diagnoses (${diagnosisCount})` },
-            ]}
-            onChange={setKindFilter}
+          <ResultFilterTrigger
+            panelId={filterPanelId}
+            testId="differential-filter-trigger-phone"
+            title="Filter differentials"
+            open={filterOpen}
+            activeCount={kindFilter === "all" ? 0 : 1}
+            onToggle={() => setFilterOpen((current) => !current)}
           />
         }
         filterControls={
@@ -974,6 +976,30 @@ function SearchResultsView({
             diagnosisCount={diagnosisCount}
           />
         }
+      />
+      {/* Phone-only by construction: the trigger that opens it lives in the
+          ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
+      <ResultFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        panelId={filterPanelId}
+        testId="differential-filter-panel"
+        title="Filter differentials"
+        groups={[
+          resultFilterGroup({
+            id: "result-type",
+            label: "Show",
+            value: kindFilter,
+            options: [
+              { value: "all", label: "All", hint: String(results.length) },
+              { value: "presentation", label: "Presentations", hint: String(presentationCount) },
+              { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
+            ],
+            onChange: setKindFilter,
+          }),
+        ]}
+        onClearAll={kindFilter === "all" ? undefined : () => setKindFilter("all")}
+        footerNote={`${visibleResults.length} showing`}
       />
       <p
         data-testid="differentials-catalogue-notice"
