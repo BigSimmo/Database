@@ -17,6 +17,28 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell|.*[Cc]reate_?[Pp]ull_?[Rr]equest.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pr-handoff-stop.sh\" post"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Monitor|ScheduleWakeup|CronCreate|.*[Pp]ull_?[Rr]equest.*|.*workflow_(run|job).*|.*check_(run|suite).*|.*job_log.*|.*pr_status.*|.*update_branch.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pr-handoff-stop.sh\" pre"
+          }
+        ]
+      }
     ]
   }
 }
