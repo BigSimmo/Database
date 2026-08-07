@@ -1,0 +1,32 @@
+import { isDocumentViewerOwnedRoute } from "@/components/clinical-dashboard/mobile-composer-reserve";
+
+/**
+ * Routes whose page already portals a header into the header's single addon
+ * slot, which holds ONE page-owned header.
+ *
+ * This exists because nothing states that invariant. What has always enforced
+ * it is a coincidence: `documents` and `differentials`, the only modes with a
+ * claimant, had fewer than `MODE_NAV_MIN_ITEMS` destinations, so `ModeNav`
+ * rendered nothing. Differentials now has three, and the protection that
+ * replaced it is a second coincidence — every claimant route is also
+ * `hasLocalInformationPageNavigation`, which returns null in
+ * `PageSecondaryNavigation` before the mode branch is reached.
+ *
+ * Both are properties of separate lists that happen to agree, not rules. This
+ * predicate makes the claimant set explicit so the agreement is checkable:
+ * `tests/mode-nav-addon-slot.dom.test.tsx` asserts every route here is covered
+ * by that early return, and fails when a future claimant is not — which is the
+ * point at which the mode branch needs a guard of its own.
+ *
+ * Claimants are named individually rather than derived, because the only
+ * evidence that a route claims the slot is that its component renders
+ * `PhoneHeaderCollapsePortal`.
+ */
+export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
+  // DocumentViewer.tsx
+  if (isDocumentViewerOwnedRoute(pathname)) return true;
+  // differentials/differential-detail-page.tsx (diagnoses detail only — the
+  // presentations workflow page renders no portal).
+  if (pathname.startsWith("/differentials/diagnoses/")) return true;
+  return false;
+}
