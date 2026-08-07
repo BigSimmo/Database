@@ -103,10 +103,17 @@ export function ModeHomeHero({
  * shell). That works for short empty homes, but centering a child taller than
  * the phone scrollport clips the top — unreachable at scrollTop 0.
  *
- * Prefer this prop over className `justify-*` overrides: `cn()` concatenates
- * and does not resolve Tailwind conflicts, so dual justify utilities are
- * non-deterministic. Alignment classes are applied last and any stray
+ * Prefer this prop over className `justify-*` overrides: `cn()` used to
+ * concatenate without resolving Tailwind conflicts, so dual justify utilities
+ * were non-deterministic. Alignment classes are applied last and any stray
  * `justify-*` tokens in `className` are stripped.
+ *
+ * That constraint is lifted (ledger #218) — `cn()` now merges, and because the
+ * alignment class is applied last it would win on its own, prefixed variants
+ * (`sm:justify-*`) included. `withoutJustifyUtilities` is therefore belt-and-
+ * braces rather than load-bearing. It is kept: dropping it changes which
+ * utilities reach the DOM on every mode home, which wants its own visual proof,
+ * and the prop remains the supported way to set this alignment either way.
  */
 export type ModeHomeMainAlign = "center" | "start" | "startOnPhone";
 

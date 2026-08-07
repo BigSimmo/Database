@@ -7,7 +7,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { isHeaderAddonSlotOwnedRoute } from "@/components/mode-nav/header-addon-slot";
 import { hasLocalInformationPageNavigation, PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
-import { MODE_NAV_ADOPTED_MODES, modeUsesHeaderModeNav } from "@/lib/mode-secondary-navigation";
+import {
+  MODE_NAV_ADOPTED_MODES,
+  modeSecondaryNavigationEntries,
+  modeUsesHeaderModeNav,
+} from "@/lib/mode-secondary-navigation";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
@@ -76,7 +80,6 @@ describe("header addon slot ownership", () => {
         modeId="differentials"
         pathname="/differentials/diagnoses/delirium"
         hasSubmittedSearch
-        onSearch={vi.fn()}
       />,
     );
     await waitFor(() => expect(view.occupants()).toHaveLength(0));
@@ -88,7 +91,7 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/dsm/compare")).toBe(false);
 
     const view = renderIntoHeaderWithAddonSlot(
-      <PageSecondaryNavigation modeId="dsm" pathname="/dsm/compare" hasSubmittedSearch={false} onSearch={vi.fn()} />,
+      <PageSecondaryNavigation modeId="dsm" pathname="/dsm/compare" hasSubmittedSearch={false} />,
     );
     await waitFor(() => expect(view.occupants()).toHaveLength(1));
     view.cleanupSlot();
@@ -123,11 +126,19 @@ describe("header addon slot ownership", () => {
     ]);
   });
 
-  it("keeps single-destination modes off the bar entirely", () => {
-    // `documents` owns the slot on every detail route and has one registered
-    // destination. Adopting it would be a deletion decision about that lone
-    // entry, not a port — deliberately out of this rollout's scope.
-    for (const modeId of ["documents", "answer", "prescribing", "tools", "factsheets"] as const) {
+  it("keeps the modes that register no destinations off the bar entirely", () => {
+    // These four each carried a single `action` entry that focused a composer
+    // already on screen. It was deleted rather than adopted: a one-button <nav>
+    // is a landmark and a tab stop spent on a no-op, and ModeNav renders
+    // nothing below two items, so adopting would have removed the control and
+    // put nothing back (PR #1645). They now have neither the header bar nor the
+    // in-flow strip.
+    //
+    // `factsheets` left this list when it gained a real second destination:
+    // `/factsheets` (browse) and `/factsheets/search` are separate components,
+    // so it was a port rather than a deletion.
+    for (const modeId of ["documents", "answer", "prescribing", "tools"] as const) {
+      expect(modeSecondaryNavigationEntries(modeId)).toEqual([]);
       expect([...MODE_NAV_ADOPTED_MODES]).not.toContain(modeId);
       expect(modeUsesHeaderModeNav(modeId)).toBe(false);
     }

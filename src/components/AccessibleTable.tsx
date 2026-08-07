@@ -233,7 +233,7 @@ function AccessibleTableMarkup({
                     // column reads as one block rather than a split label/value pair.
                     alignEnd?.[index] && "text-right",
                     renderDensePreview
-                      ? "px-2 py-1.5 text-2xs uppercase tracking-[0.06em]"
+                      ? "px-2 py-1.5 text-2xs uppercase tracking-label"
                       : expanded
                         ? "px-4 py-3 text-sm"
                         : "px-3 py-2 text-xs",
@@ -252,7 +252,7 @@ function AccessibleTableMarkup({
                       ? "overflow-hidden text-ellipsis whitespace-nowrap"
                       : "whitespace-normal break-words",
                     renderDensePreview
-                      ? "px-2 py-1.5 text-2xs uppercase tracking-[0.06em]"
+                      ? "px-2 py-1.5 text-2xs uppercase tracking-label"
                       : expanded
                         ? "px-4 py-3 text-sm"
                         : "px-3 py-2 text-xs",

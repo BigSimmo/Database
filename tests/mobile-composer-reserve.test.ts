@@ -116,11 +116,17 @@ describe("mobile composer reserve contract", () => {
       'const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
     );
     expect(dashboard).not.toContain("const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;");
-    // Prescribing leaves MedicationHome as soon as the draft query is non-empty;
-    // keep the hero slot (and idle phone reserve) only while that home mounts.
+    // Prescribing keeps MedicationHome until explicit submit; draft keystrokes
+    // must not drop the hero slot (and idle phone reserve) for the dock path.
     expect(dashboard).toMatch(
+      /searchMode === "prescribing" &&\s*activeModeResultKind === "documents" &&\s*!modeSearchSubmitted/,
+    );
+    expect(dashboard).not.toMatch(
       /searchMode === "prescribing" &&\s*activeModeResultKind === "documents" &&\s*!modeSearchSubmitted &&\s*!query\.trim\(\)/,
     );
+    // Results mount only after submit — never on the first draft keystroke.
+    expect(dashboard).toContain("showHome={!modeSearchSubmitted}");
+    expect(dashboard).not.toContain("showHome={!query.trim() && !modeSearchSubmitted}");
     // DifferentialsHome shows results (no mode-home slot) when a draft query
     // coincides with stale evidence matches after clearing a submitted search.
     expect(dashboard).toMatch(

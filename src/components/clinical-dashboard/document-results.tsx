@@ -56,7 +56,7 @@ function RelatedDocumentCard({
       <div className="flex items-start gap-2.5">
         <DocumentFileTile kind={documentFileKind(document.file_name)} compact />
         <div className="min-w-0 flex-1">
-          <p className={cn("truncate text-2xs font-bold uppercase tracking-[0.06em]", textMuted)}>
+          <p className={cn("truncate text-2xs font-bold uppercase tracking-label", textMuted)}>
             {document.match_reason}
           </p>
           <Link

@@ -268,7 +268,7 @@ function CommandDropdown({
               {section.heading ? (
                 <div
                   role="presentation"
-                  className="px-2.5 pb-1 pt-2 text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-muted)]"
+                  className="px-2.5 pb-1 pt-2 text-2xs font-extrabold uppercase tracking-label text-[color:var(--text-muted)]"
                 >
                   {section.heading}
                 </div>
