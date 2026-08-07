@@ -23,9 +23,9 @@ Execution model: four parallel workstreams (WS-A…D) after human approvals for 
 | ID    | Criterion                                                                      | Proof                                                                                                         |
 | ----- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | SC-A1 | Railway deploy webhook authenticates and can forward to chat                   | Controlled deploy or signed test → chat message; no more `503 webhook_not_configured` for authenticated calls |
-| SC-A2 | GitHub CI-failure notifier can post on protected-branch red                    | Fail a non-prod workflow or dry-run per `docs/webhooks.md`; Slack/Discord receives ping                       |
+| SC-A2 | GitHub CI-failure notifier can post on protected-branch red                    | Fail a non-prod workflow or dry-run per `docs/architecture/webhooks.md`; Slack/Discord receives ping                       |
 | SC-A3 | Supabase document-change → ingestion path has Vault secret + base-URL GUC      | Receiver no longer `503` for missing secret; one approved reindex event enqueues idempotently                 |
-| SC-A4 | Production Sentry receives scrubbed synthetic exception only                   | Event in Sentry matches `docs/error-tracking.md` allowlist (no clinical text/URL/body)                        |
+| SC-A4 | Production Sentry receives scrubbed synthetic exception only                   | Event in Sentry matches `docs/security/error-tracking.md` allowlist (no clinical text/URL/body)                        |
 | SC-A5 | Off-platform uptime hits `/api/health` and alerts independently of GitHub      | Vendor monitor green + one intentional fail/recovery alert                                                    |
 | SC-B1 | Context7 available in project MCP for Tailwind 4 / Zod 4 / Playwright / Vitest | `.cursor/mcp.json` (or documented user MCP) lists Context7; agent can `query-docs` those libs                 |
 | SC-B2 | GitHub PR check visibility works (Checks:read and/or Actions API / GitHub MCP) | Agent/operator can list failing required checks without empty `total:0`                                       |
@@ -48,12 +48,12 @@ Do **not** run ops/provider steps until the matching box is explicitly approved 
 - [ ] Set `SLACK_WEBHOOK_URL` and/or `DISCORD_WEBHOOK_URL` on **Railway app server env** (deploy alerts)
 - [ ] Set the **same** chat webhook URL(s) as **GitHub repo secrets** (CI failure notifier)
 - [ ] Set `SUPABASE_INGESTION_WEBHOOK_SECRET` on Railway app env **and** matching Supabase Vault `ingestion_webhook_secret`
-- [ ] Set DB GUC `app.ingestion_webhook_base_url` to deployed app origin (per `docs/webhooks.md`)
+- [ ] Set DB GUC `app.ingestion_webhook_base_url` to deployed app origin (per `docs/architecture/webhooks.md`)
 - [ ] Confirm accountable chat channel owner for alerts
 
 ### Sentry (#028 envelope — SDK already in repo)
 
-- [ ] Approve vendor/project, **region**, retention, access roles, sampling, cost budget, alert destination (`docs/error-tracking.md`)
+- [ ] Approve vendor/project, **region**, retention, access roles, sampling, cost budget, alert destination (`docs/security/error-tracking.md`)
 - [ ] Approve setting **server-only** `SENTRY_DSN` on Railway production (never `NEXT_PUBLIC_*`)
 - [ ] Approve non-production synthetic exception first, then production alerts
 - [ ] Update/close `#028` text after activation (SDK claim is stale)
@@ -62,7 +62,7 @@ Do **not** run ops/provider steps until the matching box is explicitly approved 
 
 - [ ] Choose vendor (UptimeRobot / Better Stack / Checkly / …), cost, privacy, owner
 - [ ] Approve monitor URL `https://psychiatry.tools/api/health` (non-PHI)
-- [ ] Approve alert webhook into the **same** chat path as `docs/webhooks.md`
+- [ ] Approve alert webhook into the **same** chat path as `docs/architecture/webhooks.md`
 
 ### GitHub visibility
 
@@ -148,7 +148,7 @@ flowchart TB
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Goal**        | End `503 webhook_not_configured` for Railway path; chat on SUCCESS/FAILED/CRASHED/REMOVED                                                                                                                                                 |
 | **Kind**        | `ops-secrets`                                                                                                                                                                                                                             |
-| **Files**       | None (ops). Reference: `docs/webhooks.md` §1, `src/app/api/webhooks/railway`, `.env.example`                                                                                                                                              |
+| **Files**       | None (ops). Reference: `docs/architecture/webhooks.md` §1, `src/app/api/webhooks/railway`, `.env.example`                                                                                                                                              |
 | **Steps**       | 1) Generate secret ≥16 chars. 2) Set `RAILWAY_WEBHOOK_SECRET` on Railway **Database** service. 3) Set chat URL(s) on **same** Railway server env. 4) Add Railway webhook with `?token=`. 5) Trigger controlled deploy or documented test. |
 | **Verify**      | Authenticated POST no longer 503; chat receives notable status; transient phases skip with `200 skipped`                                                                                                                                  |
 | **Deps**        | §3 #025 boxes                                                                                                                                                                                                                             |
@@ -161,7 +161,7 @@ flowchart TB
 | --------------- | ----------------------------------------------------------------------------------------------------- |
 | **Goal**        | `notify-ci-failure.yml` can post when protected-branch workflows fail                                 |
 | **Kind**        | `ops-secrets`                                                                                         |
-| **Files**       | None. Reference: `.github/workflows/notify-ci-failure.yml`, `docs/webhooks.md` §2                     |
+| **Files**       | None. Reference: `.github/workflows/notify-ci-failure.yml`, `docs/architecture/webhooks.md` §2                     |
 | **Steps**       | Set `SLACK_WEBHOOK_URL` / `DISCORD_WEBHOOK_URL` as **GitHub repo secrets** (same destinations as A1). |
 | **Verify**      | Workflow log shows notify path (or approved fail test on `main`/`release/*`)                          |
 | **Deps**        | §3 chat secrets                                                                                       |
@@ -174,7 +174,7 @@ flowchart TB
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Goal**        | Activate Vault secret + `app.ingestion_webhook_base_url`; receiver leaves fail-closed                                                                                  |
 | **Kind**        | `ops-secrets` + `provider-approval`                                                                                                                                    |
-| **Files**       | Ops only if trigger migration already landed (PR #1100 / `#026` done). Follow `docs/webhooks.md` §3 exactly                                                            |
+| **Files**       | Ops only if trigger migration already landed (PR #1100 / `#026` done). Follow `docs/architecture/webhooks.md` §3 exactly                                                            |
 | **Steps**       | 1) Matching secret in Railway `SUPABASE_INGESTION_WEBHOOK_SECRET` + Vault. 2) Set GUC base URL. 3) One approved reindex_requested event. 4) Confirm worker claims job. |
 | **Verify**      | No 503 for missing secret; enqueue idempotent; no loop on worker UPDATEs                                                                                               |
 | **Deps**        | A1 chat optional; Vault/GUC required                                                                                                                                   |
@@ -189,7 +189,7 @@ flowchart TB
 | **Kind**        | `provider-approval` then `ops-secrets`                                                                                                                                                                                                                         |
 | **Files**       | Possibly refresh `#028` in `docs/outstanding-issues.md` only. Code: already `@sentry/nextjs` + scrubbing                                                                                                                                                       |
 | **Steps**       | 1) Complete envelope approval. 2) Set `SENTRY_DSN` (+ `SENTRY_ENVIRONMENT`) on Railway. 3) Synthetic non-PHI exception in staging/non-prod if available, else carefully scoped prod probe. 4) Inspect event scrubbing. 5) Wire alert → chat. 6) Update `#028`. |
-| **Verify**      | Event fields ⊆ allowlist in `docs/error-tracking.md`; remove DSN = no calls                                                                                                                                                                                    |
+| **Verify**      | Event fields ⊆ allowlist in `docs/security/error-tracking.md`; remove DSN = no calls                                                                                                                                                                                    |
 | **Deps**        | §3 Sentry boxes                                                                                                                                                                                                                                                |
 | **Risk / stop** | Stop if clinical text/identifiers appear. No browser SDK, no replay, no source maps in this plan.                                                                                                                                                              |
 | **Parallel**    | Independent of A1–A3 once envelope approved                                                                                                                                                                                                                    |
@@ -392,7 +392,7 @@ Ledger hygiene after ops: archive/update `#025`, `#027`, `#028` via `/issues` �
 ```text
 You are executing WS-A of docs/plans/tooling-activation-implementation-plan.md.
 ONLY perform steps whose §3 approval boxes the user has explicitly checked in this chat.
-Follow docs/webhooks.md and docs/error-tracking.md exactly.
+Follow docs/architecture/webhooks.md and docs/security/error-tracking.md exactly.
 Never print secret values. Never touch RAG ranking. Never apply raw SQL triggers to live.
 Tasks: A1 Railway webhook, A2 GitHub notify secrets, A3 Supabase ingestion webhook inputs,
 A4 Sentry DSN under privacy envelope, A5 external /api/health uptime.
@@ -443,8 +443,8 @@ Do not change RAG. Return: files committed (or ready to commit) + CI job names t
 
 | Topic           | Path                                                                                                                 |
 | --------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Webhooks setup  | `docs/webhooks.md`                                                                                                   |
-| Sentry envelope | `docs/error-tracking.md`                                                                                             |
+| Webhooks setup  | `docs/architecture/webhooks.md`                                                                                                   |
+| Sentry envelope | `docs/security/error-tracking.md`                                                                                             |
 | Issues          | `docs/outstanding-issues.md` `#025` `#027` `#028` `#162`–`#164`                                                      |
 | MCP             | `.mcp.json` (Railway), `.cursor/mcp.json` (Supabase read-only + Context7 local stdio)                                |
 | Env names       | `.env.example` (`RAILWAY_WEBHOOK_SECRET`, `SUPABASE_INGESTION_WEBHOOK_SECRET`, `SLACK_*`, `DISCORD_*`, `SENTRY_DSN`) |

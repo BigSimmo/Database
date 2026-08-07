@@ -1,6 +1,6 @@
 # UI Primitives — Recipe Reference & State Contract — Clinical KB (July 2026)
 
-> **Entry point:** day-to-day UI rules live in [`docs/design-system.md`](../design-system.md); this document remains the recipe catalogue it links to.
+> **Entry point:** day-to-day UI rules live in [`docs/design-system/design-system.md`](../design-system/design-system.md); this document remains the recipe catalogue it links to.
 
 Resolves **L8** from `07-token-adoption-audit.md`: the `ui/` component layer is
 ~55 className **recipes** (exported `const` strings) + `cn()` + five small React

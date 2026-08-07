@@ -13,10 +13,10 @@ Approvals granted during the repository-review follow-up session. When written, 
 
 ## Edge function deploy — APPROVED → **DONE (verified live 2026-07-08)**
 
-**Decision:** Deploy `supabase/functions/indexing-v3-agent` so the JSONB status-RPC parsing is live (follow-up noted in `docs/process-hardening.md` "Live database drift reconciliation (2026-07-05)").
+**Decision:** Deploy `supabase/functions/indexing-v3-agent` so the JSONB status-RPC parsing is live (follow-up noted in `docs/guides/process-hardening.md` "Live database drift reconciliation (2026-07-05)").
 
 **Status — DEPLOYED.** `indexing-v3-agent` is ACTIVE on the live project at **version 53** (last updated 2026-07-08), carrying the JSONB status-RPC parsing.
 
 ## Context
 
-Approval came alongside the operator green-lighting the two structural efforts (finish the ClinicalDashboard admin cutover; decompose `src/lib/rag.ts`) tracked in `docs/process-hardening.md`.
+Approval came alongside the operator green-lighting the two structural efforts (finish the ClinicalDashboard admin cutover; decompose `src/lib/rag.ts`) tracked in `docs/guides/process-hardening.md`.

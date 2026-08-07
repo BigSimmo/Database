@@ -24,8 +24,8 @@ where the two ever disagree, **AGENTS.md wins**.
 | Architecture, modules, schema, domain flows | `docs/codebase-index.md` — the deep map; start there for any real task                                       |
 | Design-system rules before any UI building  | `docs/design-system/README.md` — the system of record: tokens, component contracts, gates, adoption playbook |
 | Routes and modes                            | `docs/site-map.md` (generated — `npm run sitemap:update`)                                                    |
-| Which gate to run for a change              | `docs/process-hardening.md`, or the `gates` skill                                                            |
-| Test execution, focused/live, flake policy  | `docs/testing.md`                                                                                            |
+| Which gate to run for a change              | `docs/guides/process-hardening.md`, or the `gates` skill                                                            |
+| Test execution, focused/live, flake policy  | `docs/guides/testing.md`                                                                                            |
 | Every maintained doc, categorised           | `docs/README.md`                                                                                             |
 | Outstanding work across sessions            | `docs/outstanding-issues.md` (`/issues`)                                                                     |
 
@@ -125,7 +125,7 @@ behaviour, not a bug. Responses cache in `rag_response_cache`.
 job → extract (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI
 embeddings → chunks, pages, images, embedding fields, index units, table facts → quality
 gates in `document_index_quality`. Reindex commits atomically per generation
-(`reindex-pipeline.ts`). Lifecycle detail: `docs/ingestion-state-machine.md`.
+(`reindex-pipeline.ts`). Lifecycle detail: `docs/architecture/ingestion-state-machine.md`.
 
 Both paths are owner-scoped: `owner-scope.ts`, `query-privacy.ts`, `authorization.ts`.
 
@@ -179,7 +179,7 @@ These fail builds, so they are worth knowing before you write code:
   `<a href="/…">`. Build hrefs from `app-modes.ts`, `tools-catalog.ts`, `universal-search.ts`.
 - **One search composer per page.** A page uses the shell/dashboard composer, an in-flow hero
   composer, or the document-viewer composer — never two. Phone composers are edge-to-edge;
-  hidden chrome means zero reserve. Read `docs/search-chrome-behaviour.md` first.
+  hidden chrome means zero reserve. Read `docs/rag-behaviour/search-chrome-behaviour.md` first.
 - **Design tokens, not hex.** `eslint-rules/no-hardcoded-hex.mjs`, plus type-scale,
   icon-scale, z-index-ladder, and lucide-icon-aria rules. Production tap targets are
   `min-h-12` (48 px) — do **not** "fix" them down to `min-h-11` for a generic WCAG rule; that
@@ -210,7 +210,7 @@ Prefer these over improvising — they encode traps this repo has already hit:
   `frontend-ui-reviewer`, `verification-router`, `repo-auditor`, `pr-ci-fixer`.
 - **Skill catalogue** (`.agents/skills/`): `npm run skills` lists the canonical single-word
   skills; `npm run check:skills` validates the catalogue. Planners in
-  `docs/productivity-workflows.md` run without side effects unless given `-- --run`, and
+  `docs/guides/productivity-workflows.md` run without side effects unless given `-- --run`, and
   never execute `approvalRequired` commands.
 - **Session memory:** a `SessionStart` hook surfaces the recommended queue from
   `docs/outstanding-issues.md`. Offer `/issues capture` for loose ends before context is lost.

@@ -27,7 +27,7 @@ when no safe local donor exists. Do not configure Windows Desktop worktrees to r
 the Cloud-only Bash setup script.
 
 For Codex Cloud, use the tracked environment setup and acceptance contract in
-[`docs/codex-cloud.md`](docs/codex-cloud.md). It installs the complete repository
+[`docs/codex/codex-cloud.md`](docs/codex/codex-cloud.md). It installs the complete repository
 toolchain, installs the profile-loading Node command shims, and distinguishes safe offline
 tasks from explicitly connected provider tasks. Fresh Cloud validation runs the direct
 `npm run check:codex-cloud` commands without manually sourcing a profile.
@@ -68,8 +68,8 @@ npx supabase db push
 
 Treat `supabase/schema.sql` as a reconciled reference mirror, not the primary
 onboarding path. For drift, repair policy, and live-only caveats, see
-`docs/supabase-migration-reconciliation.md` and the retrieval RPC section in
-`docs/process-hardening.md`.
+`docs/operations/supabase-migration-reconciliation.md` and the retrieval RPC section in
+`docs/guides/process-hardening.md`.
 
 6. Install Deno v2.x to run Edge Function type checks
    (`npm run check:edge:functions`). CI installs Deno automatically via
@@ -119,7 +119,7 @@ set in `.env.local`.
 ### Codex Cloud
 
 For isolated provider-free Cloud work, create the environment with the exact values in
-[`docs/codex-cloud.md`](docs/codex-cloud.md). Its checked-in setup and maintenance
+[`docs/codex/codex-cloud.md`](docs/codex/codex-cloud.md). Its checked-in setup and maintenance
 scripts match the Node/npm, Deno, Python/OCR, and Playwright toolchain without copying
 local credentials or enabling live provider access.
 
@@ -148,7 +148,7 @@ local credentials or enabling live provider access.
   use.
 - Production deployment needs clinical governance review, source approval rules,
   and TGA Software as a Medical Device screening where applicable.
-- See `docs/clinical-governance.md` for the deployment governance checklist.
+- See `docs/clinical/clinical-governance.md` for the deployment governance checklist.
 
 ## Cursor MCP
 
@@ -217,7 +217,7 @@ prompt such as: _"Call Figma whoami and report only handle and plan tier."_
 (Cloud/Automations return Forbidden; OAuth from desktop does not carry over). Use
 **Cursor Desktop** (or Codex with its Figma plugin) for Figma MCP. Repo
 `.cursor/mcp.json` still helps the IDE; it does not unlock Cloud Agents. Details:
-`docs/agents-guide.md`, `docs/codex-cloud.md`.
+`docs/agents-guide.md`, `docs/codex/codex-cloud.md`.
 
 ## Documentation
 
@@ -226,12 +226,12 @@ records vs archive). The most load-bearing entries:
 
 - `docs/codebase-index.md` — architecture and module map (start here)
 - `docs/site-map.md` — generated route map (`npm run docs:update`)
-- `docs/process-hardening.md` — verification gates, CI expectations, known limits
-- `docs/testing.md` — local test safety, focused/live commands, Playwright ownership, flake policy
-- `docs/codex-cloud.md` — reproducible provider-free Codex Cloud setup and acceptance check
-- `docs/clinical-governance.md` — deployment and source governance checklist
-- `docs/deployment-architecture.md` — app/worker/Supabase deployment topology
-- `docs/supabase-migration-reconciliation.md` — migration drift and repair policy
+- `docs/guides/process-hardening.md` — verification gates, CI expectations, known limits
+- `docs/guides/testing.md` — local test safety, focused/live commands, Playwright ownership, flake policy
+- `docs/codex/codex-cloud.md` — reproducible provider-free Codex Cloud setup and acceptance check
+- `docs/clinical/clinical-governance.md` — deployment and source governance checklist
+- `docs/architecture/deployment-architecture.md` — app/worker/Supabase deployment topology
+- `docs/operations/supabase-migration-reconciliation.md` — migration drift and repair policy
 
 Run `npm run docs:check-links` to verify repo paths referenced from the
 maintained docs still resolve.

@@ -194,7 +194,7 @@ These are the behaviours most likely to be eroded by future churn — call them 
 ### F2 — Two divergent modal implementations
 
 - **Type:** Issue · **Area:** Accessibility / maintainability
-- **Evidence:** the design system states `ui/sheet.tsx` is "the only modal/overlay primitive" (`docs/design-system.md:104-106`), yet `AccessibleTable` hand-rolls a second dialog (F1). Divergence is exactly how a11y regressions like F1 appear.
+- **Evidence:** the design system states `ui/sheet.tsx` is "the only modal/overlay primitive" (`docs/design-system/design-system.md:104-106`), yet `AccessibleTable` hand-rolls a second dialog (F1). Divergence is exactly how a11y regressions like F1 appear.
 - **Why it matters:** every hand-rolled dialog is a place the focus/escape/scroll contract can silently drift.
 - **Severity:** Medium · **Confidence:** High
 - **Recommendation:** migrate the table dialog onto `Sheet`; add a lint/review note that new `role="dialog"` outside `Sheet` is disallowed.

@@ -31,8 +31,8 @@ every finding against current `main` found the code side largely landed since th
 - Code fixes use `npm run verify:cheap` first, then the smallest domain check, then
   `npm run verify:pr-local` before handoff.
 - Provider/live actions are **operator-gated** (`⏸`). Do not run them without explicit confirmation.
-- Reconcile [`operator-backlog.md`](../operator-backlog.md) against
-  [`launch-operator-runbook.md`](../launch-operator-runbook.md) before repeating any historical apply.
+- Reconcile [`operator-backlog.md`](../plans/operator-backlog.md) against
+  [`launch-operator-runbook.md`](../operations/launch-operator-runbook.md) before repeating any historical apply.
 
 **Legend**
 
@@ -84,7 +84,7 @@ Suggested PR granularity (one theme per PR):
 | **Finding** | M5 — backlog still `⏳` for drift-codify / prod deploy / worker while runbook says more is already live                                                                                                           |
 | **Owner**   | OWNER:OPS (+ docs edit)                                                                                                                                                                                           |
 | **Address** | Diff each backlog row against `launch-operator-runbook.md`, July-8 apply notes, empty `supabase/drift-allowlist.json`, and linked migration list. Flip rows to `✅` / `🔎 verify` / keep `⏳` with evidence date. |
-| **Files**   | `docs/operator-backlog.md`, optionally a short note in `docs/launch-operator-runbook.md`                                                                                                                          |
+| **Files**   | `docs/plans/operator-backlog.md`, optionally a short note in `docs/operations/launch-operator-runbook.md`                                                                                                                          |
 | **Prove**   | `⏸ npx supabase migration list --linked`; `⏸ npm run check:drift`; human sign-off that backlog matches live                                                                                                       |
 
 ### A2. Confirm July-13 scrub / lexical migration posture
@@ -106,7 +106,7 @@ Suggested PR granularity (one theme per PR):
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Finding** | M1 — Railway Singapore + OpenAI US process incidental PHI queries                                                                                                                                                                                    |
 | **Owner**   | OWNER:LEGAL + OWNER:OPS                                                                                                                                                                                                                              |
-| **Address** | Execute checklist in [`openai-cross-border-basis.md`](../openai-cross-border-basis.md): OpenAI DPA, ZDR eligibility enablement where chosen, Railway DPA/processor record, update PIA status tables and `/privacy` copy only after counsel approval. |
+| **Address** | Execute checklist in [`openai-cross-border-basis.md`](../security/openai-cross-border-basis.md): OpenAI DPA, ZDR eligibility enablement where chosen, Railway DPA/processor record, update PIA status tables and `/privacy` copy only after counsel approval. |
 | **Prove**   | Status record rows move from `_no_` to dated `_yes_` / approved alternative; PIA-1 no longer High-open                                                                                                                                               |
 
 ### B2. Verify Railway `RAG_QUERY_HASH_SECRET` (PIA-2)
@@ -115,7 +115,7 @@ Suggested PR granularity (one theme per PR):
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Finding** | M2 — secret verified in GitHub CI, Railway runtime still `🔎 verify`                                                                                                                                                                                                                                               |
 | **Owner**   | OWNER:OPS                                                                                                                                                                                                                                                                                                          |
-| **Address** | Set/confirm a ≥16-char value in Railway **production** that matches the GitHub Actions secret used for CI smoke. For staging, set a **separate** staging-only `RAG_QUERY_HASH_SECRET` per [`staging-setup.md`](../staging-setup.md) — do not reuse the production HMAC key. Confirm boot smoke and deep readiness. |
+| **Address** | Set/confirm a ≥16-char value in Railway **production** that matches the GitHub Actions secret used for CI smoke. For staging, set a **separate** staging-only `RAG_QUERY_HASH_SECRET` per [`staging-setup.md`](../operations/staging-setup.md) — do not reuse the production HMAC key. Confirm boot smoke and deep readiness. |
 | **Prove**   | `⏸ npm run check:deployment-readiness` / production health boot; backlog → `✅`                                                                                                                                                                                                                                    |
 
 ### B3. Restore OpenAI quota and run release gates
@@ -124,7 +124,7 @@ Suggested PR granularity (one theme per PR):
 | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Finding** | M3 — release gate + golden evals incomplete; prior quota exhaustion                                                                                                                                                                                                                                               |
 | **Owner**   | OWNER:OPS                                                                                                                                                                                                                                                                                                         |
-| **Address** | Complete the runbook §0 identity preflight with `npm run check:supabase-project`, then restore embedding/completions quota → run `npm run eval:retrieval:quality` (36/36) → `npm run eval:quality -- --rag-only` → `npm run verify:release` per [`launch-operator-runbook.md`](../launch-operator-runbook.md) §2. |
+| **Address** | Complete the runbook §0 identity preflight with `npm run check:supabase-project`, then restore embedding/completions quota → run `npm run eval:retrieval:quality` (36/36) → `npm run eval:quality -- --rag-only` → `npm run verify:release` per [`launch-operator-runbook.md`](../operations/launch-operator-runbook.md) §2. |
 | **Prove**   | Paste summaries into release notes / backlog; canary path in B4                                                                                                                                                                                                                                                   |
 
 ### B4. Eval Canary trust + staging soak
@@ -133,7 +133,7 @@ Suggested PR granularity (one theme per PR):
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Finding** | M3 leftovers — canary not yet “two greens”; staging soak pending                                                                                                                                 |
 | **Owner**   | OWNER:OPS                                                                                                                                                                                        |
-| **Address** | Provision staging if absent ([`staging-setup.md`](../staging-setup.md)); soak (`scripts/soak-test.ts --confirm-staging`, answer p95 ≤ 25 s); run two consecutive Eval Canary greens from `main`. |
+| **Address** | Provision staging if absent ([`staging-setup.md`](../operations/staging-setup.md)); soak (`scripts/soak-test.ts --confirm-staging`, answer p95 ≤ 25 s); run two consecutive Eval Canary greens from `main`. |
 | **Prove**   | Soak log + two green workflow runs recorded in backlog                                                                                                                                           |
 
 ### B5. Worker image / secret / seed post-deploy confirm
@@ -142,7 +142,7 @@ Suggested PR granularity (one theme per PR):
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Finding** | Worker redeploy, registry seed, `HEALTH_DEEP_PROBE_SECRET`, auth connection cap                                                                                                                                                                   |
 | **Owner**   | OWNER:OPS                                                                                                                                                                                                                                         |
-| **Address** | Follow runbook §6 after B3: `reindex:health`, seed registry/differentials, wire ops-digest secrets if desired, flip auth connection allocation **before** vertical scale ([`auth-connection-cap-runbook.md`](../auth-connection-cap-runbook.md)). |
+| **Address** | Follow runbook §6 after B3: `reindex:health`, seed registry/differentials, wire ops-digest secrets if desired, flip auth connection allocation **before** vertical scale ([`auth-connection-cap-runbook.md`](../operations/auth-connection-cap-runbook.md)). |
 | **Prove**   | Non-empty Services/Forms; reindex health clear; optional ops-digest cron enabled                                                                                                                                                                  |
 
 ---
@@ -180,7 +180,7 @@ Suggested PR granularity (one theme per PR):
 | **Finding** | Service-role single layer; forgotten owner filter is a full leak class                                                                                                                                                                                                                                          |
 | **Owner**   | OWNER:CODE (+ OWNER:OPS for live A/B)                                                                                                                                                                                                                                                                           |
 | **Address** | Add static CI guard grepping `src/app/api/**` for admin queries on owner-scoped tables without known helpers (`withOwnerReadScope`, `requireOwnerScope`, `.eq("owner_id"` patterns allowlisted). Document remaining intentional exceptions. Schedule `⏸` user A vs B smoke on documents + signed URLs + search. |
-| **Files**   | new `scripts/check-owner-scope-api.mjs` (or extend existing), `package.json` / `verify:cheap`, tests; update `docs/tenancy-defense-in-depth-review.md`                                                                                                                                                          |
+| **Files**   | new `scripts/check-owner-scope-api.mjs` (or extend existing), `package.json` / `verify:cheap`, tests; update `docs/audit/tenancy-defense-in-depth-review.md`                                                                                                                                                          |
 | **Prove**   | Guard fails on a synthetic unscope fixture; live A/B green                                                                                                                                                                                                                                                      |
 
 ### D3. Auth UI: prefer validated user for privilege display (S2)
@@ -265,7 +265,7 @@ Suggested PR granularity (one theme per PR):
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Finding** | `clinical-safety.ts`, `privacy.ts`, `public-api-access.ts`, `private-search-scope.ts` miss `rag_eval`                                                            |
 | **Owner**   | OWNER:CODE                                                                                                                                                       |
-| **Address** | Add those modules to `ragEvalPatterns`; keep test pattern coverage; add self-tests. Fix stale “advisory regression” sentence in `docs/process-hardening.md` L11. |
+| **Address** | Add those modules to `ragEvalPatterns`; keep test pattern coverage; add self-tests. Fix stale “advisory regression” sentence in `docs/guides/process-hardening.md` L11. |
 | **Prove**   | Classify `src/lib/clinical-safety.ts` → `rag_eval_changed: true`                                                                                                 |
 
 ### F3. Harden `@critical` safety UI assertion (C6)
@@ -477,5 +477,5 @@ After Waves B–H land (or are deferred with dated waiver):
 ## Tracking
 
 Append progress to the review ledger when a wave completes, and flip matching rows in
-[`operator-backlog.md`](../operator-backlog.md). Prefer linking PRs back to issue IDs in this document
+[`operator-backlog.md`](../plans/operator-backlog.md). Prefer linking PRs back to issue IDs in this document
 (`Wave C1`, `Wave E2`, …) in the PR body.

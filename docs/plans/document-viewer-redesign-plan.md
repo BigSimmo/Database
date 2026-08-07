@@ -5,7 +5,7 @@
 **Flightplan evidence:** `.local/workflow-evidence/2026-08-06T17-27-05-553Z-flightplan.json`  
 **Related ledger:** `#214` / `#219` resolved; `#215` residual (PWA/demo WebP) optional  
 **Landed:** Phase 0 [#1660](https://github.com/BigSimmo/Database/pull/1660), Phase 1 [#1665](https://github.com/BigSimmo/Database/pull/1665)  
-**Next detail:** [`document-viewer-phase2-unified-chrome.md`](./document-viewer-phase2-unified-chrome.md)
+**Next detail:** [`document-viewer-phase2-unified-chrome.md`](document-viewer-phase2-unified-chrome.md)
 
 This is the execution plan for a dramatic improvement of design, style, approach,
 functionality, and optimisation of the PDF reader and photo/figure viewers. It is
@@ -34,7 +34,7 @@ privacy intact.
   PDF readers inside the shell (guarded by client-performance-boundary tests).
 - Gestures are shared (`use-viewer-gestures.ts`) but applied differently: PDF pans via
   scroll + re-raster; lightbox pans via CSS transform.
-- Document detail routes own the floating search composer (`docs/search-chrome-behaviour.md`).
+- Document detail routes own the floating search composer (`docs/rag-behaviour/search-chrome-behaviour.md`).
 
 ---
 
@@ -139,7 +139,7 @@ Clarify `document-viewer-lazy` naming vs real dynamic boundaries.
 **Goal:** dramatic visual/UX convergence without changing clinical content.
 
 **Detailed safe-rollout plan (sub-PRs 2a–2e, gates, stop rules):**
-[`document-viewer-phase2-unified-chrome.md`](./document-viewer-phase2-unified-chrome.md)
+[`document-viewer-phase2-unified-chrome.md`](document-viewer-phase2-unified-chrome.md)
 
 1. Deepen `DocumentFrame` adoption toward COMPONENTS §6 — shared zoom/fit/page metadata
    chrome for PDF canvas and image stages; keep viewing-aid off by default and forced off
@@ -153,7 +153,7 @@ Clarify `document-viewer-lazy` naming vs real dynamic boundaries.
    `prefers-reduced-motion`. (**PR 2e**, last)
 
 **Verify:** per sub-PR focused contracts → `verify:pr-local`; phone-chrome only when sheet/composer
-touched. Update `docs/search-chrome-behaviour.md` only if ownership semantics change (prefer not to).
+touched. Update `docs/rag-behaviour/search-chrome-behaviour.md` only if ownership semantics change (prefer not to).
 
 ### Phase 3 — Functionality + optimisation
 
@@ -204,7 +204,7 @@ or production-like.
 - `pdf-canvas-viewer.tsx`, `non-pdf-source-preview.tsx`, `source-panels.tsx`,
   `document-rail-panels.tsx`, `image-lightbox.tsx`, `signed-image.tsx`
 - `use-document-viewer-chrome-scroll.ts` only if chrome ownership changes
-- `docs/search-chrome-behaviour.md` only if invariants change
+- `docs/rag-behaviour/search-chrome-behaviour.md` only if invariants change
 
 **Correct paths note:** lightbox / signed image live under
 `src/components/clinical-dashboard/`, not `src/components/ui/` (flightplan path list
@@ -297,7 +297,7 @@ Aligned with repo design rules and COMPONENTS §6:
 2. ~~Execute **Phase 0**.~~ Done (#1660).
 3. ~~**Phase 1** extraction.~~ Done (#1665).
 4. Execute **Phase 2** via the detailed sub-PR plan
-   [`document-viewer-phase2-unified-chrome.md`](./document-viewer-phase2-unified-chrome.md) —
+   [`document-viewer-phase2-unified-chrome.md`](document-viewer-phase2-unified-chrome.md) —
    start with **PR 2a** (DocumentFrame controls + demote duplicate PDF zoom/fit).
 5. Do not invent a second phone composer or change hide-reserve semantics.
 

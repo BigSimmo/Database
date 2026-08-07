@@ -70,7 +70,7 @@ Ledger `#032` / source-governance audit (PR #1051) items that look like “gaps�
 
 - **Measured harm (2026-07-02):** golden retrieval regressed to 16/23 (doc-recall@5 1.0→0.76, mrr 0.75→0.64) when metadata boosts/penalties reordered selection.
 - **Why it fails here:** relevance scores saturate at the clamp, so stacked metadata swings override lexical relevance; the corpus is only partially enriched and `normalizeSourceMetadata` coerces unenriched docs to `unknown`/`unverified` — **unknown ≠ bad**. Even governance-as-tiebreak buried correct unenriched docs (three designs bisected).
-- **Standing guard:** `tests/retrieval-selection.test.ts` keeps relevance ordering and asserts a higher-relevance `review_due`/`unverified` source outranks a lower-relevance `current`/`reviewed` one (`docs/rag-hybrid-findings-and-todo.md` item 20).
+- **Standing guard:** `tests/retrieval-selection.test.ts` keeps relevance ordering and asserts a higher-relevance `review_due`/`unverified` source outranks a lower-relevance `current`/`reviewed` one (`docs/archive/rag-hybrid-findings-and-todo.md` item 20).
 - **If ever revisited:** only via **RC8 — source-strength as a filter, not a penalty/boost in selection ordering**, gated on `eval:retrieval:quality` 36/36 plus an approved live canary pair. Prompt-side governance caveats are a separate generation-surface item (`#033`), not a ranking change.
 
 ## Refutation 4 — plural antipsychotic classifier correction alone: wrong-subject answer
@@ -152,7 +152,7 @@ first.
   fragments. The current artifact now persists each row's `relevanceGrade` and
   `matchedDeclaredSignals`; focused tests cover ideal and zero-grade rows, closing #084. Human
   disposition remains #023. Keep treating this as an evaluation-label audit surface, not permission
-  to change ranking (`docs/observability-slos.md` §3.1).
+  to change ranking (`docs/operations/observability-slos.md` §3.1).
 - **Answer-side quality:** the final 44-case run passed every blocking gate with 30/30 substantive
   grounded supported answers and zero source-backed review stubs. #029 is resolved, and the quality
   gate now blocks any recurrence of that fallback rather than merely reporting it.

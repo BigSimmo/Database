@@ -375,7 +375,7 @@ rail, split, wide) · the condition at which each component changes state · min
 widths for title, actions and data columns · 320px and 400%-zoom acceptance · per-component
 overflow behaviour. Container queries where the component's own width matters; viewport
 breakpoints where the shell changes mode. The shared search chrome keeps its own contract
-(`docs/search-chrome-behaviour.md`) — this system defers to it.
+(`docs/rag-behaviour/search-chrome-behaviour.md`) — this system defers to it.
 
 **The bedside phone case is real** (DECISIONS §Q3), so **320px reflow and compact variants
 are blocking acceptance criteria for the eight new components** — not aspirations.

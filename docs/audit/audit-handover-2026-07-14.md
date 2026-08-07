@@ -55,7 +55,7 @@ evals, service-role tenancy regression class, upstream OCR quality labels drivin
 |                        |                                                                                    |
 | ---------------------- | ---------------------------------------------------------------------------------- |
 | **What**               | Queries (and excerpts when synthesizing) process via Railway Singapore + OpenAI US |
-| **Where**              | `docs/privacy-impact-assessment.md`, `docs/openai-cross-border-basis.md`           |
+| **Where**              | `docs/security/privacy-impact-assessment.md`, `docs/security/openai-cross-border-basis.md`           |
 | **Risk**               | Sensitive health info overseas without closed APP 8 / contractual basis            |
 | **Address**            | Remediation Wave B1 — DPA / ZDR / processor record + counsel                       |
 | **Status at handover** | Open (DPA rows still `_no_`)                                                       |
@@ -65,7 +65,7 @@ evals, service-role tenancy regression class, upstream OCR quality labels drivin
 |                        |                                                                                    |
 | ---------------------- | ---------------------------------------------------------------------------------- |
 | **What**               | Code fails closed without secret; GitHub has it; Railway runtime still `🔎 verify` |
-| **Where**              | `docs/operator-backlog.md`, `src/lib/env.ts` / instrumentation boot guard          |
+| **Where**              | `docs/plans/operator-backlog.md`, `src/lib/env.ts` / instrumentation boot guard          |
 | **Risk**               | Boot fail or weak query hashing in prod                                            |
 | **Address**            | Remediation Wave B2 — confirm same ≥16-char value in Railway                       |
 | **Status at handover** | Verify pending                                                                     |
@@ -75,7 +75,7 @@ evals, service-role tenancy regression class, upstream OCR quality labels drivin
 |                        |                                                                                                                                                      |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **What**               | `verify:release`, golden retrieval 36/36, rag-only quality, staging soak, Eval Canary two greens not closed; prior OpenAI embedding quota exhaustion |
-| **Where**              | `docs/operator-backlog.md`, `docs/launch-operator-runbook.md`                                                                                        |
+| **Where**              | `docs/plans/operator-backlog.md`, `docs/operations/launch-operator-runbook.md`                                                                                        |
 | **Risk**               | Cannot claim clinical release confidence                                                                                                             |
 | **Address**            | Remediation Waves B3–B4 + J                                                                                                                          |
 | **Status at handover** | Pending                                                                                                                                              |
@@ -96,7 +96,7 @@ evals, service-role tenancy regression class, upstream OCR quality labels drivin
 |                        |                                                                                                        |
 | ---------------------- | ------------------------------------------------------------------------------------------------------ |
 | **What**               | Backlog still `⏳` for items runbook/other docs treat as done/verify                                   |
-| **Where**              | `docs/operator-backlog.md` vs `docs/launch-operator-runbook.md`, empty `supabase/drift-allowlist.json` |
+| **Where**              | `docs/plans/operator-backlog.md` vs `docs/operations/launch-operator-runbook.md`, empty `supabase/drift-allowlist.json` |
 | **Risk**               | Wrong re-apply or false unfinished state                                                               |
 | **Address**            | Remediation Wave A1 — reconcile with live migration list / drift                                       |
 | **Status at handover** | Open                                                                                                   |
@@ -106,7 +106,7 @@ evals, service-role tenancy regression class, upstream OCR quality labels drivin
 |                        |                                                                                                                   |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | **What**               | APIs use service role; ownership enforced in app helpers/RPCs, not full second-layer RLS for public-overlay model |
-| **Where**              | `createAdminClient()`, `withOwnerReadScope`, `retrieval_owner_matches`; `docs/tenancy-defense-in-depth-review.md` |
+| **Where**              | `createAdminClient()`, `withOwnerReadScope`, `retrieval_owner_matches`; `docs/audit/tenancy-defense-in-depth-review.md` |
 | **Risk**               | Future route forgetting owner scope → private corpus leak                                                         |
 | **Address**            | Remediation Wave D2 — CI unscoped-query guard + live A/B                                                          |
 | **Status at handover** | Mitigated in current routes; guard not yet coded                                                                  |
@@ -238,13 +238,13 @@ Full address sketches: Remediation Wave I in the remediation plan.
 | Doc                                                                            | Role                             |
 | ------------------------------------------------------------------------------ | -------------------------------- |
 | [`audit-remediation-plan-2026-07-14.md`](audit-remediation-plan-2026-07-14.md) | How to fix, sequenced            |
-| [`operator-backlog.md`](../operator-backlog.md)                                | Human/provider actions index     |
-| [`launch-operator-runbook.md`](../launch-operator-runbook.md)                  | Sequenced launch commands        |
-| [`privacy-impact-assessment.md`](../privacy-impact-assessment.md)              | PIA register                     |
-| [`openai-cross-border-basis.md`](../openai-cross-border-basis.md)              | APP 8 checklist                  |
-| [`tenancy-defense-in-depth-review.md`](../tenancy-defense-in-depth-review.md)  | Tenancy defense notes            |
-| [`process-hardening.md`](../process-hardening.md)                              | Process & known debts            |
-| [`codex-review-protocol.md`](../codex-review-protocol.md)                      | Review severity / mutation rules |
+| [`operator-backlog.md`](../plans/operator-backlog.md)                                | Human/provider actions index     |
+| [`launch-operator-runbook.md`](../operations/launch-operator-runbook.md)                  | Sequenced launch commands        |
+| [`privacy-impact-assessment.md`](../security/privacy-impact-assessment.md)              | PIA register                     |
+| [`openai-cross-border-basis.md`](../security/openai-cross-border-basis.md)              | APP 8 checklist                  |
+| [`tenancy-defense-in-depth-review.md`](tenancy-defense-in-depth-review.md)  | Tenancy defense notes            |
+| [`process-hardening.md`](../guides/process-hardening.md)                              | Process & known debts            |
+| [`codex-review-protocol.md`](../codex/codex-review-protocol.md)                      | Review severity / mutation rules |
 | [`branch-review-ledger.md`](../branch-review-ledger.md)                        | Prevent repeat audits            |
 
 ---

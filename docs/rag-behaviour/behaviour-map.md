@@ -68,7 +68,7 @@ free real estate for ordering keys (see §2's critical property).
   baseline step (+~0.028 from de-noising).
 - `irrelevant_source_rate@10` ≈ 0.108 is dominated by broad/vector cases pulling topically
   adjacent sibling guidelines — audit labels before treating as ranking debt
-  (`docs/observability-slos.md` §3.1).
+  (`docs/operations/observability-slos.md` §3.1).
 
 ## 6. Eval measurement mechanics
 

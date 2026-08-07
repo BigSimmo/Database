@@ -25,7 +25,11 @@
  *        --keep (leave reports in place), --dir <path>.
  */
 import { spawn, spawnSync } from "node:child_process";
+<<<<<<< HEAD
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+=======
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -209,6 +213,10 @@ const strategies = budget.strategies ?? ["mobile", "desktop"];
  * The env override exists for a deliberate one-off comparison, not for CI.
  */
 const LIGHTHOUSE_VERSION = process.env.LIGHTHOUSE_VERSION ?? budget.lighthouseVersion ?? "12.8.2";
+const rawLhAttempts = Number.parseInt(process.env.LH_MAX_ATTEMPTS ?? "1", 10);
+const rawLhRetryDelayMs = Number.parseInt(process.env.LH_RETRY_DELAY_MS ?? "750", 10);
+const LH_MAX_ATTEMPTS = Number.isFinite(rawLhAttempts) ? Math.max(1, rawLhAttempts) : 1;
+const LH_RETRY_DELAY_MS = Number.isFinite(rawLhRetryDelayMs) ? rawLhRetryDelayMs : 750;
 
 function resolveNpxInvocation() {
   const npmExecPath = process.env.npm_execpath;
@@ -311,16 +319,85 @@ try {
   await waitForServer(baseUrl, server);
 
   const chromePath = process.env.CHROME_PATH ?? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ?? "";
+
+  function resolveLighthouseLauncher() {
+    if (process.platform !== "win32") {
+      return { command: "npx", argsPrefix: [] };
+    }
+
+    const npmCliPath = path.join(
+      process.env.APPDATA ?? "",
+      "npm",
+      "node_modules",
+      "npm",
+      "bin",
+      "npx-cli.js",
+    );
+    if (!existsSync(npmCliPath)) {
+      throw new Error(
+        "Windows Lighthouse launcher resolution failed: APPDATA/npm/node_modules/npm/bin/npx-cli.js is missing.",
+      );
+    }
+    return {
+      command: process.execPath,
+      argsPrefix: [npmCliPath],
+    };
+  }
+
+  function hasUsableLighthouseReport(reportPath) {
+    try {
+      const report = JSON.parse(readFileSync(reportPath, "utf8"));
+      const lcp = report?.audits?.["largest-contentful-paint"]?.numericValue;
+      const cls = report?.audits?.["cumulative-layout-shift"]?.numericValue;
+      return Number.isFinite(lcp) && Number.isFinite(cls);
+    } catch {
+      return false;
+    }
+  }
+
+  function sleepMs(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   const failures = [];
+  const launcher = resolveLighthouseLauncher();
+  const lighthouseTempRoot = path.join(absoluteRunRoot, "lighthouse-temp");
+  const lighthouseUserDataRoot = path.join(absoluteRunRoot, "lighthouse-user-data");
+  mkdirSync(lighthouseTempRoot, { recursive: true });
+  mkdirSync(lighthouseUserDataRoot, { recursive: true });
 
   for (const strategy of strategies) {
     for (const route of routes) {
       const output = path.join(reportDirectory, `${strategy}-${slugFor(route)}.json`);
       console.log(`Measuring ${strategy} ${route}`);
+<<<<<<< HEAD
       const result = spawnSync(
         npxInvocation.command,
         [
           ...npxInvocation.prefixArgs,
+=======
+      let routeSuccess = false;
+      let routeFailure = "not run";
+
+      for (let attempt = 1; attempt <= LH_MAX_ATTEMPTS; attempt += 1) {
+        const attemptTempRoot = path.join(lighthouseTempRoot, `${strategy}-${slugFor(route)}-attempt-${attempt}`);
+        const profileDir = path.join(lighthouseUserDataRoot, `${strategy}-${slugFor(route)}-attempt-${attempt}`);
+        try {
+          rmSync(attemptTempRoot, { recursive: true, force: true });
+          rmSync(profileDir, { recursive: true, force: true });
+        } catch {
+          /* best effort */
+        }
+        mkdirSync(profileDir, { recursive: true });
+        mkdirSync(attemptTempRoot, { recursive: true });
+        const chromeFlags = [
+          "--headless=new",
+          "--no-sandbox",
+          "--disable-dev-shm-usage",
+          `--user-data-dir=${profileDir}`,
+        ].join(" ");
+        const lighthouseArgs = [
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
           "--yes",
           `lighthouse@${LIGHTHOUSE_VERSION}`,
           `${baseUrl}${route}`,
@@ -328,23 +405,50 @@ try {
           `--output-path=${output}`,
           `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
           "--only-categories=performance",
-          "--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage",
+          `--chrome-flags=${chromeFlags}`,
           "--max-wait-for-load=60000",
           "--quiet",
-        ],
-        {
-          cwd: projectRoot,
-          env: { ...offlineEnv, ...(chromePath ? { CHROME_PATH: chromePath } : {}) },
-          stdio: "inherit",
-        },
-      );
+        ];
+
+        const result = spawnSync(
+          launcher.command,
+          [...launcher.argsPrefix, ...lighthouseArgs],
+          {
+            cwd: projectRoot,
+            env: {
+              ...offlineEnv,
+              ...(chromePath ? { CHROME_PATH: chromePath } : {}),
+              TMP: attemptTempRoot,
+              TEMP: attemptTempRoot,
+              TMPDIR: attemptTempRoot,
+            },
+            stdio: "inherit",
+          },
+        );
+        routeFailure = `${childProcessFailureSummary(result)}`;
+
+        if (hasUsableLighthouseReport(output)) {
+          routeSuccess = true;
+          break;
+        }
+
+        if (attempt < LH_MAX_ATTEMPTS) {
+          console.log(`Retrying ${strategy} ${route} after failed attempt ${attempt}.`);
+          if (LH_RETRY_DELAY_MS > 0) await sleepMs(LH_RETRY_DELAY_MS);
+        }
+      }
+
       // Not downgraded to a warning: the grader treats a missing report as
       // incomplete evidence and fails, which is the behaviour we want locally too.
+<<<<<<< HEAD
       if (childProcessExitCode(result) !== 0) {
         const failure = `${strategy} ${route}`;
         failures.push(failure);
         console.log(`::warning::lighthouse ${failure} failed (${childProcessFailureSummary(result)})`);
       }
+=======
+      if (!routeSuccess) failures.push(`${strategy} ${route}: ${routeFailure}`);
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
     }
   }
 

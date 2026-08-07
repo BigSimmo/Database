@@ -5,6 +5,9 @@
     },
     "figma": {
       "enabled": true
+    },
+    "mem0": {
+      "enabled": false
     }
   }
 }

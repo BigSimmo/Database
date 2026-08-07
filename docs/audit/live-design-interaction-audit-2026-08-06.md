@@ -396,8 +396,8 @@ npm run workflow:design-sweep -- --write-evidence
 # against the 15 routes in §2.
 ```
 
-Physical phone acceptance remains separate: [docs/phone-chrome-physical-acceptance.md](../phone-chrome-physical-acceptance.md).  
-Search chrome contracts: [docs/search-chrome-behaviour.md](../search-chrome-behaviour.md).
+Physical phone acceptance remains separate: [docs/audit/phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).  
+Search chrome contracts: [docs/rag-behaviour/search-chrome-behaviour.md](../rag-behaviour/search-chrome-behaviour.md).
 
 ---
 

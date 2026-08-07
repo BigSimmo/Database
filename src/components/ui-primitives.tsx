@@ -1,5 +1,4 @@
-import { Ban, Landmark, Loader2, ShieldCheck, TriangleAlert, X, type LucideIcon } from "lucide-react";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactElement, ReactNode } from "react";
 import {
   extractionQualityLabel,
   formatClinicalDate,
@@ -36,6 +35,70 @@ export type SourceMetadataInput = Partial<ClinicalSourceMetadata> | null;
 export function cn(...classes: Array<string | false | null | undefined>) {
   return twMergeClinical(classes.filter(Boolean).join(" "));
 }
+
+type PrimitiveIconProps = { className?: string; [key: string]: unknown };
+type IconComponent = (props: PrimitiveIconProps) => ReactNode;
+type LucideIcon = IconComponent;
+
+const Loader2: IconComponent = ({ className, ...props }) => (
+  <span
+    aria-hidden="true"
+    className={cn("inline-flex items-center justify-center leading-none text-[0.95em]", className)}
+    {...props}
+  >
+    ↻
+  </span>
+);
+
+const Ban: IconComponent = ({ className, ...props }) => (
+  <span
+    aria-hidden="true"
+    className={cn("inline-flex items-center justify-center font-bold leading-none", className)}
+    {...props}
+  >
+    ⛔
+  </span>
+);
+
+const Landmark: IconComponent = ({ className, ...props }) => (
+  <span
+    aria-hidden="true"
+    className={cn("inline-flex items-center justify-center text-[0.82em] font-bold leading-none", className)}
+    {...props}
+  >
+    ⚑
+  </span>
+);
+
+const ShieldCheck: IconComponent = ({ className, ...props }) => (
+  <span
+    aria-hidden="true"
+    className={cn("inline-flex items-center justify-center text-[0.85em] font-black leading-none", className)}
+    {...props}
+  >
+    ✓
+  </span>
+);
+
+const TriangleAlert: IconComponent = ({ className, ...props }) => (
+  <span
+    aria-hidden="true"
+    className={cn("inline-flex items-center justify-center font-black leading-none", className)}
+    {...props}
+  >
+    ⚠
+  </span>
+);
+
+const X: IconComponent = ({ className, ...props }) => (
+  <span
+    aria-hidden="true"
+    className={cn("inline-flex items-center justify-center font-black leading-none", className)}
+    {...props}
+  >
+    ×
+  </span>
+);
 
 export const transitionSurface = "transition-colors transition-shadow motion-reduce:transition-none";
 export const transitionTransform = "transition-transform motion-reduce:transform-none";
@@ -390,6 +453,7 @@ export function ToggleSwitch({
   );
 }
 
+<<<<<<< HEAD
 type IconComponent = LucideIcon;
 
 export type SourceDesignationBadgeProps = {
@@ -398,6 +462,9 @@ export type SourceDesignationBadgeProps = {
 };
 
 export function SourceDesignationBadge({ metadata, className }: SourceDesignationBadgeProps) {
+=======
+export function SourceDesignationBadge({ metadata, className }: { metadata?: unknown; className?: string }) {
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
   const source = normalizeSourceMetadata(metadata);
   const classification = classifySourceAuthority(source);
   const toneClassName =

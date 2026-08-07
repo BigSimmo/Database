@@ -160,7 +160,7 @@ This sweep was not a literal proof that every repository line is defect-free. Th
 
 - `pwd && find .. -name AGENTS.md -print && git status --short --branch && git rev-parse --abbrev-ref HEAD && git log --oneline -5`
 - `cat .agents/skills/workflows/SKILL.md && cat .agents/skills/database-flightplan/SKILL.md && cat .agents/skills/session-lifecycle/SKILL.md`
-- `cat AGENTS.md | sed -n '1,220p' && sed -n '1,220p' docs/codex-review-protocol.md && cat package.json`
+- `cat AGENTS.md | sed -n '1,220p' && sed -n '1,220p' docs/codex/codex-review-protocol.md && cat package.json`
 - `npm run workflow:flightplan -- --write-evidence`
 - `git status --short && git diff --name-only && find . -maxdepth 3 -name AGENTS.md -print && rg -n "TODO|FIXME|HACK|XXX|SECURITY|BUG|throw new Error\(|console\.log|any\b|@ts-ignore|eslint-disable|dangerouslySetInnerHTML|innerHTML|eval\(|process\.env\.|SERVICE_ROLE|SUPABASE_SERVICE|OPENAI_API_KEY|TODO" src scripts worker supabase tests .github docs --glob '!node_modules' --glob '!package-lock.json'`
 - `npm run check:knip`

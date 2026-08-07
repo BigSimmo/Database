@@ -1,6 +1,6 @@
 # Branch Cleanup Snapshot — 2026-06-28
 
-Archived from `docs/branch-cleanup-guide.md` on 2026-07-04. This is a frozen historical record only; do not treat branch names, SHAs, or recommendations as current state. Use `docs/branch-cleanup-guide.md` for the live procedure.
+Archived from `docs/guides/branch-cleanup-guide.md` on 2026-07-04. This is a frozen historical record only; do not treat branch names, SHAs, or recommendations as current state. Use `docs/guides/branch-cleanup-guide.md` for the live procedure.
 
 ## Current Branch State
 

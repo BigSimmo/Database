@@ -1,9 +1,25 @@
+import * as Sentry from "@sentry/nextjs";
+
 // Lightweight structured logger with redaction (plan item 1.2). API routes log
 // operational context (status, error name, request id) but must never emit secrets
 // or patient-identifying text (clinical query/answer content, emails). Values under
 // sensitive keys are redacted and long strings truncated before serialization.
 
 type LogLevel = "debug" | "info" | "warn" | "error";
+
+type SentryLoggerMethods = {
+  [key in LogLevel]: (message: string, context?: Record<string, unknown>) => void;
+};
+
+function getSentryLogger(): Partial<SentryLoggerMethods> | null {
+  const loggerCandidate = Sentry.logger as Partial<SentryLoggerMethods> | undefined;
+  if (!loggerCandidate) return null;
+  const candidate = loggerCandidate;
+  if (typeof candidate.debug !== "function" && typeof candidate.info !== "function" && typeof candidate.warn !== "function") {
+    return null;
+  }
+  return candidate;
+}
 
 const REDACTED = "[redacted]";
 const MAX_STRING_LENGTH = 512;
@@ -68,17 +84,26 @@ function emit(level: LogLevel, message: string, context?: Record<string, unknown
   // Keep tests quiet; they assert on responses, not log output.
   if (env().NODE_ENV === "test") return;
   if (LEVEL_RANK[level] < LEVEL_RANK[activeLevel()]) return;
+<<<<<<< HEAD
   const redacted = context ? redactLogContext(context) : undefined;
+=======
+  const redactedContext = context ? (redactLogContext(context) as Record<string, unknown>) : undefined;
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
   const line = JSON.stringify({
     level,
     message,
     timestamp: new Date().toISOString(),
+<<<<<<< HEAD
     ...(redacted ?? {}),
+=======
+    ...(redactedContext || {}),
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
   });
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
 
+<<<<<<< HEAD
   // Forward warn/error to privacy-scrubbed Sentry Logs when instrumentation registered a bridge.
   if ((level === "warn" || level === "error") && sentryLogForwarder) {
     try {
@@ -86,6 +111,11 @@ function emit(level: LogLevel, message: string, context?: Record<string, unknown
     } catch {
       // Optional observability must never interfere with request handling.
     }
+=======
+  const sentryLogger = getSentryLogger();
+  if (sentryLogger?.[level]) {
+    sentryLogger[level]?.(message, redactedContext ?? {});
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
   }
 }
 

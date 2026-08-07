@@ -12,7 +12,7 @@ subfolder helpers, and small shared helpers grouped rather than itemised.
 
 Legend: **[live]** routine tooling · **[infra]** runner/guard plumbing · **[one-shot]** completed
 migration/batch helper that is a candidate for an `archive/` subfolder under `scripts/` once its
-migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
+migration has shipped (see `docs/plans/maturity-backlog-workorders.md` L1).
 
 ## Runner & guard infrastructure [infra]
 
@@ -60,7 +60,7 @@ guards `check-pr-policy-workflow.mjs` and `check-codex-autofix-workflow.mjs`.
 `audit-formatting-fixtures.ts` checks the formatting fixtures themselves.
 `setup-codex-cloud.sh`, `maintain-codex-cloud.sh`, and
 `install-codex-cloud-command-shims.sh` reproduce the provider-free Cloud runtime documented in
-`docs/codex-cloud.md`; `npm run check:codex-cloud` verifies that
+`docs/codex/codex-cloud.md`; `npm run check:codex-cloud` verifies that
 the runtime pins, install commands, offline defaults, and documentation stay aligned.
 
 For executable phone-chrome changes, use `verify:phone-chrome` before the broad UI gate. It checks installed-lock parity, then selects focused contracts and Playwright owners from the changed paths; shared foundations add `verify:ui` last. Documentation-only scopes run only documentation guards. `audit:final-merge` is local-only unless both `--providers` and `ALLOW_PROVIDER_READS=true` are supplied.
@@ -121,14 +121,14 @@ the task before you start.
 - `sync-open-pr-branches.mjs` (`sync:pr-branches`) — anti-churn sync for stale open PR heads;
   refuses a missing or bot `gh` identity. `sweep-merged-branches.mjs` — merged-branch sweep.
 - `reconciliation-preflight.mjs`, `reconciliation-evidence-pack.mjs` — broad chat/worktree
-  reconciliation entry point and its evidence bundle; see `docs/reconciliation-playbook.md`.
+  reconciliation entry point and its evidence bundle; see `docs/operations/reconciliation-playbook.md`.
 - `list-database-skills.mjs` (`skills` / `check:skills`), `sync-skills.mjs`, `skill-create.mjs` —
   the `.agents/skills/` catalogue.
 
 ### Live/staging verification [live]
 
 `soak-test.ts`, `test-cross-tenant-staging.ts` (the executable owner-boundary proof behind
-`docs/staging-tenancy-release-evidence.md`), `deployment-boot-smoke.mjs`, `run-live-tests.mjs`.
+`docs/evidence/staging-tenancy-release-evidence.md`), `deployment-boot-smoke.mjs`, `run-live-tests.mjs`.
 These reach live providers — they need explicit confirmation before running.
 
 ### Browser and performance capture [infra]
@@ -156,4 +156,4 @@ out of the `tests/**` run.
 
 `external-workflow.mjs` (`workflow:run/status/verify/deps/clean-state/export/handoff`) and
 `productivity-workflow.mjs` (`workflow:flightplan/triage/clinical-proof/design-sweep/rag-lab/
-operator-closeout/lifecycle`) — see `docs/productivity-workflows.md`.
+operator-closeout/lifecycle`) — see `docs/guides/productivity-workflows.md`.

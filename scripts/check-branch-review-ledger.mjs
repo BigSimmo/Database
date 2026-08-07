@@ -31,7 +31,7 @@ import { listLedgerPaths, parseLedgerRows } from "./branch-review-ledger.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LEDGER_PATH = "docs/branch-review-ledger.md";
-const PROTOCOL_PATH = "docs/codex-review-protocol.md";
+const PROTOCOL_PATH = "docs/codex/codex-review-protocol.md";
 export const LEDGER_MERGE_DRIVER = "node scripts/merge-branch-review-ledger.mjs %O %A %B";
 
 /**

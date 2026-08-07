@@ -2,6 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
@@ -75,6 +76,20 @@ function createBrowserSupabaseClient() {
   // read the session. PKCE code flow returns via /auth/callback.
   browserSupabaseClient = createBrowserClient(url, publishableKey);
   return browserSupabaseClient;
+}
+
+function syncSentryUser(session: Session | null) {
+  if (!session?.user) {
+    Sentry.logger?.info("auth.session_cleared");
+    Sentry.setUser(null);
+    return;
+  }
+
+  Sentry.logger?.info("auth.session_synced", { authenticated: true });
+  Sentry.setUser({
+    id: session.user.id,
+    email: session.user.email ?? undefined,
+  });
 }
 
 export function authorizationHeadersForAccessToken(accessToken: string | null | undefined): Record<string, string> {
@@ -202,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setStatus("error");
           setNotice(null);
           setError("Session could not be verified. Check your connection and retry.");
+          syncSentryUser(null);
           return;
         }
         const verifiedUserId = userResult.error ? null : (userResult.data.user?.id ?? null);
@@ -213,6 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           session: sessionResult.data.session,
           verificationUnavailable,
         });
+        syncSentryUser(resolved.session);
         publishedUserIdRef.current = resolved.session?.user?.id ?? null;
         setSession(resolved.session);
         setStatus(resolved.status);
@@ -228,11 +245,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setNotice(null);
           }
         }
-      } catch {
-        if (!active) return;
-        setStatus("error");
-        setError("Session could not be loaded.");
-      }
+    } catch {
+      if (!active) return;
+      setStatus("error");
+      setError("Session could not be loaded.");
+      syncSentryUser(null);
+    }
     };
 
     void initializeSession();
@@ -258,6 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearSignedUrlCache();
       }
       publishedUserIdRef.current = nextUserId;
+      syncSentryUser(nextSession);
       setSession(nextSession);
       setStatus(nextSession ? "authenticated" : "signed_out");
       if (nextSession) {
@@ -287,15 +306,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setError(null);
       setNotice(null);
+      Sentry.logger?.info("auth.sign_in_with_email_requested");
       const { error: signInError } = await active.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: authCallbackRedirect() },
       });
       if (signInError) {
         setStatus("error");
+        Sentry.logger?.error("auth.sign_in_with_email_failed", { error_code: signInError?.code ?? "sign_in_error" });
         setError("Sign-in email could not be sent.");
         return;
       }
+      Sentry.logger?.info("auth.sign_in_with_email_succeeded");
       setStatus("signed_out");
       setNotice("Check your email for the sign-in link.");
     },
@@ -309,12 +331,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setError(null);
       setNotice(null);
+      Sentry.logger?.info("auth.sign_in_with_password_requested");
       const { error: signInError } = await active.auth.signInWithPassword({ email, password });
       if (signInError) {
         setStatus("error");
+        Sentry.logger?.error("auth.sign_in_with_password_failed", { error_code: signInError?.code ?? "sign_in_error" });
         setError(signInError.message);
         return;
       }
+      Sentry.logger?.info("auth.sign_in_with_password_succeeded");
       // onAuthStateChange flips status to "authenticated" on success.
     },
     [requireClient],
@@ -353,15 +378,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setError(null);
       setNotice(null);
+      Sentry.logger?.info("auth.sign_in_with_oauth_requested", { provider });
       const { error: oauthError } = await active.auth.signInWithOAuth({
         provider,
         options: { redirectTo: authCallbackRedirect() },
       });
       if (oauthError) {
         setStatus("error");
+        Sentry.logger?.error("auth.sign_in_with_oauth_failed", { provider, error_code: oauthError?.code ?? "sign_in_error" });
         setError(oauthError.message);
         return;
       }
+      Sentry.logger?.info("auth.sign_in_with_oauth_succeeded", { provider });
       // On success the browser is redirected to the provider.
     },
     [requireClient],
@@ -370,16 +398,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!client) return;
     invalidateAuthRequests();
+<<<<<<< HEAD
     try {
       await client.auth.signOut();
     } catch {
+=======
+    Sentry.logger?.info("auth.sign_out_requested");
+    try {
+      await client.auth.signOut();
+    } catch (error) {
+      Sentry.logger?.error("auth.sign_out_failed", { provider: "browser", error: String(error instanceof Error ? error.message : `${error}`) });
+      Sentry.captureException(error);
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
       setStatus("error");
       setError("Sign out failed. Please try again.");
       return;
     }
+<<<<<<< HEAD
+=======
+    Sentry.logger?.info("auth.sign_out_succeeded");
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
+    syncSentryUser(null);
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("signed_out");
@@ -392,6 +434,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
+    syncSentryUser(null);
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("expired");

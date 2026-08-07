@@ -2,7 +2,7 @@ import fs from "node:fs";
 
 const workflowPath = process.argv[2] ?? ".github/workflows/codex-autofix-review-comments.yml";
 const agentInstructionsPath = "AGENTS.md";
-const reviewProtocolPath = "docs/codex-review-protocol.md";
+const reviewProtocolPath = "docs/codex/codex-review-protocol.md";
 const workflow = fs.readFileSync(workflowPath, "utf8");
 const agentInstructions = fs.readFileSync(agentInstructionsPath, "utf8");
 const reviewProtocol = fs.readFileSync(reviewProtocolPath, "utf8");

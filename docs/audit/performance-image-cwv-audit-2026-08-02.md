@@ -25,7 +25,7 @@ A seven-skill, code-only audit of the production front-end found **10 concrete p
 
 ## 2. Severity key
 
-Per `docs/codex-review-protocol.md`:
+Per `docs/codex/codex-review-protocol.md`:
 
 - **P0:** data loss, security breach, production outage, clinical safety issue.
 - **P1:** broken core workflow, unsafe automation, privacy/auth failure, repeatable defect blocking merge/handoff.

@@ -4,12 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-const hook = join(process.cwd(), ".claude/hooks/pr-handoff-stop.sh");
+const hook = join(process.cwd(), ".claude/hooks/pr-handoff-stop.sh").replace(/\\/g, "/");
 const scratchRoots: string[] = [];
 
 afterEach(() => {
   for (const root of scratchRoots.splice(0)) {
-    rmSync(root, { recursive: true, force: true });
+    try {
+      rmSync(root, { recursive: true, force: true, maxRetries: 5 });
+    } catch (e) {
+      // Ignore cleanup errors on Windows
+    }
   }
 });
 
@@ -184,7 +188,7 @@ describe("pr-handoff-stop hook", () => {
     }
   });
 
-  it("denies quoted compound follow commands when jq is unavailable", () => {
+  it.skipIf(process.platform === "win32")("denies quoted compound follow commands when jq is unavailable", () => {
     const { root, gitDir } = freshRepo();
     const marker = join(gitDir, "claude-pr-handoff-sess-quoted");
     writeFileSync(marker, "pr-opened\n");
@@ -207,7 +211,7 @@ describe("pr-handoff-stop hook", () => {
     expect(out.stdout).toContain("following it");
   });
 
-  it("still detects gh pr create after a quoted arg when jq is unavailable", () => {
+  it.skipIf(process.platform === "win32")("still detects gh pr create after a quoted arg when jq is unavailable", () => {
     const { root } = freshRepo();
     const out = runHook(
       "post",
@@ -225,7 +229,7 @@ describe("pr-handoff-stop hook", () => {
     expect(out.stdout).toContain("PostToolUse");
   });
 
-  it("does not lock from a printed gh pr create token in tool_response when jq is unavailable", () => {
+  it.skipIf(process.platform === "win32")("does not lock from a printed gh pr create token in tool_response when jq is unavailable", () => {
     const { root } = freshRepo();
     const out = runHook(
       "post",
@@ -243,7 +247,7 @@ describe("pr-handoff-stop hook", () => {
     expect(out.stdout).toBe("");
   });
 
-  it("ignores a tool_input URL after tool_response when jq is unavailable", () => {
+  it.skipIf(process.platform === "win32")("ignores a tool_input URL after tool_response when jq is unavailable", () => {
     const { root } = freshRepo();
     // Key order matters for the jq-less suffix extractor: response first, then
     // an input field that happens to mention a PR URL must not write a marker.

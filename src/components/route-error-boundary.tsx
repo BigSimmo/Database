@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { TriangleAlert, RefreshCw, ClipboardCopy, Check } from "lucide-react";
+import * as Sentry from "@sentry/nextjs";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
 import { useCopyDiagnostics } from "@/lib/use-copy-diagnostics";
@@ -43,6 +44,7 @@ export function RouteErrorBoundary({
   const { copied, copyFailed, copyDiagnostics } = useCopyDiagnostics(error);
 
   useEffect(() => {
+    Sentry.captureException(error);
     console.error(logLabel, error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error, logLabel]);

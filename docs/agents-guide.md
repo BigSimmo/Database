@@ -29,7 +29,7 @@ duplicate those rules, so it cannot drift from them.
   document them in `.env.example`.
 - Before handing off changes: `npm run verify:cheap` first, then
   `npm run verify:pr-local` when the change is PR-ready (see
-  [`docs/process-hardening.md`](process-hardening.md) for the full
+  [`docs/guides/process-hardening.md`](guides/process-hardening.md) for the full
   verification pyramid).
 
 ## AI tooling map
@@ -41,7 +41,7 @@ below defers to it, so rules live in one place and cannot drift.
 | System                    | Owns                                                       | Where it is configured                                                                                                                                     |
 | ------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **AGENTS.md** (canonical) | All agent rules, gates, safety boundaries                  | `AGENTS.md`; `CLAUDE.md` imports it with `@AGENTS.md` and adds orientation only (stack, layout, flows) — never a second copy of the rules                  |
-| **Codex** (OpenAI)        | Primary PR code-review + automatic resolve                 | AGENTS.md "Codex review" sections, `docs/codex-review-protocol.md`, `docs/codex-prompt-playbook.md`, `.github/workflows/codex-autofix-review-comments.yml` |
+| **Codex** (OpenAI)        | Primary PR code-review + automatic resolve                 | AGENTS.md "Codex review" sections, `docs/codex/codex-review-protocol.md`, `docs/codex/codex-prompt-playbook.md`, `.github/workflows/codex-autofix-review-comments.yml` |
 | **Claude Code**           | Interactive dev; scoped review subagents + workflow skills | `.claude/` (agents, skills, hooks), `.github/workflows/claude.yml`                                                                                         |
 | **Cursor**                | Editor skills + project MCP (Supabase, Context7, …)        | `.cursor/` (skills, `mcp.json`)                                                                                                                            |
 | **Railway MCP**           | Desktop/CLI template; hosted app is separate               | Root `.mcp.json` / `.codex/config.toml` use `https://mcp.railway.com` with OAuth; hosted ChatGPT/Codex requires a workspace-installed app                  |

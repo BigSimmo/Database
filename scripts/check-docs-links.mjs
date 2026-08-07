@@ -53,6 +53,11 @@ const ALLOWLIST = new Set([
   "src/app/(search-app)/tools/page.tsx",
   "src/lib/tools.ts",
   "src/components/ServiceDetailPage.tsx",
+  // Historical scripts referenced in site-testing-speed-perfected-plan.md
+  "scripts/playwright-pr-shards.mjs",
+  "scripts/check-playwright-browser-revision.mjs",
+  "tests/check-playwright-browser-revision.test.ts",
+  "tests/playwright-pr-shards.test.ts",
 ]);
 
 const DATED_DOC = /\b20\d{2}-\d{2}(-\d{2})?\b/;

@@ -117,7 +117,7 @@ Scope and safety:
 
 Do not review branches opportunistically. Review the current changed diff, PR, or branch only when the user explicitly asks for review/audit/hunter/cleanup/upload work, when CI/check failures are the task, or when the current change touches high-risk areas that require a targeted review before handoff.
 
-Use `docs/codex-review-protocol.md` as the shared review protocol for every repo-local review skill, branch/PR review, audit, bug hunt, release-readiness check, and PR/CI review.
+Use `docs/codex/codex-review-protocol.md` as the shared review protocol for every repo-local review skill, branch/PR review, audit, bug hunt, release-readiness check, and PR/CI review.
 
 Before reviewing a branch or PR:
 
@@ -139,7 +139,7 @@ Review routing:
 - `bug-hunter`: Use only for the exact `bug-hunter` shortcut or an explicit defect-hunt request. Prioritize reproducible bugs and smallest proof.
 - `repo-auditor`: Use for explicit repo-wide audit/refactor/dead-code/import/dependency-structure requests. Treat outputs as triage, not automatic delete lists.
 - `release-readiness`: Use for explicit release, merge, PR readiness, or handoff confidence requests. Do not run provider-backed gates without confirmation.
-- `branch-cleanup`: Use only when the prompt explicitly asks for branch cleanup/hygiene or branch deletion candidates. Apply `docs/branch-cleanup-guide.md` and the review ledger before inspecting branch diffs.
+- `branch-cleanup`: Use only when the prompt explicitly asks for branch cleanup/hygiene or branch deletion candidates. Apply `docs/guides/branch-cleanup-guide.md` and the review ledger before inspecting branch diffs.
 - `pr-ci-fix`: Confirmation-required for this repo. GitHub/GitLab API calls, PR comments, CI reruns, commits, and pushes require explicit user approval and must respect the upload/handoff rules. Exception: an explicit `Run PR` sweep carries this approval (see "## Run PR shortcut").
 
 When a branch or PR review completes, record it with `npm run ledger:append -- --ref <x> --head <full-40-char-sha> --scope <s> --outcome <o> --checks <c>`. Never hand-write the markdown row: hand-written rows produced the mojibake, wrong-width, and duplicate records that the 2026-07-28 hygiene pass had to repair, and `see PR head` or abbreviated HEADs make a record unmatchable so the review runs again. The ledger is append-only: never edit or delete an existing record; append a correction or superseding record (`--supersede`) instead. Its `merge=ledger` driver preserves concurrent appends and drops exact duplicate rows; after a main sync without that driver installed, run `npm run ledger:dedupe`. `npm run check:branch-review-ledger` blocks conflict markers, duplicate records, mojibake, wrong-width or heading-style records, unresolvable HEADs, or loss of that merge protection.
@@ -206,7 +206,7 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 - For explicit release confidence, use `npm run verify:release` once; this includes the full Playwright project set and retains all provider-approval requirements. Ordinary local completion or PR handoff does not by itself authorize or require this release gate.
 - For clinical ingestion, answer generation, source governance, privacy, production-readiness, or environment changes, run the smallest relevant domain check plus `npm run check:production-readiness`.
 - For pull requests that touch ingestion, answer generation, search/ranking, source rendering, document access, privacy, production env, or clinical output, complete the clinical governance preflight in `.github/pull_request_template.md`.
-- Track known verification debts and staged process improvements in `docs/process-hardening.md` instead of relying on chat-only memory.
+- Track known verification debts and staged process improvements in `docs/guides/process-hardening.md` instead of relying on chat-only memory.
 
 <!-- END:process-hardening -->
 
@@ -215,7 +215,7 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 # Page and button wiring
 
 Interactive controls and routes follow conventions the codebase already holds to. Before adding
-or moving a button, link, or route, read `docs/wiring-conventions.md`. A control that advertises an
+or moving a button, link, or route, read `docs/architecture/wiring-conventions.md`. A control that advertises an
 action must perform one; a page that ships must be reachable.
 
 - **Buttons.** Every interactive `<button>` must do something: an `onClick`, a `type="submit"`
@@ -252,7 +252,7 @@ action must perform one; a page that ships must be reachable.
 
 # Search chrome behaviour
 
-The shared search chrome must adapt by page ownership, not by ad-hoc padding or route-local overlays. Before changing `MasterSearchHeader`, `GlobalSearchShell`, `ClinicalDashboard`, `DocumentViewer`, phone dock reserves, or search-composer placement, read `docs/search-chrome-behaviour.md`.
+The shared search chrome must adapt by page ownership, not by ad-hoc padding or route-local overlays. Before changing `MasterSearchHeader`, `GlobalSearchShell`, `ClinicalDashboard`, `DocumentViewer`, phone dock reserves, or search-composer placement, read `docs/rag-behaviour/search-chrome-behaviour.md`.
 
 - **One owner.** A page either uses the shell/dashboard composer, owns an in-flow hero composer, or owns a document-viewer composer. Do not stack a second fixed search bar or a second dock-sized content pad below a page-owned composer.
 - **Phone edge-to-edge contract.** Fixed phone composers are flush to the viewport bottom and paint their own safe-area/home-indicator region while visible. They must not use a non-zero `bottom` gap in edge-to-edge dock mode.
@@ -274,8 +274,8 @@ system, developer, user, security, or compliance requirements, which remain high
 
 - **Repo contracts outrank generic rules.** The Front-End Checklist skill corpus (~390 user-global
   skills: `alt-text`, `touch-targets`, `focus-styles`, `reduced-motion`, `color-contrast`, and so
-  on) is generic guidance. On any conflict these win: `docs/wiring-conventions.md`,
-  `docs/search-chrome-behaviour.md`, `docs/rag-behaviour/`, the `@theme` tokens in
+  on) is generic guidance. On any conflict these win: `docs/architecture/wiring-conventions.md`,
+  `docs/rag-behaviour/search-chrome-behaviour.md`, `docs/rag-behaviour/`, the `@theme` tokens in
   `src/app/globals.css`, and any committed test.
 - **Never regress a fixed flake to satisfy a generic rule.** Known collision: generic touch-target
   guidance often teaches the WCAG 2.1/2.2 AAA-level "enhanced" criterion (2.5.5: 44×44 px, which is
@@ -365,7 +365,7 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
 
 # Railway project safety
 
-- This repo deploys to the live Railway project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) in workspace `bigsimmo's Projects`. Full topology: `docs/deployment-architecture.md` §1.
+- This repo deploys to the live Railway project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) in workspace `bigsimmo's Projects`. Full topology: `docs/architecture/deployment-architecture.md` §1.
 - Production services `Database` (Next.js app tier, serves `https://psychiatry.tools`) and `worker` (ingestion) auto-deploy from `BigSimmo/Database` pushes to `main`; the `staging` environment runs the `app` service.
 - The older Railway project `clinical-kb` (`4361c04f-dd3c-4ee9-9e97-49e4e5707b70`) is superseded with zero active deployments; treat it as stale — never `railway link` to it or deploy there.
 - The similarly named Supabase project `Clinical KB Database` is the database/auth tier, not a Railway project; see "Supabase project safety" above.
@@ -470,7 +470,7 @@ If changes appear unrelated, incomplete, experimental, or WIP, do not commit eve
 
 During `upload`, branch cleanup is limited to the current branch and its upstream unless the user explicitly asks for `branch-cleanup`, branch hygiene, deletion candidates, or stale branch review.
 
-Do not enumerate, diff, or re-review unrelated stale branches during a normal upload/handoff. If the user explicitly asks for branch cleanup, first apply `docs/branch-review-ledger.md` to skip unchanged reviewed branches, then follow `docs/branch-cleanup-guide.md`.
+Do not enumerate, diff, or re-review unrelated stale branches during a normal upload/handoff. If the user explicitly asks for branch cleanup, first apply `docs/branch-review-ledger.md` to skip unchanged reviewed branches, then follow `docs/guides/branch-cleanup-guide.md`.
 
 If stale, inappropriate, merged, or unnecessary current-branch references are detected, list cleanup candidates but do not delete or rename branches automatically.
 
@@ -675,7 +675,7 @@ several into one PR/session rather than a dedicated branch each.
 - A change needing its own `RAG impact:` line together with one that doesn't.
 - A change needing `## Clinical Governance Preflight` together with unrelated chores.
 - Anything explicitly scoped "1 PR per work order" by its own tracking doc (e.g. the
-  maturity backlog in `docs/maturity-backlog-workorders.md`, ledger `#086`) — those are
+  maturity backlog in `docs/plans/maturity-backlog-workorders.md`, ledger `#086`) — those are
   deliberately isolated for staged rollout and review.
 
 Bundling saves PR/CI-invocation count, not verification rigor — every bundled item still
@@ -776,7 +776,7 @@ The foundational orchestration skills are:
 - `operations`: turn pending operator debt into a deduplicated, approval-gated batch.
 - `task`: manage safe start, handoff, merge proof, and cleanup transitions.
 
-Run the matching planner command in `docs/productivity-workflows.md` without side effects by default. Add `-- --run` only to execute its local/offline checks. The workflow engine must never execute commands listed under `approvalRequired`.
+Run the matching planner command in `docs/guides/productivity-workflows.md` without side effects by default. Add `-- --run` only to execute its local/offline checks. The workflow engine must never execute commands listed under `approvalRequired`.
 
 <!-- END:repo-productivity-skills -->
 
@@ -786,7 +786,7 @@ Run the matching planner command in `docs/productivity-workflows.md` without sid
 outstanding **task**, **recommendation**, and **issue** in this repo. It owns evidence, resolution
 history, recommended order, acuity, capability, timing, effort, approvals, verification, and stop
 rules. Chat context resets; this file does not, so anything worth remembering belongs there.
-Detailed runbooks such as `docs/operator-backlog.md` may support a task but must not become a second
+Detailed runbooks such as `docs/plans/operator-backlog.md` may support a task but must not become a second
 status ledger. Update the universal ledger when work completes, is dropped, becomes stale, or is
 materially re-scoped. Never restore completed, duplicate, speculative, superseded, or rejected work
 to the recommended queue.
@@ -906,7 +906,7 @@ Automatic Codex review is review-only by default. This repository includes `.git
 
 Codex Cloud uses an isolated Linux container and does not inherit desktop files,
 credentials, OAuth sessions, MCP authentication, local services, or uncommitted work.
-Use `docs/codex-cloud.md` as the environment contract:
+Use `docs/codex/codex-cloud.md` as the environment contract:
 
 - Configure setup as `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
 - Configure maintenance as `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
@@ -1011,7 +1011,7 @@ Durable notes for Cloud Agents. Standard commands live in `README.md` and `packa
 - Live-mode caveat: `RAG_PROVIDER_MODE=auto` attempts OpenAI (fast → strong route); if generation fails the built-in quality gates it silently degrades to a deterministic "Source-only" answer that still cites real documents — this is expected, not a failure. The header sign-in UI exposes magic-link + OAuth only (no password field), but the `/api/answer` + retrieval flow works server-side without a browser session.
 - What still won't run in this VM even with secrets: `npm run worker` also needs the Python OCR stack (`worker/python/requirements.txt`) and heavy parsing deps; Supabase edge functions need Deno v2.x + deployment. `verify:release` additionally runs governance/eval gates. Treat missing-secret failures of `check:supabase-project`/`verify:release` in demo mode as expected, not regressions.
 - Dev server: `npm run dev` selects a stable per-project localhost port (e.g. `4461`), binds `0.0.0.0`, and prints the exact URL. Never assume port 3000/3001/3002. `npm run ensure` starts/verifies it in the background.
-- Verification without secrets: `npm run lint`, `npm run typecheck`, and `npm run test` (vitest) all pass offline. `npm run verify:cheap` also runs runtime, GitHub Actions pin, CI-scope, and sitemap checks. `npm run verify:pr-local` adds format, conditional build/client-bundle scanning, and RAG fixture/manifest validation without repeating unit tests; browser, Docker/Supabase, audit, and provider checks remain separate. See `docs/testing.md` for lock, live-test, Playwright, and flake-ledger rules.
+- Verification without secrets: `npm run lint`, `npm run typecheck`, and `npm run test` (vitest) all pass offline. `npm run verify:cheap` also runs runtime, GitHub Actions pin, CI-scope, and sitemap checks. `npm run verify:pr-local` adds format, conditional build/client-bundle scanning, and RAG fixture/manifest validation without repeating unit tests; browser, Docker/Supabase, audit, and provider checks remain separate. See `docs/guides/testing.md` for lock, live-test, Playwright, and flake-ledger rules.
 - For GitHub-related work authorised in this session, prefer the connected GitHub
   connector/MCP tools first for PR, issue, comment, review-thread, and Actions tasks they
   support (including run/job/log/artifact inspection and review-thread replies/resolution).

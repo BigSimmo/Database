@@ -85,7 +85,7 @@ lack detectable local document-control endorsement).
 - **Full corpus re-index** — retrieval is lexical-fast-path dominant
   (`embedding_skipped_rate = 1.0`), recall metrics are at ceiling, and extraction
   is 100% good, so a re-index can only hold the line, not measurably improve.
-  See the shadow-harness design ([docs/reindex-shadow-harness-design.md](../reindex-shadow-harness-design.md))
+  See the shadow-harness design ([docs/architecture/reindex-shadow-harness-design.md](../architecture/reindex-shadow-harness-design.md))
   — keep it as a dormant tripwire for future chunking changes, do not run now.
 
 ## How to re-measure

@@ -669,7 +669,7 @@ target, optional `removeLabel`, generic fallback name → PR 4.
 duplicated field-shell logic is the root defect. **Interim rules.** Placeholder is never
 the label and never the decoration tier · search clear is a real named button ·
 `SearchField` submits through the page's one composer contract
-(`docs/search-chrome-behaviour.md`). **Open defects → PR.** hint dropped on error,
+(`docs/rag-behaviour/search-chrome-behaviour.md`). **Open defects → PR.** hint dropped on error,
 `describedBy` overwritten, no external id/refs, no required/optional/autocomplete
 system → PR 7.
 

@@ -1,6 +1,6 @@
 # Design Direction — Clinical KB
 
-> **Entry point:** day-to-day UI rules live in [`docs/design-system.md`](../design-system.md); this document remains the token rationale it links to.
+> **Entry point:** day-to-day UI rules live in [`docs/design-system/design-system.md`](../design-system/design-system.md); this document remains the token rationale it links to.
 
 ## July 1 — Clinical White / Sky Graphite (active direction)
 

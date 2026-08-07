@@ -236,9 +236,17 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const { screen, slug: routeSlug } = resolveRoute(pathname);
   const isHome = screen === "home";
   // Search needs the complete prose corpus to preserve its existing weighted
+<<<<<<< HEAD
   // matches (#1471). Home paints from generated summary metadata without a
   // catalogue request; pathways use the thin browse index.
   const catalogue = screen === "pathways" ? "index" : "full";
+=======
+  // matches. Browse/pathway/review screens need only catalogue metadata plus
+  // review progress metrics, so keeping the 2.5 MB full dataset off their
+  // critical path materially improves mobile paint without silently narrowing
+  // recall.
+  const usesCatalogueIndex = screen === "home" || screen === "pathways" || screen === "review";
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
   const { data, loading, error, retry } = useTherapyData({
     catalogue,
     includePathways: screen === "pathways",

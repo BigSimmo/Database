@@ -1,6 +1,6 @@
 # Clinical KB — Codebase Index
 
-Structured map for AI agents and onboarding. For live routes, see `docs/site-map.md` (`npm run docs:update` / `sitemap:check`). For agent rules and verification gates, see `AGENTS.md`; for test execution and flake policy, see `docs/testing.md`.
+Structured map for AI agents and onboarding. For live routes, see `docs/site-map.md` (`npm run docs:update` / `sitemap:check`). For agent rules and verification gates, see `AGENTS.md`; for test execution and flake policy, see `docs/guides/testing.md`.
 
 **Stack:** Next.js 16, React 19, Supabase (pgvector, Storage, Auth), OpenAI, Python OCR worker.  
 **Live Supabase:** `Clinical KB Database` — ref `sjrfecxgysukkwxsowpy` (never use stale `qjgitjyhxrwxsrydablr`).
@@ -59,7 +59,7 @@ Smaller top-level directories that are easy to miss:
 - **Root layout:** `src/app/layout.tsx` — fonts, `AuthProvider`, global CSS
 - **Shared search-app layout:** `src/app/(search-app)/layout.tsx` + `src/components/clinical-dashboard/shared-search-app-shell.tsx` — keeps `GlobalSearchShell` mounted across mode homes
 - **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — canonical route-aware shell and lazy dashboard dispatch. The mockup-named module is a compatibility re-export used only below `/mockups`.
-- **PWA:** `docs/pwa.md` — install assets, privacy-first service worker/offline shell, lifecycle, security, and verification
+- **PWA:** `docs/architecture/pwa.md` — install assets, privacy-first service worker/offline shell, lifecycle, security, and verification
 - **Home:** `src/app/(search-app)/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
 - **Modes (13):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, Therapy, Factsheets
@@ -106,8 +106,8 @@ Smaller top-level directories that are easy to miss:
 | Registry      | `/api/registry/records`, `/api/registry/records/[slug]`                                                                | `registry/records/`                                             |
 | Images        | `/api/images/[id]/signed-url`                                                                                          | `images/[id]/signed-url/route.ts`                               |
 | Ops           | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                       | `health/`, `setup-status/`, `local-project-id/`                 |
-| Eval / jobs   | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`) | `eval-cases/`, `jobs/`                                          |
-| Webhooks      | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)       | `webhooks/`                                                     |
+| Eval / jobs   | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/architecture/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`) | `eval-cases/`, `jobs/`                                          |
+| Webhooks      | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/architecture/webhooks.md)       | `webhooks/`                                                     |
 
 ---
 
@@ -175,7 +175,7 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 | Module                                                                                                                 | Role                                                                                                                                                                     |
 | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                                                            | External APIs and rate limits                                                                                                                                            |
-| `observability/` — `answer-slo.ts`, `cache-metrics.ts`, `spend-metrics.ts`, `error-tracking.ts`, `agent-monitoring.ts` | Deep-health SLO / cache-hit / answer-spend snapshots; privacy-safe Sentry error + DB-span scrubbers and metadata-only OpenAI agent monitoring (`docs/error-tracking.md`) |
+| `observability/` — `answer-slo.ts`, `cache-metrics.ts`, `spend-metrics.ts`, `error-tracking.ts`, `agent-monitoring.ts` | Deep-health SLO / cache-hit / answer-spend snapshots; privacy-safe Sentry error + DB-span scrubbers and metadata-only OpenAI agent monitoring (`docs/security/error-tracking.md`) |
 | `validation/`                                                                                                          | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts`                                                                                                            |
 | `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs`                       | Routing and project identity                                                                                                                                             |
 | `tailwind-merge.ts`                                                                                                    | The `extendTailwindMerge` config behind `cn()` — declares this repo's custom `@theme` scales so twMerge does not misclassify them (`docs/design-system/TOKENS.md`)       |
@@ -189,7 +189,7 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 - **CLI:** `supabase/config.toml` — `indexing-v3-agent` function, `verify_jwt = false`
 - **Schema mirror:** `supabase/schema.sql` (reference; migrations are source of truth)
 - **Migrations:** `supabase/migrations/*.sql` (chronological source of truth; do not hardcode a count)
-- **Drift policy:** `docs/supabase-migration-reconciliation.md`
+- **Drift policy:** `docs/operations/supabase-migration-reconciliation.md`
 
 ### Schema tables
 
@@ -232,7 +232,7 @@ Cron-triggered agent for indexing v3 completion gates. Auth via `INDEXING_V3_AGE
 | ------------------------------ | --------------------------------------------------------------------------------------- |
 | `index.ts`                     | Bootstrap → `main.ts`                                                                   |
 | `main.ts`                      | Polls `ingestion_jobs`, extracts, chunks, embeds, writes index artifacts                |
-| `observability.ts`             | Worker-side Sentry init/capture/flush, app privacy scrubbers (`docs/error-tracking.md`) |
+| `observability.ts`             | Worker-side Sentry init/capture/flush, app privacy scrubbers (`docs/security/error-tracking.md`) |
 | `embedding-fields.ts`          | Additional embedding field inputs                                                       |
 | `table-facts.ts`               | Table fact extraction                                                                   |
 | `prerequisites.ts`             | Python/PDF OCR checks                                                                   |
@@ -331,7 +331,7 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 - **Intentionally composer-free routes**: `/differentials/presentations/*` (comparison workflow owns its chrome), `/documents/[id]` viewer (has its own in-document ask composer), `/documents/source/*` (document flow owns mobile chrome). Do not re-flag these in search-consistency audits.
 - **Shared secondary navigation**: `src/components/secondary-navigation.tsx` (`SecondaryNavigation`, route/section/action items, roving tablist, fragment section tracking) and `src/components/page-secondary-navigation.tsx` (`PageSecondaryNavigation`, per-route selection of mode destinations vs. "On this page" section anchors). Mode destinations come from `src/lib/mode-secondary-navigation.ts` (`modeSecondaryNavigationRegistry`, no "Home" item). `GlobalSearchShell` renders it in normal flow at the top of `#main-content` for its owned namespaced modes; it self-suppresses on clean mode homes, locally-owned detail routes (medications, factsheets, differentials diagnoses) and Therapy Compass, and Specifiers/Formulation keep their existing local `Subnav` (so the shared mode bar is skipped for those two modes to avoid a duplicate row).
 - **Local filter fields** (sidebar "Search chats", document drawer "Find a document"/"Find a source PDF") are scoped filters, not global search; they share the `fieldControlWithIcon`/`fieldIcon` primitives.
-- **Wiring conventions** for buttons and route navigation (and the gates that enforce them — the dead-button ESLint rule and the orphan-route reachability test) live in `docs/wiring-conventions.md`.
+- **Wiring conventions** for buttons and route navigation (and the gates that enforce them — the dead-button ESLint rule and the orphan-route reachability test) live in `docs/architecture/wiring-conventions.md`.
 
 ---
 
@@ -347,11 +347,11 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 | `AGENTS.md`                                | Agent rules, verification gates, shortcuts                |
 | `.github/workflows/ci.yml`                 | CI pipeline                                               |
 | `scripts/sync-open-pr-branches.mjs`        | Operator-only dry-run/apply helper for PR branch sync     |
-| `docs/process-hardening.md`                | Verification pyramid                                      |
-| `docs/phone-chrome-physical-acceptance.md` | Physical Safari / cold-launch PWA phone-chrome acceptance |
-| `docs/clinical-governance.md`              | Clinical safety governance                                |
-| `docs/reindex-runbook.md`                  | Reindex operations                                        |
-| `docs/retrieval-quality-runbook.md`        | Retrieval tuning                                          |
+| `docs/guides/process-hardening.md`                | Verification pyramid                                      |
+| `docs/audit/phone-chrome-physical-acceptance.md` | Physical Safari / cold-launch PWA phone-chrome acceptance |
+| `docs/clinical/clinical-governance.md`              | Clinical safety governance                                |
+| `docs/operations/reindex-runbook.md`                  | Reindex operations                                        |
+| `docs/operations/retrieval-quality-runbook.md`        | Retrieval tuning                                          |
 
 ---
 
@@ -361,12 +361,12 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 | -------------------------- | ---------------------------------------------------------------- |
 | Full documentation index   | `docs/README.md`                                                 |
 | Routes and modes           | `docs/site-map.md`                                               |
-| Search/RAG roadmap         | `docs/search-rag-master-plan.md`                                 |
+| Search/RAG roadmap         | `docs/plans/search-rag-master-plan.md`                                 |
 | Universal task ledger      | `docs/outstanding-issues.md`                                     |
-| Reindex operations         | `docs/reindex-runbook.md`                                        |
-| Production readiness       | `docs/production-readiness-checklist.md`                         |
-| Capacity / scale-up        | `docs/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
-| Frontend architecture      | `docs/frontend-architecture.md`                                  |
+| Reindex operations         | `docs/operations/reindex-runbook.md`                                        |
+| Production readiness       | `docs/guides/production-readiness-checklist.md`                         |
+| Capacity / scale-up        | `docs/audit/capacity-review.md`, `docs/operations/auth-connection-cap-runbook.md` |
+| Frontend architecture      | `docs/architecture/frontend-architecture.md`                                  |
 | Repo audit (2026-07-01)    | `docs/audit/repo-audit-2026-07-01.md`                            |
 | Latency audit (2026-07-28) | `docs/audit/latency-audit-2026-07-28.md`                         |
 

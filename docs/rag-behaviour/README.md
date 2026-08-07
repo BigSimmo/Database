@@ -27,6 +27,6 @@ Standing rules (mirrored in `AGENTS.md` so every agent session inherits them):
    relevance rank — that resolution is correct behaviour, not noise. Never insert a new
    comparator key above the relevance score.
 
-Related: `docs/observability-slos.md` §3.1 (boundary-case & metric-interpretation policy),
+Related: `docs/operations/observability-slos.md` §3.1 (boundary-case & metric-interpretation policy),
 `docs/branch-review-ledger.md` (2026-07-20 rows = the full audit trail),
-`docs/rag-hybrid-findings-and-todo.md` (older findings; RC-numbered history).
+`docs/archive/rag-hybrid-findings-and-todo.md` (older findings; RC-numbered history).

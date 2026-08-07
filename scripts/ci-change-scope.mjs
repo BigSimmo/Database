@@ -124,7 +124,7 @@ const workflowPatterns = [
   ".agents/skills",
   ".github/pull_request_template.md",
   "AGENTS.md",
-  "docs/codex-review-protocol.md",
+  "docs/codex/codex-review-protocol.md",
   "docs/process-hardening.md",
   /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
 ];
@@ -132,7 +132,7 @@ const workflowPatterns = [
 const codexAutofixPatterns = [
   ".github/workflows/codex-autofix-review-comments.yml",
   "AGENTS.md",
-  "docs/codex-review-protocol.md",
+  "docs/codex/codex-review-protocol.md",
   "scripts/check-codex-autofix-workflow.mjs",
 ];
 

@@ -4,7 +4,7 @@ Historical snapshot of manual follow-ups deferred during documentation and verif
 
 ## Publishable key rotation
 
-**Context:** `docs/multi-user-auth-setup.md` previously contained a live Supabase publishable (anon) key. The doc was scrubbed in commit `31543a926`, but the key may still exist in Git history.
+**Context:** `docs/architecture/multi-user-auth-setup.md` previously contained a live Supabase publishable (anon) key. The doc was scrubbed in commit `31543a926`, but the key may still exist in Git history.
 
 **Decision:** Document only — rotate in Supabase when convenient; do not block doc/CI recovery on rotation.
 
@@ -18,7 +18,7 @@ Historical snapshot of manual follow-ups deferred during documentation and verif
 
 ## Pending live migrations
 
-**Context:** Local `supabase/migrations/` includes July 2026 changes not yet verified as applied on the linked project. See [`docs/supabase-migration-reconciliation.md`](../supabase-migration-reconciliation.md).
+**Context:** Local `supabase/migrations/` includes July 2026 changes not yet verified as applied on the linked project. See [`docs/operations/supabase-migration-reconciliation.md`](../operations/supabase-migration-reconciliation.md).
 
 **Decision:** Document only — no `supabase db push`, dashboard SQL, or `migration repair` from automation.
 
@@ -36,7 +36,7 @@ npx supabase db advisors --linked
 
 **After apply:**
 
-- Re-run the verification queries in `docs/supabase-migration-reconciliation.md`.
+- Re-run the verification queries in `docs/operations/supabase-migration-reconciliation.md`.
 - Update the "Current Status" section with applied versions and evidence.
 
 ## Verification gate notes

@@ -205,6 +205,10 @@ export const simpleClinicalTableProps = {
   expandOnMobile: true,
 } as const;
 
+const BookOpenStateIcon = ({ className }: { className?: string; [key: string]: unknown }) => (
+  <BookOpen className={className} />
+);
+
 function compactEvidenceCell(value: string | null | undefined, max = 140) {
   const text = value ? value.replace(/\s+/g, " ").trim() : "";
   return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
@@ -214,10 +218,16 @@ export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
   if (rows.length === 0) {
     return (
       <EmptyState
+<<<<<<< HEAD
         icon={BookOpen}
         title={emptyStates.evidenceMap.title}
         body={emptyStates.evidenceMap.body}
         live="polite"
+=======
+        icon={BookOpenStateIcon}
+        title={emptyStates.evidenceMap.title}
+        body={emptyStates.evidenceMap.body}
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
       />
     );
   }

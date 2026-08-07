@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -114,7 +114,7 @@ describe("header addon slot ownership", () => {
         // Design-scratch routes 404 in production and own no header.
         if (entry.name.includes("-mockups")) continue;
         if (/<PhoneHeaderCollapsePortal\b/.test(readFileSync(path, "utf8"))) {
-          claimants.push(path.replace(`${process.cwd()}/`, ""));
+          claimants.push(relative(process.cwd(), path).replace(/\\/g, "/"));
         }
       }
     };

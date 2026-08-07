@@ -39,8 +39,8 @@ Current branch:
 ## codex/RAG_FIX
  M scripts/production-readiness.ts
  M src/lib/rag.ts
-?? docs/search-rag-master-context.md
-?? docs/search-rag-master-plan.md
+?? docs/plans/search-rag-master-context.md
+?? docs/plans/search-rag-master-plan.md
 ```
 
 Existing modified files before this Phase 0 report:

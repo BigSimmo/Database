@@ -45,8 +45,12 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
   LOCAL_NO_AUTH_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
+<<<<<<< HEAD
   // Keep `z.` at the call site so `check-env-parity` parseEnvSchemaNames sees these names.
   NEXT_PUBLIC_SENTRY_DSN: z.preprocess(coerceBlankUrlEnv, z.string().url().optional()),
+=======
+  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
   NEXT_PUBLIC_SENTRY_RELEASE: z.string().optional(),
   // Optional release tag for Sentry production readability and source-map correlation
   // (for example: a short git SHA or deployment ID).
@@ -56,7 +60,11 @@ const envSchema = z.object({
   SENTRY_PROJECT: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+<<<<<<< HEAD
   SENTRY_DSN: z.preprocess(coerceBlankUrlEnv, z.string().url().optional()),
+=======
+  SENTRY_DSN: z.string().url().optional(),
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
   // model without updating this (and the schema) silently corrupts ingestion (IDX-C2).
@@ -330,10 +338,34 @@ export function requireSentryEnv() {
     throw new Error("Sentry DSN in .env contains a placeholder value. Set a real DSN URL.");
   }
 
+<<<<<<< HEAD
   // SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN are build-time sourcemap upload
   // credentials. next.config.ts already gates upload on the complete set; do not
   // re-validate them at runtime or a partial build env leaked into the process
   // will crash production startup.
+=======
+  const sentryOrg = env.SENTRY_ORG?.trim();
+  const sentryProject = env.SENTRY_PROJECT?.trim();
+  const sentryAuthToken = env.SENTRY_AUTH_TOKEN?.trim();
+  const hasSentryBuildVars = Boolean(sentryOrg || sentryProject || sentryAuthToken);
+
+  if (hasSentryBuildVars) {
+    const missing: string[] = [];
+    if (!sentryOrg) missing.push("SENTRY_ORG");
+    if (!sentryProject) missing.push("SENTRY_PROJECT");
+    if (!sentryAuthToken) missing.push("SENTRY_AUTH_TOKEN");
+
+    if (missing.length > 0) {
+      throw new Error(
+        `Partial Sentry sourcemap config in env: ${missing.join(", ")}. Set all of SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN, or unset all three.`,
+      );
+    }
+
+    if (isPlaceholderValue(sentryAuthToken) || isPlaceholderValue(sentryOrg) || isPlaceholderValue(sentryProject)) {
+      throw new Error("Sentry sourcemap environment values contain placeholder text. Set real SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN.");
+    }
+  }
+>>>>>>> origin/codex/chat-full-page-review-speedup-96de
 }
 
 // Clinical query text is redacted to a keyed HMAC pseudonym before it is logged

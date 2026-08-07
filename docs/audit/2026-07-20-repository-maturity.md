@@ -8,8 +8,8 @@ higher-risk structural work is deferred to the backlog ([§10](#10-prioritised-b
 rather than forced.
 
 Companion maps (authoritative, not duplicated here): `docs/codebase-index.md` (module map),
-`docs/site-map.md` (routes), `docs/deployment-architecture.md` (topology),
-`docs/frontend-architecture.md`, `docs/ingestion-state-machine.md`.
+`docs/site-map.md` (routes), `docs/architecture/deployment-architecture.md` (topology),
+`docs/architecture/frontend-architecture.md`, `docs/architecture/ingestion-state-machine.md`.
 
 ---
 
@@ -84,8 +84,8 @@ The authoritative map is `docs/codebase-index.md` (kept honest by
 `npm run docs:check-index`, which fails CI when a top-level module/route is missing). This
 pass added visual diagrams (previously none existed):
 
-- **Deployment / container topology** — `docs/deployment-architecture.md` → "Topology at a glance".
-- **Ingestion document lifecycle (state diagram)** — `docs/ingestion-state-machine.md` → "Lifecycle at a glance".
+- **Deployment / container topology** — `docs/architecture/deployment-architecture.md` → "Topology at a glance".
+- **Ingestion document lifecycle (state diagram)** — `docs/architecture/ingestion-state-machine.md` → "Lifecycle at a glance".
 - **Answer / RAG request flow (sequence diagram)** — `docs/codebase-index.md` → RAG section.
 
 Annotated top level:
@@ -189,7 +189,7 @@ retrieval, or deployment behaviour changed.
 | --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------- |
 | Security policy       | `SECURITY.md` (new), `README.md`                                                               | Private vulnerability-reporting channel + threat-model links.                         | None (new doc).                  | Rendered; links resolve.                    |
 | License declaration   | `package.json`, `README.md`                                                                    | Declare proprietary (`"license":"UNLICENSED"`).                                       | None.                            | `format:check`, valid JSON.                 |
-| Architecture diagrams | `docs/deployment-architecture.md`, `docs/ingestion-state-machine.md`, `docs/codebase-index.md` | First visual maps (topology, ingestion states, answer flow).                          | None (docs).                     | Standard Mermaid; `docs:check-links`.       |
+| Architecture diagrams | `docs/architecture/deployment-architecture.md`, `docs/architecture/ingestion-state-machine.md`, `docs/codebase-index.md` | First visual maps (topology, ingestion states, answer flow).                          | None (docs).                     | Standard Mermaid; `docs:check-links`.       |
 | Doc index fix         | `docs/README.md`                                                                               | Add 7 orphaned living docs; soften "everything" over-claim.                           | None.                            | `docs:check-links`.                         |
 | Conservative archive  | `git mv` ×5 → `docs/archive/`                                                                  | Follow the repo's own "move superseded docs" rule; declutter root.                    | Low (renames; links retargeted). | `docs:check-links` (936 refs).              |
 | Stale-comment fix     | `scripts/check-codebase-index-coverage.mjs`                                                    | Comment claimed "Not in CI"; it runs in CI + `verify:cheap`.                          | None.                            | Verified wiring in `ci.yml`/`package.json`. |

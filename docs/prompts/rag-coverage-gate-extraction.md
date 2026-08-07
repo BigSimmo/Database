@@ -52,7 +52,7 @@ a separate operator-authorized handoff.
    untracked, worktree, Git-operation-marker, package-script, and recent-history checks.
 4. Proceed only when `CODEX_CLOUD=1`, the checkout has exactly one Git worktree, the branch is a
    clean non-protected task branch, and local `origin/main` is available as its base. Do not fetch.
-5. Read `docs/codex-cloud.md` and run the dependency-free isolation verifier from the
+5. Read `docs/codex/codex-cloud.md` and run the dependency-free isolation verifier from the
    prompt-perfector repository workflow with `--cloud` before editing.
 6. Read the required RAG behavior, process-hardening, workorder, maintainability-budget, contract
    test, and package-script documents named below.
@@ -71,8 +71,8 @@ Before editing, state exactly:
 ### Required reading
 
 - `docs/rag-behaviour/README.md` and its linked behavior map, refuted approaches, and safeguards;
-- `docs/process-hardening.md`, especially the `rag.ts` decomposition sections;
-- `docs/maturity-backlog-workorders.md`, X3;
+- `docs/guides/process-hardening.md`, especially the `rag.ts` decomposition sections;
+- `docs/plans/maturity-backlog-workorders.md`, X3;
 - `scripts/check-maintainability-budgets.mjs`;
 - relevant architecture-boundary, retrieval-query-variants, RAG contract, cache, latency, and
   early-exit tests;

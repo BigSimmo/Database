@@ -285,10 +285,10 @@ requested. Ask before commit/push/PR.
 
 ## 10. Related docs
 
-- `docs/codex-review-protocol.md` — severity / mutation / ledger rules
+- `docs/codex/codex-review-protocol.md` — severity / mutation / ledger rules
 - `docs/branch-review-ledger.md` — this review’s ledger row
-- `docs/design-system.md` / `docs/redesign/permanent-colour-direction.md` — clinical visual direction
-- `docs/search-rag-master-context.md` — RAG orientation
+- `docs/design-system/design-system.md` / `docs/redesign/permanent-colour-direction.md` — clinical visual direction
+- `docs/plans/search-rag-master-context.md` — RAG orientation
 - `AGENTS.md` — provider confirmation boundary, verify gates
 
 ---

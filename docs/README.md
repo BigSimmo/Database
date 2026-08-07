@@ -19,125 +19,125 @@ npm run docs:check-links
 | [site-map.md](site-map.md)             | **Generated** route map — regenerate with `npm run docs:update`, verify with `npm run sitemap:check`       |
 | [agents-guide.md](agents-guide.md)     | Human onboarding pointer; Cursor MCP default read path (Supabase, Railway, Context7); rules in `AGENTS.md` |
 | [scripts-index.md](scripts-index.md)   | Curated map of `scripts/` and the `package.json` command surface by purpose                                |
-| [codex-cloud.md](codex-cloud.md)       | Codex Cloud setup, access profiles, profile-loading command shims, GitHub exception, and acceptance checks |
+| [codex-cloud.md](codex/codex-cloud.md)       | Codex Cloud setup, access profiles, profile-loading command shims, GitHub exception, and acceptance checks |
 
 ## Architecture
 
-- [frontend-architecture.md](frontend-architecture.md) — shell, routing, dashboard module structure
-- [wiring-conventions.md](wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
-- [search-chrome-behaviour.md](search-chrome-behaviour.md) — shared search-chrome contract: composer ownership, phone edge-to-edge dock, hide/reveal reserves
-- [search-results-bar-decisions.md](search-results-bar-decisions.md) — shared results-bar anatomy, why the filter shelf is scoped to two modes, and what is deliberately not done
-- [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
-- [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states
-- [design-system.md](design-system.md) — tokens, primitives, styling conventions
+- [frontend-architecture.md](architecture/frontend-architecture.md) — shell, routing, dashboard module structure
+- [wiring-conventions.md](architecture/wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
+- [search-chrome-behaviour.md](rag-behaviour/search-chrome-behaviour.md) — shared search-chrome contract: composer ownership, phone edge-to-edge dock, hide/reveal reserves
+- [search-results-bar-decisions.md](rag-behaviour/search-results-bar-decisions.md) — shared results-bar anatomy, why the filter shelf is scoped to two modes, and what is deliberately not done
+- [deployment-architecture.md](architecture/deployment-architecture.md) — app/worker/Supabase deployment topology
+- [ingestion-state-machine.md](architecture/ingestion-state-machine.md) — ingestion job lifecycle and states
+- [design-system.md](design-system/design-system.md) — tokens, primitives, styling conventions
 - [design-system/SPEC.md](design-system/SPEC.md) — the complete v2 design system: roles, rules, rationale (never values)
 - [design-system/TOKENS.md](design-system/TOKENS.md) — reconciled token inventory: every role, winning name, owner, and what it replaces
 - [design-system/COMPONENTS.md](design-system/COMPONENTS.md) — the eight safety-component specifications plus the maturity matrix
 - [design-system/DECISIONS.md](design-system/DECISIONS.md) — conflicts C1–C5 resolved, clinical Q&A record, assumptions, blocked items
 - [design-system/GATES.md](design-system/GATES.md) — every design-system rule paired with its enforcement status
 - [design-system/ADOPTION.md](design-system/ADOPTION.md) — PR 13 registration record: adoption order, per-surface file allowlists, exclusions, pins, proof shots
-- [comparison-behaviour.md](comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
-- [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
-- [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
-- [multi-user-auth-setup.md](multi-user-auth-setup.md) — auth, sessions, owner scoping
-- [pwa.md](pwa.md) — PWA install assets, privacy-first service worker, offline shell
-- [webhooks.md](webhooks.md) — the two inbound webhook receivers and the outbound Actions notifier
-- [api-jobs-ops-surface.md](api-jobs-ops-surface.md) — standing decision to keep `GET /api/jobs` as an ops/admin surface
-- [verified-answer-incremental-delivery-design.md](verified-answer-incremental-delivery-design.md) — staged, clinical-safety-preserving design for delivering verified evidence and answer sections before the canonical final SSE frame
+- [comparison-behaviour.md](rag-behaviour/comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
+- [clinical-chat-ui-component-map.md](clinical/clinical-chat-ui-component-map.md) — chat UI component inventory
+- [clinical-badge-system-guide.md](clinical/clinical-badge-system-guide.md) — clinical badge semantics
+- [multi-user-auth-setup.md](architecture/multi-user-auth-setup.md) — auth, sessions, owner scoping
+- [pwa.md](architecture/pwa.md) — PWA install assets, privacy-first service worker, offline shell
+- [webhooks.md](architecture/webhooks.md) — the two inbound webhook receivers and the outbound Actions notifier
+- [api-jobs-ops-surface.md](architecture/api-jobs-ops-surface.md) — standing decision to keep `GET /api/jobs` as an ops/admin surface
+- [verified-answer-incremental-delivery-design.md](architecture/verified-answer-incremental-delivery-design.md) — staged, clinical-safety-preserving design for delivering verified evidence and answer sections before the canonical final SSE frame
 
 ## Operations runbooks
 
-- [launch-operator-runbook.md](launch-operator-runbook.md) — launch/operational duties and SLO probes
-- [reindex-runbook.md](reindex-runbook.md) — safe reindex and ingestion recovery
-- [retrieval-quality-runbook.md](retrieval-quality-runbook.md) — RAG/retrieval eval gates and tuning
-- [worker-deploy-runbook.md](worker-deploy-runbook.md) — worker build contract, run recipe, secrets
-- [disaster-recovery-runbook.md](disaster-recovery-runbook.md) — backup/restore and recovery drills
-- [auth-connection-cap-runbook.md](auth-connection-cap-runbook.md) — Supabase auth connection cap (operator)
-- [staging-setup.md](staging-setup.md) — staging environment bootstrap
-- [database-drift-detection.md](database-drift-detection.md) — schema drift detection (`npm run check:drift`)
-- [supabase-migration-reconciliation.md](supabase-migration-reconciliation.md) — migration drift and repair policy
-- [db-maintenance.md](db-maintenance.md) — Supabase advisor snapshots and the standing disposition per finding class
-- [observability-slos.md](observability-slos.md) — health probes, SLO counters, degraded modes
-- [openai-rag-operations.md](openai-rag-operations.md) — OpenAI/RAG provider operations and modes
+- [launch-operator-runbook.md](operations/launch-operator-runbook.md) — launch/operational duties and SLO probes
+- [reindex-runbook.md](operations/reindex-runbook.md) — safe reindex and ingestion recovery
+- [retrieval-quality-runbook.md](operations/retrieval-quality-runbook.md) — RAG/retrieval eval gates and tuning
+- [worker-deploy-runbook.md](operations/worker-deploy-runbook.md) — worker build contract, run recipe, secrets
+- [disaster-recovery-runbook.md](operations/disaster-recovery-runbook.md) — backup/restore and recovery drills
+- [auth-connection-cap-runbook.md](operations/auth-connection-cap-runbook.md) — Supabase auth connection cap (operator)
+- [staging-setup.md](operations/staging-setup.md) — staging environment bootstrap
+- [database-drift-detection.md](operations/database-drift-detection.md) — schema drift detection (`npm run check:drift`)
+- [supabase-migration-reconciliation.md](operations/supabase-migration-reconciliation.md) — migration drift and repair policy
+- [db-maintenance.md](operations/db-maintenance.md) — Supabase advisor snapshots and the standing disposition per finding class
+- [observability-slos.md](operations/observability-slos.md) — health probes, SLO counters, degraded modes
+- [openai-rag-operations.md](rag-behaviour/openai-rag-operations.md) — OpenAI/RAG provider operations and modes
 - [outstanding-issues.md](outstanding-issues.md) — single universal task ledger and repository memory
-- [operator-backlog.md](operator-backlog.md) — provider/operator runbook detail (status is canonical in the universal ledger)
-- [deploy-corrector-public-titles.md](deploy-corrector-public-titles.md) — public-title corrector deploy notes
-- [operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md) — operator apply steps for the performance/latency migration batch
-- [reconciliation-playbook.md](reconciliation-playbook.md) — broad chat/worktree reconciliation and archive-safe cleanup (not for ordinary feature work)
-- [staging-tenancy-release-evidence.md](staging-tenancy-release-evidence.md) — cross-tenant staging harness as executable owner-boundary proof
+- [operator-backlog.md](plans/operator-backlog.md) — provider/operator runbook detail (status is canonical in the universal ledger)
+- [deploy-corrector-public-titles.md](operations/deploy-corrector-public-titles.md) — public-title corrector deploy notes
+- [operator-apply-performance-latency-remediation.md](archive/operator-apply-performance-latency-remediation.md) — operator apply steps for the performance/latency migration batch
+- [reconciliation-playbook.md](operations/reconciliation-playbook.md) — broad chat/worktree reconciliation and archive-safe cleanup (not for ordinary feature work)
+- [staging-tenancy-release-evidence.md](evidence/staging-tenancy-release-evidence.md) — cross-tenant staging harness as executable owner-boundary proof
 
 ## Governance, safety, privacy
 
-- [clinical-governance.md](clinical-governance.md) — deployment and source governance checklist
-- [error-tracking.md](error-tracking.md) — privacy-safe, opt-in production exception tracking envelope
-- [governance-incident-runbooks.md](governance-incident-runbooks.md) — operator response checklists for clinical, source, privacy, provider, and answer-pipeline rollback incidents
-- [clinical-hazard-analysis.md](clinical-hazard-analysis.md) — clinical hazard register
-- [rag-injection-threat-model.md](rag-injection-threat-model.md) — prompt-injection threat model
-- [privacy-impact-assessment.md](privacy-impact-assessment.md) — PIA findings and launch blockers
-- [openai-cross-border-basis.md](openai-cross-border-basis.md) — cross-border data-processing basis
-- [production-readiness-checklist.md](production-readiness-checklist.md) — release readiness criteria
-- [samd-classification-medication-considerations.md](samd-classification-medication-considerations.md) — SaMD classification and medication considerations
+- [clinical-governance.md](clinical/clinical-governance.md) — deployment and source governance checklist
+- [error-tracking.md](security/error-tracking.md) — privacy-safe, opt-in production exception tracking envelope
+- [governance-incident-runbooks.md](operations/governance-incident-runbooks.md) — operator response checklists for clinical, source, privacy, provider, and answer-pipeline rollback incidents
+- [clinical-hazard-analysis.md](clinical/clinical-hazard-analysis.md) — clinical hazard register
+- [rag-injection-threat-model.md](security/rag-injection-threat-model.md) — prompt-injection threat model
+- [privacy-impact-assessment.md](security/privacy-impact-assessment.md) — PIA findings and launch blockers
+- [openai-cross-border-basis.md](security/openai-cross-border-basis.md) — cross-border data-processing basis
+- [production-readiness-checklist.md](guides/production-readiness-checklist.md) — release readiness criteria
+- [samd-classification-medication-considerations.md](clinical/samd-classification-medication-considerations.md) — SaMD classification and medication considerations
 
 ## Process and review
 
-- [process-hardening.md](process-hardening.md) — verification gates, CI expectations, known debts
-- [testing.md](testing.md) — test execution, focused/live commands, Playwright ownership, flake policy
-- [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md) — labelled Safari and cold-launch PWA acceptance matrix
-- [productivity-workflows.md](productivity-workflows.md) — repo workflow planners (flightplan, triage, rag-lab, …)
-- [codex-review-protocol.md](codex-review-protocol.md) — shared review protocol for all review skills
-- [codex-prompt-playbook.md](codex-prompt-playbook.md) — copy/paste prompts for common repo work
-- [codex-cloud.md](codex-cloud.md) — reproducible provider-free Codex Cloud environment and acceptance check
-- [branch-cleanup-guide.md](branch-cleanup-guide.md) — branch hygiene workflow
+- [process-hardening.md](guides/process-hardening.md) — verification gates, CI expectations, known debts
+- [testing.md](guides/testing.md) — test execution, focused/live commands, Playwright ownership, flake policy
+- [phone-chrome-physical-acceptance.md](audit/phone-chrome-physical-acceptance.md) — labelled Safari and cold-launch PWA acceptance matrix
+- [productivity-workflows.md](guides/productivity-workflows.md) — repo workflow planners (flightplan, triage, rag-lab, …)
+- [codex-review-protocol.md](codex/codex-review-protocol.md) — shared review protocol for all review skills
+- [codex-prompt-playbook.md](codex/codex-prompt-playbook.md) — copy/paste prompts for common repo work
+- [codex-cloud.md](codex/codex-cloud.md) — reproducible provider-free Codex Cloud environment and acceptance check
+- [branch-cleanup-guide.md](guides/branch-cleanup-guide.md) — branch hygiene workflow
 - [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read with `npm run ledger:lookup` (live + archives), write with `npm run ledger:append`, `npm run ledger:dedupe` after sync twins, `npm run ledger:rotate` for quarterly archive
 
 ## Plans and workstreams (living)
 
-- [maturity-backlog-workorders.md](maturity-backlog-workorders.md) — actionable work orders tracking the repository-maturity audit backlog
-- [framework-dependency-modernization-checklist.md](framework-dependency-modernization-checklist.md) — ordered Next.js 16, runtime, dependency, Turbopack, and verification migration program
-- [search-rag-master-plan.md](search-rag-master-plan.md) / [search-rag-master-context.md](search-rag-master-context.md) — search/RAG roadmap and shared context
-- [rag-hybrid-findings-and-todo.md](rag-hybrid-findings-and-todo.md) — hybrid retrieval findings backlog
-- [reindex-shadow-harness-design.md](reindex-shadow-harness-design.md) — designed-only shadow reindex harness (driver not built)
-- [ingestion-concurrency-fix-workorder.md](ingestion-concurrency-fix-workorder.md) — ingestion concurrency workorder
-- [redesign/](redesign/) — premium redesign plans, decision log, token adoption
-- [superpowers/](superpowers/) — agent-authored plans and specs
+- [maturity-backlog-workorders.md](plans/maturity-backlog-workorders.md) — actionable work orders tracking the repository-maturity audit backlog
+- [framework-dependency-modernization-checklist.md](plans/framework-dependency-modernization-checklist.md) — ordered Next.js 16, runtime, dependency, Turbopack, and verification migration program
+- [search-rag-master-plan.md](plans/search-rag-master-plan.md) / [search-rag-master-context.md](plans/search-rag-master-context.md) — search/RAG roadmap and shared context
+- [rag-hybrid-findings-and-todo.md](archive/rag-hybrid-findings-and-todo.md) — hybrid retrieval findings backlog
+- [reindex-shadow-harness-design.md](architecture/reindex-shadow-harness-design.md) — designed-only shadow reindex harness (driver not built)
+- [ingestion-concurrency-fix-workorder.md](plans/ingestion-concurrency-fix-workorder.md) — ingestion concurrency workorder
+- [redesign/](redesign) — premium redesign plans, decision log, token adoption
+- [superpowers/](superpowers) — agent-authored plans and specs
 
 ## Subdirectory map
 
 | Directory                        | What lives there                                                                                                      |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [rag-behaviour/](rag-behaviour/) | Protected retrieval/ranking surface: behaviour map, refuted approaches, safeguards. **Read before touching ranking.** |
-| [prompts/](prompts/)             | Copy/paste review prompts, including the verbatim `codex-cloud-review/` inputs                                        |
-| [codex/](codex/)                 | Per-lens Codex ultra-review output folders, one per review dimension                                                  |
-| [evidence/](evidence/)           | Captured evidence artifacts backing ledger items (reliability reports, review manifests)                              |
-| [audit/](audit/)                 | Dated repo, design, accessibility, and latency audits (point-in-time)                                                 |
-| [redesign/](redesign/)           | Premium redesign plans, decision log, token adoption                                                                  |
-| [superpowers/](superpowers/)     | Agent-authored plans and specs                                                                                        |
-| [archive/](archive/)             | Completed phase plans, superseded designs, old progress logs — never current guidance                                 |
+| [rag-behaviour/](rag-behaviour) | Protected retrieval/ranking surface: behaviour map, refuted approaches, safeguards. **Read before touching ranking.** |
+| [prompts/](prompts)             | Copy/paste review prompts, including the verbatim `codex-cloud-review/` inputs                                        |
+| [codex/](codex)                 | Per-lens Codex ultra-review output folders, one per review dimension                                                  |
+| [evidence/](evidence)           | Captured evidence artifacts backing ledger items (reliability reports, review manifests)                              |
+| [audit/](audit)                 | Dated repo, design, accessibility, and latency audits (point-in-time)                                                 |
+| [redesign/](redesign)           | Premium redesign plans, decision log, token adoption                                                                  |
+| [superpowers/](superpowers)     | Agent-authored plans and specs                                                                                        |
+| [archive/](archive)             | Completed phase plans, superseded designs, old progress logs — never current guidance                                 |
 
 ## Point-in-time records (historical — do not update)
 
 Dated status reports, reviews, and operator decisions. They describe the repo
 as it was on that date; supersede with a new dated document rather than editing.
 
-- [audit/](audit/) — repo and UX/accessibility audits
+- [audit/](audit) — repo and UX/accessibility audits
 - [audit/2026-07-20-repository-maturity.md](audit/2026-07-20-repository-maturity.md) — full repository maturity, mapping, and organisation audit
 - [audit/latency-audit-2026-07-28.md](audit/latency-audit-2026-07-28.md) — latency audit: server, client, and database findings by tier, with the already-cleared list
 - [audit/audit-handover-2026-07-14.md](audit/audit-handover-2026-07-14.md) — multi-skill repository audit findings inventory
 - [audit/audit-remediation-plan-2026-07-14.md](audit/audit-remediation-plan-2026-07-14.md) — sequenced remediation plan for the 2026-07-14 audit, with the 2026-07-17 reconciliation
 - [audit/design-audit-2026-07-17.md](audit/design-audit-2026-07-17.md) — repository-wide design, accessibility, and interaction audit
 - [audit/cloud-connection-acceptance-2026-08-05.md](audit/cloud-connection-acceptance-2026-08-05.md) — hosted versus local MCP boundary acceptance, Personal Pro split control plane, and remaining Cloud launcher blockers
-- [current-clinical-work-brief.md](current-clinical-work-brief.md) — ledger #063 product/privacy/persistence brief (decision only, no implementation)
-- [factsheets-reading-model-brief.md](factsheets-reading-model-brief.md) — ledger #041 reading-model decision (no second Factsheets mode)
-- [source-governance-refresh-worklist-2026-07-22.md](source-governance-refresh-worklist-2026-07-22.md) — ledger #022 worklist and BMJ attestation policy status
+- [current-clinical-work-brief.md](archive/current-clinical-work-brief.md) — ledger #063 product/privacy/persistence brief (decision only, no implementation)
+- [factsheets-reading-model-brief.md](archive/factsheets-reading-model-brief.md) — ledger #041 reading-model decision (no second Factsheets mode)
+- [source-governance-refresh-worklist-2026-07-22.md](archive/source-governance-refresh-worklist-2026-07-22.md) — ledger #022 worklist and BMJ attestation policy status
 - `release-source-metadata-debt-2026-06-30.json` — captured source-metadata debt policy, consumed by `npm run audit:source-governance:release` and `npm run eval:quality:release`
-- [forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md) — completed retrieval RPC codification workorder
+- [forward-codify-retrieval-rpcs-workorder.md](archive/forward-codify-retrieval-rpcs-workorder.md) — completed retrieval RPC codification workorder
 - [project-alignment-cleanup.md](archive/project-alignment-cleanup.md) — completed June 2026 repo-alignment record
-- [capacity-review.md](capacity-review.md), [scale-readiness-review.md](scale-readiness-review.md), [tenancy-defense-in-depth-review.md](tenancy-defense-in-depth-review.md)
-- `*-2026-*` findings and status docs, e.g. [chunking-ocr-reindex-lever-finding-2026-07-08.md](chunking-ocr-reindex-lever-finding-2026-07-08.md), [source-governance-status-2026-07-08.md](archive/source-governance-status-2026-07-08.md), [source-governance-priorities-2026-07-02.md](archive/source-governance-priorities-2026-07-02.md), [source-review-priority-2026-07-02.md](source-review-priority-2026-07-02.md), [operator-apply-july8-batch.md](operator-apply-july8-batch.md)
+- [capacity-review.md](audit/capacity-review.md), [scale-readiness-review.md](audit/scale-readiness-review.md), [tenancy-defense-in-depth-review.md](audit/tenancy-defense-in-depth-review.md)
+- `*-2026-*` findings and status docs, e.g. [chunking-ocr-reindex-lever-finding-2026-07-08.md](archive/chunking-ocr-reindex-lever-finding-2026-07-08.md), [source-governance-status-2026-07-08.md](archive/source-governance-status-2026-07-08.md), [source-governance-priorities-2026-07-02.md](archive/source-governance-priorities-2026-07-02.md), [source-review-priority-2026-07-02.md](archive/source-review-priority-2026-07-02.md), [operator-apply-july8-batch.md](archive/operator-apply-july8-batch.md)
 
 ## Archive
 
-- [archive/](archive/) — completed phase plans, superseded designs, and old
+- [archive/](archive) — completed phase plans, superseded designs, and old
   progress logs kept for provenance. Never treat archive content as current
   guidance.
 

@@ -98,7 +98,7 @@ headers onto `PageHeader` + `Breadcrumb`.
 `global-search-shell.tsx`, `shared-search-app-shell.tsx`, `master-search-header.tsx`,
 `src/lib/search-shell-props.ts`, `src/lib/search-route-ownership.ts`. Those own composer
 placement and phone collapse geometry. Changing them is a search-chrome change, not a header
-adoption, and belongs to the controller under `docs/search-chrome-behaviour.md`.
+adoption, and belongs to the controller under `docs/rag-behaviour/search-chrome-behaviour.md`.
 
 **Pairing rationale:** forms and headers go to one builder because headers is where the
 one-composer-per-page rule is most likely to break, and forms is the surface most likely to
@@ -265,7 +265,7 @@ imports remain zero. Registration is not adoption. `LiveAnnouncer`, `RouteAnnoun
 
 - **One search composer per page.** `GlobalSearchShell` is **never** wrapped. Phone composers
   are edge-to-edge, and hidden phone chrome means **zero** reserve — not `0.75rem`, not
-  `env(safe-area-inset-bottom)`. Read `docs/search-chrome-behaviour.md` before touching chrome.
+  `env(safe-area-inset-bottom)`. Read `docs/rag-behaviour/search-chrome-behaviour.md` before touching chrome.
 - **Production tap targets are `min-h-12`.** Never `min-h-11` — that reintroduces a known
   `ui-smoke` sub-pixel flake. Generic 44px accessibility guidance does not override this.
 - **Design tokens, never hex. Named z-rungs, never a raw `z-[N]`.**

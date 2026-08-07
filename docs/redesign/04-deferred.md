@@ -24,7 +24,7 @@ There was a lockfile/install mismatch around ESLint that predated and was indepe
 
 **DONE** — all approved render-surface modules extracted to
 `src/components/clinical-dashboard/`; admin surfaces cut over 2026-07-06. See
-`docs/process-hardening.md` (Phase 3) for the full progress log (~8.8k → ~3.5k
+`docs/guides/process-hardening.md` (Phase 3) for the full progress log (~8.8k → ~3.5k
 lines in the orchestrator). Original deferral note kept below for history.
 
 The 4,655-line `src/components/ClinicalDashboard.tsx` was not split into `clinical-dashboard/` modules this pass. It remains fully functional; this is maintainability-only.

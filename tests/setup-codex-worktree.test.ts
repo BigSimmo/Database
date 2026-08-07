@@ -88,7 +88,7 @@ describe("Codex Desktop worktree setup", () => {
       scripts: Record<string, string>;
     };
     const agentInstructions = readFileSync(path.resolve("AGENTS.md"), "utf8");
-    const cloudDocumentation = readFileSync(path.resolve("docs/codex-cloud.md"), "utf8");
+    const cloudDocumentation = readFileSync(path.resolve("docs/codex/codex-cloud.md"), "utf8");
 
     expect(packageJson.scripts["setup:codex-worktree"]).toBe("node scripts/setup-codex-worktree.mjs");
     expect(agentInstructions).toContain("Never configure Windows Desktop worktrees");

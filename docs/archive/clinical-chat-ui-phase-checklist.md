@@ -75,7 +75,7 @@ Exit criteria:
 - We know exactly which components will change.
 - No backend/search/API changes are required.
 - Any risky areas are called out before editing.
-- Component map is saved in `docs/clinical-chat-ui-component-map.md`.
+- Component map is saved in `docs/clinical/clinical-chat-ui-component-map.md`.
 
 ## Phase 3: Tokens and primitives
 
