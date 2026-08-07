@@ -123,7 +123,6 @@ describe("PageSecondaryNavigation", () => {
           modeId="specifiers"
           pathname="/specifiers/with-anxious-distress"
           hasSubmittedSearch={false}
-          onSearch={vi.fn()}
         />
         <section id="specifier-overview" />
         <section id="specifier-fit" />
@@ -140,29 +139,52 @@ describe("PageSecondaryNavigation", () => {
   });
 
   it("does not add a navigation row to a clean no-query landing page", () => {
-    render(
-      <PageSecondaryNavigation modeId="services" pathname="/services" hasSubmittedSearch={false} onSearch={vi.fn()} />,
-    );
+    render(<PageSecondaryNavigation modeId="services" pathname="/services" hasSubmittedSearch={false} />);
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
   });
 
-  it("keeps a single-destination mode on the in-flow strip after submission", () => {
-    // `answer` registers one action-kind entry. Adopting the bar there would
-    // delete that control rather than port it, so the strip stays.
-    render(<PageSecondaryNavigation modeId="answer" pathname="/" hasSubmittedSearch onSearch={vi.fn()} />);
-    expect(screen.getByRole("button", { name: "Ask" })).toHaveAttribute("aria-current", "page");
+  it("renders nothing for a mode that registers no destinations", () => {
+    // `answer` used to register one action-kind entry, rendering a lone
+    // <button name="Ask"> with aria-current="page" inside its own <nav>
+    // landmark. Its only effect was focusing the composer already visible on
+    // the same screen, so it was deleted rather than ported to the header bar —
+    // there was no second destination to port it to. Neither surface may appear
+    // now, and hasSubmittedSearch must not resurrect one.
+    render(<PageSecondaryNavigation modeId="answer" pathname="/" hasSubmittedSearch />);
+    expect(screen.queryByRole("button", { name: "Ask" })).toBeNull();
+    expect(screen.queryByTestId("secondary-navigation")).toBeNull();
     expect(screen.queryByTestId("mode-nav")).toBeNull();
   });
 
-  it("gives an adopted mode the shared header bar on its workflow routes", () => {
+  it("still gives an empty-registry mode its On this page nav", async () => {
+    // Branch order guard. `forms` registers no destinations but its route still
+    // claims a section set, and the informationDefinitions branch sits above
+    // the mode branch precisely so that survives. Hoisting the empty-registry
+    // return up with the therapy/locally-owned early returns would silently
+    // strip navigation from every /services/*, /forms/*, /medications/* and
+    // /documents/<id> record.
+    //
+    // The anchors are planted here rather than taken from the real page on
+    // purpose: this asserts branch ORDER, not that /forms/form-1 currently
+    // draws a nav. It does not — form-detail-page.tsx carries
+    // "form-decision-context-mobile" as a `testId`, not an element id, and the
+    // other five declared targetIds are rendered nowhere, so
+    // AvailableInformationPageNavigation filters everything out and returns
+    // null. That is /issues #256 (declared section sets whose targets nothing
+    // renders), live for forms, pre-existing and out of scope here.
     render(
-      <PageSecondaryNavigation
-        modeId="specifiers"
-        pathname="/specifiers/compare"
-        hasSubmittedSearch={false}
-        onSearch={vi.fn()}
-      />,
+      <div>
+        <PageSecondaryNavigation modeId="forms" pathname="/forms/form-1" hasSubmittedSearch />
+        <section id="form-overview" />
+        <section id="form-priority-facts" />
+        <section id="form-legal-boundary" />
+      </div>,
     );
+    expect(await screen.findByRole("navigation", { name: "On this page" })).toBeVisible();
+  });
+
+  it("gives an adopted mode the shared header bar on its workflow routes", () => {
+    render(<PageSecondaryNavigation modeId="specifiers" pathname="/specifiers/compare" hasSubmittedSearch={false} />);
     const bar = screen.getByTestId("mode-nav");
     expect(bar).toHaveAttribute("aria-label", "Specifiers pages");
     expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
@@ -184,7 +206,6 @@ describe("PageSecondaryNavigation", () => {
         pathname="/factsheets/search"
         hasSubmittedSearch={false}
         searchParamString="q=sertraline&category=Medicines&run=1"
-        onSearch={vi.fn()}
       />,
     );
     const bar = screen.getByTestId("mode-nav");
@@ -211,14 +232,7 @@ describe("PageSecondaryNavigation", () => {
     // record route clear now is only the hasLocalInformationPageNavigation
     // early return, so pin it at render rather than trusting the count.
     expect(hasLocalInformationPageNavigation("/factsheets/sertraline")).toBe(true);
-    render(
-      <PageSecondaryNavigation
-        modeId="factsheets"
-        pathname="/factsheets/sertraline"
-        hasSubmittedSearch
-        onSearch={vi.fn()}
-      />,
-    );
+    render(<PageSecondaryNavigation modeId="factsheets" pathname="/factsheets/sertraline" hasSubmittedSearch />);
     expect(screen.queryByTestId("mode-nav")).toBeNull();
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
   });
@@ -226,12 +240,7 @@ describe("PageSecondaryNavigation", () => {
   it("replaces mode navigation with only the information sections present in the record", async () => {
     render(
       <div>
-        <PageSecondaryNavigation
-          modeId="services"
-          pathname="/services/community-team"
-          hasSubmittedSearch
-          onSearch={vi.fn()}
-        />
+        <PageSecondaryNavigation modeId="services" pathname="/services/community-team" hasSubmittedSearch />
         <section id="service-overview" />
         <section id="service-criteria" />
       </div>,
@@ -247,12 +256,7 @@ describe("PageSecondaryNavigation", () => {
 
   it("leaves locally controlled information and Therapy workflow navigation to their page owners", async () => {
     const { rerender } = render(
-      <PageSecondaryNavigation
-        modeId="prescribing"
-        pathname="/medications/sertraline"
-        hasSubmittedSearch
-        onSearch={vi.fn()}
-      />,
+      <PageSecondaryNavigation modeId="prescribing" pathname="/medications/sertraline" hasSubmittedSearch />,
     );
     await waitFor(() => expect(screen.queryByTestId("secondary-navigation")).toBeNull());
 
@@ -261,7 +265,6 @@ describe("PageSecondaryNavigation", () => {
         modeId="therapy-compass"
         pathname="/therapy-compass/search"
         hasSubmittedSearch={false}
-        onSearch={vi.fn()}
       />,
     );
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
@@ -271,7 +274,6 @@ describe("PageSecondaryNavigation", () => {
         modeId="documents"
         pathname="/documents/11111111-1111-4111-8111-111111111111"
         hasSubmittedSearch
-        onSearch={vi.fn()}
       />,
     );
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();

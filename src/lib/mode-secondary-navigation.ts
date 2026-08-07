@@ -21,11 +21,18 @@ export type ModeSecondaryNavigationEntry = {
  * secondary bar must never repeat a generic Home destination.
  */
 export const modeSecondaryNavigationRegistry = {
-  answer: [{ id: "ask", label: "Ask", action: "search" }],
-  documents: [{ id: "search", label: "Search", action: "search" }],
-  services: [{ id: "search", label: "Search", action: "search" }],
-  forms: [{ id: "search", label: "Search", action: "search" }],
-  favourites: [{ id: "search", label: "Search", action: "search" }],
+  // Empty is a real answer, not a gap. These seven modes each registered one
+  // `action: "search"` entry, which rendered a lone <button> inside its own
+  // <nav> landmark whose only effect was focusing a composer already visible on
+  // the same screen — a landmark and a tab stop spent on a no-op. Every one of
+  // them is genuinely single-surface (records, or one page), so there was no
+  // destination to adopt onto the shared bar and nothing to replace the button
+  // with. Deleted rather than ported.
+  answer: [],
+  documents: [],
+  services: [],
+  forms: [],
+  favourites: [],
   differentials: [
     { id: "search", label: "Search", href: appModeHomeHref("differentials", { focus: true }) },
     { id: "diagnoses", label: "Diagnoses", href: "/differentials/diagnoses" },
@@ -47,8 +54,8 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compare", label: "Compare", href: "/formulation/compare" },
     { id: "map", label: "Map", href: "/formulation/map" },
   ],
-  prescribing: [{ id: "search", label: "Search", action: "search" }],
-  tools: [{ id: "search", label: "Search", action: "search" }],
+  prescribing: [],
+  tools: [],
   // Inert: `PageSecondaryNavigation` early-returns on `/therapy-compass*`, and
   // the mode's live destination list is `useTherapyNavItems` in
   // `src/components/therapy-compass/nav.tsx`, which feeds the shared `ModeNav`.
@@ -157,11 +164,17 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/factsheets/search" || pathname.startsWith("/factsheets/search?")) return "search";
     if (pathname === "/factsheets" || pathname.startsWith("/factsheets?")) return "topics";
     // `/factsheets/<slug>` is a record. It cannot reach `ModeNav` today —
-    // `hasLocalInformationPageNavigation` returns null for it first — but the
-    // array-index-0 fallback below would mark Topics current if it ever did.
+    // `hasLocalInformationPageNavigation` returns null for it first — but
+    // without this branch it would inherit the mode's first entry.
     return null;
   }
-  return modeSecondaryNavigationRegistry[modeId][0]?.id ?? null;
+  // Every mode with destinations has a branch above; the rest register none, so
+  // nothing can be current. This used to be
+  // `modeSecondaryNavigationRegistry[modeId][0]?.id ?? null`, which existed only
+  // to keep a lone action button lit. With real multi-tab modes it would mark
+  // the first slot current on every unmatched path — the exact bug this
+  // function's doc comment warns callers about.
+  return null;
 }
 
 export function isModeSecondaryNavigationRoute(params: {
@@ -170,11 +183,11 @@ export function isModeSecondaryNavigationRoute(params: {
   hasSubmittedSearch: boolean;
 }): boolean {
   const { modeId, pathname, hasSubmittedSearch } = params;
+  // Load-bearing for all five adopted modes: it is the only thing that puts the
+  // bar on a submitted-search mode home, e.g. `/differentials?q=…&run=1`, whose
+  // clause below lists only the workflow routes. Not leftover gating.
   if (hasSubmittedSearch) return true;
 
-  // /documents/search is the documents mode home (composer already visible); do
-  // not add a lone Search focus control until a query has been submitted.
-  if (modeId === "documents") return false;
   if (modeId === "differentials") {
     return pathname === "/differentials/diagnoses" || pathname === "/differentials/presentations";
   }
