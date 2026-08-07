@@ -24,7 +24,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   prescribing: ["Search"],
   tools: ["Search"],
   "therapy-compass": ["Search", "Recommend", "Compare", "Pathways", "Brief Intervention", "Patient Sheets"],
-  factsheets: ["Search"],
+  factsheets: ["Topics", "Search"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -134,6 +134,39 @@ describe("mode secondary navigation registry", () => {
         currentSearchParams: new URLSearchParams("q=confusion&ids=delirium%2Cdementia"),
       }),
     ).toBe("/differentials/presentations?q=confusion&ids=delirium%2Cdementia");
+
+    // Search is the CURRENT tab on /factsheets/search, so its own link must not
+    // reset what you are looking at. `run` is carried with the query because
+    // dropping it flips hasSubmittedModeSearch and re-places the composer.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "factsheets",
+        itemId: "search",
+        href: "/factsheets/search",
+        currentSearchParams: new URLSearchParams("q=sertraline&category=Medicines&run=1"),
+      }),
+    ).toBe("/factsheets/search?q=sertraline&category=Medicines&run=1");
+
+    // The browse home's category chips link with a category and no query.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "factsheets",
+        itemId: "search",
+        href: "/factsheets/search",
+        currentSearchParams: new URLSearchParams("category=Medicines"),
+      }),
+    ).toBe("/factsheets/search?category=Medicines");
+
+    // Topics is the mode home: it reads neither param, so carrying them there
+    // would only put dead query string into a URL people share.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "factsheets",
+        itemId: "topics",
+        href: "/factsheets",
+        currentSearchParams: new URLSearchParams("q=sertraline&category=Medicines&run=1"),
+      }),
+    ).toBe("/factsheets");
   });
 
   it("adopts only modes with two or more routed destinations (explicit list, not silent derivation)", () => {
@@ -142,7 +175,13 @@ describe("mode secondary navigation registry", () => {
     // remaining mode still has two routed entries, while the negative check
     // below only inspects modes with fewer than two. A mode silently losing the
     // bar is the regression this list exists to make impossible.
-    expect([...MODE_NAV_ADOPTED_MODES].sort()).toEqual(["differentials", "dsm", "formulation", "specifiers"]);
+    expect([...MODE_NAV_ADOPTED_MODES].sort()).toEqual([
+      "differentials",
+      "dsm",
+      "factsheets",
+      "formulation",
+      "specifiers",
+    ]);
 
     for (const modeId of MODE_NAV_ADOPTED_MODES) {
       expect(
@@ -165,6 +204,14 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("dsm", "/dsm/diagnoses/major-depressive-disorder")).toBeNull();
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder")).toBe("builder");
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers")).toBe("search");
+
+    // Factsheets records cannot reach ModeNav today (hasLocalInformationPageNavigation
+    // returns null for them first), but the registry fallback would mark the
+    // first entry — Topics — current on any unmatched path, so the mode needs
+    // its own branch rather than inheriting that default.
+    expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/sertraline")).toBeNull();
+    expect(activeModeSecondaryNavigationId("factsheets", "/factsheets")).toBe("topics");
+    expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/search")).toBe("search");
   });
 
   it("matches workflow destinations by path segment, not substring", () => {
