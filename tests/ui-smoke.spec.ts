@@ -42,8 +42,10 @@ async function expectNoPageHorizontalOverflow(page: Page) {
 }
 
 async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
-  const surround = page.getByTestId("document-frame-surround");
-  const content = page.getByTestId("document-frame-content");
+  // Next streaming can leave a hidden DocumentFrame clone (#093); bare getByTestId
+  // then trips strict mode with 2 matches (seen under mobile-composer-reserve-pad).
+  const surround = visibleByTestId(page, "document-frame-surround");
+  const content = visibleByTestId(page, "document-frame-content");
   await expect(surround).toBeVisible();
   await expect(content).toBeVisible();
   await expect(owner).toBeVisible();

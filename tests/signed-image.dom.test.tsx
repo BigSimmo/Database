@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -79,10 +79,42 @@ describe("SignedImage failure/retry (jsdom)", () => {
     await user.click(expand);
 
     expect(await screen.findByTestId("image-lightbox")).toBeInTheDocument();
-    expect(screen.getByTestId("image-lightbox")).toHaveAttribute("role", "dialog");
+    const lightbox = screen.getByTestId("image-lightbox");
+    expect(lightbox).toHaveAttribute("role", "dialog");
+    expect(within(lightbox).getByRole("img", { name: "Airway diagram" })).toHaveAttribute("decoding", "async");
 
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByTestId("image-lightbox")).not.toBeInTheDocument());
+  });
+
+  it("loads immediately when priority is set, skipping IntersectionObserver deferral", async () => {
+    const observe = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: "/demo/hero.png" }),
+    });
+    vi.stubGlobal(
+      "IntersectionObserver",
+      vi.fn(() => ({
+        observe,
+        unobserve: vi.fn(),
+        disconnect: vi.fn(),
+        takeRecords: () => [],
+        root: null,
+        rootMargin: "",
+        thresholds: [],
+      })) as unknown as typeof IntersectionObserver,
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SignedImage endpoint={ENDPOINT} alt="Hero figure" priority />);
+
+    const img = await screen.findByRole("img", { name: "Hero figure" });
+    expect(observe).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalled();
+    const src = img.getAttribute("src") ?? "";
+    expect(src.endsWith("/demo/hero.png")).toBe(true);
   });
 
   it("uses a provided source aspect ratio instead of forcing every document crop into 4:3", async () => {
