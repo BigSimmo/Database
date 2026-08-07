@@ -337,8 +337,11 @@ export function ToggleSwitch({
     <span
       aria-hidden
       className={cn(
-        "absolute top-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm transition",
-        enabled ? "right-1" : "left-1",
+        // Gate 9: the knob travels on `transform`, never on `left`/`right`. Track is w-10
+        // (40px) with a 16px knob inset 4px each side, so the throw is 40-4-4-16 = 16px.
+        "absolute top-1 left-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm",
+        "transition-transform duration-[var(--duration-base)] motion-reduce:transition-none",
+        enabled ? "translate-x-4" : "translate-x-0",
       )}
     />
   );
