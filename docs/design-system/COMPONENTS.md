@@ -935,14 +935,14 @@ tests to run.
 
 Registered public components: 53
 Components with a valid design-sync preview: 53
-Components with product imports: 27
+Components with product imports: 29
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
 | Component                | Family   | Built | Locally registered | Observed v2 mount     | Proof declared | Baseline committed | Product imports |
 | ------------------------ | -------- | ----- | ------------------ | --------------------- | -------------- | ------------------ | --------------: |
 | `AccessibleTable`        | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
-| `AnswerCard`             | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
+| `AnswerCard`             | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AnswerFooter`           | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
@@ -952,7 +952,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ConfirmDialog`          | layout   | yes   | yes                | no                    | yes            | no                 |               0 |
-| `DateDisplay`            | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `DateDisplay`            | source   | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `Disclosure`             | layout   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DisclosureGroup`        | layout   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DoseLine`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -967,13 +967,13 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
-| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `PanelHeading`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Progress`               | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `Quantity`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
+| `Quantity`               | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `RadioGroup`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
@@ -986,7 +986,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SourceStatusBadge`      | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `StageList`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Tabs`                   | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `TextLink`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
