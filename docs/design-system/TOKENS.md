@@ -104,6 +104,7 @@ The v2 layer _references_ or _depends on_ these; their values stay in `live` / `
 | `--danger`, `--danger-solid`, `--danger-solid-contrast` | `live`           | Filled danger pairs with `--danger-solid-contrast` (HCM-mapped to `MarkText`); pairing enforced from PR 3.                  |
 | `--success`, `--info`                                   | `live`           | Clinical/status palette — reserved channel.                                                                                 |
 | `--focus`                                               | `live`           | The only focus outline colour; no companion ring, ever.                                                                     |
+| `--ring-highlight`, `--ring-glass`                      | `live`           | Highlight rings on lux surfaces; each carries its own per-theme value, so `dark:ring-*` is gated at zero (GATES §3).        |
 | `--text-placeholder`                                    | `planned` (PR 3) | New role ≥4.5:1; until it exists, placeholders use `--text-muted`.                                                          |
 
 ## 6 · Deprecations and deletions
