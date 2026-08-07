@@ -114,6 +114,7 @@ export function ImageLightbox({
             src={url}
             alt={alt}
             draggable={false}
+            decoding="async"
             onError={markFailed}
             className="max-h-full max-w-full object-contain"
             style={{
