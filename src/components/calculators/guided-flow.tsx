@@ -48,7 +48,7 @@ function PickerScreen({ onPick }: { onPick: (id: string) => void }) {
                   <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">
                     {calc.abbrev}
                   </span>
-                  <span className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                  <span className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
                     {domainLabels[calc.domain]}
                   </span>
                 </span>
@@ -137,7 +137,7 @@ function QuestionScreen({
 
       <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
         {calc.stem ? (
-          <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]">
+          <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
             {calc.stem}
           </p>
         ) : null}
@@ -251,7 +251,7 @@ function ResultScreen({
   return (
     <div className="mx-auto grid w-full max-w-lg content-start gap-4">
       <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center shadow-[var(--shadow-soft)]">
-        <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]">
+        <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
           {calc.abbrev} result
         </p>
         <p className="font-mono text-3xl-minus font-extrabold tabular-nums leading-9 text-[color:var(--text-heading)]">
@@ -272,7 +272,7 @@ function ResultScreen({
           <BandLegend calc={calc} activeBand={derived.band} />
         </div>
         <div className="grid gap-1.5 border-t border-[color:var(--border)] pt-3 text-left">
-          <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]">
+          <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
             Answer review
           </p>
           <ul className="grid gap-1">

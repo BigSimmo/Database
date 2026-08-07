@@ -8,8 +8,19 @@ import type { RelatedDocument } from "@/lib/types";
 
 const extractorSource = readFileSync(new URL("../worker/python/extract_pdf_assets.py", import.meta.url), "utf8");
 const workerSource = readFileSync(new URL("../worker/main.ts", import.meta.url), "utf8");
+const backfillSource = readFileSync(new URL("../scripts/backfill-document-covers.mjs", import.meta.url), "utf8");
 
 describe("document cover thumbnails", () => {
+  it("pages cover backfill with stable ORDER BY for PostgREST range scans", () => {
+    expect(backfillSource).toContain('.eq("source_kind", "cover_page")');
+    expect(backfillSource).toMatch(
+      /\.eq\("source_kind", "cover_page"\)\s*\n\s*\.order\("id", \{ ascending: true \}\)\s*\n\s*\.range\(from, from \+ 999\)/,
+    );
+    expect(backfillSource).toMatch(
+      /\.order\("created_at", \{ ascending: true \}\)\s*\n\s*\.order\("id", \{ ascending: true \}\)\s*\n\s*\.range\(from, from \+ 999\)/,
+    );
+  });
+
   it("extracts a first-page cover_page artifact in the PDF worker", () => {
     expect(extractorSource).toContain("def save_cover_page(");
     expect(extractorSource).toContain('"sourceKind": "cover_page"');

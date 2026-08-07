@@ -583,7 +583,7 @@ export function SettingsDialog({
                 <h2
                   id="account-settings-title"
                   aria-label="Account & app"
-                  className="truncate text-xl font-semibold leading-tight tracking-[-0.01em] text-[color:var(--text-heading)] lg:text-2xl lg:leading-8"
+                  className="truncate text-xl font-semibold leading-tight tracking-display text-[color:var(--text-heading)] lg:text-2xl lg:leading-8"
                 >
                   <span className="lg:hidden">Settings</span>
                   <span className="hidden lg:inline">Account &amp; app</span>
