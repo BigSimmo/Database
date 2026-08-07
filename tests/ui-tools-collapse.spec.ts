@@ -9,9 +9,10 @@ async function goto(page: Page, path: string) {
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 }
 
-// The shell's expanded sidebar (now the desktop default) contributes its own
-// "Search recent chats" searchbox, so mockup searches must be scoped to the
-// page content instead of grabbing the first searchbox on the page.
+// The shell's sidebar (expanded when a remembered preference restores it)
+// contributes its own "Search recent chats" searchbox, so mockup searches
+// must be scoped to the page content instead of grabbing the first
+// searchbox on the page.
 function mockupSearch(page: Page) {
   return page.locator("#main-content").getByRole("searchbox").first();
 }
