@@ -10,6 +10,7 @@ import {
   validationStatusLabel,
 } from "@/lib/source-metadata";
 import { classifySourceAuthority } from "@/lib/source-authority-registry";
+import { twMergeClinical } from "@/lib/tailwind-merge";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 /**
@@ -23,8 +24,17 @@ import type { ClinicalSourceMetadata } from "@/lib/types";
  */
 export type SourceMetadataInput = Partial<ClinicalSourceMetadata> | null;
 
+/**
+ * Compose Tailwind classes, resolving conflicts last-wins.
+ *
+ * Falsy arguments are dropped exactly as before; what changed is that the result
+ * now goes through tailwind-merge, so a later class beats an earlier one instead
+ * of both being emitted and the generated stylesheet's order deciding. See
+ * `@/lib/tailwind-merge` for why the merge needs this repo's `@theme` scales
+ * declared to it, and what it silently deletes without them.
+ */
 export function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+  return twMergeClinical(classes.filter(Boolean).join(" "));
 }
 
 export const transitionSurface = "transition-colors transition-shadow motion-reduce:transition-none";
