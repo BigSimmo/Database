@@ -21,6 +21,8 @@
 //   - a malformed row is usually a hand-edit that broke the column count
 //   - a row outside any table is a blank line that silently ended the table
 //
+//   - a queue ID that is not in Open items is a stale recommended-execution row
+//
 // Deliberately structural only. It says nothing about whether a row's content
 // is right, because that is a judgement a gate cannot make and pretending
 // otherwise would make the gate noisy enough to be ignored.
@@ -32,8 +34,11 @@ export const ISSUES_PATH = "docs/outstanding-issues.md";
 
 const OPEN_HEADING = "## Open items";
 const ARCHIVE_HEADING = "## Resolved / archive";
+const QUEUE_HEADING = "## Recommended execution queue";
 const MARKER = /<!--\s*issues:next-id=(\d+)\s*-->/;
 const PRETTIER_IGNORE = "<!-- prettier-ignore -->";
+/** Match `#NNN` citations inside a queue ID(s) cell (backticks/commas allowed). */
+const QUEUE_ID_CITATION = /#(\d+)/g;
 /**
  * An id cell's shape, e.g. `#042`. Used to READ the number, never to decide
  * whether a line is a row.
@@ -165,15 +170,18 @@ export function canonicalId(number) {
 
 export function parseIssues(markdown) {
   const lines = markdown.split("\n");
+  const queueStart = lines.findIndex((line) => line.startsWith(QUEUE_HEADING));
   const openStart = lines.findIndex((line) => line.startsWith(OPEN_HEADING));
   const archiveStart = lines.findIndex((line) => line.startsWith(ARCHIVE_HEADING));
   const markers = [...markdown.matchAll(new RegExp(MARKER, "g"))];
   const marker = markers[0] ?? null;
 
   const openLimit = archiveStart >= 0 ? archiveStart : lines.length;
+  const queueLimit = openStart >= 0 ? openStart : archiveStart >= 0 ? archiveStart : lines.length;
   const bodies = {
     open: tableBodies(lines, openStart, openLimit),
     archive: tableBodies(lines, archiveStart, lines.length),
+    queue: tableBodies(lines, queueStart, queueLimit),
   };
   const orphans = {
     open: orphanRuns(lines, openStart, openLimit, bodies.open),
@@ -182,6 +190,7 @@ export function parseIssues(markdown) {
 
   const rows = [];
   for (const [table, blocks] of Object.entries(bodies)) {
+    if (table === "queue") continue;
     for (const body of blocks) {
       for (let index = body.start; index < body.end; index += 1) {
         const line = lines[index];
@@ -218,20 +227,42 @@ export function parseIssues(markdown) {
     }
   }
 
+  /** Queue ID(s) column citations only — never prose elsewhere in the ledger (#201). */
+  const queueCitations = [];
+  for (const body of bodies.queue) {
+    for (let index = body.start; index < body.end; index += 1) {
+      const line = lines[index];
+      if (!/^\|/.test(line) || !/\|\s*$/.test(line)) continue;
+      const parsed = cells(line);
+      // Column 0 is Order; column 1 is ID(s). Ignore other cells (evidence prose).
+      const idCell = parsed[1] ?? "";
+      for (const match of idCell.matchAll(QUEUE_ID_CITATION)) {
+        queueCitations.push({
+          line: index + 1,
+          number: Number(match[1]),
+          raw: match[0],
+        });
+      }
+    }
+  }
+
   return {
     openStart,
     archiveStart,
+    queueStart,
     nextId: marker ? Number(marker[1]) : null,
     markerCount: markers.length,
     rows,
     orphans,
+    queueCitations,
     bodyCount: { open: bodies.open.length, archive: bodies.archive.length },
   };
 }
 
 export function checkIssues(markdown, { prettierIgnored = false } = {}) {
   const problems = [];
-  const { openStart, archiveStart, nextId, markerCount, rows, orphans, bodyCount } = parseIssues(markdown);
+  const { openStart, archiveStart, nextId, markerCount, rows, orphans, bodyCount, queueCitations } =
+    parseIssues(markdown);
   const lines = markdown.split("\n");
 
   // Prettier pads every Markdown table cell to the widest value in its column.
@@ -364,6 +395,20 @@ export function checkIssues(markdown, { prettierIgnored = false } = {}) {
     }
   }
 
+  // Recommended execution queue may only cite currently open IDs (#201). Parse
+  // the ID(s) column alone so archive mentions in evidence prose do not fail.
+  const openNumbers = new Set(
+    rows.filter((row) => row.table === "open" && row.number !== null).map((row) => row.number),
+  );
+  for (const citation of queueCitations ?? []) {
+    if (!openNumbers.has(citation.number)) {
+      problems.push(
+        `recommended queue line ${citation.line} cites ${canonicalId(citation.number)} which is not in Open items — ` +
+          "prune the queue row or restore the open item; do not treat evidence prose as queue membership",
+      );
+    }
+  }
+
   return problems;
 }
 
@@ -431,9 +476,9 @@ function selfTest() {
     "<!-- issues:next-id=3 -->",
     "## Recommended execution queue",
     PRETTIER_IGNORE,
-    "| Rank | ID |",
+    "| Order | ID(s) |",
     "| --- | --- |",
-    "| 1 | #001 |",
+    "| 1 | `#001` |",
     "## Open items",
     PRETTIER_IGNORE,
     "| ID | Pri | Summary |",
@@ -447,7 +492,11 @@ function selfTest() {
   ].join("\n");
   const cases = [
     ["a well-formed file", good, 0],
-    ["a table without a scoped prettier ignore", good.replace(`${PRETTIER_IGNORE}\n| Rank | ID |`, "| Rank | ID |"), 1],
+    [
+      "a table without a scoped prettier ignore",
+      good.replace(`${PRETTIER_IGNORE}\n| Order | ID(s) |`, "| Order | ID(s) |"),
+      1,
+    ],
     ["a padded table row", good.replace("| #001 | P2 | a |", "| #001 | P2      | a |"), 1],
     ["a duplicated id", good.replace("| #002 | b |", "| #001 | b |"), 2], // duplicate + both-tables
     ["an id at the marker", good.replace("next-id=3", "next-id=2"), 1],
@@ -459,9 +508,9 @@ function selfTest() {
     // Adversarial: a row the id regex cannot parse must FAIL, not disappear.
     // Skipping it would drop the row from duplicate, marker and width checks
     // while the file reported green — the gate claiming more than it does.
-    ["a dropped # on an id", good.replace("| #001 | P2 | a |", "| 001 | P2 | a |"), 1],
-    ["a letter O for a zero", good.replace("| #001 | P2 | a |", "| #OO1 | P2 | a |"), 1],
-    ["an empty id cell", good.replace("| #001 | P2 | a |", "|  | P2 | a |"), 1],
+    ["a dropped # on an id", good.replace("| #001 | P2 | a |", "| 001 | P2 | a |"), 2],
+    ["a letter O for a zero", good.replace("| #001 | P2 | a |", "| #OO1 | P2 | a |"), 2],
+    ["an empty id cell", good.replace("| #001 | P2 | a |", "|  | P2 | a |"), 2],
     // Two markers: only the first is ever read, so the second is a stale
     // allocation a later editor can follow straight into a reused id.
     [
@@ -478,11 +527,11 @@ function selfTest() {
     ["an over-padded id", good.replace("| #001 | P2 | a |", "| #0001 | P2 | a |"), 1],
     // Deleting a separator used to disable the width check for its whole table
     // silently — the check had nothing to compare against and skipped.
-    ["a deleted separator row", good.replace("| --- | --- | --- |\n", ""), 2], // no table + no rows found
+    ["a deleted separator row", good.replace("| --- | --- | --- |\n", ""), 3], // no table + orphan pipes + queue cites missing open
     // A row that loses its leading pipe leaves the table while still sitting in
     // it. Found positionally, so it is reported rather than skipped.
-    ["a row that lost its leading pipe", good.replace("| #001 | P2 | a |", "#001 | P2 | a |"), 1],
-    ["an indented row", good.replace("| #001 | P2 | a |", "  | #001 | P2 | a |"), 1],
+    ["a row that lost its leading pipe", good.replace("| #001 | P2 | a |", "#001 | P2 | a |"), 2],
+    ["an indented row", good.replace("| #001 | P2 | a |", "  | #001 | P2 | a |"), 2],
     // The archive's real shape on `main`: a blank line part way down the rows.
     // GFM ends the table there, so everything below renders as literal text.
     // Every earlier version of this gate counted those rows as absent.
@@ -491,6 +540,8 @@ function selfTest() {
     // report consequences of a structural break as if they were separate
     // content faults. Fix the structure and the row rejoins every check.
     ["a blank line stranding the rows below it", good.replace("| #002 | b |", "| #002 | b |\n\n| #003 | c |"), 1],
+    // #201: queue ID(s) column must cite open items only.
+    ["a queue row citing an archived id", good.replace("| 1 | `#001` |", "| 1 | `#002` |"), 1],
   ];
   let failures = 0;
   for (const [name, markdown, expected] of cases) {
