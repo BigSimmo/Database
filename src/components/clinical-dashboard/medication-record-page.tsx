@@ -83,13 +83,14 @@ const defaultSectionTone =
 
 // Decorative per-medication identity accent (record.accent is keyed to drug
 // class). Exposed as CSS custom properties and softened with color-mix so it
-// drives washes/rails only — never text — keeping contrast safe in light + dark
+// drives rails/borders only — never text — keeping contrast safe in light + dark
 // and staying within the colour contract (semantic colour uses the tokens).
+// Only `--med-accent` and `--med-accent-border` are consumed; a soft wash was
+// removed once nothing read it (#157).
 function medicationAccentStyle(accent: string | undefined): CSSProperties {
   const base = accent?.trim() || "var(--clinical-accent)";
   return {
     "--med-accent": base,
-    "--med-accent-soft": `color-mix(in srgb, ${base} 12%, var(--surface))`,
     "--med-accent-border": `color-mix(in srgb, ${base} 34%, var(--surface))`,
   } as CSSProperties;
 }

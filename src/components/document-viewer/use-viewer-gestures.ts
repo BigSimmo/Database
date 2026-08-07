@@ -19,11 +19,11 @@ type Point = { x: number; y: number };
  * lightbox pans/zooms with a CSS transform. This hook only interprets input:
  *
  * - Ctrl/⌘ + wheel (and trackpad pinch, which surfaces as ctrl+wheel) → `onZoomBy`.
- *   When a modifier is required (PDF), the default listener is **passive** so
- *   plain scrolling stays on the compositor (#214). A non-passive listener is
- *   attached only while unmodified wheel-zoom is active (lightbox) or while a
- *   modifier/pinch zoom gesture is in progress, so `preventDefault` can stop
- *   browser page-zoom without blocking ordinary scroll INP.
+ *   The native wheel listener is always non-passive while `wheelZoom` is on so
+ *   `preventDefault` can suppress the browser's page zoom (Sentry 15760049). Plain
+ *   wheel on modifier-gated surfaces early-returns without `preventDefault`, so
+ *   native scrolling still works; the listener stays scoped to the viewer holder
+ *   rather than `document` (#214 amended — fully-passive double-zooms).
  * - Two-pointer pinch → `onZoomBy` with the live distance ratio.
  * - One-pointer drag → `onPanBy` with frame deltas.
  *
@@ -69,99 +69,22 @@ export function useViewerGestures({
     const element = targetRef.current;
     if (!element || !wheelZoom) return () => undefined;
 
-    const zoomFromWheel = (event: WheelEvent) => {
+    function onWheel(event: WheelEvent) {
+      // Modifier-gated surfaces (PDF): plain wheel is native scroll — bail without
+      // preventDefault. Ctrl/⌘ + wheel (and trackpad pinch) must cancel the
+      // browser zoom or the page zooms on top of the document (double-zoom).
+      if (wheelNeedsModifier && !(event.ctrlKey || event.metaKey)) return;
+      if (event.cancelable) event.preventDefault();
       // deltaY is negative when zooming in. exp() keeps the step proportional so
       // fast scrolls zoom more without overshooting on a trackpad pinch.
       onZoomByRef.current(Math.exp(-event.deltaY / 300));
-    };
-
-    // Lightbox / unmodified wheel-zoom: every wheel must preventDefault so the
-    // page underneath does not scroll while the image zooms.
-    if (!wheelNeedsModifier) {
-      function onWheel(event: WheelEvent) {
-        event.preventDefault();
-        zoomFromWheel(event);
-      }
-      element.addEventListener("wheel", onWheel, { passive: false });
-      return () => element.removeEventListener("wheel", onWheel);
     }
 
-    // PDF / modifier-required: keep compositor scroll (passive) by default.
-    // Promote to non-passive only while Ctrl/⌘ is held or a trackpad pinch
-    // (ctrlKey wheel without a prior keydown) is in flight.
-    let blockingHandler: ((event: WheelEvent) => void) | null = null;
-    let idleTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const clearIdle = () => {
-      if (idleTimer !== null) {
-        clearTimeout(idleTimer);
-        idleTimer = null;
-      }
-    };
-
-    const detachBlocking = () => {
-      clearIdle();
-      if (!blockingHandler) return;
-      element.removeEventListener("wheel", blockingHandler);
-      blockingHandler = null;
-    };
-
-    const scheduleDetach = (delayMs: number) => {
-      clearIdle();
-      idleTimer = setTimeout(detachBlocking, delayMs);
-    };
-
-    const attachBlocking = () => {
-      if (blockingHandler) return;
-      blockingHandler = (event: WheelEvent) => {
-        if (!(event.ctrlKey || event.metaKey)) return;
-        event.preventDefault();
-        zoomFromWheel(event);
-        // Drop the blocking listener shortly after the last pinch/ctrl tick so
-        // plain scroll returns to the passive compositor path.
-        scheduleDetach(180);
-      };
-      element.addEventListener("wheel", blockingHandler, { passive: false });
-    };
-
-    function onWheelPassive(event: WheelEvent) {
-      if (!(event.ctrlKey || event.metaKey)) return;
-      // When the blocking listener is already attached it owns zoom + preventDefault.
-      // Newly added listeners do not receive the current event, so the first
-      // trackpad-pinch tick zooms here and promotes for the rest of the gesture.
-      if (blockingHandler) return;
-      attachBlocking();
-      zoomFromWheel(event);
-      scheduleDetach(180);
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Control" || event.key === "Meta") attachBlocking();
-    }
-
-    function onKeyUp(event: KeyboardEvent) {
-      if (event.key === "Control" || event.key === "Meta") {
-        // Brief delay so a wheel that arrives with the keyup can still preventDefault.
-        scheduleDetach(50);
-      }
-    }
-
-    function onBlur() {
-      detachBlocking();
-    }
-
-    element.addEventListener("wheel", onWheelPassive, { passive: true });
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", onBlur);
-
-    return () => {
-      element.removeEventListener("wheel", onWheelPassive);
-      detachBlocking();
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", onBlur);
-    };
+    // Non-passive while wheel zoom is enabled: preventDefault is required for
+    // Ctrl/⌘ + wheel and trackpad pinch on both lightbox and PDF surfaces.
+    // Scoped to this holder element (not document) so the cost stays local.
+    element.addEventListener("wheel", onWheel, { passive: false });
+    return () => element.removeEventListener("wheel", onWheel);
   }, [targetRef, wheelZoom, wheelNeedsModifier]);
 
   const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
