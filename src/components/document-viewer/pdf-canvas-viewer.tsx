@@ -1,6 +1,14 @@
 "use client";
 
-import { type KeyboardEvent as ReactKeyboardEvent, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   ChevronLeft,
   ChevronRight,
