@@ -87,7 +87,7 @@ export function LibraryHealthStrip({
             aria-busy={loading || undefined}
             style={{ containIntrinsicSize: "auto 48px", contentVisibility: "auto" }}
           >
-            <p className="text-2xs font-bold uppercase tracking-[0.06em]">{item.label}</p>
+            <p className="text-2xs font-bold uppercase tracking-label">{item.label}</p>
             {loading ? (
               <div
                 className="mt-1 h-4 w-16 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]"

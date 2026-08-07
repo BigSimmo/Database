@@ -727,7 +727,7 @@ export function PatientSafetyPlan() {
           className={cn("min-w-0 grid content-start gap-4", mobileTab === "build" ? "grid" : "hidden", "lg:grid")}
         >
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+            <h2 className="text-sm font-extrabold uppercase tracking-label text-[color:var(--text-muted)]">
               Build the plan
             </h2>
             <div className="flex items-center gap-2">
@@ -857,7 +857,7 @@ export function PatientSafetyPlan() {
         >
           {/* Preview toolbar */}
           <div data-print-hide className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+            <h2 className="text-sm font-extrabold uppercase tracking-label text-[color:var(--text-muted)]">
               Patient copy
             </h2>
             <div className="flex flex-wrap items-center gap-1.5">

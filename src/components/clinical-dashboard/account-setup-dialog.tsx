@@ -202,7 +202,7 @@ export function AccountSetupDialog({
             >
               <h3
                 id="account-benefits-title"
-                className="mb-2.5 px-0.5 text-xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]"
+                className="mb-2.5 px-0.5 text-xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]"
               >
                 {benefitsHeading}
               </h3>

@@ -28,7 +28,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         <div className="flex min-w-0 gap-[15px]">
           <IconTile icon={ScaleIcon} />
           <div className="min-w-0">
-            <h3 className="m-0 mb-[5px] text-[color:var(--text-heading)] tracking-[-0.01em] text-base font-semibold">
+            <h3 className="m-0 mb-[5px] text-[color:var(--text-heading)] tracking-display text-base font-semibold">
               {therapy.name}
             </h3>
             <p className="m-0 mb-[11px] text-sm-minus leading-normal text-[color:var(--text-muted)]">
