@@ -90,7 +90,11 @@ test("searches clinical language without provenance fields and carries a result 
   await page.getByRole("link", { name: "Open With mixed features" }).click();
   await expect(page).toHaveURL(/\/specifiers\/with-mixed-features$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "With mixed features", exact: true })).toBeVisible();
-  await expect(page.getByText("What matters now", { exact: true })).toBeVisible();
+  // Address the record label by id. Specifier "On this page" labels do not
+  // currently include these words, but the formulation sibling failed CI under
+  // Playwright strict mode once a nav link shared the same text — pin the
+  // unique target rather than relying on that coincidence.
+  await expect(page.locator("#what-matters-now")).toBeVisible();
 
   await page.getByRole("link", { name: "Use in builder", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Build the diagnosis in the right order" })).toBeVisible();

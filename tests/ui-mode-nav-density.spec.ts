@@ -47,6 +47,36 @@ async function gotoTherapy(page: Page, route = "/therapy-compass/search?q=CBT&ru
 const gotoTherapySearch = (page: Page) => gotoTherapy(page);
 
 /**
+ * Every mode that renders the bar, with the destination count that sets its
+ * density.
+ *
+ * Therapy was the only consumer when this spec was written, so every route it
+ * drove was `/therapy-compass/*` — and the promise in the header, that a mode
+ * whose labels outgrow the thresholds fails here rather than shipping clipped
+ * words, held for exactly one mode. The four registry-driven modes have short
+ * labels and would have passed silently either way, which is precisely why the
+ * gap survives until a mode with long ones adopts.
+ *
+ * `items` is pinned against the registry by `tests/mode-nav-contract.test.ts`,
+ * so adopting a mode or adding a destination without coming back here fails
+ * offline rather than leaving a mode uncovered.
+ */
+const MODES = [
+  { modeId: "therapy-compass", route: "/therapy-compass/search?q=CBT&run=1", items: 7 },
+  { modeId: "dsm", route: "/dsm/compare", items: 2 },
+  { modeId: "specifiers", route: "/specifiers/compare", items: 4 },
+  { modeId: "formulation", route: "/formulation/compare", items: 4 },
+  { modeId: "differentials", route: "/differentials/diagnoses", items: 3 },
+];
+
+/**
+ * A band of capacity C shows `min(items, C)` slots: every destination when they
+ * fit, otherwise C-1 of them plus More. Derived rather than tabulated so a mode
+ * with a different count needs no second table to keep in step.
+ */
+const slotsAt = (items: number, capacity: number) => Math.min(items, capacity);
+
+/**
  * A route whose destination is permanently in the overflow.
  *
  * Therapy ships seven destinations and the bands cap at five slots, so Brief
@@ -116,27 +146,81 @@ function expectNoClippedLabels(nav: NavState, where: string) {
 }
 
 test.describe("ModeNav density", () => {
-  for (const { width, expected, slots } of [
-    { width: BAND_3_PX - 1, expected: "collapsed" as const, slots: 0 },
-    { width: BAND_3_PX, expected: "bar" as const, slots: 3 },
-    { width: BAND_3_PX + 1, expected: "bar" as const, slots: 3 },
-    { width: BAND_4_PX - 1, expected: "bar" as const, slots: 3 },
-    { width: BAND_4_PX, expected: "bar" as const, slots: 4 },
-    { width: BAND_4_PX + 1, expected: "bar" as const, slots: 4 },
-    { width: BAND_5_PX, expected: "bar" as const, slots: 5 },
-  ]) {
-    test(`shows every label in full at ${width}px`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 900 });
-      await gotoTherapySearch(page);
+  for (const { modeId, route, items } of MODES) {
+    for (const { width, expected, capacity } of [
+      { width: BAND_3_PX - 1, expected: "collapsed" as const, capacity: 0 },
+      { width: BAND_3_PX, expected: "bar" as const, capacity: 3 },
+      { width: BAND_3_PX + 1, expected: "bar" as const, capacity: 3 },
+      { width: BAND_4_PX - 1, expected: "bar" as const, capacity: 3 },
+      { width: BAND_4_PX, expected: "bar" as const, capacity: 4 },
+      { width: BAND_4_PX + 1, expected: "bar" as const, capacity: 4 },
+      { width: BAND_5_PX, expected: "bar" as const, capacity: 5 },
+    ]) {
+      test(`shows every ${modeId} label in full at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await gotoTherapy(page, route);
 
-      // Poll the density itself rather than asserting one sample: the band is
-      // re-evaluated as the header settles, and a single early read is a coin
-      // flip. A band that never arrives still fails, on the timeout.
-      await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe(expected);
+        // Poll the density itself rather than asserting one sample: the band is
+        // re-evaluated as the header settles, and a single early read is a coin
+        // flip. A band that never arrives still fails, on the timeout.
+        await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe(expected);
+
+        const nav = await readNav(page);
+        expect(nav.labels).toHaveLength(slotsAt(items, capacity));
+        expectNoClippedLabels(nav, `${modeId} at ${width}px`);
+      });
+    }
+  }
+
+  /**
+   * The folded-active branch, on a mode that is not Therapy.
+   *
+   * Specifiers and Formulation carry four destinations, so at the 22rem band
+   * two of them fold and the More slot has to carry the current page's rule.
+   * That is the branch ledger #113's fix turned into a container-query decision
+   * (invariant I5), and until these modes adopted, no route outside Therapy
+   * exercised it. `map` is the last item, so it is folded at this band and only
+   * this band.
+   */
+  for (const [modeId, route] of [
+    ["specifiers", "/specifiers/map"],
+    ["formulation", "/formulation/map"],
+  ] as const) {
+    test(`marks a folded ${modeId} page through the overflow slot at ${BAND_3_PX}px`, async ({ page }) => {
+      await page.setViewportSize({ width: BAND_3_PX, height: 900 });
+      await gotoTherapy(page, route);
+
+      await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
 
       const nav = await readNav(page);
-      expect(nav.labels).toHaveLength(slots);
-      expectNoClippedLabels(nav, `${width}px`);
+      expectNoClippedLabels(nav, `${modeId} folded at ${BAND_3_PX}px`);
+      // The slot keeps its own word — borrowing "Map" is what the band budget
+      // cannot pay for at any label length worth having.
+      expect(nav.labels.at(-1)?.text).toBe("More");
+      expect(nav.labels.map((slot) => slot.text)).not.toContain("Map");
+
+      const marked = await page.evaluate((selector) => {
+        const onScreen = (node: Element) => {
+          const slot = node.closest("li");
+          return Boolean(slot) && getComputedStyle(slot!).display !== "none";
+        };
+        const painted = (node: Element) => {
+          const value = getComputedStyle(node).backgroundColor;
+          return value !== "rgba(0, 0, 0, 0)" && value !== "transparent";
+        };
+        const bar = document.querySelector(`${selector} .mode-nav__bar`);
+        const rules = [...(bar?.querySelectorAll(".mode-nav__rule") ?? [])].filter(
+          (rule) => onScreen(rule) && painted(rule),
+        );
+        const names = [...(bar?.querySelectorAll(".mode-nav__more-name") ?? [])].filter(
+          (name) => getComputedStyle(name).display !== "none",
+        );
+        return { rules: rules.length, names: names.map((name) => name.textContent ?? "") };
+      }, anchoredNav);
+
+      // Exactly one mark at any width: never zero, never both.
+      expect(marked.rules, `${route}: painted rules`).toBe(1);
+      expect(marked.names, `${route}: announced name`).toEqual([", current page: Map"]);
     });
   }
 
