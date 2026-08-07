@@ -475,7 +475,7 @@ test.describe("Medication responsive stress coverage", () => {
           const card = document.querySelector<HTMLElement>('[data-testid="medication-result-acamprosate-phone"]');
           const firstFilter =
             viewportWidth < 640
-              ? document.querySelector<HTMLElement>('[data-testid="medication-result-filter-select"]')
+              ? document.querySelector<HTMLElement>('[data-testid="medication-filter-trigger-phone"]')
               : filters?.querySelector<HTMLElement>("button");
           if (!workspace || !patient || !filters || !card || !firstFilter) return null;
           const workspaceRect = workspace.getBoundingClientRect();

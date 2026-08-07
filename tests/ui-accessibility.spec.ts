@@ -472,18 +472,53 @@ test.describe("Clinical KB accessibility coverage", () => {
     await differentialSubmit.click();
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
 
-    const filterSelect = page.getByTestId("differential-result-type-select");
-    await expect(filterSelect).toBeVisible();
-    await expect(filterSelect).toHaveAccessibleName("Filter by result type");
-    await expect(filterSelect).toHaveValue("all");
+    // The phone filter is a trigger opening a sheet, not a native select. Its
+    // resting accessible name must still say there is nothing applied, because
+    // the badge that carries that information visually is absent at zero.
+    const filterTrigger = page.getByTestId("differential-filter-trigger-phone");
+    await expect(filterTrigger).toBeVisible();
+    await expect(filterTrigger).toHaveAccessibleName(/No filters active/);
     await expect(page.getByRole("tab")).toHaveCount(0);
 
-    await filterSelect.focus();
-    await expect(filterSelect).toBeFocused();
-    await filterSelect.selectOption("presentation");
-    await expect(filterSelect).toHaveValue("presentation");
-    await filterSelect.selectOption("diagnosis");
-    await expect(filterSelect).toHaveValue("diagnosis");
+    await filterTrigger.focus();
+    await expect(filterTrigger).toBeFocused();
+    await filterTrigger.press("Enter");
+
+    // One-of-N, expressed as radios: selecting one dimension must uncheck the
+    // other rather than leaving two contradictory filters both "on".
+    const filterGroup = page.getByRole("radiogroup", { name: "Show" });
+    await expect(filterGroup).toBeVisible();
+    await expect(filterGroup.getByRole("radio", { name: /^All/ })).toBeChecked();
+    await filterGroup.getByRole("radio", { name: /^Presentations/ }).click();
+    await expect(filterGroup.getByRole("radio", { name: /^Presentations/ })).toBeChecked();
+    await expect(filterGroup.getByRole("radio", { name: /^All/ })).not.toBeChecked();
+    await filterGroup.getByRole("radio", { name: /^Diagnoses/ }).click();
+    await expect(filterGroup.getByRole("radio", { name: /^Diagnoses/ })).toBeChecked();
+
+    // The radio role promises a keyboard model, so prove it in a real browser and
+    // not only in jsdom: one tab stop, arrows moving focus AND selection, Home and
+    // End reaching the ends. jsdom cannot vouch for focus behaviour under a real
+    // focus trap, which is what the sheet puts around this group.
+    const all = filterGroup.getByRole("radio", { name: /^All/ });
+    const presentations = filterGroup.getByRole("radio", { name: /^Presentations/ });
+    const diagnoses = filterGroup.getByRole("radio", { name: /^Diagnoses/ });
+    await diagnoses.focus();
+    await diagnoses.press("Home");
+    await expect(all).toBeFocused();
+    await expect(all).toBeChecked();
+    await all.press("ArrowRight");
+    await expect(presentations).toBeFocused();
+    await expect(presentations).toBeChecked();
+    await presentations.press("End");
+    await expect(diagnoses).toBeFocused();
+    await expect(diagnoses).toBeChecked();
+    // Exactly one tab stop for the group — the checked option.
+    await expect(diagnoses).toHaveAttribute("tabindex", "0");
+    await expect(all).toHaveAttribute("tabindex", "-1");
+    await expect(presentations).toHaveAttribute("tabindex", "-1");
+
+    await page.getByTestId("differential-filter-panel-done").click();
+    await expect(filterTrigger).toHaveAccessibleName(/1 filter active/);
   });
 
   test("guest upload action exposes the admin boundary and opens Sources", async ({ page }) => {
@@ -569,9 +604,10 @@ test.describe("Clinical KB accessibility coverage", () => {
       const bounds = element.getBoundingClientRect();
       return { width: bounds.width, height: bounds.height };
     });
-    // 44, not 48. This trigger sits in the ribbon's utility row beside
-    // `ResultSortControl`, which is `min-h-tap` (44px) — raising only this
-    // control would leave the row visibly ragged. The repo's `min-h-12` rule
+    // 44, not 48. This trigger sits in the ribbon's utility row, which is
+    // `min-h-tap` (44px) throughout — raising only this control would leave the
+    // row visibly ragged. (`ResultSortControl` set that rhythm before it became
+    // `sm`-and-up; the row still holds it.) The repo's `min-h-12` rule
     // exists to stop generic a11y advice pulling production down to `min-h-11`
     // (a known `ui-smoke` flake), not to override a page's own row rhythm; the
     // sheet's own toggles, which have the room, are `min-h-12`.

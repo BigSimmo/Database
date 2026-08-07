@@ -3052,12 +3052,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(queryRibbon.getByRole("heading", { name: "sertraline" })).toBeVisible();
       await expect(queryRibbon.getByRole("group", { name: "Result view" })).toBeVisible();
       await expect(queryRibbon.getByRole("group", { name: "Filter factsheets by category" })).toBeVisible();
-      const categorySelect = queryRibbon.getByTestId("factsheet-category-select");
+      // Phone gets the compact trigger; from `sm` up the ribbon shows the chip
+      // row instead and the trigger is not rendered at all.
+      const categoryTrigger = queryRibbon.getByTestId("factsheet-filter-trigger-phone");
       if (viewport.width < 640) {
-        await expect(categorySelect).toBeVisible();
-        await expect(categorySelect).toHaveAccessibleName("Filter factsheets by category");
+        await expect(categoryTrigger).toBeVisible();
+        await expect(categoryTrigger).toHaveAccessibleName(/No filters active/);
+        await categoryTrigger.click();
+        const categoryGroup = page.getByRole("radiogroup", { name: "Category" });
+        await expect(categoryGroup.getByRole("radio", { name: "All" })).toBeChecked();
+        await page.getByTestId("factsheet-filter-panel-done").click();
+        await expect(categoryGroup).toBeHidden();
       } else {
-        await expect(categorySelect).toBeHidden();
+        await expect(categoryTrigger).toBeHidden();
       }
       await expectNoPageHorizontalOverflow(page);
     }
@@ -3553,10 +3560,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const queryRibbon = documentWorkspace.getByTestId("search-query-ribbon");
     await expect(queryRibbon).toBeVisible();
     // One filter surface, two slots: the ribbon's full-width row is suppressed
-    // below `sm` and the phone copy sits in the utility row beside Sort. Both
-    // are in the DOM, which is why they carry distinct test ids.
+    // below `sm` and the phone copy sits in the utility row. Both are in the
+    // DOM, which is why they carry distinct test ids.
     await expect(queryRibbon.getByTestId("document-filter-trigger-wide")).toBeHidden();
-    await expect(queryRibbon.getByLabel("Sort results")).toBeVisible();
+    // Sort is `sm`-and-up. Its two segments cost about half the band's one line
+    // on a phone, and relevance — the default, and what `?sort=` still carries
+    // in from a link — is the order a phone reader wants.
+    //
+    // Mounted-and-hidden, asserted as two facts, because `toBeHidden()` alone
+    // cannot tell them apart: it passes for a hidden node AND for a node that
+    // does not exist. So `includeHidden` (plain `getByRole` filters hidden nodes
+    // out and would resolve to nothing) plus a count, then the visibility. A
+    // deleted control fails the count; a control returned to the phone line
+    // fails the hidden check.
+    const phoneSort = queryRibbon.getByRole("group", { name: "Sort results", includeHidden: true });
+    await expect(phoneSort).toHaveCount(1);
+    await expect(phoneSort).toBeHidden();
     const mobileFilterTrigger = queryRibbon.getByTestId("document-filter-trigger-phone");
     await expect(mobileFilterTrigger).toBeVisible();
     await expect(mobileFilterTrigger).toHaveAccessibleName(/Filter/);
@@ -3587,17 +3606,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
         .poll(
           async () =>
             utilityTrack.evaluate((track) => {
-              const sort = track.querySelector('[role="group"][aria-label="Sort results"]');
-              const clipped = sort ? sort.getBoundingClientRect().right - track.getBoundingClientRect().right : 0;
+              // The last *rendered* child, not a named control. Sort is
+              // `sm`-and-up, so below 640 it is `display:none` and every width
+              // in this sweep would measure a zero-sized node and report a
+              // dutiful 0 — the sweep would go blind while still passing.
+              const rendered = Array.from(track.children).filter((child) => child.getClientRects().length > 0);
+              const last = rendered[rendered.length - 1];
+              const clipped = last ? last.getBoundingClientRect().right - track.getBoundingClientRect().right : 0;
               return {
                 overflow: Math.max(0, track.scrollWidth - track.clientWidth),
-                sortClipped: Math.max(0, Math.round(clipped)),
+                controlClipped: Math.max(0, Math.round(clipped)),
                 masked: track.getAttribute("data-overflowing") === "true",
               };
             }),
           { message: `results-band utility rail clipped its own controls at ${width}px` },
         )
-        .toEqual({ overflow: 0, sortClipped: 0, masked: false });
+        .toEqual({ overflow: 0, controlClipped: 0, masked: false });
       // Below 414px the wrap is the active mechanism. Track overflow alone is
       // blind to wrap failure: if the utilities group is pushed off-screen by
       // the band's `overflow-hidden`, both `scrollWidth`/`clientWidth` and
@@ -3749,14 +3773,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(phoneFilterPanel).toHaveCount(0);
     await expect(documentResults).toBeVisible();
 
-    // Sort is a segmented group of pressed buttons, not a select: the active order
-    // is readable without opening anything.
-    const documentSort = queryRibbon.getByRole("group", { name: "Sort results" });
-    await documentSort.getByRole("button", { name: "A–Z" }).click();
-    await expect(page).toHaveURL(/[?&]sort=alpha/);
-    await expect(documentSort.getByRole("button", { name: "A–Z" })).toHaveAttribute("aria-pressed", "true");
-    await documentSort.getByRole("button", { name: "Relevance" }).click();
-
     const openDocumentLink = documentResults
       .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })
       .last();
@@ -3773,6 +3789,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await expectNoPageHorizontalOverflow(page);
+
+    // Sort is a segmented group of pressed buttons, not a select: the active
+    // order is readable without opening anything. Exercised here rather than at
+    // 390px because the control is `sm`-and-up — the phone assertion above is
+    // that it is hidden; this is the proof it still works where it renders.
+    const documentSort = queryRibbon.getByRole("group", { name: "Sort results" });
+    await expect(documentSort).toBeVisible();
+    await documentSort.getByRole("button", { name: "A–Z" }).click();
+    await expect(page).toHaveURL(/[?&]sort=alpha/);
+    await expect(documentSort.getByRole("button", { name: "A–Z" })).toHaveAttribute("aria-pressed", "true");
+    await documentSort.getByRole("button", { name: "Relevance" }).click();
+
     // The same panel, reached from the wide-viewport copy of the trigger.
     const wideFilterTrigger = queryRibbon.getByTestId("document-filter-trigger-wide");
     await expect(wideFilterTrigger).toBeVisible();
@@ -4119,7 +4147,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await switchToCanvasMode.click();
     }
     await expect(toolbar).toBeVisible({ timeout: 30000 });
-    const enterFullscreen = page.getByRole("button", { name: "Fit page width and enter fullscreen" });
+    const enterFullscreen = page.getByRole("button", { name: "Enter fullscreen document view" });
     // The toolbar is mounted before pdf.js finishes painting. Wait for its
     // existing pagesReady signal so late canvas height changes cannot move a
     // target between Firefox's actionability check and pointer dispatch.
