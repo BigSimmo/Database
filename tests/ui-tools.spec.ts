@@ -1647,10 +1647,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(typeSelect).toHaveValue("diagnosis");
     await typeSelect.selectOption("all");
 
-    // Sort is a segmented group and the page filter is a select. They no longer
-    // sit paired: Sort is inboard and the page filter renders last, hard against
-    // the ribbon's right edge. What still has to hold is that both keep a matched
-    // phone tap height, and that the utility rail owns any overflow.
+    // Sort is `sm`-and-up, so on a phone the page filter is the whole utilities
+    // group: it renders last, hard against the ribbon's right edge, and it is
+    // what has to carry the phone tap height. Sort stays mounted but hidden —
+    // asserted, not assumed, so returning it to the phone line fails here.
     const utilities = page.getByTestId("search-query-ribbon-utilities");
     const pageFilters = page.getByTestId("search-query-ribbon-mobile-controls");
     const railMetrics = await utilities.evaluate((element) => ({
@@ -1660,12 +1660,9 @@ test.describe("Clinical KB tools launcher", () => {
         element.lastElementChild?.getAttribute("data-testid") === "search-query-ribbon-mobile-controls",
     }));
     expect(railMetrics.lastChildIsPageFilter).toBe(true);
-    const sortHeight = await utilities
-      .getByRole("group", { name: "Sort results" })
-      .evaluate((element) => element.getBoundingClientRect().height);
+    await expect(utilities.getByRole("group", { name: "Sort results" })).toBeHidden();
     const filterHeight = await pageFilters.evaluate((element) => element.getBoundingClientRect().height);
-    expect(Math.abs(sortHeight - filterHeight)).toBeLessThanOrEqual(1);
-    expect(Math.min(sortHeight, filterHeight)).toBeGreaterThanOrEqual(43);
+    expect(filterHeight).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1754,10 +1751,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(typeSelect).toHaveValue("presentation");
     await typeSelect.selectOption("all");
 
-    // Sort is a segmented group and the page filter is a select. They no longer
-    // sit paired: Sort is inboard and the page filter renders last, hard against
-    // the ribbon's right edge. What still has to hold is that both keep a matched
-    // phone tap height, and that the utility rail owns any overflow.
+    // Sort is `sm`-and-up, so on a phone the page filter is the whole utilities
+    // group: it renders last, hard against the ribbon's right edge, and it is
+    // what has to carry the phone tap height. Sort stays mounted but hidden —
+    // asserted, not assumed, so returning it to the phone line fails here.
     const utilities = page.getByTestId("search-query-ribbon-utilities");
     const pageFilters = page.getByTestId("search-query-ribbon-mobile-controls");
     const railMetrics = await utilities.evaluate((element) => ({
@@ -1767,12 +1764,9 @@ test.describe("Clinical KB tools launcher", () => {
         element.lastElementChild?.getAttribute("data-testid") === "search-query-ribbon-mobile-controls",
     }));
     expect(railMetrics.lastChildIsPageFilter).toBe(true);
-    const sortHeight = await utilities
-      .getByRole("group", { name: "Sort results" })
-      .evaluate((element) => element.getBoundingClientRect().height);
+    await expect(utilities.getByRole("group", { name: "Sort results" })).toBeHidden();
     const filterHeight = await pageFilters.evaluate((element) => element.getBoundingClientRect().height);
-    expect(Math.abs(sortHeight - filterHeight)).toBeLessThanOrEqual(1);
-    expect(Math.min(sortHeight, filterHeight)).toBeGreaterThanOrEqual(43);
+    expect(filterHeight).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
