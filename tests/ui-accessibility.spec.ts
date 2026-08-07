@@ -569,9 +569,10 @@ test.describe("Clinical KB accessibility coverage", () => {
       const bounds = element.getBoundingClientRect();
       return { width: bounds.width, height: bounds.height };
     });
-    // 44, not 48. This trigger sits in the ribbon's utility row beside
-    // `ResultSortControl`, which is `min-h-tap` (44px) — raising only this
-    // control would leave the row visibly ragged. The repo's `min-h-12` rule
+    // 44, not 48. This trigger sits in the ribbon's utility row, which is
+    // `min-h-tap` (44px) throughout — raising only this control would leave the
+    // row visibly ragged. (`ResultSortControl` set that rhythm before it became
+    // `sm`-and-up; the row still holds it.) The repo's `min-h-12` rule
     // exists to stop generic a11y advice pulling production down to `min-h-11`
     // (a known `ui-smoke` flake), not to override a page's own row rhythm; the
     // sheet's own toggles, which have the room, are `min-h-12`.
