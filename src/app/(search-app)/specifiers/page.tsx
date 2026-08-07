@@ -1,4 +1,4 @@
-import { SpecifiersHomePage } from "@/components/specifiers/specifiers-home-page";
+import SpecifiersPageClient from "./specifiers-page-client";
 
 type SpecifiersRouteProps = {
   searchParams?: Promise<{ query?: string | string[]; q?: string | string[]; run?: string | string[] }>;
@@ -13,5 +13,5 @@ export default async function SpecifiersRoute({ searchParams }: SpecifiersRouteP
   const query = (firstSearchParam(params.q) ?? firstSearchParam(params.query) ?? "").trim();
   const hasSubmittedSearch = firstSearchParam(params.run) === "1" && query.length > 0;
 
-  return <SpecifiersHomePage query={query} autoRunSearch={hasSubmittedSearch} />;
+  return <SpecifiersPageClient query={query} hasSubmittedSearch={hasSubmittedSearch} />;
 }

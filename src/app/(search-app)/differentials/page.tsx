@@ -1,4 +1,4 @@
-import { DifferentialsHomePage } from "@/components/differentials/differentials-home-page";
+import DifferentialsPageClient from "./differentials-page-client";
 
 type DifferentialsRouteProps = {
   searchParams?: Promise<{ query?: string | string[]; q?: string | string[]; run?: string | string[] }>;
@@ -13,9 +13,5 @@ export default async function DifferentialsHomeRoute({ searchParams }: Different
   const query = (firstSearchParam(params.q) ?? firstSearchParam(params.query) ?? "").trim();
   const hasSubmittedSearch = firstSearchParam(params.run) === "1" && query.length > 0;
 
-  if (!hasSubmittedSearch) {
-    return <DifferentialsHomePage />;
-  }
-
-  return <DifferentialsHomePage query={query} autoRunSearch />;
+  return <DifferentialsPageClient query={query} hasSubmittedSearch={hasSubmittedSearch} />;
 }

@@ -3,13 +3,131 @@
   "enforce": false,
   "$lighthouseVersion": "Pinned exactly, not `lighthouse@12`: a patch published between a baseline run and its follow-up would silently change the measurement. Kept in step with LIGHTHOUSE_VERSION in .github/workflows/live-web-vitals.yml by tests/check-lighthouse-budget.test.ts so the two Lighthouse entry points cannot drift apart.",
   "lighthouseVersion": "12.8.2",
-  "routes": ["/", "/therapy-compass", "/documents/search", "/dsm", "/forms"],
-  "strategies": ["mobile", "desktop"],
+  "routes": [
+    "/",
+    "/services",
+    "/forms",
+    "/differentials",
+    "/dsm",
+    "/specifiers",
+    "/tools"
+  ],
+  "strategies": [
+    "mobile",
+    "desktop"
+  ],
   "tolerance": {
-    "lcpMs": { "pct": 20, "minAbsolute": 100 },
-    "tbtMs": { "pct": 30, "minAbsolute": 50 },
-    "cls": { "absolute": 0.02 }
+    "lcpMs": {
+      "pct": 20,
+      "minAbsolute": 100
+    },
+    "tbtMs": {
+      "pct": 30,
+      "minAbsolute": 50
+    },
+    "cls": {
+      "absolute": 0.02
+    }
   },
-  "baseline": null,
-  "updatedAt": null
+  "baseline": {
+    "desktop-differentials": {
+      "lcpMs": 1174.1899999999998,
+      "cls": 0.02948568652082339,
+      "tbtMs": 89.99999999999955,
+      "fcpMs": 380.876,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-dsm": {
+      "lcpMs": 835.82425,
+      "cls": 0.03213333321395112,
+      "tbtMs": 22.999999999999886,
+      "fcpMs": 390.3297,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-forms": {
+      "lcpMs": 1548.82125,
+      "cls": 0.06773361680638862,
+      "tbtMs": 52.000000000000114,
+      "fcpMs": 387.5285,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-root": {
+      "lcpMs": 881.3212000000001,
+      "cls": 0.01497311969179582,
+      "tbtMs": 27,
+      "fcpMs": 383.6606,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-services": {
+      "lcpMs": 2132.1195000000007,
+      "cls": 0.07056934718525104,
+      "tbtMs": 107.99999999999977,
+      "fcpMs": 409.177,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-specifiers": {
+      "lcpMs": 1261.303750000001,
+      "cls": 0.03433776151792091,
+      "tbtMs": 19,
+      "fcpMs": 395.4475,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-tools": {
+      "lcpMs": 1160.4982500000006,
+      "cls": 0.06418358118572201,
+      "tbtMs": 44,
+      "fcpMs": 389.7993,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-differentials": {
+      "lcpMs": 5689.055,
+      "cls": 0.23652907228245057,
+      "tbtMs": 1090.170000000001,
+      "fcpMs": 2383.307,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-dsm": {
+      "lcpMs": 2510.422,
+      "cls": 0.3444470855374567,
+      "tbtMs": 1097.1899999999982,
+      "fcpMs": 2510.422,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-forms": {
+      "lcpMs": 6181.899,
+      "cls": 0.18966263071564923,
+      "tbtMs": 1641.898999999998,
+      "fcpMs": 2160.687,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-root": {
+      "lcpMs": 3096.275,
+      "cls": 0.02134117984022536,
+      "tbtMs": 582.7530000000002,
+      "fcpMs": 3096.275,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-services": {
+      "lcpMs": 6384.913,
+      "cls": 0.1419221678091444,
+      "tbtMs": 893.9109999999991,
+      "fcpMs": 2322.825,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-specifiers": {
+      "lcpMs": 5214.282,
+      "cls": 0.1419221678091444,
+      "tbtMs": 1116.8320000000012,
+      "fcpMs": 2376.156,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-tools": {
+      "lcpMs": 6911.577,
+      "cls": 0.1419221678091444,
+      "tbtMs": 1112.321,
+      "fcpMs": 2014.65,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    }
+  },
+  "updatedAt": "2026-07-31T21:01:37.013Z"
 }

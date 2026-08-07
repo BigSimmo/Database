@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 
-import { HomePageClient } from "./home-page-client";
 import { appModeHomeHref, isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 
 type HomeProps = {
@@ -17,7 +15,6 @@ export default async function Home({ searchParams }: HomeProps) {
   // lifecycle. Render it for the incoming request so `useSearchParams()` is
   // available during the initial server render instead of leaving the entire
   // interactive shell behind a hydration-only Suspense fallback.
-  await connection();
   const params = searchParams ? await searchParams : {};
   const requestedMode = firstSearchParam(params.mode);
   const initialSearchMode: AppModeId =
@@ -88,5 +85,8 @@ export default async function Home({ searchParams }: HomeProps) {
     );
   }
 
-  return <HomePageClient initialMode={initialSearchMode} />;
+  // On home mode with no external redirects, mount the shared shell path with
+  // no additional client wrapper. The global shell owns route-mode rendering for
+  // the answer dashboard.
+  return null;
 }

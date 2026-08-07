@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cache } from "react";
 import localFont from "next/font/local";
 import { cookies, headers } from "next/headers";
 import { AuthProvider } from "@/lib/supabase/client";
@@ -60,22 +61,41 @@ const baseMetadata: Metadata = {
   },
 };
 
+const getStaticMetadataBase = cache(() =>
+  resolveMetadataBase(new Headers(), {
+    configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    trustedDeploymentDomain: process.env.RAILWAY_PUBLIC_DOMAIN,
+    allowRequestOrigin: false,
+  }),
+);
+
+const getRequestMetadataBase = cache(async () =>
+  resolveMetadataBase(await headers(), {
+    configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    trustedDeploymentDomain: process.env.RAILWAY_PUBLIC_DOMAIN,
+    allowRequestOrigin: true,
+  }),
+);
+
 /**
  * Generates application metadata with a request-aware base URL.
  *
  * @returns The application metadata, including its resolved base URL.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const allowRequestOrigin = process.env.NODE_ENV !== "production";
-  const requestHeaders = await headers();
-  const metadataHeaders = allowRequestOrigin ? requestHeaders : new Headers();
+  const hasConfiguredMetadataOrigin =
+    Boolean(process.env.NEXT_PUBLIC_SITE_URL) || Boolean(process.env.RAILWAY_PUBLIC_DOMAIN);
+  const allowRequestOrigin = process.env.NODE_ENV !== "production" && !hasConfiguredMetadataOrigin;
+  if (!allowRequestOrigin) {
+    return {
+      ...baseMetadata,
+      metadataBase: await getStaticMetadataBase(),
+    };
+  }
+
   return {
     ...baseMetadata,
-    metadataBase: resolveMetadataBase(metadataHeaders, {
-      configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
-      trustedDeploymentDomain: process.env.RAILWAY_PUBLIC_DOMAIN,
-      allowRequestOrigin,
-    }),
+    metadataBase: await getRequestMetadataBase(),
   };
 }
 

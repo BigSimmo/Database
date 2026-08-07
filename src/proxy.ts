@@ -104,6 +104,15 @@ export async function proxy(request: NextRequest) {
     return withCsp(NextResponse.next({ request: { headers: requestHeadersWithNonce() } }));
   }
 
+  const requestAcceptHeader = request.headers.get("accept") ?? "";
+  const requestAcceptsHtml = requestAcceptHeader.includes("text/html");
+  const isApiRoute = pathname.startsWith("/api/");
+  const shouldRefreshAuthSession = !isApiRoute && requestAcceptsHtml;
+
+  if (request.method === "GET" && !shouldRefreshAuthSession) {
+    return withCsp(NextResponse.next({ request: { headers: requestHeadersWithNonce() } }));
+  }
+
   let response = NextResponse.next({ request: { headers: requestHeadersWithNonce() } });
   const supabase = createServerClient(url, key, {
     cookies: {
