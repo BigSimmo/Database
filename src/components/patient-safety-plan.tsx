@@ -21,7 +21,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { NavigationBackButton } from "@/components/navigation-back-button";
 import { appModeHomeHref } from "@/lib/app-modes";
@@ -479,7 +479,19 @@ export function PatientSafetyPlan() {
   // Per-instance id counter — avoids a module-level mutable that would persist
   // across remounts; ids only need to be unique within this mounted plan.
   const uidRef = useRef(0);
+  const copiedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uid = useCallback((prefix: string) => `${prefix}-live-${uidRef.current++}`, []);
+
+  // Clear the copy-feedback timer on unmount so jsdom teardown / remount cannot
+  // fire setState after the environment tears down (`window is not defined`).
+  useEffect(() => {
+    return () => {
+      if (copiedResetRef.current != null) {
+        clearTimeout(copiedResetRef.current);
+        copiedResetRef.current = null;
+      }
+    };
+  }, []);
 
   const addEntry = useCallback(
     (key: StepKey, primary: string, secondary?: string) => {
@@ -556,7 +568,11 @@ export function PatientSafetyPlan() {
     try {
       await navigator.clipboard.writeText(planText);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
+      if (copiedResetRef.current != null) clearTimeout(copiedResetRef.current);
+      copiedResetRef.current = setTimeout(() => {
+        copiedResetRef.current = null;
+        setCopied(false);
+      }, 1600);
     } catch {
       /* clipboard unavailable in some embeds — safe no-op */
     }
