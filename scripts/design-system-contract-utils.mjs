@@ -201,6 +201,12 @@ const DENSITY_HEIGHT_UTILITY = /^(?:h|min-h|max-h|size)-/;
 const DENSITY_TEXT_UTILITY = /^text-(?:2xs|xs|sm-minus|sm|base|lg|xl|[2-9]xl|\[[^\]]*(?:px|rem|em|clamp\()[^\]]*\])$/;
 const HARDCODED_MOTION_UTILITY = /^(?:duration|delay)-(?:\d+|\[(?!var\(--duration-)[^\]]+\])$/;
 const LITERAL_SHADOW_UTILITY = /^shadow-\[(?!var\()[^\]]+\]$/;
+// Same shape as the literal-shadow ratchet, for the same reason: 371 arbitrary
+// letterspacing values across 31 distinct spellings, seven of them positive steps
+// between 0.04 and 0.16em that no reader can tell apart. `tracking-[var(--…)]` is
+// the sanctioned token form and is deliberately NOT counted, exactly as
+// `text-[color:var(--…)]` is exempt from the type-scale check.
+const ARBITRARY_TRACKING_UTILITY = /^tracking-\[(?!var\()[^\]]+\]$/;
 const LEGACY_SHADOW_ALIAS = /var\(--shadow-(?:tight|card|soft|hover|elevated|lux|lift)\)/g;
 const LEGACY_PALETTE_UTILITY =
   /^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(?:white|black|(?:slate|gray|zinc|neutral|stone)-\d{2,3})(?:\/\d{1,3})?$/;
@@ -660,6 +666,7 @@ function uniqueTokenEntries(possibilities) {
 export function analyzeClassContractsInSource(relativePath, sourceText) {
   const analyzer = classExpressionAnalyzer(relativePath, sourceText);
   const result = {
+    arbitraryTracking: [],
     darkColorOverrides: [],
     densityOverrides: [],
     edgeOwnershipConflicts: [],
@@ -709,6 +716,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
       result.hardcodedMotionClasses.push(`${relativePath}:${line} (${token})`);
     }
     if (LITERAL_SHADOW_UTILITY.test(base)) result.literalShadowClasses.push(`${relativePath}:${line} (${token})`);
+    if (ARBITRARY_TRACKING_UTILITY.test(base)) result.arbitraryTracking.push(`${relativePath}:${line} (${token})`);
     if (hasLegacyTapClass(token)) result.legacyTapClasses.push(`${relativePath}:${line} (${token})`);
     for (const match of token.matchAll(LEGACY_SHADOW_ALIAS)) {
       result.legacyShadowAliases.push(`${relativePath}:${line} (${match[0]})`);

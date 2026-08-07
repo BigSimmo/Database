@@ -134,10 +134,46 @@
   --leading-display: 1.05;
   --leading-prose: 1.6;
 
-  /* Uppercase eyebrow tracking. 0.08em was spelled as `tracking-[0.08em]` at 60+
-     call sites; this makes it a named utility (`tracking-eyebrow`) with the
-     identical computed value. */
+  /* ---- Letterspacing scale -------------------------------------------------
+     Measured 7 Aug 2026, production only (`*-mockups.tsx` and `mockups/` are
+     design scratch and gate-exempt): 110 arbitrary `tracking-[…]` call sites
+     across 18 distinct values, against one named token. Counting mockups gives
+     372/31 — that is the number to quote about the *sprawl*, not about the debt
+     a gate can act on.
+
+     The real defect is sharper than sprawl. 57 of the 110 sites are a single
+     value, 0.06em — and `--tracking-eyebrow` is declared at 0.08em, so the one
+     named token does not match the value its own call sites overwhelmingly use.
+     That is why it has almost no consumers: the token was named for a number
+     nobody writes.
+
+     Named roles, with the measured production counts each one absorbs:
+
+       --tracking-display  -0.02em  folds: -0.008 (1), -0.01 (3), -0.035 (1), -0.04 (1)
+       --tracking-normal    0       folds: 0.01 (1), 0.02 (2)
+       --tracking-label     0.06em  folds: 0.04 (3), 0.05 (6), 0.06 (57)   <- the mass
+       --tracking-eyebrow   0.08em  folds: 0.08 (8), 0.09 (1)   [pre-existing, value unchanged]
+       --tracking-kicker    0.12em  folds: 0.1 (7), 0.11 (1), 0.12 (14), 0.16 (1)
+
+     Five roles, not seven: production does not justify a second wide step or a
+     separate tight-display step — the negative cluster is six sites total. No
+     fold moves a call site by more than 0.04em, and most by 0.01–0.02em.
+
+     `--tracking-eyebrow` keeps 0.08em deliberately. Retuning it to 0.06em would
+     silently move every existing consumer of the token; that is a different
+     change from naming the scale, and wants its own measured step.
+
+     The `arbitraryTracking` contract ratchet holds the family at its current
+     per-path count (68 statically-resolvable sites across 40 files) so it cannot
+     regrow while the call-site migration waits on the open answer-shell and
+     doc-truth PRs. `tracking-[var(--…)]` is the sanctioned token form and is not
+     counted, exactly as `text-[color:var(--…)]` is exempt from the type-scale
+     check. */
+  --tracking-display: -0.02em;
+  --tracking-normal: 0em;
+  --tracking-label: 0.06em;
   --tracking-eyebrow: 0.08em;
+  --tracking-kicker: 0.12em;
 
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
