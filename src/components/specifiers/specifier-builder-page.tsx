@@ -8,7 +8,6 @@ import {
   SpecifierBreadcrumbs,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierSubnav,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
@@ -83,10 +82,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
 
   return (
     <SpecifierPageShell>
-      <div className="grid gap-3">
-        <SpecifierBreadcrumbs current="Build wording" />
-        <SpecifierSubnav active="builder" />
-      </div>
+      <SpecifierBreadcrumbs current="Build wording" />
 
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
         <p className={eyebrowText}>Structured diagnostic language</p>
