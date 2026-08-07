@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseIssues } from "../scripts/check-outstanding-issues.mjs";
 import { addIssue, escapeCell, resolveIssue, splitCells, updateIssue } from "../scripts/outstanding-issues.mjs";
 
-const OPEN_CELLS = 7;
+const OPEN_CELLS = 10;
 const ARCHIVE_CELLS = 5;
 
 const ledger = [
@@ -13,10 +13,10 @@ const ledger = [
   "",
   "## Open items",
   "",
-  "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
-  "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
-  "| #005 | P2 | issue | first | detail one | src | 2026-01-01 |",
-  "| #006 | P3 | task | second | detail two | src | 2026-01-02 |",
+  "| ID | Type | Priority / status | Group / main issue | Before starting | Codex | Checks / CI | External input / time | Done when | Details |",
+  "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+  "| #005 | issue | <strong>P2</strong><br>Ready | <strong>Test</strong><br>first | None | 1h | 5m | None | first is fixed | <details><summary>Evidence</summary><strong>Context:</strong> detail one<br><strong>Source:</strong> src<br><strong>Added:</strong> 2026-01-01</details> |",
+  "| #006 | task | <strong>P3</strong><br>Open | <strong>Test</strong><br>second | Revalidate | 2h | 10m | None | second is done | <details><summary>Evidence</summary><strong>Context:</strong> detail two<br><strong>Source:</strong> src<br><strong>Added:</strong> 2026-01-02</details> |",
   "",
   "## Resolved / archive",
   "",
@@ -39,8 +39,17 @@ describe("outstanding-issues writer", () => {
   });
 
   it("allocates the marker's id and bumps it", () => {
-    const next = addIssue(ledger, { summary: "third" }, { date: "2026-02-02" });
-    expect(rowFor(next, "#007")).toBeDefined();
+    const next = addIssue(
+      ledger,
+      { summary: "third", status: "Ready", group: "Documents", codex: "30m", done: "fixture passes" },
+      { date: "2026-02-02" },
+    );
+    const row = rowFor(next, "#007");
+    expect(row).toBeDefined();
+    expect(row!.raw).toContain("<strong>P2</strong><br>Ready");
+    expect(row!.raw).toContain("<strong>Documents</strong><br>third");
+    expect(row!.raw).toContain("| 30m |");
+    expect(row!.raw).toContain("| fixture passes |");
     expect(parseIssues(next).nextId).toBe(8);
   });
 
@@ -49,6 +58,12 @@ describe("outstanding-issues writer", () => {
     const row = rowFor(next, "#007");
     expect(splitCells(row!.raw)).toHaveLength(OPEN_CELLS);
     expect(row!.raw).toContain("a \\| b");
+
+    const archived = resolveIssue(next, "#007", "done | verified", { date: "2026-03-03" });
+    const archivedRow = rowFor(archived, "#007");
+    expect(splitCells(archivedRow!.raw)).toHaveLength(ARCHIVE_CELLS);
+    expect(archivedRow!.raw).toContain("a \\| b");
+    expect(archivedRow!.raw).toContain("done \\| verified");
   });
 
   it("moves a row to the archive rather than copying it, reshaping its width", () => {
@@ -61,10 +76,17 @@ describe("outstanding-issues writer", () => {
   });
 
   it("edits an open row in place without changing its width", () => {
-    const next = updateIssue(ledger, "#006", { detail: "replaced | detail" });
+    const next = updateIssue(ledger, "#006", {
+      status: "Blocked",
+      checks: "15m",
+      detail: "replaced | detail",
+    });
     const row = rowFor(next, "#006");
     expect(row?.table).toBe("open");
     expect(splitCells(row!.raw)).toHaveLength(OPEN_CELLS);
+    expect(row!.raw).toContain("<strong>P3</strong><br>Blocked");
+    expect(row!.raw).toContain("<strong>Test</strong><br>second");
+    expect(row!.raw).toContain("| 15m |");
     expect(row!.raw).toContain("replaced \\| detail");
   });
 

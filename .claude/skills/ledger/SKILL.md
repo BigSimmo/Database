@@ -76,14 +76,20 @@ hand-edit** (hand edits are what the gate exists to reject):
 npm run issues:add -- --pri P2 --type issue --summary "<title>" --detail "<detail>" --source "session YYYY-MM-DD /ledger sweep"
 ```
 
-Field mapping into the row (the repo ledger has fixed columns; the extra fields ride in Detail):
+Field mapping into the expanded open-item row:
 
-- `importance` → **Pri**: P0 and P1 → `P1` (note "was P0" in Detail), P2 → `P2`, P3 → `P3`.
+- `importance` → **Pri**: P0 and P1 → `P1` (note "was P0" in Context), P2 → `P2`, P3 → `P3`.
 - `category` → **Type**: bug/risk → `issue`; follow-up/refactor/infrastructure/hygiene → `task`;
   idea → `rec`.
-- **Detail** = `next_step`, then `Why:`, `Context:`, `Owner:`, `Confidence:`, and
-  `Depends on:` as short clauses. Escape `|` as `\|`. Keep it one crisp cell, not a paragraph.
+- `status` is paired with priority in **Priority / status**; the owning subsystem and `title` are
+  paired in **Group / main issue**.
+- `dependencies` and approvals → **Before starting**; estimates → **Codex**, **Checks / CI**, and
+  **External input / time**; acceptance criteria → **Done when**.
+- The collapsed **Evidence** cell contains `Why:`, triggering context, owner, confidence,
+  constraints, supporting proof, source, and added date. The backwards-compatible CLI flag for its
+  context field is `--detail`.
 - **Source** = `session YYYY-MM-DD /ledger sweep` plus the doc/PR/file:line when one exists.
+- Escape `|` as `\|` in every value. Never invent an estimate; use `Estimate before start`.
 
 If **no** new items survive the filter, append one dated line to the notes block above the Open
 items table: `> Ledger sweep YYYY-MM-DD: no new outstanding items found.`
