@@ -203,7 +203,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
                   key={row.label}
                   className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
                 >
-                  <h2 className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-heading)]">
+                  <h2 className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-xs font-extrabold uppercase tracking-label text-[color:var(--text-heading)]">
                     {row.label}
                   </h2>
                   <dl className="divide-y divide-[color:var(--border)]">

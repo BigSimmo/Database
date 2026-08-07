@@ -50,7 +50,7 @@ function SlotInk({
       className={cn(
         // One weight in every state. Bolding the active label changes its width,
         // which shifts the rule and every neighbour on each navigation.
-        "mode-nav__ink relative flex h-5 min-w-0 items-center gap-2 text-sm-minus font-semibold tracking-[-0.008em]",
+        "mode-nav__ink relative flex h-5 min-w-0 items-center gap-2 text-sm-minus font-semibold tracking-display",
         // The 2px rule takes space at the bottom of the bar, so a centred label
         // sits optically high without this compensating offset.
         "mt-0.5",

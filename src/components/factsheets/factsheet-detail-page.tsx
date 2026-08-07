@@ -182,7 +182,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                   {factsheetGlyph(factsheet.icon, "h-6 w-6")}
                 </span>
                 <div className="flex flex-col gap-1">
-                  <span className="text-2xs font-bold uppercase tracking-[0.06em]" style={{ color: theme.accent }}>
+                  <span className="text-2xs font-bold uppercase tracking-label" style={{ color: theme.accent }}>
                     {factsheet.category}
                   </span>
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -351,22 +351,18 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           {/* sidebar */}
           <aside className="grid gap-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] lg:sticky lg:top-4">
             <div className="p-4">
-              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">For</p>
+              <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">For</p>
               <p className="mt-1 text-sm font-bold text-[color:var(--text-heading)]">{factsheet.audience}</p>
             </div>
             <div className="border-t border-[color:var(--border)] p-4">
-              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
-                Last updated
-              </p>
+              <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">Last updated</p>
               <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold text-[color:var(--text-heading)]">
                 <Clock className="h-3.5 w-3.5 text-[color:var(--text-muted)]" aria-hidden="true" />
                 {factsheet.reviewedOn}
               </p>
             </div>
             <div className="border-t border-[color:var(--border)] p-4">
-              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
-                On this page
-              </p>
+              <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">On this page</p>
               <ul className="mt-2 grid gap-1.5">
                 {toc.map((item) => (
                   <li key={item} className="text-sm text-[color:var(--text-muted)]">
@@ -436,7 +432,7 @@ function FactsheetBody({
             className="rounded-2xl border p-5"
             style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
           >
-            <p className="text-2xs font-bold uppercase tracking-[0.06em]" style={{ color: theme.accent }}>
+            <p className="text-2xs font-bold uppercase tracking-label" style={{ color: theme.accent }}>
               At a glance
             </p>
             <div className="mt-3.5 grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3">
@@ -712,7 +708,7 @@ function FactsheetBody({
                   key={step.t}
                   className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4"
                 >
-                  <p className="text-2xs font-bold uppercase tracking-[0.06em]" style={{ color: theme.accent }}>
+                  <p className="text-2xs font-bold uppercase tracking-label" style={{ color: theme.accent }}>
                     {step.t}
                   </p>
                   <p className="mt-2 text-pretty text-sm leading-6 text-[color:var(--text)]">{step.d}</p>

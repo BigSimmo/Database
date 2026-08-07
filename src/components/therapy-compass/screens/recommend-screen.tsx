@@ -251,7 +251,7 @@ function MatchCell({
 function ColMini({ eyebrow, text }: { eyebrow: string; text: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-3xs font-bold tracking-[0.04em] text-[color:var(--text-muted)] mb-1">{eyebrow}</div>
+      <div className="text-3xs font-bold tracking-label text-[color:var(--text-muted)] mb-1">{eyebrow}</div>
       <p className="m-0 text-xs leading-normal text-[color:var(--text-muted)] overflow-hidden line-clamp-2">{text}</p>
     </div>
   );

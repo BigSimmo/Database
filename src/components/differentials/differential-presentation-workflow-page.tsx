@@ -733,7 +733,7 @@ export function DifferentialPresentationWorkflowPage({
                 </div>
                 <span
                   id="density-controls-unavailable"
-                  className="px-1 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]"
+                  className="px-1 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]"
                 >
                   Density controls coming soon
                 </span>

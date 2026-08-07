@@ -110,7 +110,7 @@ export function ClinicalOutputPanel({
                 "min-h-12 min-w-0 justify-between gap-2 rounded-lg px-3 py-2 text-left sm:min-h-9",
               )}
             >
-              <span className="min-w-0 truncate text-2xs uppercase tracking-[0.06em]">{item.label}</span>
+              <span className="min-w-0 truncate text-2xs uppercase tracking-label">{item.label}</span>
               <span className="shrink-0 text-sm font-bold text-[color:var(--text-heading)]">{item.value}</span>
             </span>
           ))}
@@ -170,7 +170,7 @@ export function ClinicalOutputPanel({
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                      <p className="truncate text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
                         {meta.eyebrow}
                       </p>
                       <h3 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">

@@ -158,7 +158,7 @@ export function CalculatorsClinicalConsoleMockup() {
               const DomainIcon = domainIcons[domain];
               return (
                 <section key={domain} className="grid gap-1">
-                  <h2 className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 px-3 text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]">
+                  <h2 className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 px-3 text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
                     <DomainIcon className="size-icon-xs text-[color:var(--decoration-soft)]" aria-hidden="true" />
                     {domainLabels[domain]}
                   </h2>

@@ -63,9 +63,7 @@ export default function ColourCodingReferencePage() {
           </header>
 
           <section className={cn(raisedCard, "p-4 sm:p-5")}>
-            <h2 className="text-sm font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
-              Tone key
-            </h2>
+            <h2 className="text-sm font-semibold uppercase tracking-label text-[color:var(--text-muted)]">Tone key</h2>
             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
               {SEMANTIC_TONES.map((tone) => (
                 <div

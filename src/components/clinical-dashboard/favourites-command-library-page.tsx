@@ -643,7 +643,7 @@ function FavouritesTable({
   return (
     <section className="min-w-0 max-w-full overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] px-3.5 py-2.5">
-        <p className="inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+        <p className="inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]">
           <Heart className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
           <span className="nums font-bold text-[color:var(--text-heading)]">{tableRows.length}</span>
           {tableRows.length === 1 ? "item" : "items"}

@@ -3834,7 +3834,7 @@ export function ClinicalDashboard({
               )}
               {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
                 <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
-                  <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+                  <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
                     {drawerGroupTitle}
                   </p>
                   {settingsState.documentsDrawerOpen ? (
