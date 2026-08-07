@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   CircleAlert,
@@ -21,19 +20,8 @@ import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
-import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading";
-import {
-  getDefaultPdfViewerMode,
-  getInitialPdfViewerMode,
-  pdfViewerModeNativeValue,
-  pdfViewerModeStorageKey,
-  pdfViewerModeValue,
-  pdfViewerNativeModeBreakpoint,
-} from "@/components/document-viewer/pdf-viewer-mode";
 import { useDocumentViewerChromeScroll } from "@/components/clinical-dashboard/use-document-viewer-chrome-scroll";
 import { AnswerProgressStepper } from "@/components/clinical-dashboard/answer-status";
-import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/answer-progress";
-import { readAnswerStream } from "@/components/clinical-dashboard/search-utils";
 import {
   appBackdrop,
   cn,
@@ -46,6 +34,15 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
+import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pdf-readers-lazy";
+import {
+  requestSignedUrlPayload,
+  rowsById,
+  type SignedUrlResponsePayload,
+} from "@/components/document-viewer/signed-url-request";
+import { useDocumentSummarize } from "@/components/document-viewer/use-document-summarize";
+import { useDocumentViewerRoute } from "@/components/document-viewer/use-document-viewer-route";
+import { usePdfViewerPreference } from "@/components/document-viewer/use-pdf-viewer-preference";
 import { DocumentFrame, type DocumentFrameSource } from "@/components/ui/document-frame";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
@@ -63,7 +60,7 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { DocumentManagementActions } from "@/components/DocumentManagementActions";
 import { Sheet } from "@/components/ui/sheet";
-import type { ClinicalDocument, DocumentLabel, RagAnswer } from "@/lib/types";
+import type { ClinicalDocument, DocumentLabel } from "@/lib/types";
 import { cleanClinicalSummaryText } from "@/lib/source-text-sanitizer";
 import { formatDocumentSummary } from "@/lib/document-summary-formatting";
 import { buildDocumentSummaryBadges } from "@/lib/document-summary-badges";
@@ -92,59 +89,9 @@ import { useDocumentChromeMetrics } from "@/components/document-viewer/use-docum
 import { useDocumentViewDensity } from "@/components/document-viewer/use-document-view-density";
 import { usePrintableDisclosures } from "@/components/document-viewer/use-printable-disclosures";
 
-// pdf-canvas-viewer is only needed after a source document has loaded and the
-// user is viewing a PDF. Keeping it out of the document route's initial client
-// chunk avoids parsing its reader controls for image, text, and download-only
-// documents. pdf.js itself remains loaded on demand by that component.
-const PdfCanvasViewer = dynamic(
-  () => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.PdfCanvasViewer),
-  {
-    ssr: false,
-    loading: () => <PdfPreviewLoading />,
-  },
-);
-
 const emptyDocumentSearchResults: DocumentSearchResult[] = [];
-const NativePdfEmbed = dynamic(
-  () => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.NativePdfEmbed),
-  { ssr: false, loading: () => <PdfPreviewLoading /> },
-);
 
 const secondaryButton = floatingControl;
-
-type SignedUrlResponsePayload = {
-  url?: string;
-  caption?: string;
-  mimeType?: string;
-  fileType?: string;
-  expiresAt?: string;
-  error?: string;
-};
-
-// Single signed-URL GET: parse JSON, mark the session expired on 401, and throw
-// a message on failure. Shared by the initial load and the expiry refresh so the
-// fetch/auth handling lives in exactly one place.
-async function requestSignedUrlPayload(
-  endpoint: string,
-  options: {
-    signal: AbortSignal;
-    headers: HeadersInit | undefined;
-    onUnauthorized: () => void;
-    errorMessage: string;
-  },
-): Promise<SignedUrlResponsePayload> {
-  const response = await fetch(endpoint, { signal: options.signal, headers: options.headers });
-  const payload: SignedUrlResponsePayload = await response.json();
-  if (response.status === 401) options.onUnauthorized();
-  if (!response.ok) throw new Error(payload?.error || options.errorMessage);
-  return payload;
-}
-
-function rowsById<T extends { id: string }>(incoming: T[]) {
-  const rows = new Map<string, T>();
-  for (const row of incoming) rows.set(row.id, row);
-  return Array.from(rows.values());
-}
 
 /**
  * Renders the clinical document viewer with source previews, extracted content, summaries, and document tools.
@@ -168,32 +115,11 @@ export function DocumentViewer({
   initialError?: string;
 }) {
   const router = useRouter();
-  const [activeRoute, setActiveRoute] = useState(() => ({ page: initialPage, chunkId }));
-  const activePage = activeRoute.page;
-  const activeChunkId = activeRoute.chunkId;
-
-  useEffect(() => {
-    const syncFromHistory = () => {
-      const params = new URLSearchParams(window.location.search);
-      const parsedPage = Number.parseInt(params.get("page") ?? "", 10);
-      setActiveRoute({
-        page: Number.isFinite(parsedPage) && parsedPage >= 1 ? parsedPage : 1,
-        chunkId: params.get("chunk") ?? undefined,
-      });
-    };
-    window.addEventListener("popstate", syncFromHistory);
-    return () => window.removeEventListener("popstate", syncFromHistory);
-  }, []);
-
-  const navigateToPage = useCallback(
-    (page: number) => {
-      const nextPage = Math.max(1, Math.trunc(page));
-      if (nextPage === activePage) return;
-      window.history.pushState(null, "", documentPageHref(documentId, nextPage));
-      setActiveRoute({ page: nextPage, chunkId: undefined });
-    },
-    [activePage, documentId],
-  );
+  const { activePage, activeChunkId, navigateToPage } = useDocumentViewerRoute({
+    documentId,
+    initialPage,
+    chunkId,
+  });
   usePrintableDisclosures();
   const [document, setDocument] = useState<ClinicalDocument | null>(() => initialDetail?.document ?? null);
   const [pages, setPages] = useState<PageRow[]>(() => initialDetail?.pages ?? []);
@@ -203,17 +129,12 @@ export function DocumentViewer({
   const [indexHealth, setIndexHealth] = useState<DocumentIndexHealth | null>(() => initialDetail?.indexHealth ?? null);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [downloadSignedUrl, setDownloadSignedUrl] = useState<string | null>(null);
-  const [summary, setSummary] = useState<RagAnswer | null>(null);
-  const [summaryQuery, setSummaryQuery] = useState(documentSummaryQuestion);
-  const [summaryProgressEvents, setSummaryProgressEvents] = useState<TimedAnswerProgressUpdate[]>([]);
-  const [summaryProgressStartedAt, setSummaryProgressStartedAt] = useState<number | null>(null);
+  const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const [loadingDocument, setLoadingDocument] = useState(() => !initialDetail && !initialError);
   const [viewerError, setViewerError] = useState<string | null>(() => initialError ?? null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [downloadingSource, setDownloadingSource] = useState(false);
-  const [loadingSummary, setLoadingSummary] = useState(false);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
   // Cap consecutive expired-PDF signed-URL auto-refreshes; reset on document
   // change / successful reload so only an unrecoverable URL exhausts the budget.
@@ -271,21 +192,7 @@ export function DocumentViewer({
     composerChromeFocused,
   );
   const activeScrollOwner = useActiveScrollOwner(shellScrollContainer, documentId);
-  const [useNativePdfViewer, setUseNativePdfViewer] = useState(getDefaultPdfViewerMode);
-  const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(false);
-  const [viewerModeInitialized, setViewerModeInitialized] = useState(false);
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      const initialMode = getInitialPdfViewerMode();
-      setUseNativePdfViewer(initialMode.useNativePdfViewer);
-      setHasExplicitPdfViewerMode(initialMode.hasExplicitPdfViewerMode);
-      setViewerModeInitialized(true);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-  const generatedSummaryRef = useRef<HTMLElement | null>(null);
-  const summaryAbortRef = useRef<AbortController | null>(null);
-  useEffect(() => () => summaryAbortRef.current?.abort(), []);
+  const { useNativePdfViewer, togglePdfViewerMode } = usePdfViewerPreference();
   const {
     status: authStatus,
     session,
@@ -295,10 +202,34 @@ export function DocumentViewer({
     isAuthEpochCurrent,
     markSessionExpired,
   } = useAuthSession();
-  const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
+  const localNoAuthMode = isLocalNoAuthMode();
   const [serverDemoMode, setServerDemoMode] = useState(
     () => initialDetail?.demoMode ?? process.env.NEXT_PUBLIC_DEMO_MODE === "true",
   );
+  const clientDemoModeEarly = localNoAuthMode || serverDemoMode;
+  const {
+    summary,
+    summaryQuery,
+    summaryProgressEvents,
+    summaryProgressStartedAt,
+    loadingSummary,
+    summaryError,
+    summarize,
+    stopSummary,
+    setSummary,
+    setSummaryError,
+  } = useDocumentSummarize({
+    documentId,
+    canUsePrivateApis: localProjectReady && (clientDemoModeEarly || authStatus === "authenticated"),
+    clientDemoMode: clientDemoModeEarly,
+    viewerReady: Boolean(document) && !loadingDocument,
+    authorizationHeader,
+    registerAuthRequest,
+    isAuthEpochCurrent,
+    markSessionExpired,
+    generatedSummaryRef,
+  });
+  const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   // Drop every piece of mounted, identity-bound viewer state during render when the
   // auth identity changes (sign-out / expiry / account switch). An auth-only
   // transition leaves the document load key unchanged, so `isFullDocumentReload`
@@ -359,8 +290,7 @@ export function DocumentViewer({
       setLoadingDocument(true);
     }
   }
-  const localNoAuthMode = isLocalNoAuthMode();
-  const clientDemoMode = localNoAuthMode || serverDemoMode;
+  const clientDemoMode = clientDemoModeEarly;
   const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
   const documentSearchPending =
@@ -378,54 +308,6 @@ export function DocumentViewer({
     const timeoutId = window.setTimeout(() => setAuthLoadingTimedOut(true), 4_000);
     return () => window.clearTimeout(timeoutId);
   }, [authStatus]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !viewerModeInitialized || hasExplicitPdfViewerMode) return;
-
-    const syncDefaultViewerMode = () => {
-      setUseNativePdfViewer(getDefaultPdfViewerMode());
-    };
-
-    const smallScreen = window.matchMedia(`(max-width: ${pdfViewerNativeModeBreakpoint}px)`);
-
-    const syncFrame = window.requestAnimationFrame(syncDefaultViewerMode);
-    smallScreen.addEventListener("change", syncDefaultViewerMode);
-
-    return () => {
-      window.cancelAnimationFrame(syncFrame);
-      smallScreen.removeEventListener("change", syncDefaultViewerMode);
-    };
-  }, [viewerModeInitialized, hasExplicitPdfViewerMode]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onStorageChange = (event: StorageEvent) => {
-      if (event.key !== pdfViewerModeStorageKey || !event.newValue) return;
-      if (event.newValue === pdfViewerModeValue.native) {
-        setHasExplicitPdfViewerMode(true);
-        setUseNativePdfViewer(true);
-      } else if (event.newValue === pdfViewerModeValue.canvas) {
-        setHasExplicitPdfViewerMode(true);
-        setUseNativePdfViewer(false);
-      }
-    };
-
-    window.addEventListener("storage", onStorageChange);
-    return () => window.removeEventListener("storage", onStorageChange);
-  }, []);
-
-  useEffect(() => {
-    if (!viewerModeInitialized || !hasExplicitPdfViewerMode) return;
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(
-        pdfViewerModeStorageKey,
-        useNativePdfViewer ? pdfViewerModeNativeValue : pdfViewerModeValue.canvas,
-      );
-    } catch {
-      // localStorage can be unavailable in hardened browsers/private mode.
-    }
-  }, [useNativePdfViewer, viewerModeInitialized, hasExplicitPdfViewerMode]);
 
   const applyPreviewSignedUrlResult = useCallback(
     (result: PromiseSettledResult<SignedUrlResponsePayload>, endpoint: string) => {
@@ -860,94 +742,6 @@ export function DocumentViewer({
       window.removeEventListener("offline", updateOnline);
     };
   }, []);
-
-  async function summarize() {
-    if (!canUsePrivateApis) {
-      setSummaryError("Sign in before summarising private documents.");
-      return;
-    }
-    if (viewerState !== "ready" || loadingSummary) {
-      setSummaryError("Load a source document before summarising.");
-      return;
-    }
-    const query = documentSummaryQuestion;
-    const controller = new AbortController();
-    summaryAbortRef.current?.abort();
-    summaryAbortRef.current = controller;
-    const authRequest = registerAuthRequest(controller);
-    const startedAt = Date.now();
-    setLoadingSummary(true);
-    setSummary(null);
-    setSummaryQuery(query);
-    setSummaryError(null);
-    setSummaryProgressStartedAt(startedAt);
-    setSummaryProgressEvents([
-      {
-        stage: "scoping",
-        message: "Preparing the clinical search scope.",
-        receivedAt: startedAt,
-      },
-    ]);
-    try {
-      if (!isAuthEpochCurrent(authRequest.epoch)) {
-        throw new DOMException("Stale authentication epoch", "AbortError");
-      }
-      const response = await fetch("/api/answer/stream", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(clientDemoMode ? {} : authorizationHeader),
-        },
-        body: JSON.stringify({ query, documentId, summaryMode: true }),
-        signal: controller.signal,
-      });
-      if (response.status === 401) markSessionExpired();
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: unknown } | null;
-        throw new Error(
-          typeof payload?.error === "string" && payload.error.trim()
-            ? payload.error
-            : "Answer could not be generated from this document.",
-        );
-      }
-      const payload = await readAnswerStream(response, (progress) => {
-        if (
-          controller.signal.aborted ||
-          summaryAbortRef.current !== controller ||
-          !isAuthEpochCurrent(authRequest.epoch)
-        )
-          return;
-        setSummaryProgressEvents((events) => [...events, { ...progress, receivedAt: Date.now() }].slice(-20));
-      });
-      if (controller.signal.aborted || summaryAbortRef.current !== controller || !isAuthEpochCurrent(authRequest.epoch))
-        return;
-      setSummary(payload);
-      window.requestAnimationFrame(() => {
-        generatedSummaryRef.current?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
-      });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (controller.signal.aborted || summaryAbortRef.current !== controller || !isAuthEpochCurrent(authRequest.epoch))
-        return;
-      setSummaryProgressEvents([]);
-      setSummaryProgressStartedAt(null);
-      setSummaryError(error instanceof Error ? error.message : "Answer could not be generated from this document.");
-    } finally {
-      authRequest.release();
-      if (summaryAbortRef.current === controller) {
-        summaryAbortRef.current = null;
-        setLoadingSummary(false);
-      }
-    }
-  }
-
-  function stopSummary() {
-    summaryAbortRef.current?.abort();
-    summaryAbortRef.current = null;
-    setLoadingSummary(false);
-    setSummaryProgressEvents([]);
-    setSummaryProgressStartedAt(null);
-  }
 
   const authViewerError =
     !canUsePrivateApis &&
@@ -1519,8 +1313,7 @@ export function DocumentViewer({
                       <button
                         type="button"
                         onClick={() => {
-                          setHasExplicitPdfViewerMode(true);
-                          setUseNativePdfViewer((current) => !current);
+                          togglePdfViewerMode();
                         }}
                         aria-label={
                           useNativePdfViewer
