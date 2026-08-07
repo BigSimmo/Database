@@ -24,7 +24,7 @@ import {
 } from "@/components/clinical-dashboard/evidence-panels";
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { CanonicalAnswerTables, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
-import { AnswerCard } from "@/components/ui/answer-card";
+import { AnswerCard, AnswerCardQueryEcho } from "@/components/ui/answer-card";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
@@ -234,7 +234,16 @@ function StagedAnswerResultSurfaceImpl({
 
   return (
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
-      <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
+      {/* No outer p-2.5: AnswerCard is the raised surface (#216). Nesting panel
+          padding here stacked on the card's own pad and blew the phone short-answer
+          scroll budget (#227) by ~60px. */}
+      <div className={cn(answerSurface, "space-y-3")}>
+        {/* When a table aside is present, keep the query echo above the grid — the
+            same placement UserQuestionBubble had — so desktop tableTop aligns with
+            the card chrome rather than sitting ~40px above prose buried under the
+            in-card query+notice stack (ui-smoke clinical-table delta). Phone-only
+            answers without a table keep the echo inside AnswerCard. */}
+        {showLayoutAside ? <AnswerCardQueryEcho query={query} className="px-1" /> : null}
         <div
           data-testid="table-specific-answer-layout"
           data-desktop-table-aside={centralTables.length ? "true" : "false"}
@@ -264,14 +273,18 @@ function StagedAnswerResultSurfaceImpl({
                 something the notice cannot (#227 over #207; see answer-card.tsx).
                 This surface no longer decides that. */}
             {answerState.kind === "ready" ? (
-              <AnswerCard state={answerState} verification={answerVerification} query={query}>
+              <AnswerCard
+                state={answerState}
+                verification={answerVerification}
+                query={showLayoutAside ? undefined : query}
+              >
                 {answerProse}
               </AnswerCard>
             ) : (
               <AnswerCard
                 state={answerState}
                 verification={answerVerification}
-                query={query}
+                query={showLayoutAside ? undefined : query}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button
