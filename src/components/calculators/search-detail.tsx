@@ -113,7 +113,7 @@ function CalculatorResultCard({
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{calc.abbrev}</span>
-            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
               {domainLabels[calc.domain]}
             </span>
           </span>
@@ -382,7 +382,7 @@ export function NextActionsPanel({ calc, derived }: { calc: CalculatorFixture; d
     >
       <div className="flex items-center justify-between gap-2">
         <h2 className={cn(eyebrowText, "text-[color:var(--text-muted)]")}>Next clinical actions</h2>
-        <span className="inline-flex min-h-5 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--clinical-accent)]">
+        <span className="inline-flex min-h-5 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">
           <Sparkles className="size-icon-xs" aria-hidden="true" />
           Score-linked
         </span>
@@ -460,7 +460,7 @@ export function RelatedContentPanel({
     <>
       <span
         className={cn(
-          "inline-flex min-h-5 w-[4.75rem] items-center justify-center rounded-md border px-1.5 text-3xs font-bold uppercase tracking-[0.05em]",
+          "inline-flex min-h-5 w-[4.75rem] items-center justify-center rounded-md border px-1.5 text-3xs font-bold uppercase tracking-label",
           relatedKindChip[item.kind],
         )}
       >
@@ -567,7 +567,7 @@ export function CalculatorDetailHeader({ calc }: { calc: CalculatorFixture }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl-minus font-extrabold leading-7 text-[color:var(--text-heading)]">{calc.abbrev}</h1>
-            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
               {domainLabels[calc.domain]}
             </span>
           </div>

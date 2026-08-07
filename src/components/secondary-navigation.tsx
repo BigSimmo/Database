@@ -56,6 +56,20 @@ export type SecondaryNavigationSectionItem = SecondaryNavigationBaseItem & {
   fragmentId?: string;
 };
 
+/**
+ * No live consumer as of the mode-strip removal. The seven modes that built
+ * action items each registered a single entry that focused an already-visible
+ * composer, and those were deleted; `therapy-compass` still declares action
+ * entries but `PageSecondaryNavigation` early-returns on `/therapy-compass*`
+ * before reading them.
+ *
+ * Kept deliberately rather than deleted alongside them: the kind carries the
+ * `tablist` roving-focus behaviour and is covered directly by
+ * `tests/secondary-navigation.dom.test.tsx`, so this is component API with
+ * tests, not orphaned code. Removing it is a clean separate change — do not do
+ * half of each. Note it is invisible to `check:knip`, which runs without
+ * `--include exports`.
+ */
 export type SecondaryNavigationActionItem = SecondaryNavigationBaseItem & {
   kind: "action";
   onSelect: () => void;

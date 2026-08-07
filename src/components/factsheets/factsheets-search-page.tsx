@@ -51,7 +51,7 @@ export function FactsheetsSearchPage({
       data-testid="factsheets-search-page"
       className="mx-auto w-full max-w-[64rem] px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:px-8"
     >
-      <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--clinical-accent)]">Find a sheet</p>
+      <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">Find a sheet</p>
       <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
         Search patient information
       </h1>
@@ -107,7 +107,7 @@ export function FactsheetsSearchPage({
         }
         filterControls={
           <div className="polished-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto">
-            <span className="hidden shrink-0 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-muted)] sm:inline">
+            <span className="hidden shrink-0 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)] sm:inline">
               Category
             </span>
             {filterChips.map((chip) => {

@@ -11,20 +11,21 @@ import {
   routedModeSecondaryNavigationCount,
 } from "@/lib/mode-secondary-navigation";
 
+/** Seven modes intentionally register no destinations at all — see `emptyRegistryModes`. */
 const expectedLabels: Record<AppModeId, string[]> = {
-  answer: ["Ask"],
-  documents: ["Search"],
-  services: ["Search"],
-  forms: ["Search"],
-  favourites: ["Search"],
+  answer: [],
+  documents: [],
+  services: [],
+  forms: [],
+  favourites: [],
   differentials: ["Search", "Diagnoses", "Compare"],
   dsm: ["Search", "Compare"],
   specifiers: ["Find", "Build", "Compare", "Map"],
   formulation: ["Find", "Build", "Compare", "Map"],
-  prescribing: ["Search"],
-  tools: ["Search"],
+  prescribing: [],
+  tools: [],
   "therapy-compass": ["Search", "Recommend", "Compare", "Pathways", "Brief Intervention", "Patient Sheets"],
-  factsheets: ["Search"],
+  factsheets: ["Topics", "Search"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -43,6 +44,23 @@ const cleanLandingPath: Record<AppModeId, string> = {
   factsheets: "/factsheets",
 };
 
+/**
+ * The seven modes that register nothing. Each used to carry one
+ * `action: "search"` entry rendering a lone <button> inside its own <nav>
+ * landmark, whose only effect was focusing a composer already on screen. Every
+ * one is genuinely single-surface, so the control was deleted rather than
+ * ported to the shared bar.
+ */
+const emptyRegistryModes = [
+  "answer",
+  "documents",
+  "services",
+  "forms",
+  "favourites",
+  "prescribing",
+  "tools",
+] as const satisfies readonly AppModeId[];
+
 describe("mode secondary navigation registry", () => {
   it("covers all 13 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
@@ -55,7 +73,17 @@ describe("mode secondary navigation registry", () => {
     }
   });
 
-  it("suppresses clean landing pages but renders after a submitted mode search", () => {
+  it("registers no destinations at all for the seven single-surface modes", () => {
+    // Empty is a real answer, pinned rather than left incidental: a future edit
+    // that re-adds a lone focus-the-composer button should have to argue with
+    // this test rather than slip back in.
+    for (const modeId of emptyRegistryModes) {
+      expect(modeSecondaryNavigationRegistry[modeId], `${modeId} must register no destinations`).toEqual([]);
+      expect(routedModeSecondaryNavigationCount(modeId)).toBe(0);
+    }
+  });
+
+  it("suppresses clean landing pages, and still opens the bar after a submitted search", () => {
     for (const modeId of appModeIds) {
       expect(
         isModeSecondaryNavigationRoute({ modeId, pathname: cleanLandingPath[modeId], hasSubmittedSearch: false }),
@@ -63,6 +91,16 @@ describe("mode secondary navigation registry", () => {
       expect(
         isModeSecondaryNavigationRoute({ modeId, pathname: cleanLandingPath[modeId], hasSubmittedSearch: true }),
       ).toBe(true);
+    }
+    // Scope note, so this stays honest for the emptied modes: the predicate
+    // answers "is this a route where a bar could appear", and since the
+    // single-button strips were deleted it no longer decides visibility on its
+    // own. `PageSecondaryNavigation` returns null on a mode with no registered
+    // destinations before it consults this at all — which is what actually
+    // silences the seven above, and is asserted in
+    // tests/page-secondary-navigation.dom.test.tsx.
+    for (const modeId of emptyRegistryModes) {
+      expect(modeSecondaryNavigationRegistry[modeId]).toEqual([]);
     }
   });
 
@@ -90,7 +128,12 @@ describe("mode secondary navigation registry", () => {
     ).toBe(false);
   });
 
-  it("suppresses /documents/search until a query is submitted", () => {
+  it("keeps /documents/search free of a mode bar in both states", () => {
+    // The dedicated `documents` clause went with its lone entry: the mode now
+    // registers nothing, so an empty destination list is what silences it. The
+    // unsubmitted case is still asserted because /documents/search is the
+    // documents mode home, with the composer already visible — any future
+    // destination there must not appear before a query is submitted.
     expect(
       isModeSecondaryNavigationRoute({
         modeId: "documents",
@@ -98,13 +141,7 @@ describe("mode secondary navigation registry", () => {
         hasSubmittedSearch: false,
       }),
     ).toBe(false);
-    expect(
-      isModeSecondaryNavigationRoute({
-        modeId: "documents",
-        pathname: "/documents/search",
-        hasSubmittedSearch: true,
-      }),
-    ).toBe(true);
+    expect(modeSecondaryNavigationRegistry.documents).toEqual([]);
   });
 
   it("translates compatible workflow selection state into each destination URL", () => {
@@ -134,6 +171,39 @@ describe("mode secondary navigation registry", () => {
         currentSearchParams: new URLSearchParams("q=confusion&ids=delirium%2Cdementia"),
       }),
     ).toBe("/differentials/presentations?q=confusion&ids=delirium%2Cdementia");
+
+    // Search is the CURRENT tab on /factsheets/search, so its own link must not
+    // reset what you are looking at. `run` is carried with the query because
+    // dropping it flips hasSubmittedModeSearch and re-places the composer.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "factsheets",
+        itemId: "search",
+        href: "/factsheets/search",
+        currentSearchParams: new URLSearchParams("q=sertraline&category=Medicines&run=1"),
+      }),
+    ).toBe("/factsheets/search?q=sertraline&category=Medicines&run=1");
+
+    // The browse home's category chips link with a category and no query.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "factsheets",
+        itemId: "search",
+        href: "/factsheets/search",
+        currentSearchParams: new URLSearchParams("category=Medicines"),
+      }),
+    ).toBe("/factsheets/search?category=Medicines");
+
+    // Topics is the mode home: it reads neither param, so carrying them there
+    // would only put dead query string into a URL people share.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "factsheets",
+        itemId: "topics",
+        href: "/factsheets",
+        currentSearchParams: new URLSearchParams("q=sertraline&category=Medicines&run=1"),
+      }),
+    ).toBe("/factsheets");
   });
 
   it("adopts only modes with two or more routed destinations (explicit list, not silent derivation)", () => {
@@ -142,7 +212,13 @@ describe("mode secondary navigation registry", () => {
     // remaining mode still has two routed entries, while the negative check
     // below only inspects modes with fewer than two. A mode silently losing the
     // bar is the regression this list exists to make impossible.
-    expect([...MODE_NAV_ADOPTED_MODES].sort()).toEqual(["differentials", "dsm", "formulation", "specifiers"]);
+    expect([...MODE_NAV_ADOPTED_MODES].sort()).toEqual([
+      "differentials",
+      "dsm",
+      "factsheets",
+      "formulation",
+      "specifiers",
+    ]);
 
     for (const modeId of MODE_NAV_ADOPTED_MODES) {
       expect(
@@ -165,6 +241,21 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("dsm", "/dsm/diagnoses/major-depressive-disorder")).toBeNull();
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder")).toBe("builder");
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers")).toBe("search");
+
+    // Factsheets records cannot reach ModeNav today (hasLocalInformationPageNavigation
+    // returns null for them first), but the registry fallback would mark the
+    // first entry — Topics — current on any unmatched path, so the mode needs
+    // its own branch rather than inheriting that default.
+    expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/sertraline")).toBeNull();
+    expect(activeModeSecondaryNavigationId("factsheets", "/factsheets")).toBe("topics");
+    expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/search")).toBe("search");
+
+    // The `registry[modeId][0]?.id` fallback is gone. A mode with no branch and
+    // no entries has no current destination, rather than silently lighting its
+    // first slot on every unmatched path.
+    for (const modeId of emptyRegistryModes) {
+      expect(activeModeSecondaryNavigationId(modeId, cleanLandingPath[modeId])).toBeNull();
+    }
   });
 
   it("matches workflow destinations by path segment, not substring", () => {

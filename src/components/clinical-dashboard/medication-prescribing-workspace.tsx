@@ -379,7 +379,7 @@ function HighlightedName({ text, term }: { text: string; term: string }) {
 function DoseCeiling({ value }: { value: string }) {
   return (
     <span className="inline-flex min-h-6 w-fit items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
-      <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+      <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs uppercase tracking-label text-[color:var(--text-muted)]">
         Ceiling
       </span>
       <span className="nums break-words text-[color:var(--text-heading)] md:whitespace-nowrap">{value}</span>
