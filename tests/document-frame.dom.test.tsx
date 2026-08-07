@@ -87,8 +87,8 @@ describe("DocumentFrame", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fit document to width" }));
     fireEvent.click(screen.getByRole("button", { name: "Reduce document surround glare" }));
 
-    expect(onZoomChange).toHaveBeenNthCalledWith(1, 0.75);
-    expect(onZoomChange).toHaveBeenNthCalledWith(2, 1.25);
+    expect(onZoomChange).toHaveBeenNthCalledWith(1, 0.85);
+    expect(onZoomChange).toHaveBeenNthCalledWith(2, 1.15);
     expect(onFitWidth).toHaveBeenCalledOnce();
     expect(onViewingAidChange).toHaveBeenCalledWith(true);
   });
