@@ -22,14 +22,16 @@ import {
   Waves,
   type LucideIcon,
 } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useId, useMemo, useState } from "react";
 
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero } from "@/components/mode-home-template";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
-  MobileResultFilterControl,
-  SearchResultsHeaderBand,
-} from "@/components/clinical-dashboard/search-results-header-band";
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { cn, EmptyState } from "@/components/ui-primitives";
@@ -384,6 +386,10 @@ function FilterTabs({
   canAccessFavourites: boolean;
 }) {
   const desktopFilters = desktopFiltersForSession(canAccessFavourites);
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
+  // `more` is the desktop "All" tab's overflow state, not a category of its own.
+  const resolvedFilter: LauncherFilter = activeFilter === "more" ? "all" : activeFilter;
   return (
     <>
       <div className="hidden flex-wrap items-center gap-2 sm:flex" role="group" aria-label="Filter by tool category">
@@ -410,15 +416,47 @@ function FilterTabs({
           );
         })}
       </div>
-      <MobileResultFilterControl
-        label="Category"
-        ariaLabel="Filter by tool category"
-        testId="tool-category-select"
-        className="sm:hidden"
-        value={activeFilter === "more" ? "all" : activeFilter}
-        options={desktopFilters.map((filter) => ({ value: filter.id, label: filter.label }))}
-        onChange={onFilterChange}
-      />
+      {/* The phone half of the same control. This launcher renders no results
+          band, so the trigger sits inline here rather than in a ribbon slot —
+          but it is the same trigger and the same sheet every search mode now
+          uses, which is the point. */}
+      <div className="sm:hidden">
+        <ResultFilterTrigger
+          panelId={filterPanelId}
+          testId="tool-filter-trigger-phone"
+          title="Filter by tool category"
+          open={filterOpen}
+          activeCount={resolvedFilter === "all" ? 0 : 1}
+          onToggle={() => setFilterOpen((current) => !current)}
+        />
+        <ResultFilterSheet
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          panelId={filterPanelId}
+          testId="tool-filter-panel"
+          title="Filter tools"
+          groups={[
+            resultFilterGroup({
+              id: "category",
+              label: "Category",
+              value: resolvedFilter,
+              options: desktopFilters.map((filter) => ({ value: filter.id, label: filter.label })),
+              onChange: (value) => {
+                setFilterOpen(false);
+                onFilterChange(value);
+              },
+            }),
+          ]}
+          onClearAll={
+            resolvedFilter === "all"
+              ? undefined
+              : () => {
+                  setFilterOpen(false);
+                  onFilterChange("all");
+                }
+          }
+        />
+      </div>
     </>
   );
 }

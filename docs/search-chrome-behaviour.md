@@ -129,14 +129,26 @@ chrome and changes to it land on every mode at once. Keep these rules:
    the whole utilities group below `sm` (`hasPhoneUtilities`) rather than leaving an empty flex
    child — in `inline` placement under 414px that child is `w-full basis-full`, i.e. a blank
    second line.
-4. **Native selects are pinned to 16px below `sm`.** The unlayered iOS anti-zoom rule in
+4. **The phone filter is a badged trigger opening a sheet — never a select.** Every mode's
+   `mobileControls` is a `ResultFilterTrigger` (`result-filter-control.tsx`) with
+   `mobileControlsPlacement="inline"`, so the band stays one line on a phone. Six modes used to
+   pass a `w-full` native select there, two of them a two-column grid of them; that control cost
+   the band a whole second row, could not report how many filters were active, and — because of
+   rule 5 — rendered its value at the same 16px as the query heading above it. Single-choice
+   dimensions go in `ResultFilterSheet` as one `role="radiogroup"` per dimension, because they
+   are genuinely one-of-N and a bank of `aria-pressed` toggles says they are not. Documents keeps
+   its own panel: multi-select facet groups with counts, a find-a-filter field and
+   collapse-by-default are not expressible as radios. Desktop is untouched — the ribbon renders
+   `filterControls` from `sm` up and `mobileControls` below it, never both, so each mode keeps
+   its own chip row or tab strip on a wide screen.
+5. **Native selects are pinned to 16px below `sm`.** The unlayered iOS anti-zoom rule in
    `globals.css` ("Interactive element defaults") deliberately beats Tailwind's `text-*`
    utilities on `input`/`select`/`textarea`. Do not fight it with `!important` or a per-call-site
    override — a sub-16px control zooms the viewport on focus in Safari. Any control that must
    read quieter than the query steps down in **weight and colour**, never in size, and any
    select carrying variable-length values must set `truncate` or it clips mid-word rather than
    ellipsing (the "Current search" → "Current searcl" defect fixed 2026-07-27).
-5. **The utility group is a swipe rail below `lg`, an inline row at `lg+`.** The row/stack switch
+6. **The utility group is a swipe rail below `lg`, an inline row at `lg+`.** The row/stack switch
    moved to `sm` (640) so portrait tablets stop rendering the phone layout, but the rail's
    overflow, fade mask and trailing spacer stay on `lg` deliberately: at 640-1023px a page with
    chips, sort, a mobile filter and utility controls can exceed the width, and containing that
@@ -144,10 +156,10 @@ chrome and changes to it land on every mode at once. Keep these rules:
    `shrink-0` so they keep their natural width; overflow scrolls instead of wrapping into a
    second tinted band. The right-edge fade is applied via `data-overflowing` only while the rail
    actually overflows — never as a permanent mask.
-6. **Active scopes render as removable chips at the head of that group**, in accent tone, so a
+7. **Active scopes render as removable chips at the head of that group**, in accent tone, so a
    constraint on the list is one tap from where it is read. Do not move them into a separate
    strip; `hasUtilities` already suppresses the whole group when nothing is active.
-7. **The accent is a border, never an overlay — and it is now a lead mark, not a full-width
+8. **The accent is a border, never an overlay — and it is now a lead mark, not a full-width
    rail.** An absolutely-positioned bar inside an `overflow-hidden` 12px-radius card is sliced by
    the corner arc, so it starts short and tapers while the 1px border curves past it — two lines,
    two geometries. A border avoids that by construction, and forced-colors maps it automatically.
@@ -163,7 +175,7 @@ chrome and changes to it land on every mode at once. Keep these rules:
    the band's forced-colors rules **must remain the last block in `globals.css`** — at equal
    specificity a later rule wins, so an earlier block is silently overridden while still reading
    correctly.
-8. **A new search page cannot skip the band.** `AppModeSearchConfig.resultsSurface` is required,
+9. **A new search page cannot skip the band.** `AppModeSearchConfig.resultsSurface` is required,
    so a new mode fails `typecheck` until it declares `results-band` or `answer`, and
    `tests/search-results-band-adoption.test.ts` then requires a matching mount plus a documented
    allowlist entry for any search route that legitimately has no result list.

@@ -18,13 +18,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
-  MobileResultFilterControl,
-  SearchResultsHeaderBand,
-} from "@/components/clinical-dashboard/search-results-header-band";
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
@@ -404,6 +406,8 @@ function MedicationResults({
   const catalog = useMedicationCatalog(query);
   const { profile, isEmpty: profileEmpty } = usePatientProfile();
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
   const { rows, counts, totalAvailable } = useMemo(() => {
     const governance = catalog.data?.governance;
     const toRow = (result: MedicationResult, medication?: MedicationRecord): MedicationRow => {
@@ -469,20 +473,43 @@ function MedicationResults({
         }
         faultBody={catalog.error ?? undefined}
         filterLabel="Filter medication results"
+        // A compact badged trigger, so it shares the count line.
+        mobileControlsPlacement="inline"
         mobileControls={
-          <MobileResultFilterControl
-            label="Show"
-            ariaLabel="Filter medication results"
-            testId="medication-result-filter-select"
-            value={activeFilter}
-            options={medicationResultFilters.map((filter) => ({
-              value: filter.id,
-              label: `${filter.label} (${counts[filter.id]})`,
-            }))}
-            onChange={setActiveFilter}
+          <ResultFilterTrigger
+            panelId={filterPanelId}
+            testId="medication-filter-trigger-phone"
+            title="Filter medication results"
+            open={filterOpen}
+            activeCount={activeFilter === "best" ? 0 : 1}
+            onToggle={() => setFilterOpen((current) => !current)}
           />
         }
         filterControls={<FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />}
+      />
+      {/* Phone-only by construction: the trigger that opens it lives in the
+          ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
+      <ResultFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        panelId={filterPanelId}
+        testId="medication-filter-panel"
+        title="Filter medication results"
+        groups={[
+          resultFilterGroup({
+            id: "result-filter",
+            label: "Show",
+            value: activeFilter,
+            options: medicationResultFilters.map((filter) => ({
+              value: filter.id,
+              label: filter.label,
+              hint: String(counts[filter.id]),
+            })),
+            onChange: setActiveFilter,
+          }),
+        ]}
+        onClearAll={activeFilter === "best" ? undefined : () => setActiveFilter("best")}
+        footerNote={`${resultCount} showing`}
       />
 
       <PatientProfilePanel variant="compact" className="medication-patient-strip" />

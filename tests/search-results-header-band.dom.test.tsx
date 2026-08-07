@@ -6,10 +6,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
-  MobileResultFilterControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 
 describe("SearchResultsHeaderBand", () => {
   it("presents the query and completed count as one labelled results ribbon", () => {
@@ -469,10 +473,10 @@ describe("SearchResultsHeaderBand", () => {
     expect(onFilterTables).toHaveBeenCalledOnce();
   });
 
-  it("pairs sort with a page-specific dropdown on mobile without changing either action", async () => {
+  it("pairs sort with a page-specific filter trigger on mobile without changing either action", async () => {
     const user = userEvent.setup();
     const onSortChange = vi.fn();
-    const onFilterChange = vi.fn();
+    const onToggleFilters = vi.fn();
 
     render(
       <SearchResultsHeaderBand
@@ -482,17 +486,15 @@ describe("SearchResultsHeaderBand", () => {
         sortValue="relevance"
         onSortChange={onSortChange}
         filterLabel="Filter differential result type"
+        mobileControlsPlacement="inline"
         mobileControls={
-          <MobileResultFilterControl
-            label="Show"
-            ariaLabel="Filter by result type"
-            value="all"
-            options={[
-              { value: "all", label: "All (8)" },
-              { value: "presentation", label: "Presentations (1)" },
-              { value: "diagnosis", label: "Diagnoses (7)" },
-            ]}
-            onChange={onFilterChange}
+          <ResultFilterTrigger
+            panelId="differential-filter-panel"
+            testId="differential-filter-trigger-phone"
+            title="Filter differentials"
+            open={false}
+            activeCount={0}
+            onToggle={onToggleFilters}
           />
         }
         filterControls={
@@ -510,11 +512,154 @@ describe("SearchResultsHeaderBand", () => {
     const pageFilters = screen.getByTestId("search-query-ribbon-mobile-controls");
     expect(utilities.lastElementChild).toBe(pageFilters);
     await user.click(within(utilities).getByRole("button", { name: "A–Z" }));
-    await user.selectOptions(within(pageFilters).getByLabelText("Filter by result type"), "diagnosis");
+    await user.click(within(pageFilters).getByTestId("differential-filter-trigger-phone"));
 
     expect(onSortChange).toHaveBeenCalledWith("alpha");
-    expect(onFilterChange).toHaveBeenCalledWith("diagnosis");
+    expect(onToggleFilters).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("search-query-ribbon-filters")).toHaveClass("hidden", "sm:block");
+  });
+
+  // The trigger is what makes the one-line phone bar legal, so its two states
+  // are asserted here rather than left to a journey: a resting trigger must not
+  // claim a count, and an active one must announce it in text as well as in the
+  // badge, because the badge is the only visual difference between them.
+  it("reports active filter count on the trigger, in the badge and in text", () => {
+    const { rerender } = render(
+      <ResultFilterTrigger
+        panelId="panel"
+        testId="trigger"
+        title="Filter differentials"
+        open={false}
+        activeCount={0}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("trigger")).toHaveAccessibleName(/No filters active/);
+    expect(screen.getByTestId("trigger")).not.toHaveAttribute("aria-controls");
+
+    rerender(
+      <ResultFilterTrigger
+        panelId="panel"
+        testId="trigger"
+        title="Filter differentials"
+        open
+        activeCount={2}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("trigger")).toHaveAccessibleName(/2 filters active/);
+    expect(screen.getByTestId("trigger")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("trigger")).toHaveAttribute("aria-controls", "panel");
+  });
+});
+
+describe("ResultFilterSheet", () => {
+  it("exposes each dimension as a radio group and reports the selection back typed", async () => {
+    const user = userEvent.setup();
+    const onFamilyChange = vi.fn();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="specifier-panel"
+        testId="specifier-filter-panel"
+        title="Filter specifiers"
+        groups={[
+          resultFilterGroup({
+            id: "family",
+            label: "Family",
+            value: "all" as "all" | "course-onset",
+            options: [
+              { value: "all", label: "All" },
+              { value: "course-onset", label: "Course" },
+            ],
+            onChange: onFamilyChange,
+          }),
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole("radiogroup", { name: "Family" });
+    // One-of-N, so exactly one option may be checked — an `aria-pressed` bank
+    // would let the DOM claim two mutually exclusive filters at once.
+    expect(within(group).getByRole("radio", { name: "All" })).toBeChecked();
+    expect(within(group).getByRole("radio", { name: "Course" })).not.toBeChecked();
+
+    await user.click(within(group).getByRole("radio", { name: "Course" }));
+    expect(onFamilyChange).toHaveBeenCalledWith("course-onset");
+  });
+
+  it("keeps an unselectable placeholder focusable and explained rather than removing it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="service-panel"
+        testId="service-filter-panel"
+        title="Filter services"
+        groups={[
+          resultFilterGroup({
+            id: "quick-filter",
+            label: "Quick filters",
+            value: "current",
+            options: [
+              { value: "current", label: "Current search", disabled: true },
+              { value: "crisis", label: "Crisis" },
+            ],
+            onChange,
+          }),
+        ]}
+      />,
+    );
+
+    // Selected-and-disabled is the state the reader is already in, so it renders
+    // as the checked option rather than as a dead end.
+    const placeholder = screen.getByRole("radio", { name: "Current search" });
+    expect(placeholder).toBeChecked();
+    expect(placeholder).not.toHaveAttribute("aria-disabled");
+
+    await user.click(screen.getByRole("radio", { name: "Crisis" }));
+    expect(onChange).toHaveBeenCalledWith("crisis");
+  });
+
+  it("offers Clear only when something is clearable", () => {
+    const groups = [
+      resultFilterGroup({
+        id: "category",
+        label: "Category",
+        value: "all",
+        options: [{ value: "all", label: "All" }],
+        onChange: vi.fn(),
+      }),
+    ];
+    const { rerender } = render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="p"
+        testId="factsheet-filter-panel"
+        title="Filter factsheets"
+        groups={groups}
+      />,
+    );
+    expect(screen.queryByTestId("factsheet-filter-panel-clear")).toBeNull();
+
+    rerender(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="p"
+        testId="factsheet-filter-panel"
+        title="Filter factsheets"
+        groups={groups}
+        onClearAll={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("factsheet-filter-panel-clear")).toBeVisible();
   });
 });
 

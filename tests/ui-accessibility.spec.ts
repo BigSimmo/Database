@@ -472,18 +472,31 @@ test.describe("Clinical KB accessibility coverage", () => {
     await differentialSubmit.click();
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
 
-    const filterSelect = page.getByTestId("differential-result-type-select");
-    await expect(filterSelect).toBeVisible();
-    await expect(filterSelect).toHaveAccessibleName("Filter by result type");
-    await expect(filterSelect).toHaveValue("all");
+    // The phone filter is a trigger opening a sheet, not a native select. Its
+    // resting accessible name must still say there is nothing applied, because
+    // the badge that carries that information visually is absent at zero.
+    const filterTrigger = page.getByTestId("differential-filter-trigger-phone");
+    await expect(filterTrigger).toBeVisible();
+    await expect(filterTrigger).toHaveAccessibleName(/No filters active/);
     await expect(page.getByRole("tab")).toHaveCount(0);
 
-    await filterSelect.focus();
-    await expect(filterSelect).toBeFocused();
-    await filterSelect.selectOption("presentation");
-    await expect(filterSelect).toHaveValue("presentation");
-    await filterSelect.selectOption("diagnosis");
-    await expect(filterSelect).toHaveValue("diagnosis");
+    await filterTrigger.focus();
+    await expect(filterTrigger).toBeFocused();
+    await filterTrigger.press("Enter");
+
+    // One-of-N, expressed as radios: selecting one dimension must uncheck the
+    // other rather than leaving two contradictory filters both "on".
+    const filterGroup = page.getByRole("radiogroup", { name: "Show" });
+    await expect(filterGroup).toBeVisible();
+    await expect(filterGroup.getByRole("radio", { name: /^All/ })).toBeChecked();
+    await filterGroup.getByRole("radio", { name: /^Presentations/ }).click();
+    await expect(filterGroup.getByRole("radio", { name: /^Presentations/ })).toBeChecked();
+    await expect(filterGroup.getByRole("radio", { name: /^All/ })).not.toBeChecked();
+    await filterGroup.getByRole("radio", { name: /^Diagnoses/ }).click();
+    await expect(filterGroup.getByRole("radio", { name: /^Diagnoses/ })).toBeChecked();
+
+    await page.getByTestId("differential-filter-panel-done").click();
+    await expect(filterTrigger).toHaveAccessibleName(/1 filter active/);
   });
 
   test("guest upload action exposes the admin boundary and opens Sources", async ({ page }) => {

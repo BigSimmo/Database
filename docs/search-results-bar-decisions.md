@@ -60,13 +60,23 @@ contract: see [search-chrome-behaviour.md](search-chrome-behaviour.md).
   one control sitting flush against the sort group rendered as a different component. It
   now uses the band's own control recipe — the same string `Save search` and `Retry` use —
   with the active/resting colours as mutually exclusive branches.
-- **A full-width phone control keeps its own row.** `mobileControlsPlacement` defaults to
-  `row` whenever a page passes `mobileControls`, because six modes pass a `w-full`
-  `MobileResultFilterControl` (formulation and specifiers pass _two_, in a two-column grid)
-  and pinning one of those into a 58 px line at 320 px makes it unreadable. Documents and
-  therapy-compass pass a compact badged trigger and opt in with `inline`. The default is
-  the safe one on purpose: a new mode that forgets the prop degrades to today's layout
-  rather than to an unusable one.
+- **Every mode's phone filter is now the badged trigger, not a select.** The `w-full`
+  native select is gone from all seven surfaces that shipped one — differentials, services,
+  factsheets, prescribing, the tools launcher, and formulation and specifiers, which each
+  passed _two_ in a two-column grid. Each now passes one `ResultFilterTrigger`
+  (`result-filter-control.tsx`) with `mobileControlsPlacement="inline"`, so the one-line
+  band is universal rather than a documents/therapy-compass exception. What the select cost:
+  a whole second band row; no way to say how many filters were active without spending
+  label width on it; and, because the iOS anti-zoom rule pins every native select to 16 px
+  below `sm`, a value rendered at the same size as the query heading above it. Single-choice
+  dimensions moved into `ResultFilterSheet`, one `role="radiogroup"` per dimension — real
+  radio semantics, because these are one-of-N and an `aria-pressed` bank asserts otherwise.
+  Documents keeps its own panel; multi-select facet groups with counts, a find-a-filter
+  field and collapse-by-default are not radios.
+- **`mobileControlsPlacement` still defaults to `row`.** Nothing relies on that fallback
+  now that every caller passes `inline`, and it stays anyway: a new mode that forgets the
+  prop, or one with a genuine reason to hand over something full-width, should degrade to a
+  second row rather than to an unreadable 58 px line at 320 px. Do not flip the default.
 - **Filter at the right edge, Sort inboard.** Sort is set about once a session. Filter is
   the only control carrying state and the one returned to repeatedly, and on a phone the
   right edge is where the thumb already is. The page filter is therefore the utility
@@ -94,13 +104,14 @@ contract: see [search-chrome-behaviour.md](search-chrome-behaviour.md).
 panel, so what is applied is not otherwise visible. Of the other ten results-band modes:
 
 - Differentials, prescribing, specifiers, formulation, services, and factsheets keep a
-  single-select dimension whose control is already on screen, so a shelf would restate it.
+  single-choice dimension whose desktop control is already on screen, and whose phone
+  trigger carries a count badge, so a shelf would restate what is visible either way.
 - Forms still ships a Filter trigger whose panel is a coming-soon placeholder, not applied
   filter state, so there is nothing for a shelf to show.
 - Favourites renders its own active-filter chips inside `filterControls` rather than the
   shared shelf props.
 - DSM filters by category through navigation links, and tools through a single category
-  select — neither passes `appliedFilters`.
+  dimension — neither passes `appliedFilters`.
 
 Two traps met while drawing that line:
 

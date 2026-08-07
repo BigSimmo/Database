@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useDeferredValue } from "react";
+import { useId, useMemo, useState, useDeferredValue } from "react";
 import { ArrowRight, CheckCircle2, ChevronRight, GitCompareArrows, ListChecks, Network, Search } from "lucide-react";
 
 import {
@@ -14,10 +14,12 @@ import {
 } from "@/components/formulation/formulation-ui";
 import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
-  MobileResultFilterControl,
-  SearchResultsHeaderBand,
-} from "@/components/clinical-dashboard/search-results-header-band";
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -139,6 +141,8 @@ function EmptySearchResults({ query }: { query: string }) {
 function FormulationResults({ query }: { query: string }) {
   const router = useRouter();
   const [domain, setDomain] = useState("all");
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const rankingReady = deferredQuery === query;
   const results = useMemo(() => {
@@ -165,36 +169,18 @@ function FormulationResults({ query }: { query: string }) {
         status={rankingReady ? "ready" : "refetching"}
         headingLevel={1}
         filterLabel="Filter formulation mechanisms"
+        // One compact badged trigger replaces the two-column grid of selects, so
+        // the band collapses to one line here too.
+        mobileControlsPlacement="inline"
         mobileControls={
-          <div className="grid min-w-0 grid-cols-2 gap-1.5">
-            <MobileResultFilterControl
-              label="Pattern"
-              ariaLabel="Try a formulation pattern"
-              testId="formulation-pattern-select"
-              value="current"
-              options={[
-                { value: "current", label: "Current search", disabled: true },
-                ...formulationSearchPresets.slice(0, 4).map((preset) => ({
-                  value: preset.query,
-                  label: preset.label,
-                })),
-              ]}
-              onChange={(value) => {
-                if (value !== "current") router.push(presetHref(value));
-              }}
-            />
-            <MobileResultFilterControl
-              label="Domain"
-              ariaLabel="Filter by formulation domain"
-              testId="formulation-domain-select"
-              value={domain}
-              options={[
-                { value: "all", label: "All domains" },
-                ...formulationDomains.map((item) => ({ value: item, label: item })),
-              ]}
-              onChange={setDomain}
-            />
-          </div>
+          <ResultFilterTrigger
+            panelId={filterPanelId}
+            testId="formulation-filter-trigger-phone"
+            title="Filter formulation mechanisms"
+            open={filterOpen}
+            activeCount={domain === "all" ? 0 : 1}
+            onToggle={() => setFilterOpen((current) => !current)}
+          />
         }
         filterControls={
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_16rem] sm:items-center">
@@ -226,6 +212,51 @@ function FormulationResults({ query }: { query: string }) {
             </label>
           </div>
         }
+      />
+
+      {/* Phone-only by construction: the trigger that opens it lives in the
+          ribbon's `mobileControls` slot, which the band hides from `sm` up. Two
+          groups here, which is the whole reason this stopped being a select —
+          two dimensions used to mean two side-by-side controls in a 320px line. */}
+      <ResultFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        panelId={filterPanelId}
+        testId="formulation-filter-panel"
+        title="Filter formulation mechanisms"
+        groups={[
+          resultFilterGroup({
+            id: "pattern",
+            label: "Pattern",
+            // A pattern runs a new search rather than narrowing this one, so the
+            // selected entry is always the placeholder naming where you are.
+            value: "current",
+            options: [
+              { value: "current", label: "Current search", disabled: true },
+              ...formulationSearchPresets.slice(0, 4).map((preset) => ({
+                value: preset.query,
+                label: preset.label,
+              })),
+            ],
+            onChange: (value) => {
+              if (value === "current") return;
+              setFilterOpen(false);
+              router.push(presetHref(value));
+            },
+          }),
+          resultFilterGroup({
+            id: "domain",
+            label: "Domain",
+            value: domain,
+            options: [
+              { value: "all", label: "All domains" },
+              ...formulationDomains.map((item) => ({ value: item, label: item })),
+            ],
+            onChange: setDomain,
+          }),
+        ]}
+        onClearAll={domain === "all" ? undefined : () => setDomain("all")}
+        footerNote={`${results.length} showing`}
       />
 
       <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
