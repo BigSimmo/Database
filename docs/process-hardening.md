@@ -2,6 +2,13 @@
 
 This document turns the current process review into phased, durable repo practice. It separates changes that already take effect from work that should stay explicit until it is implemented.
 
+## Testing speed playbook (pointer)
+
+Day-to-day selection, local Playwright keep-root, and refuted speed levers live in
+[`docs/testing.md`](testing.md) § "Testing speed playbook". Measured CI shape and the
+Production UI critical-path numbers remain in "CI shape and cost" below; do not raise
+Playwright workers or revive the refuted cache/shard hacks listed there.
+
 ## Risk-routed local and CI verification (2026-08-02)
 
 - `ci-change-scope.mjs` is the shared fail-closed classifier for local PR handoff and hosted CI. Only recognised documentation and workflow/policy paths take a light route; product code, tests, executable config, dependencies, database/container/RAG surfaces, mixed scope, and unknown non-document paths retain heavy verification.
@@ -201,12 +208,10 @@ API rather than estimated:
   ```
 
   Shard 1 is slow because it holds ten _slow-per-test_ files while shards 2 and 3 are dominated
-  by one fast-per-test file each. **The only lever that would actually rebalance is assigning
-  explicit spec groups per shard in `ci.yml` instead of `--shard=i/N`.** That is not obviously
-  worth it: perfect balance is ~7m37 against a measured 9m36 largest shard, so ~2 min of a
-  13m39 critical path, bought with a hand-maintained file list in the **required** UI job whose
-  miss mode is a spec silently running nowhere. Do not build it without deciding that trade
-  first, and not without a guard asserting every collected spec appears in exactly one group.
+  by one fast-per-test file each. **Shipped:** explicit duration-aware file groups in
+  `scripts/playwright-pr-shards.mjs` (CI `test:e2e:pr:shard -- --shard N`) with
+  `tests/playwright-pr-shards.test.ts` asserting every production e2e:pr spec is in exactly one
+  non-empty group. Re-measure wall time after suite growth before reshuffling membership.
 
   **Stop:** do not "fix" this by renaming spec files so they sort into different shards. It
   works, and it encodes undocumented scheduler behaviour into filenames where the next reader

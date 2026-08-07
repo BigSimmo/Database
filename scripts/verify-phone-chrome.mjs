@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
+import { rmSync } from "node:fs";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
 import { phoneChromePlan, renderPhoneChromeCommand } from "./phone-chrome-plan.mjs";
@@ -47,29 +49,91 @@ function changedFiles(explicitFiles) {
   return JSON.parse(result).files;
 }
 
-export function runPhoneChromeCommand(command, { spawn = spawnSync } = {}) {
+/** Stages that invoke an isolated Playwright production build. */
+export function isPhoneChromeBrowserStage(stage) {
+  const args = stage?.command?.args ?? [];
+  if (args.includes("scripts/run-playwright.mjs")) return true;
+  if (stage?.command?.executable === "npm" && args.includes("verify:ui")) return true;
+  return false;
+}
+
+export function phoneChromeSharedBuildEnv(browserStageCount, { pid = process.pid, env = process.env } = {}) {
+  if (browserStageCount < 2) return null;
+  if (env.PLAYWRIGHT_BUILD_ROOT_ID?.trim() && env.PLAYWRIGHT_KEEP_BUILD_ROOT?.trim() === "true") {
+    // Caller already opted into a keep-root session; do not override or auto-clean it.
+    return null;
+  }
+  return {
+    PLAYWRIGHT_BUILD_ROOT_ID: `phone-chrome-${pid}`,
+    PLAYWRIGHT_KEEP_BUILD_ROOT: "true",
+  };
+}
+
+export function runPhoneChromeCommand(command, { spawn = spawnSync, env = process.env } = {}) {
   const executable = process.platform === "win32" && command.executable === "npm" ? "cmd.exe" : command.executable;
   const args =
     executable === "cmd.exe" ? ["/d", "/s", "/c", [command.executable, ...command.args].join(" ")] : command.args;
-  const result = spawn(executable, args, { stdio: "inherit" });
+  const result = spawn(executable, args, { stdio: "inherit", env });
   return childProcessExitCode(result);
+}
+
+function cleanupSharedBuildRoot(buildRootId, { projectRoot = process.cwd(), rm = rmSync, log = console.log } = {}) {
+  if (!buildRootId) return;
+  const absoluteRunRoot = path.join(projectRoot, ".next-playwright", buildRootId);
+  try {
+    rm(absoluteRunRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    log(`[phone-chrome] cleaned shared Playwright build root (.next-playwright/${buildRootId})`);
+  } catch (error) {
+    log(
+      `[phone-chrome] warning: could not clean shared build root ${absoluteRunRoot}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }
 
 export function runPhoneChromeStages(
   stages,
-  { runCommand = runPhoneChromeCommand, exit = process.exit, log = console.log } = {},
+  {
+    runCommand = runPhoneChromeCommand,
+    exit = process.exit,
+    log = console.log,
+    env = process.env,
+    sharedBuildEnv = phoneChromeSharedBuildEnv,
+    cleanupBuildRoot = cleanupSharedBuildRoot,
+  } = {},
 ) {
-  for (const stage of stages) {
-    log(`\n[phone-chrome:${stage.id}] ${stage.label}`);
-    log(`> ${renderPhoneChromeCommand(stage.command)}`);
-    const exitCode = runCommand(stage.command);
-    if (exitCode !== 0) {
-      // Announce on stderr so a piped caller without pipefail still has an
-      // unambiguous failure line in the captured log (outstanding-issues #120).
-      console.error(`[phone-chrome] stage "${stage.id}" failed; exiting with code ${exitCode}`);
-      exit(exitCode);
-      return exitCode;
+  const browserStages = stages.filter(isPhoneChromeBrowserStage);
+  const shared = sharedBuildEnv(browserStages.length, { env });
+  const runEnv = shared ? { ...env, ...shared } : env;
+  if (shared) {
+    log(
+      `[phone-chrome] reusing Playwright build root ${shared.PLAYWRIGHT_BUILD_ROOT_ID} across ${browserStages.length} browser stages`,
+    );
+  }
+
+  let exitCode = 0;
+  try {
+    for (const stage of stages) {
+      log(`\n[phone-chrome:${stage.id}] ${stage.label}`);
+      log(`> ${renderPhoneChromeCommand(stage.command)}`);
+      exitCode = runCommand(stage.command, { env: runEnv });
+      if (exitCode !== 0) {
+        // Announce on stderr so a piped caller without pipefail still has an
+        // unambiguous failure line in the captured log (outstanding-issues #120).
+        console.error(`[phone-chrome] stage "${stage.id}" failed; exiting with code ${exitCode}`);
+        break;
+      }
     }
+  } finally {
+    // Clean before process.exit — Node does not run finally after exit().
+    if (shared?.PLAYWRIGHT_BUILD_ROOT_ID) {
+      cleanupBuildRoot(shared.PLAYWRIGHT_BUILD_ROOT_ID, { log });
+    }
+  }
+  if (exitCode !== 0) {
+    exit(exitCode);
+    return exitCode;
   }
   return 0;
 }
@@ -84,6 +148,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (options.dryRun) {
     console.log("\nPhone chrome verification plan (dry run):");
     for (const stage of plan.stages) console.log(`- [${stage.id}] ${renderPhoneChromeCommand(stage.command)}`);
+    const browserCount = plan.stages.filter(isPhoneChromeBrowserStage).length;
+    if (browserCount >= 2) {
+      console.log(`- shared Playwright build root will be reused across ${browserCount} browser stages (then cleaned)`);
+    }
     process.exit(0);
   }
 
