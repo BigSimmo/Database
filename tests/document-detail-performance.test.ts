@@ -97,6 +97,7 @@ describe("document viewer latency guards", () => {
 
   it("loads window-scoped navigation details and renders one indexed-text panel", () => {
     const viewer = source("src/components/DocumentViewer.tsx");
+    const routeHook = source("src/components/document-viewer/use-document-viewer-route.ts");
     const panelInstances = viewer.match(/<IndexedTextPanel\b/g) ?? [];
     const retryStart = viewer.indexOf("const retryPreview");
     const retryBlock = viewer.slice(retryStart, viewer.indexOf("useEffect", retryStart));
@@ -109,7 +110,8 @@ describe("document viewer latency guards", () => {
     expect(viewer).toContain("detailControllerRef.current?.abort()");
     expect(viewer).toContain("pageByNumber");
     expect(viewer).toContain("chunkById");
-    expect(viewer).toContain("window.history.pushState");
+    expect(viewer).toContain("useDocumentViewerRoute");
+    expect(routeHook).toContain("window.history.pushState");
     expect(viewer).not.toContain("router.push(documentPageHref");
     expect(viewer).toContain("localProjectIdentityPromiseRef.current = null");
     expect(retryBlock).toContain("setLocalProjectReady(true)");
