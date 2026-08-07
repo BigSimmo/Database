@@ -25,13 +25,19 @@ describe("worker visual capture hardening", () => {
   });
 
   it("keeps view-only retained images out of retrieval index inputs", () => {
-    expect(workerSource).toContain(
-      "const persistedSearchable = !retainedWithoutCaptioning && policyAssessment.searchable",
-    );
+    expect(workerSource).toContain("!retainAsCover && !retainedWithoutCaptioning && policyAssessment.searchable");
     expect(workerSource).toContain("if (data.searchable !== false) {");
     expect(workerSource).toContain("insertedImages.push({");
     // The prior broadening pulled document-view-only rows into chunk/index/embedding inputs.
     expect(workerSource).not.toContain("if (data.searchable !== false || retainForDocumentView)");
+  });
+
+  it("captures first-page cover thumbnails without spending clinical caption budget", () => {
+    expect(extractorSource).toContain("def save_cover_page(");
+    expect(extractorSource).toContain('"sourceKind": "cover_page"');
+    expect(workerSource).toContain('candidate.sourceKind !== "cover_page"');
+    expect(workerSource).toContain('const retainAsCover = image.sourceKind === "cover_page"');
+    expect(workerSource).toContain("cover_image_id: coverImageId");
   });
 
   it("fails closed when the lease-fenced commit RPC is unavailable and keeps image uploads generation-scoped", () => {

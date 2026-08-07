@@ -774,6 +774,8 @@ export type RelatedDocument = {
   best_chunk_ids: string[];
   image_count: number;
   table_count?: number;
+  /** Non-searchable first-page cover image id for search-card thumbnails. */
+  cover_image_id?: string | null;
   match_reason: string;
   score: number;
 };
@@ -788,6 +790,8 @@ export type DocumentMatch = {
   bestChunkIds: string[];
   imageCount: number;
   tableCount: number;
+  /** Non-searchable first-page cover image id for search-card thumbnails. */
+  coverImageId?: string | null;
   matchReason: string;
   score: number;
   relevance?: SourceEvidenceRelevance;
