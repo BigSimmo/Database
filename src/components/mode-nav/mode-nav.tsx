@@ -125,8 +125,8 @@ export function ModeNav({
   items: ModeNavItem[];
   /** Names the landmark, e.g. "Therapy pages". */
   label: string;
-  /** Defaults to the item whose href matches the current path. */
-  activeId?: string;
+  /** Defaults to the item whose href matches the current path. Pass `null` to force no current page. */
+  activeId?: string | null;
   /** The page arrived from; marked with a half-weight trail while on a record. */
   originId?: string;
 }) {
@@ -150,8 +150,11 @@ export function ModeNav({
 
   // Record routes (`/therapy-compass/<slug>`) match no item, so nothing claims
   // to be the current page and the origin trail carries lineage instead.
+  // `activeId === null` is an explicit "no current" from callers that already
+  // resolved ownership (RegistryModeNav); omit/`undefined` still derives from path.
   const derived = items.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
-  const active = activeId ? items.find((item) => item.id === activeId) : derived;
+  const active =
+    activeId === undefined ? derived : activeId === null ? undefined : items.find((item) => item.id === activeId);
   const activeIndex = active ? items.indexOf(active) : -1;
 
   // The band at which the current page gets a slot of its own, or "none" when
