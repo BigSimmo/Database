@@ -1046,6 +1046,9 @@ export async function POST(request: Request) {
       serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
     );
   } catch (error) {
+    if ((error instanceof DOMException && error.name === "AbortError") || request.signal?.aborted) {
+      return new Response(null, { status: 499 });
+    }
     if (error instanceof serverAuth.AuthenticationError) {
       return serverAuth.unauthorizedResponse(error);
     }
