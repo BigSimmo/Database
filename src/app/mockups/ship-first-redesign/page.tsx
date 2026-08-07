@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { ShipFirstRedesignGallery } from "@/components/ship-first-redesign/gallery";
+import { ShipFirstRedesignGallery } from "@/components/ship-first-redesign-mockups/gallery";
 
 export const metadata: Metadata = {
   title: "Ship-first redesign perfected - Clinical KB",
