@@ -4,9 +4,12 @@ test.describe("React Hydration Safety", () => {
   const scenarios = [
     { name: "dashboard defaults", route: "/", storage: {} },
     {
+      // Seed expanded ("0") so the client preference differs from the
+      // collapsed SSR/server snapshot after the closed-by-default flip —
+      // that is the mismatch/re-render path useSyncExternalStore must handle.
       name: "dashboard persisted theme and sidebar",
       route: "/",
-      storage: { "clinical-kb-theme": "dark", "clinical-kb-sidebar-collapsed": "1" },
+      storage: { "clinical-kb-theme": "dark", "clinical-kb-sidebar-collapsed": "0" },
       themeCookie: "dark",
     },
     {
