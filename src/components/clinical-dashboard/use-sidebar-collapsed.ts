@@ -3,8 +3,22 @@
 import { useCallback } from "react";
 import { createBrowserStore } from "@/lib/client-store-factory";
 
-const storageKey = "clinical-kb-sidebar-collapsed";
+/** localStorage key for an explicit expanded/collapsed pin. */
+export const SIDEBAR_COLLAPSED_STORAGE_KEY = "clinical-kb-sidebar-collapsed";
+
 const changeEvent = "clinical-kb-sidebar-collapsed-change";
+
+/**
+ * Maps a raw stored value to the collapsed preference. Absent key (`null` /
+ * `undefined`) resolves to collapsed so first-run and never-toggled browsers
+ * match the closed-by-default product choice. When a value is present,
+ * collapsed is true only for the explicit `"1"` pin (same ternary the store
+ * used before this helper was extracted). Storage errors are handled by
+ * callers (they pass null / use their own catch path).
+ */
+export function readSidebarCollapsedPreference(storedValue: string | null | undefined): boolean {
+  return storedValue === null || storedValue === undefined ? true : storedValue === "1";
+}
 
 // In-memory fallback when localStorage writes fail (e.g. private browsing mode).
 // Null means no fallback needed; storage is the source of truth.
@@ -17,12 +31,15 @@ function getSnapshot() {
     return inMemoryFallback;
   }
   try {
-    const storedValue = window.localStorage.getItem(storageKey);
-    // New users get the labelled (expanded) sidebar: eight icon-only
-    // destinations demand recall/hover; collapsing stays a remembered choice.
-    return storedValue === null ? false : storedValue === "1";
+    const storedValue = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    // Collapsed is the default whenever the key is absent. The key is only
+    // written after an explicit toggle, so browsers that never touched the
+    // control (returning users included) also land on collapsed — matching
+    // the already-closed mobile drawer. Explicit "0"/"1" preferences still
+    // win; expanding remains a remembered choice.
+    return readSidebarCollapsedPreference(storedValue);
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -35,7 +52,7 @@ function subscribe(onChange: () => void) {
   };
 }
 
-const useSidebarCollapsedStore = createBrowserStore(subscribe, getSnapshot, false);
+const useSidebarCollapsedStore = createBrowserStore(subscribe, getSnapshot, true);
 
 /**
  * Desktop sidebar collapse state shared across shells and persisted per
@@ -46,7 +63,7 @@ export function useSidebarCollapsed() {
   const collapsed = useSidebarCollapsedStore();
   const setCollapsed = useCallback((next: boolean) => {
     try {
-      window.localStorage.setItem(storageKey, next ? "1" : "0");
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, next ? "1" : "0");
       // Storage write succeeded; clear the in-memory fallback so persisted
       // storage remains the source of truth.
       inMemoryFallback = null;
