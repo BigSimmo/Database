@@ -52,7 +52,7 @@ describe("document image filmstrip page sync", () => {
     expect(toolbar).toHaveAttribute("data-testid", "document-image-filmstrip");
 
     const page5 = within(toolbar).getByRole("button", { name: /Show PDF page 5 for Titration chart/i });
-    expect(page5).toHaveAttribute("aria-current", "true");
+    expect(page5).toHaveAttribute("aria-current", "page");
     fireEvent.click(within(toolbar).getByRole("button", { name: /Show PDF page 2 for ANC thresholds/i }));
     expect(onSelectPage).toHaveBeenCalledExactlyOnceWith(2);
   });

@@ -359,11 +359,15 @@ export function DocumentImage({
           </p>
         )}
         <p className={cn("text-xs font-semibold uppercase tracking-eyebrow", textMuted)}>
-          {image.image_type ? image.image_type.replaceAll("_", " ") : null}
-          {image.tableRole ? ` · ${image.tableRole}` : ""}
-          {image.clinicalUseClass && image.clinicalUseClass !== "clinical_evidence"
-            ? ` · ${image.clinicalUseClass.replaceAll("_", " ")}`
-            : ""}
+          {[
+            image.image_type ? image.image_type.replaceAll("_", " ") : null,
+            image.tableRole || null,
+            image.clinicalUseClass && image.clinicalUseClass !== "clinical_evidence"
+              ? image.clinicalUseClass.replaceAll("_", " ")
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </div>
       {warnings.length ? (
