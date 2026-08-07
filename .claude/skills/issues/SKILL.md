@@ -92,19 +92,6 @@ writer.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
   surface — recording it here is fine, but acting on it later still needs the usual gate.
 
-## Persist the memory (commit)
-
-After any mutation, stage and commit **only** `docs/outstanding-issues.md` so the memory survives the
-ephemeral container and other worktrees:
-
-```
-git add docs/outstanding-issues.md
-git commit -m "issues: <what changed>"
-```
-
-Do not stage or commit anything else, and do not push unless the user asks (or you are already in a
-handoff/upload flow). A plain read-only `/issues` commits nothing.
-
 ## Refresh the visual register
 
 `docs/outstanding-issues.md` remains the only source of truth. After every successful add, update,
@@ -116,4 +103,18 @@ done, capture, or ledger sweep—and before opening an `issues list`—refresh t
 
 Require the decisive `ISSUES_LIST_UPDATED` line. The stable artifact is
 `C:\Users\joshs\OneDrive\ISSUES-LIST.html`. If refresh fails, do not undo a valid ledger mutation;
-report that the Markdown source is current and the visual artifact is stale.
+report that the Markdown source is current and the visual artifact is stale. Still proceed to
+commit the Markdown ledger below — a stale visual artifact must not block persisting the source.
+
+## Persist the memory (commit)
+
+After any mutation (and after the refresh gate above), stage and commit **only**
+`docs/outstanding-issues.md` so the memory survives the ephemeral container and other worktrees:
+
+```
+git add docs/outstanding-issues.md
+git commit -m "issues: <what changed>"
+```
+
+Do not stage or commit anything else, and do not push unless the user asks (or you are already in a
+handoff/upload flow). A plain read-only `/issues` commits nothing.

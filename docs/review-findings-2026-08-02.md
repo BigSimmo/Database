@@ -229,7 +229,7 @@ Enabling `noUncheckedIndexedAccess` is valuable but will require a dedicated cle
 
 ## 8. Suggested next steps
 
-1. **Restore the typecheck gate:** clean `.next/` and regenerate, or update `.next/dev/types/validator.ts` references, so `npm run typecheck` reflects source health.
+1. **Restore the typecheck gate:** clean `.next/` and regenerate (never edit or commit generated `.next/` output), or fix the authored route references the validator points at, so `npm run typecheck` reflects source health.
 2. **Reduce `as unknown as` casts:** introduce Zod schemas or runtime guards at Supabase, OpenAI, and extraction boundaries. Start with `src/lib/rag/rag.ts` and `src/app/api/*` routes.
 3. **Stop swallowing errors:** replace `response.json().catch(() => ({}))` with an explicit check of `response.ok` and a typed error path; for telemetry, consider a small `safeFetch` wrapper that logs failure without losing the failure signal.
 4. **Plan a `noUncheckedIndexedAccess` migration:** pick the 15–20 highest-risk files (tests excluded) and add `?.`/`??` guards or non-null assertions where invariants are provable.
@@ -239,11 +239,16 @@ Enabling `noUncheckedIndexedAccess` is valuable but will require a dedicated cle
 
 ## 9. Commands and artifacts
 
-- `npm run check:installed-lock-parity` — passed.
-- `npm run lint` — passed.
-- `npm run typecheck` — failed (stale `.next` types).
-- `npx tsc --noEmit --project <temp-tsconfig-excluding-.next>` — passed.
-- `npx tsc --noEmit --project tsconfig.no-unchecked.json` — failed (1266 errors).
-- `npx knip --no-progress --include dependencies,unlisted,unresolved,duplicates` — passed.
-- `npm run check:maintainability-budgets` — passed.
+Decisive verification lines from the 2026-08-02 authoring session (see also §2.1 / §1):
+
+- `npm run check:installed-lock-parity` — exit 0 (passed).
+- `npm run lint` — exit 0 with `--max-warnings 0`.
+- `npm run typecheck` — failed with 14 errors in `.next/dev/types/validator.ts` referencing missing mockup pages (stale generated types; authored source not at fault).
+- `npx tsc --noEmit` against a temporary tsconfig excluding `.next/**` — exit 0.
+- `npx tsc --noEmit --project tsconfig.no-unchecked.json` — failed (**1266** errors under `noUncheckedIndexedAccess`).
+- `npx knip --no-progress --include dependencies,unlisted,unresolved,duplicates` — exit 0.
+- `npm run check:maintainability-budgets` — exit 0.
+- `npm run verify:release` — **not run** (provider-backed; remains unchecked for this report).
 - Temporary files `tsconfig.typescript-review.json` and `tsconfig.no-unchecked.json` were created and then deleted; the repository is unchanged except for this report.
+
+Note: `docs/branch-review-ledger.md` is append-only via `npm run ledger:append` — historical ledger cells are not rewritten to backfill decisive output.

@@ -9,7 +9,7 @@
 **Scope:** Direct-use behaviour + live visual quality. Documents counted as **one page type** (home + Browse library / Sources folded in).  
 **Out of scope:** Physical Safari / installed PWA, live RAG ranking quality, signed-in-only deep paths, mockups, autofix.
 
-### Evidence locations
+## Evidence locations
 
 | Artifact              | Path                                                                                 |
 | --------------------- | ------------------------------------------------------------------------------------ |
@@ -19,7 +19,7 @@
 | Screenshots           | `%TEMP%\ux-sweep-evidence\phone-390-*.png`, `tablet-768-*.png`, `desktop-1440-*.png` |
 | Design-sweep evidence | `.local/workflow-evidence/*-design-sweep.json`                                       |
 
-### Viewport matrix used
+## Viewport matrix used
 
 | Label   | Size       |
 | ------- | ---------- |
