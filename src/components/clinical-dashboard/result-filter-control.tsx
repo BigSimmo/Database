@@ -173,10 +173,10 @@ export function ResultFilterTrigger({
  * one-of-N — a reader who has selected "Presentations" cannot also be on
  * "Diagnoses", and a bank of independent pressed-states says they could.
  *
- * The sheet stays mounted while closed (`Sheet` returns null when `open` is
- * false), so it holds no chrome state of its own that could survive a new
- * search. Selection lives in the page, exactly where the desktop control already
- * reads and writes it, which is what keeps the two breakpoints in agreement.
+  * The sheet does not stay mounted while closed (`Sheet` returns null when `open` is
+  * false), so it holds no chrome state of its own that could survive a new search.
+  * Selection lives in the page, exactly where the desktop control already reads and
+  * writes it, which is what keeps the two breakpoints in agreement.
  */
 export function ResultFilterSheet({
   open,
