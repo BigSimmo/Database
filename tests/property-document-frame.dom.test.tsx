@@ -34,7 +34,7 @@ describe("property: DocumentFrame controlled viewing state", () => {
           const frame = container.querySelector<HTMLElement>("[data-document-frame]");
           const output = container.querySelector<HTMLOutputElement>('output[aria-label="Document zoom"]');
           const renderedPercent = Number(output?.textContent?.replace("%", ""));
-          expect(renderedPercent).toBeGreaterThanOrEqual(50);
+          expect(renderedPercent).toBeGreaterThanOrEqual(55);
           expect(renderedPercent).toBeLessThanOrEqual(400);
           expect(frame?.dataset.viewingAid).toBe(viewingAid && fitWidth ? "on" : "off");
           unmount();

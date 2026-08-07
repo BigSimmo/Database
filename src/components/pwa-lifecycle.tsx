@@ -101,7 +101,7 @@ async function teardownLocalPwa() {
 }
 
 const cardClassName =
-  "pwa-notice-card pointer-events-auto relative rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-md dark:ring-white/10";
+  "pwa-notice-card pointer-events-auto relative rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-[color:var(--ring-glass)] backdrop-blur-md";
 const primaryButtonClassName =
   "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const secondaryButtonClassName =

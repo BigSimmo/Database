@@ -1,17 +1,6 @@
 "use client";
 
-import {
-  Bookmark,
-  ChevronsUpDown,
-  CircleAlert,
-  CircleMinus,
-  Funnel,
-  LayoutList,
-  LoaderCircle,
-  Search,
-  Table2,
-  X,
-} from "lucide-react";
+import { Bookmark, CircleAlert, CircleMinus, Funnel, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
@@ -65,7 +54,9 @@ function singularNoun(plural: string) {
 }
 
 /** Sort is a two-state choice, so it reads as a segmented control rather than a
-    select: a dropdown over two values makes you open a menu to learn nothing. */
+    select: a dropdown over two values makes you open a menu to learn nothing.
+    It is a `sm`-and-up control — see `ResultSortControl` for why the phone line
+    drops it. */
 const sortOptions: ReadonlyArray<{ value: ResultSortValue; label: string }> = [
   { value: "relevance", label: "Relevance" },
   { value: "alpha", label: "A–Z" },
@@ -181,18 +172,21 @@ export function SearchResultsHeaderBand({
   /**
    * Whether `mobileControls` can share the count line on a phone.
    *
-   * The one-line bar only works when the phone control is a compact trigger —
-   * documents and therapy-compass pass a badged icon button, which fits beside
-   * the count with room to spare. Six other modes pass `MobileResultFilterControl`,
-   * which is a `w-full` native select (formulation and specifiers pass *two*, in
-   * a two-column grid), and pinning one of those into a 58px line at 320px makes
-   * it unreadable. Those keep their own row.
+   * The one-line bar only works when the phone control is a compact trigger — a
+   * badged icon button fits beside the count with room to spare, while a
+   * `w-full` native select pinned into a 58px line at 320px is unreadable. Every
+   * mode now passes a trigger (`ResultFilterTrigger`, opening a sheet) and so
+   * every mode passes `inline`; the six band modes that shipped a select — the
+   * last two a two-column grid of them — were converted together. (A seventh
+   * surface, the tools launcher, carried the same select outside this band.)
    *
-   * The default reads the shape of what was passed rather than asking every
-   * caller: no phone control at all means nothing wide can be there, so the line
-   * collapses; a phone control is assumed wide until its page says otherwise.
-   * That way a new mode that forgets this prop degrades to today's layout
-   * instead of to an unusable one.
+   * The default nonetheless stays `row`, and reads the shape of what was passed
+   * rather than asking every caller: no phone control at all means nothing wide
+   * can be there, so the line collapses; a phone control is assumed wide until
+   * its page says otherwise. Nothing relies on that fallback today — it exists
+   * so a new mode that forgets this prop, or one that has a genuine reason to
+   * hand over something full-width, degrades to a second row rather than to an
+   * unusable line. Do not flip it to `inline`.
    */
   mobileControlsPlacement?: "inline" | "row";
   /** Page-specific filters rendered as a full-width row within the shared ribbon. */
@@ -258,6 +252,14 @@ export function SearchResultsHeaderBand({
   const pageMobileControls = countUntrusted ? null : mobileControls;
   const hasUtilities = Boolean(
     onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls || (partial && onRetry),
+  );
+  // Sort is the one utility that does not render below `sm`. A page whose only
+  // utility is sort would otherwise keep this group mounted on a phone as an
+  // empty flex child — and in `inline` placement below 414px that child is
+  // `w-full basis-full`, so it would take a whole empty second line under the
+  // count. Hide the group itself there instead of leaving a ghost row.
+  const hasPhoneUtilities = Boolean(
+    onViewChange || onSaveSearch || utilityControls || pageMobileControls || (partial && onRetry),
   );
   // See `mobileControlsPlacement`: absent a declaration, a page control is
   // assumed to be a full-width select and keeps its own row, and a band with no
@@ -428,7 +430,8 @@ export function SearchResultsHeaderBand({
           <div
             data-testid="search-query-ribbon-utilities"
             className={cn(
-              "flex min-w-0 items-center gap-1.5 lg:flex-1",
+              hasPhoneUtilities ? "flex" : "hidden sm:flex",
+              "min-w-0 items-center gap-1.5 lg:flex-1",
               // Row placement: wrap so a `w-full` phone select gets its own line
               // instead of sharing a shrinkable flex line with Sort. At `sm+` the
               // phone control is hidden and the track returns to a single row.
@@ -717,6 +720,22 @@ export function SearchResultsHeaderBand({
   );
 }
 
+/**
+ * Sort, from `sm` up only. On a phone the two segments — "Relevance" and "A–Z" —
+ * cost roughly half the band's one line, which is the state the phone bar was
+ * reported in: count, query, sort and Filter competing for ~350px, with the
+ * query truncating to pay for a control that is set about once a session. The
+ * default order is relevance, which is what a phone reader wants anyway, so the
+ * phone drops the control rather than squeezing every neighbour around it.
+ *
+ * Only the affordance is `sm`-and-up. `?sort=` still carries an alpha order onto
+ * a phone from a link or a wider session, and the results honour it.
+ *
+ * The display class lives in this base string rather than in a caller's
+ * `className`: `cn` is a plain join with no Tailwind conflict resolution, so a
+ * base `inline-flex` plus a caller's `hidden` would resolve by stylesheet order
+ * rather than by intent.
+ */
 export function ResultSortControl({
   value,
   onChange,
@@ -731,7 +750,7 @@ export function ResultSortControl({
       role="group"
       aria-label="Sort results"
       className={cn(
-        "inline-flex min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10",
+        "hidden min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:inline-flex sm:min-h-10",
         className,
       )}
     >
@@ -763,59 +782,6 @@ export function ResultSortControl({
         );
       })}
     </div>
-  );
-}
-
-export function MobileResultFilterControl<Value extends string>({
-  label,
-  ariaLabel,
-  value,
-  options,
-  onChange,
-  testId,
-  className,
-}: {
-  label: string;
-  ariaLabel: string;
-  value: Value;
-  options: ReadonlyArray<{ value: Value; label: string; disabled?: boolean }>;
-  onChange: (value: Value) => void;
-  testId?: string;
-  className?: string;
-}) {
-  return (
-    <label
-      className={cn(
-        "relative inline-flex min-h-tap w-full min-w-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
-        "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
-        className,
-      )}
-    >
-      <span className="shrink-0 text-[color:var(--text-muted)] max-[359px]:sr-only">{label}</span>
-      {/* Two things keep this readable. `truncate` ends a long option ("Current
-          search", a service name) in an ellipsis instead of the mid-word cut it used
-          to get. And the weight steps down to semibold because the size cannot: the
-          unlayered iOS anti-zoom rule in globals.css pins every native select to 16px
-          below `sm`, so weight and colour are the only hierarchy left against the
-          18px query heading. */}
-      <select
-        data-testid={testId}
-        value={value}
-        onChange={(event) => onChange(event.target.value as Value)}
-        aria-label={ariaLabel}
-        className="h-tap min-w-0 flex-1 cursor-pointer appearance-none truncate bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value} disabled={option.disabled}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <ChevronsUpDown
-        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--decoration-soft)]"
-        aria-hidden
-      />
-    </label>
   );
 }
 
