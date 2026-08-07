@@ -34,10 +34,6 @@ describe("PageSecondaryNavigation", () => {
       ["Overview", "What matters now", "Fit", "5 Ps", "Treatment leverage", "Evidence / source"],
     ],
     [
-      "/differentials/presentations/acute-confusion-encephalopathy",
-      ["Overview", "Comparison", "Safety", "Highest urgency", "Handoff", "Source status"],
-    ],
-    [
       "/dsm/diagnoses/major-depressive-disorder",
       ["Criteria", "Key features", "Specifiers", "Documentation", "Record summary"],
     ],
@@ -65,15 +61,32 @@ describe("PageSecondaryNavigation", () => {
   });
 
   it("uses stable semantic fragments for breakpoint-specific section targets", () => {
+    // A fragmentId is the stable href when a section's target differs across
+    // breakpoints; SecondaryNavigation still scrolls via the targetId, so the
+    // fragment never needs to exist as an element.
     const formDecisionContext = informationPageSectionDefinitions("/forms/form-1").find(
       (section) => section.id === "decision-context",
     );
-    const differentialSafety = informationPageSectionDefinitions(
-      "/differentials/presentations/acute-confusion-encephalopathy",
-    ).find((section) => section.id === "safety");
+    const formSourceVerification = informationPageSectionDefinitions("/forms/form-1").find(
+      (section) => section.id === "verification",
+    );
 
     expect(formDecisionContext?.fragmentId).toBe("form-decision-context");
-    expect(differentialSafety?.fragmentId).toBe("differential-presentation-safety");
+    expect(formSourceVerification?.fragmentId).toBe("form-source-verification");
+  });
+
+  it("claims no section set for the differentials presentation workflow", () => {
+    // It declared six sections whose targetIds no component rendered, so
+    // AvailableInformationPageNavigation filtered them all out and returned
+    // null — the route claimed and nothing drawn (/issues #256). The set is
+    // deleted rather than wired: the page owns navigation at every width
+    // already (MobileTabs below xl, the "Differential review sidebar" aside at
+    // xl showing every panel at once), and three of the six declared a -mobile
+    // variant that no render could ever satisfy.
+    expect(informationPageSectionDefinitions("/differentials/presentations/acute-confusion-encephalopathy")).toEqual(
+      [],
+    );
+    expect(hasLocalInformationPageNavigation("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
   });
 
   it("binds service section targets to IDs rendered by service-detail-page", () => {
@@ -82,6 +95,18 @@ describe("PageSecondaryNavigation", () => {
       (section) => section.targetIds,
     )) {
       expect(servicePage).toContain(`id="${targetId}"`);
+    }
+  });
+
+  it("binds form section targets to IDs rendered by form-detail-page", () => {
+    // The gap /issues #256 was about: this page declared six sections and
+    // rendered zero `id=` attributes, so its nav filtered to nothing and drew
+    // nothing at all. Every literal below is at a call site in this file, so a
+    // vacuous pass is not possible — a target moved behind a variable would
+    // fail here and needs a rendered-DOM assertion instead.
+    const formPage = readFileSync(join(process.cwd(), "src/components/forms/form-detail-page.tsx"), "utf8");
+    for (const targetId of informationPageSectionDefinitions("/forms/form-1").flatMap((section) => section.targetIds)) {
+      expect(formPage).toContain(`id="${targetId}"`);
     }
   });
 
@@ -165,13 +190,10 @@ describe("PageSecondaryNavigation", () => {
     // /documents/<id> record.
     //
     // The anchors are planted here rather than taken from the real page on
-    // purpose: this asserts branch ORDER, not that /forms/form-1 currently
-    // draws a nav. It does not — form-detail-page.tsx carries
-    // "form-decision-context-mobile" as a `testId`, not an element id, and the
-    // other five declared targetIds are rendered nowhere, so
-    // AvailableInformationPageNavigation filters everything out and returns
-    // null. That is /issues #256 (declared section sets whose targets nothing
-    // renders), live for forms, pre-existing and out of scope here.
+    // purpose: this asserts branch ORDER only. That form-detail-page.tsx now
+    // renders these ids for real is the separate binding guard above — jsdom
+    // applies no Tailwind, so `lg:hidden` produces no `display:none` here and
+    // this could not tell a -mobile target from its -desktop twin anyway.
     render(
       <div>
         <PageSecondaryNavigation modeId="forms" pathname="/forms/form-1" hasSubmittedSearch />
