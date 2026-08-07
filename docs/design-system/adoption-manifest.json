@@ -1490,6 +1490,7 @@
         "src/app/(search-app)/differentials/diagnoses/[slug]/loading.tsx",
         "src/app/(search-app)/differentials/presentations/[slug]/loading.tsx",
         "src/app/(search-app)/medications/[slug]/loading.tsx",
+        "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/mode-home-page-skeleton.tsx"
       ],
@@ -1497,6 +1498,7 @@
         "src/app/(search-app)/differentials/diagnoses/[slug]/loading.tsx",
         "src/app/(search-app)/differentials/presentations/[slug]/loading.tsx",
         "src/app/(search-app)/medications/[slug]/loading.tsx",
+        "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/mode-home-page-skeleton.tsx"
       ],
