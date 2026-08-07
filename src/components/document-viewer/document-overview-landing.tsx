@@ -77,7 +77,7 @@ export function DocumentOverviewLanding({
             className="h-20 w-20 rounded-xl text-sm sm:h-24 sm:w-24"
           />
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+            <p className="text-xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]">
               {documentTypeEyebrow(document)}
             </p>
             <h2 className="line-clamp-2 text-xl font-semibold leading-7 text-[color:var(--text-heading)]">

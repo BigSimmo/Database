@@ -5,6 +5,11 @@ only in the token files.** Source-of-truth ranking: `AGENTS.md` → `ckb-v2-toke
 committed tests → `.design-sync/conventions.md` → this set. Where this set contradicts a
 higher source, the higher source wins and the contradiction is a defect here.
 
+**Picking the work up cold?** Start at
+[HANDOVER-2026-08-07.md](HANDOVER-2026-08-07.md) — measured state, the ordered plan, and the
+six places the older design-system backlog is provably wrong. It exists so a fresh session
+does not re-derive what a previous one already measured.
+
 Reading order:
 
 1. [SPEC.md](SPEC.md) — principles, foundations, patterns, degraded states, accessibility,

@@ -10,6 +10,7 @@ import {
   validationStatusLabel,
 } from "@/lib/source-metadata";
 import { classifySourceAuthority } from "@/lib/source-authority-registry";
+import { twMergeClinical } from "@/lib/tailwind-merge";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 /**
@@ -23,8 +24,17 @@ import type { ClinicalSourceMetadata } from "@/lib/types";
  */
 export type SourceMetadataInput = Partial<ClinicalSourceMetadata> | null;
 
+/**
+ * Compose Tailwind classes, resolving conflicts last-wins.
+ *
+ * Falsy arguments are dropped exactly as before; what changed is that the result
+ * now goes through tailwind-merge, so a later class beats an earlier one instead
+ * of both being emitted and the generated stylesheet's order deciding. See
+ * `@/lib/tailwind-merge` for why the merge needs this repo's `@theme` scales
+ * declared to it, and what it silently deletes without them.
+ */
 export function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+  return twMergeClinical(classes.filter(Boolean).join(" "));
 }
 
 export const transitionSurface = "transition-colors transition-shadow motion-reduce:transition-none";
@@ -57,8 +67,7 @@ export const floatingControl = `inline-flex min-h-tap items-center justify-cente
 export const toolbarButton = `grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
 // Eyebrows are text (section kickers), so they sit on `--text-muted` (≥4.5:1),
 // never the decoration tier. Uppercase + tracking keep the kicker role.
-export const eyebrowText =
-  "text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]";
+export const eyebrowText = "text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]";
 // A field label is a text node, so it cannot use `--text-soft` (3.07:1) or the
 // uppercase eyebrow treatment: weight said "important" while colour said
 // "secondary", and the label was quieter than the value it described. Sentence

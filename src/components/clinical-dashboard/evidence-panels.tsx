@@ -874,7 +874,7 @@ export function ClinicalNotesChecklistPanel({
         >
           <CircleAlert aria-hidden="true" className="h-5 w-5" />
           <span className="min-w-0">
-            <span className="block text-xs font-bold uppercase tracking-[0.06em]">Safety preview ({warningCount})</span>
+            <span className="block text-xs font-bold uppercase tracking-label">Safety preview ({warningCount})</span>
             <span className="block truncate text-xs font-semibold">Review toxicity symptoms</span>
           </span>
           <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-xs")}>S1</span>

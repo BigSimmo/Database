@@ -1,9 +1,11 @@
 # Document viewer redesign — PDF + photo surfaces
 
-**Status:** plan only (no product behaviour change in this doc PR)  
+**Status:** programme plan (Phases 0–1 landed; Phase 2 detailed plan separate)  
 **Branch seed:** `cursor/document-viewer-redesign-plan-1db8`  
 **Flightplan evidence:** `.local/workflow-evidence/2026-08-06T17-27-05-553Z-flightplan.json`  
-**Related ledger:** `#214` (passive wheel / INP), `#219` (preview error announce), `#215` (image decode/priority)
+**Related ledger:** `#214` / `#219` resolved; `#215` residual (PWA/demo WebP) optional  
+**Landed:** Phase 0 [#1660](https://github.com/BigSimmo/Database/pull/1660), Phase 1 [#1665](https://github.com/BigSimmo/Database/pull/1665)  
+**Next detail:** [`document-viewer-phase2-unified-chrome.md`](./document-viewer-phase2-unified-chrome.md)
 
 This is the execution plan for a dramatic improvement of design, style, approach,
 functionality, and optimisation of the PDF reader and photo/figure viewers. It is
@@ -103,7 +105,7 @@ PRs that change source rendering / document access need a complete
 Bundle only when each item is independently low-risk and separately revertible. Prefer
 **one phase per PR** for anything that touches gestures, chrome, or PDF raster.
 
-### Phase 0 — Measurement unblocking (small, own PR)
+### Phase 0 — Measurement unblocking (small, own PR) — **DONE** (#1660)
 
 **Goal:** fix known INP/a11y debt so redesign work can be measured honestly.
 
@@ -116,7 +118,7 @@ Bundle only when each item is independently low-risk and separately revertible. 
 **Verify:** focused gesture + DOM a11y tests; manual INP spot-check on PDF scroll.  
 **Stop:** do not break Ctrl/⌘+wheel or trackpad pinch zoom.
 
-### Phase 1 — Shell extraction without UX rewrite
+### Phase 1 — Shell extraction without UX rewrite — **DONE** (#1665)
 
 **Goal:** make `DocumentViewer.tsx` a thin orchestrator so design work is safe.
 
@@ -132,24 +134,26 @@ Clarify `document-viewer-lazy` naming vs real dynamic boundaries.
 **Verify:** shell/DOM contracts, pdf-reader-lazy, client-performance-boundaries,
 `document-detail-performance`, `verify:phone-chrome` (dry-run then focused).
 
-### Phase 2 — Unified viewing chrome (design + approach)
+### Phase 2 — Unified viewing chrome (design + approach) — **NEXT**
 
 **Goal:** dramatic visual/UX convergence without changing clinical content.
 
+**Detailed safe-rollout plan (sub-PRs 2a–2e, gates, stop rules):**
+[`document-viewer-phase2-unified-chrome.md`](./document-viewer-phase2-unified-chrome.md)
+
 1. Deepen `DocumentFrame` adoption toward COMPONENTS §6 — shared zoom/fit/page metadata
    chrome for PDF canvas and image stages; keep viewing-aid off by default and forced off
-   for print/zoomed figures.
+   for print/zoomed figures. (**PR 2a**)
 2. Route whole-document images through the same immersive viewer as crops (`ImageLightbox`
-   or in-frame immersive mode sharing gestures).
-3. Figure rail → compact filmstrip / gallery with page badges; click syncs PDF page.
-4. Intentionally add 2–3 motions (zoom settle, lightbox open, page crossfade) that respect
-   `prefers-reduced-motion`.
-5. Revisit native vs canvas: primary = canvas; native as “browser zoom” advanced option
-   after parity checklist.
+   or in-frame immersive mode sharing gestures). (**PR 2b**)
+3. Figure rail → compact filmstrip / gallery with page badges; click syncs PDF page. (**PR 2c**)
+4. Revisit native vs canvas: primary = canvas; native as “browser zoom” advanced option
+   after parity checklist. (**PR 2d**)
+5. Intentionally add 2–3 motions (zoom settle, lightbox open, page crossfade) that respect
+   `prefers-reduced-motion`. (**PR 2e**, last)
 
-**Verify:** `document-frame-contract`, document-viewer DOM suites, ui-smoke PDF paths,
-`verify:phone-chrome`, a11y focused. Update `docs/search-chrome-behaviour.md` only if
-ownership semantics change (prefer not to).
+**Verify:** per sub-PR focused contracts → `verify:pr-local`; phone-chrome only when sheet/composer
+touched. Update `docs/search-chrome-behaviour.md` only if ownership semantics change (prefer not to).
 
 ### Phase 3 — Functionality + optimisation
 
@@ -289,15 +293,13 @@ Aligned with repo design rules and COMPONENTS §6:
 
 ## 10. Recommended next action
 
-1. Land this plan doc.
-2. Execute **Phase 0** on a dedicated branch (`cursor/viewer-gesture-a11y-…`) — closes
-   `#214` / `#219` / partial `#215` with focused tests.
-3. Then **Phase 1** extraction PR.
-4. Only then start **Phase 2** visual redesign with `npm run ensure` + phone-chrome proof
-   and a Clinical Governance Preflight on the PR.
-
-Do not start Phase 2 by inventing a second phone composer or changing hide-reserve
-semantics.
+1. ~~Land this plan doc.~~ Done (#1659).
+2. ~~Execute **Phase 0**.~~ Done (#1660).
+3. ~~**Phase 1** extraction.~~ Done (#1665).
+4. Execute **Phase 2** via the detailed sub-PR plan
+   [`document-viewer-phase2-unified-chrome.md`](./document-viewer-phase2-unified-chrome.md) —
+   start with **PR 2a** (DocumentFrame controls + demote duplicate PDF zoom/fit).
+5. Do not invent a second phone composer or change hide-reserve semantics.
 
 ---
 

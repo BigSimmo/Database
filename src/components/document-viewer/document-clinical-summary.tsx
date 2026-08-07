@@ -287,7 +287,7 @@ function PriorityContent({
             <h3 className="text-xs font-bold text-[color:var(--text-heading)]">{priority.title}</h3>
             <span
               className={cn(
-                "inline-flex min-h-6 items-center rounded-md px-2 text-3xs font-bold uppercase tracking-[0.05em]",
+                "inline-flex min-h-6 items-center rounded-md px-2 text-3xs font-bold uppercase tracking-label",
                 tone.labelClassName,
               )}
             >
@@ -321,7 +321,7 @@ function PriorityContent({
           <h3 className="text-sm font-bold text-[color:var(--text-heading)]">{priority.title}</h3>
           <span
             className={cn(
-              "inline-flex min-h-6 items-center rounded-md px-2 text-3xs font-bold uppercase tracking-[0.05em]",
+              "inline-flex min-h-6 items-center rounded-md px-2 text-3xs font-bold uppercase tracking-label",
               tone.labelClassName,
             )}
           >
@@ -383,7 +383,7 @@ export function DocumentClinicalSummary({
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
                 <Sparkles aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
               </span>
-              <h2 className="text-sm font-bold tracking-[-0.01em] text-[color:var(--text-heading)] sm:text-base">
+              <h2 className="text-sm font-bold tracking-display text-[color:var(--text-heading)] sm:text-base">
                 High-yield clinical summary
               </h2>
             </div>
