@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Info, LayoutGrid, List, SearchX } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
-  MobileResultFilterControl,
-  SearchResultsHeaderBand,
-} from "@/components/clinical-dashboard/search-results-header-band";
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import {
   categoryTheme,
   factsheetCategories,
@@ -45,6 +47,8 @@ export function FactsheetsSearchPage({
   const router = useRouter();
   const [view, setView] = useState<ViewMode>("list");
   const activeCategory = factsheetCategories.find((entry) => entry === category);
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
 
   return (
     <div
@@ -95,14 +99,16 @@ export function FactsheetsSearchPage({
           </div>
         }
         filterLabel="Filter factsheets by category"
+        // A compact badged trigger, so it shares the count line.
+        mobileControlsPlacement="inline"
         mobileControls={
-          <MobileResultFilterControl
-            label="Category"
-            ariaLabel="Filter factsheets by category"
-            testId="factsheet-category-select"
-            value={activeCategory ?? "all"}
-            options={filterChips.map((chip) => ({ value: chip.key ?? "all", label: chip.label }))}
-            onChange={(value) => router.push(searchHref(query, value === "all" ? undefined : value))}
+          <ResultFilterTrigger
+            panelId={filterPanelId}
+            testId="factsheet-filter-trigger-phone"
+            title="Filter factsheets"
+            open={filterOpen}
+            activeCount={activeCategory ? 1 : 0}
+            onToggle={() => setFilterOpen((current) => !current)}
           />
         }
         filterControls={
@@ -130,6 +136,39 @@ export function FactsheetsSearchPage({
             })}
           </div>
         }
+      />
+
+      {/* Phone-only by construction: the trigger that opens it lives in the
+          ribbon's `mobileControls` slot, which the band hides from `sm` up.
+          Selecting a category is a navigation here, so the sheet closes with the
+          push — leaving it open would float over a page it no longer describes. */}
+      <ResultFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        panelId={filterPanelId}
+        testId="factsheet-filter-panel"
+        title="Filter factsheets"
+        groups={[
+          resultFilterGroup({
+            id: "category",
+            label: "Category",
+            value: activeCategory ?? "all",
+            options: filterChips.map((chip) => ({ value: chip.key ?? "all", label: chip.label })),
+            onChange: (value) => {
+              setFilterOpen(false);
+              router.push(searchHref(query, value === "all" ? undefined : value));
+            },
+          }),
+        ]}
+        onClearAll={
+          activeCategory
+            ? () => {
+                setFilterOpen(false);
+                router.push(searchHref(query));
+              }
+            : undefined
+        }
+        footerNote={`${results.length} showing`}
       />
 
       {results.length === 0 ? (
