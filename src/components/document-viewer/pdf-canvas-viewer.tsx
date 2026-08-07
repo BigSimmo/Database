@@ -20,7 +20,7 @@ import { cn, floatingControl, toolbarButton } from "@/components/ui-primitives";
 import { announce } from "@/components/ui/live-announcer";
 import { useViewerGestures } from "@/components/document-viewer/use-viewer-gestures";
 import {
-  clampViewerZoom,
+  resolveViewerZoomUpdate,
   VIEWER_DEFAULT_ZOOM,
   VIEWER_MAX_ZOOM,
   VIEWER_MIN_ZOOM,
@@ -99,28 +99,35 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   const frameOwnsZoomChrome = typeof onFitWidthChange === "function" && typeof onZoomChange === "function";
   const fitWidth = frameOwnsZoomChrome ? Boolean(fitWidthProp) : internalFitWidth;
   const zoom = frameOwnsZoomChrome ? (typeof zoomProp === "number" ? zoomProp : VIEWER_DEFAULT_ZOOM) : internalZoom;
+  // Eager refs so rapid functional updates (wheel/pinch) compose before React
+  // re-renders — especially on the Frame-owned path where zoom lives in a parent.
+  const fitWidthRef = useRef(fitWidth);
+  const zoomRef = useRef(zoom);
+  fitWidthRef.current = fitWidth;
+  zoomRef.current = zoom;
   const setFitWidth = useCallback(
     (next: boolean | ((current: boolean) => boolean)) => {
-      const resolved = typeof next === "function" ? next(fitWidth) : next;
       if (frameOwnsZoomChrome) {
+        const resolved = typeof next === "function" ? next(fitWidthRef.current) : next;
+        fitWidthRef.current = resolved;
         onFitWidthChange?.(resolved);
         return;
       }
-      setInternalFitWidth(resolved);
+      setInternalFitWidth((current) => (typeof next === "function" ? next(current) : next));
     },
-    [fitWidth, frameOwnsZoomChrome, onFitWidthChange],
+    [frameOwnsZoomChrome, onFitWidthChange],
   );
   const setZoom = useCallback(
     (next: number | ((current: number) => number)) => {
-      const resolved = typeof next === "function" ? next(zoom) : next;
-      const clamped = clampViewerZoom(resolved);
       if (frameOwnsZoomChrome) {
+        const clamped = resolveViewerZoomUpdate(zoomRef.current, next);
+        zoomRef.current = clamped;
         onZoomChange?.(clamped);
         return;
       }
-      setInternalZoom(clamped);
+      setInternalZoom((current) => resolveViewerZoomUpdate(current, next));
     },
-    [frameOwnsZoomChrome, onZoomChange, zoom],
+    [frameOwnsZoomChrome, onZoomChange],
   );
   const [holderWidth, setHolderWidth] = useState(0);
   const [loading, setLoading] = useState(true);

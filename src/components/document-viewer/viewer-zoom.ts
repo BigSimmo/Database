@@ -11,3 +11,8 @@ export const VIEWER_DEFAULT_ZOOM = 1.1;
 export function clampViewerZoom(value: number): number {
   return Math.min(VIEWER_MAX_ZOOM, Math.max(VIEWER_MIN_ZOOM, value));
 }
+
+/** Resolve a zoom setter value against the latest known zoom (ref or React state). */
+export function resolveViewerZoomUpdate(current: number, next: number | ((current: number) => number)): number {
+  return clampViewerZoom(typeof next === "function" ? next(current) : next);
+}
