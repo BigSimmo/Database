@@ -35,7 +35,7 @@
     },
     "desktop-forms": {
       "lcpMs": 870,
-      "cls": 0.060,
+      "cls": 0.06,
       "tbtMs": 0,
       "fcpMs": 393.5287,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
@@ -70,7 +70,7 @@
     },
     "mobile-forms": {
       "lcpMs": 2304,
-      "cls": 0.080,
+      "cls": 0.08,
       "tbtMs": 324,
       "fcpMs": 2291.215,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
