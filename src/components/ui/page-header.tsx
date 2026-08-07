@@ -146,11 +146,17 @@ export function PageHeader({
               page header keeps one treatment.
 
               `max-sm:hidden`, not `hidden sm:grid`: `iconTilePremium` already
-              carries `grid`, and `cn()` in this repo is a plain join with no
+              carries `grid`, and `cn()` used to be a plain join with no
               tailwind-merge (ledger #218), so `hidden` + `sm:grid` + `grid`
-              would leave three display utilities to be resolved by stylesheet
-              order rather than by intent. One base display plus one max-width
-              override has nothing to race. */}
+              left three display utilities to be resolved by stylesheet order
+              rather than by intent. One base display plus one max-width
+              override had nothing to race.
+
+              That constraint is lifted — `cn()` now merges, and `grid hidden
+              sm:grid` resolves to `hidden sm:grid`. This site keeps
+              `max-sm:hidden` anyway: swapping it back is a change to which
+              display utility renders, so it belongs in a change whose Chromium
+              job is being read, not in the dependency PR. */}
           {Icon ? (
             <span className={cn(iconTilePremium, "max-sm:hidden")}>
               <Icon aria-hidden="true" className="size-icon-lg" />
