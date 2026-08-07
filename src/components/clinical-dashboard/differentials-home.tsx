@@ -614,9 +614,7 @@ function SafetyCard({ safety, query }: { safety: string; query: string }) {
           <ShieldAlert className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-extrabold uppercase tracking-[0.05em] text-[color:var(--danger)]">
-            Safety first
-          </h2>
+          <h2 className="text-sm font-extrabold uppercase tracking-label text-[color:var(--danger)]">Safety first</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">{safety}</p>
           <Link
             href={differentialRouteWithQuery("/differentials/presentations", query)}
@@ -771,7 +769,7 @@ function InterpretationRail({
 
   return (
     <aside className="hidden min-w-0 gap-3 lg:grid" aria-label="Differential interpretation">
-      <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+      <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
         Interpretation
         <Info className="h-4 w-4" aria-hidden />
       </h2>
@@ -1062,7 +1060,7 @@ function SearchResultsView({
                         : "Run source search to validate against indexed local documents."}
                   </span>
                 </div>
-                <h2 className="mt-3 text-base font-extrabold uppercase tracking-[0.09em] text-[color:var(--text-heading)]">
+                <h2 className="mt-3 text-base font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
                   Catalogue matches <span className="text-[color:var(--text-muted)]">(ranked)</span>
                 </h2>
               </div>

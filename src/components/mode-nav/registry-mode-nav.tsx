@@ -1,6 +1,14 @@
 "use client";
 
-import { GitCompareArrows, ListChecks, Network, Search, Stethoscope, type LucideIcon } from "lucide-react";
+import {
+  BookOpenText,
+  GitCompareArrows,
+  ListChecks,
+  Network,
+  Search,
+  Stethoscope,
+  type LucideIcon,
+} from "lucide-react";
 
 import { ModeNav, type ModeNavItem } from "@/components/mode-nav/mode-nav";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
@@ -23,6 +31,11 @@ const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   compare: GitCompareArrows,
   builder: ListChecks,
   map: Network,
+  // The Factsheets hero glyph (`factsheets-home-page.tsx`), so the tab wears the
+  // same mark as the surface it points at. Not LayoutGrid: the search page uses
+  // that for its card/list view toggle, and one glyph must not mean two things
+  // on the same screen.
+  topics: BookOpenText,
 };
 
 /**

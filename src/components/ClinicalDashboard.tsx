@@ -3062,12 +3062,9 @@ export function ClinicalDashboard({
             activeModeResultKind === "documents" &&
             documentMatches.length === 0 &&
             !modeSearchSubmitted) ||
-          // Prescribing home unmounts as soon as the query is non-empty, so keep
-          // the hero/phone-composer slot only while MedicationHome actually mounts.
-          (searchMode === "prescribing" &&
-            activeModeResultKind === "documents" &&
-            !modeSearchSubmitted &&
-            !query.trim()) ||
+          // Prescribing keeps MedicationHome (and the hero/phone composer) until
+          // an explicit submit — draft keystrokes must not flip to results/dock.
+          (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
           // DifferentialsHome leaves ModeHomeTemplate when a draft query coincides
           // with stale evidence matches — keep the hero slot only while home mounts.
           (activeModeResultKind === "differentials" &&
@@ -3713,7 +3710,7 @@ export function ClinicalDashboard({
                       apiUnavailable={false}
                       setupWarning={null}
                       onSuggestedSearch={setMedicationSearchQuery}
-                      showHome={!query.trim() && !modeSearchSubmitted}
+                      showHome={!modeSearchSubmitted}
                       desktopComposerSlotId={desktopHomeComposerSlotId}
                     />
                   ) : (
@@ -3834,7 +3831,7 @@ export function ClinicalDashboard({
               )}
               {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
                 <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
-                  <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+                  <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
                     {drawerGroupTitle}
                   </p>
                   {settingsState.documentsDrawerOpen ? (

@@ -214,7 +214,7 @@ function CalculatorTile({
       <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{calc.abbrev}</span>
-          <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+          <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
             {domainLabels[calc.domain]}
           </span>
           {derived.started ? (

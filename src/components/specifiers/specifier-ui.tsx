@@ -384,7 +384,7 @@ export function QuickTile({
     <div className={cn("rounded-lg border bg-[color:var(--surface)] p-4", toneClass)}>
       <div className="mb-2 flex items-center gap-2">
         <Icon className="h-4 w-4" aria-hidden />
-        <span className="text-2xs font-extrabold uppercase tracking-[0.05em]">{label}</span>
+        <span className="text-2xs font-extrabold uppercase tracking-label">{label}</span>
       </div>
       <p className={cn("text-xs font-medium leading-5", bodyClass)}>{body}</p>
     </div>

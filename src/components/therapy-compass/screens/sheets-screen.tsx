@@ -174,7 +174,7 @@ export function SheetsScreen() {
                 <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--tc-paper-accent-background)] text-[color:var(--tc-paper-accent)]">
                   <ScaleIcon size={20} strokeWidth={1.6} />
                 </span>
-                <span className="text-sm-minus font-semibold text-[color:var(--tc-paper-muted)] tracking-[0.02em]">
+                <span className="text-sm-minus font-semibold text-[color:var(--tc-paper-muted)] tracking-normal">
                   Therapy · Patient information
                 </span>
               </div>

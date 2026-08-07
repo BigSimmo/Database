@@ -67,6 +67,7 @@ const MODES = [
   { modeId: "specifiers", route: "/specifiers/compare", items: 4 },
   { modeId: "formulation", route: "/formulation/compare", items: 4 },
   { modeId: "differentials", route: "/differentials/diagnoses", items: 3 },
+  { modeId: "factsheets", route: "/factsheets/search", items: 2 },
 ];
 
 /**
