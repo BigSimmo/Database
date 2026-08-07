@@ -108,12 +108,12 @@ commit the Markdown ledger below — a stale visual artifact must not block pers
 
 ## Persist the memory (commit)
 
-After any mutation (and after the refresh gate above), stage and commit **only**
-`docs/outstanding-issues.md` so the memory survives the ephemeral container and other worktrees:
+After any mutation (and after the refresh gate above), commit **only**
+`docs/outstanding-issues.md` so the memory survives the ephemeral container and other worktrees.
+Use `--only` so unrelated already-staged files cannot ride along:
 
-```
-git add docs/outstanding-issues.md
-git commit -m "issues: <what changed>"
+```bash
+git commit --only docs/outstanding-issues.md -m "issues: <what changed>"
 ```
 
 Do not stage or commit anything else, and do not push unless the user asks (or you are already in a
