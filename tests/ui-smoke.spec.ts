@@ -3052,12 +3052,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(queryRibbon.getByRole("heading", { name: "sertraline" })).toBeVisible();
       await expect(queryRibbon.getByRole("group", { name: "Result view" })).toBeVisible();
       await expect(queryRibbon.getByRole("group", { name: "Filter factsheets by category" })).toBeVisible();
-      const categorySelect = queryRibbon.getByTestId("factsheet-category-select");
+      // Phone gets the compact trigger; from `sm` up the ribbon shows the chip
+      // row instead and the trigger is not rendered at all.
+      const categoryTrigger = queryRibbon.getByTestId("factsheet-filter-trigger-phone");
       if (viewport.width < 640) {
-        await expect(categorySelect).toBeVisible();
-        await expect(categorySelect).toHaveAccessibleName("Filter factsheets by category");
+        await expect(categoryTrigger).toBeVisible();
+        await expect(categoryTrigger).toHaveAccessibleName(/No filters active/);
+        await categoryTrigger.click();
+        const categoryGroup = page.getByRole("radiogroup", { name: "Category" });
+        await expect(categoryGroup.getByRole("radio", { name: "All" })).toBeChecked();
+        await page.getByTestId("factsheet-filter-panel-done").click();
+        await expect(categoryGroup).toBeHidden();
       } else {
-        await expect(categorySelect).toBeHidden();
+        await expect(categoryTrigger).toBeHidden();
       }
       await expectNoPageHorizontalOverflow(page);
     }
@@ -4140,7 +4147,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await switchToCanvasMode.click();
     }
     await expect(toolbar).toBeVisible({ timeout: 30000 });
-    const enterFullscreen = page.getByRole("button", { name: "Fit page width and enter fullscreen" });
+    const enterFullscreen = page.getByRole("button", { name: "Enter fullscreen document view" });
     // The toolbar is mounted before pdf.js finishes painting. Wait for its
     // existing pagesReady signal so late canvas height changes cannot move a
     // target between Firefox's actionability check and pointer dispatch.
