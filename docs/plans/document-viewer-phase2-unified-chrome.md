@@ -3,7 +3,7 @@
 **Status:** plan only (no product behaviour change in this doc PR)  
 **Programme:** [`document-viewer-redesign-plan.md`](./document-viewer-redesign-plan.md)  
 **Prerequisites (merged):** Phase 0 [#1660](https://github.com/BigSimmo/Database/pull/1660), Phase 1 [#1665](https://github.com/BigSimmo/Database/pull/1665), programme plan [#1659](https://github.com/BigSimmo/Database/pull/1659)  
-**Flightplan evidence:** `.local/workflow-evidence/2026-08-07T10-36-38-370Z-flightplan.json`  
+**Flightplan evidence:** `.local/workflow-evidence/2026-08-07T10-39-21-530Z-flightplan.json` (implementation path set → `ui`; this docs PR is `docsOnly`)  
 **Branch seed:** `cursor/viewer-phase2-plan-1db8`
 
 This is the **safe rollout plan** for Phase 2: unify DocumentFrame chrome and photo immersive UX without regressing phone composer ownership, pixel fidelity, auth-clear signed URLs, or pdf.js chunk boundaries.
