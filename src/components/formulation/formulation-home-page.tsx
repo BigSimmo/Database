@@ -6,7 +6,6 @@ import { useId, useMemo, useState, useDeferredValue } from "react";
 import { ArrowRight, CheckCircle2, ChevronRight, GitCompareArrows, ListChecks, Network, Search } from "lucide-react";
 
 import {
-  FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
   MechanismDomainChips,
@@ -156,8 +155,6 @@ function FormulationResults({ query }: { query: string }) {
 
   return (
     <FormulationPageShell>
-      <FormulationBreadcrumbs />
-
       <SearchResultsHeaderBand
         modeId="formulation"
         query={query}
