@@ -341,6 +341,11 @@ confirmation. Do not use unrestricted SQL or query clinical rows. Railway, Figma
 write-capable tools remain approval-gated. OAuth credentials stay in the host store—never the
 tracked files or agent environment.
 
+For Figma, that means using the official app/plugin OAuth path for a named design task, not adding
+Figma client IDs, client secrets, REST tokens, or npm registry tokens to Cloud environment
+variables. Product truth remains `docs/design-system/` and the app code; design writes still need
+explicit task approval.
+
 In a fresh connected task, first run the raw-shell probe and repository acceptance, then inspect
 the actual callable tool inventory. A configured URL or `enabled = false` template is not runtime
 proof. Verify Railway and Supabase with read-only identity/project metadata calls and report only
