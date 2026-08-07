@@ -84,10 +84,18 @@ export function ExternalTextLink({ href, children, tone = "accent", className, .
  * on hospital wifi deciding whether to tap a 40 MB PDF needs that before the tap,
  * not after.
  */
-export function DownloadLink({ href, children, format, size, className, ...props }: DownloadLinkProps) {
+export function DownloadLink({
+  href,
+  children,
+  format,
+  size,
+  tone = "accent",
+  className,
+  ...props
+}: DownloadLinkProps) {
   const detail = [format, size].filter(Boolean).join(", ");
   return (
-    <a href={href} download className={cn(base, toneClass.accent, className)} {...props}>
+    <a href={href} download className={cn(base, toneClass[tone], className)} {...props}>
       <Download aria-hidden="true" className="size-icon-xs shrink-0 self-center" />
       {children}
       {detail ? (

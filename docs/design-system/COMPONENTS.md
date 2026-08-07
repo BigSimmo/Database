@@ -60,32 +60,32 @@ print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
 
 ### 0.4 Open-defect ledger (existing components → closing PR)
 
-| Component                    | Open defects (compressed)                                                                                                                    | Closes in                |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Button                       | danger hover/active tokens and the 48px comment are resolved; ref forwarding and the client boundary remain                                  | follow-on                |
-| AsyncButton                  | `type` applied after spread (default `button`; explicit `submit` preserved). Prefer `Button` busy API for new sites.                         | **done** (PR-A)          |
-| IconButton                   | disabled encoding uses `controlDisabled` (opacity retired in PR-A)                                                                           | **done** (PR-A)          |
-| ToggleSwitch                 | operable branch requires `aria-label`; opacity disabled retired; knob still animates `left`/`right`                                          | PR 9 (motion)            |
-| Chip                         | final `appearance`/size API, removable label contract, tap target and full-value title                                                       | **done**                 |
-| TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · no external id/refs (placeholder off decoration tier in PR-A) | PR 7                     |
-| Checkbox/RadioGroup          | RadioGroup controlled/uncontrolled union done; raw dimensions · unsanitised ids · no group hint/error                                        | PR 7                     |
-| Citation/CitationList        | required interactive handler and stable-id list keys are resolved; static span labelling and route/source modes remain                       | follow-on                |
-| DoseLine                     | must compose `Quantity` · structured dose model · overdue text + non-colour mark + open action                                               | **done** (PR 6)          |
-| StatusMark                   | app-type coupling · inline styles/raw geometry · HCM token remaps proven (computed suite); mark shape still visual                           | PR 12                    |
-| AnswerCard                   | required verification/state, structured actions and five-state vocabulary landed                                                             | **done** (PR 6)          |
-| AnswerFooter                 | machine ISO values composed through `DateDisplay` + `MissingValue` landed                                                                    | **done** (PR 6)          |
-| PageHeader/Breadcrumb        | `<h1>` truncates · actions starve title · eyebrow ink moved off decoration (PR 3); layout starve remains                                     | PR 7-adjacent layout fix |
-| Tabs                         | `aria-controls` to unrendered panels · invalid selected value can empty the tab order                                                        | PR 4-adjacent            |
-| Pagination                   | unclamped props · 320px overflow · opacity disabled retired · no focus/announce policy                                                       | PR 8                     |
-| Links                        | `tone` leaks to DOM · `download` overridable by spread · `gap` animation · new-tab policy implicit                                           | PR 9                     |
-| Tooltip                      | composed handlers/description, string content, OverlayRoot portal, collision and delay contract                                              | **done** (PR 10)         |
-| Toast                        | independent tone/priority/persistence, OverlayRoot portal, pause, dedupe and queue contract                                                  | **done** (PR 10)         |
-| Sheet/ConfirmDialog          | required names/action labels, portal default, tokened layers/duration and wrapping titles                                                    | **done** (PR 10)         |
-| Disclosure                   | configurable heading level is resolved; print behaviour and truncation remain                                                                | PR 11                    |
-| Progress/StageList           | determinate width animation is resolved via `scaleX`; hardcoded indeterminate timing, "step 0 of N" and whole-list live region remain        | PR 8, PR 9               |
-| EmptyState                   | static live-off default with explicit polite/assertive opt-in                                                                                | **done** (PR 8)          |
-| AccessibleTable              | required semantic caption and `MissingValue` cells landed; dense headers, content-role widths and Button-based expander remain               | PR 6/PR 12 remainder     |
-| ui-primitives.tsx            | 572-line module mixing recipes/actions/feedback/clinical — split                                                                             | PR 12                    |
+| Component                    | Open defects (compressed)                                                                                                                                                                                            | Closes in                |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Button                       | danger hover/active tokens and the 48px comment are resolved; ref forwarding and the client boundary remain                                                                                                          | follow-on                |
+| AsyncButton                  | `type` applied after spread (default `button`; explicit `submit` preserved). Prefer `Button` busy API for new sites.                                                                                                 | **done** (PR-A)          |
+| IconButton                   | disabled encoding uses `controlDisabled` (opacity retired in PR-A)                                                                                                                                                   | **done** (PR-A)          |
+| ToggleSwitch                 | operable branch requires `aria-label`; opacity disabled retired; knob now travels on `transform` (`translate-x-4`), tokenised duration, reduced-motion opt-out                                                       | **done** (motion)        |
+| Chip                         | final `appearance`/size API, removable label contract, tap target and full-value title                                                                                                                               | **done**                 |
+| TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · no external id/refs (placeholder off decoration tier in PR-A)                                                                         | PR 7                     |
+| Checkbox/RadioGroup          | RadioGroup controlled/uncontrolled union done; raw dimensions · unsanitised ids · no group hint/error                                                                                                                | PR 7                     |
+| Citation/CitationList        | required interactive handler and stable-id list keys are resolved; static span labelling and route/source modes remain                                                                                               | follow-on                |
+| DoseLine                     | must compose `Quantity` · structured dose model · overdue text + non-colour mark + open action                                                                                                                       | **done** (PR 6)          |
+| StatusMark                   | app-type coupling · inline styles/raw geometry · HCM token remaps proven (computed suite); mark shape still visual                                                                                                   | PR 12                    |
+| AnswerCard                   | required verification/state, structured actions and five-state vocabulary landed                                                                                                                                     | **done** (PR 6)          |
+| AnswerFooter                 | machine ISO values composed through `DateDisplay` + `MissingValue` landed                                                                                                                                            | **done** (PR 6)          |
+| PageHeader/Breadcrumb        | `<h1>` truncates · actions starve title · eyebrow ink moved off decoration (PR 3); layout starve remains                                                                                                             | PR 7-adjacent layout fix |
+| Tabs                         | `aria-controls` to unrendered panels is resolved (emitted only for the selected tab when it owns a panel); invalid selected value can still empty the tab order                                                      | PR 4-adjacent            |
+| Pagination                   | unclamped props · 320px overflow · opacity disabled retired · no focus/announce policy                                                                                                                               | PR 8                     |
+| Links                        | `tone` leak is resolved (destructured before the spread in every link); `download` still overridable by spread · `gap` animation · new-tab policy implicit                                                           | PR 9                     |
+| Tooltip                      | composed handlers/description, string content, OverlayRoot portal, collision and delay contract                                                                                                                      | **done** (PR 10)         |
+| Toast                        | independent tone/priority/persistence, OverlayRoot portal, pause, dedupe and queue contract                                                                                                                          | **done** (PR 10)         |
+| Sheet/ConfirmDialog          | required names/action labels, portal default, tokened layers/duration and wrapping titles                                                                                                                            | **done** (PR 10)         |
+| Disclosure                   | configurable heading level is resolved; print behaviour and truncation remain                                                                                                                                        | PR 11                    |
+| Progress/StageList           | determinate width animation is resolved via `scaleX`; hardcoded indeterminate timing, "step 0 of N" and whole-list live region remain                                                                                | PR 8, PR 9               |
+| EmptyState                   | static live-off default with explicit polite/assertive opt-in                                                                                                                                                        | **done** (PR 8)          |
+| AccessibleTable              | required semantic caption and `MissingValue` cells landed; dense headers, content-role widths and Button-based expander remain                                                                                       | PR 6/PR 12 remainder     |
+| ui-primitives.tsx            | 686-line module mixing recipes/actions/feedback/clinical — split. 200 product files import it, against the 53 registered components' 27 adopted; this module, not the registry, is what the product actually runs on | PR 12                    |
 
 ---
 
@@ -647,8 +647,11 @@ on it.
 `interactive` (label + checked + onCheckedChange required) · `status` (label + checked;
 `role="img"`-style read-only, still named). **Rules.** Compact 40×24 face is fine; the
 _target_ meets the tap floor via a transparent hit area · knob motion is `transform` with
-the physical curve · reduced motion snaps. **Open defects → PR.** unnameable, `left`/
-`right` animation, opacity disabled → PR 4, PR 9.
+the physical curve · reduced motion snaps. **Resolved (6 Aug 2026).** operable branch
+requires `aria-label`; opacity disabled retired; knob travels on `transform`
+(`translate-x-0` / `translate-x-4`) with tokenised duration and `motion-reduce` opt-out —
+no longer animates `left`/`right`. **Open defects → PR.** none remaining on this
+component; broader Gate 9 motion sweep still tracks other surfaces.
 
 ### 9.5 `Chip`
 
@@ -810,8 +813,10 @@ focus/announce policy → PR 3, PR 8.
 links carry the `ExternalLink` icon and an explicit new-tab policy, not an accidental
 universal · `DownloadLink`'s `download` semantics are not overridable by spread; `tone`
 is destructured, never leaked to the DOM · `LinkAction`'s arrow animates with `transform`,
-never `gap`. **Open defects → PR.** tone leak, spread override, gap animation, raw
-underline offset → PR 9.
+never `gap`. **Resolved (6 Aug 2026).** `tone` is destructured before the spread in
+`TextLink`, `ExternalTextLink`, and `DownloadLink`. **Open defects → PR.** `download`
+still overridable by spread · `LinkAction` `gap` animation · new-tab policy implicit /
+raw underline offset → PR 9.
 
 ### 9.21 `Tooltip`
 
