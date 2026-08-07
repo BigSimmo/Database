@@ -107,12 +107,14 @@ async function main() {
   const imageBucket = process.env.SUPABASE_IMAGE_BUCKET || "clinical-images";
 
   // Page through cover rows — PostgREST caps a single select at 1000 by default.
+  // Stable ORDER BY is required for range/offset paging (otherwise pages can skip/dupe rows).
   const coveredIds = new Set();
   for (let from = 0; ; from += 1000) {
     const { data: existingCoverRows, error: existingCoverError } = await supabase
       .from("document_images")
       .select("document_id")
       .eq("source_kind", "cover_page")
+      .order("id", { ascending: true })
       .range(from, from + 999);
     if (existingCoverError) throw new Error(existingCoverError.message);
     for (const row of existingCoverRows ?? []) coveredIds.add(String(row.document_id));
@@ -134,6 +136,7 @@ async function main() {
     }
   } else {
     // Walk the full indexed-PDF set until we fill this batch (or exhaust the corpus).
+    // Secondary id order keeps offset pages stable when many rows share created_at.
     for (let from = 0; candidates.length < targetLimit; from += 1000) {
       const { data: documents, error: docsError } = await supabase
         .from("documents")
@@ -141,6 +144,7 @@ async function main() {
         .eq("status", "indexed")
         .ilike("file_type", "%pdf%")
         .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .range(from, from + 999);
       if (docsError) throw new Error(docsError.message);
       if (!documents?.length) break;
