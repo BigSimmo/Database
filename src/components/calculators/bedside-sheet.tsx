@@ -67,7 +67,7 @@ function SheetSection({
         <span className="min-w-0">
           <span className="flex flex-wrap items-baseline gap-x-2">
             <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{calc.abbrev}</span>
-            <span className="hidden text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)] sm:inline">
+            <span className="hidden text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)] sm:inline">
               {domainLabels[calc.domain]}
             </span>
           </span>
