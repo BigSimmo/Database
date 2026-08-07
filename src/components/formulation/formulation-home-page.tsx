@@ -9,7 +9,6 @@ import {
   FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
-  FormulationSubnav,
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
@@ -153,10 +152,7 @@ function FormulationResults({ query }: { query: string }) {
 
   return (
     <FormulationPageShell>
-      <div className="grid gap-3">
-        <FormulationBreadcrumbs />
-        <FormulationSubnav active="search" />
-      </div>
+      <FormulationBreadcrumbs />
 
       <SearchResultsHeaderBand
         modeId="formulation"
