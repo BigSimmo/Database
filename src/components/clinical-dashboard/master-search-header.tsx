@@ -1017,7 +1017,7 @@ export function MasterSearchHeader({
           >
             <Icon aria-hidden="true" className="h-4 w-4" />
           </span>
-          <span className="min-w-0 truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
+          <span className="min-w-0 truncate text-sm font-semibold tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
             {mode.label}
           </span>
           {active ? (
