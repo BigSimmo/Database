@@ -65,24 +65,81 @@ export const modeSecondaryNavigationRegistry = {
   factsheets: [{ id: "search", label: "Search", action: "search" }],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
+type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
+
+/**
+ * The ids of registry entries that carry an `href`, and so can become a
+ * `ModeNavItem`. Derived from the registry literal rather than written out, so
+ * adding a routed entry without choosing an icon for it fails the typecheck in
+ * `RegistryModeNav` instead of shipping a silent default.
+ */
+export type RoutedModeSecondaryNavigationId = Extract<RegistryEntry, { href: string }>["id"];
+
+/**
+ * Modes whose destinations render as the shared header bar rather than the
+ * in-flow `SecondaryNavigation` strip.
+ *
+ * Listed rather than derived from "has two or more routed entries". The
+ * derivation is the *criterion*, and `tests/mode-secondary-navigation.test.ts`
+ * checks this set against it — but a registry edit must not silently move a
+ * mode onto a different navigation surface. Adoption is a per-mode decision
+ * with its own density evidence (`tests/ui-mode-nav-density.spec.ts`).
+ *
+ * `therapy-compass` is absent because it never reaches this registry:
+ * `PageSecondaryNavigation` early-returns on `/therapy-compass*` and the mode
+ * feeds `ModeNav` from `useTherapyNavItems` instead.
+ */
+export const MODE_NAV_ADOPTED_MODES = [
+  "dsm",
+  "specifiers",
+  "formulation",
+  "differentials",
+] as const satisfies readonly AppModeId[];
+
+export function modeUsesHeaderModeNav(modeId: AppModeId): boolean {
+  return (MODE_NAV_ADOPTED_MODES as readonly AppModeId[]).includes(modeId);
+}
+
 export function modeSecondaryNavigationEntries(modeId: AppModeId): readonly ModeSecondaryNavigationEntry[] {
   return modeSecondaryNavigationRegistry[modeId];
 }
 
-export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: string): string {
+/** Count of registry entries that carry an href (eligible ModeNav slots). */
+export function routedModeSecondaryNavigationCount(modeId: AppModeId): number {
+  return modeSecondaryNavigationEntries(modeId).filter((entry) => Boolean(entry.href)).length;
+}
+
+/**
+ * Which destination is current for `modeId` on `pathname`.
+ *
+ * Returns `null` when no registered destination owns the route (record/detail
+ * pages, unknown in-mode paths). Callers that always pass this into `ModeNav`
+ * must treat `null` as "no `aria-current`", not fall back to the first slot —
+ * otherwise Find/Search is falsely marked current on every unmatched path.
+ */
+export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: string): string | null {
   if (modeId === "differentials") {
     if (pathname.startsWith("/differentials/diagnoses")) return "diagnoses";
     if (pathname.startsWith("/differentials/presentations")) return "compare";
-    return "search";
+    if (pathname === "/differentials" || pathname.startsWith("/differentials?")) return "search";
+    return null;
   }
-  if (modeId === "dsm") return pathname.startsWith("/dsm/compare") ? "compare" : "search";
+  if (modeId === "dsm") {
+    if (pathname.startsWith("/dsm/compare")) return "compare";
+    if (pathname === "/dsm" || pathname === "/dsm/search" || pathname.startsWith("/dsm?")) return "search";
+    return null;
+  }
   if (modeId === "specifiers" || modeId === "formulation") {
-    if (pathname.includes("/builder")) return "builder";
-    if (pathname.includes("/compare")) return "compare";
-    if (pathname.includes("/map")) return "map";
-    return "search";
+    // Exact segment prefixes, not `includes`: a future slug containing
+    // "map"/"compare"/"builder" must not steal `aria-current` from Find.
+    // Matches the exact-path checks in `isModeSecondaryNavigationRoute`.
+    if (pathname === `/${modeId}/builder` || pathname.startsWith(`/${modeId}/builder/`)) return "builder";
+    if (pathname === `/${modeId}/compare` || pathname.startsWith(`/${modeId}/compare/`)) return "compare";
+    if (pathname === `/${modeId}/map` || pathname.startsWith(`/${modeId}/map/`)) return "map";
+    if (pathname === `/${modeId}` || pathname.startsWith(`/${modeId}?`)) return "search";
+    return null;
   }
-  return modeSecondaryNavigationRegistry[modeId][0].id;
+  return modeSecondaryNavigationRegistry[modeId][0]?.id ?? null;
 }
 
 export function isModeSecondaryNavigationRoute(params: {

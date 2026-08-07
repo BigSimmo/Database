@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 import { appModeIds, type AppModeId } from "@/lib/app-modes";
 import { isInformationPage } from "@/lib/information-pages";
 import {
+  MODE_NAV_ADOPTED_MODES,
+  activeModeSecondaryNavigationId,
   isModeSecondaryNavigationRoute,
   modeSecondaryNavigationHref,
   modeSecondaryNavigationRegistry,
+  routedModeSecondaryNavigationCount,
 } from "@/lib/mode-secondary-navigation";
 
 const expectedLabels: Record<AppModeId, string[]> = {
@@ -131,6 +134,47 @@ describe("mode secondary navigation registry", () => {
         currentSearchParams: new URLSearchParams("q=confusion&ids=delirium%2Cdementia"),
       }),
     ).toBe("/differentials/presentations?q=confusion&ids=delirium%2Cdementia");
+  });
+
+  it("adopts only modes with two or more routed destinations (explicit list, not silent derivation)", () => {
+    // Membership is pinned, not just the criterion. Without this the test is
+    // satisfied by any subset: drop `formulation` from the list and every
+    // remaining mode still has two routed entries, while the negative check
+    // below only inspects modes with fewer than two. A mode silently losing the
+    // bar is the regression this list exists to make impossible.
+    expect([...MODE_NAV_ADOPTED_MODES].sort()).toEqual(["differentials", "dsm", "formulation", "specifiers"]);
+
+    for (const modeId of MODE_NAV_ADOPTED_MODES) {
+      expect(
+        routedModeSecondaryNavigationCount(modeId),
+        `${modeId} is adopted but has fewer than two routed entries`,
+      ).toBeGreaterThanOrEqual(2);
+    }
+
+    for (const modeId of appModeIds) {
+      if (modeId === "therapy-compass") continue; // owns ModeNav via useTherapyNavItems
+      if (routedModeSecondaryNavigationCount(modeId) < 2) {
+        expect(MODE_NAV_ADOPTED_MODES).not.toContain(modeId);
+      }
+    }
+  });
+
+  it("does not mark Find/Search current on record routes that match no destination", () => {
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/with-anxious-distress")).toBeNull();
+    expect(activeModeSecondaryNavigationId("formulation", "/formulation/avoidance")).toBeNull();
+    expect(activeModeSecondaryNavigationId("dsm", "/dsm/diagnoses/major-depressive-disorder")).toBeNull();
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder")).toBe("builder");
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers")).toBe("search");
+  });
+
+  it("matches workflow destinations by path segment, not substring", () => {
+    // A slug that happens to contain "map"/"compare"/"builder" must not claim
+    // the workflow slot — `includes` would false-match these.
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/map-like-distress")).toBeNull();
+    expect(activeModeSecondaryNavigationId("formulation", "/formulation/compare-threat")).toBeNull();
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder-notes")).toBeNull();
+    expect(activeModeSecondaryNavigationId("formulation", "/formulation/map")).toBe("map");
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/compare")).toBe("compare");
   });
 });
 
