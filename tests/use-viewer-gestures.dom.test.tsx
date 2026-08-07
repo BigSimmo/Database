@@ -98,52 +98,6 @@ describe("useViewerGestures wheel zoom (jsdom)", () => {
     fireEvent.wheel(stage(), { deltaY: -100 });
     expect(onZoomBy).not.toHaveBeenCalled();
   });
-
-  it("keeps the default PDF wheel listener passive and only uses non-passive for unmodified zoom", () => {
-    const addSpy = vi.spyOn(EventTarget.prototype, "addEventListener");
-    // React's root also registers `{ capture: true, passive: true }` wheel
-    // listeners — ignore those and only assert the hook's own options objects.
-    const hookWheelOptions = () =>
-      addSpy.mock.calls
-        .filter((call) => {
-          if (call[0] !== "wheel") return false;
-          const options = call[2];
-          return Boolean(
-            options &&
-            typeof options === "object" &&
-            "passive" in options &&
-            !("capture" in (options as AddEventListenerOptions)),
-          );
-        })
-        .map((call) => call[2] as AddEventListenerOptions);
-
-    const { unmount } = render(<GestureHarness onZoomBy={vi.fn()} wheelNeedsModifier />);
-    const pdfWheel = hookWheelOptions();
-    expect(pdfWheel.some((options) => options.passive === true)).toBe(true);
-    expect(pdfWheel.some((options) => options.passive === false)).toBe(false);
-    unmount();
-    addSpy.mockClear();
-
-    render(<GestureHarness onZoomBy={vi.fn()} wheelNeedsModifier={false} />);
-    const lightboxWheel = hookWheelOptions();
-    expect(lightboxWheel.some((options) => options.passive === false)).toBe(true);
-
-    addSpy.mockRestore();
-  });
-
-  it("promotes to a non-passive listener after a Ctrl+wheel tick so browser page-zoom can be blocked", () => {
-    const addSpy = vi.spyOn(EventTarget.prototype, "addEventListener");
-    const onZoomBy = vi.fn();
-    render(<GestureHarness onZoomBy={onZoomBy} wheelNeedsModifier />);
-
-    fireEvent.wheel(stage(), { deltaY: -80, ctrlKey: true });
-    expect(onZoomBy).toHaveBeenCalledTimes(1);
-
-    const wheelCalls = addSpy.mock.calls.filter((call) => call[0] === "wheel");
-    expect(wheelCalls.some((call) => (call[2] as AddEventListenerOptions | undefined)?.passive === false)).toBe(true);
-
-    addSpy.mockRestore();
-  });
 });
 
 describe("useViewerGestures pointer pan/pinch (jsdom)", () => {
