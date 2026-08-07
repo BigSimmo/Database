@@ -46,4 +46,14 @@ describe("DocumentFrame contract", () => {
     expect(viewerSource).not.toContain("controls={");
     expect(pdfOwnerSource.match(/data-testid="pdf-toolbar"/g)).toHaveLength(1);
   });
+
+  it("announces canvas-level PDF preview failures after the frame is already ready", () => {
+    // Visible fallback stays non-live; LiveAnnouncer owns the assertive SR path (#219).
+    expect(pdfOwnerSource).not.toContain('role="alert"');
+    expect(pdfOwnerSource).toContain('data-preview-error="true"');
+    expect(pdfOwnerSource).toContain("announce(error");
+    expect(pdfOwnerSource).toContain('from "@/components/ui/live-announcer"');
+    expect(imageOwnerSource).not.toContain('role="alert"');
+    expect(imageOwnerSource).toContain('data-preview-error="true"');
+  });
 });
