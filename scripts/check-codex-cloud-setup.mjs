@@ -358,6 +358,12 @@ export const providerCredentialVariables = Object.freeze([
   "HEALTH_DEEP_PROBE_SECRET",
   "INDEXING_V3_AGENT_SECRET",
   "CROSS_TENANT_SERVICE_ROLE_KEY",
+  "FIGMA_CLIENT_ID",
+  "FIGMA_CLIENT_SECRET",
+  "FIGMA_ACCESS_TOKEN",
+  "FIGMA_PERSONAL_ACCESS_TOKEN",
+  "FIGMA_TOKEN",
+  "FIGMA_NPM_TOKEN",
 ]);
 
 function read(relativePath) {
