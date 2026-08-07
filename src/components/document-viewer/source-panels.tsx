@@ -342,7 +342,7 @@ export function DocumentImage({
             type="button"
             onClick={() => onSelectPage(pageNumber)}
             aria-label={`Show PDF page ${pageNumber}`}
-aria-current={isActivePage ? "page" : undefined}
+            aria-current={isActivePage ? "page" : undefined}
             className={cn(
               "inline-flex min-h-tap items-center rounded-md border px-2.5 text-xs font-semibold uppercase tracking-eyebrow transition",
               "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",

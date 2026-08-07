@@ -40,9 +40,9 @@ export function DocumentImageFilmstrip({
             key={image.id}
             type="button"
             disabled={page === null}
-aria-current={isActive ? "page" : undefined}
-aria-label={page === null ? `${labelSeed} — page unknown` : `Show PDF page ${page} for ${labelSeed}`}
-title={page === null ? "Page unknown" : `Go to page ${page}`}
+            aria-current={isActive ? "page" : undefined}
+            aria-label={page === null ? `${labelSeed} — page unknown` : `Show PDF page ${page} for ${labelSeed}`}
+            title={page === null ? "Page unknown" : `Go to page ${page}`}
             onClick={() => {
               if (page !== null) onSelectPage(page);
             }}
