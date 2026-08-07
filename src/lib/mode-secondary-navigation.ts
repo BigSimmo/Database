@@ -62,7 +62,20 @@ export const modeSecondaryNavigationRegistry = {
     { id: "brief", label: "Brief Intervention", action: "therapy-brief" },
     { id: "sheets", label: "Patient Sheets", action: "therapy-sheets" },
   ],
-  factsheets: [{ id: "search", label: "Search", action: "search" }],
+  // Two genuinely distinct surfaces: `/factsheets` is the browse home (category
+  // chips + a featured grid) and `/factsheets/search` is a separate component
+  // with filters, a view toggle and result rows. `/factsheets/[slug]` is a
+  // record and never reaches here — `hasLocalInformationPageNavigation` returns
+  // null for it first.
+  // No `focus: true` on Topics, unlike the Search/Find entry of every mode
+  // above. Those tabs are the mode's search affordance, so focusing the composer
+  // on arrival is the point. Topics is a browse destination — autofocusing there
+  // would open the phone keyboard over the topics the user asked to see. The
+  // search affordance for this mode is the Search tab.
+  factsheets: [
+    { id: "topics", label: "Topics", href: appModeHomeHref("factsheets") },
+    { id: "search", label: "Search", href: "/factsheets/search" },
+  ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -94,6 +107,7 @@ export const MODE_NAV_ADOPTED_MODES = [
   "specifiers",
   "formulation",
   "differentials",
+  "factsheets",
 ] as const satisfies readonly AppModeId[];
 
 export function modeUsesHeaderModeNav(modeId: AppModeId): boolean {
@@ -139,6 +153,14 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === `/${modeId}` || pathname.startsWith(`/${modeId}?`)) return "search";
     return null;
   }
+  if (modeId === "factsheets") {
+    if (pathname === "/factsheets/search" || pathname.startsWith("/factsheets/search?")) return "search";
+    if (pathname === "/factsheets" || pathname.startsWith("/factsheets?")) return "topics";
+    // `/factsheets/<slug>` is a record. It cannot reach `ModeNav` today —
+    // `hasLocalInformationPageNavigation` returns null for it first — but the
+    // array-index-0 fallback below would mark Topics current if it ever did.
+    return null;
+  }
   return modeSecondaryNavigationRegistry[modeId][0]?.id ?? null;
 }
 
@@ -165,6 +187,10 @@ export function isModeSecondaryNavigationRoute(params: {
       pathname === "/formulation/builder" || pathname === "/formulation/compare" || pathname === "/formulation/map"
     );
   }
+  // Same shape as `dsm` above: list the routed destination that is not the mode
+  // home. The clean `/factsheets` home stays out so its `ModeHomeTemplate` tiles
+  // remain the single answer to "where can I go"; it reaches the bar through the
+  // `hasSubmittedSearch` early return, and Topics is marked current there.
   if (modeId === "factsheets") return pathname === "/factsheets/search";
   if (modeId === "therapy-compass") return pathname !== "/therapy-compass";
   return false;
@@ -281,6 +307,23 @@ export function modeSecondaryNavigationHref(params: {
       ...(query ? ([["q", query]] as const) : []),
       ...selections.map((value) => ["mechanism", value] as const),
       ...templateEntry,
+    ]);
+  }
+
+  if (modeId === "factsheets") {
+    // Search carries the live query and category filter so switching tabs does
+    // not silently discard them. Topics goes to the clean browse home: it reads
+    // neither param, so appending them would only produce a misleading URL.
+    if (itemId !== "search") return href;
+    const category = currentSearchParams.get("category");
+    return navigationHrefWithParams(href, [
+      ...(query ? ([["q", query]] as const) : []),
+      ...(category ? ([["category", category]] as const) : []),
+      // `run` travels with the query, as it does for dsm. Search is the current
+      // tab on /factsheets/search, and dropping `run` from its own link flips
+      // `hasSubmittedModeSearch` (global-search-shell.tsx:421) to false, which
+      // re-places the composer — a layout jump from clicking where you already are.
+      ...(query && currentSearchParams.get("run") === "1" ? ([["run", "1"]] as const) : []),
     ]);
   }
 
