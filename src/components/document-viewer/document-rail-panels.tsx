@@ -11,10 +11,9 @@ import {
   DocumentImage,
   DocumentSectionSummary,
   FormattedHighYieldSummary,
-  PinnedSourceEvidence,
   TableReviewPanel,
 } from "@/components/document-viewer/source-panels";
-import type { ChunkRow, DocumentIndexHealth, ImageRow, TableFactRow } from "@/components/document-viewer/types";
+import type { DocumentIndexHealth, ImageRow, TableFactRow } from "@/components/document-viewer/types";
 import type { DocumentSection } from "@/components/document-viewer/section-index";
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import {
@@ -42,7 +41,6 @@ export function DocumentViewerRail({
   onCompactChange,
   indexWarnings,
   effectiveLoadingDocument,
-  selectedChunk,
   document,
   summaryBadges,
   formattedStoredSummary,
@@ -67,7 +65,6 @@ export function DocumentViewerRail({
   onCompactChange: (compact: boolean) => void;
   indexWarnings: string[];
   effectiveLoadingDocument: boolean;
-  selectedChunk: ChunkRow | undefined;
   document: ClinicalDocument | null;
   summaryBadges: DocumentSummaryBadge[];
   formattedStoredSummary: FormattedDocumentSummary;
@@ -115,15 +112,6 @@ export function DocumentViewerRail({
           ))}
         </InlineNotice>
       ) : null}
-
-      <div className="hidden lg:block">
-        <PinnedSourceEvidence
-          loading={effectiveLoadingDocument}
-          chunk={selectedChunk}
-          compact
-          sectionId="source-evidence-rail"
-        />
-      </div>
 
       {document ? (
         <details
