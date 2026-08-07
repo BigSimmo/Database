@@ -842,6 +842,7 @@ async function uploadAndCaptionImages(
     cropCompleteness: number;
     ocrTextDensity: number;
   }> = [];
+  let coverImageId: string | null = null;
   const seenImagePlacements = new Set<string>();
   let skippedImages = 0;
   const skipReasons = new Map<string, number>();
@@ -873,8 +874,9 @@ async function uploadAndCaptionImages(
       nearbyText: image.pageNumber ? pagesByNumber.get(image.pageNumber) : null,
     })),
   );
+  // Cover thumbnails are display-only; keep them out of the clinical caption budget.
   const selectedCaptionCandidateIndexes = selectCaptionCandidateIndexes(
-    scoredCandidates,
+    scoredCandidates.filter((candidate) => candidate.sourceKind !== "cover_page"),
     env.WORKER_MAX_CAPTIONED_IMAGES_PER_DOCUMENT,
     env.WORKER_MAX_CAPTIONED_IMAGES_PER_PAGE,
   );
@@ -928,6 +930,7 @@ async function uploadAndCaptionImages(
     if (
       lowSignalSkipReason &&
       image.sourceKind !== "table_crop" &&
+      image.sourceKind !== "cover_page" &&
       !["administrative table without clinical facts"].includes(lowSignalSkipReason)
     ) {
       skippedImages += 1;
@@ -935,9 +938,33 @@ async function uploadAndCaptionImages(
       continue;
     }
     const presetClassification: ImageClassification | null =
-      image.sourceKind === "table_crop"
-        ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
-        : null;
+      image.sourceKind === "cover_page"
+        ? {
+            image_type: "unclear",
+            caption: "Document cover page preview.",
+            searchable: false,
+            clinical_relevance_score: 0,
+            labels: ["cover-page"],
+            skip_reason: "cover page thumbnail",
+            clinical_use_class: "decorative_or_empty",
+            clinical_use_reason: "First-page cover thumbnail for search cards; not clinical evidence.",
+            clinical_signal_score: 0,
+            admin_signal_score: 0,
+            structured_visual_profile: deterministicStructuredVisualProfile({
+              imageType: "unclear",
+              caption: "Document cover page preview.",
+              tableTitle: null,
+              tableLabel: null,
+              tableTextSnippet: null,
+              tableRows: null,
+              tableColumns: null,
+              metadata: { source_kind: "cover_page", candidate_type: "document_cover" },
+            }),
+            structured_extraction_confidence: 0.1,
+          }
+        : image.sourceKind === "table_crop"
+          ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
+          : null;
     const retainUncaptionedForDocumentView =
       ["table_crop", "diagram_crop", "page_region"].includes(image.sourceKind ?? "") &&
       !selectedCaptionCandidateIndexes.has(index);
@@ -1092,19 +1119,21 @@ async function uploadAndCaptionImages(
       0.5;
 
     const classifiedSkipReason = classifiedImageSkipReason(classification);
+    const retainAsCover = image.sourceKind === "cover_page";
     const retainAsAuditTable =
       image.sourceKind === "table_crop" &&
       ["administrative", "reference"].includes(policyAssessment.clinical_use_class) &&
       classification.image_type !== "logo_decorative";
     const retainForDocumentView =
       retainAsAuditTable ||
+      retainAsCover ||
       (["table_crop", "diagram_crop", "page_region"].includes(image.sourceKind ?? "") && retainedWithoutCaptioning);
     if (classifiedSkipReason && !retainAsAuditTable && !retainForDocumentView) {
       skippedImages += 1;
       noteSkippedImage(skipReasons, classifiedSkipReason);
       continue;
     }
-    const persistedSearchable = !retainedWithoutCaptioning && policyAssessment.searchable;
+    const persistedSearchable = !retainAsCover && !retainedWithoutCaptioning && policyAssessment.searchable;
     if (persistedSearchable) {
       imageTypeCounts.set(classification.image_type, (imageTypeCounts.get(classification.image_type) ?? 0) + 1);
     }
@@ -1194,6 +1223,9 @@ async function uploadAndCaptionImages(
       });
     }
     if (!data) throw new Error("Document image insert returned no row.");
+    if (image.sourceKind === "cover_page" && !coverImageId) {
+      coverImageId = data.id;
+    }
     // View-only retained images stay out of retrieval indexes: insertedImages
     // feeds document_index_units / embedding fields. searchable=false must not enter.
     if (data.searchable !== false) {
@@ -1224,6 +1256,7 @@ async function uploadAndCaptionImages(
 
   return {
     insertedImages,
+    coverImageId,
     skippedImages,
     skipReasons: Object.fromEntries(skipReasons.entries()),
     imageTypeCounts: Object.fromEntries(imageTypeCounts.entries()),
@@ -1557,6 +1590,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     indexGenerationId,
     imageCount: insertedImages.length,
     insertedImages,
+    coverImageId: imageResult.coverImageId,
     skippedImages: imageResult.skippedImages,
     imageSkipReasons: imageResult.skipReasons,
     imageTypeCounts: imageResult.imageTypeCounts,
@@ -1670,6 +1704,7 @@ async function processJob(job: JobRow) {
       indexGenerationId,
       imageCount,
       insertedImages,
+      coverImageId,
       skippedImages,
       imageSkipReasons,
       imageTypeCounts,
@@ -1695,6 +1730,7 @@ async function processJob(job: JobRow) {
     const committedCoreMetadata = {
       indexed_at: indexedAt,
       index_generation_id: indexGenerationId,
+      cover_image_id: coverImageId,
       rag_enrichment_version: ragEnrichmentVersion,
       rag_indexing_version: ragDeepMemoryVersion,
       rag_memory_version: ragDeepMemoryVersion,
