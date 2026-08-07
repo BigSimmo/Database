@@ -63,56 +63,6 @@ const formulationSections: readonly InformationPageSectionDefinition[] = [
   { id: "evidence", label: "Evidence / source", targetIds: ["formulation-evidence"] },
 ];
 
-const differentialPresentationSections: readonly InformationPageSectionDefinition[] = [
-  { id: "overview", label: "Overview", targetIds: ["differential-presentation-overview"] },
-  {
-    id: "comparison",
-    label: "Comparison",
-    targetIds: ["differential-presentation-comparison-mobile", "differential-presentation-comparison-desktop"],
-    fragmentId: "differential-presentation-comparison",
-  },
-  {
-    id: "safety",
-    label: "Safety",
-    targetIds: [
-      "differential-presentation-safety-mobile",
-      "differential-presentation-safety-tablet",
-      "differential-presentation-safety-desktop",
-    ],
-    fragmentId: "differential-presentation-safety",
-  },
-  {
-    id: "urgency",
-    label: "Highest urgency",
-    targetIds: [
-      "differential-presentation-urgency-mobile",
-      "differential-presentation-urgency-tablet",
-      "differential-presentation-urgency-desktop",
-    ],
-    fragmentId: "differential-presentation-urgency",
-  },
-  {
-    id: "handoff",
-    label: "Handoff",
-    targetIds: [
-      "differential-presentation-handoff-mobile",
-      "differential-presentation-handoff-tablet",
-      "differential-presentation-handoff-desktop",
-    ],
-    fragmentId: "differential-presentation-handoff",
-  },
-  {
-    id: "sources",
-    label: "Source status",
-    targetIds: [
-      "differential-presentation-sources-mobile",
-      "differential-presentation-sources-tablet",
-      "differential-presentation-sources-desktop",
-    ],
-    fragmentId: "differential-presentation-sources",
-  },
-];
-
 const dsmDiagnosisSections: readonly InformationPageSectionDefinition[] = [
   { id: "criteria", label: "Criteria", targetIds: ["criteria"] },
   { id: "features", label: "Key features", targetIds: ["key-features"] },
@@ -155,7 +105,6 @@ export function informationPageSectionDefinitions(pathname: string): readonly In
     !["/formulation/builder", "/formulation/compare", "/formulation/map"].includes(pathname)
   )
     return formulationSections;
-  if (pathname.startsWith("/differentials/presentations/")) return differentialPresentationSections;
   if (pathname.endsWith("/differentials") && pathname.startsWith("/dsm/diagnoses/")) return dsmDifferentialSections;
   if (pathname.startsWith("/dsm/diagnoses/")) return dsmDiagnosisSections;
   if (pathname.startsWith("/documents/") && pathname !== "/documents/search") return documentSections;
@@ -168,6 +117,13 @@ export function hasLocalInformationPageNavigation(pathname: string): boolean {
   return (
     pathname.startsWith("/medications/") ||
     pathname.startsWith("/differentials/diagnoses/") ||
+    // The presentation workflow owns navigation at every width: `MobileTabs`
+    // (`xl:hidden`) below xl, and an always-visible "Differential review
+    // sidebar" aside at xl that shows every panel at once. It used to declare a
+    // `differentialPresentationSections` set instead, whose six targetIds no
+    // component rendered — so the route was claimed and nothing was drawn
+    // (/issues #256). Declaring local ownership is what was true all along.
+    pathname.startsWith("/differentials/presentations/") ||
     (pathname.startsWith("/factsheets/") && pathname !== "/factsheets/search") ||
     pathname.startsWith("/therapy-compass/") ||
     // DocumentViewer owns DocumentViewerAnchors (PDF/Evidence/Text/Summary/Images).

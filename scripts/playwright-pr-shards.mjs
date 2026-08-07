@@ -13,13 +13,13 @@
  */
 import { readdirSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|ui-(?:smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|ui-(?:smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Explicit shard membership. Ordered to mix the measured slow phone-scroll
@@ -32,6 +32,7 @@ export const prUiShardGroups = {
     "tests/ui-phone-scroll-routes.spec.ts",
     "tests/ui-route-coverage.spec.ts",
     "tests/ui-specifiers.spec.ts",
+    "tests/ui-forms-section-nav.spec.ts",
     "tests/ui-pwa.spec.ts",
     "tests/ui-hydration.spec.ts",
     "tests/ui-style-contract.spec.ts",
