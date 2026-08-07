@@ -1634,7 +1634,11 @@ function DocumentSearchResultsPanelImpl({
                     : recordStatus === "refetching"
                       ? "refetching"
                       : "ready"
+<<<<<<< HEAD
               : (unavailable?.status ?? (loading ? "loading" : retrievalDegraded ? "partial" : "ready"))
+=======
+              : (unavailable?.status ?? (loading ? "loading" : "ready"))
+>>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
           }
           faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
           sortValue={sortValue}

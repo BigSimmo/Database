@@ -215,6 +215,7 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     expect(result.current.status).toBe("ready");
   });
 
+<<<<<<< HEAD
   it("retries over the network after a warm-cache error instead of soft-succeeding", async () => {
     const diagnosisMatch = {
       record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
@@ -317,6 +318,10 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
 
   it("keeps refetching across back-to-back same-identity credential refreshes", async () => {
     const diagnosisMatch = {
+=======
+  it("starts the latest same-user refresh when credentials change again while refetching", async () => {
+    const initialMatch = {
+>>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
       record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
       score: 12,
       reasons: ["title"],
@@ -330,7 +335,11 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
       Promise.resolve(
         jsonResponse(
           String(input).includes("kind=diagnosis")
+<<<<<<< HEAD
             ? { matches: [diagnosisMatch], demoMode: false }
+=======
+            ? { matches: [initialMatch], demoMode: false }
+>>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
             : { matches: [], demoMode: false },
         ),
       ),
@@ -339,11 +348,16 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
     await advanceDebounce();
     await flushMicrotasks();
+<<<<<<< HEAD
     expect(result.current.status).toBe("ready");
+=======
+    expect(result.current).toMatchObject({ status: "ready", matches: { diagnoses: [initialMatch] } });
+>>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
 
     const pending: Array<(response: Response) => void> = [];
     fetchMock.mockImplementation(() => new Promise<Response>((resolve) => pending.push(resolve)));
 
+<<<<<<< HEAD
     authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user" };
     rerender();
     expect(result.current.status).toBe("refetching");
@@ -355,24 +369,47 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     rerender();
     expect(result.current.status).toBe("refetching");
     expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+=======
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user-1" };
+    rerender();
+    expect(result.current).toMatchObject({ status: "refetching", matches: { diagnoses: [initialMatch] } });
+    await advanceDebounce();
+    expect(pending).toHaveLength(2);
+
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user-2" };
+    rerender();
+    expect(result.current).toMatchObject({ status: "refetching", matches: { diagnoses: [initialMatch] } });
+>>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
     await advanceDebounce();
     expect(pending).toHaveLength(4);
 
     await act(async () => {
+<<<<<<< HEAD
       pending[0](jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
       pending[1](jsonResponse({ matches: [], demoMode: false }));
     });
     await flushMicrotasks();
     expect(result.current.status).toBe("refetching");
     expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+=======
+      pending[0](jsonResponse({ matches: [], demoMode: false }));
+      pending[1](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current).toMatchObject({ status: "refetching", matches: { diagnoses: [initialMatch] } });
+>>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
 
     await act(async () => {
       pending[2](jsonResponse({ matches: [refreshedMatch], demoMode: false }));
       pending[3](jsonResponse({ matches: [], demoMode: false }));
     });
     await flushMicrotasks();
+<<<<<<< HEAD
     expect(result.current.status).toBe("ready");
     expect(result.current.matches.diagnoses).toEqual([refreshedMatch]);
+=======
+    expect(result.current).toMatchObject({ status: "ready", matches: { diagnoses: [refreshedMatch] } });
+>>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
   });
 
   it("ignores a late previous-user refresh after the auth identity changes", async () => {
