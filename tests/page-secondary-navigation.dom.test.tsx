@@ -177,6 +177,52 @@ describe("PageSecondaryNavigation", () => {
     ]);
   });
 
+  it("gives factsheets both destinations and keeps the current tab's filter state", () => {
+    render(
+      <PageSecondaryNavigation
+        modeId="factsheets"
+        pathname="/factsheets/search"
+        hasSubmittedSearch={false}
+        searchParamString="q=sertraline&category=Medicines&run=1"
+        onSearch={vi.fn()}
+      />,
+    );
+    const bar = screen.getByTestId("mode-nav");
+    expect(bar).toHaveAttribute("aria-label", "Factsheets pages");
+    expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual(["Topics", "Search"]);
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
+    // Search is the tab you are already on. Its own link must not reset the
+    // category filter you are reading, nor drop `run` — that flips
+    // hasSubmittedModeSearch and re-places the composer for a no-op click.
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute(
+      "href",
+      "/factsheets/search?q=sertraline&category=Medicines&run=1",
+    );
+    // Topics is the browse home: it reads neither param, and carries no
+    // focus=1 either — autofocusing the composer there would open the phone
+    // keyboard over the topics the user just asked to browse.
+    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("href", "/factsheets");
+  });
+
+  it("keeps the newly adopted factsheets bar off its record routes", () => {
+    // Until adoption, `/factsheets/<slug>` was bar-free incidentally: the mode
+    // had one destination and ModeNav renders nothing below two. That
+    // protection expired the moment factsheets got a second one. What keeps the
+    // record route clear now is only the hasLocalInformationPageNavigation
+    // early return, so pin it at render rather than trusting the count.
+    expect(hasLocalInformationPageNavigation("/factsheets/sertraline")).toBe(true);
+    render(
+      <PageSecondaryNavigation
+        modeId="factsheets"
+        pathname="/factsheets/sertraline"
+        hasSubmittedSearch
+        onSearch={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
+    expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+  });
+
   it("replaces mode navigation with only the information sections present in the record", async () => {
     render(
       <div>

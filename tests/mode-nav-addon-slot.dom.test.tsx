@@ -127,7 +127,13 @@ describe("header addon slot ownership", () => {
     // `documents` owns the slot on every detail route and has one registered
     // destination. Adopting it would be a deletion decision about that lone
     // entry, not a port — deliberately out of this rollout's scope.
-    for (const modeId of ["documents", "answer", "prescribing", "tools", "factsheets"] as const) {
+    //
+    // `factsheets` left this list when it gained a real second destination:
+    // `/factsheets` (browse) and `/factsheets/search` are separate components,
+    // so it is a port rather than a deletion. The others still have one surface
+    // each, and ModeNav renders nothing below two items — adopting them would
+    // remove the control they have and put nothing back (PR #1645).
+    for (const modeId of ["documents", "answer", "prescribing", "tools"] as const) {
       expect([...MODE_NAV_ADOPTED_MODES]).not.toContain(modeId);
       expect(modeUsesHeaderModeNav(modeId)).toBe(false);
     }
