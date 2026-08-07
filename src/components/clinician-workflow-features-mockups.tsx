@@ -651,10 +651,10 @@ function HandoffPackStudy() {
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(snippet);
+                  setCopied(true);
                 } catch {
-                  /* demo-only */
+                  /* demo-only — do not claim success if clipboard failed */
                 }
-                setCopied(true);
               }}
             >
               Ward handoff
