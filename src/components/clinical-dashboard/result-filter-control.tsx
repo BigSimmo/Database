@@ -77,15 +77,6 @@ export function resultFilterGroup<Value extends string>(group: {
   };
 }
 
-/** How many of the groups are narrowing the list, for the trigger's badge. */
-export function activeResultFilterCount(
-  groups: ReadonlyArray<ResultFilterGroup>,
-  neutralValues: ReadonlyArray<string>,
-) {
-  const neutral = new Set(neutralValues);
-  return groups.filter((group) => !neutral.has(group.value)).length;
-}
-
 /**
  * Opens a filter panel and reports how many filters are active.
  *
@@ -171,48 +162,78 @@ export function ResultFilterTrigger({
  * Implements the roving-tabIndex pattern (Arrow keys + Home/End, single tab
  * stop) so the group behaves like a real radio group for keyboard users —
  * consistent with `SegmentedControl` and matching the `role="radiogroup"` it
- * exposes to AT. Dead-end options are excluded from arrow-key navigation
- * because they cannot be selected; they remain reachable via Tab so the user
- * still learns why they are unavailable.
+ * exposes to AT. Announcing "radio, 1 of 4" and then not answering an arrow key
+ * would be worse than exposing no role at all, because the role is what promises
+ * the interaction.
+ *
+ * Arrow keys select as they move, which is the ARIA default and also what the
+ * native `<select>` this replaced already did on desktop. That matters for the
+ * groups whose `onChange` navigates (services' quick filters, formulation's
+ * patterns): arrowing commits, exactly as it did before, so the role introduces
+ * no new hazard there.
+ *
+ * A dead-end option stays on the arrow path but is never selected by it. That is
+ * the ARIA guidance for a disabled radio, and it is the only arrangement that
+ * satisfies both halves of the problem: a keyboard reader can reach the option
+ * and hear its "Not selectable from here" note, while the group keeps the single
+ * tab stop the radio contract requires. Giving dead ends `tabIndex={0}` instead
+ * would make them reachable — and would add a second, third and fourth tab stop
+ * to a control whose whole point is having one.
+ *
+ * No call site produces a dead end today: `deadEnd` is `disabled && !selected`,
+ * and every placeholder this component ships with (services' "Current search" /
+ * "All services", formulation's "Current search") is rendered only while it is
+ * the *selected* option. This path is therefore defensive, and is asserted in the
+ * DOM tests so it cannot rot before the first mode needs it.
  */
 function FilterRadioGroup({ group, panelId }: { group: ResultFilterGroup; panelId: string }) {
   const refs = useRef(new Map<string, HTMLButtonElement>());
   const groupLabelId = `${panelId}-${group.id}-label`;
 
-  // Only selectable (non-dead-end) options participate in arrow-key navigation.
-  const selectable = group.options.filter((option) => !(Boolean(option.disabled) && option.value !== group.value));
+  const isDeadEnd = (option: ResultFilterOption<string>) => Boolean(option.disabled) && option.value !== group.value;
+  // Every option is on the arrow path, dead ends included — moving to one is how
+  // its explanation gets announced. Only *selection* is withheld.
+  const selectable = group.options.filter((option) => !isDeadEnd(option));
   // The roving tab stop is the selected option; fall back to the first
-  // selectable one when nothing is selected.
+  // selectable one when the value matches no option (a stale URL param, or a
+  // catalogue that dropped a category between renders).
   const tabStopValue = selectable.some((o) => o.value === group.value) ? group.value : selectable[0]?.value;
 
-  const selectAndFocus = useCallback(
+  const moveTo = useCallback(
     (next: ResultFilterOption<string> | undefined) => {
       if (!next) return;
-      group.onChange(next.value);
+      // Focus always moves; selection only follows for an option that can hold
+      // it. Arrowing onto a dead end must not silently commit the option before
+      // it, and must not leave focus behind either.
       refs.current.get(next.value)?.focus();
+      if (Boolean(next.disabled) && next.value !== group.value) return;
+      group.onChange(next.value);
     },
     [group],
   );
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!selectable.length) return;
+      const options = group.options;
+      if (!options.length) return;
       const currentValue = (event.target as HTMLElement).dataset.radioValue;
       const current = Math.max(
-        selectable.findIndex((o) => o.value === currentValue),
+        options.findIndex((o) => o.value === currentValue),
         0,
       );
       let next: number | null = null;
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (current + 1) % selectable.length;
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (current + 1) % options.length;
       else if (event.key === "ArrowLeft" || event.key === "ArrowUp")
-        next = (current - 1 + selectable.length) % selectable.length;
+        next = (current - 1 + options.length) % options.length;
       else if (event.key === "Home") next = 0;
-      else if (event.key === "End") next = selectable.length - 1;
+      else if (event.key === "End") next = options.length - 1;
       if (next == null) return;
+      // The sheet scrolls and the chips wrap, so without this Arrow/Home/End
+      // would also scroll the panel out from under the option being moved to.
       event.preventDefault();
-      selectAndFocus(selectable[next]);
+      moveTo(options[next]);
     },
-    [selectable, selectAndFocus],
+    [group.options, moveTo],
   );
 
   return (
@@ -250,9 +271,13 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterGroup; panelI
               // the disabled-affordance pattern in docs/wiring-conventions.md.
               aria-disabled={deadEnd || undefined}
               aria-describedby={deadEnd ? deadEndDescId : undefined}
-              // Dead-end options stay reachable via Tab but are excluded from the
-              // roving tab stop so arrow keys skip them.
-              tabIndex={!deadEnd && option.value === tabStopValue ? 0 : -1}
+              // One tab stop for the whole group — the radio contract. Without it
+              // a reader Tabs through every option of every dimension to reach
+              // Done. A dead end is never `tabStopValue` (it is filtered out of
+              // `selectable`, which is where that value comes from), so it always
+              // lands on -1 here; see the note on this component about the
+              // announcement that costs.
+              tabIndex={option.value === tabStopValue ? 0 : -1}
               data-radio-value={option.value}
               onClick={() => {
                 if (deadEnd) return;

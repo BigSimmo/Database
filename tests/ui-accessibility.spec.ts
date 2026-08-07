@@ -495,6 +495,28 @@ test.describe("Clinical KB accessibility coverage", () => {
     await filterGroup.getByRole("radio", { name: /^Diagnoses/ }).click();
     await expect(filterGroup.getByRole("radio", { name: /^Diagnoses/ })).toBeChecked();
 
+    // The radio role promises a keyboard model, so prove it in a real browser and
+    // not only in jsdom: one tab stop, arrows moving focus AND selection, Home and
+    // End reaching the ends. jsdom cannot vouch for focus behaviour under a real
+    // focus trap, which is what the sheet puts around this group.
+    const all = filterGroup.getByRole("radio", { name: /^All/ });
+    const presentations = filterGroup.getByRole("radio", { name: /^Presentations/ });
+    const diagnoses = filterGroup.getByRole("radio", { name: /^Diagnoses/ });
+    await diagnoses.focus();
+    await diagnoses.press("Home");
+    await expect(all).toBeFocused();
+    await expect(all).toBeChecked();
+    await all.press("ArrowRight");
+    await expect(presentations).toBeFocused();
+    await expect(presentations).toBeChecked();
+    await presentations.press("End");
+    await expect(diagnoses).toBeFocused();
+    await expect(diagnoses).toBeChecked();
+    // Exactly one tab stop for the group — the checked option.
+    await expect(diagnoses).toHaveAttribute("tabindex", "0");
+    await expect(all).toHaveAttribute("tabindex", "-1");
+    await expect(presentations).toHaveAttribute("tabindex", "-1");
+
     await page.getByTestId("differential-filter-panel-done").click();
     await expect(filterTrigger).toHaveAccessibleName(/1 filter active/);
   });

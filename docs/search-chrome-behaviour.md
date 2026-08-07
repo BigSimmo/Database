@@ -131,8 +131,11 @@ chrome and changes to it land on every mode at once. Keep these rules:
    second line.
 4. **The phone filter is a badged trigger opening a sheet — never a select.** Every mode's
    `mobileControls` is a `ResultFilterTrigger` (`result-filter-control.tsx`) with
-   `mobileControlsPlacement="inline"`, so the band stays one line on a phone. Six modes used to
-   pass a `w-full` native select there, two of them a two-column grid of them; that control cost
+   `mobileControlsPlacement="inline"`, so the band stays one line on a phone. **Six** band modes
+   used to pass a `w-full` native select there — differentials, services, factsheets, prescribing,
+   formulation and specifiers, the last two a two-column grid of them. (The tools launcher was a
+   seventh surface carrying the same select, hence "seven" elsewhere; it renders no results band,
+   so its trigger sits inline on the page rather than in this slot.) That control cost
    the band a whole second row, could not report how many filters were active, and — because of
    rule 5 — rendered its value at the same 16px as the query heading above it. Single-choice
    dimensions go in `ResultFilterSheet` as one `role="radiogroup"` per dimension, because they

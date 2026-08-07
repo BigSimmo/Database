@@ -176,8 +176,9 @@ export function SearchResultsHeaderBand({
    * badged icon button fits beside the count with room to spare, while a
    * `w-full` native select pinned into a 58px line at 320px is unreadable. Every
    * mode now passes a trigger (`ResultFilterTrigger`, opening a sheet) and so
-   * every mode passes `inline`; the six that shipped a select, two of them a
-   * two-column grid of them, were converted together.
+   * every mode passes `inline`; the six band modes that shipped a select — the
+   * last two a two-column grid of them — were converted together. (A seventh
+   * surface, the tools launcher, carried the same select outside this band.)
    *
    * The default nonetheless stays `row`, and reads the shape of what was passed
    * rather than asking every caller: no phone control at all means nothing wide
