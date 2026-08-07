@@ -291,11 +291,15 @@ export function SearchResultsHeaderBand({
       {/* One line. The band was 123px on a phone to say "12 documents", because
           the utility rail dropped to its own row and that row was ~85% empty.
           It wraps only where a page supplies a full-width phone control — see
-          `mobileControlsPlacement`. */}
+          `mobileControlsPlacement` — or below 414px, where one line provably
+          cannot hold count + query + sort + filter even with the query fully
+          truncated (see the utilities group below). */}
       <div
         className={cn(
           "flex min-w-0 items-center gap-x-2 px-3 sm:min-h-[3.75rem] sm:flex-nowrap sm:gap-x-2.5 sm:px-4",
-          inlineControls ? "min-h-[3.625rem] flex-nowrap" : "flex-wrap py-2 sm:py-0",
+          inlineControls
+            ? "flex-nowrap min-h-[3.625rem] max-[413px]:flex-wrap max-[413px]:py-2"
+            : "flex-wrap py-2 sm:py-0",
         )}
       >
         {/* `mr-auto` pins the control group to the right edge below `lg`. At `lg`
@@ -428,7 +432,26 @@ export function SearchResultsHeaderBand({
               // Row placement: wrap so a `w-full` phone select gets its own line
               // instead of sharing a shrinkable flex line with Sort. At `sm+` the
               // phone control is hidden and the track returns to a single row.
-              inlineControls ? "shrink" : "w-full flex-wrap pb-1 sm:w-auto sm:flex-nowrap sm:pb-0",
+              //
+              // Inline placement is `shrink-0`, not `shrink`. It was `shrink`, and
+              // that is the whole regression: on an over-subscribed line the query
+              // group and this group both yielded, so the shortfall was paid by the
+              // *controls* — the sort group was clipped mid-glyph by the track's
+              // `overflow-x-auto` and its last option was then washed out by the
+              // 28px overflow mask. A 41.9px clip reproduced at 540px with a
+              // four-word query, so this was never a small-phone problem; the
+              // narrow widths just hit it first. The band's stated priority is that
+              // the query "is the part that truncates when the line runs out, never
+              // the number" — the controls are not negotiable either. `shrink-0`
+              // makes the truncating query absorb the shortfall, which is what
+              // `truncate` + `min-w-[2rem]` on the heading already exist to do.
+              //
+              // Below 414px even a fully-truncated query leaves the line short, so
+              // the utilities take their own full-width row rather than overflow a
+              // band that is `overflow-hidden` and would clip the pinned Filter.
+              inlineControls
+                ? "shrink-0 max-[413px]:w-full max-[413px]:basis-full"
+                : "w-full flex-wrap pb-1 sm:w-auto sm:flex-nowrap sm:pb-0",
             )}
           >
             {/* Applied scopes have moved to their own labelled shelf below. They are
@@ -721,7 +744,13 @@ export function ResultSortControl({
             aria-pressed={selected}
             onClick={() => onChange(readResultSort(option.value))}
             className={cn(
-              "search-band-sort-option min-h-tap whitespace-nowrap px-3 sm:min-h-10",
+              // `px-2.5`, not `px-3`. Sort is the widest thing on the phone line
+              // and the one-line band has no slack: at 12px padding the group is
+              // 135.7px against a 131.8px track at 430px, so the rail declared
+              // overflow and the mask faded out its own last option. The 8px this
+              // returns is what clears 393/402/430/440. Height is untouched —
+              // `min-h-tap` is the tap floor, and it is the floor that matters.
+              "search-band-sort-option min-h-tap whitespace-nowrap px-2.5 sm:min-h-10 sm:px-3",
               index > 0 && "border-l border-[color:var(--border)]",
               focusRing,
               selected

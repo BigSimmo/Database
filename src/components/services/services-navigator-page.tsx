@@ -664,7 +664,7 @@ export function ServicesNavigatorPage() {
             }
             filterControls={
               <div className="flex min-w-0 items-center gap-2">
-                <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-muted)] sm:inline-flex">
+                <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)] sm:inline-flex">
                   <SlidersHorizontal className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
                   Quick filters
                 </span>
@@ -730,7 +730,7 @@ export function ServicesNavigatorPage() {
                   <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-2xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--clinical-accent)]">
+                  <p className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
                     Referral matches
                   </p>
                   <h1 className="mt-0.5 text-2xl-minus font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">

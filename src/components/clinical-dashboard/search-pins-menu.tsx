@@ -97,7 +97,7 @@ function PinIcons({ pin }: { pin: SearchPin }) {
 function SectionHeading({ children, action }: { children: string; action?: ReactNode }) {
   return (
     <div className="mb-1 flex min-h-10 items-center justify-between gap-2 px-2">
-      <h3 className="text-2xs font-extrabold uppercase tracking-[0.11em] text-[color:var(--text-muted)]">{children}</h3>
+      <h3 className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">{children}</h3>
       {action}
     </div>
   );

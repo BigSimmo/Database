@@ -364,13 +364,14 @@ function DocumentFilterPanel({
               onOpenLibrary();
             }}
             data-testid="document-filter-browse-library"
-            // `border-0 border-t`, not `border-t` alone. `cn` is a plain join,
-            // not tailwind-merge, so `floatingControl`'s own `border` (all four
-            // sides) survives an added `border-t` and the result is a fully
-            // bordered button whose colour is decided by Tailwind's emission
-            // order between two competing arbitrary utilities — the exact hazard
-            // the facet-chip branches in this file are written to avoid. Zeroing
-            // the box first leaves only the separating rule that was intended.
+            // `border-0 border-t`, not `border-t` alone. `cn` now runs through
+            // tailwind-merge (ledger #218), which lifts half of this: the
+            // competing arbitrary border COLOURS resolve last-wins instead of by
+            // Tailwind's emission order. The width half is not lifted —
+            // tailwind-merge scores bare `border` and `border-t` as different
+            // groups, so `floatingControl`'s all-sides `border` still survives an
+            // added `border-t` and the button would still be fully bordered.
+            // Zeroing the box first is still what leaves only the separating rule.
             className={cn(
               floatingControl,
               "min-h-tap justify-start gap-2 rounded-lg border-0 border-t border-[color:var(--border)] bg-transparent px-1 text-xs sm:min-h-10",
@@ -631,10 +632,14 @@ function DocumentFilterPanel({
                           "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:gap-1 sm:px-2 lg:min-h-8",
                           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                           // Three mutually exclusive branches, not a base plus an
-                          // override: `cn` is a plain join, so two competing
-                          // `border-[color:…]` utilities would both reach the DOM
-                          // and the winner would be decided by stylesheet order
-                          // rather than by intent.
+                          // override: `cn` was a plain join, so two competing
+                          // `border-[color:…]` utilities both reached the DOM and
+                          // the winner was decided by stylesheet order rather than
+                          // by intent. That constraint is lifted (ledger #218) —
+                          // `cn` merges, and a later border colour now wins
+                          // deterministically. The branches are kept as they are
+                          // because collapsing them changes which utilities render;
+                          // that is a visual change, not a dependency swap.
                           selected
                             ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : deadEnd
@@ -710,21 +715,43 @@ function DocumentFilterTrigger({
       data-testid={testId}
       title="Filter documents"
       className={cn(
-        floatingControl,
+        // Written out rather than composed from `floatingControl`. `cn` is a plain
+        // join, not tailwind-merge, so every contradictory utility reached the DOM
+        // and stylesheet order — not intent — picked the winner. `text-sm`/`text-xs`
+        // and the two `shadow-*` happened to resolve the way the override wanted;
+        // `font-semibold` (600) and `--border-lux` never did. So the one control
+        // sitting flush against the sort group rendered a heavier label and a
+        // darker border than the group it is paired with, which is what made it
+        // read as a different component. This is the band's own control idiom —
+        // the same recipe `Save search` and `Retry` use — so the pairing is
+        // structural instead of a race between two class lists.
+        //
         // 10px leading, 11px trailing. Symmetric padding measures right and looks
         // wrong here: a filled pill reads flush to its own edge while a stroked
         // funnel reads inset from its box, so equal values put the badge visibly
         // closer to the border than the glyph is.
-        "min-h-tap min-w-tap gap-1.5 rounded-lg bg-[color:var(--surface)] pl-2.5 pr-[0.6875rem] text-xs shadow-none sm:min-h-10 sm:min-w-10",
-        activeCount > 0 &&
-          "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+        "search-band-ghost inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border pl-2.5 pr-[0.6875rem] transition-colors motion-reduce:transition-none sm:min-h-10 sm:min-w-10",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        // Mutually exclusive branches, not a base plus an override, for the same
+        // reason the facet states became branches in #1615: competing
+        // `border-[color:…]`/`bg-[color:…]` utilities would both reach the DOM and
+        // stylesheet order would decide which of them the reader actually sees.
+        activeCount > 0
+          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]"
+          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
       )}
     >
       <Funnel aria-hidden="true" className="size-icon-md shrink-0" />
-      {/* The label is the first thing to go when the line is tight. Below 430px
-          the count and the query need every pixel, and a funnel carrying a badge
-          is unambiguous; the accessible name is unchanged either way. */}
-      <span className="max-[429px]:sr-only">Filter</span>
+      {/* The label is the first thing to go when the line is tight — but only
+          where the line is actually tight. This was a flat `max-[429px]:sr-only`,
+          which assumed every width below 430px shares one line with the count and
+          the query. Below 414px the band now gives the utilities their own row
+          (see `search-results-header-band.tsx`), and on that row there is room for
+          the wordmark several times over, so hiding it there spent nothing and
+          bought nothing. 414–429px is the one band that is genuinely single-line
+          and short of width; there a funnel carrying a badge is unambiguous. The
+          accessible name is unchanged at every width either way. */}
+      <span className="min-[414px]:max-[429px]:sr-only">Filter</span>
       {activeCount > 0 ? (
         // A tinted pill, not a solid disc: a saturated filled circle is the single
         // loudest signal on a bar that is otherwise hairlines and type, and it
@@ -1206,7 +1233,7 @@ function SearchRecordResults({
             >
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                 <div className="min-w-0">
-                  <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                  <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
                     {service.catalogueLabel ?? "Source-backed record"}
                   </p>
                   <Link
@@ -1249,7 +1276,7 @@ function SearchRecordResults({
                       key={card.id}
                       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5"
                     >
-                      <dt className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                      <dt className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
                         {card.label ?? card.id}
                       </dt>
                       <dd className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">

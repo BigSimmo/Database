@@ -48,7 +48,7 @@ function ExpandedCalculator({
       <aside className="grid h-fit content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-inset)] lg:sticky lg:top-4">
         <div className="flex items-end justify-between gap-2">
           <div>
-            <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]">
+            <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
               Score
             </p>
             <p className="font-mono text-2xl font-extrabold tabular-nums leading-8 text-[color:var(--text-heading)]">
@@ -132,7 +132,7 @@ function CalculatorCard({
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{calc.abbrev}</span>
-            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+            <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface-subtle)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
               {domainLabels[calc.domain]}
             </span>
           </span>
@@ -288,7 +288,7 @@ export function CalculatorsDirectoryGridMockup() {
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
                       <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{planned.abbrev}</span>
-                      <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface)] px-1.5 text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                      <span className="inline-flex min-h-5 items-center rounded-md bg-[color:var(--surface)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">
                         Planned
                       </span>
                     </span>

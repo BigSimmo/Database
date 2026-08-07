@@ -1011,7 +1011,6 @@ function GlobalStandaloneSearchShellBody({
                 pathname={pathname}
                 hasSubmittedSearch={hasSubmittedModeSearch}
                 searchParamString={searchParamString}
-                onSearch={() => inputRef.current?.focus({ preventScroll: true })}
                 sticky={false}
               />
             ) : null}

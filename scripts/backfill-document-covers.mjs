@@ -106,29 +106,56 @@ async function main() {
   const documentBucket = process.env.SUPABASE_DOCUMENT_BUCKET || "clinical-documents";
   const imageBucket = process.env.SUPABASE_IMAGE_BUCKET || "clinical-images";
 
-  const { data: existingCoverRows, error: existingCoverError } = await supabase
-    .from("document_images")
-    .select("document_id")
-    .eq("source_kind", "cover_page");
-  if (existingCoverError) throw new Error(existingCoverError.message);
-  const coveredIds = new Set((existingCoverRows ?? []).map((row) => String(row.document_id)));
+  // Page through cover rows — PostgREST caps a single select at 1000 by default.
+  // Stable ORDER BY is required for range/offset paging (otherwise pages can skip/dupe rows).
+  const coveredIds = new Set();
+  for (let from = 0; ; from += 1000) {
+    const { data: existingCoverRows, error: existingCoverError } = await supabase
+      .from("document_images")
+      .select("document_id")
+      .eq("source_kind", "cover_page")
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (existingCoverError) throw new Error(existingCoverError.message);
+    for (const row of existingCoverRows ?? []) coveredIds.add(String(row.document_id));
+    if (!existingCoverRows?.length || existingCoverRows.length < 1000) break;
+  }
 
-  let docsQuery = supabase
-    .from("documents")
-    .select("id,owner_id,title,file_name,file_type,storage_path,status,metadata")
-    .eq("status", "indexed")
-    .ilike("file_type", "%pdf%")
-    .order("created_at", { ascending: true })
-    .limit(Math.max(Number.isFinite(limit) ? limit * 4 : 200, 200));
-  if (documentId) docsQuery = docsQuery.eq("id", documentId);
-
-  const { data: documents, error: docsError } = await docsQuery;
-  if (docsError) throw new Error(docsError.message);
-
-  const candidates = (documents ?? [])
-    .filter((doc) => doc.storage_path)
-    .filter((doc) => !coveredIds.has(String(doc.id)))
-    .slice(0, Number.isFinite(limit) ? limit : 50);
+  const targetLimit = Number.isFinite(limit) ? limit : 50;
+  const candidates = [];
+  if (documentId) {
+    const { data: documents, error: docsError } = await supabase
+      .from("documents")
+      .select("id,owner_id,title,file_name,file_type,storage_path,status,metadata")
+      .eq("id", documentId)
+      .eq("status", "indexed")
+      .ilike("file_type", "%pdf%");
+    if (docsError) throw new Error(docsError.message);
+    for (const doc of documents ?? []) {
+      if (doc.storage_path && !coveredIds.has(String(doc.id))) candidates.push(doc);
+    }
+  } else {
+    // Walk the full indexed-PDF set until we fill this batch (or exhaust the corpus).
+    // Secondary id order keeps offset pages stable when many rows share created_at.
+    for (let from = 0; candidates.length < targetLimit; from += 1000) {
+      const { data: documents, error: docsError } = await supabase
+        .from("documents")
+        .select("id,owner_id,title,file_name,file_type,storage_path,status,metadata")
+        .eq("status", "indexed")
+        .ilike("file_type", "%pdf%")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+      if (docsError) throw new Error(docsError.message);
+      if (!documents?.length) break;
+      for (const doc of documents) {
+        if (!doc.storage_path || coveredIds.has(String(doc.id))) continue;
+        candidates.push(doc);
+        if (candidates.length >= targetLimit) break;
+      }
+      if (documents.length < 1000) break;
+    }
+  }
   console.log(
     `Found ${candidates.length} uncovered PDF candidate(s) (already covered=${coveredIds.size}). mode=${apply ? "apply" : "dry-run"}`,
   );
