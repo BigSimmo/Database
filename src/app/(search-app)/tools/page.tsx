@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { ApplicationsLauncherPage } from "@/components/applications-launcher-page";
+import ToolsPageClient from "./tools-page-client";
 
 export const metadata: Metadata = {
   title: "Tools - Clinical KB",
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function ToolsRoute() {
-  return <ApplicationsLauncherPage />;
+  return <ToolsPageClient />;
 }

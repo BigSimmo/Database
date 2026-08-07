@@ -1,12 +1,17 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 
 import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search-shell";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
-import { TherapyCompassWorkspace } from "@/components/therapy-compass";
 import { searchShellPropsForPathname } from "@/lib/search-shell-props";
+
+const TherapyCompassWorkspace = dynamic(
+  () => import("@/components/therapy-compass").then((mod) => mod.TherapyCompassWorkspace),
+  { ssr: true, loading: () => <ModeHomeRouteLoading /> },
+);
 
 /**
  * Owns one GlobalSearchShell across mode homes so navigating between
@@ -16,9 +21,7 @@ export function SharedSearchAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
   const shellProps = searchShellPropsForPathname(pathname);
   const content = pathname.startsWith("/therapy-compass") ? (
-    <Suspense fallback={<ModeHomeRouteLoading />}>
-      <TherapyCompassWorkspace>{children}</TherapyCompassWorkspace>
-    </Suspense>
+    <TherapyCompassWorkspace>{children}</TherapyCompassWorkspace>
   ) : (
     children
   );

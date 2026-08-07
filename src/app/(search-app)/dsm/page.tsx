@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-
-import { DsmHomePage } from "@/components/dsm/dsm-home-page";
+import DsmPageClient from "./dsm-page-client";
 
 export const metadata: Metadata = {
   title: "DSM-5 Diagnosis | Clinical KB",
@@ -8,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function DsmHomeRoute() {
-  return <DsmHomePage />;
+  return <DsmPageClient />;
 }

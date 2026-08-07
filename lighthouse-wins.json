@@ -1,0 +1,358 @@
+| run | LCP ms | baseline | TBT ms | baseline | CLS | baseline |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| desktop-differentials | 1226 | 1174 | 62 | 90 | 0.000 | 0.029 |
+| desktop-dsm | 869 | 836 | 63 | 23 | 0.032 | 0.032 |
+| desktop-forms | 1637 | 1549 | 82 | 52 | 0.047 | 0.068 |
+| desktop-root | 891 | 881 | 63 | 27 | 0.015 | 0.015 |
+| desktop-services | 2187 | 2132 | 30 | 108 | 0.052 | 0.071 |
+| desktop-specifiers | 1170 | 1261 | 39 | 19 | 0.039 | 0.034 |
+| desktop-tools | 1448 | 1160 | 114 | 44 | 0.000 | 0.064 |
+| mobile-differentials | 5891 | 5689 | 1284 | 1090 | 0.142 | 0.237 |
+| mobile-dsm | 2504 | 2510 | 931 | 1097 | 0.344 | 0.344 |
+| mobile-forms | 6181 | 6182 | 1197 | 1642 | 0.190 | 0.190 |
+| mobile-root | 2366 | 3096 | 878 | 583 | 0.021 | 0.021 |
+| mobile-services | 6381 | 6385 | 1632 | 894 | 0.190 | 0.142 |
+| mobile-specifiers | 5472 | 5214 | 1223 | 1117 | 0.263 | 0.142 |
+| mobile-tools | 6870 | 6912 | 1054 | 1112 | 0.142 | 0.142 |
+
+**6 metric(s) regressed:** desktop-tools lcpMs +287 (+24.8%) vs baseline (tolerance +20% and +100); desktop-tools tbtMs +70 (+159.1%) vs baseline (tolerance +30% and +50); mobile-root tbtMs +296 (+50.7%) vs baseline (tolerance +30% and +50); mobile-services tbtMs +738 (+82.6%) vs baseline (tolerance +30% and +50); mobile-services cls +0.048 vs baseline (max +0.02); mobile-specifiers cls +0.121 vs baseline (max +0.02). Reported only — `enforce` is false in lighthouse-budget.json.
+{
+  "status": "warn",
+  "reason": "6 metric(s) outside tolerance",
+  "breaches": [
+    {
+      "run": "desktop-tools",
+      "metric": "lcpMs",
+      "baseline": 1160.4982500000006,
+      "current": 1447.8692,
+      "delta": 287.37094999999954,
+      "reason": "lcpMs +287 (+24.8%) vs baseline (tolerance +20% and +100)"
+    },
+    {
+      "run": "desktop-tools",
+      "metric": "tbtMs",
+      "baseline": 44,
+      "current": 113.99999999999977,
+      "delta": 69.99999999999977,
+      "reason": "tbtMs +70 (+159.1%) vs baseline (tolerance +30% and +50)"
+    },
+    {
+      "run": "mobile-root",
+      "metric": "tbtMs",
+      "baseline": 582.7530000000002,
+      "current": 878.3049999847412,
+      "delta": 295.5519999847411,
+      "reason": "tbtMs +296 (+50.7%) vs baseline (tolerance +30% and +50)"
+    },
+    {
+      "run": "mobile-services",
+      "metric": "tbtMs",
+      "baseline": 893.9109999999991,
+      "current": 1631.951000000001,
+      "delta": 738.0400000000018,
+      "reason": "tbtMs +738 (+82.6%) vs baseline (tolerance +30% and +50)"
+    },
+    {
+      "run": "mobile-services",
+      "metric": "cls",
+      "baseline": 0.1419221678091444,
+      "current": 0.18966263071564923,
+      "delta": 0.04774046290650483,
+      "reason": "cls +0.048 vs baseline (max +0.02)"
+    },
+    {
+      "run": "mobile-specifiers",
+      "metric": "cls",
+      "baseline": 0.1419221678091444,
+      "current": 0.2632339675401466,
+      "delta": 0.1213117997310022,
+      "reason": "cls +0.121 vs baseline (max +0.02)"
+    }
+  ],
+  "incomplete": [],
+  "baseline": {
+    "desktop-differentials": {
+      "lcpMs": 1174.1899999999998,
+      "cls": 0.02948568652082339,
+      "tbtMs": 89.99999999999955,
+      "fcpMs": 380.876,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-dsm": {
+      "lcpMs": 835.82425,
+      "cls": 0.03213333321395112,
+      "tbtMs": 22.999999999999886,
+      "fcpMs": 390.3297,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-forms": {
+      "lcpMs": 1548.82125,
+      "cls": 0.06773361680638862,
+      "tbtMs": 52.000000000000114,
+      "fcpMs": 387.5285,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-root": {
+      "lcpMs": 881.3212000000001,
+      "cls": 0.01497311969179582,
+      "tbtMs": 27,
+      "fcpMs": 383.6606,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-services": {
+      "lcpMs": 2132.1195000000007,
+      "cls": 0.07056934718525104,
+      "tbtMs": 107.99999999999977,
+      "fcpMs": 409.177,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-specifiers": {
+      "lcpMs": 1261.303750000001,
+      "cls": 0.03433776151792091,
+      "tbtMs": 19,
+      "fcpMs": 395.4475,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-tools": {
+      "lcpMs": 1160.4982500000006,
+      "cls": 0.06418358118572201,
+      "tbtMs": 44,
+      "fcpMs": 389.7993,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-differentials": {
+      "lcpMs": 5689.055,
+      "cls": 0.23652907228245057,
+      "tbtMs": 1090.170000000001,
+      "fcpMs": 2383.307,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-dsm": {
+      "lcpMs": 2510.422,
+      "cls": 0.3444470855374567,
+      "tbtMs": 1097.1899999999982,
+      "fcpMs": 2510.422,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-forms": {
+      "lcpMs": 6181.899,
+      "cls": 0.18966263071564923,
+      "tbtMs": 1641.898999999998,
+      "fcpMs": 2160.687,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-root": {
+      "lcpMs": 3096.275,
+      "cls": 0.02134117984022536,
+      "tbtMs": 582.7530000000002,
+      "fcpMs": 3096.275,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-services": {
+      "lcpMs": 6384.913,
+      "cls": 0.1419221678091444,
+      "tbtMs": 893.9109999999991,
+      "fcpMs": 2322.825,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-specifiers": {
+      "lcpMs": 5214.282,
+      "cls": 0.1419221678091444,
+      "tbtMs": 1116.8320000000012,
+      "fcpMs": 2376.156,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-tools": {
+      "lcpMs": 6911.577,
+      "cls": 0.1419221678091444,
+      "tbtMs": 1112.321,
+      "fcpMs": 2014.65,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    }
+  },
+  "enforce": false,
+  "tolerance": {
+    "lcpMs": {
+      "pct": 20,
+      "minAbsolute": 100
+    },
+    "tbtMs": {
+      "pct": 30,
+      "minAbsolute": 50
+    },
+    "cls": {
+      "absolute": 0.02
+    }
+  },
+  "rows": [
+    {
+      "run": "desktop-differentials",
+      "url": "http://localhost:3953/differentials",
+      "requestedUrl": "http://localhost:3953/differentials",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.97,
+      "lcpMs": 1226.0014,
+      "cls": 0,
+      "tbtMs": 62,
+      "fcpMs": 397.6669
+    },
+    {
+      "run": "desktop-dsm",
+      "url": "http://localhost:3953/dsm",
+      "requestedUrl": "http://localhost:3953/dsm",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.99,
+      "lcpMs": 869.4915,
+      "cls": 0.03213333321395112,
+      "tbtMs": 62.999999999999886,
+      "fcpMs": 387.7966
+    },
+    {
+      "run": "desktop-forms",
+      "url": "http://localhost:3953/forms",
+      "requestedUrl": "http://localhost:3953/forms",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.93,
+      "lcpMs": 1637.2940000000006,
+      "cls": 0.04709341180325931,
+      "tbtMs": 82.00000000000023,
+      "fcpMs": 399.1588
+    },
+    {
+      "run": "desktop-root",
+      "url": "http://localhost:3953/",
+      "requestedUrl": "http://localhost:3953/",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.99,
+      "lcpMs": 891.1859999999998,
+      "cls": 0.01497311969179582,
+      "tbtMs": 63,
+      "fcpMs": 398.2965
+    },
+    {
+      "run": "desktop-services",
+      "url": "http://localhost:3953/services",
+      "requestedUrl": "http://localhost:3953/services",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.89,
+      "lcpMs": 2186.909,
+      "cls": 0.05222249829358055,
+      "tbtMs": 30,
+      "fcpMs": 388.202
+    },
+    {
+      "run": "desktop-specifiers",
+      "url": "http://localhost:3953/specifiers",
+      "requestedUrl": "http://localhost:3953/specifiers",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.98,
+      "lcpMs": 1169.6759499999994,
+      "cls": 0.03862998170766102,
+      "tbtMs": 39.00000000000023,
+      "fcpMs": 386.1229
+    },
+    {
+      "run": "desktop-tools",
+      "url": "http://localhost:3953/tools",
+      "requestedUrl": "http://localhost:3953/tools",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.94,
+      "lcpMs": 1447.8692,
+      "cls": 0,
+      "tbtMs": 113.99999999999977,
+      "fcpMs": 455.2816
+    },
+    {
+      "run": "mobile-differentials",
+      "url": "http://localhost:3953/differentials",
+      "requestedUrl": "http://localhost:3953/differentials",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.45,
+      "lcpMs": 5891.47,
+      "cls": 0.1419221678091444,
+      "tbtMs": 1284.2650000000008,
+      "fcpMs": 2114.669
+    },
+    {
+      "run": "mobile-dsm",
+      "url": "http://localhost:3953/dsm",
+      "requestedUrl": "http://localhost:3953/dsm",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.56,
+      "lcpMs": 2503.516,
+      "cls": 0.3444470855374567,
+      "tbtMs": 930.848,
+      "fcpMs": 2179.594
+    },
+    {
+      "run": "mobile-forms",
+      "url": "http://localhost:3953/forms",
+      "requestedUrl": "http://localhost:3953/forms",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.4,
+      "lcpMs": 6181.276,
+      "cls": 0.18966263071564923,
+      "tbtMs": 1197.366000000001,
+      "fcpMs": 2487.466
+    },
+    {
+      "run": "mobile-root",
+      "url": "http://localhost:3953/",
+      "requestedUrl": "http://localhost:3953/",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.74,
+      "lcpMs": 2365.774,
+      "cls": 0.02134117984022536,
+      "tbtMs": 878.3049999847412,
+      "fcpMs": 2365.774
+    },
+    {
+      "run": "mobile-services",
+      "url": "http://localhost:3953/services",
+      "requestedUrl": "http://localhost:3953/services",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.36,
+      "lcpMs": 6380.988,
+      "cls": 0.18966263071564923,
+      "tbtMs": 1631.951000000001,
+      "fcpMs": 2519.808
+    },
+    {
+      "run": "mobile-specifiers",
+      "url": "http://localhost:3953/specifiers",
+      "requestedUrl": "http://localhost:3953/specifiers",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.37,
+      "lcpMs": 5472.085,
+      "cls": 0.2632339675401466,
+      "tbtMs": 1222.7350000000006,
+      "fcpMs": 2775.181
+    },
+    {
+      "run": "mobile-tools",
+      "url": "http://localhost:3953/tools",
+      "requestedUrl": "http://localhost:3953/tools",
+      "runtimeError": null,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "performanceScore": 0.45,
+      "lcpMs": 6870.169,
+      "cls": 0.1419221678091444,
+      "tbtMs": 1054.2640000000001,
+      "fcpMs": 2365.218
+    }
+  ]
+}
+::warning::check:lighthouse-budget — 6 metric(s) outside tolerance
