@@ -56,6 +56,14 @@ const clinicalRiskPatterns = [
   // search/answer/source feature whose logic actually lives in src/lib.
   /^src\/(?:app|components)\/.*(?:auth|permission|privacy|security|upload|download|patient)/i,
   /^scripts\/.*(?:ingest|reindex|migration|governance|production|drift|supabase)/i,
+  // Clinical reference datasets shipped straight to clinicians. Each record
+  // carries recommendation prose (`bestUsedFor`, `clinicalSummary`,
+  // `indications`) plus labels rendered as curated fact, so editing one changes
+  // clinical output with no code diff at all. PR #1489 shipped 205 therapy
+  // records — including a `modality` that labelled ECT as "ACT" — and this
+  // classifier returned `clinicalRisk: false`, so no governance preflight was
+  // ever required. Generators live in scripts/ and are matched above.
+  /^(?:src\/data|data|public\/therapy-compass-data)\//,
 ];
 
 const operationalRiskPatterns = [
@@ -535,6 +543,13 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["src/components/privacy-input-notice.tsx"]).clinicalRisk, true);
   // ...and clinical behavior in the library layer stays gated.
   assert.equal(classifyPullRequestFiles(["src/lib/clinical-search.ts"]).clinicalRisk, true);
+  // Clinical reference datasets are clinical output even with no code diff. PR
+  // #1489 shipped 205 therapy records past this classifier as non-clinical.
+  assert.equal(classifyPullRequestFiles(["src/data/therapies-index.json"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["public/therapy-compass-data/therapies-home.json"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["data/clinical-snapshot.json"]).clinicalRisk, true);
+  // ...but an unrelated public asset is not clinical output.
+  assert.equal(classifyPullRequestFiles(["public/favicon.ico"]).clinicalRisk, false);
   // End-to-end: a dashboard UI PR with Summary + UI verification + risk but no
   // Clinical Governance Preflight now passes (previously it failed on the
   // clinically-named path alone).

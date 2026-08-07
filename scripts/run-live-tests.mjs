@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import nextEnv from "@next/env";
 import { childProcessExitCode } from "./child-process-result.mjs";
-import { requireProviderTestPermission } from "./test-environment.mjs";
+import { providerFreeCloudLiveTestGap, requireProviderTestPermission } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -18,6 +18,12 @@ try {
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
+}
+
+const providerCapabilityGap = providerFreeCloudLiveTestGap(process.env);
+if (providerCapabilityGap) {
+  console.error(providerCapabilityGap);
+  process.exit(2);
 }
 
 const lock = acquireHeavyRunLock({ projectRoot, command: "vitest live provider tests" });

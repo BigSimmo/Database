@@ -1,9 +1,8 @@
-import { logger } from "@/lib/logger";
 import { classifySourceAuthority, type SourceDesignation } from "@/lib/source-authority-registry";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 const knownStatuses = new Set(["current", "review_due", "outdated", "unknown"]);
-const knownValidation = new Set(["unverified", "locally_reviewed", "approved"]);
+const knownValidation = new Set(["unverified", "locally_reviewed", "approved", "unknown"]);
 const knownExtraction = new Set(["good", "partial", "poor", "unknown"]);
 const knownSourceKinds = new Set(["document", "registry_record"]);
 const knownRegistryRecordKinds = new Set(["service", "form", "medication", "differential"]);
@@ -11,6 +10,21 @@ const knownRegistryRecordKinds = new Set(["service", "form", "medication", "diff
 function stringOrNull(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
+
+// This module renders in the browser (the source badges are client components and
+// ship in the standalone design-system bundle), so it must not pull in the
+// server-oriented structured logger: that module reads `process.env`, which is a
+// ReferenceError in a browser and unmounts the whole React tree. `field`/`value`
+// here are enum diagnostics, never secrets or patient text, so the logger's
+// redaction pass is not needed and a plain structured warn is equivalent.
+// Exported as an object so tests can spy on the seam the way they previously spied
+// on `logger.warn`; the default implementation stays quiet under NODE_ENV=test.
+export const sourceMetadataDiagnostics = {
+  warn(field: string, value: string) {
+    if (typeof process !== "undefined" && process.env && process.env.NODE_ENV === "test") return;
+    console.warn(JSON.stringify({ level: "warn", message: `source-metadata: unrecognized ${field}`, field, value }));
+  },
+};
 
 function enumOrDefault<T extends string | null>(value: unknown, allowed: Set<string>, fallback: T, field: string): T {
   if (typeof value === "string" && allowed.has(value)) return value as T;
@@ -21,7 +35,7 @@ function enumOrDefault<T extends string | null>(value: unknown, allowed: Set<str
   // are the common case and would drown the signal. The returned value is unchanged,
   // so this is observability only: no ranking/retrieval behaviour changes.
   if (typeof value === "string" && value.trim()) {
-    logger.warn(`source-metadata: unrecognized ${field}`, { field, value });
+    sourceMetadataDiagnostics.warn(field, value);
   }
   return fallback;
 }
@@ -61,6 +75,41 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
   };
 }
 
+const GOVERNANCE_FIELDS = ["document_status", "clinical_validation_status", "extraction_quality"] as const;
+
+/** True when the record carries at least one explicit governance field. */
+export function hasRecordedGovernanceFields(input: unknown): boolean {
+  if (input == null || typeof input !== "object") return false;
+  const value = input as Record<string, unknown>;
+  return GOVERNANCE_FIELDS.some((field) => {
+    const fieldValue = value[field];
+    return typeof fieldValue === "string" && fieldValue.trim().length > 0;
+  });
+}
+
+/**
+ * Preserve genuinely unrecorded governance metadata while normalizing recorded data.
+ * Production `documents.metadata` is NOT NULL DEFAULT '{}'::jsonb and often holds only
+ * index bookkeeping keys — treat those the same as null so prompts do not invent
+ * adverse `clinical_validation_status: "unverified"`.
+ * When some governance fields are present, missing siblings use neutral tokens
+ * (`unknown`) rather than inventing adverse `unverified`.
+ */
+export function normalizeOptionalSourceMetadata(input: unknown): ClinicalSourceMetadata | null {
+  if (input == null || !hasRecordedGovernanceFields(input)) return null;
+  const value = input as Record<string, unknown>;
+  const recorded = (field: (typeof GOVERNANCE_FIELDS)[number]) => {
+    const fieldValue = value[field];
+    return typeof fieldValue === "string" && fieldValue.trim().length > 0;
+  };
+  return normalizeSourceMetadata({
+    ...value,
+    document_status: recorded("document_status") ? value.document_status : "unknown",
+    clinical_validation_status: recorded("clinical_validation_status") ? value.clinical_validation_status : "unknown",
+    extraction_quality: recorded("extraction_quality") ? value.extraction_quality : "unknown",
+  });
+}
+
 export function formatClinicalDate(value: string | null | undefined) {
   if (!value) return "Unknown";
   const date = new Date(value);
@@ -90,6 +139,7 @@ export function validationStatusLabel(metadata?: ClinicalSourceMetadata | null) 
   const status = metadata?.clinical_validation_status ?? "unverified";
   if (status === "approved") return "Approved";
   if (status === "locally_reviewed") return "Locally reviewed";
+  if (status === "unknown") return "Validation unknown";
   return "Not locally validated";
 }
 

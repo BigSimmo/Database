@@ -4,6 +4,7 @@ import { type LucideIcon, ArrowRight } from "lucide-react";
 
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 
 export type ModeHomeAction = {
   title: string;
@@ -43,7 +44,7 @@ type ModeHomeTemplateProps = {
 const pillToneClass: Record<NonNullable<ModeHomePill["tone"]>, string> = {
   danger: "bg-[color:var(--danger)]",
   info: "bg-[color:var(--info)]",
-  neutral: "bg-[color:var(--text-soft)]",
+  neutral: "bg-[color:var(--text-muted)]",
   primary: "bg-[color:var(--clinical-accent)]",
   purple: "bg-[color:var(--tone-purple)]",
   indigo: "bg-[color:var(--tone-indigo)]",
@@ -77,7 +78,7 @@ export function ModeHomeHero({
       className="grid justify-items-center gap-1.5 px-4 sm:gap-3 sm:px-0"
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
-      <span className="mode-home-icon grid h-tap w-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-[1.15rem]">
+      <span className="mode-home-icon grid h-tap w-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-2xl">
         <Icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7" aria-hidden="true" />
       </span>
       <div className="grid gap-1 sm:gap-1.5">
@@ -102,10 +103,17 @@ export function ModeHomeHero({
  * shell). That works for short empty homes, but centering a child taller than
  * the phone scrollport clips the top — unreachable at scrollTop 0.
  *
- * Prefer this prop over className `justify-*` overrides: `cn()` concatenates
- * and does not resolve Tailwind conflicts, so dual justify utilities are
- * non-deterministic. Alignment classes are applied last and any stray
+ * Prefer this prop over className `justify-*` overrides: `cn()` used to
+ * concatenate without resolving Tailwind conflicts, so dual justify utilities
+ * were non-deterministic. Alignment classes are applied last and any stray
  * `justify-*` tokens in `className` are stripped.
+ *
+ * That constraint is lifted (ledger #218) — `cn()` now merges, and because the
+ * alignment class is applied last it would win on its own, prefixed variants
+ * (`sm:justify-*`) included. `withoutJustifyUtilities` is therefore belt-and-
+ * braces rather than load-bearing. It is kept: dropping it changes which
+ * utilities reach the DOM on every mode home, which wants its own visual proof,
+ * and the prop remains the supported way to set this alignment either way.
  */
 export type ModeHomeMainAlign = "center" | "start" | "startOnPhone";
 
@@ -157,26 +165,38 @@ export function ModeHomeMain({
   );
 }
 
+// One quiet line of text. Deliberately no icon and no accent colour: a shield
+// (and especially a ShieldCheck) reads as "verified", which several of these
+// footers must not assert — validation status varies per document and is
+// surfaced on the results themselves. Hierarchy comes from weight alone, so the
+// label half (capability) carries the emphasis rather than the body half (caveat).
+//
+// Modes whose footer said only what the mode does, with no caveat, no longer
+// render this at all; the remaining call sites are the ones whose `body` is a
+// genuine review-before-use instruction.
 export function ModeHomeVerificationFooter({
-  icon: Icon,
   label,
   body,
   verifiedCount,
   totalCount,
 }: {
-  icon: LucideIcon;
   label: string;
   body: string;
   verifiedCount?: number;
   totalCount?: number;
 }) {
   return (
-    <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 pt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:pt-1 sm:text-sm">
-      <span className="inline-flex items-center gap-2 font-semibold text-[color:var(--clinical-accent)]">
-        <Icon className="h-4 w-4" aria-hidden="true" />
-        {label}
+    <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 pt-0.5 text-2xs leading-4 text-[color:var(--text-muted)] sm:pt-1">
+      {/* The separator is bound to the label as one non-breaking flex item.
+          As three independent items it could wrap alone: measured at 390px,
+          five of the nine footers wrapped and every one stranded the dot on
+          the line above the clause it joins. */}
+      <span className="whitespace-nowrap font-medium text-[color:var(--text-heading)]">
+        {label}{" "}
+        <span className="font-normal text-[color:var(--text-muted)]" aria-hidden="true">
+          ·
+        </span>
       </span>
-      <span aria-hidden="true">•</span>
       <span>{body}</span>
       {typeof verifiedCount === "number" && typeof totalCount === "number" ? (
         <span className="sr-only">
@@ -252,10 +272,15 @@ export function ModeHomeTemplate({
     >
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
+      {/* Reserve settled composer height only while adoption is pending or the
+          portal host is present. SSR starts pending so first paint does not CLS;
+          MasterSearchHeader clears the attribute when the home media query does
+          not match or portal adoption falls back, collapsing a never-filled band. */}
       {desktopComposerSlotId ? (
         <DesktopComposerPortalSlot
           id={desktopComposerSlotId}
-          className="mode-home-composer-slot hidden w-full px-4 sm:px-0 [&:not(:empty)]:block"
+          data-composer-reserve={modeHomeComposerReservePendingValue}
+          className="mode-home-composer-slot block w-full px-4 sm:px-0 min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
         />
       ) : null}
 
@@ -280,7 +305,7 @@ export function ModeHomeTemplate({
                   </span>
                 </span>
                 <ArrowRight
-                  className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                  className="h-4 w-4 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                   aria-hidden="true"
                 />
               </>
@@ -328,7 +353,7 @@ export function ModeHomeTemplate({
               {pillsAction}
             </div>
           ) : null}
-          <div className="answer-suggestion-row-scroll -mx-4 flex w-[calc(100%+2rem)] justify-start gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:w-full sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0 sm:gap-2.5">
+          <div className="answer-suggestion-row-scroll -mx-4 flex w-[calc(100%+2rem)] justify-start gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:w-full sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0">
             {pills.map((pill) => {
               const PillIcon = pill.icon;
               const displayLabel = pill.shortLabel ?? pill.label;

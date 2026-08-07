@@ -25,6 +25,7 @@ const reviewedActionPins = new Map([
   ],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
   ["actions/upload-artifact", new Map([["043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "v7"]])],
+  ["actions/download-artifact", new Map([["3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c", "v8.0.1"]])],
   ["denoland/setup-deno", new Map([["22d081ff2d3a40755e97629de92e3bcbfa7cf2ed", "v2.0.5"]])],
   ["supabase/setup-cli", new Map([["46f7f98c7f948ad727d22c1e67fab04c223a0520", "v3"]])],
   ["gitleaks/gitleaks-action", new Map([["e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e", "v3"]])],
@@ -32,6 +33,10 @@ const reviewedActionPins = new Map([
   ["peter-evans/create-or-update-comment", new Map([["e8674b075228eee787fea43ef493e45ece1004c9", "v5"]])],
   ["docker/setup-buildx-action", new Map([["bb05f3f5519dd87d3ba754cc423b652a5edd6d2c", "v4"]])],
   ["docker/build-push-action", new Map([["53b7df96c91f9c12dcc8a07bcb9ccacbed38856a", "v7"]])],
+  // Reviewed 2026-07-31: official autofix.ci action; tag v1.3.4 / moving v1 both
+  // resolve to this immutable commit (node24 runtime). Used only after local
+  // Prettier write; the action itself never receives write tokens in-workflow.
+  ["autofix-ci/action", new Map([["c5b2d67aa2274e7b5a18224e8171550871fc7e4a", "v1.3.4"]])],
 ]);
 
 const usesPattern = /^\s*(?:-\s*)?uses:\s*([^@\s]+)@([^\s#]+)(?:\s+#\s*(\S.*?))?\s*$/;

@@ -8,7 +8,7 @@ import {
   panelSubtle,
   textMuted,
   sourceCard,
-  metadataPill,
+  metadataPillDensity,
   floatingControl,
   toneDanger,
   toneInfo,
@@ -22,99 +22,32 @@ import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { exceedsClientUploadSize, getClientMaxUploadMb, uploadSizeLimitMessage } from "@/lib/upload-limits";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
-import type { ClinicalDocument, IngestionJob, ImportBatch } from "@/lib/types";
+import type { IngestionJob, ImportBatch } from "@/lib/types";
+import {
+  fallbackSetupChecks,
+  type IngestionQualityReviewItem,
+  type IngestionQualityReviewType,
+  type SetupCheck,
+  type SetupCheckStatus,
+} from "@/components/clinical-dashboard/document-manager-contracts";
+
+export {
+  fallbackSetupChecks,
+  hasReadyPublicSearchSetup,
+  hasReadyRequiredPublicSearchConfig,
+} from "@/components/clinical-dashboard/document-manager-contracts";
+export type {
+  IngestionQualityReviewItem,
+  IngestionQualityReviewType,
+  SetupCheck,
+  SetupCheckStatus,
+} from "@/components/clinical-dashboard/document-manager-contracts";
 
 // Setup and quality types
-export type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
-export type SetupCheck = {
-  id: "env" | "project" | "schema" | "search" | "openai" | "worker";
-  label: string;
-  status: SetupCheckStatus;
-  detail: string;
-};
-
 const demoUploadReadOnlyMessage =
   "Demo mode is read-only. Configure Supabase, OpenAI, and the local worker before uploading private guideline files.";
 
-export type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 export type IndexingMonitorFilter = "all" | "active" | "failed";
-
-export type IngestionQualityReviewType =
-  "failed_ocr" | "low_extraction_confidence" | "missing_tables" | "image_only_pages" | "failed_job" | "manual_review";
-
-export type IngestionQualityReviewItem = {
-  id: string;
-  type: IngestionQualityReviewType;
-  severity: "danger" | "warning" | "info";
-  title: string;
-  detail: string;
-  documentId: string;
-  documentTitle: string;
-  fileName: string;
-  jobId: string | null;
-  qualityScore: number | null;
-  extractionQuality: string | null;
-  reasons: string[];
-  metrics: Record<string, unknown>;
-  updatedAt: string | null;
-};
-
-export const fallbackSetupChecks: SetupCheck[] = [
-  {
-    id: "env",
-    label: ".env.local configured",
-    status: "unknown",
-    detail: "Setup status has not loaded yet.",
-  },
-  {
-    id: "project",
-    label: "Clinical KB Database target",
-    status: "unknown",
-    detail: "Setup status has not loaded yet.",
-  },
-  {
-    id: "schema",
-    label: "supabase/schema.sql applied",
-    status: "unknown",
-    detail: "Setup status has not loaded yet.",
-  },
-  {
-    id: "search",
-    label: "Search RPC and vector indexes",
-    status: "unknown",
-    detail: "Setup status has not loaded yet.",
-  },
-  {
-    id: "openai",
-    label: "OpenAI API key available",
-    status: "unknown",
-    detail: "Setup status has not loaded yet.",
-  },
-  {
-    id: "worker",
-    label: "npm run worker running",
-    status: "unknown",
-    detail: "Setup status has not loaded yet.",
-  },
-];
-
-// OpenAI is intentionally excluded from both gates: browse/search only needs Supabase.
-// The answer path validates OPENAI_API_KEY at request time (requireOpenAIEnv), so a
-// missing key surfaces as a real API error there rather than blocking every mode here.
-const publicSearchSetupCheckIds = new Set<SetupCheck["id"]>(["env", "project", "schema", "search"]);
-const requiredPublicSearchConfigCheckIds = new Set<SetupCheck["id"]>(["env", "project", "schema"]);
-
-export function hasReadyPublicSearchSetup(checks: SetupCheck[]) {
-  return Array.from(publicSearchSetupCheckIds).every(
-    (id) => checks.find((check) => check.id === id)?.status === "ready",
-  );
-}
-
-export function hasReadyRequiredPublicSearchConfig(checks: SetupCheck[]) {
-  return Array.from(requiredPublicSearchConfigCheckIds).every(
-    (id) => checks.find((check) => check.id === id)?.status === "ready",
-  );
-}
 
 function setupBadgeClasses(status: SetupCheckStatus) {
   if (status === "ready") {
@@ -451,7 +384,7 @@ export function UploadPanel({
             className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
           >
             <div
-              className="h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform duration-200 ease-out motion-reduce:transition-none"
+              className="h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform duration-[var(--duration-moderate)] ease-[var(--ease-out-keyword)] motion-reduce:transition-none"
               style={{ transform: `scaleX(${uploadPercent / 100})` }}
             />
           </div>
@@ -515,6 +448,7 @@ export function IndexingMonitor({
               ? "Queued and processing jobs appear here while indexing is running."
               : "Queued uploads and worker progress appear here."
         }
+        live="polite"
       />
     );
   }
@@ -664,6 +598,7 @@ export function IngestionQualityConsole({
         icon={ShieldCheck}
         title={emptyStates.ingestionQuality.title}
         body={emptyStates.ingestionQuality.body}
+        live="polite"
       />
     );
   }
@@ -689,7 +624,7 @@ export function IngestionQualityConsole({
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {(Object.keys(counts) as IngestionQualityReviewType[]).map((type) => (
-            <span key={type} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+            <span key={type} className={metadataPillDensity.dense}>
               {qualityReviewLabels[type]}: {counts[type]}
             </span>
           ))}
@@ -704,18 +639,16 @@ export function IngestionQualityConsole({
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={cn(metadataPill, "min-h-6 px-2 text-2xs", qualityReviewTone(item.severity))}>
+                    <span className={cn(metadataPillDensity.compact, qualityReviewTone(item.severity))}>
                       {qualityReviewLabels[item.type]}
                     </span>
                     {item.qualityScore !== null ? (
-                      <span className={cn(metadataPill, "nums min-h-6 px-2 text-2xs")}>
+                      <span className={cn(metadataPillDensity.compact, "nums")}>
                         index {item.qualityScore.toFixed(2)}
                       </span>
                     ) : null}
                     {item.extractionQuality ? (
-                      <span className={cn(metadataPill, "min-h-6 px-2 text-2xs")}>
-                        extraction:{item.extractionQuality}
-                      </span>
+                      <span className={metadataPillDensity.compact}>extraction:{item.extractionQuality}</span>
                     ) : null}
                   </div>
                   <p className="mt-2 truncate text-sm font-semibold text-[color:var(--text)]">
@@ -727,7 +660,7 @@ export function IngestionQualityConsole({
                   {item.reasons.length ? (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {item.reasons.slice(0, 4).map((reason) => (
-                        <span key={reason} className={cn(metadataPill, "text-2xs")}>
+                        <span key={reason} className={metadataPillDensity.dense}>
                           {reason}
                         </span>
                       ))}
@@ -787,103 +720,6 @@ export function IngestionQualityConsole({
         })}
       </div>
     </div>
-  );
-}
-
-export function LibraryHealthStrip({
-  documents,
-  jobs,
-  batches,
-  checks,
-  loading,
-  onSelectTarget,
-}: {
-  documents: ClinicalDocument[];
-  jobs: IngestionJob[];
-  batches: ImportBatch[];
-  checks: SetupCheck[];
-  loading: boolean;
-  onSelectTarget?: (target: LibraryHealthTarget) => void;
-}) {
-  const readyChecks = checks.filter((check) => check.status === "ready").length;
-  const indexedDocuments = documents.filter((document) => document.status === "indexed").length;
-  const activeJobs = jobs.filter((job) => job.status === "pending" || job.status === "processing").length;
-  const activeBatches = batches.filter((batch) => batch.status === "queued" || batch.status === "processing").length;
-  const failedWork =
-    jobs.filter((job) => job.status === "failed").length + batches.filter((batch) => batch.status === "failed").length;
-  const items = [
-    {
-      target: "documents" as const,
-      label: "Documents",
-      value: loading ? "" : `${indexedDocuments} indexed`,
-      tone: loading ? toneNeutral : indexedDocuments ? toneSuccess : toneWarning,
-      actionLabel: "Show indexed document files",
-    },
-    {
-      target: "setup" as const,
-      label: "Setup",
-      value: loading ? "" : `${readyChecks}/${checks.length || fallbackSetupChecks.length} ready`,
-      tone: loading
-        ? toneNeutral
-        : readyChecks === (checks.length || fallbackSetupChecks.length)
-          ? toneSuccess
-          : toneWarning,
-      actionLabel: "Show setup checks",
-    },
-    {
-      target: "indexing" as const,
-      label: "Indexing",
-      value: loading ? "" : activeJobs + activeBatches ? `${activeJobs + activeBatches} active` : "Idle",
-      tone: loading ? toneNeutral : activeJobs + activeBatches ? toneInfo : toneNeutral,
-      actionLabel: "Show indexing progress",
-    },
-    {
-      target: "failures" as const,
-      label: "Failures",
-      value: loading ? "" : failedWork ? `${failedWork} needs review` : "None",
-      tone: loading ? toneNeutral : failedWork ? toneDanger : toneNeutral,
-      actionLabel: "Show failed indexing work",
-    },
-  ];
-
-  return (
-    <section
-      data-testid="library-health-strip"
-      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
-      aria-label="Library health"
-      style={{ containIntrinsicSize: "auto 76px", contentVisibility: "auto" }}
-    >
-      <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Library health</p>
-        <span className={cn("text-2xs font-semibold", textMuted)}>Read-only status</span>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-4">
-        {items.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            onClick={() => onSelectTarget?.(item.target)}
-            className={cn(
-              "rounded-md border px-2.5 py-2 text-left transition hover:-translate-y-px hover:shadow-[var(--shadow-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-0",
-              item.tone,
-            )}
-            aria-label={item.actionLabel}
-            aria-busy={loading || undefined}
-            style={{ containIntrinsicSize: "auto 48px", contentVisibility: "auto" }}
-          >
-            <p className="text-2xs font-bold uppercase tracking-[0.06em]">{item.label}</p>
-            {loading ? (
-              <div
-                className="mt-1 h-4 w-16 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]"
-                data-testid="library-health-skeleton"
-              />
-            ) : (
-              <p className="mt-1 text-xs font-semibold">{item.value}</p>
-            )}
-          </button>
-        ))}
-      </div>
-    </section>
   );
 }
 

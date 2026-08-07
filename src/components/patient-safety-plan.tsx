@@ -338,7 +338,7 @@ function EntryChip({ entry, kind, onRemove }: { entry: Entry; kind: StepKind; on
         onClick={onRemove}
         aria-label={`Remove “${entry.primary}”`}
         className={cn(
-          "grid size-7 place-items-center rounded-md text-[color:var(--text-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]",
+          "grid size-7 place-items-center rounded-md text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]",
           focusRing,
         )}
       >
@@ -375,7 +375,7 @@ function StepBuilderCard({
         </span>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">
+            <span className="font-mono text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">
               Step {def.step}
             </span>
             {filled ? (
@@ -402,7 +402,7 @@ function StepBuilderCard({
           ))}
         </ul>
       ) : (
-        <p className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] px-3 py-2 text-2xs font-semibold text-[color:var(--text-soft)]">
+        <p className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] px-3 py-2 text-2xs font-semibold text-[color:var(--text-muted)]">
           {def.emptyHint}
         </p>
       )}
@@ -457,7 +457,7 @@ function PreviewStep({ def, entries }: { def: StepDef; entries: Entry[] }) {
             ))}
           </ul>
         ) : (
-          <p className="mt-1.5 text-2xs font-semibold italic leading-4 text-[color:var(--text-soft)]">
+          <p className="mt-1.5 text-2xs font-semibold italic leading-4 text-[color:var(--text-muted)]">
             To be completed together.
           </p>
         )}
@@ -711,7 +711,7 @@ export function PatientSafetyPlan() {
           className={cn("min-w-0 grid content-start gap-4", mobileTab === "build" ? "grid" : "hidden", "lg:grid")}
         >
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+            <h2 className="text-sm font-extrabold uppercase tracking-label text-[color:var(--text-muted)]">
               Build the plan
             </h2>
             <div className="flex items-center gap-2">
@@ -804,7 +804,7 @@ export function PatientSafetyPlan() {
                       }}
                       aria-label={`Remove “${reason.primary}”`}
                       className={cn(
-                        "grid size-5 place-items-center rounded-full text-[color:var(--text-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]",
+                        "grid size-5 place-items-center rounded-full text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]",
                         focusRing,
                       )}
                     >
@@ -841,7 +841,7 @@ export function PatientSafetyPlan() {
         >
           {/* Preview toolbar */}
           <div data-print-hide className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+            <h2 className="text-sm font-extrabold uppercase tracking-label text-[color:var(--text-muted)]">
               Patient copy
             </h2>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -970,10 +970,10 @@ export function PatientSafetyPlan() {
             </div>
 
             <footer className={cn("grid gap-1 pt-1", clinicalDivider, "border-t pt-3")}>
-              <p className="font-mono text-3xs font-semibold leading-4 text-[color:var(--text-soft)]">
+              <p className="font-mono text-3xs font-semibold leading-4 text-[color:var(--text-muted)]">
                 Based on the Stanley–Brown Safety Planning Intervention (Stanley &amp; Brown, 2012).
               </p>
-              <p className="text-3xs font-medium leading-4 text-[color:var(--text-soft)]">
+              <p className="text-3xs font-medium leading-4 text-[color:var(--text-muted)]">
                 A supportive plan built collaboratively — not a substitute for clinical risk assessment. Confirm crisis
                 numbers for your local service.
               </p>
@@ -982,7 +982,7 @@ export function PatientSafetyPlan() {
 
           <p
             data-print-hide
-            className="mt-3 flex items-center gap-1.5 px-1 text-2xs font-semibold text-[color:var(--text-soft)]"
+            className="mt-3 flex items-center gap-1.5 px-1 text-2xs font-semibold text-[color:var(--text-muted)]"
           >
             <ChevronRight className="size-icon-xs text-[color:var(--clinical-accent)]" aria-hidden="true" />
             Confirm every contact and crisis number before export, then handle the copy under your approved clinical

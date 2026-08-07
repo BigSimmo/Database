@@ -690,6 +690,10 @@ create index if not exists document_pages_document_idx on public.document_pages(
 create index if not exists document_images_document_idx on public.document_images(document_id, page_number);
 create index if not exists document_images_searchable_idx
   on public.document_images(document_id, searchable, image_type, page_number);
+create index if not exists document_images_searchable_doc_page_relevance_idx
+  on public.document_images (document_id, page_number, clinical_relevance_score desc nulls last)
+  where searchable is true
+    and image_type is distinct from 'logo_decorative';
 create index if not exists document_images_hash_idx
   on public.document_images(document_id, image_hash)
   where image_hash is not null;
@@ -950,34 +954,23 @@ begin
     raise exception 'window must be positive';
   end if;
 
-  loop
-    update public.api_rate_limits
-    set
-      window_start = case
-        when window_start + make_interval(secs => p_window_seconds) <= v_now then v_window_start
-        else window_start
-      end,
-      request_count = case
-        when window_start + make_interval(secs => p_window_seconds) <= v_now then 1
-        else request_count + 1
-      end,
-      updated_at = v_now
-    where owner_id = p_owner_id
-      and bucket = p_bucket
-    returning request_count, window_start + make_interval(secs => p_window_seconds)
-      into v_count, v_reset_at;
-
-    exit when found;
-
-    begin
-      insert into public.api_rate_limits(owner_id, bucket, window_start, request_count, updated_at)
-      values (p_owner_id, p_bucket, v_window_start, 1, v_now)
-      returning request_count, window_start + make_interval(secs => p_window_seconds)
-        into v_count, v_reset_at;
-      exit;
-    exception when unique_violation then
-    end;
-  end loop;
+  insert into public.api_rate_limits(owner_id, bucket, window_start, request_count, updated_at)
+  values (p_owner_id, p_bucket, v_window_start, 1, v_now)
+  on conflict (owner_id, bucket) do update
+  set
+    window_start = case
+      when public.api_rate_limits.window_start + make_interval(secs => p_window_seconds) <= v_now
+        then excluded.window_start
+      else public.api_rate_limits.window_start
+    end,
+    request_count = case
+      when public.api_rate_limits.window_start + make_interval(secs => p_window_seconds) <= v_now
+        then 1
+      else public.api_rate_limits.request_count + 1
+    end,
+    updated_at = v_now
+  returning request_count, window_start + make_interval(secs => p_window_seconds)
+    into v_count, v_reset_at;
 
   return query
   select
@@ -1039,34 +1032,23 @@ begin
     raise exception 'window must be positive';
   end if;
 
-  loop
-    update public.api_rate_limit_subjects
-    set
-      window_start = case
-        when window_start + make_interval(secs => p_window_seconds) <= v_now then v_window_start
-        else window_start
-      end,
-      request_count = case
-        when window_start + make_interval(secs => p_window_seconds) <= v_now then 1
-        else request_count + 1
-      end,
-      updated_at = v_now
-    where subject_key = p_subject_key
-      and bucket = p_bucket
-    returning request_count, window_start + make_interval(secs => p_window_seconds)
-      into v_count, v_reset_at;
-
-    exit when found;
-
-    begin
-      insert into public.api_rate_limit_subjects(subject_key, bucket, window_start, request_count, updated_at)
-      values (p_subject_key, p_bucket, v_window_start, 1, v_now)
-      returning request_count, window_start + make_interval(secs => p_window_seconds)
-        into v_count, v_reset_at;
-      exit;
-    exception when unique_violation then
-    end;
-  end loop;
+  insert into public.api_rate_limit_subjects(subject_key, bucket, window_start, request_count, updated_at)
+  values (p_subject_key, p_bucket, v_window_start, 1, v_now)
+  on conflict (subject_key, bucket) do update
+  set
+    window_start = case
+      when public.api_rate_limit_subjects.window_start + make_interval(secs => p_window_seconds) <= v_now
+        then excluded.window_start
+      else public.api_rate_limit_subjects.window_start
+    end,
+    request_count = case
+      when public.api_rate_limit_subjects.window_start + make_interval(secs => p_window_seconds) <= v_now
+        then 1
+      else public.api_rate_limit_subjects.request_count + 1
+    end,
+    updated_at = v_now
+  returning request_count, window_start + make_interval(secs => p_window_seconds)
+    into v_count, v_reset_at;
 
   return query
   select

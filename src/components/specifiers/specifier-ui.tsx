@@ -19,44 +19,6 @@ export function SpecifierBreadcrumbs({ current }: { current?: string }) {
   return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers" }} current={current} />;
 }
 
-export function SpecifierSubnav({ active }: { active: "search" | "builder" | "compare" | "map" }) {
-  const items = [
-    { id: "search" as const, label: "Find", shortLabel: "Find", href: "/specifiers" },
-    { id: "builder" as const, label: "Build wording", shortLabel: "Build", href: "/specifiers/builder" },
-    { id: "compare" as const, label: "Compare", shortLabel: "Compare", href: "/specifiers/compare" },
-    { id: "map" as const, label: "Map", shortLabel: "Map", href: "/specifiers/map" },
-  ];
-
-  return (
-    <nav
-      aria-label="Specifier tools"
-      className="polished-scroll flex max-w-full gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {items.map((item) => (
-        <Link
-          key={item.id}
-          href={item.href}
-          aria-label={item.label}
-          aria-current={active === item.id ? "page" : undefined}
-          className={cn(
-            "inline-flex min-h-tap shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm",
-            active === item.id
-              ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-              : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
-          )}
-        >
-          <span className="sm:hidden" aria-hidden>
-            {item.shortLabel}
-          </span>
-          <span className="hidden sm:inline" aria-hidden>
-            {item.label}
-          </span>
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
 const familyChipBase =
   "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
 const familyChipActive =
@@ -113,7 +75,7 @@ export function SpecifierDiagnosisFilter({
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
       )}
     >
-      <span className="shrink-0 text-[color:var(--text-soft)]">Diagnosis</span>
+      <span className="shrink-0 text-[color:var(--text-muted)]">Diagnosis</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -127,7 +89,7 @@ export function SpecifierDiagnosisFilter({
         ))}
       </select>
       <ChevronsUpDown
-        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"
+        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--decoration-soft)]"
         aria-hidden
       />
     </label>
@@ -165,7 +127,7 @@ export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRe
                 ) : null}
               </div>
               <ArrowRight
-                className="mt-1 size-icon-md shrink-0 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                className="mt-1 size-icon-md shrink-0 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                 aria-hidden
               />
             </div>
@@ -231,9 +193,10 @@ export function DiagnosisChips({ values }: { values: string[] }) {
   );
 }
 
-export function SpecifierSafetyNote({ compact = false }: { compact?: boolean }) {
+export function SpecifierSafetyNote({ compact = false, id }: { compact?: boolean; id?: string }) {
   return (
     <aside
+      id={id}
       className={cn(
         "flex items-start gap-2.5 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-sm leading-5 text-[color:var(--text-muted)]",
         compact ? "px-3 py-2.5" : "p-4",
@@ -361,7 +324,7 @@ const sourceStatusMeta: Record<
   "source-not-applicable": {
     label: "Source n/a",
     icon: Minus,
-    className: "border-[color:var(--border)] bg-[color:var(--surface-inset)] text-[color:var(--text-soft)]",
+    className: "border-[color:var(--border)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]",
   },
 };
 
@@ -410,7 +373,7 @@ export function QuickTile({
         ? "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]"
         : tone === "success"
           ? "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]"
-          : "border-[color:var(--border)] text-[color:var(--text-soft)]";
+          : "border-[color:var(--border)] text-[color:var(--text-muted)]";
   const bodyClass =
     tone === "info"
       ? "text-[color:var(--info)]"
@@ -421,7 +384,7 @@ export function QuickTile({
     <div className={cn("rounded-lg border bg-[color:var(--surface)] p-4", toneClass)}>
       <div className="mb-2 flex items-center gap-2">
         <Icon className="h-4 w-4" aria-hidden />
-        <span className="text-2xs font-extrabold uppercase tracking-[0.05em]">{label}</span>
+        <span className="text-2xs font-extrabold uppercase tracking-label">{label}</span>
       </div>
       <p className={cn("text-xs font-medium leading-5", bodyClass)}>{body}</p>
     </div>

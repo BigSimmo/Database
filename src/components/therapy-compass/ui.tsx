@@ -1,4 +1,14 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
+
+import { Chip, type ChipAppearance } from "@/components/ui/chip";
+import {
+  cn,
+  EmptyState as SharedEmptyState,
+  LoadingPanel,
+  toneInfo,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
 
 import { AlertIcon, ShieldCheckIcon } from "./icons";
 import { reviewStatusMeta } from "./data/select";
@@ -7,13 +17,31 @@ import { reviewStatusMeta } from "./data/select";
 
 type Tone = "neutral" | "purple" | "info" | "success" | "warning" | "accent";
 
-const TONE_CLASS: Record<Tone, string> = {
-  neutral: "tc-tone-neutral",
-  purple: "tc-tone-purple",
-  info: "tc-tone-info",
-  success: "tc-tone-success",
-  warning: "tc-tone-warning",
-  accent: "tc-tone-accent",
+/**
+ * Border + background + text for a filled pill. `info`/`success`/`warning` reuse the
+ * shared recipes: `--success` and `--success-soft` are aliases of `--success-text` and
+ * `--success-bg`, so these render identically to the tone classes they replace. Therapy
+ * additionally needs `purple` (therapy modality) and `accent`, which the shared kit
+ * does not carry.
+ */
+const TONE_SURFACE: Record<Tone, string> = {
+  neutral: "border-[color:var(--border)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]",
+  purple: "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
+  info: toneInfo,
+  success: toneSuccess,
+  warning: toneWarning,
+  accent:
+    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)]",
+};
+
+/** Text colour only, for the borderless transparent eyebrow. */
+const TONE_TEXT: Record<Tone, string> = {
+  neutral: "text-[color:var(--text-muted)]",
+  purple: "text-[color:var(--type-source)]",
+  info: "text-[color:var(--info)]",
+  success: "text-[color:var(--success)]",
+  warning: "text-[color:var(--warning)]",
+  accent: "text-[color:var(--clinical-accent-hover)]",
 };
 
 export function tagTone(tag: string): Tone {
@@ -26,14 +54,26 @@ export function tagTone(tag: string): Tone {
 }
 
 export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
-  return <span className={`tc-tag ${TONE_CLASS[tone]}`}>{children}</span>;
+  const appearance: ChipAppearance =
+    tone === "purple"
+      ? { kind: "category", tone: "source" }
+      : tone === "accent"
+        ? { kind: "information", tone: "accent" }
+        : tone === "success" || tone === "warning" || tone === "info"
+          ? { kind: "status", tone }
+          : { kind: "information", tone: "inset" };
+  return (
+    <Chip size="compact" appearance={appearance} className="whitespace-nowrap">
+      {children}
+    </Chip>
+  );
 }
 
 export function TagRow({ tags, max = 5 }: { tags: string[]; max?: number }) {
   const shown = tags.slice(0, max);
   const extra = tags.length - shown.length;
   return (
-    <div className="tc-ui-001">
+    <div className="flex flex-wrap gap-2">
       {shown.map((tag) => (
         <Tag key={tag} tone={tagTone(tag)}>
           {tag}
@@ -51,7 +91,12 @@ export function StatusBadge({ status }: { status: string }) {
   const tone = meta.tone === "success" ? "success" : meta.tone === "warning" ? "warning" : "neutral";
   const Icon = meta.tone === "success" ? ShieldCheckIcon : AlertIcon;
   return (
-    <span className={`tc-status-badge ${TONE_CLASS[tone]}`}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold",
+        TONE_SURFACE[tone],
+      )}
+    >
       <Icon size={14} strokeWidth={1.9} />
       {meta.label}
     </span>
@@ -70,7 +115,15 @@ export function IconTile({
   variant?: "accent" | "soft";
 }) {
   return (
-    <span className={`tc-icon-tile tc-icon-tile-${size} tc-icon-tile-${variant}`}>
+    <span
+      className={cn(
+        "inline-flex flex-none items-center justify-center rounded-lg",
+        size === 44 ? "h-tap w-tap" : "h-[38px] w-[38px]",
+        variant === "accent"
+          ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+          : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+      )}
+    >
       <Icon size={Math.round(size * 0.5)} />
     </span>
   );
@@ -79,12 +132,7 @@ export function IconTile({
 // ---- loading / empty ----------------------------------------------------
 
 export function LoadingState({ label = "Loading therapy library…" }: { label?: string }) {
-  return (
-    <div role="status" aria-live="polite" className="tc-ui-002">
-      <span className="tc-spin tc-ui-003" />
-      <span className="tc-ui-004">{label}</span>
-    </div>
-  );
+  return <LoadingPanel label={label} layout="centered" />;
 }
 
 export function EmptyState({
@@ -99,40 +147,48 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="tc-ui-005">
-      <span className="tc-ui-006">
-        <Icon size={26} />
-      </span>
-      <div className="tc-ui-007">{title}</div>
-      <p className="tc-ui-008">{body}</p>
-      {action ? <div className="tc-ui-009">{action}</div> : null}
-    </div>
+    <SharedEmptyState
+      title={title}
+      body={body}
+      actions={action}
+      iconNode={<Icon size={26} />}
+      align="center"
+      live="polite"
+      centeredTreatment="clinical"
+    />
   );
 }
 
 // ---- small building blocks ---------------------------------------------
 
 export function SectionHeading({ children }: { children: ReactNode }) {
-  return <div className="tc-ui-010">{children}</div>;
+  return <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">{children}</div>;
 }
 
 export function Eyebrow({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
-  return <span className={`tc-eyebrow ${TONE_CLASS[tone]}`}>{children}</span>;
+  return <span className={cn("text-2xs font-bold tracking-eyebrow", TONE_TEXT[tone])}>{children}</span>;
 }
 
 /** A completeness meter (0–100) used on cards and the detail rail. */
 export function Meter({ value, label }: { value: number | null; label: string }) {
   const v = Math.max(0, Math.min(100, value ?? 0));
   return (
-    <div className="tc-ui-011">
-      <div className="tc-ui-012">
-        <span className="tc-ui-013">{label}</span>
-        <span className="tc-ui-014">{value == null ? "—" : `${v}%`}</span>
+    <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-2xs text-[color:var(--text-muted)]">{label}</span>
+        <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{value == null ? "—" : `${v}%`}</span>
       </div>
-      <span className="tc-ui-015">
+      <span className="block h-1.5 overflow-hidden rounded-xs bg-[color:var(--surface-inset)]">
         <span
-          className={`tc-meter-fill ${v >= 80 ? "tc-meter-success" : v >= 50 ? "tc-meter-accent" : "tc-meter-warning"}`}
-          style={{ "--tc-meter-width": `${v}%` } as CSSProperties}
+          className={cn(
+            "block h-full rounded-xs",
+            v >= 80
+              ? "bg-[color:var(--success)]"
+              : v >= 50
+                ? "bg-[color:var(--clinical-accent)]"
+                : "bg-[color:var(--warning)]",
+          )}
+          style={{ width: `${v}%` }}
         />
       </span>
     </div>

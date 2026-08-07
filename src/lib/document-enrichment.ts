@@ -18,6 +18,7 @@ import {
 import { generateStructuredTextResult } from "@/lib/openai";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import { cleanClinicalSummaryText, fenceSourceEvidence, sourceTextForModelEvidence } from "@/lib/source-text-sanitizer";
 import type {
   ClinicalDocument,
@@ -541,7 +542,15 @@ function parseGeneratedSummary(
       },
       labels: normalizeGeneratedLabels(parsed.labels),
     } satisfies GeneratedSummary;
-  } catch {
+  } catch (error) {
+    // Unattended ingestion must not degrade silently: an unparseable enrichment
+    // payload falls back to a minimal summary that weakens retrieval for this
+    // document until it is re-indexed. Warn (greppable by document identity) so
+    // the degradation is observable, matching the truncation warning above.
+    console.warn("document enrichment parse failed", {
+      document: document.file_name ?? document.title,
+      ...safeErrorLogDetails(error),
+    });
     return {
       summary: `- ${document.title}: indexed source text is available for source-backed review.`,
       clinical_specifics: fallbackClinicalSpecifics(),
@@ -604,7 +613,14 @@ export async function upsertDocumentEnrichment(args: {
   let enrichment: GeneratedSummary;
   try {
     enrichment = await generateDocumentEnrichment(args);
-  } catch {
+  } catch (error) {
+    // Same rationale as parseGeneratedSummary: a failed generation (e.g. an
+    // OpenAI outage) degrades this document's retrieval quality, so record it
+    // instead of swallowing the error and silently persisting the fallback.
+    console.warn("document enrichment generation failed", {
+      document: args.document.file_name ?? args.document.title,
+      ...safeErrorLogDetails(error),
+    });
     enrichment = {
       summary: `- ${args.document.title}: indexed source text is available for source-backed review.`,
       clinical_specifics: fallbackClinicalSpecifics(),
@@ -878,11 +894,14 @@ export async function fetchRelatedDocuments(args: {
   const documentIds = Array.from(grouped.keys());
   if (documentIds.length === 0) return [];
 
-  const visualCountsPromise =
+  const visualEnrichmentPromise =
     args.includeVisualCounts === false
-      ? Promise.resolve(new Map<string, { imageCount: number; tableCount: number }>())
-      : fetchDocumentVisualCounts(args.supabase, documentIds, args.signal);
-  const [metadataRows, visualCounts] = await Promise.all([
+      ? Promise.resolve({
+          counts: new Map<string, { imageCount: number; tableCount: number }>(),
+          coverImageIds: new Map<string, string>(),
+        })
+      : fetchDocumentVisualEnrichment(args.supabase, documentIds, args.signal);
+  const [metadataRows, visualEnrichment] = await Promise.all([
     fetchRelatedDocumentMetadata({
       supabase: args.supabase,
       ownerId: args.ownerId,
@@ -890,7 +909,7 @@ export async function fetchRelatedDocuments(args: {
       documentIds,
       signal: args.signal,
     }),
-    visualCountsPromise,
+    visualEnrichmentPromise,
   ]);
   const labelsByDocument = new Map<string, DocumentLabel[]>();
   const summariesByDocument = new Map<string, string | null>();
@@ -907,7 +926,7 @@ export async function fetchRelatedDocuments(args: {
       const docLabels = labelsByDocument.get(document.document_id) ?? [];
       const matchingLabel = docLabels.find((label) => queryTokens.has(label.label.toLowerCase()));
       const summary = summariesByDocument.get(document.document_id) ?? null;
-      const counts = visualCounts.get(document.document_id);
+      const counts = visualEnrichment.counts.get(document.document_id);
       return {
         document_id: document.document_id,
         title: document.title,
@@ -918,6 +937,7 @@ export async function fetchRelatedDocuments(args: {
         best_chunk_ids: document.best_chunk_ids.slice(0, 5),
         image_count: Math.max(document.image_count, counts?.imageCount ?? 0),
         table_count: counts?.tableCount ?? 0,
+        cover_image_id: visualEnrichment.coverImageIds.get(document.document_id) ?? null,
         match_reason: matchingLabel
           ? `Matched label: ${matchingLabel.label}`
           : `Matched ${document.best_chunk_ids.length} indexed passage${document.best_chunk_ids.length === 1 ? "" : "s"}`,
@@ -929,13 +949,24 @@ export async function fetchRelatedDocuments(args: {
 }
 
 export async function fetchDocumentVisualCounts(supabase: SupabaseClient, documentIds: string[], signal?: AbortSignal) {
+  const enrichment = await fetchDocumentVisualEnrichment(supabase, documentIds, signal);
+  return enrichment.counts;
+}
+
+/** One document_images round-trip for clinical counts + cover thumbnail ids. */
+export async function fetchDocumentVisualEnrichment(
+  supabase: SupabaseClient,
+  documentIds: string[],
+  signal?: AbortSignal,
+) {
   const counts = new Map<string, { imageCount: number; tableCount: number }>();
+  const coverImageIds = new Map<string, string>();
   const uniqueIds = Array.from(new Set(documentIds));
-  if (uniqueIds.length === 0) return counts;
+  if (uniqueIds.length === 0) return { counts, coverImageIds };
 
   let query = supabase
     .from("document_images")
-    .select("document_id,source_kind,searchable,image_type,clinical_relevance_score,metadata")
+    .select("id,document_id,page_number,source_kind,searchable,image_type,clinical_relevance_score,metadata")
     .in("document_id", uniqueIds)
     .neq("image_type", "logo_decorative");
   if (signal) query = query.abortSignal(signal);
@@ -947,6 +978,11 @@ export async function fetchDocumentVisualCounts(supabase: SupabaseClient, docume
   for (const row of data ?? []) {
     const documentId = String(row.document_id);
     const current = counts.get(documentId) ?? { imageCount: 0, tableCount: 0 };
+    if (row.source_kind === "cover_page") {
+      if (!coverImageIds.has(documentId) && row.id) coverImageIds.set(documentId, String(row.id));
+      counts.set(documentId, current);
+      continue;
+    }
     if (isClinicalImageEvidence(row)) {
       current.imageCount += 1;
       if (row.source_kind === "table_crop") current.tableCount += 1;
@@ -954,7 +990,17 @@ export async function fetchDocumentVisualCounts(supabase: SupabaseClient, docume
     counts.set(documentId, current);
   }
 
-  return counts;
+  return { counts, coverImageIds };
+}
+
+/** Resolve first-page cover image ids for search-card thumbnails (non-searchable). */
+export async function fetchDocumentCoverImageIds(
+  supabase: SupabaseClient,
+  documentIds: string[],
+  signal?: AbortSignal,
+) {
+  const enrichment = await fetchDocumentVisualEnrichment(supabase, documentIds, signal);
+  return enrichment.coverImageIds;
 }
 
 export function toDocumentMatch(document: RelatedDocument): DocumentMatch {
@@ -968,6 +1014,7 @@ export function toDocumentMatch(document: RelatedDocument): DocumentMatch {
     bestChunkIds: document.best_chunk_ids,
     imageCount: document.image_count,
     tableCount: document.table_count ?? 0,
+    coverImageId: document.cover_image_id ?? null,
     matchReason: document.match_reason,
     score: document.score,
   };

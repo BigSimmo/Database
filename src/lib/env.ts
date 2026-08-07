@@ -5,6 +5,11 @@ import { resolvePythonBin } from "@/lib/python-bin";
 import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
 import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
 
+/** Treat blank/whitespace as unset so offline scrub can pin "" without failing `.url()`. */
+function coerceBlankUrlEnv(value: unknown): unknown {
+  return typeof value === "string" && value.trim() === "" ? undefined : value;
+}
+
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
@@ -40,7 +45,18 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
   LOCAL_NO_AUTH_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
+  // Keep `z.` at the call site so `check-env-parity` parseEnvSchemaNames sees these names.
+  NEXT_PUBLIC_SENTRY_DSN: z.preprocess(coerceBlankUrlEnv, z.string().url().optional()),
+  NEXT_PUBLIC_SENTRY_RELEASE: z.string().optional(),
+  // Optional release tag for Sentry production readability and source-map correlation
+  // (for example: a short git SHA or deployment ID).
+  SENTRY_RELEASE: z.string().optional(),
+  // Optional Sentry build-time sourcemap credentials (CI/build environment only).
+  SENTRY_ORG: z.string().optional(),
+  SENTRY_PROJECT: z.string().optional(),
+  SENTRY_AUTH_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  SENTRY_DSN: z.preprocess(coerceBlankUrlEnv, z.string().url().optional()),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
   // model without updating this (and the schema) silently corrupts ingestion (IDX-C2).
@@ -287,6 +303,37 @@ export function requireOpenAIEnv() {
   if (!env.OPENAI_API_KEY) {
     throw new Error("Missing OPENAI_API_KEY. See .env.example.");
   }
+}
+
+function isPlaceholderValue(value: string | undefined) {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized.includes("replace-with") ||
+    normalized.includes("your-") ||
+    normalized.includes("placeholder") ||
+    normalized.includes("example.org")
+  );
+}
+
+export function requireSentryEnv() {
+  const publicDsn = env.NEXT_PUBLIC_SENTRY_DSN?.trim();
+  const serverDsn = env.SENTRY_DSN?.trim();
+
+  if (publicDsn && serverDsn && publicDsn !== serverDsn) {
+    throw new Error(
+      "Mismatch between NEXT_PUBLIC_SENTRY_DSN and SENTRY_DSN. Set both to the same DSN so client/server events stay on the same project.",
+    );
+  }
+
+  if (isPlaceholderValue(publicDsn) || isPlaceholderValue(serverDsn)) {
+    throw new Error("Sentry DSN in .env contains a placeholder value. Set a real DSN URL.");
+  }
+
+  // SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN are build-time sourcemap upload
+  // credentials. next.config.ts already gates upload on the complete set; do not
+  // re-validate them at runtime or a partial build env leaked into the process
+  // will crash production startup.
 }
 
 // Clinical query text is redacted to a keyed HMAC pseudonym before it is logged

@@ -16,7 +16,28 @@ Before the first repository-content write or potentially mutating project comman
 2. Preserve every unrelated staged, unstaged, and untracked change. Never stash, reset, clean, discard, relocate, or absorb it.
 3. Use the environment-specific bootstrap below, then run the dependency-free verifier from the repository root.
 
+### Portable POSIX secondary worktree
+
+Required outside Windows whenever PowerShell is absent and the executor is not Codex Cloud. Create or enter an isolated task worktree first; never edit the primary checkout.
+
+```bash
+# git fetch origin main
+# git worktree add -b <task-branch> ../wt-<short-slug> origin/main
+# cd ../wt-<short-slug>
+expected_head="$(git rev-parse HEAD)"
+repo="$(git rev-parse --show-toplevel)"
+branch="$(git branch --show-current)"
+if [ -z "$branch" ]; then
+  echo 'Task bootstrap incomplete: detached HEAD.' >&2
+  exit 1
+fi
+node .agents/skills/prompt-perfector/scripts/verify-repository-isolation.mjs \
+  --expected-repo "$repo" --expected-branch "$branch" --expected-head "$expected_head"
+```
+
 ### Windows/local worktree
+
+Use when `pwsh`/`powershell` and the local Codex bootstrap exist.
 
 ```powershell
 $taskBootstrap = Join-Path $env:USERPROFILE '.codex\scripts\start-codex-task.ps1'

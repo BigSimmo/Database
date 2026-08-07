@@ -57,7 +57,7 @@ function RailEntry({
         >
           {calc.abbrev}
         </span>
-        <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
+        <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
           {calc.summary}
         </span>
       </span>
@@ -69,7 +69,7 @@ function RailEntry({
           </span>
         </span>
       ) : (
-        <span className="font-mono text-3xs font-semibold text-[color:var(--text-soft)]">
+        <span className="font-mono text-3xs font-semibold text-[color:var(--text-muted)]">
           {calc.items.length} items
         </span>
       )}
@@ -158,8 +158,8 @@ export function CalculatorsClinicalConsoleMockup() {
               const DomainIcon = domainIcons[domain];
               return (
                 <section key={domain} className="grid gap-1">
-                  <h2 className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 px-3 text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]">
-                    <DomainIcon className="size-icon-xs" aria-hidden="true" />
+                  <h2 className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 px-3 text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
+                    <DomainIcon className="size-icon-xs text-[color:var(--decoration-soft)]" aria-hidden="true" />
                     {domainLabels[domain]}
                   </h2>
                   {entries.map((entry) => (
@@ -182,7 +182,7 @@ export function CalculatorsClinicalConsoleMockup() {
           <section className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <h2 className="text-lg font-extrabold tabular-nums text-[color:var(--text-heading)]">{calc.abbrev}</h2>
-              <span className="text-sm-minus font-semibold text-[color:var(--text-soft)]">{calc.name}</span>
+              <span className="text-sm-minus font-semibold text-[color:var(--text-muted)]">{calc.name}</span>
             </div>
             <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--info-border)] bg-[color:var(--info-soft)] p-2.5 text-sm-minus font-semibold leading-5 text-[color:var(--info)]">
               <Info className="mt-0.5 size-icon-md shrink-0" aria-hidden="true" />
@@ -202,13 +202,13 @@ export function CalculatorsClinicalConsoleMockup() {
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-xl font-extrabold tabular-nums text-[color:var(--text-heading)]">
                   {derived.started ? derived.score : "—"}
-                  <span className="text-sm-minus font-bold text-[color:var(--text-soft)]"> / {calc.maxScore}</span>
+                  <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
                 </span>
                 <SeverityPill
                   tone={derived.result.tone}
                   label={derived.started ? derived.result.label : "Not started"}
                 />
-                <span className="text-2xs font-semibold text-[color:var(--text-soft)]">{progressLabel(derived)}</span>
+                <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{progressLabel(derived)}</span>
               </div>
               <CopyResultButton calc={calc} state={derived} />
             </div>
@@ -223,7 +223,7 @@ export function CalculatorsClinicalConsoleMockup() {
           <CalculatorItems calc={calc} answers={answers} onAnswersChange={setAnswers} />
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-3">
-            <span className="text-2xs font-medium text-[color:var(--text-soft)]">
+            <span className="text-2xs font-medium text-[color:var(--text-muted)]">
               {calc.scoringNote} <span className="font-mono">{calc.source}</span>
             </span>
             <button

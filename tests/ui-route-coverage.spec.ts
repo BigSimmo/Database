@@ -158,7 +158,7 @@ async function installOfflineApiFixtures(page: Page, problems: string[]) {
 async function installTherapyFixtures(page: Page) {
   await page.route("**/therapy-compass-data/*.json", async (route) => {
     const filename = new URL(route.request().url()).pathname.split("/").at(-1) ?? "";
-    if (!new Set(["therapies.json", "therapies-index.json", "pathways.json", "reference.json"]).has(filename)) {
+    if (!/^(?:therapies(?:-(?:home|index))?\.[a-f0-9]{16}|pathways|reference)\.json$/.test(filename)) {
       await route.abort("blockedbyclient");
       return;
     }
@@ -250,12 +250,12 @@ test.describe("previously uncovered production routes", () => {
         await expect(currentPage.getByTestId("search-query-ribbon")).toBeVisible();
         // The common-search pill lands on `/therapy-compass/search`, which is the
         // shared `ModeNav`. It portals into the header collapse host (outside
-        // .tc-root), so read the canvas colour from the workspace root still in
-        // the page, and prove the bar is anchored under the collapsing top bar.
+        // [data-therapy-root]), so read the canvas colour from the workspace root
+        // still in the page, and prove the bar is anchored under the collapsing top bar.
         const nav = currentPage.getByRole("navigation", { name: "Therapy pages" });
         const layout = await nav.evaluate((element) => {
           const bar = element.querySelector<HTMLElement>(".mode-nav__bar");
-          const root = document.querySelector(".tc-root");
+          const root = document.querySelector("[data-therapy-root]");
           return {
             backgroundColor: root ? getComputedStyle(root).backgroundColor : "",
             portaledIntoCollapse: Boolean(element.closest('[data-testid="universal-header-collapse"]')),
@@ -264,10 +264,10 @@ test.describe("previously uncovered production routes", () => {
             inlineOverflow: bar ? bar.scrollWidth - bar.clientWidth : Number.POSITIVE_INFINITY,
           };
         });
-        // .tc-root is `background: var(--background)`, so this tracks the app's
-        // page floor — #f1f4f8 since the Clinical Sky surface scale landed, not
-        // the white it used to be.
-        expect(layout.backgroundColor).toBe("rgb(241, 244, 248)");
+        // [data-therapy-root] is `background: var(--background)`, so this tracks the app's
+        // page floor — canonical v2 white from the root-mounted `.ckb-v2`
+        // layer, while the route keeps ownership of its specialised layout.
+        expect(layout.backgroundColor).toBe("rgb(255, 255, 255)");
         expect(layout.portaledIntoCollapse).toBe(true);
         expect(layout.inlineOverflow).toBeLessThanOrEqual(1);
       },

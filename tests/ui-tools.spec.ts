@@ -15,7 +15,7 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
-import { expectSingleSettledOwner } from "./playwright-settlement";
+import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -463,6 +463,34 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("tool descriptions remain complete across supported breakpoints", async ({ page }) => {
+    await gotoLauncher(page, "/tools");
+
+    for (const width of [320, 390, 639, 768, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      const tool =
+        width < 1024
+          ? page.getByTestId("application-row-clinical-kb-search")
+          : page.getByTestId("application-card-clinical-kb-search");
+      const description = tool.getByText("Ask source-backed clinical questions and move straight to evidence.", {
+        exact: true,
+      });
+      await expect(description).toBeVisible();
+      const clipping = await description.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          horizontal: element.scrollWidth > element.clientWidth + 1,
+          vertical: element.scrollHeight > element.clientHeight + 1,
+          lineClamp: style.webkitLineClamp,
+        };
+      });
+      expect(clipping.horizontal).toBe(false);
+      expect(clipping.vertical).toBe(false);
+      expect(clipping.lineClamp).not.toBe("2");
+      await expectNoPageHorizontalOverflow(page);
+    }
+  });
+
   test("launcher links point to the expected in-app modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
@@ -528,8 +556,8 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("mode toggle stays global on the services home route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    // Asserts the collapsed rail affordance below; seed the remembered
-    // preference now that new users default to the labelled sidebar.
+    // Asserts the collapsed rail affordance below; explicit for clarity even
+    // though collapsed is now the default for new users too.
     await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoLauncher(page, "/?mode=answer");
 
@@ -568,7 +596,7 @@ test.describe("Clinical KB tools launcher", () => {
     await formsMode.click();
     await expect(page).toHaveURL(/\/forms$/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(page.getByTestId("forms-home")).toBeVisible();
+    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("");
     await expectNoPageHorizontalOverflow(page);
@@ -590,14 +618,14 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page).toHaveURL(/\/forms$/);
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(page.getByTestId("forms-home")).toBeVisible();
+    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("");
 
     await gotoLauncher(page, "/forms");
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(page.getByTestId("forms-home")).toBeVisible();
+    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
 
     menu = await openAppModeMenu(page, "Forms");
     const servicesMode = menu.getByRole("menuitemradio", { name: /^Services\b/ });
@@ -789,6 +817,20 @@ test.describe("Clinical KB tools launcher", () => {
       const subtitle = heading.locator("xpath=following-sibling::p[1]");
       await expect(subtitle).toBeVisible();
       const subtitleFontSize = await subtitle.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+      const expectedTypeSizes = await page.evaluate(() => {
+        const resolveFontSize = (token: string) => {
+          const probe = document.createElement("span");
+          probe.style.fontSize = `var(${token})`;
+          document.body.append(probe);
+          const size = Number.parseFloat(getComputedStyle(probe).fontSize);
+          probe.remove();
+          return size;
+        };
+        return {
+          hero: resolveFontSize("--text-hero"),
+          subtitle: resolveFontSize("--text-sm"),
+        };
+      });
 
       const metrics = {
         iconWidth: Math.round(iconBox?.width ?? 0),
@@ -796,10 +838,12 @@ test.describe("Clinical KB tools launcher", () => {
         headingFontSize,
         subtitleFontSize,
       };
-      expect(metrics.iconWidth).toBe(44);
-      expect(metrics.iconHeight).toBe(44);
-      expect(metrics.headingFontSize).toBeCloseTo(23.2, 1);
-      expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
+      // The hero tile is `h-tap w-tap` on phones, so it tracks `--spacing-tap`
+      // (48px since PR 5b), not a standalone pixel choice.
+      expect(metrics.iconWidth).toBe(48);
+      expect(metrics.iconHeight).toBe(48);
+      expect(metrics.headingFontSize).toBeCloseTo(expectedTypeSizes.hero, 1);
+      expect(metrics.subtitleFontSize).toBeCloseTo(expectedTypeSizes.subtitle, 1);
 
       await expectNoPageHorizontalOverflow(page);
     });
@@ -964,7 +1008,9 @@ test.describe("Clinical KB tools launcher", () => {
           timeout: 20_000,
         });
         if (route.ribbonQuery) {
-          const ribbon = page.getByTestId("search-query-ribbon");
+          // Prefer the settled visible ribbon — CI can leave a hidden Next
+          // streaming `#S:1` clone beside the live band (outstanding #093).
+          const ribbon = visibleByTestId(page, "search-query-ribbon");
           await expect(ribbon, `${route.path} at ${viewport.name}`).toBeVisible({ timeout: 20_000 });
           await expect(ribbon.getByRole("heading", { name: route.ribbonQuery })).toBeVisible();
           await expect(ribbon.getByRole("status")).toBeVisible();
@@ -984,15 +1030,6 @@ test.describe("Clinical KB tools launcher", () => {
             // bottom (safe-area is padding inside the form, not a `bottom` gap).
             expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 2);
           }
-        } else if (viewport.width < 1024) {
-          // Sticky-stack shells pin via an outer wrapper; collapse-everywhere hosts
-          // still self-sticky the form. Tablet behaviour stays unchanged.
-          expect(
-            metrics?.position === "sticky" || metrics?.stickyAncestor,
-            `${route.path} at ${viewport.name} should stick via the form or its sticky stack`,
-          ).toBe(true);
-          expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
-          await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
         } else {
           expect(metrics?.composerPlacement).toBe("desktop-page");
           expect(metrics?.insideDesktopPageSlot).toBe(true);
@@ -1015,8 +1052,8 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeFocused();
 
     await gotoLauncher(page, "/forms?focus=1");
-    await expect(page.getByTestId("forms-home").getByTestId("global-search-input")).toBeVisible();
-    await expect(page.getByTestId("forms-home").getByTestId("global-search-input")).toBeFocused();
+    await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toBeVisible();
+    await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toBeFocused();
   });
 
   test("services mode shows source-backed records in search results", async ({ page }) => {
@@ -1199,7 +1236,14 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
-    await expect(page.getByTestId("form-search-mobile-results")).not.toContainText(/pathway/i);
+    // Guards the unsubstantiated pathway-claims feature (supportsPathwayClaims),
+    // not the word itself: result cards now carry the catalogue's own purpose
+    // text, and several official purposes legitimately say "pathway" ("Use for
+    // each leave episode from inpatient treatment order pathway"). Match the
+    // feature's own strings so real form content cannot trip this guard.
+    await expect(page.getByTestId("form-search-mobile-results")).not.toContainText(
+      /related pathway|view full pathway/i,
+    );
     await expect(page.getByText(/PSOLIS Transport|View full pathway|Source verified/)).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
@@ -1398,11 +1442,11 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page).toHaveURL(/\/forms$/);
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(page.getByTestId("forms-home")).toBeVisible();
+    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Forms" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
-    const formsHomeSearch = page.getByTestId("forms-home").getByTestId("global-search-input");
+    await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toHaveCount(1);
+    const formsHomeSearch = visibleByTestId(page, "forms-home").getByTestId("global-search-input");
     await expect(formsHomeSearch).toBeVisible();
     const formsSearchBox = await formsHomeSearch.boundingBox();
     const formsHeadingBox = await page.getByRole("heading", { level: 1, name: "Forms" }).boundingBox();
@@ -1537,7 +1581,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     // Evidence arrived, so the results view renders — ranked from the imported
     // differentials catalogue with a real query-matched result row.
-    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
     await expect(page.getByTestId("differentials-catalogue-notice")).toBeVisible();
     await expect(page.getByText("Catalogue ranking").first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
@@ -1594,7 +1638,7 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/differentials");
     await submitDifferentialSearch(page, "acute confusion");
 
-    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
     const typeSelect = page.getByTestId("differential-result-type-select");
     await expect(typeSelect).toBeVisible();
     await expect(typeSelect).toHaveAccessibleName("Filter by result type");
@@ -1603,19 +1647,29 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(typeSelect).toHaveValue("diagnosis");
     await typeSelect.selectOption("all");
 
-    // Sort is a segmented group and the page filter is a select; they sit side by
-    // side at matched tap height, and the pair itself never scrolls internally --
-    // any overflow belongs to the utility rail that owns it.
-    const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
-    const pairMetrics = await mobilePair.evaluate((element) => ({
+    // Sort is `sm`-and-up, so on a phone the page filter is the whole utilities
+    // group: it renders last, hard against the ribbon's right edge, and it is
+    // what has to carry the phone tap height. Sort stays mounted but hidden —
+    // asserted, not assumed, so returning it to the phone line fails here.
+    const utilities = page.getByTestId("search-query-ribbon-utilities");
+    const pageFilters = page.getByTestId("search-query-ribbon-mobile-controls");
+    const railMetrics = await utilities.evaluate((element) => ({
       width: element.getBoundingClientRect().width,
-      scrollWidth: element.scrollWidth,
-      controlHeights: Array.from(element.children).map((child) => child.getBoundingClientRect().height),
+      right: element.getBoundingClientRect().right,
+      lastChildIsPageFilter:
+        element.lastElementChild?.getAttribute("data-testid") === "search-query-ribbon-mobile-controls",
     }));
-    expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
-    expect(pairMetrics.controlHeights).toHaveLength(2);
-    expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
-    expect(Math.min(...pairMetrics.controlHeights)).toBeGreaterThanOrEqual(43);
+    expect(railMetrics.lastChildIsPageFilter).toBe(true);
+    // Mounted-and-hidden is two facts, and `toBeHidden()` alone cannot separate
+    // them: it passes for a hidden node AND for one that does not exist. Plain
+    // `getByRole` also filters hidden nodes out, so it would resolve to nothing
+    // here and pass even with the control deleted. Count under `includeHidden`,
+    // then visibility.
+    const phoneSort = utilities.getByRole("group", { name: "Sort results", includeHidden: true });
+    await expect(phoneSort).toHaveCount(1);
+    await expect(phoneSort).toBeHidden();
+    const filterHeight = await pageFilters.evaluate((element) => element.getBoundingClientRect().height);
+    expect(filterHeight).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1695,7 +1749,7 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/differentials");
     await submitDifferentialSearch(page, "acute confusion");
 
-    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
     const typeSelect = page.getByTestId("differential-result-type-select");
     await expect(typeSelect).toBeVisible();
     await expect(typeSelect).toHaveAccessibleName("Filter by result type");
@@ -1704,19 +1758,29 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(typeSelect).toHaveValue("presentation");
     await typeSelect.selectOption("all");
 
-    // Sort is a segmented group and the page filter is a select; they sit side by
-    // side at matched tap height, and the pair itself never scrolls internally --
-    // any overflow belongs to the utility rail that owns it.
-    const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
-    const pairMetrics = await mobilePair.evaluate((element) => ({
+    // Sort is `sm`-and-up, so on a phone the page filter is the whole utilities
+    // group: it renders last, hard against the ribbon's right edge, and it is
+    // what has to carry the phone tap height. Sort stays mounted but hidden —
+    // asserted, not assumed, so returning it to the phone line fails here.
+    const utilities = page.getByTestId("search-query-ribbon-utilities");
+    const pageFilters = page.getByTestId("search-query-ribbon-mobile-controls");
+    const railMetrics = await utilities.evaluate((element) => ({
       width: element.getBoundingClientRect().width,
-      scrollWidth: element.scrollWidth,
-      controlHeights: Array.from(element.children).map((child) => child.getBoundingClientRect().height),
+      right: element.getBoundingClientRect().right,
+      lastChildIsPageFilter:
+        element.lastElementChild?.getAttribute("data-testid") === "search-query-ribbon-mobile-controls",
     }));
-    expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
-    expect(pairMetrics.controlHeights).toHaveLength(2);
-    expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
-    expect(Math.min(...pairMetrics.controlHeights)).toBeGreaterThanOrEqual(43);
+    expect(railMetrics.lastChildIsPageFilter).toBe(true);
+    // Mounted-and-hidden is two facts, and `toBeHidden()` alone cannot separate
+    // them: it passes for a hidden node AND for one that does not exist. Plain
+    // `getByRole` also filters hidden nodes out, so it would resolve to nothing
+    // here and pass even with the control deleted. Count under `includeHidden`,
+    // then visibility.
+    const phoneSort = utilities.getByRole("group", { name: "Sort results", includeHidden: true });
+    await expect(phoneSort).toHaveCount(1);
+    await expect(phoneSort).toBeHidden();
+    const filterHeight = await pageFilters.evaluate((element) => element.getBoundingClientRect().height);
+    expect(filterHeight).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1824,7 +1888,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     const compareAction = page.getByTestId("differentials-compare-selected-mobile");
     const dock = page.locator("form.answer-footer-search-dock");
-    const scrollport = page.getByTestId("differentials-search-results");
+    const scrollport = visibleByTestId(page, "differentials-search-results");
     const mainContent = page.locator("#main-content");
     await expect(scrollport).toBeVisible();
     await expect(page.locator("#differentials-mobile-compare-addon-slot")).toHaveCount(1);

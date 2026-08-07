@@ -1,5 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -88,8 +98,30 @@ function readOwner(directory) {
   return readJson(path.join(directory, "owner.json"));
 }
 
+/**
+ * Publish atomically: write a sibling temp file, then rename over the target.
+ *
+ * A plain writeFileSync is observable half-written by a concurrent reader, and
+ * every reader here is concurrent by construction — the queue exists precisely
+ * so separate processes can watch each other. `readJson` swallows the resulting
+ * parse error and returns null, and `queueRecords` filters that out, so a torn
+ * read does not surface as an error: the ticket simply *disappears* for that
+ * poll, and `hasTickets` reports false while a queued exclusive waiter is
+ * sitting right there. That is the priority inversion this queue exists to
+ * prevent.
+ *
+ * `renameSync` is atomic within a filesystem, and the temp name deliberately
+ * does not end in `.json` so `listJsonFiles` cannot pick it up mid-flight.
+ */
 function writeJson(filePath, value) {
-  writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    renameSync(temporaryPath, filePath);
+  } catch (error) {
+    rmSync(temporaryPath, { force: true });
+    throw error;
+  }
 }
 
 function compatibilitySentinel(owner) {

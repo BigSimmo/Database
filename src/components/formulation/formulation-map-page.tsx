@@ -8,7 +8,6 @@ import {
   FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
-  FormulationSubnav,
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
@@ -23,10 +22,7 @@ export function FormulationMapPage({ initialId }: { initialId?: string }) {
 
   return (
     <FormulationPageShell>
-      <div className="grid gap-3">
-        <FormulationBreadcrumbs current="Mechanism map" />
-        <FormulationSubnav active="map" />
-      </div>
+      <FormulationBreadcrumbs current="Mechanism map" />
 
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
         <p className={eyebrowText}>Formulation architecture</p>
@@ -81,7 +77,7 @@ export function FormulationMapPage({ initialId }: { initialId?: string }) {
                       </p>
                     </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-1 text-2xs font-semibold text-[color:var(--text-soft)]">
+                  <div className="mt-2 flex flex-wrap gap-1 text-2xs font-semibold text-[color:var(--text-muted)]">
                     {group.domains.map((domain) => (
                       <span key={domain}>{domain}</span>
                     ))}

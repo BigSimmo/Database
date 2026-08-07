@@ -22,6 +22,11 @@ const providerEnvironmentKeys = Object.freeze([
   "E2E_AUTH_ENABLED",
   "E2E_USER_EMAIL",
   "E2E_USER_PASSWORD",
+  "SENTRY_AUTH_TOKEN",
+  // Public client DSN is still a live monitoring destination — scrub it too so
+  // Playwright/Lighthouse production builds cannot bake a real browser DSN.
+  "NEXT_PUBLIC_SENTRY_DSN",
+  "SENTRY_DSN",
   "ALLOW_PROVIDER_TESTS",
 ]);
 
@@ -30,6 +35,20 @@ const offlineUrlValues = Object.freeze({
   SUPABASE_URL: "http://127.0.0.1:1",
   SUPABASE_DB_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
   DATABASE_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
+});
+
+// Feature flags / sampling, not credentials: force them off in offline wrappers
+// without joining the credential inventory (which would also demand setup/raw-env
+// scrubbing for names that never carry a secret). Applied to every consumer of
+// offlineTestEnvironment (Vitest, Playwright, Lighthouse, CLS) by design — the
+// offline contract is provider-free, so default-on Sentry log/trace behaviour
+// must be opted into via an explicit test argument, not the ambient environment.
+const offlineSentryControlFlags = Object.freeze({
+  SENTRY_ENABLE_LOGS: "false",
+  SENTRY_SEND_TEST_LOG: "false",
+  // Belt-and-suspenders with blank DSNs: keep DB/perf tracing off even if a
+  // future change leaves a truthy DSN in the offline environment.
+  SENTRY_TRACES_SAMPLE_RATE: "0",
 });
 
 /**
@@ -41,7 +60,16 @@ export function offlineTestEnvironment(source = process.env, overrides = {}) {
   // Explicit values both scrub inherited secrets and prevent Next/Vite from
   // repopulating the same names from a repository-local env file. URL-shaped
   // settings use inert loopback values so the runtime env schema still parses.
-  for (const key of providerEnvironmentKeys) environment[key] = offlineUrlValues[key] ?? "";
+  //
+  // Sentry DSNs are blanked (not deleted or faked): an absent key lets Next
+  // reload a live DSN from `.env.local` during Playwright/Lighthouse production
+  // starts, and a truthy inert URL keeps app Sentry gates enabled. Empty string
+  // stays falsy for `SENTRY_DSN?.trim()` and is coerced to unset by optionalUrlEnv
+  // in `src/lib/env.ts`.
+  for (const key of providerEnvironmentKeys) {
+    environment[key] = offlineUrlValues[key] ?? "";
+  }
+  Object.assign(environment, offlineSentryControlFlags);
 
   return {
     ...environment,
@@ -60,4 +88,18 @@ export function requireProviderTestPermission(environment = process.env) {
   }
 }
 
-export { offlineUrlValues, providerEnvironmentKeys };
+/** @param {Record<string, string | undefined>} environment */
+export function providerFreeCloudLiveTestGap(environment = process.env) {
+  const providerFree =
+    environment.ALLOW_PROVIDER_TESTS === "true" &&
+    environment.CODEX_CLOUD === "1" &&
+    (environment.CODEX_CLOUD_ACCESS_PROFILE ?? "offline") === "offline";
+  if (!providerFree) return null;
+  return (
+    "Live provider test capability gap: ALLOW_PROVIDER_TESTS is authorized, but agent-phase provider " +
+    "credentials are intentionally unavailable in CODEX_CLOUD_ACCESS_PROFILE=offline. Run this check " +
+    "locally/operator-side or in an explicitly provisioned connected Cloud profile."
+  );
+}
+
+export { offlineUrlValues, offlineSentryControlFlags, providerEnvironmentKeys };

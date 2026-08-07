@@ -2,6 +2,14 @@
 
 This document turns the current process review into phased, durable repo practice. It separates changes that already take effect from work that should stay explicit until it is implemented.
 
+## Risk-routed local and CI verification (2026-08-02)
+
+- `ci-change-scope.mjs` is the shared fail-closed classifier for local PR handoff and hosted CI. Only recognised documentation and workflow/policy paths take a light route; product code, tests, executable config, dependencies, database/container/RAG surfaces, mixed scope, and unknown non-document paths retain heavy verification.
+- `verify:pr-local` no longer treats every handoff as lint + typecheck + full unit + RAG fixtures. It always checks runtime, installed-lock parity, and changed-file formatting, then selects documentation checks, focused workflow contracts, or the heavy executable plan. Its self-test makes those routing decisions a repository contract.
+- `static-pr` remains required but step-routes the same signals. Workflow-only edits run focused workflow tests instead of full coverage and safety/RAG; documentation changes run documentation integrity checks; heavy/unknown changes retain lint, typecheck, coverage, safety/RAG, and all applicable build/UI/database/container jobs. `PR required` remains `if: always()` and requires every in-scope job, including `safety` whenever `static_heavy_changed` is true.
+- Repeated low-yield provider work was removed from ordinary PRs: dependency audit runs when a lockfile/npm configuration can change the dependency tree (and on the scheduled full-run sentinel), eval-canary liveness moved to the daily Ops Digest cadence, and PR-body synchronization runs only when `PR_POLICY_BODY.md` exists.
+- The operating rule is incremental value, not a fixed command count: each added check must cover a distinct plausible failure path. Never rerun an unchanged pass, and do not stack broad gates when one suitable gate already covers the risk.
+
 ## Multi-worktree reconciliation hardening (2026-07-23)
 
 The cloud-chat reconciliation postmortem and complete issue/fix matrix are in
@@ -165,19 +173,52 @@ API rather than estimated:
   | `ui-hydration.spec.ts`             | 5.2s   | 3     | 1.73s     |
 
   **`ui-phone-scroll.spec.ts` is 65% of the shard** — 267s of 409s — at the worst per-test rate
-  of any large spec in it. It is also the file behind both `#127` and `#141`. Splitting it is
-  the only lever that rebalances the shards, because `--shard` cannot divide a single file.
-  Re-measure with
+  of any large spec in it. It is also the file behind both `#127` and `#146`. Re-measure with
   `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium node scripts/run-playwright.mjs --project=chromium --grep-invert "@quarantine|@mockup" --shard=1/3`
   before acting — local absolute times differ from CI, but the per-spec ranking holds.
 
+- **"Splitting the slow spec rebalances the shards" is REFUTED, measured 2026-07-30.** That
+  claim appeared in this document and in PR #1453; it is wrong, and the correction matters more
+  than the original guess. `ui-phone-scroll.spec.ts` was split into three files (21 / 19 / 16
+  tests) and the shard distribution did not move at all:
+
+  |               | Before                | After                 |
+  | ------------- | --------------------- | --------------------- |
+  | Project total | 342 tests, 18 files   | 342 tests, 20 files   |
+  | Shard 1       | 121 (56 phone-scroll) | 121 (56 phone-scroll) |
+  | Shard 2       | 111 (0)               | 111 (0)               |
+  | Shard 3       | 110 (0)               | 110 (0)               |
+
+  **Why:** `--shard` does not distribute files, it walks them in collection order (alphabetical)
+  and cuts at test-count boundaries. Sibling files named `ui-phone-scroll*` sort adjacently, so
+  all three land in the same shard. The shards were already count-balanced; the imbalance is
+  duration, and splitting a file cannot fix a metric the scheduler does not use:
+
+  ```text
+  shard 1  121 tests / 10 files — phone-scroll(56), chrome-scroll(17), accessibility(15), overlap(14), …
+  shard 2  111 tests /  4 files — ui-smoke(92), route-coverage(12), specifiers(5), pwa(2)
+  shard 3  110 tests /  6 files — ui-tools(87), universal-search(16), stress(3), …
+  ```
+
+  Shard 1 is slow because it holds ten _slow-per-test_ files while shards 2 and 3 are dominated
+  by one fast-per-test file each. **The only lever that would actually rebalance is assigning
+  explicit spec groups per shard in `ci.yml` instead of `--shard=i/N`.** That is not obviously
+  worth it: perfect balance is ~7m37 against a measured 9m36 largest shard, so ~2 min of a
+  13m39 critical path, bought with a hand-maintained file list in the **required** UI job whose
+  miss mode is a spec silently running nowhere. Do not build it without deciding that trade
+  first, and not without a guard asserting every collected spec appears in exactly one group.
+
+  **Stop:** do not "fix" this by renaming spec files so they sort into different shards. It
+  works, and it encodes undocumented scheduler behaviour into filenames where the next reader
+  cannot see it.
+
 ## Phase 1 - Active now
 
-- `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.
-- `npm run verify:pr-local` is the closest local mirror of the normal PR gate: runtime, format, lint, typecheck, one full unit run, conditional build, and RAG fixture/manifest validation when changed-file scope requires it. Local scope resolves against the repository default base rather than a feature-branch upstream; set `PR_BASE_REF` explicitly for release-targeted PRs.
+- `npm run verify:cheap` is the broad offline local gate for cross-module risk: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests. It is selected, not automatic for every source/config/test edit.
+- `npm run verify:pr-local` is the risk-routed local mirror of the normal PR gate: runtime, installed-lock parity, changed-file format, then focused docs/workflow contracts or the fail-closed executable plan with lint, typecheck, one full unit run, conditional build, and RAG fixture/manifest validation. Local scope resolves against the repository default base rather than a feature-branch upstream; set `PR_BASE_REF` explicitly for release-targeted PRs.
 - `npm run verify:ui` is the complete required production Chromium gate: `check:runtime` plus all non-quarantined production journeys (`test:e2e:pr`).
 - `npm run verify:release` is the release-confidence gate: `check:runtime`, lint, typecheck, unit tests, build, full Playwright browser matrix, `check:production-readiness`, `governance:release`, and `eval:quality:release` (the last step needs live Supabase and OpenAI keys).
-- CI uses a risk-scoped PR gate: `changes` classifies paths, `static-pr` always runs runtime/action/scope/format/lint/typecheck checks, and `pr-required` is the single always-reporting required aggregate. One full unit run with coverage, build, both Docker image builds, one required production Chromium invocation, migration replay, safety/config, Codex workflow validation, and RAG fixture validation run only when their file scopes apply. UI PRs also run one non-blocking advisory Chromium invocation for quarantined and mockup journeys. The external `Supabase Preview` check may still replay migrations on branch databases when enabled. A gated `release-browser-matrix` job runs the full Playwright browser set on `main`, `release/*`, manual dispatch, and the weekly schedule.
+- CI uses a risk-scoped PR gate: `changes` classifies paths, `static-pr` always runs runtime/install parity, scope/plan self-tests, and changed-file formatting, and `pr-required` is the single always-reporting required aggregate. Focused documentation or workflow contracts run for recognised light scopes. Lint/typecheck, one full unit run with coverage, safety/RAG, build, both Docker image builds, required production Chromium, and migration replay run only when their file scopes apply; unknown non-document paths fail closed to this heavy route. UI PRs also run one non-blocking advisory Chromium invocation for quarantined and mockup journeys. The external `Supabase Preview` check may still replay migrations on branch databases when enabled. A gated `release-browser-matrix` job runs the full Playwright browser set on `main`, `release/*`, manual dispatch, and the weekly schedule.
 - `tests/ui-accessibility.spec.ts` covers reduced-motion and forced-colors dashboard usability so those modes are no longer only reviewed by inspection.
 - `tests/ui-tools.spec.ts` covers the Applications dashboard mode at mobile and desktop sizes, including the `/applications` compatibility redirect.
 - `AGENTS.md` now points future agents to these gates and to this document.
@@ -359,7 +400,7 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 ## PR merge gate: risk-scoped CI + required aggregate (2026-07-10)
 
 - CI now has one always-reporting required aggregate: `CI / PR required`. The aggregate depends on `changes`, `static-pr`, `safety`, `coverage`, `build`, `ui-critical-fast`, `ui-critical`, and `db-reset-verify`, then enforces only the jobs whose scopes apply. The aggregate keeps `if: always()` and labels concurrency `cancelled` distinctly from real failures (#095 / PR #1409); it stays red because a skipped required check would count as passing.
-- `static-pr` is the deterministic baseline for every PR: runtime, action pin check, CI scope self-test, format, lint, and typecheck. Coverage is the one required full unit run. Build, safety/config (fixtures always; `eval:rag:offline` when `rag_eval_changed`), production UI, and migration replay are independent jobs so reruns stay focused. Coverage includes source, tests, package/test-runner configuration, while process-only documentation does not trigger builds.
+- `static-pr` is the deterministic always-reporting baseline for every PR: runtime/install parity, scope and verification-plan self-tests, and changed-file formatting always run. Documentation and workflow-only scopes add focused contracts; executable or unknown scope adds lint, typecheck, coverage, and safety/config/RAG. Build, production UI, and migration replay remain independent jobs so reruns stay focused.
 - `db-reset-verify` is path-scoped to Supabase migrations/schema/`src/lib/supabase` and drift tooling — not every API route. Do not also require an external Supabase Preview replay unless the repo owner intentionally wants duplicate migration replay.
 - `ui-critical` retains its job ID for branch-protection compatibility and still runs the full required production Chromium suite (`test:e2e:pr`). On pull requests / merge_group, `ui-critical-fast` runs `@critical` first for fail-fast signal. `src/app/api/**` does not set `ui_changed`. `ui-advisory` runs quarantined and mockup journeys together when UI scope applies. A JUnit failure is considered a known flake only when its exact spec/title matches the validated ledger. The full browser matrix remains main/release/manual/scheduled and depends on static/build/UI success — not on `pr-required` — so a blocking scheduled dependency audit cannot skip Firefox/WebKit (#023 structural half).
 - Secret Scan pins Gitleaks to the workflow event base/head SHAs and the checked-out commit (`scripts/run-gitleaks-pinned.mjs`) so a concurrent push cannot invalidate the range (#097).
@@ -557,12 +598,13 @@ Machinery added to retire repeated traps and surface live-product signal proacti
 the durable index for the tooling; `docs/operator-backlog.md` tracks the human-only enablement steps.
 
 - **Pre-push guards** (`.githooks/pre-push` → `scripts/guard-push.mjs`, auto-installed by the
-  `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): three guards,
+  `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): four guards,
   each with an explicit override env var — auto-merge race sentinel (`claude/*`, blocks a push when the
   PR's auto-merge is armed; `ALLOW_AUTOMERGE_PUSH=1`), format-before-push (closes the `verify:cheap` vs
   CI `format:check` gap; it reuses only an exact-lock worktree dependency tree and otherwise blocks
-  with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness
-  (`SKIP_DRIFT_GUARD=1`). `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
+  with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), drift-manifest freshness
+  (`SKIP_DRIFT_GUARD=1`), and static gate (changed-file lint + source-only typecheck through the run
+  coordinator; `SKIP_STATIC_GUARD=1`). `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
   installer runs from `postinstall` (any new npm lifecycle script must also be COPY'd into the
   Dockerfile npm-ci stages — see the 2026-07-13 docs-infra note).
 - **Stale-base tripwire** (`scripts/check-base-freshness.mjs`, `check:base-freshness`): advisory
@@ -576,7 +618,7 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   (`INGESTION_AUTOPILOT_APPLY` unset → read-only); flip that repo var to `true` after a clean dry-run to
   allow real recovery.
 - **CI failure triage** (`.github/workflows/ci-triage.yml`): on PR CI failure, classifies each failed job
-  as main-side or needs-investigation. Inert until repo var `CI_TRIAGE_ENABLED=true` (now set). UI jobs use
+  as main-side or needs-investigation. Enabled by default; set repo var `CI_TRIAGE_ENABLED=false` to disable. UI jobs use
   their uploaded JUnit classification and trace; job names alone never produce a known-flake verdict.
   The workflow reads only trusted default-branch job metadata and never runs PR code.
 - **PR metadata policy** (`.github/workflows/pr-policy.yml`, `scripts/pr-policy.mjs`): ready PRs to `main`

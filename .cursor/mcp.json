@@ -2,6 +2,20 @@
   "mcpServers": {
     "supabase": {
       "url": "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true"
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@3.2.5"],
+      "env": {
+        "CONTEXT7_API_KEY": "${env:CONTEXT7_API_KEY}"
+      }
+    },
+    "figma": {
+      "url": "https://mcp.figma.com/mcp"
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@1.6.0"]
     }
   }
 }

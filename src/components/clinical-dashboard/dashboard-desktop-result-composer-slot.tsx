@@ -8,7 +8,7 @@ export function DashboardDesktopResultComposerSlot({ slotId }: { slotId?: string
     <DesktopComposerPortalSlot
       id={slotId}
       data-testid="desktop-page-search-composer-slot"
-      className="hidden lg:block lg:empty:hidden"
+      className="hidden sm:block sm:empty:hidden"
     />
   );
 }

@@ -1,22 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import {
-  ArrowUpDown,
-  ChevronDown,
-  CircleAlert,
-  Filter,
-  Folder,
-  Heart,
-  Plus,
-  Search,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import { ArrowUpDown, ChevronDown, CircleAlert, Filter, Folder, Heart, Plus, Search, X } from "lucide-react";
 import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
-import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeHero } from "@/components/mode-home-template";
 import {
   cn,
   floatingControl,
@@ -233,7 +222,7 @@ export function FavouritesHub({
                 key={stat.label}
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)]"
               >
-                <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
+                <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   <span className="truncate">{stat.label}</span>
                 </div>
@@ -281,7 +270,7 @@ export function FavouritesHub({
               <ChevronDown
                 aria-hidden="true"
                 className={cn(
-                  "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                  "h-4 w-4 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
                   tabMenuOpen && "rotate-180",
                 )}
               />
@@ -339,7 +328,7 @@ export function FavouritesHub({
                             "nums rounded-full px-2 py-0.5 text-2xs font-bold",
                             selected
                               ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
-                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
+                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
                           )}
                         >
                           {count}
@@ -447,7 +436,7 @@ export function FavouritesHub({
                     ? "Saved sets"
                     : `${selectedTabLabel} favourites`}
               </p>
-              <p className="text-xs font-medium text-[color:var(--text-soft)]">
+              <p className="text-xs font-medium text-[color:var(--text-muted)]">
                 {selectedTab === "sets" ? "Open a focused clinical set." : "Open, ask, copy, or organise saved items."}
               </p>
             </div>
@@ -482,7 +471,7 @@ export function FavouritesHub({
             {empty ? (
               <div className="grid min-h-40 place-items-center rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center">
                 <div>
-                  <Search aria-hidden="true" className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" />
+                  <Search aria-hidden="true" className="mx-auto mb-2 h-5 w-5 text-[color:var(--decoration-soft)]" />
                   {/* An empty list only means "no favourites" once the registry
                       actually answered. While loading or faulted it means we could
                       not look, and saying otherwise reads as data loss. */}
@@ -526,7 +515,7 @@ export function FavouritesHub({
             <div className="mb-3 flex items-center justify-between gap-2 border-b border-[color:var(--border)] pb-3">
               <div className="min-w-0">
                 <p className="text-base font-bold text-[color:var(--text-heading)]">Saved sets</p>
-                <p className="mt-0.5 text-xs font-medium text-[color:var(--text-soft)]">
+                <p className="mt-0.5 text-xs font-medium text-[color:var(--text-muted)]">
                   Filter favourites by workflow.
                 </p>
               </div>
@@ -570,8 +559,6 @@ export function FavouritesHub({
           </section>
         </aside>
       </div>
-
-      <ModeHomeVerificationFooter icon={ShieldCheck} label="Saved clinical work" body="Local library" />
     </div>
   );
 }
@@ -587,7 +574,7 @@ function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrows
         <p className="truncate font-bold text-[color:var(--text-heading)]">{item.title}</p>
         <p className="mt-0.5 truncate text-sm font-medium text-[color:var(--text-muted)]">{item.meta}</p>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="truncate text-xs font-semibold text-[color:var(--text-soft)]">{item.set}</span>
+          <span className="truncate text-xs font-semibold text-[color:var(--text-muted)]">{item.set}</span>
           <span className="nums rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold text-[color:var(--text-muted)]">
             {item.sourceMeta}
           </span>
@@ -656,7 +643,7 @@ function FavouriteSetRow({
           {compact ? "" : ` · ${favouriteSet.meta}`}
         </span>
       </span>
-      <ChevronDown aria-hidden="true" className="-rotate-90 h-4 w-4 text-[color:var(--text-soft)]" />
+      <ChevronDown aria-hidden="true" className="-rotate-90 h-4 w-4 text-[color:var(--decoration-soft)]" />
     </button>
   );
 }

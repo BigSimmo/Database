@@ -7,10 +7,9 @@
 #     every open PR — this has cost debugging time before).
 #   - needs investigation: everything else.
 #
-# SHIPPED INERT: this event-triggered workflow does nothing until the repo variable
-# CI_TRIAGE_ENABLED == "true". It never runs PR-authored code — it only reads job
-# metadata via the trusted default-branch checkout, and
-# posts a comment with the built-in token.
+# Enabled by default. Set repo variable CI_TRIAGE_ENABLED=false to disable.
+# It never runs PR-authored code — it only reads job metadata via the trusted
+# default-branch checkout, and posts a comment with the built-in token.
 name: CI Triage
 
 on:
@@ -32,7 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     if: >
-      vars.CI_TRIAGE_ENABLED == 'true' &&
+      vars.CI_TRIAGE_ENABLED != 'false' &&
       github.event.workflow_run.conclusion == 'failure' &&
       github.event.workflow_run.event == 'pull_request'
     steps:

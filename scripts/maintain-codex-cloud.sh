@@ -18,8 +18,9 @@ if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   exec bash scripts/setup-codex-cloud.sh
 fi
 
+node scripts/ensure-codex-cloud-git-remote.mjs --configure-gh-helper
 npm run check:codex-cloud
-if ! npm run check:codex-cloud -- --runtime; then
+if ! CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime; then
   printf '[codex-cloud:maintenance] Runtime or toolchain drift detected; rerunning full setup.\n'
   exec bash scripts/setup-codex-cloud.sh
 fi

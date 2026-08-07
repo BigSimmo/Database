@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllEnvs();
+  try {
+    const { resetDurableRateLimitLeasesForTests } = await import("../src/lib/api-rate-limit");
+    resetDurableRateLimitLeasesForTests();
+  } catch {
+    // Module may not be loaded yet for the env-only cases.
+  }
   vi.resetModules();
 });
 
@@ -172,6 +178,79 @@ describe("atomic streamed-summary limits", () => {
       }),
     ).rejects.toBeInstanceOf(ApiRateLimitUnavailableError);
     expect(rpc).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("durable rate-limit deny cache", () => {
+  it("skips a second durable RPC after a limited search decision until reset", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ALLOW_DURABLE_RATE_LIMIT_DENY_CACHE_IN_TESTS", "1");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit, resetDurableRateLimitDenyCacheForTests } =
+      await import("../src/lib/api-rate-limit");
+    resetDurableRateLimitDenyCacheForTests();
+    const resetAt = new Date(Date.now() + 60_000).toISOString();
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => ({
+      data: {
+        limited: true,
+        limit_value: args.p_limit,
+        remaining: 0,
+        retry_after_seconds: 60,
+        reset_at: resetAt,
+      },
+      error: null,
+    }));
+
+    const first = await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:deny-cache" },
+      bucket: "search",
+    });
+    const second = await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:deny-cache" },
+      bucket: "search",
+    });
+
+    expect(first.limited).toBe(true);
+    expect(second.limited).toBe(true);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("never caches allow decisions — every successful consume hits durable storage", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ALLOW_DURABLE_RATE_LIMIT_DENY_CACHE_IN_TESTS", "1");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit, resetDurableRateLimitDenyCacheForTests } =
+      await import("../src/lib/api-rate-limit");
+    resetDurableRateLimitDenyCacheForTests();
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => ({
+      data: {
+        limited: false,
+        limit_value: args.p_limit,
+        remaining: Number(args.p_limit) - 1,
+        retry_after_seconds: 60,
+        reset_at: new Date(Date.now() + 60_000).toISOString(),
+      },
+      error: null,
+    }));
+
+    await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:allow-no-cache" },
+      bucket: "search",
+    });
+    await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:allow-no-cache" },
+      bucket: "search",
+    });
+
+    expect(rpc).toHaveBeenCalledTimes(2);
   });
 });
 

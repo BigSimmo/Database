@@ -4,15 +4,54 @@ This repo uses one shared search experience across the global shell, dashboard r
 
 ## Page ownership model
 
-| Page state                          | Composer placement                                                                                | Reserve owner                                                                  |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Answer home / standalone mode homes | In-flow hero composer on phones and larger breakpoints                                            | Page content; no fixed phone dock reserve                                      |
-| Submitted/search-result views       | Compact bottom dock on phones; pinned below the header on tablets; in normal page flow on desktop | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
-| Answer result view                  | Overlaid glass header plus answer composer dock                                                   | Dashboard `#main-content` top/bottom reserves                                  |
-| Document detail/source routes       | `DocumentViewer` floating composer                                                                | `DocumentViewer` content padding                                               |
-| Document section navigation         | Header row disclosure (phone sheet) + rail index card at `lg`                                     | None — adds no chrome and no reserve                                           |
-| Calculators (`/calculators`)        | Page-owned composer (desktop top + phone bottom dock)                                             | Calculators page pad; shell reserve stays `0`                                  |
-| Info/detail pages with no composer  | No fixed composer                                                                                 | Idle shell padding only                                                        |
+| Page state                          | Composer placement                                                         | Reserve owner                                                                  |
+| ----------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Answer home / standalone mode homes | In-flow hero composer on phones and larger breakpoints                     | Page content; no fixed phone dock reserve                                      |
+| Submitted/search-result views       | Compact bottom dock on phones; in normal page flow on tablets and desktops | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
+| Answer result view                  | Overlaid glass header plus answer composer dock                            | Dashboard `#main-content` top/bottom reserves                                  |
+| Document detail/source routes       | `DocumentViewer` floating composer                                         | `DocumentViewer` content padding                                               |
+| Document section navigation         | Header row disclosure (phone sheet) + rail index card at `lg`              | None — adds no chrome and no reserve                                           |
+| Calculators (`/calculators`)        | Page-owned composer (desktop top + phone bottom dock)                      | Calculators page pad; shell reserve stays `0`                                  |
+| Info/detail pages with no composer  | No fixed composer                                                          | Idle shell padding only                                                        |
+
+## Default in-page navigation template
+
+When adding or suggesting **in-page navigation** on any mode page, use the DocumentViewer
+header as the canonical visual and behaviour template. Do not invent a new phone header shape
+or a second scroll-hide owner.
+
+**Reference implementation:** `src/components/DocumentViewer.tsx` (sticky header row) and
+`src/components/document-viewer/section-nav.tsx` (`DocumentSectionTrack`, section sheet / list).
+Ownership and reserves for that chrome are the “Document section navigation” row above;
+detailed DocumentViewer rules remain invariant 22.
+
+**Visual slots (adapt labels, back href, sections, and actions to the mode):**
+
+- Left: back control (icon; text label from `sm` when useful).
+- Center: page title (`h1`) plus chevron disclosure. Line two is the active section in
+  `--clinical-accent` (section icon + label). The title control opens the section list.
+- Right: ellipsis / page-actions control.
+- Bottom edge of the header: weighted segment track showing section position
+  (`DocumentSectionTrack` or an equivalent that preserves weight + active styling).
+- Phone: section list is the shared `Sheet` (not viewport chrome). At `lg+`, keep an
+  in-column section index card when the page has a rail — phones stay on the header
+  disclosure + sheet.
+
+**Scroll / attachment (must match DocumentViewer):**
+
+- Wrap the header in `PhoneHeaderCollapsePortal` so below `sm` it portals into
+  `#phone-header-collapse-addon-slot` under the universal search header and
+  **hides/reveals with that one collapse owner**.
+- At `sm+`, the same subtree stays in its page position (sticky/in-flow as appropriate).
+  Never add a second sticky/fixed phone navigation header inside `#main-content`.
+- Do not give the in-page header its own scroll-hide hook; share the universal collapse
+  signal described under “Scroll hide/reveal”.
+
+**Not this template:** Therapy-style `ModeNav` (multi-route mode tabs via
+`ModeNavHeaderPortal`) is a different pattern for mode-level page switching. Info-page
+`PageHeader` / breadcrumb chrome is also not in-page section navigation. Existing
+simpler collapse headers (for example Differential detail) remain special cases; **new**
+in-page navigation work defaults to the DocumentViewer template above.
 
 ## Invariants
 
@@ -21,7 +60,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 3. A visible fixed phone dock may include `var(--safe-area-bottom)` so the pill clears the home indicator.
 4. A hidden phone dock must release the content-facing reserve to `0rem`; do not use `env(safe-area-inset-bottom)` or `var(--safe-area-bottom)` for hidden content padding.
 5. Edge-to-edge phone dock mode is `left: 0; right: 0; bottom: 0; width: 100%`; inset the pill with padding, not with a non-zero bottom offset. Keep the dock form transparent and use its absolute `.answer-footer-search-backdrop` child for localized translucent gradient/blur around the pill. The gradient and every blur mask must return to fully transparent at the physical bottom edge. It must move and fade with the dock, then become `visibility: hidden` after the hide transition so WebKit cannot retain a safe-area compositor strip; it must never become a viewport-fixed or opaque slab.
-6. Header and footer chrome that share the same scroll signal should hide/reveal symmetrically for the surfaces that actually hide. **Collapse motion:** when the phone top bar is hidden, `chrome-safe-area-top` and the controls both release to `0rem` so underlying content paints to the physical viewport edge. **Overlay motion (default for `GlobalSearchShell` phones; collapse remains for `isCollapseMotionPhoneRoute`):** the stack translates instead; `chrome-safe-area-top` stays inside the translated layer at a stable height, and the content-facing `--phone-overlay-chrome-h` clearance is constant across hide/reveal — zeroing it on hide would reintroduce the layout shift overlay exists to remove. The visible phone header still owns `var(--safe-area-top)`; tablet/desktop sticky chrome keeps its pinned inset. While visible that spacer is the top of the header, so it paints `var(--surface)` — the bar's own opaque phone colour — never `var(--background)`: the page colour there reads as a status-bar band above the bar, the seam overlay-strategy answer mode never shows because its header pads the inset itself. Keep it opaque so the sm+ pinned inset still hides scrolled content. Top-bar hide/reveal is cross-breakpoint; the search field stays pinned on tablets, while desktop search belongs to page flow and scrolls away naturally; the bottom search dock is phone-only. Hidden bottom dock reserve stays `0rem` (invariant 4). Read "Scroll hide/reveal" below before changing either.
+6. Header and footer chrome that share the same scroll signal should hide/reveal symmetrically for the surfaces that actually hide. **Collapse motion (tablet and desktop only):** when the top bar is hidden, `chrome-safe-area-top` and the controls both release to `0rem` so underlying content paints to the physical viewport edge. **Overlay motion (every phone route on both hosts, no exception):** the stack translates instead; `chrome-safe-area-top` stays inside the translated layer at a stable height, and the content-facing `--phone-overlay-chrome-h` clearance is constant across hide/reveal — zeroing it on hide would reintroduce the layout shift overlay exists to remove. The visible phone header still owns `var(--safe-area-top)`; tablet/desktop top-bar chrome keeps its pinned inset. While visible that spacer is the top of the header, so it paints `var(--surface)` — the bar's own opaque phone colour — never `var(--background)`: the page colour there reads as a status-bar band above the bar, the seam overlay-strategy answer mode never shows because its header pads the inset itself. Keep it opaque so the sm+ pinned inset still hides scrolled content. Top-bar hide/reveal is cross-breakpoint; the search field belongs to page flow and scrolls away naturally on tablets and desktops; the bottom search dock is phone-only. Hidden bottom dock reserve stays `0rem` (invariant 4). Read "Scroll hide/reveal" below before changing either.
 7. Do not add page-local dock-sized `pb-[calc(...safe-area...)]` under a shell-owned dock. Put clearance in the shared reserve or the page-owned composer, never both.
 8. `GlobalSearchShell` uses an inner `mobile-composer-reserve-pad` so phone padding contributes to scroll height; do not move phone shell clearance back to scrollport padding without a browser proof.
 9. Page-owned fixed phone composers follow the same release contract: calculators use the shared footer backdrop; DocumentViewer keeps its floating pill but synchronizes transform, opacity, pointer release, and its own zero-reserve content padding. In-flow hero composers remain free of fixed-footer glass.
@@ -30,7 +69,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 12. Standalone mode-home detection (`isStandaloneModeHomePath`) is pathname-only. Do not gate hero vs dock on a React `searchMode` that can update before the router pathname lands — that one-frame mismatch animates reserve padding and reads as a choppy screen resize.
 13. Phone `#main-content` / reserve-pad `padding-bottom` transitions apply while `data-reserve-transitioning="true"` (scroll-hide and reveal). Mode and route reserve flips clear that marker immediately and must snap.
 14. Shared shell must reset phone scroll offset and scroll-hide state on `pathname` change so mode homes do not inherit a mid-page offset or collapsed header.
-15. Hero composer portal: keep the default composer mounted until the portal host is actually attached; do not hide on `slotId` alone (mode-home remounts otherwise flash a null gap).
+15. Hero composer portal: keep the default composer mounted until the portal host is actually attached; do not hide on `slotId` alone (mode-home remounts otherwise flash a null gap). Mode-home hero geometry reserves via `data-composer-reserve="pending"` (SSR) or `:not(:empty)` (portal attached); `MasterSearchHeader` must clear the pending marker when the home media query does not match, `searchComposerVisible` is false, or portal adoption falls back — never leave an unconditional empty `min-h` band.
 16. Leaving the dashboard shell for a namespaced mode (`selectSearchMode` / `crossModeSearch`) must navigate without rewriting dashboard chrome first.
 17. Do not wrap mode-home `{children}` in `ClientHydrationBoundary` — that blanks RSC HTML until JS mounts. Keep hydration guards on the specific leaf that mismatches. Do not call `useSearchParams()` in an ancestor Suspense that also renders route `{children}`: that nests the page segment inside the shell’s incomplete streaming boundary and can leave a persistent hidden `S:` clone (duplicate page-root `data-testid`s). Gate always-standalone pathnames with `isAlwaysStandaloneShellPath`, and bridge search params beside the shell body via `ShellSearchParamsBridge`.
 18. Standalone mode-home `loading.tsx` files must render `ModeHomeRouteLoading` (phone top-aligned). Do not reuse unrelated results/medication skeletons.
@@ -65,23 +104,31 @@ chrome and changes to it land on every mode at once. Keep these rules:
    mapping from their own data source; five pages have no async source and are correct on the
    default.
 1. **The query is the only heading element in the band.** It is the sole `<h1>`/`<h2>`; the count
-   is never a heading. Nothing here is bold: the query uses weight 560 (`.search-band-query`) and
-   the figure uses 580 (`.search-band-count`) — two nearby steps of the same scale, separated by
+   is never a heading. Nothing here is bold: the query uses weight 450 (`.search-band-subject`) and
+   the figure uses 600 (`.search-band-count`) — two nearby steps of the same scale, separated by
    tabular numerals and a hairline rather than by shouting. No eyebrow — the magnifier tile
    already says "search", and a `QUERY` / `RESULTS FOR` label costs a line to repeat it. The
    query truncates; the count does not. Weights live as numeric `font-weight` on `.search-band-*`
    classes in `globals.css`, not as Tailwind arbitrary values: `check:type-scale --strict` is a
-   zero gate on arbitrary `text-[Npx]`, and Geist is a variable face so 470/540/560/580
+   zero gate on arbitrary `text-[Npx]`, and Geist is a variable face so 450/470/540/560/600
    interpolate rather than snapping to 700. Judge weights only with the app font loaded.
 2. **The count is neutral text, not a success pill.** `text-muted` with the figure itself
-   `.search-band-count` (580, tabular-nums), stepping down to 470 and muted at zero. Success
+   `.search-band-count` (600, tabular-nums), stepping down to 470 and muted at zero. Success
    colour is reserved for states that were actually achieved, so it still carries meaning where
    it appears. The `role="status"` / `aria-live="polite"` announcement stays either way — except
    while faulted, when the spine goes `aria-live="off"` and the fault panel's `role="alert"`
    makes the single announcement instead of both speaking.
-3. **Sort is a segmented control, not a select.** Two values do not justify a menu you must open
-   to read. `ResultSortControl` renders `sortOptions` as `aria-pressed` buttons inside a
-   `role="group"` named "Sort results"; add a third order only if it still fits the rail.
+3. **Sort is a segmented control, not a select — and it is `sm`-and-up.** Two values do not
+   justify a menu you must open to read. `ResultSortControl` renders `sortOptions` as
+   `aria-pressed` buttons inside a `role="group"` named "Sort results"; add a third order only if
+   it still fits the rail. Below 640px it is `hidden`: the two segments cost roughly half the
+   band's one line, and the query truncated to pay for a control set about once a session. Only
+   the affordance is `sm`-and-up — `?sort=` still carries an alpha order onto a phone and the
+   results honour it. The display class belongs in the component's own base string, because `cn`
+   is a plain join with no Tailwind conflict resolution. A page whose only utility is sort hides
+   the whole utilities group below `sm` (`hasPhoneUtilities`) rather than leaving an empty flex
+   child — in `inline` placement under 414px that child is `w-full basis-full`, i.e. a blank
+   second line.
 4. **Native selects are pinned to 16px below `sm`.** The unlayered iOS anti-zoom rule in
    `globals.css` ("Interactive element defaults") deliberately beats Tailwind's `text-*`
    utilities on `input`/`select`/`textarea`. Do not fight it with `!important` or a per-call-site
@@ -100,16 +147,22 @@ chrome and changes to it land on every mode at once. Keep these rules:
 6. **Active scopes render as removable chips at the head of that group**, in accent tone, so a
    constraint on the list is one tap from where it is read. Do not move them into a separate
    strip; `hasUtilities` already suppresses the whole group when nothing is active.
-7. **The accent is the card's `border-top`, never an overlay.** An absolutely-positioned bar
-   inside an `overflow-hidden` 12px-radius card is sliced by the corner arc, so it starts short
-   and tapers while the 1px border curves past it — two lines, two geometries. A border mitres
-   into the side borders and follows the radius by construction, and forced-colors maps it
-   automatically. Under forced colors the rail survives as **thickness** (3px, and 6px `double`
-   for a fault) because `--clinical-accent` resolves to `LinkText` and would otherwise be
-   indistinguishable from the other borders — that is what keeps a failed search visually
-   distinct from a successful one when colour is gone. The band's forced-colors rules **must
-   remain the last block in `globals.css`**: at equal specificity a later rule wins, so an
-   earlier block is silently overridden while still reading correctly.
+7. **The accent is a border, never an overlay — and it is now a lead mark, not a full-width
+   rail.** An absolutely-positioned bar inside an `overflow-hidden` 12px-radius card is sliced by
+   the corner arc, so it starts short and tapers while the 1px border curves past it — two lines,
+   two geometries. A border avoids that by construction, and forced-colors maps it automatically.
+   The accent used to be the card's own `border-top`; collapsing the band to one line moved it
+   inside the padding as `.search-band-lead`, a 2 × 18px `border-left` on a zero-width box,
+   because a line spanning the full width read as a divider between the composer and the results
+   rather than as the band's own mark. Under forced colors it survives as **stroke count** rather
+   than hue — one stroke healthy, `6px double` faulted, with the card's own top edge doubling to
+   `4px double` alongside it — because `--clinical-accent` resolves to `LinkText` and would
+   otherwise be indistinguishable from the other borders. That is what keeps a failed search
+   visually distinct from a successful one when colour is gone. Two consequences worth knowing:
+   the mark is `display: block` so it does not depend on flex blockification to paint at all, and
+   the band's forced-colors rules **must remain the last block in `globals.css`** — at equal
+   specificity a later rule wins, so an earlier block is silently overridden while still reading
+   correctly.
 8. **A new search page cannot skip the band.** `AppModeSearchConfig.resultsSurface` is required,
    so a new mode fails `typecheck` until it declares `results-band` or `answer`, and
    `tests/search-results-band-adoption.test.ts` then requires a matching mount plus a documented
@@ -122,29 +175,49 @@ geometry and tap heights).
 
 ## Scroll hide/reveal
 
-The universal **top bar** (mode, new chat, menu) is the only sticky desktop chrome: it hides on a deliberate scroll down and returns on a deliberate scroll up at **every** breakpoint. Tablet search stays pinned below it. Desktop search is mounted at the top of normal page content, so it scrolls away with that content and is independent of the header's hide state. Only the phone bottom search dock scroll-hides, and that stays phone-only. The top bar and phone dock read one `useScrollHideReporter` per host, so they can never disagree about direction.
+The universal **top bar** (mode, new chat, menu) is the only sticky desktop chrome: it hides on a deliberate scroll down and returns on a deliberate scroll up at **every** breakpoint. Tablet and desktop search are mounted at the top of normal page content, so they scroll away with that content and are independent of the header's hide state. Only the phone bottom search dock scroll-hides, and that stays phone-only. The top bar and phone dock read one `useScrollHideReporter` per host, so they can never disagree about direction.
 
 Choose the hide mechanism from where the host's scrollport lives, because that decides what hiding costs the reader:
 
-| Host                              | Scrollport                                                                                 | `hideOnScroll`                           | Mechanism                                                                                                          |
-| --------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `ClinicalDashboard` (answer view) | Document on browser phones; `<main>` in standalone and at `sm+`                            | `strategy: "overlay", allBreakpoints`    | Absolute glass top bar translates off; `<main>` keeps its top reserve; search stays                                |
-| `ClinicalDashboard` (other modes) | Document on browser phones; `<main>` in standalone and at `sm+`                            | `strategy: "collapse", wide: "collapse"` | Top-bar row collapses; tablet search stays sticky; desktop search portals into `<main>` page flow                  |
-| `GlobalSearchShell`               | Document in browser phones and at `sm+`; `#main-content` only in installed standalone mode | `strategy: "collapse", wide: "sticky"`   | Tablet pins [top bar \| search]; desktop portals search into `#main-content`, leaving a sticky auto-hiding top bar |
+| Host                              | Scrollport                                                                                 | `hideOnScroll`                                                   | Mechanism                                                                                                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ClinicalDashboard` (answer view) | Document on browser phones; `<main>` in standalone and at `sm+`                            | `strategy: "overlay", allBreakpoints`                            | Absolute glass top bar translates off; `<main>` keeps its top reserve; search stays                                                                                     |
+| `ClinicalDashboard` (other modes) | Document on browser phones; `<main>` in standalone and at `sm+`                            | `strategy: "collapse", wide: "collapse", phoneMotion: "overlay"` | Phone stack translates over `<main>`, which reserves `--phone-overlay-chrome-h`; the top-bar row still collapses at `sm+`, where search portals into `<main>` page flow |
+| `GlobalSearchShell`               | Document in browser phones and at `sm+`; `#main-content` only in installed standalone mode | `strategy: "collapse", wide: "sticky"`                           | Tablet and desktop portal search into `#main-content`, leaving a sticky auto-hiding top bar                                                                             |
 
-`GlobalSearchShell` defaults to `phoneMotion: "overlay"` on phones. The
-safe-area region, universal top bar, and any page navigation portaled into the
-collapse row form one fixed browser/absolute standalone layer, and the complete
-layer translates over content without changing the scrollport or content
-geometry. Tablet and desktop continue using `wide: "sticky"`.
+**Every phone route on both hosts uses `phoneMotion: "overlay"`, with no route
+or mode exception.** The safe-area region, universal top bar, and any page
+navigation portaled into the collapse row form one fixed browser/absolute
+standalone layer, and the complete layer translates over content without
+changing the scrollport or content geometry. Tablet and desktop are unchanged:
+`GlobalSearchShell` keeps `wide: "sticky"` and `ClinicalDashboard`'s non-answer
+modes keep `wide: "collapse"`, both for the top bar only.
 
-**Collapse remains the deliberate exception** for `isCollapseMotionPhoneRoute`
-(`/therapy-compass/*` and `/differentials/diagnoses/*`): those routes portal
-page navigation into the collapse row and still have phone-scroll journeys that
-assert in-flow collapse geometry. Migrating those contracts to overlay is
-tracked separately — do not widen collapse beyond that predicate.
+The last two exceptions were retired 2026-08-06 because they were the whole of
+a reported "scrolling pushes the page down on phones" defect. Measured on an
+iPhone-13 viewport with motion enabled, sampling a content probe every frame
+through one deliberate hide gesture and subtracting the scroll delta —
+so the number is content movement the reader did not ask for:
 
-Elsewhere, collapse was the cause of the reported choppiness: a 1fr → 0fr grid
+| Route                               | before | after |
+| ----------------------------------- | ------ | ----- |
+| `/therapy-compass/pathways`         | 147px  | 0px   |
+| `/therapy-compass/search?q=…&run=1` | 121px  | 0px   |
+| `/differentials/diagnoses/<slug>`   | 137px  | 0px   |
+| `/?mode=documents` (dashboard)      | 72px   | 0px   |
+| `/?mode=prescribing` (dashboard)    | 72px   | 0px   |
+| `/factsheets` (already overlay)     | 0px    | 0px   |
+
+The two dashboard numbers are the floor, not the typical case: that emulation
+reports no top safe-area inset, and collapse releases `chrome-safe-area-top`
+along with the header row, so a phone that does report one moves by that much
+again. The two routes that portal page navigation into the collapse row moved
+the furthest precisely because their released row is taller — which is why
+"they portal an addon row" was never a reason to keep them on collapse.
+Overlay handles the addon correctly because `--phone-overlay-chrome-h` is
+measured from the live stack rather than tokenised.
+
+Collapse was the cause of the reported choppiness: a 1fr → 0fr grid
 on the header row **plus** a `height` transition on `chrome-safe-area-top`
 **plus** the reserve-pad `padding-bottom` transition handed layout back to the
 scroller on every hide. Overlay removes that cause: `headerRelease` and
@@ -176,20 +249,33 @@ revealed, so it costs no usable height.
 
 **Keep the resting state transform-free — a transform is a containing block.** A
 non-`none` `transform`, _including `translateY(0)`_, makes an element a containing
-block for `position: fixed` descendants. A phone bottom dock inside that subtree
-resolves `bottom: 0` against the header stack rather than the viewport and lands
-near the top of the screen — measured as a form bottom 772px from the viewport
-bottom at 390×844, with `bottom` still computing to `0px`, which is why it reads
-as a positioning puzzle rather than a CSS error.
+block for `position: fixed` descendants. So does a non-`none` `translate`. A phone
+bottom dock inside that subtree resolves `bottom: 0` against the header stack
+rather than the viewport and lands near the top of the screen — measured as a form
+bottom 772px from the viewport bottom at 390×844, with `bottom` still computing to
+`0px`, which is why it reads as a positioning puzzle rather than a CSS error.
 
-So the revealed state applies **no** transform utility; only the hidden state
+So the revealed state applies **no** translate utility; only the hidden state
 carries `max-sm:-translate-y-full`. A transition from `none` interpolates from the
-identity transform, so the hide still animates. This ordering matters beyond
+identity, so the hide still animates. This ordering matters beyond
 tidiness: a resting `translateY(0)` creates the containing block in the
 server-rendered markup, before any portal exists to escape it, so the dock is
 mis-anchored on first paint and only corrects at hydration (Codex P1,
 2026-07-30). Resting-state-clean is the general rule — do not reintroduce a
 no-op transform for symmetry with the hidden branch.
+
+**Name `translate` in the transition list, not just `transform`.** Tailwind 4
+compiles `-translate-y-full` to the standalone `translate` property
+(`translate: 0px -100%`), not to `transform`. A transition list of
+`transform, opacity` therefore does not cover it, and the header jumps to its
+hidden position in one frame while only the fade animates — measured 2026-08-06
+as `translate` going `none` → `0px -100%` between two consecutive frames on
+every overlay phone route, with `getComputedStyle(...).transform` reading `none`
+throughout, which is what disguised it. The stacks use
+`max-sm:transition-[transform,translate,opacity]` and the all-breakpoints glass
+bar uses `transition-[transform,translate]` for that reason. Docks written as
+raw CSS `transform: translateY(...)` in `globals.css` are unaffected and stay on
+`transform`.
 
 `MasterSearchHeader` additionally wraps the composer in `PhoneFooterLayerPortal`
 when `phoneOverlayMotion && usesPhoneBottomDock`, which covers the during-hide
@@ -203,23 +289,22 @@ failure mode (see invariant 17).
 
 Rules that keep this working:
 
-- **Hide the top bar, not the search field.** The collapse wrapper (`data-testid="universal-header-collapse"`) wraps `header#search` plus page navigation mounted through `PhoneHeaderCollapsePortal` into `#phone-header-collapse-addon-slot`. Keep composers outside the collapse row: tablet search stays pinned independently, and desktop search scrolls with page content rather than being translated by the header.
+- **Hide the top bar, not the search field.** The collapse wrapper (`data-testid="universal-header-collapse"`) wraps `header#search` plus page navigation mounted through `PhoneHeaderCollapsePortal` into `#phone-header-collapse-addon-slot`. Keep composers outside the collapse row: tablet and desktop result search scroll with page content rather than being translated by the header.
 - **Every production phone navigation header has one collapse owner.** `PhoneHeaderCollapsePortal` moves Therapy section navigation, DocumentViewer navigation, and Differential detail navigation into `#phone-header-collapse-addon-slot` below `sm`; the same subtree stays in its existing page position at `sm+`. Do not add a second sticky/fixed phone header inside `#main-content`: the universal collapse row must own its safe area, focus pinning, timing, clipping, and measured release. Semantic content headings and modal/sheet headers are not viewport chrome and stay in their own flow/scroll context.
 - **Document phone headers overlay as one stable stack.** Document detail/source routes keep the complete phone header at a stable height and translate the safe area plus both header rows and the section track together. Hidden overlay chrome is transparent and non-interactive; revealed chrome frosts and covers the document. `readChromeCollapseMetrics` counts zero released top-header geometry for this overlay, while continuing to measure the independently hidden document composer reserve. Reveal must not change the active owner's scroll offset or a stable document/PDF anchor.
 - **Feed the reporter from the element that actually scrolls.** Both app hosts run `useDocumentScrollHideReporter` alongside their `<main>` reporter. In browser-mode phones the normal-flow shell and `overflow-y: visible` surface make the document the only vertical owner, which lets Safari minimize its browser UI. Installed standalone mode uses a normal-flow `100vh` shell plus bounded inner surface, so document scroll does not fire there. The hook measures the same collapse budget and blurs the same focused composer for either owner. Page-owned footer chrome must follow the same rule: `DocumentViewer` observes both the document and the inner surface, then combines the signals so only the active owner drives it. Its rendered footer, like calculator and differential page-owned footers, portals to the frame host so observing the inner scroll owner does not make the footer its descendant.
 - **Keep browser-phone chrome attached to the viewport without fixing the app root.** Collapse-mode headers use one phone-sticky wrapper; answer overlay headers are fixed only in browser mode and remain absolute over the inner surface in standalone mode. Footer layers are likewise viewport-fixed in browser mode and shell-absolute in standalone. While either header or reserve transition changes document geometry, the corresponding transition marker disables anchoring on the active document/inner scroller so synthetic reverse scroll cannot cause a hide/reveal loop or reading-position jump.
 - **Do not treat CSSOM bounds as physical iOS paint proof.** A fixed root can report perfect `getBoundingClientRect()` and hit-testing while WebKit leaves an app-external band. Keep browser/document and standalone/`100vh` static guards, then verify Safari and a freshly relaunched Home Screen app on a physical phone before merge. If iOS reports a web viewport shorter than `screen.height`, pixels outside that viewport are system-owned; keep the root canvas opaque and matching, but do not fake reachability with negative safe-area overscan.
-- **Viewport stickiness belongs on the outer [top bar \| search] stack, not on `header#search`.** The top bar sits inside header-height boxes, which leaves a sticky rule on it zero travel. For the same reason the visible stack's ancestor in `GlobalSearchShell` is `display: contents` at every breakpoint rather than a block. The collapse result owns one phone-sticky wrapper (safe-area spacer + stack), while its `sm:` children retain the tablet/desktop offsets. At desktop widths the search portal leaves that same outer stack holding only the top bar.
-- **Collapse only the top-bar row inside a sticky stack.** On tablets, translating the whole stack would take the search field off-screen; collapsing just the top bar lets search stay pinned at the viewport top below the wide-layout safe-area spacer. On desktop, the page-flow search is outside the stack entirely.
+- **Viewport stickiness belongs on the outer top-bar stack, not on `header#search`.** The top bar sits inside header-height boxes, which leaves a sticky rule on it zero travel. For the same reason the visible stack's ancestor in `GlobalSearchShell` is `display: contents` at every breakpoint rather than a block. The collapse result owns one phone-sticky wrapper (safe-area spacer + stack), while its `sm:` children retain the tablet/desktop offsets. At tablet and desktop widths the search portal leaves that outer stack holding only the top bar.
+- **Collapse only the top-bar row inside the sticky stack.** Tablet and desktop page-flow search sit outside this stack entirely; the stack hides and reveals only the universal top bar.
 - **Release the phone top inset with collapsing chrome.** For the default collapse motion, `chrome-safe-area-top` is a full-width sibling that is `h-[var(--safe-area-top)]` while the phone header is visible and `h-0` while hidden, using the same transition timing as the top-bar row. `readChromeCollapseMetrics` must charge that released phone height as well as the controls and dock reserve, or short pages clamp and oscillate at the bottom. The document overlay exception keeps this spacer inside the translated stack at a stable height and charges zero released top geometry. At `sm+` the spacer remains `h-[var(--safe-area-top)]`, and sticky chrome pins at `top: var(--safe-area-top)`. Do not leave a phone-only surface/status-bar band after collapsing controls hide.
 - **One transition, no jump.** Phone page navigation belongs inside the universal 1fr → 0fr grid rather than running another scroll hook. The shared reporter may emit one hide on a deliberate descent and one reveal on deliberate upward intent; geometry must move monotonically through the 240ms hide / 200ms reveal and remain still at the bottom edge. Reduced motion removes the animation but not the complete edge release.
-- **Do not double-sticky tablet search inside an outer sticky stack.** When `wide: "sticky"` owns the tablet stack, the composer stays `relative` in that stack. A second sticky search with its own `top` overlays page controls (and blocks clicks) once the top bar collapses.
-- **Desktop search is page-owned.** `desktop-page-search-composer-slot` is rendered at the top of normal shell/dashboard content and accepts the shared composer only at `min-width: 1024px`. The mode-home hero slot takes precedence. Never give the desktop page composer, its slot, or an ancestor `fixed`/`sticky` positioning.
-- **Collapse-everywhere hosts still drop their own sticky search offset while the top bar is hidden.** Dashboard result composers that clear a visible top bar with `top: 4.75rem + safe-area` must switch to `top: 0` when collapse hide is active — otherwise a dead band the height of the mode bar remains above the search field.
+- **Do not sticky-position tablet or desktop result search.** The composer belongs to page flow at these widths; anchoring it overlays page controls (and blocks clicks) once the top bar collapses.
+- **Tablet and desktop search are page-owned.** `desktop-page-search-composer-slot` is rendered at the top of normal shell/dashboard content and accepts the shared composer at `min-width: 640px`. The mode-home hero slot takes precedence. Never give the page composer, its slot, or an ancestor `fixed`/`sticky` positioning.
 - **Rebase the reporter on geometry switches.** Pass `resetKey` when the host changes the scrollport under it (`ClinicalDashboard` passes `searchMode`, which swaps `<main>`'s header reserve); otherwise the carried-over offset spends the first post-switch scroll on a spurious hide or reveal. Shared mode-home shells should also reset on `pathname` so collapsed chrome/scroll offset does not carry across modes.
 - **Do not carry composer focus into submitted result views.** Focus pins both chrome edges for keyboard safety. `GlobalSearchShell` must not pass `focus: true` with `run: true`, must gate `queryInputAutoFocus` on `!hasSubmittedModeSearch`, and both hosts must blur the dock input when the active result owner scrolls so hide-on-scroll can reclaim the header and bottom dock.
 
-Coverage: `tests/header-scroll-hide-contract.test.ts` (wiring), `tests/use-hide-on-scroll.test.ts` (decision logic), `tests/ui-chrome-scroll.spec.ts` (tablet pinned-search behaviour and desktop page-flow search plus top-bar hide/reveal), `tests/ui-phone-scroll.spec.ts` (phone scroll geometry), `tests/ui-therapy-nav-scroll.spec.ts` (Therapy section nav hide/reveal with the top bar).
+Coverage: `tests/header-scroll-hide-contract.test.ts` (wiring), `tests/use-hide-on-scroll.test.ts` (decision logic), `tests/ui-chrome-scroll.spec.ts` (tablet/desktop page-flow search plus top-bar hide/reveal), `tests/ui-phone-scroll.spec.ts` (shared shell header hide/reveal, per-mode top-edge release, collapse owner), `tests/ui-phone-scroll-routes.spec.ts` (per-route phone scroll sweep), `tests/ui-phone-scroll-page-owned.spec.ts` (document-viewer composer, standalone frame-owned footers, calculators dock, Services canvas) — the three share `tests/helpers/phone-scroll.ts`, and `tests/playwright-project-isolation.test.ts` asserts every sibling is collected by the required browser projects, `tests/ui-therapy-nav-scroll.spec.ts` (Therapy section nav hide/reveal with the top bar).
 
 Run `npm run verify:phone-chrome` for phone-chrome work. For executable changes its classifier checks installed/lock parity first, runs focused static contracts and only the browser/PWA owners and route journeys implicated by the changed files, then escalates to `npm run verify:ui` automatically for shared chrome foundations. Documentation-only scopes run only documentation guards. Use `-- --dry-run` to inspect the plan, `-- --files <comma-separated paths>` for an explicit scope, and `-- --full=always|never` only for a deliberate override.
 

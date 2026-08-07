@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { captureWorkerException, flushWorkerErrorTracking } from "./observability";
 import { env } from "../src/lib/env";
 import { buildChunks } from "../src/lib/chunking";
 import { ragEnrichmentVersion, upsertDocumentEnrichment } from "../src/lib/document-enrichment";
@@ -42,29 +43,9 @@ import { checkMedspacyPrerequisites, checkPythonPdfPrerequisites } from "./prere
 import { annotateChunkAssertions, defaultAssertionTargets } from "./assertion-tagging";
 import { buildTableFactRows } from "./table-facts";
 import { enrichmentRepairDecision, ingestionFailureDecision } from "./behavior";
-
-type JobDocument = {
-  id: string;
-  owner_id: string | null;
-  title: string;
-  file_name: string;
-  file_type: string;
-  storage_path: string;
-  content_hash?: string | null;
-  source_path?: string | null;
-  import_batch_id?: string | null;
-  status?: string | null;
-  metadata: Record<string, unknown> | null;
-};
-
-type JobRow = {
-  id: string;
-  document_id: string;
-  batch_id: string | null;
-  attempt_count: number;
-  max_attempts: number;
-  documents: JobDocument;
-};
+import { WorkerRuntimeControl, WorkerAbortError } from "./runtime-control";
+import { runWorkerLoop } from "./run-loop";
+import type { JobDocument, JobRow } from "./types";
 
 const supabase = createAdminClient();
 const workerId = `${os.hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
@@ -861,6 +842,7 @@ async function uploadAndCaptionImages(
     cropCompleteness: number;
     ocrTextDensity: number;
   }> = [];
+  let coverImageId: string | null = null;
   const seenImagePlacements = new Set<string>();
   let skippedImages = 0;
   const skipReasons = new Map<string, number>();
@@ -892,8 +874,9 @@ async function uploadAndCaptionImages(
       nearbyText: image.pageNumber ? pagesByNumber.get(image.pageNumber) : null,
     })),
   );
+  // Cover thumbnails are display-only; keep them out of the clinical caption budget.
   const selectedCaptionCandidateIndexes = selectCaptionCandidateIndexes(
-    scoredCandidates,
+    scoredCandidates.filter((candidate) => candidate.sourceKind !== "cover_page"),
     env.WORKER_MAX_CAPTIONED_IMAGES_PER_DOCUMENT,
     env.WORKER_MAX_CAPTIONED_IMAGES_PER_PAGE,
   );
@@ -947,6 +930,7 @@ async function uploadAndCaptionImages(
     if (
       lowSignalSkipReason &&
       image.sourceKind !== "table_crop" &&
+      image.sourceKind !== "cover_page" &&
       !["administrative table without clinical facts"].includes(lowSignalSkipReason)
     ) {
       skippedImages += 1;
@@ -954,9 +938,33 @@ async function uploadAndCaptionImages(
       continue;
     }
     const presetClassification: ImageClassification | null =
-      image.sourceKind === "table_crop"
-        ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
-        : null;
+      image.sourceKind === "cover_page"
+        ? {
+            image_type: "unclear",
+            caption: "Document cover page preview.",
+            searchable: false,
+            clinical_relevance_score: 0,
+            labels: ["cover-page"],
+            skip_reason: "cover page thumbnail",
+            clinical_use_class: "decorative_or_empty",
+            clinical_use_reason: "First-page cover thumbnail for search cards; not clinical evidence.",
+            clinical_signal_score: 0,
+            admin_signal_score: 0,
+            structured_visual_profile: deterministicStructuredVisualProfile({
+              imageType: "unclear",
+              caption: "Document cover page preview.",
+              tableTitle: null,
+              tableLabel: null,
+              tableTextSnippet: null,
+              tableRows: null,
+              tableColumns: null,
+              metadata: { source_kind: "cover_page", candidate_type: "document_cover" },
+            }),
+            structured_extraction_confidence: 0.1,
+          }
+        : image.sourceKind === "table_crop"
+          ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
+          : null;
     const retainUncaptionedForDocumentView =
       ["table_crop", "diagram_crop", "page_region"].includes(image.sourceKind ?? "") &&
       !selectedCaptionCandidateIndexes.has(index);
@@ -1111,19 +1119,21 @@ async function uploadAndCaptionImages(
       0.5;
 
     const classifiedSkipReason = classifiedImageSkipReason(classification);
+    const retainAsCover = image.sourceKind === "cover_page";
     const retainAsAuditTable =
       image.sourceKind === "table_crop" &&
       ["administrative", "reference"].includes(policyAssessment.clinical_use_class) &&
       classification.image_type !== "logo_decorative";
     const retainForDocumentView =
       retainAsAuditTable ||
+      retainAsCover ||
       (["table_crop", "diagram_crop", "page_region"].includes(image.sourceKind ?? "") && retainedWithoutCaptioning);
     if (classifiedSkipReason && !retainAsAuditTable && !retainForDocumentView) {
       skippedImages += 1;
       noteSkippedImage(skipReasons, classifiedSkipReason);
       continue;
     }
-    const persistedSearchable = !retainedWithoutCaptioning && policyAssessment.searchable;
+    const persistedSearchable = !retainAsCover && !retainedWithoutCaptioning && policyAssessment.searchable;
     if (persistedSearchable) {
       imageTypeCounts.set(classification.image_type, (imageTypeCounts.get(classification.image_type) ?? 0) + 1);
     }
@@ -1213,6 +1223,9 @@ async function uploadAndCaptionImages(
       });
     }
     if (!data) throw new Error("Document image insert returned no row.");
+    if (image.sourceKind === "cover_page" && !coverImageId) {
+      coverImageId = data.id;
+    }
     // View-only retained images stay out of retrieval indexes: insertedImages
     // feeds document_index_units / embedding fields. searchable=false must not enter.
     if (data.searchable !== false) {
@@ -1243,6 +1256,7 @@ async function uploadAndCaptionImages(
 
   return {
     insertedImages,
+    coverImageId,
     skippedImages,
     skipReasons: Object.fromEntries(skipReasons.entries()),
     imageTypeCounts: Object.fromEntries(imageTypeCounts.entries()),
@@ -1576,6 +1590,7 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
     indexGenerationId,
     imageCount: insertedImages.length,
     insertedImages,
+    coverImageId: imageResult.coverImageId,
     skippedImages: imageResult.skippedImages,
     imageSkipReasons: imageResult.skipReasons,
     imageTypeCounts: imageResult.imageTypeCounts,
@@ -1689,6 +1704,7 @@ async function processJob(job: JobRow) {
       indexGenerationId,
       imageCount,
       insertedImages,
+      coverImageId,
       skippedImages,
       imageSkipReasons,
       imageTypeCounts,
@@ -1714,6 +1730,7 @@ async function processJob(job: JobRow) {
     const committedCoreMetadata = {
       indexed_at: indexedAt,
       index_generation_id: indexGenerationId,
+      cover_image_id: coverImageId,
       rag_enrichment_version: ragEnrichmentVersion,
       rag_indexing_version: ragDeepMemoryVersion,
       rag_memory_version: ragDeepMemoryVersion,
@@ -1905,8 +1922,10 @@ async function processJob(job: JobRow) {
 
 async function main() {
   const once = process.argv.includes("--once");
+  const controller = new WorkerRuntimeControl();
+  controller.attachSignals();
+
   const prereqs = await checkPythonPdfPrerequisites();
-  let consecutiveClaimFailures = 0;
   console.log(`Clinical KB worker started. worker=${workerId}`);
   if (!prereqs.ok) {
     console.warn(`PDF/OCR prerequisite warning: ${prereqs.detail}`);
@@ -1918,67 +1937,46 @@ async function main() {
     }
   }
 
-  while (true) {
-    let jobs: JobRow[] = [];
-    try {
-      const health = await probeSupabaseHealth(supabase);
-      if (!health.ok) {
-        console.warn("Supabase health check failed; worker is backing off", { message: health.message });
-        if (once) {
-          process.exitCode = 1;
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, env.WORKER_HEALTH_BACKOFF_MS));
-        continue;
-      }
-      jobs = await claimJobs();
-      consecutiveClaimFailures = 0;
-    } catch (error) {
-      consecutiveClaimFailures += 1;
-      console.warn("Ingestion job claim failed", safeErrorLogDetails(error));
-      if (once) throw error;
-      if (consecutiveClaimFailures >= env.WORKER_MAX_CLAIM_FAILURES) {
-        await new Promise((resolve) => setTimeout(resolve, env.WORKER_HEALTH_BACKOFF_MS));
-        continue;
-      }
-      await new Promise((resolve) => setTimeout(resolve, workerBackoffMs(consecutiveClaimFailures)));
-      continue;
-    }
-
-    if (jobs.length > 0) {
-      await Promise.all(
-        jobs.map(async (job) => {
-          console.log(safeIngestionJobLog(job.id));
-          try {
-            await processJob(job);
-          } catch (error) {
-            console.error("Ingestion job processing failed", safeErrorLogDetails(error));
-          }
-        }),
-      );
-      if (once) break;
-      continue;
-    }
-
-    if (once) break;
-    await new Promise((resolve) => setTimeout(resolve, env.WORKER_POLL_MS));
-  }
+  await runWorkerLoop({
+    once,
+    pollMs: env.WORKER_POLL_MS,
+    healthBackoffMs: env.WORKER_HEALTH_BACKOFF_MS,
+    maxClaimFailures: env.WORKER_MAX_CLAIM_FAILURES,
+    claim: claimJobs,
+    process: processJob,
+    probe: () => probeSupabaseHealth(supabase),
+    backoff: workerBackoffMs,
+    controller,
+    log: (message, level, extra) => (extra ? console[level](message, extra) : console[level](message)),
+    captureException: captureWorkerException,
+  });
+  console.log("Clinical KB worker stopped gracefully");
+  // Flush before exit so any buffered claim/process events are not dropped.
+  await flushWorkerErrorTracking();
+  process.exit(0);
 }
 
 main().catch(async (error) => {
-  console.error("Clinical KB worker stopped unexpectedly", safeErrorLogDetails(error));
+  const abort = error instanceof WorkerAbortError ? error : null;
+  console.error(
+    abort ? "Clinical KB worker aborted" : "Clinical KB worker stopped unexpectedly",
+    safeErrorLogDetails(error),
+  );
+  captureWorkerException(error, "fatal");
   if (env.WORKER_FAILURE_WEBHOOK_URL) {
     try {
       await fetch(env.WORKER_FAILURE_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: `CRITICAL: Clinical KB worker stopped unexpectedly. Error: ${error instanceof Error ? error.message : String(error)}`,
+          text: `CRITICAL: Clinical KB worker ${abort ? "aborted" : "stopped unexpectedly"}. Error: ${error instanceof Error ? error.message : String(error)}`,
         }),
       });
     } catch (webhookError) {
       console.error("Failed to dispatch worker failure webhook", safeErrorLogDetails(webhookError));
     }
   }
-  process.exitCode = 1;
+  // Flush last: the process is about to exit and buffered events would be lost.
+  await flushWorkerErrorTracking();
+  process.exit(abort?.exitCode ?? 1);
 });

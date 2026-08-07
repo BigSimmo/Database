@@ -18,12 +18,34 @@ import { describe, expect, it } from "vitest";
  */
 
 const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+const v2Stylesheet = readFileSync(new URL("../src/app/ckb-v2-tokens.css", import.meta.url), "utf8");
 
 function themeBlock(marker: string) {
   const start = globals.indexOf(marker);
   expect(start, `${marker} block is missing from globals.css`).toBeGreaterThan(-1);
   const end = globals.indexOf("\n}", start);
   return globals.slice(start, end);
+}
+
+function allThemeBlocks(stylesheet: string, selector: string) {
+  const opener = `\n${selector} {`;
+  const grouped = `\n${selector},`;
+  let start = stylesheet.indexOf(opener);
+  if (start === -1) start = stylesheet.indexOf(grouped);
+  expect(start, `${selector} block is missing`).toBeGreaterThan(-1);
+  let combined = "";
+  while (start > -1) {
+    const end = stylesheet.indexOf("\n}", start);
+    // Missing terminator would otherwise restart at 0 and loop forever.
+    expect(end, `${selector} block is missing a closing brace`).toBeGreaterThan(start);
+    combined += stylesheet.slice(start, end);
+    const nextOpener = stylesheet.indexOf(opener, end + 1);
+    const nextGrouped = stylesheet.indexOf(grouped, end + 1);
+    if (nextOpener === -1) start = nextGrouped;
+    else if (nextGrouped === -1) start = nextOpener;
+    else start = Math.min(nextOpener, nextGrouped);
+  }
+  return combined;
 }
 
 const lightBlock = themeBlock("\n:root {");
@@ -40,6 +62,8 @@ function declarations(block: string) {
 
 const light = declarations(lightBlock);
 const dark = declarations(darkBlock);
+const v2Light = declarations(allThemeBlocks(v2Stylesheet, ".ckb-v2.ckb-v2"));
+const v2Dark = declarations(allThemeBlocks(v2Stylesheet, ".dark .ckb-v2.ckb-v2"));
 const themes = [
   { name: "light", tokens: light },
   { name: "dark", tokens: dark },
@@ -234,13 +258,13 @@ describe("disabled and pre-paint values", () => {
     expect(contrastRatio(colourOf(tokens, "--disabled"), colourOf(tokens, "--surface"))).toBeGreaterThanOrEqual(3);
   });
 
-  it("keeps the pre-paint theme colours equal to --background", () => {
+  it("keeps the pre-paint theme colours equal to the root-mounted v2 --background", () => {
     // APP_THEME_COLORS paints before any stylesheet loads; a drift here is a
     // flash of the wrong page colour and a mismatched browser chrome bar.
     const theme = readFileSync(new URL("../src/lib/theme.ts", import.meta.url), "utf8");
     const appThemeColors = theme.slice(theme.indexOf("export const APP_THEME_COLORS"));
-    expect(appThemeColors).toContain(`light: "${colourOf(light, "--background")}"`);
-    expect(appThemeColors).toContain(`dark: "${colourOf(dark, "--background")}"`);
+    expect(appThemeColors).toContain(`light: "${colourOf(v2Light, "--background")}"`);
+    expect(appThemeColors).toContain(`dark: "${colourOf(v2Dark, "--background")}"`);
   });
 
   it("keeps the brand mark on the current accent", () => {
@@ -257,6 +281,8 @@ describe("radius ladder", () => {
     // --radius-lg sat at 10px and broke the rhythm. Moving it to 12 collided
     // with --radius-xl, so the upper ladder shifted a rung — two names must
     // never share one value, or the lg/xl role split stops meaning anything.
+    // Two half-steps are sanctioned: `sm` at 6px, and `md` at 10px since PR 5c,
+    // where the live control radius met the v2 one (SPEC §4.6).
     const rungs = ["xs", "sm", "md", "lg", "xl", "2xl"].map((step) => {
       const value = new RegExp(`--radius-${step}:\\s*([\\d.]+)rem;`, "i").exec(themeConfigBlock);
       expect(value, `--radius-${step} is not defined in @theme`).toBeTruthy();
@@ -265,10 +291,18 @@ describe("radius ladder", () => {
 
     expect(rungs, "radius ladder must ascend").toEqual([...rungs].sort((a, b) => a - b));
     expect(new Set(rungs).size, "two radius names share one value").toBe(rungs.length);
-    // 6px `sm` is the one sanctioned half-step; everything else is a multiple of 4.
-    for (const rung of rungs.filter((value) => value !== 6)) {
+    // 6px `sm` and 10px `md` are the two sanctioned half-steps; everything else
+    // is a multiple of 4. Both are named here so a third one cannot slip in.
+    const halfSteps = new Set([6, 10]);
+    for (const rung of rungs.filter((value) => !halfSteps.has(value))) {
       expect(rung % 4, `${rung}px is off the 4px grid`).toBe(0);
     }
+    // The control rung is the one the v2 layer also declares; they must agree or
+    // adopting a surface reshapes every control on it.
+    const v2 = readFileSync(new URL("../src/app/ckb-v2-tokens.css", import.meta.url), "utf8");
+    const v2ControlRadius = /^\s*--radius-md:\s*([\d.]+)rem;/m.exec(v2)?.[1];
+    expect(v2ControlRadius, "--radius-md is not declared in the v2 layer").toBeTruthy();
+    expect(Math.round(Number.parseFloat(v2ControlRadius!) * 16)).toBe(rungs[2]);
   });
 });
 

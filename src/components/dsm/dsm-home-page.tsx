@@ -1,4 +1,4 @@
-import { BookOpenCheck, GitCompareArrows, ListChecks, Search, ShieldCheck } from "lucide-react";
+import { BookOpenCheck, GitCompareArrows, ListChecks, Search } from "lucide-react";
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { dsmCategories, dsmDiagnoses } from "@/lib/dsm";
@@ -51,7 +51,6 @@ export function DsmHomePage() {
         }))}
         footer={
           <ModeHomeVerificationFooter
-            icon={ShieldCheck}
             label={`${dsmDiagnoses.length} diagnoses`}
             body="Local reference content · Clinical review required"
           />

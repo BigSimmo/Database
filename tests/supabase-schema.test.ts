@@ -172,6 +172,45 @@ const searchHealthIndexesMigration = readFileSync(
   new URL("../supabase/migrations/20260705180000_reconcile_search_health_indexes.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const restoreRagSearchHealthIndexesMigration = readFileSync(
+  new URL("../supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const driftManifest = JSON.parse(readFileSync(new URL("../supabase/drift-manifest.json", import.meta.url), "utf8")) as {
+  snapshot: {
+    indexes: Array<{ name: string; def: string }>;
+  };
+};
+const driftIndexDefinitions = new Map(driftManifest.snapshot.indexes.map((index) => [index.name, index.def] as const));
+
+// Keep in lockstep with the PL/pgSQL chain in
+// supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql.
+// The restore-migration contract below also pins each SQL transform literal.
+const INDEX_DEFINITION_NORMALIZER_SQL_STEPS = [
+  "replace(actual_normalized, 'create index if not exists', 'create index')",
+  "regexp_replace(actual_normalized, ' extensions\\.', ' ', 'g')",
+  "regexp_replace(actual_normalized, ' using btree', '', 'g')",
+  "regexp_replace(actual_normalized, 'where \\(([^()]*)\\)$', 'where \\1')",
+  "replace(actual_normalized, ';', '')",
+  "regexp_replace(actual_normalized, '[[:space:]]+', ' ', 'g')",
+  "regexp_replace(actual_normalized, ' on ([^ ()]+) \\(', ' on \\1(', 'g')",
+] as const;
+
+function normalizeIndexDefinition(definition: string) {
+  return (
+    definition
+      .toLowerCase()
+      .replace("create index if not exists", "create index")
+      .replace(/ extensions\./g, " ")
+      .replace(/ using btree/g, "")
+      .replace(/where \(([^()]*)\)$/g, "where $1")
+      .replace(/;/g, "")
+      .replace(/\s+/g, " ")
+      // pg_get_indexdef emits "table (cols)" after USING btree is stripped; schema SQL uses "table(cols)".
+      .replace(/ on ([^ ()]+) \(/g, " on $1(")
+      .trim()
+  );
+}
 const searchSchemaHealthM13GuardMigration = readFileSync(
   new URL("../supabase/migrations/20260706010000_search_schema_health_m13_guard.sql", import.meta.url),
   "utf8",
@@ -671,6 +710,9 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("primary key (subject_key, bucket)");
     expect(schema).toContain("create or replace function public.consume_api_rate_limit");
     expect(schema).toContain("create or replace function public.consume_api_subject_rate_limit");
+    expect(schema).toContain("on conflict (owner_id, bucket) do update");
+    expect(schema).toContain("on conflict (subject_key, bucket) do update");
+    expect(schema).toContain("document_images_searchable_doc_page_relevance_idx");
     expect(schema).toContain("returns table ( limited boolean, limit_value integer, remaining integer");
     expect(schema).toContain("grant select, insert, update, delete on table");
     expect(schema).toContain("public.api_rate_limits,");
@@ -1070,6 +1112,60 @@ describe("Supabase schema Data API grants", () => {
     expect(searchHealthIndexesMigration).toContain("'document_pages_document_id_page_number_key'");
     expect(schema).toContain("index_aliases constant jsonb := jsonb_build_object(");
     expect(schema).toContain("jsonb_array_elements_text(index_aliases -> index_name)");
+
+    const restoredIndexNames = [
+      "document_labels_label_trgm_idx",
+      "document_summaries_summary_trgm_idx",
+      "document_index_units_owner_chunk_type_idx",
+      "rag_retrieval_logs_miss_idx",
+    ] as const;
+    const indexAliasKeys = [...searchHealthIndexesMigration.matchAll(/'([a-z0-9_]+)',\s*jsonb_build_array\(/g)].map(
+      (match) => match[1],
+    );
+
+    for (const indexName of restoredIndexNames) {
+      const definitionPattern = new RegExp(`create index if not exists ${indexName} .*?;`);
+      const schemaDefinition = schema.match(definitionPattern)?.[0];
+      const canonicalMigrationDefinition = searchHealthIndexesMigration.match(definitionPattern)?.[0];
+      const driftDefinition = driftIndexDefinitions.get(indexName);
+
+      expect(schemaDefinition, `schema definition for ${indexName}`).toBeDefined();
+      expect(canonicalMigrationDefinition, `canonical migration definition for ${indexName}`).toBeDefined();
+      expect(driftDefinition, `drift-manifest definition for ${indexName}`).toBeDefined();
+      expect(normalizeIndexDefinition(canonicalMigrationDefinition ?? "")).toBe(
+        normalizeIndexDefinition(schemaDefinition ?? ""),
+      );
+      expect(normalizeIndexDefinition(driftDefinition ?? "")).toBe(normalizeIndexDefinition(schemaDefinition ?? ""));
+      expect(restoreRagSearchHealthIndexesMigration).toContain(`'${indexName}'`);
+      expect(restoreRagSearchHealthIndexesMigration).toContain(normalizeIndexDefinition(schemaDefinition ?? ""));
+      // Restore guard resolves canonical names only; keep these four out of health aliases.
+      expect(indexAliasKeys, `alias key for restored index ${indexName}`).not.toContain(indexName);
+    }
+
+    // This version records an already-completed, validated repair. It must
+    // fail fast on drift rather than starting a write-blocking transactional
+    // rebuild on ingestion and telemetry tables. Presence alone is insufficient:
+    // invalid CONCURRENTLY leftovers and non-canonical definitions must also fail.
+    expect(restoreRagSearchHealthIndexesMigration).toContain("set local lock_timeout = '5s'");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("set local statement_timeout = '30s'");
+    expect(restoreRagSearchHealthIndexesMigration).not.toMatch(/\bset (?!local )lock_timeout\b/);
+    expect(restoreRagSearchHealthIndexesMigration).not.toMatch(/\bset (?!local )statement_timeout\b/);
+    expect(restoreRagSearchHealthIndexesMigration).toContain("to_regclass(format('public.%I', required.index_name))");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("i.indisvalid");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("i.indisready");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("pg_get_indexdef(i.indexrelid)");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("Missing: %; Invalid: %; Mismatched: %");
+    expect(restoreRagSearchHealthIndexesMigration).toContain(
+      "create missing indexes concurrently outside the migration transaction",
+    );
+    let previousStepOffset = -1;
+    for (const sqlStep of INDEX_DEFINITION_NORMALIZER_SQL_STEPS) {
+      const stepOffset = restoreRagSearchHealthIndexesMigration.indexOf(sqlStep);
+      expect(stepOffset, `SQL normalizer step: ${sqlStep}`).toBeGreaterThan(previousStepOffset);
+      previousStepOffset = stepOffset;
+    }
+    // Allow the normalizer's replace() literal, but forbid actual IF NOT EXISTS DDL.
+    expect(restoreRagSearchHealthIndexesMigration).not.toMatch(/create\s+index\s+if\s+not\s+exists\s+[a-z_]/i);
   });
   it("mirrors tightened search_document_chunks owner scope in schema and migration", () => {
     expect(searchDocumentChunksOwnerScopeMigration).toContain("(p_owner_id is null and d.owner_id is null)");

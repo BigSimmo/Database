@@ -33,6 +33,8 @@ const composerSlotSource = read("src/lib/mode-home-composer.ts");
 const phoneHeaderPortalSource = read("src/components/clinical-dashboard/phone-header-collapse-portal.tsx");
 const phoneFooterPortalSource = read("src/components/clinical-dashboard/phone-footer-layer-portal.tsx");
 const therapyNavSource = read("src/components/therapy-compass/nav.tsx");
+const modeNavSource = read("src/components/mode-nav/mode-nav.tsx");
+const modeNavPortalSource = read("src/components/mode-nav/mode-nav-portal.tsx");
 const documentViewerSource = read("src/components/DocumentViewer.tsx");
 const calculatorSearchSource = read("src/components/calculators/search-page.tsx");
 const documentViewerChromeHookSource = read("src/components/clinical-dashboard/use-document-viewer-chrome-scroll.ts");
@@ -62,6 +64,15 @@ describe("shared header hide/reveal wiring", () => {
     expect(dashboardCoordinatorSource).toContain(
       "useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainScrollRoot, composerInputRef)",
     );
+    // #146: viewport/toolbar range changes must re-sample maxOffset without
+    // waiting for a user scroll that may never arrive after chrome re-shows.
+    // Layout + visualViewport resize both feed evaluate(); product code then
+    // holds hide via the range-change guard and viewportHeightChanged rebase.
+    expect(hookSource).toContain('window.addEventListener("resize", onViewportResize, { passive: true })');
+    expect(hookSource).toContain('window.visualViewport?.addEventListener("resize", onViewportResize)');
+    expect(hookSource).toContain("maxOffset !== previousMaxOffset");
+    expect(hookSource).toContain("lastOffset - offset < revealIntentDistance");
+    expect(hookSource).toContain("viewportHeightChanged");
   });
 
   it("feeds DocumentViewer footer chrome from both possible phone scroll owners", () => {
@@ -106,12 +117,19 @@ describe("shared header hide/reveal wiring", () => {
     // GlobalSearchShell hands scrolling back to the document above phones, so
     // the outer stack sticks while only the top-bar row collapses.
     expect(shellSource).toContain('strategy: "collapse"');
-    expect(shellSource).toContain('phoneMotion: isCollapseMotionPhoneRoute(pathname) ? "collapse" : "overlay"');
+    expect(shellSource).toContain('phoneMotion: "overlay"');
     expect(shellSource).toContain('wide: "sticky"');
     // ClinicalDashboard uses the document on browser phones and <main> in
-    // standalone/sm+; both feed the same collapse reporter.
-    expect(dashboardSource).toContain('{ strategy: "collapse", wide: "collapse"');
-    expect(headerSource).toContain('className="phone-sticky-header-stack sm:contents"');
+    // standalone/sm+; both feed the same collapse reporter. Its non-answer modes
+    // keep the wide collapse and overlay on phones. The descriptor lives beside
+    // the chrome state it depends on, in use-dashboard-chrome-coordinator.
+    expect(dashboardSource).toContain("hideOnScroll={resolveDashboardHideOnScroll(searchMode, chromeScrollHidden)}");
+    expect(dashboardCoordinatorSource).toContain(
+      '{ strategy: "collapse", wide: "collapse", phoneMotion: "overlay", scrollHidden }',
+    );
+    // Both phone stacks stay `display: contents` at sm+ so the wide layout keeps
+    // the top bar and composer as direct children of the host's own column.
+    expect(headerSource.match(/"phone-sticky-header-stack sm:contents"/g)).toHaveLength(2);
     expect(headerSource).toContain('"phone-overlay-header sm:absolute sm:inset-x-0 sm:top-0"');
     expect(shellSource).toContain('data-chrome-transitioning={chromeTransitioning ? "true" : undefined}');
     expect(dashboardSource).toContain('data-chrome-transitioning={chromeTransitioning ? "true" : undefined}');
@@ -121,18 +139,53 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain('phoneMotion?: "collapse" | "overlay"');
     expect(headerSource).toContain('const phoneMotion = hideOnScroll?.phoneMotion ?? "collapse"');
     expect(headerSource).toContain('hideStrategy === "collapse" && phoneMotion === "overlay"');
-    // Every phone route overlays. The 1fr -> 0fr grid plus the
-    // `chrome-safe-area-top` height transition handed layout back to the
-    // scroller on every hide, so content slid under the animation. Do not
-    // reintroduce a route-conditional collapse here.
-    // Overlay is the default; the exception is routes that portal page navigation
-    // into the collapse row, whose journeys assert in-flow collapse geometry.
-    expect(shellSource).toContain('phoneMotion: isCollapseMotionPhoneRoute(pathname) ? "collapse" : "overlay"');
+    // Every phone route on both hosts overlays, with no route or mode
+    // exception. The 1fr -> 0fr grid plus the `chrome-safe-area-top` height
+    // transition handed layout back to the scroller on every hide, so content
+    // slid under the animation and the reader lost their place — measured
+    // 147px on /therapy-compass/pathways, 137px on a differential detail and
+    // 72px on the dashboard's non-answer modes (more wherever the OS reports a
+    // top inset), against 0px everywhere overlay was already in force. Do not
+    // reintroduce a route-conditional or mode-conditional collapse here.
+    expect(shellSource).toContain('phoneMotion: "overlay"');
     expect(shellSource).not.toContain('phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse"');
-    expect(reserveSource).toContain("export function isCollapseMotionPhoneRoute");
-    expect(dashboardSource).not.toContain("phoneMotion:");
+    // The last collapse-motion route predicate is gone; a route list is a
+    // layout shift by construction.
+    expect(reserveSource).not.toContain("isCollapseMotionPhoneRoute");
+    expect(shellSource).not.toContain("isCollapseMotionPhoneRoute");
+    expect(dashboardCoordinatorSource).toContain('phoneMotion: "overlay"');
     expect(headerSource).toContain("data-phone-motion={phoneMotion}");
     expect(headerSource).toContain("max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0");
+    // Overlay must reach the collapse-at-every-width branch too (the
+    // ClinicalDashboard path). Two occurrences of the stack's overlay classes —
+    // one per return branch — is what proves it; a single one means the
+    // dashboard fell back to the in-flow stack.
+    expect(headerSource.match(/phone-overlay-header max-sm:transition-\[transform,translate,opacity\]/g)).toHaveLength(
+      2,
+    );
+    expect(headerSource.match(/phoneOverlayMotion && usesPhoneBottomDock \?/g)).toHaveLength(2);
+  });
+
+  it("transitions the property the hidden state actually sets", () => {
+    // Tailwind 4 compiles `-translate-y-full` to the standalone `translate`
+    // property, not `transform`. The `transition-transform` *utility* knows
+    // this and expands to `transform, translate, scale, rotate` (verified in
+    // Chromium), but an *arbitrary* list is literal: `transition-[transform,
+    // opacity]` never covered `translate`, so the phone overlay stacks jumped
+    // to their hidden position in a single frame while only the fade animated.
+    // `getComputedStyle(...).transform` reads `none` in both states, which is
+    // what disguised it. Any arbitrary transition list paired with a
+    // `-translate-y-*` utility must name `translate` explicitly.
+    // The two overlay stacks hide via the translate utility, so their arbitrary
+    // lists must name `translate`. (The `topBar` also uses the utility, but its
+    // list is the `transition-transform` *utility*, which Tailwind expands to
+    // `transform, translate, scale, rotate` — verified in Chromium — so it is
+    // already covered and is not asserted here.)
+    expect(headerSource.match(/max-sm:transition-\[transform,translate,opacity\]/g)).toHaveLength(2);
+    // The bottom composer dock is the deliberate contrast: it hides via a raw
+    // `transform: translateY(...)` rule in globals.css, not a translate
+    // utility, so `transform` is the property it actually animates.
+    expect(headerSource).toContain('"max-sm:transition-[transform,opacity] motion-reduce:transition-none"');
   });
 
   it("reserves a constant phone top clearance beneath the overlay header", () => {
@@ -143,8 +196,11 @@ describe("shared header hide/reveal wiring", () => {
     // overlay exists to remove.
     expect(shellSource).toContain("usePhoneOverlayChromeReserve()");
     expect(shellSource).toContain("max-sm:pt-[var(--phone-overlay-chrome-h)]");
-    // Reserve only where overlay is active.
-    expect(shellSource).toContain('!isCollapseMotionPhoneRoute(pathname) && "max-sm:pt-');
+    // Both hosts overlay their phone chrome, so both publish and consume the
+    // reserve. The dashboard's answer mode keeps its own glass-bar reserve on
+    // <main>, so its clearance is scoped to the other modes.
+    expect(dashboardCoordinatorSource).toContain("usePhoneOverlayChromeReserve()");
+    expect(dashboardSource).toContain('searchMode !== "answer" && "max-sm:pt-[var(--phone-overlay-chrome-h)]"');
     expect(reserveHookSource).toContain('const reserveProperty = "--phone-overlay-chrome-h"');
     // The property must be seeded in CSS and refined before paint. A passive
     // effect or a `,0px` fallback paints content under the out-of-flow header
@@ -168,6 +224,13 @@ describe("shared header hide/reveal wiring", () => {
     expect(reserveHookSource).not.toContain("dataset.scrollHidden");
     expect(reserveHookSource).toContain("offsetHeight");
     expect(reserveHookSource).toContain("ResizeObserver");
+    // A present stack with offsetHeight 0 (display:contents / mid-unmount) must
+    // not publish 0px over the CSS seed via `??` — that collapses content under
+    // the out-of-flow header and jumps it back by the full stack height on the
+    // next measure (Services result-anchor +131px under CI, PR #1562 / #146).
+    expect(reserveHookSource).toContain("stack?.offsetHeight || collapse?.offsetHeight");
+    expect(reserveHookSource).toContain("if (measured <= 0)");
+    expect(reserveHookSource).toContain("readPhoneOverlayChromeReservePx");
   });
 
   it("portals the phone bottom dock out of the transformed overlay layer", () => {
@@ -189,11 +252,11 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain("max-sm:-translate-y-full");
   });
 
-  it("moves submitted search composers into normal page flow on desktop only", () => {
+  it("moves submitted search composers into normal page flow on tablets and desktops", () => {
     expect(composerSlotSource).toContain(
       'export const desktopPageComposerSlotId = "desktop-page-search-composer-slot"',
     );
-    expect(headerSource).toContain('const desktopPageComposerMediaQuery = "(min-width: 1024px)"');
+    expect(headerSource).toContain('const desktopPageComposerMediaQuery = "(min-width: 640px)"');
     expect(headerSource).toContain("desktopHomeComposerSlotId ?? desktopPageComposerSlotId");
     expect(headerSource).toContain('placement: "default" | "desktop-home" | "desktop-page"');
     expect(headerSource).toContain("data-composer-placement={placement}");
@@ -201,13 +264,13 @@ describe("shared header hide/reveal wiring", () => {
       '"document-mobile-search-edge universal-top-search-edge relative z-20 mx-auto w-full max-w-3xl px-4 py-3 lg:max-w-4xl"',
     );
     expect(shellSource).toContain('data-testid="desktop-page-search-composer-slot"');
-    expect(shellSource).toContain('className="hidden lg:block lg:empty:hidden"');
+    expect(shellSource).toContain('className="hidden sm:block sm:empty:hidden"');
     // Dashboard result slot lives in a budget-extracted helper so ClinicalDashboard
     // stays under the maintainability no-growth ceiling.
     expect(dashboardSource).toContain("DashboardDesktopResultComposerSlot");
     expect(dashboardResultComposerSlotSource).toContain('data-testid="desktop-page-search-composer-slot"');
-    expect(dashboardResultComposerSlotSource).toContain('className="hidden lg:block lg:empty:hidden"');
-    expect(behaviourDocSource).toContain("Desktop search is page-owned");
+    expect(dashboardResultComposerSlotSource).toContain('className="hidden sm:block sm:empty:hidden"');
+    expect(behaviourDocSource).toContain("Tablet and desktop search are page-owned");
   });
 
   it("collapses only the top bar and keeps the search composer outside that row", () => {
@@ -265,7 +328,21 @@ describe("shared header hide/reveal wiring", () => {
     expect(phoneHeaderPortalSource).toContain('window.matchMedia("(max-width: 639px)")');
     expect(phoneHeaderPortalSource).toContain("new MutationObserver(sync)");
 
-    expect(therapyNavSource).toContain("<PhoneHeaderCollapsePortal>");
+    // Therapy claims the same host through `ModeNavHeaderPortal`, the sibling
+    // that resolves it at every width rather than only below the phone seam —
+    // which is what lets the mode bar travel with the header on tablet and
+    // desktop too. Same slot, same before-paint move, same observer discipline.
+    //
+    // Assert the whole chain, not just the absence of the legacy portal: Therapy
+    // renders the shared bar, and the shared bar is what claims the slot. Checked
+    // negatively alone, a `nav.tsx` that had dropped navigation entirely would
+    // still pass. Therapy never names the portal itself — it delegates to
+    // `ModeNav` — so the positive half of the assertion has to follow that hop.
+    expect(therapyNavSource).toContain("<ModeNav ");
+    expect(modeNavSource).toContain("<ModeNavHeaderPortal>{bar}</ModeNavHeaderPortal>");
+    expect(therapyNavSource).not.toContain("PhoneHeaderCollapsePortal");
+    expect(modeNavPortalSource).toContain("phoneHeaderCollapseAddonSlotId");
+    expect(modeNavPortalSource).toContain("createPortal(children, host)");
     expect(documentViewerSource).toContain("<PhoneHeaderCollapsePortal>");
     expect(documentViewerSource).toContain("data-document-sticky-header");
     expect(documentViewerSource).toContain("edge-glass-header");
@@ -415,17 +492,14 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain("const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;");
   });
 
-  it("documents tablet pinning and desktop page ownership independently from the top bar", () => {
+  it("documents tablet and desktop page ownership independently from the top bar", () => {
     expect(behaviourDocSource).toContain("Hide the top bar, not the search field");
     expect(behaviourDocSource).toContain("Top-bar hide/reveal is cross-breakpoint");
     expect(behaviourDocSource).toContain("Every production phone navigation header has one collapse owner");
     expect(behaviourDocSource).toContain("One transition, no jump");
-    expect(behaviourDocSource).toContain("Do not double-sticky tablet search inside an outer sticky stack");
+    expect(behaviourDocSource).toContain("Do not sticky-position tablet or desktop result search");
     expect(behaviourDocSource).toContain("desktop-page-search-composer-slot");
     expect(behaviourDocSource).toContain("Release the phone top inset with collapsing chrome");
-    expect(behaviourDocSource).toContain(
-      "Collapse-everywhere hosts still drop their own sticky search offset while the top bar is hidden",
-    );
   });
 
   it("does not carry dock focus into GlobalSearchShell submitted result views", () => {

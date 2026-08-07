@@ -12,7 +12,7 @@ const searchChromeBehaviourSource = read("docs/search-chrome-behaviour.md");
 const clinicalDashboardSource = read("src/components/ClinicalDashboard.tsx");
 const globalSearchShellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
 const uiPrimitivesSource = read("src/components/ui-primitives.tsx");
-const therapyStylesSource = read("src/components/therapy-compass/therapy-compass.css");
+const therapyWorkspaceSource = read("src/components/therapy-compass/workspace.tsx");
 const masterSearchHeaderSource = read("src/components/clinical-dashboard/master-search-header.tsx");
 const documentViewerSource = read("src/components/DocumentViewer.tsx");
 const calculatorSearchSource = read("src/components/calculators/search-page.tsx");
@@ -69,13 +69,20 @@ describe("overlay and global CSS contracts", () => {
   it("defines the shared easing tokens only once", () => {
     expect(occurrenceCount(globalStylesSource, "--ease-standard:")).toBe(1);
     expect(occurrenceCount(globalStylesSource, "--ease-emphasized:")).toBe(1);
+    expect(occurrenceCount(globalStylesSource, "--ease-out-keyword:")).toBe(1);
+    // Tailwind v4 owns --ease-out in @layer theme; unlayered :root must not
+    // shadow it or every bare transition-* utility picks up the CSS-keyword curve.
+    expect(globalStylesSource.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(/^\s*--ease-out\s*:/m);
   });
 
   it("keeps one authoritative 430px composer-action sizing block", () => {
     expect(occurrenceCount(globalStylesSource, "@media (max-width: 430px)")).toBe(1);
-    expect(globalStylesSource).toMatch(
-      /@media \(max-width: 430px\) \{[\s\S]*?\.chat-composer-icon-button,[\s\S]*?min-height: 2\.75rem;[\s\S]*?\.chat-composer-icon-button svg,[\s\S]*?height: 1\.1rem;/,
+    const phoneComposerBlock = cssBlock(globalStylesSource, "@media (max-width: 430px)");
+    expect(phoneComposerBlock).toMatch(/\.chat-composer-input\s*\{[\s\S]*?min-height:\s*2\.75rem;/);
+    expect(phoneComposerBlock).toMatch(
+      /\.chat-composer-icon-button,[\s\S]*?\.chat-send-button\s*\{[\s\S]*?min-height:\s*2\.75rem;/,
     );
+    expect(phoneComposerBlock).toMatch(/\.chat-composer-icon-button svg,[\s\S]*?height:\s*1\.1rem;/);
   });
 
   it("lets contextual composer surfaces own their resting and focus border colors", () => {
@@ -90,12 +97,15 @@ describe("overlay and global CSS contracts", () => {
 
   it("keeps phone header edge padding tokenized and never zeroed by unlayered media", () => {
     // --header-edge-pad is the single phone/sm inset shared by the layered
-    // .edge-glass-header base and the unlayered max-width:639px guard. A bare
-    // max(0px, safe-area) override previously pinned new-chat to the bezel.
+    // .edge-glass-header base, the unlayered max-width:639px guard, and
+    // .mode-nav-rail — which sits directly under the header and has to land on
+    // the same content edge. A bare max(0px, safe-area) override previously
+    // pinned new-chat to the bezel; a literal in the mode nav would be the same
+    // defect one element lower.
     expect(occurrenceCount(globalStylesSource, "--header-edge-pad:")).toBe(1);
     expect(globalStylesSource).toMatch(/--header-edge-pad:\s*1rem;/);
-    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-left))")).toBe(2);
-    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-right))")).toBe(2);
+    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-left))")).toBe(3);
+    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-right))")).toBe(3);
     expect(globalStylesSource).not.toMatch(
       /\.edge-glass-header\s*\{[^}]*padding-left:\s*max\(0px,\s*var\(--safe-area-left\)\)/s,
     );
@@ -208,7 +218,8 @@ describe("overlay and global CSS contracts", () => {
     expect(globalSearchShellSource).toContain("phone-viewport-shell");
     expect(clinicalDashboardSource).toContain("phone-viewport-shell");
     expect(uiPrimitivesSource).toContain('"min-h-0 overflow-x-clip px-3 py-3 pb-4 sm:min-h-[');
-    expect(therapyStylesSource).toMatch(/\.tc-root\s*\{\s*min-height:\s*0;/);
-    expect(therapyStylesSource).toContain("@media (min-width: 640px)");
+    expect(therapyWorkspaceSource).toContain("data-therapy-root");
+    expect(therapyWorkspaceSource).toContain("min-h-0");
+    expect(therapyWorkspaceSource).toContain("sm:min-h-[calc(100dvh-var(--shell-header-h))]");
   });
 });

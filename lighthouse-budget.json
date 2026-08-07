@@ -6,10 +6,89 @@
   "routes": ["/", "/therapy-compass", "/documents/search", "/dsm", "/forms"],
   "strategies": ["mobile", "desktop"],
   "tolerance": {
-    "lcpMs": { "pct": 20, "minAbsolute": 100 },
-    "tbtMs": { "pct": 30, "minAbsolute": 50 },
-    "cls": { "absolute": 0.02 }
+    "lcpMs": {
+      "pct": 20,
+      "minAbsolute": 100
+    },
+    "tbtMs": {
+      "pct": 30,
+      "minAbsolute": 50
+    },
+    "cls": {
+      "absolute": 0.02
+    }
   },
-  "baseline": null,
-  "updatedAt": null
+  "baseline": {
+    "desktop-documents-search": {
+      "lcpMs": 887,
+      "cls": 0.119,
+      "tbtMs": 1,
+      "fcpMs": 404.55240000000003,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-dsm": {
+      "lcpMs": 936,
+      "cls": 0.013,
+      "tbtMs": 0,
+      "fcpMs": 399.6637,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-forms": {
+      "lcpMs": 870,
+      "cls": 0.06,
+      "tbtMs": 0,
+      "fcpMs": 393.5287,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-root": {
+      "lcpMs": 822,
+      "cls": 0.007,
+      "tbtMs": 3,
+      "fcpMs": 358.3345,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "desktop-therapy-compass": {
+      "lcpMs": 822,
+      "cls": 0,
+      "tbtMs": 0,
+      "fcpMs": 397.3599,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-documents-search": {
+      "lcpMs": 2311,
+      "cls": 0,
+      "tbtMs": 399,
+      "fcpMs": 2329.335,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-dsm": {
+      "lcpMs": 2319,
+      "cls": 0,
+      "tbtMs": 322,
+      "fcpMs": 2325.841,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-forms": {
+      "lcpMs": 2304,
+      "cls": 0.08,
+      "tbtMs": 324,
+      "fcpMs": 2291.215,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-root": {
+      "lcpMs": 3274,
+      "cls": 0,
+      "tbtMs": 763,
+      "fcpMs": 3274,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    },
+    "mobile-therapy-compass": {
+      "lcpMs": 2338,
+      "cls": 0,
+      "tbtMs": 302,
+      "fcpMs": 2327.357,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+    }
+  },
+  "updatedAt": "2026-08-07T13:42:17.043Z"
 }

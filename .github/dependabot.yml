@@ -51,3 +51,15 @@ updates:
     groups:
       github-actions:
         patterns: ["*"]
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Australia/Perth"
+    open-pull-requests-limit: 2
+    groups:
+      docker-images:
+        patterns: ["*"]

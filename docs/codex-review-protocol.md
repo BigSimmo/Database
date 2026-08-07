@@ -22,6 +22,19 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 - Include checks run, checks not run, and whether any check was skipped because it could touch an API/provider.
 - Keep summaries secondary to findings.
 
+## GitHub access routing
+
+For an explicitly authorized hosted task, use the GitHub connector or native Cloud controls first.
+Their permissions are independent of `gh` in the agent shell. Run
+`npm run check:github-shell-access:live` (which passes `--allow-provider` and does not pass
+`--self-test`) only before an intentional GitHub CLI fallback.
+`ALLOW_GITHUB_SHELL_ACCESS=true` or `--allow-provider` on a direct
+`node scripts/check-github-shell-access.mjs` invocation (without `--self-test`) authorize the
+same live path. The plain `npm run check:github-shell-access` entry is always offline
+`--self-test`; ambient opt-in cannot convert it into provider traffic.
+`GH_AUTH_MISSING` means shell authentication is absent, not that the hosted connector is
+disconnected. Never add a PAT to an ordinary Cloud task.
+
 ## Mutation Rules
 
 - For a pure review request, do not edit files, stage, commit, push, post PR comments, rerun hosted CI, or call provider-backed services.
@@ -31,6 +44,10 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 - After fixing or fully dispositioning a thread, start the reply with `<!-- codex-thread-disposition:resolved -->`, then declare exactly one result: `<!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> -->` for a published fix or `<!-- codex-thread-result:no-change -->` for a no-code disposition. The workflow closes a fixed thread only when the reported commit is the pull-request head. A local-only commit is not a fix; when publication, verification, human input, or new authorization blocks completion, use no result marker and leave the thread open with a concise reason.
 - Ask before any OpenAI, Supabase, GitHub/GitLab, hosted CI, or provider-backed workflow.
 - After any completed branch/PR review, append to `docs/branch-review-ledger.md` with `npm run ledger:append -- --ref <x> --head <full-sha> --scope <s> --outcome <o> --checks <c>`. Record the full 40-character SHA; `see PR head` and abbreviations make the record unmatchable and cause the review to run again. The ledger is append-only: never edit or delete an existing record; append a correction or superseding record (`--supersede`) instead. This ledger append is allowed even during a pure review. Do not hand-write the markdown row — hand-written rows are what produced the mojibake, wrong-width, and duplicate records the 2026-07-28 hygiene pass had to repair. Do not push a tip whose sole delta is a babysit ledger append; after merging `origin/main` into a branch that touched the ledger, run `npm run ledger:dedupe` when exact twins appear.
+
+## Ledger Rotation
+
+At the start of each UTC calendar quarter, or earlier when the live table becomes unwieldy, run `npm run ledger:rotate -- --dry-run`. If the preview contains only the intended completed records, run `npm run ledger:rotate` and commit the live ledger and generated archive together. Lookup, sweep, and integrity checks read both locations. Never hand-move rows or delete unique review content; stop if the dry-run shows unexpected mass movement or an archive-path collision.
 
 ## Severity Guide
 

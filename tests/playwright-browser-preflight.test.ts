@@ -1,6 +1,10 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   defaultChromiumHeadlessShellPath,
+  newestPreinstalledChromiumHeadlessShell,
   playwrightBrowserPreflight,
   playwrightProjectNames,
   requestedPlaywrightBrowserProjects,
@@ -81,6 +85,84 @@ describe("playwright browser preflight", () => {
       path: "/tmp/custom-chrome",
       source: "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH",
     });
+  });
+
+  it("selects the newest shell only for the designated download-disabled container root", () => {
+    const root = mkdtempSync(join(tmpdir(), "pw-container-browsers-"));
+    const older = join(root, "chromium_headless_shell-1194", "chrome-linux", "headless_shell");
+    const newer = join(root, "chromium_headless_shell-1200", "chrome-linux", "headless_shell");
+    try {
+      mkdirSync(join(older, ".."), { recursive: true });
+      mkdirSync(join(newer, ".."), { recursive: true });
+      writeFileSync(older, "");
+      writeFileSync(newer, "");
+
+      expect(newestPreinstalledChromiumHeadlessShell(root, { platform: "linux", architecture: "x64" })).toBe(newer);
+
+      const managedPath = join(root, "chromium_headless_shell-1234", "missing");
+      expect(
+        resolvePlaywrightBrowserExecutable(
+          "chromium",
+          {
+            NODE_ENV: "test",
+            PLAYWRIGHT_BROWSERS_PATH: root,
+            PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
+          },
+          {
+            managedChromiumPath: managedPath,
+            platform: "linux",
+            architecture: "x64",
+            containerBrowsersRoot: root,
+          },
+        ),
+      ).toMatchObject({
+        family: "chromium",
+        path: newer,
+        source: "preinstalled container Chromium (PLAYWRIGHT_BROWSERS_PATH)",
+        managedPath,
+      });
+      expect(
+        resolvePlaywrightBrowserExecutable(
+          "chromium",
+          {
+            NODE_ENV: "test",
+            PLAYWRIGHT_BROWSERS_PATH: root,
+            PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
+          },
+          { managedChromiumPath: managedPath, platform: "linux", architecture: "x64" },
+        ),
+      ).toEqual({
+        family: "chromium",
+        path: managedPath,
+        source: "playwright chromium-headless-shell",
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not select an x64-only container shell on Linux arm64", () => {
+    const root = mkdtempSync(join(tmpdir(), "pw-container-architectures-"));
+    const x64Only = join(
+      root,
+      "chromium_headless_shell-1300",
+      "chrome-headless-shell-linux64",
+      "chrome-headless-shell",
+    );
+    const arm64Compatible = join(root, "chromium_headless_shell-1200", "chrome-linux", "headless_shell");
+    try {
+      mkdirSync(join(x64Only, ".."), { recursive: true });
+      mkdirSync(join(arm64Compatible, ".."), { recursive: true });
+      writeFileSync(x64Only, "");
+      writeFileSync(arm64Compatible, "");
+
+      expect(newestPreinstalledChromiumHeadlessShell(root, { platform: "linux", architecture: "x64" })).toBe(x64Only);
+      expect(newestPreinstalledChromiumHeadlessShell(root, { platform: "linux", architecture: "arm64" })).toBe(
+        arm64Compatible,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("fails closed when the required Chromium binary is missing", () => {

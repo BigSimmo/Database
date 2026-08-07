@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { MODE_NAV_BANDS, MODE_NAV_MIN_ITEMS, planModeNavBands } from "@/components/mode-nav/mode-nav-bands";
+import { MODE_NAV_ADOPTED_MODES, modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
 
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
@@ -152,12 +153,22 @@ describe("ModeNav header anchoring", () => {
 
   it("keeps the addon slot to a single page-owned header", () => {
     // DocumentViewer and the differentials detail page already claim the slot on
-    // phones. Neither mode may also mount a bar there; today neither can,
-    // because both have fewer than MODE_NAV_MIN_ITEMS destinations and ModeNav
-    // renders nothing. This fails the moment that stops being true.
+    // phones. Neither may also carry a bar. That used to hold only because both
+    // modes had fewer than MODE_NAV_MIN_ITEMS destinations and ModeNav rendered
+    // nothing — incidental protection that expired when Differentials gained a
+    // third destination. The two-item floor stays (a one-item bar is not a
+    // choice), but ownership is now stated by route and proved at render.
     expect(read("src/components/DocumentViewer.tsx")).toContain("PhoneHeaderCollapsePortal");
     expect(read("src/components/differentials/differential-detail-page.tsx")).toContain("PhoneHeaderCollapsePortal");
     expect(modeNavSource).toMatch(/items\.length < MODE_NAV_MIN_ITEMS\) return null/);
+
+    // What replaced it: every claimant route is `hasLocalInformationPageNavigation`,
+    // which returns before the mode branch. That is checked route-for-route,
+    // and at render, in `tests/mode-nav-addon-slot.dom.test.tsx`.
+    expect(read("src/components/page-secondary-navigation.tsx")).toContain(
+      "if (locallyOwnedInformationNavigation) return null;",
+    );
+    expect(read("tests/mode-nav-addon-slot.dom.test.tsx")).toContain("hasLocalInformationPageNavigation(pathname)");
   });
 });
 
@@ -167,21 +178,163 @@ describe("ModeNav item contract", () => {
     expect(modeNavSource).not.toMatch(/onClick\?:/);
   });
 
-  it("gives Therapy four destinations in declared order and no record-scoped artifacts", () => {
+  it("gives Therapy its seven destinations in declared order", () => {
     const itemIds = [...therapyNavSource.matchAll(/\bid: "([a-z-]+)"/g)].map((match) => match[1]);
-    // Order is load-bearing: at three slots the survivors are the first two.
-    expect(itemIds).toEqual(["search", "compare", "recommend", "pathways"]);
+    // Order is load-bearing: at three slots the survivors are the first two, so
+    // the library door and the only destination carrying state are the ones
+    // that stay on the bar. Everything from `home` on is reached through More
+    // at every band, which is where the two long labels have to live.
+    expect(itemIds).toEqual(["search", "compare", "recommend", "pathways", "home", "brief", "sheets"]);
 
     // Compare carries fill, not catalogue size: "3/4" is worth a glance, "205"
     // is noise on every screen.
     expect(therapyNavSource).toContain("${b.compareSlugs.length}/${MAX_COMPARE}");
   });
 
-  it("keeps the old strip for every Therapy route except search", () => {
-    // The rollout is reversible by one line, and the pill strip still ships on
-    // compare / recommend / pathways / detail.
-    expect(therapyNavSource).toContain("PhoneHeaderCollapsePortal");
-    expect(therapyNavSource).toContain('data-testid="therapy-compass-section-nav"');
-    expect(workspaceSource).toContain("b.isSearch ? <TherapyModeNav /> : <TherapyCompassNav />");
+  it("routes the record-scoped destinations through resolved hrefs, never a handler", () => {
+    // `ModeNavItem` takes an href so deep links, back and prefetch work. These
+    // two resolve a slug, so the resolution has to reach the item as a value.
+    expect(therapyNavSource).toContain("href: b.briefHref");
+    expect(therapyNavSource).toContain("href: b.sheetHref");
+    expect(therapyNavSource).not.toMatch(/onClick/);
+  });
+
+  it("names the active page rather than letting a prefix match claim it", () => {
+    // Home's href is the mode base, and every Therapy route starts with it, so
+    // ModeNav's own `startsWith` derivation would light Home up everywhere.
+    expect(therapyNavSource).toContain("activeId={b.screen}");
+  });
+
+  it("puts every Therapy route on the shared bar", () => {
+    // The pill strip is gone: no second nav, no sideways scroll, no route-local
+    // portal competing for the header's addon slot.
+    expect(therapyNavSource).not.toContain("TherapyCompassNav");
+    expect(therapyNavSource).not.toContain("PhoneHeaderCollapsePortal");
+    expect(therapyNavSource).not.toContain('data-testid="therapy-compass-section-nav"');
+    expect(globalsSource).not.toContain('[data-testid="therapy-compass-section-nav"]');
+    expect(workspaceSource).toContain("<TherapyModeNav />");
+    expect(workspaceSource).not.toContain("TherapyCompassNav");
+  });
+
+  it("keeps the mode home free of the bar, as every mode home is", () => {
+    // ModeHomeTemplate already surfaces the same destinations as tiles.
+    expect(workspaceSource).toContain("{isHome ? null : <TherapyModeNav />}");
+  });
+});
+
+describe("ModeNav overflow slot", () => {
+  const moreSlot = modeNavSource.slice(
+    modeNavSource.indexOf("plan.moreUntil !== null ? ("),
+    modeNavSource.indexOf("</ul>"),
+  );
+
+  it("never borrows the active label, so the slot has one width at every route", () => {
+    // The thresholds are the measured sum of the slots' intrinsic widths. At
+    // the 22rem band the More slot's whole budget is ~107px, of which its box,
+    // icon, gap and chevron take ~71px — a ~36px label allowance. Therapy's
+    // "Brief Intervention" wants ~213px. Borrowing is not affordable at any
+    // label length worth having, and widening the bands would cost every mode.
+    // Scoped to the rendered ink, which is what has a width — the accessible
+    // name below may and does carry the folded page's label.
+    const slotInk = moreSlot.match(/<SlotInk[^/]*\/>/)?.[0] ?? "";
+    expect(slotInk).toContain('label="More"');
+    expect(slotInk).toContain('state="off"');
+    expect(slotInk).not.toContain("active");
+    expect(slotInk).not.toContain("icon");
+  });
+
+  it("lets CSS decide whether More is carrying the current page", () => {
+    // The component knows which band would reveal the item; only the container
+    // query knows the band. Deciding in the component alone can only ask "does
+    // this item have a band at all", which is silent for every page whose band
+    // the current width has not reached — five of Therapy's seven on a phone.
+    expect(modeNavSource).toContain("data-active-from={activeFrom}");
+    expect(modeNavSource).toContain('activeBand ?? "none"');
+    expect(modeNavSource).not.toContain("moreHoldsActive");
+
+    // Off by default; on only while the page has no visible slot of its own.
+    expect(modeNavCss).toMatch(/\.mode-nav__more\[data-active-from\]\s*\.mode-nav__rule/);
+    for (const band of ["3", "4", "5"]) {
+      expect(modeNavCss).toContain(`.mode-nav__more[data-active-from="${band}"] .mode-nav__rule`);
+    }
+    // Band 4 turns off at 33rem and band 5 at 42rem — the same widths that
+    // reveal those slots — so nothing is ever marked twice.
+    const at33 = modeNavCss.slice(modeNavCss.indexOf("@container mode-nav (min-width: 33rem)"));
+    expect(at33).toContain('.mode-nav__more[data-active-from="4"] .mode-nav__rule');
+    const at42 = modeNavCss.slice(modeNavCss.indexOf("@container mode-nav (min-width: 42rem)"));
+    expect(at42).toContain('.mode-nav__more[data-active-from="5"] .mode-nav__rule');
+  });
+
+  it("names the carried page to assistive technology at exactly those widths", () => {
+    // Composed into the accessible name, not an aria-label, so `display: none`
+    // can take it out of the accessibility tree per band. Visible "More" stays
+    // the name's prefix (WCAG 2.5.3).
+    expect(moreSlot).toContain('className="mode-nav__more-name sr-only"');
+    expect(moreSlot).toContain(", current page: {active.label}");
+    expect(moreSlot).not.toMatch(/aria-label=/);
+    expect(modeNavCss).toMatch(/\.mode-nav__more-name\s*\{\s*display:\s*none/);
+    expect(modeNavCss).toContain(".mode-nav__more[data-active-from] .mode-nav__more-name");
+  });
+});
+
+describe("ModeNav density coverage", () => {
+  const densitySpec = read("tests/ui-mode-nav-density.spec.ts");
+  const covered = new Map(
+    [...densitySpec.matchAll(/\{ modeId: "([a-z-]+)", route: "[^"]+", items: (\d+) \}/g)].map((match) => [
+      match[1],
+      Number(match[2]),
+    ]),
+  );
+
+  it("drives every adopted mode, not just the first consumer", () => {
+    // The spec's own promise — a mode whose labels outgrow the thresholds fails
+    // there rather than shipping clipped words — held for exactly one mode
+    // while every route it drove was `/therapy-compass/*`. A mode can adopt the
+    // bar, pass every offline gate, and never have its labels measured at a
+    // band boundary. This is what makes that impossible.
+    for (const modeId of MODE_NAV_ADOPTED_MODES) {
+      expect(covered.has(modeId), `${modeId} adopted the bar but the density spec never loads it`).toBe(true);
+    }
+    // Therapy is not registry-driven (`useTherapyNavItems`), so it is not in
+    // MODE_NAV_ADOPTED_MODES — and it is the mode with the long labels.
+    expect(covered.get("therapy-compass")).toBe(7);
+  });
+
+  it("keeps each mode's declared destination count in step with the registry", () => {
+    // The expected slot count per band is derived from this number. If it
+    // drifts, the spec asserts the wrong arity and a missing slot reads as a
+    // pass.
+    for (const modeId of MODE_NAV_ADOPTED_MODES) {
+      const routed = modeSecondaryNavigationEntries(modeId).filter((entry) => entry.href).length;
+      expect(covered.get(modeId), `${modeId} destination count`).toBe(routed);
+    }
+  });
+});
+
+describe("ModeNav centring", () => {
+  it("measures the centred column, never the full-bleed rail", () => {
+    // A container query on the rail would report the viewport width while the
+    // slots have the capped column — density decided against a width that does
+    // not exist. The container also carries no padding of its own, so its
+    // inline-size is unambiguous.
+    const containerRules = [...modeNavCss.matchAll(/container-type:\s*inline-size/g)];
+    expect(containerRules).toHaveLength(1);
+    const utilityBody = modeNavCss.match(/@utility mode-nav\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(utilityBody).toContain("container-type: inline-size");
+    expect(utilityBody).toContain("margin-inline: auto");
+    // 80rem is the header row's own max-w-7xl; the ink offset is added back on
+    // both sides so the first tab's INK lands on the header's content edge.
+    expect(utilityBody).toContain("max-width: calc(80rem + 2 * var(--mode-nav-ink-offset))");
+    expect(modeNavCss).not.toMatch(/\.mode-nav-rail\s*\{[^}]*container-type/);
+  });
+
+  it("takes its gutter from the header token, minus the bar's own ink offset", () => {
+    // A literal here is how the bar and the header drift apart — the same
+    // reason `.edge-glass-header` reads the token. Subtracting the ink offset
+    // is what keeps the container width, and so the calibrated bands,
+    // unchanged below `lg` where the two gutters already agree.
+    expect(modeNavCss).toContain("var(--header-edge-pad)");
+    expect(modeNavCss).toContain("var(--mode-nav-ink-offset)");
+    expect(globalsSource).toContain("--mode-nav-ink-offset: 1rem;");
   });
 });

@@ -21,11 +21,12 @@ import {
   FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
-  FormulationSubnav,
   MechanismDomainChips,
   SessionPrivacyNote,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
+import { Select } from "@/components/ui/select";
+import { TextField } from "@/components/ui/text-field";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import {
   findFormulationMechanism,
@@ -87,7 +88,7 @@ function StepProgress({ active, onChange }: { active: BuilderStepId; onChange: (
                 <span
                   className={cn(
                     "hidden text-2xs font-semibold lg:block",
-                    isActive ? "text-[color:var(--text)]" : "text-[color:var(--text-soft)]",
+                    isActive ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]",
                   )}
                 >
                   {step.description}
@@ -152,11 +153,11 @@ function BuilderThread({
 
           <dl className="grid grid-cols-2 gap-2 border-t border-[color:var(--border)] pt-3">
             <div className="rounded-lg bg-[color:var(--surface-subtle)] p-3">
-              <dt className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-soft)]">Framework</dt>
+              <dt className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Framework</dt>
               <dd className="mt-1 text-sm font-extrabold text-[color:var(--text-heading)]">{templateId}</dd>
             </div>
             <div className="rounded-lg bg-[color:var(--surface-subtle)] p-3">
-              <dt className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-soft)]">Review</dt>
+              <dt className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Review</dt>
               <dd className="nums mt-1 text-sm font-extrabold text-[color:var(--text-heading)]">
                 {completedQuality}/{formulationQualityPrompts.length}
               </dd>
@@ -279,10 +280,7 @@ export function FormulationBuilderPage({
 
   return (
     <FormulationPageShell>
-      <div className="grid gap-3">
-        <FormulationBreadcrumbs current="Build formulation" />
-        <FormulationSubnav active="builder" />
-      </div>
+      <FormulationBreadcrumbs current="Build formulation" />
 
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
         <p className={eyebrowText}>Formulation builder</p>
@@ -357,34 +355,29 @@ export function FormulationBuilderPage({
                 )}
 
                 <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem]">
-                  <label className="relative">
-                    <span className="sr-only">Search formulation mechanisms</span>
-                    <Search
-                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]"
-                      aria-hidden
-                    />
-                    <input
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Search mechanisms or patient language..."
-                      className="min-h-12 w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-                    />
-                  </label>
-                  <label>
-                    <span className="sr-only">Filter mechanisms by domain</span>
-                    <select
-                      value={domain}
-                      onChange={(event) => setDomain(event.target.value)}
-                      className="min-h-12 w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-                    >
-                      <option value="all">All domains</option>
-                      {formulationDomains.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {/* Kept as a text input, not a `SearchField`: this filters the
+                      mechanism list in place and never submits, so it is not a
+                      second page composer (docs/search-chrome-behaviour.md). */}
+                  <TextField
+                    label="Search formulation mechanisms"
+                    hideLabel
+                    icon={Search}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search mechanisms or patient language..."
+                    className="font-semibold"
+                  />
+                  <Select
+                    label="Filter mechanisms by domain"
+                    hideLabel
+                    value={domain}
+                    onChange={(event) => setDomain(event.target.value)}
+                    className="font-semibold"
+                    options={[
+                      { value: "all", label: "All domains" },
+                      ...formulationDomains.map((item) => ({ value: item, label: item })),
+                    ]}
+                  />
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2" aria-label="Available mechanisms">
@@ -535,7 +528,7 @@ export function FormulationBuilderPage({
                           rows={3}
                           aria-label={section.label}
                           placeholder="Add de-identified case evidence..."
-                          className="mt-3 min-h-24 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                          className="mt-3 min-h-24 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
                         />
                         {suggestions.length ? (
                           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -597,7 +590,7 @@ export function FormulationBuilderPage({
                         rows={4}
                         aria-label={prompt.label}
                         placeholder="Record a concise review note..."
-                        className="mt-3 min-h-28 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                        className="mt-3 min-h-28 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
                       />
                       {starter.length ? (
                         <div className="mt-2 rounded-lg bg-[color:var(--surface-subtle)] p-2.5">

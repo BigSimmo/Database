@@ -14,6 +14,12 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 
 **Provider-backed boundary:** `test:live`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, and other OpenAI/Supabase/hosted workflows need **explicit user approval** before agents run them (see root `AGENTS.md`). Prefer offline gates (`verify:cheap`, `verify:pr-local`, `eval:rag:offline`) unless that approval is in the task.
 
+## Risk-based selection
+
+Start with the cheapest check that can fail for the changed behavior. Add another check only when it covers a distinct plausible regression that the existing evidence does not. Documentation and policy changes normally need formatting, documentation, syntax, or focused contract checks; localized behavior needs its directly affected test; cross-cutting or uncertain executable changes escalate to the relevant domain or broad gate. Do not routinely stack focused tests, the full unit suite, lint, typecheck, build, and browser checks, and do not rerun an unchanged passing gate.
+
+`npm run verify:pr-local -- --dry-run --files <comma-separated paths>` shows the local plan. Recognised documentation and workflow/policy-only scopes stay focused. Product code, tests, executable configuration, dependencies, database/container surfaces, mixed scope, and unknown non-document paths fail closed to the heavy plan. Provider, physical-device, and release-only acceptance remain separate and require their normal approval or task context.
+
 Codex Cloud agents remain provider-free. Run authenticated Supabase tests through the
 manual `.github/workflows/authenticated-live-tests.yml` workflow, which requires the
 explicit `run-authenticated-live-tests` dispatch confirmation, records the run against the
@@ -21,7 +27,10 @@ explicit `run-authenticated-live-tests` dispatch confirmation, records the run a
 guard and live-test steps. The secret-bearing job runs only from `refs/heads/main` and
 checks out that trusted ref; it never runs on a push, pull request, or schedule. This suite
 is not read-only: the confirmation explicitly authorizes bounded E2E-user sign-in/sign-out,
-test requests, and production rate-limit row updates.
+test requests, and production rate-limit row updates. A connected-only GitHub PAT exception
+does not authorize provider tests, provider credentials, deployment, or production data access;
+it is limited to the documented, exact GitHub connector-gap operation in
+`docs/codex-cloud.md`.
 
 ## Commands
 
@@ -29,11 +38,12 @@ test requests, and production rate-limit row updates.
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:focused -- --files <paths>` | Local iteration using Vitest related-file selection. It fails closed for deleted files, test infrastructure, configuration, or an empty/unsafe mapping. |
 | `npm run test`                            | Complete offline unit suite.                                                                                                                            |
+| `npm run test:ci-workflows`               | Focused offline contracts for CI, authenticated-workflow, Codex-autofix, and eval-canary workflow changes.                                              |
 | `npm run test:live`                       | Explicit provider suite; requires `ALLOW_PROVIDER_TESTS=true`.                                                                                          |
 | `npm run test:e2e:pr`                     | Required production Chromium journeys and visual-artifact smoke, excluding mockups and quarantined tests.                                               |
 | `npm run test:e2e:advisory`               | Quarantined and mockup journeys in one advisory invocation.                                                                                             |
 | `npm run verify:cheap`                    | Broad offline local gate: runtime/config checks, lint, typecheck, and the full unit suite.                                                              |
-| `npm run verify:pr-local`                 | PR-like local gate. Formatting is checked on the changed set, the full unit suite runs once, and RAG scope adds fixture/manifest validation.            |
+| `npm run verify:pr-local`                 | Risk-routed PR-like local gate. Recognised docs/workflow scopes stay focused; executable or unknown scope adds lint, typecheck, full unit, and domains. |
 | `npm run verify:phone-chrome`             | Smart phone-chrome gate: lock parity, affected contracts, browser/PWA owners and exact journeys, then full UI only for shared foundations.              |
 | `npm run verify:ui`                       | Complete required production Chromium gate.                                                                                                             |
 | `npm run test:e2e:style-contract`         | Focused rendered-effect assertions for the unlayered classes in `globals.css` (also runs inside `test:e2e:pr`).                                         |
@@ -62,9 +72,11 @@ Reference examples: `tests/icon-button.dom.test.tsx` (accessible-name contract),
 
 ## Playwright ownership
 
-The repository runner exclusively builds and serves each Playwright production app. It selects a safe port, verifies `/api/local-project-id`, uses an isolated `.next-playwright/<run-id>` build directory, replaces provider configuration with inert loopback values, and removes its server and output on success, failure, or signal. Playwright configuration never starts a server. The production boot guard permits this demo profile only when the output is isolated, provider mode is offline, credentials are absent, and the Supabase URL is the inert `127.0.0.1:1` target. Before acquiring the heavy lock or building, the runner preflights the Chromium (or requested Firefox/WebKit) executable — including the default `chrome-headless-shell` binary and any `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` override — and exits non-zero immediately when it is missing, so a launch-infra failure cannot be mistaken for product-test failures after a multi-minute build.
+The repository runner exclusively builds and serves each Playwright production app. It selects a safe port, verifies `/api/local-project-id`, uses an isolated `.next-playwright/<run-id>` build directory, replaces provider configuration with inert loopback values, and removes its server and output on success, failure, or signal. Playwright configuration never starts a server. The production boot guard permits this demo profile only when the output is isolated, provider mode is offline, credentials are absent, and the Supabase URL is the inert `127.0.0.1:1` target. Before acquiring the heavy lock or building, the runner preflights the Chromium (or requested Firefox/WebKit) executable — including the default `chrome-headless-shell` binary and any `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` override — and exits non-zero immediately when it is missing, so a launch-infra failure cannot be mistaken for product-test failures after a multi-minute build. The designated download-disabled container image is the one exception: when `PLAYWRIGHT_BROWSERS_PATH` is exactly `/opt/pw-browsers` and the client-pinned shell is absent, the runner selects the newest preinstalled shell for the current platform and CPU architecture, then passes its exact path to Playwright. It logs that fallback before the build; generic shared caches still fail closed even when `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`, so a developer cache cannot silently bless a stale browser.
 
 When capturing Playwright or `verify:phone-chrome` output through a shell pipe (`cmd 2>&1 | tee …`), enable `set -o pipefail` (or avoid the pipe). Without it, bash reports the pipeline exit from `tee` (`0`) while the log still ends in `N failed` — a measurement artifact that previously looked like a green-when-broken gate (outstanding-issues #120). The Node runners themselves already propagate Playwright’s exit status.
+
+CI may opt into incremental build-cache reuse by setting a validated `PLAYWRIGHT_BUILD_ROOT_ID` and `PLAYWRIGHT_KEEP_BUILD_ROOT=true`. The critical-first job pins `.next-playwright/ci-production`, retains it on its ephemeral runner, and publishes `dist/cache` as a one-day run-scoped workflow artifact (`include-hidden-files: true` because the path is under a dot-directory; `compression-level: 0` because Next already stores the production webpack cache uncompressed); the dependent production shards restore that artifact before building. This deliberately avoids `actions/cache` so an ~804 MB Next webpack cache cannot consume the shared 10 GB budget or evict the Playwright browser cache. Local runs and every caller without both opt-ins retain the unique-root, unconditional-cleanup contract. The artifact never contains Playwright reports, server output, or provider credentials.
 
 Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports. Failed-test classification parses JUnit test cases and uses exact spec/title matches; a job name is never enough to classify a failure as a known flake.
 
@@ -94,7 +106,8 @@ The parser walks back over comma-continued selector lines, so a selector list sp
 **Pixel baselines (`tests/ui-visual-baseline.spec.ts`) — advisory.** Run by
 `playwright.visual.config.ts`, which also still runs the older attach-only
 `ui-visual-artifacts.spec.ts`. Three constraints are deliberate: never `fullPage` (under CI load
-Next.js leaves a hidden duplicate page root in the stream — ledger #093 — so a whole-page capture can
+Next.js can leave a hidden duplicate page root in the stream — ledger #093, mitigated for interactive
+tests via `visibleByTestId` in `tests/playwright-settlement.ts` — so a whole-page capture can still
 contain the layout twice; every target is clipped to a locator), demo mode only (the Playwright
 runner forces `NEXT_PUBLIC_DEMO_MODE` and offline providers, so content is stable between runs), and
 motion off with carets hidden.
@@ -134,7 +147,11 @@ Neither uses secrets or providers.
 
 ## CI topology
 
-PR CI keeps static checks separate from one required full unit run with coverage. UI scope runs a fail-fast `@critical` Chromium job on pull requests, then one required full production Chromium invocation (`test:e2e:pr`) for non-quarantined journeys, plus one advisory invocation for quarantined and mockup journeys. `src/app/api/**` does not set `ui_changed` or `db_changed` — API handlers stay on unit/coverage (and offline RAG when retrieval-scoped). The `PR required` aggregate keeps `if: always()` and distinguishes `cancelled` from `failure` in its messages (stays red; a skipped required check would count as passing). Secret Scan pins Gitleaks to the workflow event base/head SHAs and the checked-out commit, and verifies the linux_x64 release tarball against a pinned SHA-256 before install. The weekly `release-browser-matrix` depends on static/build/UI success, not on the full aggregate, so a blocking scheduled dependency audit cannot skip Firefox/WebKit. Container scope calls the reusable Docker workflow and requires both app and worker image builds through the `pr-required` aggregate. Build, migration, safety/RAG, and release behavior remain independently scoped.
+PR CI uses the same fail-closed classifier as `verify:pr-local`. `static-pr` always proves runtime/install parity, the classifier and verification-plan invariants, and changed-file formatting. Recognised documentation changes add documentation integrity checks; recognised workflow/policy-only changes add action/policy self-tests and `test:ci-workflows`. Executable, test, build/config, dependency, database/container, mixed, or unknown non-document paths set `static_heavy_changed`, retaining lint, typecheck, safety/config/RAG, and the full unit coverage job. Build, migration, Docker, and browser jobs remain separately scoped. A dependency audit blocks on lockfile/npm-config changes and the scheduled full-run sentinel, instead of making a low-value registry request on every PR.
+
+UI scope runs a fail-fast `@critical` Chromium job on pull requests, then one required full production Chromium invocation (`test:e2e:pr`) for non-quarantined journeys, plus one advisory invocation for quarantined and mockup journeys. `src/app/api/**` does not set `ui_changed` or `db_changed` — API handlers stay on unit/coverage (and offline RAG when retrieval-scoped). The `PR required` aggregate keeps `if: always()` and distinguishes `cancelled` from `failure` in its messages (stays red; a skipped required check would count as passing). Secret Scan pins Gitleaks to the workflow event base/head SHAs and the checked-out commit, and verifies the linux_x64 release tarball against a pinned SHA-256 before install. The weekly `release-browser-matrix` depends on static/build/UI success, not on the full aggregate. Container scope calls the reusable Docker workflow and requires both app and worker image builds through the aggregate.
+
+PR body synchronization is skipped unless the checked-out head actually contains `PR_POLICY_BODY.md`. The eval-canary liveness API probe runs once with the daily Ops Digest cadence rather than on every PR. These remove repeated provider-side work without weakening a required result.
 
 Two further jobs are advisory (`continue-on-error`, deliberately outside `pr-required`): `visual-baseline` on UI scope and `lighthouse-budget` on UI-or-build scope. Both upload their evidence on every run, pass or fail, because the artifact is the whole point on a first run — the baselines to adopt and the reports to grade. Promote either to required by adding it to `pr-required` and removing `continue-on-error` in the same edit.
 
@@ -148,5 +165,5 @@ Before opening a UI PR, confirm:
 - **Accessibility** ([design-system §7](./design-system.md)): keyboard operable, visible focus, accessible names on icon controls, live regions for async status, and reduced motion honoured — scripted `scrollTo`/`scrollIntoView` go through `resolveScrollBehavior` (`src/lib/scroll-behavior.ts`), never a hard-coded `behavior: "smooth"`.
 - **Tests.** Add a `.dom.test.tsx` for changed component behaviour (see "Component tests" above) and update the E2E journeys for changed flows.
 - **Unlayered CSS.** If the change adds a class rule outside `@layer` that sets a border, background, colour, shadow or outline, `tests/style-contract-registry.test.ts` will fail until it is registered. Add a rendered-effect contract rather than an exemption where the rule matters visually — see "Visual regression and style contracts".
-- **Verify** ([design-system §9](./design-system.md)): run `npm run verify:cheap`, then `npm run verify:pr-local` before handoff; run `npm run ensure` before browser work and `npm run verify:ui` for UI/routing/styling changes, plus a manual dark-mode + forced-colors spot check on touched surfaces.
+- **Verify** ([design-system §9](./design-system.md)): follow the risk tiers in root `AGENTS.md`. Prove changed component behaviour with the focused DOM test first; run `npm run ensure` before browser work and use the narrowest affected journey. Select one appropriate broad handoff gate when the diff crosses owners, cannot be bounded, or applicable PR/handoff policy requires it; do not routinely stack `verify:cheap`, `verify:pr-local`, and `verify:ui`. Add a manual dark-mode + forced-colors spot check when those rendered states can plausibly change.
 - Architecture and state-ownership conventions: [`docs/frontend-architecture.md`](./frontend-architecture.md).

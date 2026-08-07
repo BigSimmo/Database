@@ -1,20 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { isDocumentViewerOwnedRoute } from "@/components/clinical-dashboard/mobile-composer-reserve";
-import {
-  SecondaryNavigation,
-  type SecondaryNavigationItem,
-  type SecondaryNavigationSectionItem,
-} from "@/components/secondary-navigation";
-import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
+import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
+import { SecondaryNavigation, type SecondaryNavigationSectionItem } from "@/components/secondary-navigation";
+import { type AppModeId } from "@/lib/app-modes";
 import { isInformationPage } from "@/lib/information-pages";
 import {
   activeModeSecondaryNavigationId,
   isModeSecondaryNavigationRoute,
-  modeSecondaryNavigationEntries,
-  modeSecondaryNavigationHref,
+  modeUsesHeaderModeNav,
 } from "@/lib/mode-secondary-navigation";
 
 export type InformationPageSectionDefinition = {
@@ -248,7 +244,6 @@ export function PageSecondaryNavigation({
   modeId,
   pathname,
   hasSubmittedSearch,
-  onSearch,
   /**
    * Bridged query string from GlobalStandaloneSearchShellBody. Must not call
    * useSearchParams here — that reintroduces a nested Suspense boundary under
@@ -256,66 +251,44 @@ export function PageSecondaryNavigation({
    */
   searchParamString = "",
   sticky = true,
-  stickyTop,
 }: {
   modeId: AppModeId;
   pathname: string;
   hasSubmittedSearch: boolean;
-  onSearch: () => void;
   searchParamString?: string;
   sticky?: boolean;
-  stickyTop?: number | string;
 }) {
   const informationDefinitions = informationPageSectionDefinitions(pathname);
   const locallyOwnedInformationNavigation = hasLocalInformationPageNavigation(pathname);
   const activeId = activeModeSecondaryNavigationId(modeId, pathname);
-  const modeLabel = appModeDefinition(modeId).label;
-  const modeAriaLabel = modeLabel.toLowerCase().endsWith("mode") ? modeLabel : `${modeLabel} mode`;
-  const modeItems = useMemo<SecondaryNavigationItem[]>(
-    () =>
-      modeSecondaryNavigationEntries(modeId).map((entry) =>
-        entry.href
-          ? {
-              kind: "route" as const,
-              id: entry.id,
-              label: entry.label,
-              shortLabel: entry.shortLabel,
-              href: modeSecondaryNavigationHref({
-                modeId,
-                itemId: entry.id,
-                href: entry.href,
-                currentSearchParams: new URLSearchParams(searchParamString),
-              }),
-              current: entry.id === activeId,
-            }
-          : {
-              kind: "action" as const,
-              id: entry.id,
-              label: entry.label,
-              shortLabel: entry.shortLabel,
-              onSelect: onSearch,
-              current: entry.id === activeId,
-            },
-      ),
-    [activeId, modeId, onSearch, searchParamString],
-  );
 
   // Therapy Compass owns both its workflow bindings and its dynamic detail
   // sections inside TcProvider; rendering the shell registry as well would
   // duplicate the bar and discard its URL/state-aware action bindings.
   if (pathname === "/therapy-compass" || pathname.startsWith("/therapy-compass/")) return null;
   if (locallyOwnedInformationNavigation) return null;
+  // ORDER IS LOAD-BEARING: this must stay above the mode branch. `services`,
+  // `forms`, `documents` and `prescribing` register no destinations at all yet
+  // still own real "On this page" section navs. Hoisting the mode guard below
+  // up to here would silently delete navigation from every `/services/*`,
+  // `/forms/*`, `/medications/*` and `/documents/<id>` record.
   if (informationDefinitions.length) {
     return <AvailableInformationPageNavigation definitions={informationDefinitions} sticky={sticky} />;
   }
+  // A mode with no registered destinations gets no bar and no landmark. The
+  // seven that used to register a lone `action` entry each rendered one
+  // <button> that focused a composer already on screen; it was deleted rather
+  // than ported, so there is nothing left to draw for them.
+  if (!modeUsesHeaderModeNav(modeId)) return null;
   if (!isModeSecondaryNavigationRoute({ modeId, pathname, hasSubmittedSearch })) return null;
-  return (
-    <SecondaryNavigation
-      ariaLabel={modeAriaLabel}
-      items={modeItems}
-      activeId={activeId}
-      sticky={sticky}
-      stickyTop={stickyTop}
-    />
-  );
+  // An adopted mode's bar portals into the header's single addon slot, which
+  // holds ONE page-owned header. What keeps it to one is the
+  // `locallyOwnedInformationNavigation` return above: every route that portals
+  // its own header (`DocumentViewer`, `differential-detail-page`) is also
+  // locally-owned information navigation, so it never reaches here. That is a
+  // coincidence of two separate lists, not a stated rule —
+  // `isHeaderAddonSlotOwnedRoute` names the claimants and
+  // `tests/mode-nav-addon-slot.dom.test.tsx` fails if a future one falls
+  // outside that cover, which is when this needs its own guard.
+  return <RegistryModeNav modeId={modeId} activeId={activeId} searchParamString={searchParamString} />;
 }

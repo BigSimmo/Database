@@ -11,12 +11,19 @@ if (!loadEnvConfig) throw new Error("Unable to load @next/env loadEnvConfig.");
 loadEnvConfig(process.cwd());
 
 import { safeErrorLogDetails } from "../src/lib/privacy";
+import { captureWorkerException, flushWorkerErrorTracking, initWorkerErrorTracking } from "./observability";
+
+// Initialize before ./main is imported so module-level failures there are
+// reported too. Inert without SENTRY_DSN (docs/error-tracking.md).
+initWorkerErrorTracking();
 
 async function startWorker() {
   await import("./main");
 }
 
-startWorker().catch((error) => {
+startWorker().catch(async (error) => {
   console.error("Worker bootstrap failed", safeErrorLogDetails(error));
+  captureWorkerException(error, "fatal");
+  await flushWorkerErrorTracking();
   process.exit(1);
 });

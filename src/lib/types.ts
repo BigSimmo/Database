@@ -110,7 +110,7 @@ export type ClinicalSourceMetadata = {
   indexed_at: string | null;
   uploaded_by: string | null;
   document_status: "current" | "review_due" | "outdated" | "unknown";
-  clinical_validation_status: "unverified" | "locally_reviewed" | "approved";
+  clinical_validation_status: "unverified" | "locally_reviewed" | "approved" | "unknown";
   clinical_validation_evidence?: Record<string, unknown> | null;
   extraction_quality: "good" | "partial" | "poor" | "unknown";
 };
@@ -124,12 +124,35 @@ export type ClinicalQueryMode =
   | "required_documentation"
   | "compare_guidance";
 
+/**
+ * Retrieval-layer health for one search.
+ *
+ * A retrieval RPC that errors degrades to zero candidates behind a 200 response
+ * (`searchTextChunkCandidates` returns `[]` and only records `hybrid_rpc_errors`
+ * in telemetry), so a broken index and a genuinely absent topic are
+ * indistinguishable to the reader. In a clinical corpus that is the dangerous
+ * direction to fail: "no guideline covers this" must never be inferred from a
+ * search that never ran. When this is set, an empty result set is not evidence
+ * of absence and must not be reported as one.
+ */
+export type SearchRetrievalHealth = {
+  degraded: true;
+  /** Machine-readable and query-free (RPC names only), so it is safe to log. */
+  reason: string;
+};
+
 export type SearchScopeSummary = {
   summary: string;
   activeFilterCount: number;
   matchedDocumentCount: number | null;
   warnings: string[];
   queryMode?: ClinicalQueryMode;
+  /**
+   * Carried on the scope summary because that is the object already threaded
+   * intact from `/api/search` to the results panel, and it is already the
+   * "why does this result set look like this" channel (see `warnings`).
+   */
+  retrieval?: SearchRetrievalHealth | null;
 };
 
 export const SOURCE_GOVERNANCE_CODES = {
@@ -751,6 +774,8 @@ export type RelatedDocument = {
   best_chunk_ids: string[];
   image_count: number;
   table_count?: number;
+  /** Non-searchable first-page cover image id for search-card thumbnails. */
+  cover_image_id?: string | null;
   match_reason: string;
   score: number;
 };
@@ -765,6 +790,8 @@ export type DocumentMatch = {
   bestChunkIds: string[];
   imageCount: number;
   tableCount: number;
+  /** Non-searchable first-page cover image id for search-card thumbnails. */
+  coverImageId?: string | null;
   matchReason: string;
   score: number;
   relevance?: SourceEvidenceRelevance;

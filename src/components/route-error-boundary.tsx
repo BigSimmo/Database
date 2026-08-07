@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { TriangleAlert, RefreshCw, ClipboardCopy, Check } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
-import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
-import { redactLogValue } from "@/lib/privacy";
+import { useCopyDiagnostics } from "@/lib/use-copy-diagnostics";
 
 export type RouteErrorBoundaryProps = {
   /** The error thrown by the segment, forwarded by Next.js. */
@@ -41,43 +40,12 @@ export function RouteErrorBoundary({
   minHeightClass = "min-h-[50vh]",
 }: RouteErrorBoundaryProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const copiedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [copyFailed, setCopyFailed] = useState(false);
+  const { copied, copyFailed, copyDiagnostics } = useCopyDiagnostics(error);
 
   useEffect(() => {
     console.error(logLabel, error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error, logLabel]);
-
-  useEffect(() => {
-    return () => {
-      if (copiedResetTimerRef.current) clearTimeout(copiedResetTimerRef.current);
-    };
-  }, []);
-
-  const handleCopyDiagnostics = () => {
-    const diagnosticPayload = {
-      name: error.name,
-      message: redactLogValue(error.message),
-      digest: error.digest,
-      // Redact so clinical ?q= query text and secrets never leave via clipboard.
-      url: typeof window !== "undefined" ? redactLogValue(window.location.href) : "unknown",
-      userAgent: typeof window !== "undefined" ? redactLogValue(window.navigator.userAgent) : "unknown",
-      timestamp: new Date().toISOString(),
-    };
-    void copyTextToClipboard(JSON.stringify(diagnosticPayload, null, 2))
-      .then(() => {
-        setCopyFailed(false);
-        setCopied(true);
-        if (copiedResetTimerRef.current) clearTimeout(copiedResetTimerRef.current);
-        copiedResetTimerRef.current = setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(() => {
-        setCopied(false);
-        setCopyFailed(true);
-      });
-  };
 
   return (
     <div
@@ -131,7 +99,7 @@ export function RouteErrorBoundary({
 
           <button
             type="button"
-            onClick={handleCopyDiagnostics}
+            onClick={copyDiagnostics}
             className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             {copied ? (

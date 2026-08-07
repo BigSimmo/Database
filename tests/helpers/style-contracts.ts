@@ -98,9 +98,9 @@ export function parseUnlayeredVisualClasses(css: string): UnlayeredVisualClass[]
     // Any line that opens a rule block, at-rules excluded. Deliberately NOT
     // "starts with a class": a selector list is often split across lines, and an
     // earlier line can carry a class the opening line does not
-    // (`.medication-also-matches,` above `.medication-patient-strip {`). Keying on
-    // the opening line alone silently left those classes unpoliced, so the gate
-    // could pass with an unregistered unlayered class.
+    // (`.edge-glass-header-backdrop,` above `.edge-glass-header-backdrop::before,`
+    // … `{`). Keying on the opening line alone silently left those classes
+    // unpoliced, so the gate could pass with an unregistered unlayered class.
     if (!line.trimEnd().endsWith("{") || /^\s*@/.test(line)) continue;
     if (insideLayer(index)) continue;
 
@@ -192,20 +192,32 @@ export type StyleEffectContract = {
  */
 export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
   {
-    className: "search-band",
-    description: "search band accent rail is a live border",
+    className: "search-band-lead",
+    description: "search band accent lead rule is a live border",
     route: "/services?q=CMHT&run=1",
-    selector: '[data-testid="search-query-ribbon"]:visible',
-    // The exact regression: `border-top: 2px solid var(--clinical-accent)` painted
-    // nothing while the rule was layered.
-    computed: { borderTopWidth: "2px", borderTopStyle: "solid" },
-    nonInert: ["borderTopColor"],
-    colorToken: { property: "borderTopColor", token: "--clinical-accent" },
-    distinct: [
-      ["borderTopColor", "borderRightColor"],
-      ["borderTopWidth", "borderRightWidth"],
-    ],
-    forcedColors: { borderTopWidth: "3px" },
+    // The mark moved inside the padding when the band collapsed to one line: a
+    // 2px line across the full width read as a divider between the composer and
+    // the results rather than as the band's own accent.
+    // Scoped to the accent tone. `2px solid` holds only while the band is
+    // healthy; if the live search on this route degrades to `partial`, the mark
+    // renders `data-tone="warning"` and `6px double`, and the contract would go
+    // red for a reason that has nothing to do with the cascade regression it
+    // exists to catch.
+    selector: '[data-testid="search-query-ribbon"]:visible .search-band-lead[data-tone="accent"]',
+    // The exact regression, unchanged in kind: the accent is an unlayered rule
+    // that has to beat Tailwind's utilities layer, and when it loses it degrades
+    // to something that still passes every class-presence assertion — before, a
+    // neutral 1px border; now, a zero-width box. Assert computed style.
+    computed: { borderLeftWidth: "2px", borderLeftStyle: "solid" },
+    nonInert: ["borderLeftColor"],
+    colorToken: { property: "borderLeftColor", token: "--clinical-accent" },
+    // Cross-element "accent ≠ card neutral border" lives in
+    // `ui-accessibility.spec.ts`. Same-element distinct pairs against this
+    // mark's own zero-width top border only proved it has no top border.
+    // Under forced colors the mark survives as stroke count, not hue:
+    // --clinical-accent resolves to LinkText and --warning is not remapped at
+    // all, so a healthy search is one stroke and a degraded one is two.
+    forcedColors: { borderLeftWidth: "2px", borderLeftStyle: "solid" },
     // NOTE: an attribute-variant assertion (`[data-status="error"]` re-colours the
     // rail via `--warning`) was written and removed again. It failed in CI and then
     // reproduced locally, so it is NOT a timing race — the computed border colour
@@ -214,6 +226,39 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
     // the same value, and neither was diagnosed. Shipping the assertion would have
     // put an unexplained red in the required gate; shipping it silently weakened
     // would have been worse. Recorded as a follow-up instead.
+  },
+  {
+    className: "mode-nav__rule",
+    description: "mode nav overflow rule marks the page held in More",
+    // Brief Intervention is the seventh of Therapy's seven destinations, so it
+    // never gets a slot of its own at any band and More carries its rule at
+    // every width — including the default desktop viewport this spec runs at.
+    route: "/therapy-compass/acceptance-and-commitment-therapy-act/brief",
+    // Scoped through the collapse host: Next streams the server-rendered copy
+    // while the client tree hydrates, so a bare testid can resolve to two navs.
+    selector: '[data-testid="universal-header-collapse"] [data-testid="mode-nav"] .mode-nav__more .mode-nav__rule',
+    // Exactly the regression this registry exists for. SlotInk renders the rule
+    // with Tailwind's `bg-transparent`, and the unlayered rule here is what
+    // paints it. Move that rule into a layer and it loses to the utility: the
+    // element still has every class, still has its 2px box, and marks nothing —
+    // so on a phone five of Therapy's seven pages would silently stop saying
+    // where you are.
+    computed: { height: "2px" },
+    nonInert: ["backgroundColor"],
+    colorToken: { property: "backgroundColor", token: "--clinical-accent" },
+  },
+  {
+    className: "mode-nav__ink",
+    description: "mode nav overflow ink takes heading weight when it holds the page",
+    route: "/therapy-compass/acceptance-and-commitment-therapy-act/brief",
+    selector: '[data-testid="universal-header-collapse"] [data-testid="mode-nav"] .mode-nav__more .mode-nav__ink',
+    // The other half of the mark, and a genuine cascade fight: SlotInk sets
+    // `text-[color:var(--text-muted)]` for the off state, and this unlayered
+    // rule has to beat it. Losing leaves the ink muted while the rule below it
+    // is accent — a half-marked control that looks like a rendering bug.
+    computed: {},
+    nonInert: ["color"],
+    colorToken: { property: "color", token: "--text-heading" },
   },
 ];
 
@@ -273,12 +318,24 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Mode-specific surfaces.
   "differentials-mobile-compare-fab__button": "differentials compare FAB — no effect contract yet (#094)",
   "differentials-mobile-compare-fab__button--empty": "differentials compare FAB — no effect contract yet (#094)",
-  "medication-also-matches":
-    "prescribing also-matches row — the class Codex named as unpoliced; no effect contract yet (#094)",
   "medication-mobile-result": "prescribing phone results — no effect contract yet (#094)",
   "medication-mobile-results": "prescribing phone results — no effect contract yet (#094)",
   "medication-patient-strip": "prescribing patient strip — no effect contract yet (#094)",
   "pwa-install-sheet": "install sheet — presence covered by ui-pwa, effect not contracted",
   "search-band-count": "count weight/colour; the zero-result state needs a deterministic empty fixture first",
   "search-band-rule": "gradient divider — forced-colors fallback covered by ui-accessibility",
+
+  // Selector scope, not an effect. `.mode-nav__more` carries no visual property
+  // of its own — it is the ancestor that scopes the overflow slot's rules — and
+  // both effects it scopes are contracted above on `mode-nav__rule` and
+  // `mode-nav__ink`, at the same route and band.
+  "mode-nav__more": "scoping ancestor only; the rules it scopes are contracted on mode-nav__rule and mode-nav__ink",
+
+  // Therapy Compass residuals moved out of the deleted parallel stylesheet.
+  // Phone/print behaviour is pinned by therapy-compass-responsive-contract; no
+  // browser computed-effect contract yet (#094 / #183).
+  "therapy-compare-grid":
+    "CSS-var comparison columns — column count is set inline via --tc-compare-columns; layout covered by therapy-compass-responsive-contract",
+  "therapy-pathway-list":
+    "phone border swap (right→bottom) under max-width 640px — covered by therapy-compass-responsive-contract",
 };

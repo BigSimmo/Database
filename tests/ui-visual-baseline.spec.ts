@@ -47,6 +47,8 @@ type BaselineTarget = {
   /** Clipped region. Must resolve to exactly one visible element. */
   readonly selector: string;
   readonly viewport: { readonly width: number; readonly height: number };
+  /** Put an interaction-dependent surface into one explicit state before capture. */
+  readonly prepare?: (page: Page) => Promise<void>;
   /**
    * Regions to paint over before comparing. Only for genuinely non-deterministic
    * content — a mask is a hole in the gate, so prefer making the fixture stable.
@@ -84,6 +86,27 @@ const targets: readonly BaselineTarget[] = [
     route: documentPath,
     selector: "#main-content",
     viewport: desktop,
+    prepare: async (page) => {
+      const sectionIndex = page.getByTestId("document-section-index");
+      const sourceText = sectionIndex.getByRole("button", { name: /Indexed source text/ });
+      await expect(sourceText).toBeVisible();
+      await sourceText.click();
+      await expect(sourceText).toHaveAttribute("aria-current", "true");
+
+      const pdfViewport = page.locator('[data-testid="pdf-canvas-scroll"]:visible').first();
+      const renderedPage = pdfViewport.locator('canvas[aria-label$="page 1"]');
+      await expect(renderedPage).toBeVisible();
+      await expect(pdfViewport.getByText(/Loading PDF|Rendering page/)).toHaveCount(0);
+      await expect
+        .poll(() =>
+          renderedPage.evaluate((node) => {
+            if (!(node instanceof HTMLCanvasElement)) return false;
+            const canvas = node as HTMLCanvasElement;
+            return canvas.width > 0 && canvas.height > 0 && canvas.style.width !== "" && canvas.style.height !== "";
+          }),
+        )
+        .toBe(true);
+    },
   },
   {
     name: "therapy-compass-home",
@@ -108,6 +131,7 @@ async function settle(page: Page, target: BaselineTarget): Promise<Locator> {
   // The promise is mapped to undefined because it resolves to a FontFaceSet, which
   // Playwright cannot serialise back out of the page.
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  await target.prepare?.(page);
   return region;
 }
 

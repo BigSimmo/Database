@@ -4,7 +4,28 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 const isWindows = process.platform === "win32";
 // Live Supabase audits (check:locality-metadata) stay out of this unconditional gate.
-const baseScripts = ["check:runtime", "check:installed-lock-parity", "format:changed", "lint", "typecheck", "test"];
+const commonScripts = ["check:runtime", "check:installed-lock-parity", "format:changed"];
+const docsScripts = [
+  "sitemap:check",
+  "docs:check-index",
+  "docs:check-inventory",
+  "docs:check-scripts",
+  "docs:check-links",
+  "check:branch-review-ledger",
+  "check:outstanding-issues",
+];
+const workflowScripts = [
+  "check:github-actions",
+  "check:ci-scope",
+  "check:gitleaks-pinned",
+  "check:ci-triage",
+  "check:pr-policy",
+  "check:gate-manifest",
+  "check:pr-mergeability",
+  "check:verification-plan",
+  "test:ci-workflows",
+];
+const staticHeavyScripts = ["lint", "typecheck", "test"];
 
 function parseArgs(args) {
   const options = { dryRun: false, extended: false, files: undefined };
@@ -65,14 +86,58 @@ function readScope(files) {
 }
 
 function selectedScripts(scope, extended) {
-  const scripts = [...baseScripts];
+  const scripts = [];
+  const add = (...items) => {
+    for (const item of items) if (!scripts.includes(item)) scripts.push(item);
+  };
+
+  add(...commonScripts);
+  if (scope.docs_changed) add(...docsScripts);
+  if (scope.workflow_changed) add(...workflowScripts);
+  if (scope.codex_autofix_changed) add("check:codex-autofix-workflow");
+  if (scope.static_heavy_changed) add(...staticHeavyScripts);
   if (scope.build_changed) scripts.push("build");
-  // Fixtures for every non-docs change; full offline RAG contracts when
-  // retrieval/answer surfaces are in scope (eval:rag:offline includes fixtures).
-  if (scope.rag_eval_changed) scripts.push("eval:rag:offline");
-  else if (!scope.docs_only) scripts.push("check:rag:fixtures");
-  if (extended && scope.ui_changed) scripts.push("verify:ui");
+  // Full offline RAG contracts remain mandatory for retrieval/answer surfaces.
+  // Other executable changes retain the cheap fixture-integrity guard, while
+  // recognised docs and workflow-only changes avoid an unrelated RAG scan.
+  if (scope.rag_eval_changed) add("eval:rag:offline");
+  else if (scope.static_heavy_changed) add("check:rag:fixtures");
+  if (extended && scope.ui_changed) add("verify:ui");
   return scripts;
+}
+
+function assertPlan(name, scope, expected, extended = false) {
+  const actual = selectedScripts(scope, extended);
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`${name}: expected ${expected.join(", ")}; received ${actual.join(", ")}`);
+  }
+}
+
+function selfTest() {
+  assertPlan("docs-only", { docs_changed: true }, [...commonScripts, ...docsScripts]);
+  assertPlan("workflow-only", { workflow_changed: true }, [...commonScripts, ...workflowScripts]);
+  assertPlan("unknown-or-product-change-fails-heavy", { static_heavy_changed: true }, [
+    ...commonScripts,
+    ...staticHeavyScripts,
+    "check:rag:fixtures",
+  ]);
+  assertPlan("rag-change", { static_heavy_changed: true, rag_eval_changed: true }, [
+    ...commonScripts,
+    ...staticHeavyScripts,
+    "eval:rag:offline",
+  ]);
+  assertPlan(
+    "ui-extended",
+    { static_heavy_changed: true, ui_changed: true },
+    [...commonScripts, ...staticHeavyScripts, "check:rag:fixtures", "verify:ui"],
+    true,
+  );
+  console.log("PR-local verification plan self-test passed.");
+}
+
+if (process.argv.includes("--self-test")) {
+  selfTest();
+  process.exit(0);
 }
 
 const options = parseArgs(process.argv.slice(2));
@@ -83,8 +148,10 @@ console.log(`Changed files: ${scope.files.length > 0 ? scope.files.join(", ") : 
 if (options.dryRun) {
   console.log("\nPR-local verification plan (dry run):");
   for (const script of scripts) console.log(`- npm run ${script}`);
+  if (!scope.static_heavy_changed)
+    console.log("- lint, typecheck, full unit suite and RAG fixture scan skipped: recognised low-risk scope");
   if (!scope.build_changed) console.log("- build skipped: no build-affecting changes detected");
-  if (scope.docs_only) console.log("- offline RAG checks skipped: docs-only change");
+  if (!scope.static_heavy_changed) console.log("- offline RAG checks skipped: no executable product scope");
   else if (!scope.rag_eval_changed)
     console.log("- offline RAG production contracts skipped: no RAG-scoped changes (fixtures still selected)");
   if (options.extended && !scope.ui_changed)

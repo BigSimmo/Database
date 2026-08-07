@@ -22,6 +22,7 @@ import {
 import { useMemo, useState, useDeferredValue } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
   MobileResultFilterControl,
@@ -29,9 +30,7 @@ import {
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
-import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
@@ -55,15 +54,9 @@ function text(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
 }
 
-function chipTone(tone: ServiceStatusChip["tone"] | undefined | null) {
-  if (tone === "danger")
-    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
-  if (tone === "info") return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
-  if (tone === "warning")
-    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-  if (tone === "success")
-    return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
-  return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
+function chipTone(tone: ServiceStatusChip["tone"] | undefined | null): ChipStatusTone {
+  if (tone === "danger" || tone === "info" || tone === "warning" || tone === "success") return tone;
+  return "neutral";
 }
 
 function serviceChipLabel(chip: ServiceStatusChip) {
@@ -89,7 +82,7 @@ function Stepper() {
               "grid h-9 w-9 place-items-center rounded-full border text-sm font-bold",
               index === 0
                 ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-[color:var(--text-soft)]",
+                : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
             )}
           >
             {number}
@@ -103,7 +96,7 @@ function Stepper() {
             >
               {title}
             </span>
-            <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">{body}</span>
+            <span className="block truncate text-2xs font-semibold text-[color:var(--text-muted)]">{body}</span>
           </span>
         </div>
       ))}
@@ -113,15 +106,9 @@ function Stepper() {
 
 function Chip({ chip }: { chip: ServiceStatusChip }) {
   return (
-    <span
-      className={cn(
-        "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-2xs font-bold",
-        chipTone(chip.tone),
-      )}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+    <DesignChip size="compact" appearance={{ kind: "status", tone: chipTone(chip.tone) }} dot>
       {serviceChipLabel(chip)}
-    </span>
+    </DesignChip>
   );
 }
 
@@ -147,9 +134,9 @@ function Metric({
     >
       <Icon className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
       <span className="min-w-0">
-        <span className="block text-2xs font-semibold leading-4 text-[color:var(--text-soft)]">{label}</span>
+        <span className="block text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">{label}</span>
         <span className="block truncate text-sm font-bold leading-5 text-[color:var(--text-heading)]">{value}</span>
-        <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-soft)]">{detail}</span>
+        <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)]">{detail}</span>
       </span>
     </div>
   );
@@ -371,11 +358,11 @@ function RightRail({
                 <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
                   {service.title}
                 </span>
-                <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                <span className="block truncate text-2xs font-semibold text-[color:var(--text-muted)]">
                   {text(service.cost, "Cost pending")} - {text(service.source?.status, "Source pending")}
                 </span>
               </span>
-              <X className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+              <X className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
             </button>
           ))}
         </div>
@@ -383,7 +370,7 @@ function RightRail({
       <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Checklist</h3>
-          <span className="text-xs font-semibold text-[color:var(--text-soft)]">Edit via result controls</span>
+          <span className="text-xs font-semibold text-[color:var(--text-muted)]">Edit via result controls</span>
         </div>
         <div className="mt-4 grid gap-3 text-sm font-semibold text-[color:var(--text-muted)]">
           {rows.map(([label, count, Icon, color]) => (
@@ -453,7 +440,7 @@ function RightRail({
             </>
           ) : null}
         </div>
-        <div className="mt-3 grid grid-cols-4 text-center text-xs font-semibold text-[color:var(--text-soft)]">
+        <div className="mt-3 grid grid-cols-4 text-center text-xs font-semibold text-[color:var(--text-muted)]">
           <span>
             High
             <br />
@@ -486,7 +473,7 @@ function RightRail({
               </div>
             ))}
             {matches.length > 8 ? (
-              <p className="text-xs font-medium text-[color:var(--text-soft)]">+{matches.length - 8} more results</p>
+              <p className="text-xs font-medium text-[color:var(--text-muted)]">+{matches.length - 8} more results</p>
             ) : null}
           </div>
         ) : null}
@@ -534,7 +521,7 @@ function RightRail({
                   ["Confidence", text(service.verification?.confidence, "Unknown")],
                 ].map(([label, value]) => (
                   <div key={label} className="grid grid-cols-[5rem_minmax(0,1fr)] gap-2">
-                    <dt className="font-semibold text-[color:var(--text-soft)]">{label}</dt>
+                    <dt className="font-semibold text-[color:var(--text-muted)]">{label}</dt>
                     <dd className="font-medium text-[color:var(--text-muted)]">{value}</dd>
                   </div>
                 ))}
@@ -551,7 +538,6 @@ export function ServicesNavigatorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sortValue, setSortValue] = useResultSort();
-  const command = useSearchCommand();
   const urlQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const initialQuery = urlQuery || defaultQuery;
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
@@ -559,14 +545,12 @@ export function ServicesNavigatorPage() {
   const deferredQuery = useDeferredValue(query);
   const registry = useRegistryRecords("service");
   const registryLoading = registry.status === "loading";
+  const registryReady = registry.status === "ready" || registry.status === "refetching";
   // Demo mode is served by the registry API as status "ready" with fixture
   // records, so unauthorized/error must not silently fall back to fixtures —
   // the home and detail pages surface the same conditions as notices.
   const registryBlocked = registry.status === "unauthorized" || registry.status === "error";
-  const searchableRecords = useMemo(
-    () => (registry.status === "ready" ? registry.records : []),
-    [registry.records, registry.status],
-  );
+  const searchableRecords = useMemo(() => (registryReady ? registry.records : []), [registry.records, registryReady]);
   const matches = useMemo(() => {
     // Cleared live query should restore the full catalogue immediately, even if
     // deferredQuery still holds the previous term for a frame.
@@ -577,22 +561,17 @@ export function ServicesNavigatorPage() {
     // never dump the full catalogue as if the box were cleared.
     return [];
   }, [deferredQuery, query, searchableRecords]);
-  const scopedMatches = useMemo(() => {
-    const scopes = command?.commandScopes ?? [];
-    if (!scopes.length) return matches;
-    return matches.filter((service) => recordMatchesCommandScopes(service, scopes, "services"));
-  }, [command?.commandScopes, matches]);
   const displayedMatches = useMemo(
-    () => sortResultItems(scopedMatches, sortValue, (service) => service.title),
-    [scopedMatches, sortValue],
+    () => sortResultItems(matches, sortValue, (service) => service.title),
+    [matches, sortValue],
   );
   const relevanceRankMap = useMemo(() => {
     const map = new Map<string, number>();
-    scopedMatches.forEach((service, index) => {
+    matches.forEach((service, index) => {
       map.set(service.slug, index + 1);
     });
     return map;
-  }, [scopedMatches]);
+  }, [matches]);
   const [selectedSlugs, setSelectedSlugs] = useState<string[] | null>(null);
   const effectiveSelectedSlugs = selectedSlugs ?? searchableRecords.slice(0, 2).map((service) => service.slug);
   const selected = searchableRecords.filter((service) => effectiveSelectedSlugs.includes(service.slug));
@@ -642,7 +621,9 @@ export function ServicesNavigatorPage() {
                   : "error"
                 : registryLoading
                   ? "loading"
-                  : "ready"
+                  : registry.status === "refetching"
+                    ? "refetching"
+                    : "ready"
             }
             faultTitle={registry.status === "unauthorized" ? "Session expired" : "Could not load services"}
             faultBody={
@@ -683,8 +664,8 @@ export function ServicesNavigatorPage() {
             }
             filterControls={
               <div className="flex min-w-0 items-center gap-2">
-                <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)] sm:inline-flex">
-                  <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)] sm:inline-flex">
+                  <SlidersHorizontal className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
                   Quick filters
                 </span>
                 <div className="polished-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
@@ -737,7 +718,6 @@ export function ServicesNavigatorPage() {
         <SearchResultsEmptyState
           modeId="services"
           query={query}
-          onClearScopes={command?.onClearScopes}
           onTryExample={(example) => applyServiceQuery(example)}
         />
       ) : (
@@ -750,7 +730,7 @@ export function ServicesNavigatorPage() {
                   <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-2xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--clinical-accent)]">
+                  <p className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
                     Referral matches
                   </p>
                   <h1 className="mt-0.5 text-2xl-minus font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">

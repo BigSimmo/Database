@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -232,12 +233,18 @@ test.describe("Clinical KB accessibility coverage", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await mockMinimalDashboardApi(page);
 
+    // New chat lives on both the collapsed rail and the expanded panel. With
+    // collapsed-by-default the expanded panel is unmounted, so scope to the
+    // rail rather than relying on .first() (same hazard the forced-colors
+    // journey below guards against).
+    const railNewChat = page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "New chat" });
+
     // Reduced motion → every scripted scroll must be an instant "auto" jump.
     await page.emulateMedia({ reducedMotion: "reduce" });
     await gotoApp(page);
     await expectDashboardUsable(page);
     await resetBehaviours();
-    await page.getByRole("button", { name: "New chat" }).first().click();
+    await railNewChat.click();
     await expect.poll(readBehaviours).not.toHaveLength(0);
     const reduced = await readBehaviours();
     expect(reduced, "reduced motion must not animate scripted scrolls").not.toContain("smooth");
@@ -246,7 +253,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     // No preference → the same action animates smoothly.
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await resetBehaviours();
-    await page.getByRole("button", { name: "New chat" }).first().click();
+    await railNewChat.click();
     await expect.poll(readBehaviours).not.toHaveLength(0);
     expect(await readBehaviours(), "no-preference should animate scripted scrolls").toContain("smooth");
   });
@@ -373,10 +380,14 @@ test.describe("Clinical KB accessibility coverage", () => {
     await page.emulateMedia({ forcedColors: "active" });
     await page.setViewportSize({ width: 1440, height: 1000 });
     await mockMinimalDashboardApi(page);
+    // Target the expanded sidebar's solid --command "New chat" button. With the
+    // collapsed-by-default rail, getByRole("New chat").first() would hit the
+    // icon-rail control (text-muted), not the solid label this regression guards.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "0"));
     await gotoApp(page);
     await expectDashboardUsable(page);
 
-    const newChat = page.getByRole("button", { name: "New chat" }).first();
+    const newChat = page.locator("#clinical-tools-sidebar").getByRole("button", { name: "New chat" });
     await expect(newChat).toBeVisible();
     const { canvas, buttonLabelColor, tokenColors } = await newChat.evaluate((button) => {
       const probe = document.createElement("span");
@@ -459,7 +470,7 @@ test.describe("Clinical KB accessibility coverage", () => {
       await expect(differentialSubmit).toBeEnabled({ timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
     await differentialSubmit.click();
-    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
 
     const filterSelect = page.getByTestId("differential-result-type-select");
     await expect(filterSelect).toBeVisible();
@@ -535,38 +546,77 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(therapyRibbon.getByRole("heading", { name: "All", level: 1 })).toBeVisible({ timeout: 60_000 });
     await expect(therapyRibbon.getByRole("group", { name: "Filter therapy results" })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Search therapies" })).toHaveCount(0);
-    const therapyTopics = therapyRibbon.getByTestId("therapy-topic-filter-select");
-    const therapyAvailability = therapyRibbon.getByTestId("therapy-availability-filter-select");
-    await expect(therapyTopics).toBeVisible();
-    await expect(therapyTopics).toHaveAccessibleName("Add or remove a therapy topic filter");
-    await expect(therapyAvailability).toBeVisible();
-    await expect(therapyAvailability).toHaveAccessibleName("Change therapy availability filters");
+    // Topics and availability used to be two native `<select>`s faking
+    // multi-select: `value` pinned to "", a literal "✓ " prefix in option text,
+    // and the placeholder row doing the reporting ("1 topics selected"). A
+    // listbox cannot express "three of these are on", so assistive technology
+    // was told the opposite of what the visible text said. Both are now
+    // `aria-pressed` toggles inside a dialog, matching the wide viewport.
+    const therapyFilterTrigger = therapyRibbon.getByTestId("therapy-filter-trigger");
+    await expect(therapyFilterTrigger).toBeVisible();
+    await expect(therapyFilterTrigger).toHaveAccessibleName(/Filter/);
+    await expect(therapyFilterTrigger).toHaveAttribute("aria-haspopup", "dialog");
 
-    await therapyTopics.focus();
-    const topicsFocus = await therapyTopics.evaluate((element) => {
+    await therapyFilterTrigger.focus();
+    const triggerFocus = await therapyFilterTrigger.evaluate((element) => {
       const style = getComputedStyle(element);
       return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
     });
-    expect(topicsFocus.outlineStyle).not.toBe("none");
-    expect(topicsFocus.outlineWidth).toBeGreaterThanOrEqual(2);
+    expect(triggerFocus.outlineStyle).not.toBe("none");
+    expect(triggerFocus.outlineWidth).toBeGreaterThanOrEqual(2);
 
-    await therapyTopics.selectOption("CBT");
-    await expect(therapyTopics.locator('option[value=""]')).toHaveText("1 topics selected");
-    await therapyAvailability.selectOption("reviewed");
-    await expect(therapyAvailability.locator('option[value=""]')).toHaveText("1 more selected");
+    const triggerSize = await therapyFilterTrigger.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return { width: bounds.width, height: bounds.height };
+    });
+    // 44, not 48. This trigger sits in the ribbon's utility row, which is
+    // `min-h-tap` (44px) throughout — raising only this control would leave the
+    // row visibly ragged. (`ResultSortControl` set that rhythm before it became
+    // `sm`-and-up; the row still holds it.) The repo's `min-h-12` rule
+    // exists to stop generic a11y advice pulling production down to `min-h-11`
+    // (a known `ui-smoke` flake), not to override a page's own row rhythm; the
+    // sheet's own toggles, which have the room, are `min-h-12`.
+    expect(triggerSize.width).toBeGreaterThanOrEqual(44);
+    expect(triggerSize.height).toBeGreaterThanOrEqual(44);
 
-    for (const control of [therapyTopics, therapyAvailability]) {
-      const controlSize = await control.evaluate((element) => {
-        const bounds = element.getBoundingClientRect();
-        return { width: bounds.width, height: bounds.height };
-      });
-      expect(controlSize.width).toBeGreaterThanOrEqual(44);
-      expect(controlSize.height).toBeGreaterThanOrEqual(44);
-    }
+    await therapyFilterTrigger.click();
+    const therapyFilterPanel = page.getByTestId("therapy-filter-panel");
+    await expect(therapyFilterPanel).toBeVisible();
+    await expect(therapyFilterTrigger).toHaveAttribute("aria-expanded", "true");
+    const therapyPanelId = await therapyFilterPanel.getAttribute("id");
+    expect(therapyPanelId).toBeTruthy();
+    await expect(therapyFilterTrigger).toHaveAttribute("aria-controls", therapyPanelId!);
 
-    await therapyAvailability.selectOption("clear");
-    await expect(therapyTopics.locator('option[value=""]')).toHaveText("All topics");
-    await expect(therapyAvailability.locator('option[value=""]')).toHaveText("Any availability");
+    // The state the old select could not express: selection is on the control
+    // itself, and turning one on leaves the others alone.
+    const cbtToggle = therapyFilterPanel.getByRole("button", { name: "CBT" });
+    const reviewedToggle = therapyFilterPanel.getByRole("button", { name: "Reviewed only" });
+    await expect(cbtToggle).toHaveAttribute("aria-pressed", "false");
+    await cbtToggle.click();
+    await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
+    await reviewedToggle.click();
+    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
+
+    await therapyFilterPanel.getByTestId("therapy-filter-clear").click();
+    await expect(cbtToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "false");
+
+    await therapyFilterPanel.getByTestId("therapy-filter-done").click();
+    await expect(therapyFilterPanel).toHaveCount(0);
+
+    // End-to-end guard the component tests cannot give: it is `SearchScreen`
+    // that decides what the trigger counts. A query-only session must offer
+    // Clear all (the phone's only route to `clearSearch`) while the badge still
+    // reports no filters, because a search term is not a filter.
+    await page.goto("/therapy-compass/search?q=anxiety", { waitUntil: "domcontentloaded" });
+    await expect(therapyRibbon.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 60_000 });
+    const queryOnlyTrigger = therapyRibbon.getByTestId("therapy-filter-trigger");
+    await expect(queryOnlyTrigger).toHaveAccessibleName(/No filters active/);
+    await queryOnlyTrigger.click();
+    const queryOnlyPanel = page.getByTestId("therapy-filter-panel");
+    await expect(queryOnlyPanel.getByTestId("therapy-filter-clear")).toBeVisible();
+    await queryOnlyPanel.getByTestId("therapy-filter-done").click();
 
     await expectNoPageHorizontalOverflow(page);
 
@@ -596,14 +646,15 @@ test.describe("Clinical KB accessibility coverage", () => {
     expect(clinicianSwitchSize.width).toBeGreaterThanOrEqual(44);
     expect(clinicianSwitchSize.height).toBeGreaterThanOrEqual(44);
 
-    const therapyPicker = page.locator("button.tc-screens-sheets-screen-051");
-    await expect(therapyPicker).toHaveAttribute("aria-expanded", "false");
-    await therapyPicker.click();
-    await expect(therapyPicker).toHaveAttribute("aria-expanded", "true");
-    await therapyPicker.click();
-    await expect(therapyPicker).toHaveAttribute("aria-expanded", "false");
+    // Sheet builder therapy picker — the only aria-expanded control in the builder rail.
+    const builderPicker = page.locator("[data-therapy-root] button[aria-expanded]").first();
+    await expect(builderPicker).toHaveAttribute("aria-expanded", "false");
+    await builderPicker.click();
+    await expect(builderPicker).toHaveAttribute("aria-expanded", "true");
+    await builderPicker.click();
+    await expect(builderPicker).toHaveAttribute("aria-expanded", "false");
 
-    const paper = page.locator(".tc-paper");
+    const paper = page.locator("[data-therapy-paper]");
     const paperColors = await paper.evaluate((element) => {
       const style = getComputedStyle(element);
       return {
@@ -620,33 +671,111 @@ test.describe("Clinical KB accessibility coverage", () => {
     expect(editableOutline).not.toBe("none");
     await expectNoBlockingAxeViolations(page, testInfo);
   });
-  // The accent rail must be the card's real border-top and must actually win the
-  // cascade. Tailwind's utilities layer outranks `@layer components`, and the band
-  // root also carries `border` / `border-[color:var(--border)]`, so a layered rule
-  // silently degrades to a neutral 1px border while every class-presence assertion
-  // still passes. Assert computed style, not classes.
+  // The accent must actually win the cascade. Tailwind's utilities layer outranks
+  // `@layer components` regardless of specificity, and `.search-band-lead` is
+  // deliberately unlayered, so a layered rule degrades it to a zero-width box
+  // while every class-presence assertion still passes — the same failure the old
+  // border-top version of this test caught, in the same place. Assert computed
+  // style, not classes.
+  //
+  // It also asserts the fault signal, which the border-top version could not: a
+  // border has no style to change, and the state tile that used to carry a
+  // CircleAlert is gone. Under forced colors --clinical-accent resolves to
+  // LinkText and --warning is not remapped at all, so hue cannot carry state
+  // there; the mark carries it as stroke count instead.
   test("search results band renders the accent rail and survives forced colors", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/services?q=CMHT&run=1", { waitUntil: "domcontentloaded" });
     const band = page.locator('[data-testid="search-query-ribbon"]:visible').first();
     await expect(band).toBeVisible({ timeout: 20_000 });
 
-    const rail = await band.evaluate((node) => {
-      const style = getComputedStyle(node);
-      return { width: style.borderTopWidth, color: style.borderTopColor, leftColor: style.borderLeftColor };
-    });
-    expect(rail.width, "accent rail must be 2px, not the neutral 1px border").toBe("2px");
-    expect(rail.color, "accent rail must use the clinical accent, not --border").not.toBe(rail.leftColor);
-    expect(rail.color).not.toBe("rgb(229, 231, 235)");
+    const lead = band.locator(".search-band-lead").first();
+    await expect(lead).toBeAttached();
 
-    // Under forced colors the rail survives as thickness, since --clinical-accent
-    // resolves to LinkText and would otherwise match the other three borders.
-    // Poll: the forced-colors style recalc does not always land on the first
-    // read after emulateMedia resolves.
+    const rail = await lead.evaluate((node) => {
+      const style = getComputedStyle(node);
+      const card = node.closest('[data-testid="search-query-ribbon"]') as HTMLElement;
+      // Reading the custom property off the element can hand back another
+      // `var(...)`; resolve it through a real colour property instead so the
+      // comparison is between two computed rgb values.
+      const probe = document.createElement("span");
+      probe.style.color = "var(--clinical-accent)";
+      card.appendChild(probe);
+      const accent = getComputedStyle(probe).color;
+      probe.remove();
+      return {
+        width: style.borderLeftWidth,
+        style: style.borderLeftStyle,
+        color: style.borderLeftColor,
+        accent,
+        neutral: getComputedStyle(card).borderTopColor,
+        cardTopWidth: getComputedStyle(card).borderTopWidth,
+        height: Math.round(node.getBoundingClientRect().height),
+        tone: node.getAttribute("data-tone"),
+      };
+    });
+
+    // Assert the probe produced real values before trusting any comparison: a
+    // silently-null measurement is exactly the kind of evidence that reads as a
+    // pass. This suite has been burned by one.
+    expect(rail.accent, "the accent probe returned nothing to compare against").toMatch(/^rgba?\(/);
+    expect(rail.tone, "a healthy search must render the accent tone").toBe("accent");
+    expect(rail.width, "lead rule must be 2px, not a collapsed or inert border").toBe("2px");
+    expect(rail.style, "one stroke is a healthy search; two means degraded").toBe("solid");
+    expect(rail.height, "lead rule must be 18px tall, not stretched or zero").toBe(18);
+    expect(rail.color, "lead rule must resolve to --clinical-accent").toBe(rail.accent);
+    expect(rail.color, "lead rule must not degrade to the card's neutral border").not.toBe(rail.neutral);
+    expect(rail.color, "lead rule must not be inert/transparent").not.toBe("rgba(0, 0, 0, 0)");
+    // The accent lives inside the padding now. A 2px top border here would be the
+    // old full-width rail leaking back alongside the new mark.
+    expect(rail.cardTopWidth, "the card keeps its 1px neutral border, not a second accent rail").toBe("1px");
+
+    // Poll: the forced-colors style recalc does not always land on the first read
+    // after emulateMedia resolves.
     await page.emulateMedia({ forcedColors: "active" });
     await expect
-      .poll(async () => band.evaluate((node) => getComputedStyle(node).borderTopWidth), { timeout: 10_000 })
-      .toBe("3px");
+      .poll(async () => lead.evaluate((node) => getComputedStyle(node).borderLeftWidth), { timeout: 10_000 })
+      .toBe("2px");
+    await expect(lead).toHaveCSS("border-left-style", "solid");
+    await page.emulateMedia({ forcedColors: "none" });
+  });
+
+  // The state that must never be carried by colour alone. Split from the test
+  // above because it needs an intercepted route, and because a fault signal that
+  // regresses is a clinical defect rather than a styling one: without it a failed
+  // search is visually identical to a successful one.
+  test("a faulted search is legible as shape, not only as hue", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    // `/api/differentials`, NOT `/api/search`. This page's catalog hook fetches
+    // `/api/differentials?kind=diagnosis|presentation` (`use-differential-catalog.ts:204`)
+    // and never touches `/api/search`, so intercepting the latter faults
+    // nothing and the band stays healthy — the test then hangs on a fault panel
+    // that will never render. That swap was made on review advice and shipped
+    // without running this spec; it cost two red `Production UI` shards.
+    await page.route(/\/api\/differentials(?:\?.*)?$/, (route) =>
+      route.fulfill({ status: 500, json: { error: "down" } }),
+    );
+    await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
+
+    const band = page.locator('[data-testid="search-query-ribbon"]:visible').first();
+    await expect(band.locator('[data-testid="search-query-ribbon-fault"]')).toBeVisible({ timeout: 20_000 });
+
+    const lead = band.locator(".search-band-lead").first();
+    await expect(lead).toHaveAttribute("data-tone", "warning");
+    await expect(lead).toHaveCSS("border-left-style", "double");
+    await expect(lead).toHaveCSS("border-left-width", "6px");
+    // The third non-chromatic channel, and the invariant behind it: a search that
+    // failed has no count to report, so no digit may reach the DOM.
+    await expect(band.getByRole("status")).not.toHaveText(/\d/);
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect
+      .poll(async () => lead.evaluate((node) => getComputedStyle(node).borderLeftStyle), { timeout: 10_000 })
+      .toBe("double");
+    await expect(lead).toHaveCSS("border-left-width", "6px");
+    // Redundant on purpose: at 58px an 18px mark is easy to miss, so the card's
+    // own top edge doubles too.
+    await expect(band).toHaveCSS("border-top-style", "double");
     await page.emulateMedia({ forcedColors: "none" });
   });
 
@@ -655,7 +784,10 @@ test.describe("Clinical KB accessibility coverage", () => {
     // Differentials is the widest fault: Retry plus two "Browse …" links. Their
     // combined width exceeds a 390px panel, and the band root is
     // `overflow-hidden`, so without wrapping the trailing link is cut off.
-    await page.route("**/api/differentials**", (route) => route.fulfill({ status: 500, json: { error: "down" } }));
+    // See the sibling test above: this page's search is `/api/differentials`.
+    await page.route(/\/api\/differentials(?:\?.*)?$/, (route) =>
+      route.fulfill({ status: 500, json: { error: "down" } }),
+    );
     await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
 
     const fault = page.locator('[data-testid="search-query-ribbon-fault"]:visible').first();

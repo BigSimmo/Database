@@ -22,6 +22,7 @@ import {
   Filter,
   Globe2,
   Loader2,
+  Layers3,
   Menu,
   MessageSquarePlus,
   Plus,
@@ -36,8 +37,10 @@ import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
+import { SearchPinsMenu } from "@/components/clinical-dashboard/search-pins-menu";
 import {
   ModeActionPopup,
   modeActionItemsFor,
@@ -69,11 +72,17 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
-import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
+import {
+  desktopComposerSlotReadyAttr,
+  isDesktopComposerSlotReady,
+  phoneHeaderCollapseAddonSlotId,
+  setModeHomeComposerReservePending,
+} from "@/lib/mode-home-composer";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
+import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
+import { useCommandDropdownDisplayableByPlacement } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
-import { desktopComposerSlotReadyAttr, isDesktopComposerSlotReady } from "@/lib/mode-home-composer";
 import { tagSearchText } from "@/lib/document-tags";
 
 // Shared between the composer input's aria-describedby and the rendered
@@ -82,7 +91,7 @@ const composerPrivacyWarningId = "answer-composer-privacy-warning";
 
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
-const desktopPageComposerMediaQuery = "(min-width: 1024px)";
+const desktopPageComposerMediaQuery = "(min-width: 640px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const modeHomeComposerSmUpMediaQuery = "(min-width: 640px)";
 
@@ -174,8 +183,6 @@ export function MasterSearchHeader({
   queryInputAutoFocus = false,
   composerPlaceholder,
   recentQueries = [],
-  commandScopes = [],
-  onCommandScopesChange,
   onPickRecent,
   onCrossModeSearch,
   composerFollowUpSuggestions,
@@ -194,6 +201,7 @@ export function MasterSearchHeader({
   onMobileBack,
   hideOnScroll,
   onBottomComposerHiddenChange,
+  showDesktopNewChat = true,
   canAccessFavourites = false,
   onRequestAccountSetup,
 }: {
@@ -229,8 +237,6 @@ export function MasterSearchHeader({
   /** Overrides the mode's default input placeholder (e.g. "Ask a follow-up..." mid-thread). */
   composerPlaceholder?: string;
   recentQueries?: string[];
-  commandScopes?: string[];
-  onCommandScopesChange?: (scopes: string[]) => void;
   onPickRecent?: (query: string) => void;
   onCrossModeSearch?: (modeId: AppModeId, query: string) => void;
   composerFollowUpSuggestions?: string[];
@@ -248,8 +254,8 @@ export function MasterSearchHeader({
    *  middle of the hero instead of docking to the bottom edge. Which widths the
    *  hero owns is controlled by `heroComposerBreakpoint`. */
   desktopHomeComposerSlotId?: string;
-  /** Normal-flow page slot used by submitted/search views on desktop only.
-   * Below lg the existing phone dock/tablet sticky composer remains the owner. */
+  /** Normal-flow page slot used by submitted/search views from tablet widths up.
+   * Phones keep the bottom dock. */
   desktopPageComposerSlotId?: string;
   /** Widths where the mode-home hero slot hosts the composer. "all" keeps the
    *  hero pill on phones too (the answer home); "sm-up" reserves the hero for
@@ -290,9 +296,9 @@ export function MasterSearchHeader({
      *
      * "sticky" pins an outer stack to the viewport top above phones and still
      * collapses only the top-bar row inside that stack — for hosts that hand
-     * scrolling back to the document (GlobalSearchShell). Tablet search stays
-     * in that stack; desktop result search may portal into page flow, leaving
-     * the same stack to own only the top bar.
+     * scrolling back to the document (GlobalSearchShell). Tablet and desktop
+     * result search portal into page flow, leaving the stack to own only the
+     * top bar.
      */
     wide?: "collapse" | "sticky";
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
@@ -300,6 +306,8 @@ export function MasterSearchHeader({
   };
   /** Notify hosts when the phone bottom composer is actually hidden (not merely scrolled). */
   onBottomComposerHiddenChange?: (hidden: boolean) => void;
+  /** Keep the phone new-chat action, but hide its desktop copy when a visible sidebar already owns the action. */
+  showDesktopNewChat?: boolean;
   /**
    * Favourites are account-scoped. When false, omit Favourites from the mode menu
    * and route favourites actions to account setup instead of switching mode.
@@ -319,10 +327,9 @@ export function MasterSearchHeader({
   });
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);
-  // Guests on /favourites keep the route gate, but the mode trigger must not claim
-  // Favourites is a selectable guest mode when it is omitted from the menu.
-  const modeTriggerId = searchMode === "favourites" && !canAccessFavourites ? "answer" : searchMode;
-  const selectedAppMode = appModeDefinition(modeTriggerId);
+  // The trigger names the route the user is viewing. Session filtering still
+  // keeps gated modes out of the selectable menu below.
+  const selectedAppMode = appModeDefinition(searchMode);
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
   const isWorkflowHeader = headerVariant === "workflow";
@@ -353,6 +360,7 @@ export function MasterSearchHeader({
   const [commandDropdownOpen, setCommandDropdownOpen] = useState(false);
   const [commandListboxId, setCommandListboxId] = useState<string>();
   const [commandActiveItemId, setCommandActiveItemId] = useState<string | null>(null);
+  const commandDropdownDisplayableByPlacement = useCommandDropdownDisplayableByPlacement();
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   // Which menuitemradio should receive initial focus when the mode menu opens
   // (keyboard ArrowOpen or the active mode on tap). Shared by the desktop
@@ -364,8 +372,13 @@ export function MasterSearchHeader({
   // paths also refresh from the live query so the first tap still picks Sheet.
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopComposerPortalActive, setDesktopComposerPortalActive] = useState(false);
-  // The default/inline composer stays mounted until the portal host is attached.
-  // Dual composers may coexist briefly during handoff; search never vanishes.
+  const [desktopComposerPortalFallback, setDesktopComposerPortalFallback] = useState(false);
+  // SSR and first paint assume a declared home slot is media-eligible so the
+  // header composer stays suppressed while ModeHomeTemplate reserves hero
+  // geometry. The portal effect clears this when the home media query does not
+  // match (e.g. future `sm-up` hero + phone dock), so we never blank search
+  // for the 8s fallback window on a viewport that never hosts the hero slot.
+  const [homeComposerMediaEligible, setHomeComposerMediaEligible] = useState(() => Boolean(desktopHomeComposerSlotId));
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -480,6 +493,7 @@ export function MasterSearchHeader({
   const prefetchedModeHrefsRef = useRef(new Set<string>());
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const actionMenuSheetReturnFocusRef = useRef<HTMLElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartY = useRef<number | null>(null);
   const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
@@ -589,8 +603,6 @@ export function MasterSearchHeader({
                           ? "factsheets"
                           : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
-  const actionMenuTitle = selectedAppMode.label;
-  const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
   const useMobileBackControl = mobileLeadingAction === "back";
 
@@ -867,7 +879,19 @@ export function MasterSearchHeader({
     const href = appModeHomeHref(modeId);
     if (prefetchedModeHrefsRef.current.has(href)) return;
     prefetchedModeHrefsRef.current.add(href);
-    router.prefetch(href);
+    router.prefetch(href, {
+      // Next's client cache can invalidate a prefetched RSC payload while this
+      // long-lived shared header remains mounted. Let the next pointer/focus
+      // intent warm it again instead of permanently treating the stale entry as
+      // prefetched for the rest of the session.
+      onInvalidate: () => {
+        prefetchedModeHrefsRef.current.delete(href);
+      },
+      // Next 16.2.12's public guide documents onInvalidate as the only optional
+      // field, while its bundled AppRouterInstance type incorrectly exposes the
+      // internal required `kind`. Keep the public API shape without importing a
+      // private router enum.
+    } as Parameters<typeof router.prefetch>[1]);
   }
 
   function openModeMenuWithFocus(index: number) {
@@ -986,7 +1010,7 @@ export function MasterSearchHeader({
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold">{mode.label}</span>
-            <span className="block truncate text-2xs font-medium text-[color:var(--text-soft)]">
+            <span className="block truncate text-2xs font-medium text-[color:var(--text-muted)]">
               {mode.description}
             </span>
           </span>
@@ -1016,6 +1040,27 @@ export function MasterSearchHeader({
       restoreFocusUnlessMoved(actionMenuTriggerRef.current);
     });
   }, []);
+  const handleFocusSearchInput = useEventCallback(() => {
+    queryInputRef?.current?.focus();
+  });
+  const retargetActionMenuSheetFocusToSearchInput = useEventCallback(() => {
+    const target = queryInputRef?.current ?? null;
+    actionMenuSheetReturnFocusRef.current = target;
+    if (!currentUsesScopeSheet()) {
+      window.requestAnimationFrame(() => {
+        restoreFocusUnlessMoved(target);
+      });
+    }
+  });
+  const handleActionMenuCurrentSearch = useEventCallback(() => {
+    retargetActionMenuSheetFocusToSearchInput();
+    setActionMenuOpen(false);
+  });
+  const handleActionMenuGlobalSearch = useEventCallback(() => {
+    retargetActionMenuSheetFocusToSearchInput();
+    setActionMenuOpen(false);
+    setCommandDropdownOpen(true);
+  });
 
   const phoneLayoutGateRef = useRef<boolean | null>(null);
   useEffect(() => {
@@ -1052,15 +1097,21 @@ export function MasterSearchHeader({
     const composerSlotId = desktopHomeComposerSlotId ?? desktopPageComposerSlotId;
     const composerSlotKind = desktopHomeComposerSlotId ? "home" : "page";
 
-    if (!composerSlotId) {
-      // No page-owned slot at this route: reset the portal state. Deferred to a
-      // microtask (not requestAnimationFrame) so it stays off the synchronous
-      // effect body without being frame-gated — headless CI can starve rAF.
+    if (!composerSlotId || !searchComposerVisible) {
+      // No page-owned slot at this route, or the shell suppressed the composer:
+      // reset the portal state and collapse any SSR mode-home reserve band.
+      // Deferred to a microtask (not requestAnimationFrame) so it stays off the
+      // synchronous effect body without being frame-gated — headless CI can starve rAF.
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) return;
+        if (composerSlotKind === "home" && composerSlotId) {
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
+        }
         setDesktopComposerPortalActive(false);
         setDesktopComposerPortalHost(null);
+        setDesktopComposerPortalFallback(false);
+        setHomeComposerMediaEligible(false);
       });
       return () => {
         cancelled = true;
@@ -1074,7 +1125,8 @@ export function MasterSearchHeader({
     // part of the tree had already removed, throwing a null-parentNode error.
     // Because the host is stable, React's portal container never disappears.
     // Hero slots retain their existing all/sm-up ownership. Generic page slots
-    // are desktop-only so phone docks and tablet sticky composers do not change.
+    // start at sm so tablets and desktops share normal-flow search behaviour,
+    // while phone docks remain unchanged.
     const host = document.createElement("div");
     // Layout-transparent so the composer lays out as a direct child of the slot.
     host.style.display = "contents";
@@ -1088,7 +1140,8 @@ export function MasterSearchHeader({
     );
 
     let retryTimeout: number | null = null;
-    let portalRetryCount = 0;
+    let portalFailureStartedAt: number | null = null;
+    const portalFallbackDelayMs = 8_000;
     // Runs synchronously off the MutationObserver (which already coalesces
     // records into a microtask) rather than behind requestAnimationFrame.
     // Headless CI throttles/pauses rAF whenever the page is not actively
@@ -1100,22 +1153,63 @@ export function MasterSearchHeader({
     // their React segment hydrates. Adopting the slot before that injects a
     // display:contents host into still-unhydrated RSC HTML (React #418).
     const syncTarget = () => {
-      if (retryTimeout !== null) {
-        window.clearTimeout(retryTimeout);
-        retryTimeout = null;
+      if (composerSlotKind === "home") {
+        setHomeComposerMediaEligible(mediaQuery.matches);
       }
-      const slot = mediaQuery.matches ? document.getElementById(composerSlotId) : null;
+      const homeSlot = composerSlotKind === "home" ? document.getElementById(composerSlotId) : null;
+      const slot = mediaQuery.matches ? (homeSlot ?? document.getElementById(composerSlotId)) : null;
       if (slot && isDesktopComposerSlotReady(slot)) {
-        portalRetryCount = 0;
+        if (retryTimeout !== null) {
+          window.clearTimeout(retryTimeout);
+          retryTimeout = null;
+        }
+        portalFailureStartedAt = null;
         if (host.parentNode !== slot) slot.appendChild(host);
+        // Portal host keeps height via `:not(:empty)`; drop the pending marker.
+        if (composerSlotKind === "home") setModeHomeComposerReservePending(slot, false);
         setDesktopComposerPortalHost(host);
         setDesktopComposerPortalActive(true);
+        setDesktopComposerPortalFallback(false);
       } else {
         host.parentNode?.removeChild(host);
         setDesktopComposerPortalActive(false);
-        if (mediaQuery.matches && portalRetryCount < 24) {
-          portalRetryCount += 1;
-          retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
+        if (!mediaQuery.matches) {
+          if (retryTimeout !== null) {
+            window.clearTimeout(retryTimeout);
+            retryTimeout = null;
+          }
+          portalFailureStartedAt = null;
+          setDesktopComposerPortalFallback(false);
+          // Viewport never hosts this hero slot — collapse the SSR reserve band.
+          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, false);
+          return;
+        }
+        const now = window.performance.now();
+        portalFailureStartedAt ??= now;
+        const fallbackDelayRemaining = portalFallbackDelayMs - (now - portalFailureStartedAt);
+        if (fallbackDelayRemaining > 0) {
+          // Body mutations may arrive continuously while a route hydrates. They
+          // must not consume the retry budget or reset its deadline; only one
+          // elapsed-time poll is scheduled at once.
+          if (retryTimeout === null) {
+            retryTimeout = window.setTimeout(
+              () => {
+                retryTimeout = null;
+                syncTarget();
+              },
+              Math.min(200, fallbackDelayRemaining),
+            );
+          }
+          // Keep the SSR pending reserve while we retry adoption.
+          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, true);
+        } else {
+          // A missing/unhydrated page slot must not remove search forever. Home
+          // routes suppress the header fallback during the bounded retry window
+          // because ModeHomeTemplate already reserves the settled hero geometry;
+          // only surface the fallback after portal adoption has genuinely failed.
+          // Collapse the empty hero band once the header fallback takes over.
+          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, false);
+          setDesktopComposerPortalFallback(true);
         }
       }
     };
@@ -1134,10 +1228,14 @@ export function MasterSearchHeader({
       observer.disconnect();
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
+      if (composerSlotKind === "home") {
+        setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
+      }
       setDesktopComposerPortalActive(false);
       setDesktopComposerPortalHost(null);
+      setDesktopComposerPortalFallback(false);
     };
-  }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint]);
+  }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint, searchComposerVisible]);
 
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {
@@ -1183,7 +1281,7 @@ export function MasterSearchHeader({
               value={filterText(scopeFilters[field.key])}
               onChange={(event) => updateTextScopeFilter(field.key, event.target.value)}
               placeholder={field.placeholder}
-              className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
             />
           </label>
         ))}
@@ -1214,7 +1312,7 @@ export function MasterSearchHeader({
           <label className="relative block">
             <Search
               aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--decoration-soft)]"
             />
             <input
               ref={scopeFilterInputRef}
@@ -1223,7 +1321,7 @@ export function MasterSearchHeader({
               data-testid="document-scope-filter"
               aria-label="Filter document scope"
               placeholder="Filter documents by title or file"
-              className="h-tap w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className="h-tap w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
             />
           </label>
           <div className="flex flex-wrap items-center gap-2">
@@ -1266,7 +1364,7 @@ export function MasterSearchHeader({
                     onClick={() => onToggleScope(document.id)}
                     title={cleanDisplayTitle(document.title)}
                     className={cn(
-                      "grid min-h-tap w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
+                      "grid min-h-tap w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-[var(--duration-quick)]",
                       selected
                         ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
@@ -1285,7 +1383,7 @@ export function MasterSearchHeader({
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
-                      <span className="nums block truncate text-2xs font-medium text-[color:var(--text-soft)]">
+                      <span className="nums block truncate text-2xs font-medium text-[color:var(--text-muted)]">
                         {documentScopeMeta(document)}
                       </span>
                       <DocumentTagCloud
@@ -1313,7 +1411,7 @@ export function MasterSearchHeader({
             </div>
           </div>
           {hiddenScopeMatchCount > 0 ? (
-            <p className="nums px-1 text-xs font-medium text-[color:var(--text-soft)]">
+            <p className="nums px-1 text-xs font-medium text-[color:var(--text-muted)]">
               {requireScopeFilter
                 ? `${loadedScopeSummary} documents. Type a title or file name to narrow the loaded list.`
                 : `Showing ${visibleScopeDocuments.length} of ${matchingDocuments.length}. Keep typing to narrow the list.`}
@@ -1431,9 +1529,12 @@ export function MasterSearchHeader({
         <details className="group hidden min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5 sm:block">
           <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-0.5 lg:min-h-8">
             <span className={eyebrowText}>Label filters</span>
-            <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-soft)]">
+            <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-muted)]">
               {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, action, intent"}
-              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 transition group-open:rotate-180" />
+              <ChevronDown
+                aria-hidden="true"
+                className="h-3.5 w-3.5 text-[color:var(--decoration-soft)] transition group-open:rotate-180"
+              />
             </span>
           </summary>
           <div className="mt-2 grid gap-2 border-t border-[color:var(--border)] pt-2">
@@ -1507,13 +1608,15 @@ export function MasterSearchHeader({
     // Tablet/desktop composers keep the site-wide notice everywhere.
     const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
 
-    const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
-    // Search sits outside the collapsing top-bar row. Sticky hosts already pin an
-    // outer [top bar | search] stack, so the composer must stay in normal flow
-    // inside that stack — a second sticky + top offset would overlay page
-    // controls once the top bar collapses. Collapse-everywhere hosts have no
-    // outer stack, so their composer keeps its own sticky and drops the top-bar
-    // clearance while the bar is hidden.
+    const commandSurfacePlacement: CommandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
+    const commandDropdownDisplayable = commandDropdownDisplayableByPlacement[commandSurfacePlacement];
+    // Search sits outside the collapsing top-bar row. Sticky hosts pin an outer
+    // top-bar stack; result composers portal into page flow at sm+, so this
+    // relative fallback only covers the brief pre-portal default placement (a
+    // second sticky + top offset would overlay page controls). Collapse-
+    // everywhere hosts have no outer stack, so their non-portaled composer
+    // keeps its own sticky and drops the top-bar clearance while the bar is
+    // hidden.
     const stickySearchOwnedByOuterStack = sticksAbovePhones;
     const stickySearchClearsTopBar = !(hideStrategy === "collapse" && headerChromeHidden);
     const stickySearchTopClass = stickySearchClearsTopBar
@@ -1549,7 +1652,7 @@ export function MasterSearchHeader({
         data-command-open={
           // Phones never show the command dropdown, so the dock scrim must not
           // grow for it — gate the open attribute to widths that can display it.
-          usesBottomComposerPlacement && !usesPhoneSearchLayout && commandDropdownOpen ? "true" : undefined
+          usesBottomComposerPlacement && commandDropdownDisplayable && commandDropdownOpen ? "true" : undefined
         }
         data-scroll-hidden={shouldHideBottomOnScroll && bottomComposerHidden ? "true" : undefined}
         {...(shouldHideBottomOnScroll ? composerFocusProps : undefined)}
@@ -1566,9 +1669,10 @@ export function MasterSearchHeader({
                         ? "phone-footer-layer document-mobile-search-edge universal-top-search-edge z-40 w-full sm:fixed"
                         : cn(
                             "document-mobile-search-edge universal-top-search-edge z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                            // Sticky-stack hosts already pin [top bar | search]. Never
-                            // leave a `fixed`/`sticky` composer in that stack — it
-                            // overlays page controls (Services decision rail).
+                            // Sticky-stack hosts pin the top bar; result search
+                            // portals out at sm+. Never leave a fixed/sticky
+                            // default composer in that stack — it overlays page
+                            // controls (Services decision rail).
                             stickySearchOwnedByOuterStack
                               ? "relative"
                               : cn("fixed", isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass),
@@ -1587,8 +1691,8 @@ export function MasterSearchHeader({
             cn(
               "max-sm:transition-[transform,opacity] motion-reduce:transition-none",
               bottomComposerHidden
-                ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                ? "max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                : "max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
             ),
         )}
       >
@@ -1615,7 +1719,6 @@ export function MasterSearchHeader({
           modeId={searchMode}
           query={query}
           recentQueries={recentQueries}
-          commandScopes={commandScopes}
           placement={commandSurfacePlacement}
           dropdownOpen={commandDropdownOpen}
           onDropdownOpenChange={setCommandDropdownOpen}
@@ -1643,10 +1746,9 @@ export function MasterSearchHeader({
             onAsk();
           }}
           onRunModeAction={runModeAction}
-          onCommandScopesChange={(scopes) => onCommandScopesChange?.(scopes)}
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
-          onFocusSearchInput={() => queryInputRef?.current?.focus()}
+          onFocusSearchInput={handleFocusSearchInput}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -1659,29 +1761,49 @@ export function MasterSearchHeader({
           >
             <ModeActionPopup
               open={actionMenuOpen}
-              title={actionMenuTitle}
-              titleIcon={SelectedAppModeIcon}
-              subtitle={actionMenuSubtitle}
+              title="Pins and search"
+              titleIcon={Layers3}
+              subtitle="Open a pin or choose where this search runs."
               buttonLabel={actionMenuButtonLabel}
               items={actionMenuItems}
-              modeOptions={actionMenuModeOptions}
-              selectedModeId={selectedAppMode.id}
               onOpenChange={setActionMenuOpen}
               onBeforeOpen={() => {
+                actionMenuSheetReturnFocusRef.current = null;
                 setUsesScopeSheet(currentUsesScopeSheet());
+                setCommandDropdownOpen(false);
                 setModeMenuOpen(false);
                 setScopeOpen(false);
                 setScopeSheetOpen(false);
               }}
               onAction={runModeAction}
-              onModeSelect={selectAppModeById}
               onPlacementChange={setActionMenuPlacement}
               triggerClassName="answer-footer-search-action"
               triggerRef={actionMenuTriggerRef}
               integrated={usesFooterChipLayout}
               integratedChipRow={showFooterSearchChips}
               useSheet={usesScopeSheet}
+              sheetReturnFocusRef={actionMenuSheetReturnFocusRef}
               dismissIgnoreRefs={[modeMenuRef]}
+              customBody={
+                <SearchPinsMenu
+                  key={actionMenuOpen ? "pins-menu-open" : "pins-menu-closed"}
+                  currentModeId={selectedAppMode.id}
+                  modeOptions={actionMenuModeOptions}
+                  actions={actionMenuItems}
+                  globalSearchAvailable={commandDropdownDisplayable}
+                  onClose={() => setActionMenuOpen(false)}
+                  onCurrentSearch={handleActionMenuCurrentSearch}
+                  onGlobalSearch={handleActionMenuGlobalSearch}
+                  onModeSelect={(modeId) => {
+                    setActionMenuOpen(false);
+                    selectAppModeById(modeId);
+                  }}
+                  onAction={(actionId) => {
+                    setActionMenuOpen(false);
+                    runModeAction(actionId);
+                  }}
+                />
+              }
             />
 
             {/* The clear button is a flex sibling (not absolutely positioned): the
@@ -1771,10 +1893,10 @@ export function MasterSearchHeader({
           <div
             ref={scopePopoverRef}
             data-testid="scope-command-popover"
-            className="polished-scroll absolute bottom-[calc(100%+0.75rem)] right-2 z-50 max-h-[min(70dvh,28rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
+            className="polished-scroll absolute bottom-[calc(100%+0.75rem)] right-2 z-[95] max-h-[min(70dvh,28rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
           >
             {scopePreview ? (
-              <p className="truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+              <p className="truncate px-1 text-xs text-[color:var(--text-muted)]">{scopePreview}</p>
             ) : null}
             {renderScopeRows()}
           </div>
@@ -1814,7 +1936,7 @@ export function MasterSearchHeader({
             )}
           >
             {scopePreview ? (
-              <p className="truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+              <p className="truncate px-1 text-xs text-[color:var(--text-muted)]">{scopePreview}</p>
             ) : null}
             {renderScopeRows()}
           </div>
@@ -1882,14 +2004,14 @@ export function MasterSearchHeader({
             ? cn(
                 "transition-transform motion-reduce:transition-none",
                 headerChromeHidden
-                  ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  ? "duration-[var(--duration-slow)] ease-[var(--ease-chrome-hide)]"
+                  : "duration-[var(--duration-moderate)] ease-[var(--ease-chrome-reveal)]",
               )
             : cn(
                 "max-sm:transition-transform motion-reduce:transition-none",
                 headerChromeHidden
-                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  ? "max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                  : "max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
               )),
         hideStrategy === "overlay" &&
           headerChromeHidden &&
@@ -1960,10 +2082,13 @@ export function MasterSearchHeader({
             onKeyDown={handleModeTriggerKeyDown}
             className={cn(
               // Size utilities live in the per-variant branch, never the shared
-              // base: cn() is plain concat (no tailwind-merge), so keeping the
+              // base: cn() was plain concat (no tailwind-merge), so keeping the
               // default h-/w-/min-w- here too made the workflow overrides dead —
               // Tailwind v4 emits same-property utilities in canonical order and
-              // the base won at every breakpoint but lg:.
+              // the base won at every breakpoint but lg:. That constraint is
+              // lifted (ledger #218): cn() merges, so a base size would now lose
+              // to the branch that follows it. The split stays because one place
+              // per size is still the clearer shape, not because it is forced.
               "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               isWorkflowHeader
                 ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
@@ -1988,7 +2113,7 @@ export function MasterSearchHeader({
             <ChevronDown
               aria-hidden="true"
               className={cn(
-                "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                "h-4 w-4 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
                 modeMenuOpen && "rotate-180",
               )}
             />
@@ -2001,7 +2126,7 @@ export function MasterSearchHeader({
               aria-label="Choose app mode"
               className={cn(
                 glassOverlaySurface,
-                "polished-scroll absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)]",
+                "polished-scroll absolute left-0 top-[calc(100%+0.5rem)] z-[60] max-h-[min(20rem,calc(100dvh-5.5rem))] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)]",
               )}
             >
               {renderModeMenuOptions()}
@@ -2041,7 +2166,10 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={onNewChat}
-              className="universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
+              className={cn(
+                "universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]",
+                !showDesktopNewChat && "md:hidden",
+              )}
               aria-label="Start a new chat"
               title="New chat"
             >
@@ -2079,12 +2207,20 @@ export function MasterSearchHeader({
   );
 
   const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
+  const homePortalPending =
+    Boolean(desktopHomeComposerSlotId) && homeComposerMediaEligible && !desktopComposerPortalFallback;
   const searchComposer = searchComposerVisible ? (
     <>
-      {/* Keep the default composer visible until the portal host is actually
-          attached. Suppressing on slotId alone left a null gap while the
-          mode-home/page slot remounted or MutationObserver rebound. */}
-      {desktopComposerPortalActive && desktopComposerPortalHost ? null : renderSearchComposer("default")}
+      {/* ModeHomeTemplate reserves the final hero-composer height in SSR, so a
+          temporary header fallback would make the stack 204px and move all main
+          content up 132px when the portal attaches. Generic page slots do not
+          reserve geometry and retain the immediate fallback. A failed home
+          adoption restores it after the bounded retry window above. */}
+      {desktopComposerPortalActive && desktopComposerPortalHost
+        ? null
+        : homePortalPending
+          ? null
+          : renderSearchComposer("default")}
       {desktopComposerPortalActive && desktopComposerPortalHost
         ? createPortal(renderSearchComposer(portalPlacement), desktopComposerPortalHost)
         : null}
@@ -2102,8 +2238,8 @@ export function MasterSearchHeader({
     //
     // Above the phone breakpoint a `wide: "sticky"` host scrolls the document,
     // so an outer sticky stack pins its chrome below the wide safe-area spacer.
-    // Tablet search remains in that stack; desktop result search portals
-    // into page flow, so the stack contains only the top bar there. The host
+    // Tablet and desktop result search portal into page flow, so the stack
+    // contains only the top bar there. The host
     // ancestor uses `display: contents`, allowing this semantic sticky owner to
     // travel against the browser viewport and become static in standalone.
     const collapsingTopBar = (
@@ -2131,11 +2267,11 @@ export function MasterSearchHeader({
                   : "grid transition-[grid-template-rows]",
                 headerChromeHidden
                   ? phoneOverlayMotion
-                    ? "sm:duration-[240ms] sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    : "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    ? "sm:duration-[var(--duration-slow)] sm:ease-[var(--ease-chrome-hide)]"
+                    : "duration-[var(--duration-slow)] ease-[var(--ease-chrome-hide)]"
                   : phoneOverlayMotion
-                    ? "sm:duration-200 sm:ease-[cubic-bezier(0.22,1,0.36,1)]"
-                    : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    ? "sm:duration-[var(--duration-moderate)] sm:ease-[var(--ease-chrome-reveal)]"
+                    : "duration-[var(--duration-moderate)] ease-[var(--ease-chrome-reveal)]",
                 headerChromeHidden
                   ? phoneOverlayMotion
                     ? "sm:[grid-template-rows:0fr]"
@@ -2147,8 +2283,8 @@ export function MasterSearchHeader({
             : cn(
                 "max-sm:grid max-sm:transition-[grid-template-rows]",
                 headerChromeHidden
-                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  ? "max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                  : "max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
                 headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
               ),
         )}
@@ -2184,8 +2320,8 @@ export function MasterSearchHeader({
           // release it so the scroll surface reaches the physical viewport
           // edge instead of leaving an opaque status-bar band. Match the
           // header row's timing to avoid a one-frame gap during hide/reveal.
-          // sm+ keeps its pinned inset because the sticky [bar | search] stack
-          // is a separate wide-layout contract.
+          // sm+ keeps its pinned inset because sticky top-bar chrome is a
+          // separate wide-layout contract from page-flow search.
           //
           // Paint the header's own surface, not the page background. While the
           // spacer is visible it is the top of the header, so `--background`
@@ -2200,8 +2336,8 @@ export function MasterSearchHeader({
             : cn(
                 "max-sm:transition-[height]",
                 headerChromeHidden
-                  ? "max-sm:h-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "max-sm:h-[var(--safe-area-top)] max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  ? "max-sm:h-0 max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                  : "max-sm:h-[var(--safe-area-top)] max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
               ),
           sticksAbovePhones && "sm:sticky sm:top-0",
         )}
@@ -2216,11 +2352,11 @@ export function MasterSearchHeader({
           className={cn(
             "phone-sticky-header-stack sm:contents",
             phoneOverlayMotion &&
-              "phone-overlay-header max-sm:transition-[transform,opacity] motion-reduce:max-sm:transition-none",
+              "phone-overlay-header max-sm:transition-[transform,translate,opacity] motion-reduce:max-sm:transition-none",
             phoneOverlayMotion &&
               (headerChromeHidden
-                ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                : "max-sm:opacity-100 max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]"),
+                ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                : "max-sm:opacity-100 max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]"),
           )}
         >
           {chromeSafeAreaTop}
@@ -2234,8 +2370,8 @@ export function MasterSearchHeader({
               viewport, landing near the top of the screen. Portal it to the
               frame footer host on phones — the mechanism invariant 21 already
               requires of every phone footer — while `sm+` keeps it inline in
-              this sticky [top bar | search] stack, because tablet must not
-              double-sticky the composer.
+              this sticky stack; result composers have already portaled into
+              page flow at tablet and desktop widths.
             */}
             {phoneOverlayMotion && usesPhoneBottomDock ? (
               <PhoneFooterLayerPortal>{searchComposer}</PhoneFooterLayerPortal>
@@ -2247,11 +2383,40 @@ export function MasterSearchHeader({
       );
     }
 
+    // `collapsesAtEveryWidth` hosts (ClinicalDashboard's non-answer modes) take
+    // the same phone overlay treatment as the sticky stack above: the phone
+    // stack leaves flow and translates, so hiding costs the scroller no layout.
+    // The wide layout is untouched — `sm:contents` still hands the top bar and
+    // composer to the host's own column, and the collapse grid keeps its `sm:`
+    // 1fr -> 0fr release.
     return (
-      <div className="phone-sticky-header-stack sm:contents">
+      <div
+        data-phone-motion={phoneMotion}
+        data-scroll-hidden={phoneOverlayMotion && headerChromeHidden ? "true" : undefined}
+        className={cn(
+          "phone-sticky-header-stack sm:contents",
+          phoneOverlayMotion &&
+            "phone-overlay-header max-sm:transition-[transform,translate,opacity] motion-reduce:max-sm:transition-none",
+          phoneOverlayMotion &&
+            (headerChromeHidden
+              ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+              : "max-sm:opacity-100 max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]"),
+        )}
+      >
         {chromeSafeAreaTop}
         {collapsingTopBar}
-        {searchComposer}
+        {/*
+          Same containing-block trap as the sticky stack: the hidden state's
+          transform would make this element the containing block for a fixed
+          phone dock, resolving its `bottom: 0` against the header instead of
+          the viewport. Portal the dock to the frame footer host on phones;
+          `sm+` keeps it inline for the host's own column.
+        */}
+        {phoneOverlayMotion && usesPhoneBottomDock ? (
+          <PhoneFooterLayerPortal>{searchComposer}</PhoneFooterLayerPortal>
+        ) : (
+          searchComposer
+        )}
       </div>
     );
   }

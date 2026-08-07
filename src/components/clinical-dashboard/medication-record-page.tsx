@@ -83,13 +83,14 @@ const defaultSectionTone =
 
 // Decorative per-medication identity accent (record.accent is keyed to drug
 // class). Exposed as CSS custom properties and softened with color-mix so it
-// drives washes/rails only — never text — keeping contrast safe in light + dark
+// drives rails/borders only — never text — keeping contrast safe in light + dark
 // and staying within the colour contract (semantic colour uses the tokens).
+// Only `--med-accent` and `--med-accent-border` are consumed; a soft wash was
+// removed once nothing read it (#157).
 function medicationAccentStyle(accent: string | undefined): CSSProperties {
   const base = accent?.trim() || "var(--clinical-accent)";
   return {
     "--med-accent": base,
-    "--med-accent-soft": `color-mix(in srgb, ${base} 12%, var(--surface))`,
     "--med-accent-border": `color-mix(in srgb, ${base} 34%, var(--surface))`,
   } as CSSProperties;
 }
@@ -256,7 +257,7 @@ function SectionCard({ section }: { section: MedicationSection }) {
           <span className="truncate text-sm-minus font-semibold text-[color:var(--text-heading)]">{section.title}</span>
         </span>
         <ChevronDown
-          className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-open:rotate-180"
+          className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition group-open:rotate-180"
           aria-hidden="true"
         />
       </summary>
@@ -320,7 +321,7 @@ function QuickRefRow({ row }: { row: MedicationQuickRow }) {
         <span className="flex items-center justify-between gap-2">
           {label}
           <ChevronDown
-            className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)] transition group-open:rotate-180"
+            className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)] transition group-open:rotate-180"
             aria-hidden="true"
           />
         </span>
@@ -410,7 +411,7 @@ function MedicationRecordDetail({
                   {record.subclass || record.class}
                   {record.category ? (
                     <>
-                      <span className="mx-1.5 text-[color:var(--text-soft)]">·</span>
+                      <span className="mx-1.5 text-[color:var(--decoration-soft)]">·</span>
                       {record.category}
                     </>
                   ) : null}
@@ -456,6 +457,7 @@ function MedicationRecordDetail({
                   icon={ClipboardList}
                   title="Nothing in this view"
                   body="Switch tabs to see dosing, safety, or more detail for this medication."
+                  live="polite"
                 />
               </div>
             )}

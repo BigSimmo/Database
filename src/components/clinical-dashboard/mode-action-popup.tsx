@@ -9,6 +9,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   type Ref,
   type RefObject,
 } from "react";
@@ -63,6 +64,9 @@ export type ModeActionSetId =
   | "prescribing"
   | "factsheets";
 export type ModeActionPlacement = "up" | "down";
+
+const actionSurfaceId = "daily-actions-sheet";
+const customBodyFocusScopeId = "daily-actions-sheet-body";
 
 type IntegratedSurfaceLayout = {
   placement: ModeActionPlacement;
@@ -178,7 +182,7 @@ const modeActionSets = {
     },
     { id: "documents-scope", label: "Scope sources", description: "Limit answers to selected sources", icon: Filter },
     { id: "documents-recent", label: "Recent documents", description: "Browse recently updated", icon: Clock3 },
-    { id: "documents-collections", label: "Collections", description: "Open document folders", icon: FolderOpen },
+    { id: "documents-collections", label: "Browse library", description: "All indexed sources", icon: FolderOpen },
     { id: "documents-tables", label: "Tables", description: "Search table evidence", icon: Table2 },
     { id: "documents-viewer", label: "Open source PDF", description: "View a source document", icon: FileText },
   ],
@@ -382,7 +386,9 @@ export function ModeActionPopup({
   integratedChipRow = true,
   useSheet = false,
   triggerRef,
+  sheetReturnFocusRef,
   dismissIgnoreRefs,
+  customBody,
 }: {
   open: boolean;
   title: string;
@@ -405,8 +411,13 @@ export function ModeActionPopup({
   /** Render the actions in a bottom sheet / centred dialog (phones + tablets ≤1023px)
    *  instead of the anchored desktop popover. */
   useSheet?: boolean;
+  /** Optional dynamic focus target for Sheet closes that intentionally leave the menu. */
+  sheetReturnFocusRef?: RefObject<HTMLElement | null>;
   /** Header-owned controls (e.g. app mode trigger) that must stay clickable above the portaled menu. */
   dismissIgnoreRefs?: readonly RefObject<HTMLElement | null>[];
+  /** Optional richer body for the shared + surface. The popup continues to own
+   *  positioning, dismissal, focus restoration, and responsive Sheet behavior. */
+  customBody?: ReactNode;
 }) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -422,12 +433,19 @@ export function ModeActionPopup({
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
   const canSwitchMode = Boolean(modeOptions?.length && onModeSelect);
   const selectedModeOption = modeOptions?.find((mode) => mode.id === selectedModeId);
+  // Truthiness only — callers pass inline JSX for customBody, so the element
+  // identity must not invalidate placement measurement every parent render.
+  const hasCustomBody = Boolean(customBody);
 
   const closeAndRestoreFocus = useCallback(() => {
     setModeSelectorOpen(false);
     onOpenChange(false);
     window.requestAnimationFrame(() => buttonRef.current?.focus());
   }, [onOpenChange, setModeSelectorOpen]);
+  const resolveSheetReturnFocusTarget = useCallback(
+    () => sheetReturnFocusRef?.current ?? buttonRef.current,
+    [sheetReturnFocusRef],
+  );
 
   // The sheet owns its own focus trap, Escape, and backdrop dismissal; only the
   // anchored popover needs the outside-click dismissable layer.
@@ -442,6 +460,15 @@ export function ModeActionPopup({
   });
 
   function focusActionItem(index: number) {
+    if (customBody) {
+      const body = document.getElementById(customBodyFocusScopeId);
+      const focusable = body?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+      focusable[index < 0 ? focusable.length - 1 : Math.min(index, focusable.length - 1)]?.focus();
+      return;
+    }
     const nextIndex = (index + items.length) % items.length;
     itemRefs.current[nextIndex]?.focus();
   }
@@ -459,7 +486,11 @@ export function ModeActionPopup({
     const edgePadding = 12;
     const availableAbove = Math.max(0, rect.top - viewportTop - edgePadding);
     const availableBelow = Math.max(0, viewportBottom - rect.bottom - edgePadding);
-    const { minSurfaceHeight, headerHeight } = estimateActionListHeights(items.length, integrated);
+    // Custom bodies (pins + search) are substantially taller than one row per
+    // mode action; size placement against a pin-panel floor so "fits above"
+    // is not chosen from an unrelated action-count estimate.
+    const estimatedItemCount = hasCustomBody ? Math.max(items.length, 10) : items.length;
+    const { minSurfaceHeight, headerHeight } = estimateActionListHeights(estimatedItemCount, integrated);
     const detachedUpOffset = 16;
     const integratedDownOffset = integratedChipRow ? 58 : 14;
     const detachedDownOffset = integrated ? integratedDownOffset : 14;
@@ -513,7 +544,7 @@ export function ModeActionPopup({
     } else {
       setIntegratedSurfaceLayout(null);
     }
-  }, [integrated, integratedChipRow, items.length]);
+  }, [hasCustomBody, integrated, integratedChipRow, items.length]);
 
   function openWithFocus(index: number) {
     onBeforeOpen?.();
@@ -526,7 +557,7 @@ export function ModeActionPopup({
   function handleTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
     event.preventDefault();
-    openWithFocus(event.key === "ArrowUp" ? items.length - 1 : 0);
+    openWithFocus(event.key === "ArrowUp" ? -1 : 0);
   }
 
   function handleItemKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
@@ -687,7 +718,7 @@ export function ModeActionPopup({
   function renderActionRows() {
     return (
       <div
-        id="daily-actions-sheet"
+        id={actionSurfaceId}
         data-testid="daily-actions-menu"
         role="menu"
         aria-label={title}
@@ -708,7 +739,7 @@ export function ModeActionPopup({
                 onKeyDown={(event) => handleItemKeyDown(event, index)}
                 onClick={() => runActionAndClose(item.id)}
                 className={cn(
-                  "group flex w-full items-center gap-3 rounded-xl border px-3 text-left transition motion-safe:duration-150",
+                  "group flex w-full items-center gap-3 rounded-xl border px-3 text-left transition motion-safe:duration-[var(--duration-quick)]",
                   useSheet ? "min-h-14 py-2" : "min-h-12 py-1.5",
                   item.primary
                     ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45 hover:bg-[color:var(--clinical-accent-soft)]/60"
@@ -733,14 +764,14 @@ export function ModeActionPopup({
                   {item.description ? (
                     <span
                       id={descriptionId}
-                      className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-soft)]"
+                      className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-muted)]"
                     >
                       {item.description}
                     </span>
                   ) : null}
                 </span>
                 <ChevronRight
-                  className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
+                  className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
                   aria-hidden="true"
                 />
               </button>
@@ -788,7 +819,7 @@ export function ModeActionPopup({
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-extrabold">{mode.label}</span>
                   {mode.description ? (
-                    <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                    <span className="block truncate text-2xs font-semibold text-[color:var(--text-muted)]">
                       {mode.description}
                     </span>
                   ) : null}
@@ -811,6 +842,12 @@ export function ModeActionPopup({
     if (modeSelectorOpen && modeOptions?.length) return renderModeList();
     return renderActionRows();
   }
+
+  // Invoke the default renderer unconditionally so its ref-owning helpers remain
+  // ordinary render work even when a richer body replaces the resulting node.
+  const defaultPopoverBody = renderPopoverBody();
+  const customBodyWithFocusScope = customBody ? <div id={customBodyFocusScopeId}>{customBody}</div> : null;
+  const popoverBody = customBodyWithFocusScope ?? defaultPopoverBody;
 
   // Desktop popover header — same anatomy as the Sheet header the ≤1023px surface
   // uses (accent icon tile + stacked title/subtitle + close), so the menu reads as
@@ -845,7 +882,7 @@ export function ModeActionPopup({
             {canSwitchMode ? (
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition",
+                  "h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition",
                   modeSelectorOpen && "rotate-180",
                 )}
                 aria-hidden="true"
@@ -874,8 +911,12 @@ export function ModeActionPopup({
         ref={surfaceRef}
         data-placement={placement}
         style={surfaceStyle}
+        id={customBody ? actionSurfaceId : undefined}
+        data-testid={customBody ? "daily-actions-menu" : undefined}
+        role={customBody ? "dialog" : undefined}
+        aria-label={customBody ? title : undefined}
         className={cn(
-          "mode-action-surface z-50 text-[color:var(--text)]",
+          "mode-action-surface z-[60] text-[color:var(--text)]",
           integrated && integratedSurfaceLayout ? "fixed" : "absolute",
           integrated && integratedSurfaceLayout
             ? null
@@ -896,18 +937,18 @@ export function ModeActionPopup({
           className={cn(
             glassOverlaySurface,
             "mode-action-panel overflow-hidden bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)]",
-            integrated ? "rounded-[1.35rem] shadow-[var(--shadow-elevated)]" : "rounded-[1rem]",
+            integrated ? "rounded-2xl shadow-[var(--shadow-elevated)]" : "rounded-xl",
           )}
         >
           {renderPopoverHeader()}
-          {renderPopoverBody()}
+          {popoverBody}
         </div>
       </div>
     ) : null;
 
   return (
     <>
-      {useSheet && open ? (
+      {useSheet ? (
         <Sheet
           open={open}
           onClose={closeAndRestoreFocus}
@@ -915,6 +956,9 @@ export function ModeActionPopup({
           description={headerSubtitle}
           closeLabel={`Close ${title.toLowerCase()} options`}
           returnFocusRef={buttonRef}
+          resolveReturnFocusTarget={resolveSheetReturnFocusTarget}
+          id={customBody ? actionSurfaceId : undefined}
+          testId={customBody ? "daily-actions-menu" : undefined}
           headerLeading={
             <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <TitleIcon className="h-5 w-5" aria-hidden="true" />
@@ -924,7 +968,7 @@ export function ModeActionPopup({
           mobileSize="content"
           portal
         >
-          {renderActionRows()}
+          {customBodyWithFocusScope ?? defaultPopoverBody}
         </Sheet>
       ) : integrated && open && typeof document !== "undefined" ? (
         createPortal(actionSurface, document.body)
@@ -949,9 +993,9 @@ export function ModeActionPopup({
             open && "bg-[color:var(--surface-subtle)] text-[color:var(--text)] rotate-45",
           )}
           aria-label={buttonLabel}
-          aria-controls={open ? "daily-actions-sheet" : undefined}
+          aria-controls={open ? actionSurfaceId : undefined}
           aria-expanded={open}
-          aria-haspopup="menu"
+          aria-haspopup={customBody ? "dialog" : "menu"}
           title={buttonLabel}
           onKeyDown={handleTriggerKeyDown}
           onClick={() => {

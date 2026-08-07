@@ -8,6 +8,7 @@ import { childProcessExitCode, childProcessFailureSummary } from "../scripts/chi
 import {
   offlineTestEnvironment,
   offlineUrlValues,
+  providerFreeCloudLiveTestGap,
   providerEnvironmentKeys,
   requireProviderTestPermission,
 } from "../scripts/test-environment.mjs";
@@ -316,10 +317,22 @@ describe("repository-wide heavyweight lock", () => {
 
     try {
       const queueDirectory = testRunLockInternals.coordinatorPaths(first.coordinatorPath).queue;
+      // A file this poll cannot parse is not a ticket yet — keep waiting rather
+      // than throwing. The coordinator's own reader has always been tolerant
+      // here (`readJson` returns null and `queueRecords` filters it out); this
+      // predicate was the only reader that treated a torn read as fatal, which
+      // is how an IO-timing artefact surfaced as `SyntaxError: Unexpected end of
+      // JSON input` instead of the priority assertion below. `writeJson` now
+      // publishes via rename so the torn read cannot happen at all; this stays
+      // because the test should measure ordering, not write timing.
       await waitForCondition(() =>
         readdirSync(queueDirectory).some((file) => {
-          const ticket = JSON.parse(readFileSync(path.join(queueDirectory, file), "utf8")) as { mode: string };
-          return ticket.mode === "exclusive";
+          try {
+            const ticket = JSON.parse(readFileSync(path.join(queueDirectory, file), "utf8")) as { mode: string };
+            return ticket.mode === "exclusive";
+          } catch {
+            return false;
+          }
         }),
       );
       expect(() =>
@@ -502,6 +515,16 @@ describe("focused test admission", () => {
     expect(path.dirname(path.dirname(first))).toBe(path.join(baseDirectory, "clinical-kb-tsc-cache"));
     expect(path.basename(first)).toBe("tsconfig.tsbuildinfo");
   });
+
+  it("keeps distinct buildinfo filenames for base vs source-only typecheck", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-tsc-cache-names-");
+    const root = path.join(baseDirectory, "worktree");
+    const base = typescriptBuildInfoPath(root, baseDirectory, "tsconfig.tsbuildinfo");
+    const source = typescriptBuildInfoPath(root, baseDirectory, "tsconfig.typecheck.tsbuildinfo");
+    expect(path.dirname(base)).toBe(path.dirname(source));
+    expect(base).not.toBe(source);
+    expect(path.basename(source)).toBe("tsconfig.typecheck.tsbuildinfo");
+  });
 });
 
 describe("sensitive diagnostic text", () => {
@@ -546,11 +569,82 @@ describe("provider-safe test environment", () => {
     for (const key of providerEnvironmentKeys) {
       expect(environment[key]).toBe(offlineUrlValues[key as keyof typeof offlineUrlValues] ?? "");
     }
+    // Credentials join the scrub inventory; the control flags deliberately do
+    // not — they are forced off instead, so nothing demands that a non-secret
+    // name be scrubbed from setup and raw-env checks too.
+    expect(providerEnvironmentKeys).toEqual(
+      expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"]),
+    );
+    expect(providerEnvironmentKeys).not.toContain("SENTRY_ENABLE_LOGS");
+    expect(providerEnvironmentKeys).not.toContain("SENTRY_SEND_TEST_LOG");
+    expect(providerEnvironmentKeys).not.toContain("SENTRY_TRACES_SAMPLE_RATE");
+    expect(environment.SENTRY_AUTH_TOKEN).toBe("");
+    // Explicit blank pins the key so Next/Vite cannot reload a live DSN from
+    // `.env.local` during Playwright/Lighthouse `next build` / `next start`.
+    // `optionalUrlEnv` in `src/lib/env.ts` coerces "" to unset for Zod.
+    expect(environment.SENTRY_DSN).toBe("");
+    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe("");
+    expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
+    expect(environment.SENTRY_SEND_TEST_LOG).toBe("false");
+    expect(environment.SENTRY_TRACES_SAMPLE_RATE).toBe("0");
+  });
+
+  it("keeps Sentry DSNs pinned blank so a repository-local env file cannot restore a live destination", () => {
+    // Simulate the inheritance shape Next would see after `.env.local` load:
+    // both a live DSN on the parent and a would-be reload candidate. The offline
+    // wrapper must overwrite both names with an explicit blank (present, falsy).
+    const liveDsn = "https://real-key@o123.ingest.sentry.io/456";
+    const environment: Record<string, string | undefined> = offlineTestEnvironment({
+      SENTRY_DSN: liveDsn,
+      NEXT_PUBLIC_SENTRY_DSN: liveDsn,
+      SENTRY_AUTH_TOKEN: "sntrys_live_token",
+      SENTRY_TRACES_SAMPLE_RATE: "0.1",
+      SENTRY_ENABLE_LOGS: "true",
+    });
+
+    expect(environment.SENTRY_DSN).toBe("");
+    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe("");
+    expect(environment.SENTRY_DSN).not.toBe(liveDsn);
+    expect(environment.SENTRY_AUTH_TOKEN).toBe("");
+    expect(environment.SENTRY_TRACES_SAMPLE_RATE).toBe("0");
+    expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
+    // Presence (not absence) is load-bearing: Next only skips `.env*` reload for
+    // names already set on process.env.
+    expect(Object.hasOwn(environment, "SENTRY_DSN")).toBe(true);
+    expect(Object.hasOwn(environment, "NEXT_PUBLIC_SENTRY_DSN")).toBe(true);
   });
 
   it("requires explicit permission before live tests can run", () => {
     expect(() => requireProviderTestPermission({})).toThrow(/ALLOW_PROVIDER_TESTS=true/);
     expect(() => requireProviderTestPermission({ ALLOW_PROVIDER_TESTS: "true" })).not.toThrow();
+  });
+
+  it("reports the intentional Cloud credential boundary after live-test authorization", () => {
+    const environment = {
+      ALLOW_PROVIDER_TESTS: "true",
+      CODEX_CLOUD: "1",
+      CODEX_CLOUD_ACCESS_PROFILE: "offline",
+      RAG_PROVIDER_MODE: "offline",
+      NEXT_PUBLIC_DEMO_MODE: "true",
+      PLAYWRIGHT_OFFLINE_MODE: "true",
+      OPENAI_API_KEY: "must-not-appear",
+    };
+    const gap = providerFreeCloudLiveTestGap(environment);
+    expect(gap).toContain("agent-phase provider credentials are intentionally unavailable");
+    expect(gap).not.toContain(environment.OPENAI_API_KEY);
+    for (const malformedModes of [
+      { RAG_PROVIDER_MODE: "openai" },
+      { NEXT_PUBLIC_DEMO_MODE: "false" },
+      { PLAYWRIGHT_OFFLINE_MODE: "false" },
+    ]) {
+      expect(providerFreeCloudLiveTestGap({ ...environment, ...malformedModes })).toContain(
+        "Live provider test capability gap",
+      );
+    }
+    expect(providerFreeCloudLiveTestGap({ ...environment, CODEX_CLOUD_ACCESS_PROFILE: undefined })).toContain(
+      "Live provider test capability gap",
+    );
+    expect(providerFreeCloudLiveTestGap({ ...environment, CODEX_CLOUD_ACCESS_PROFILE: "connected" })).toBeNull();
   });
 
   it("keeps live tests out of default Vitest discovery", () => {
@@ -583,6 +677,29 @@ describe("provider-safe test environment", () => {
     expect(`${result.stdout}${result.stderr}`).toContain("Live provider tests are disabled");
   });
 
+  it("fails the authorized live-test command with a sanitized offline Cloud capability gap", () => {
+    const secret = "sensitive-test-value";
+    const result = spawnSync(process.execPath, ["scripts/run-live-tests.mjs"], {
+      cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
+      env: {
+        ...process.env,
+        ALLOW_PROVIDER_TESTS: "true",
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_ACCESS_PROFILE: "offline",
+        RAG_PROVIDER_MODE: "offline",
+        NEXT_PUBLIC_DEMO_MODE: "true",
+        PLAYWRIGHT_OFFLINE_MODE: "true",
+        OPENAI_API_KEY: secret,
+      },
+      encoding: "utf8",
+    });
+    const output = `${result.stdout}${result.stderr}`;
+    expect(childProcessExitCode(result)).toBe(2);
+    expect(output).toContain("Live provider test capability gap");
+    expect(output).not.toContain(secret);
+    expect(output).not.toContain("sensitive-test");
+  });
+
   it("loads credentials from Next environment files without accepting persisted permission", () => {
     const runner = readFileSync(new URL("../scripts/run-live-tests.mjs", import.meta.url), "utf8");
     const permissionSnapshot = "const providerTestPermission = process.env.ALLOW_PROVIDER_TESTS;";
@@ -609,6 +726,7 @@ describe("provider-safe test environment", () => {
     const baseUrl = readFileSync(new URL("../scripts/playwright-base-url.ts", import.meta.url), "utf8");
     const ragRunner = readFileSync(new URL("../scripts/eval-rag-offline.mjs", import.meta.url), "utf8");
     const playwrightConfig = readFileSync(new URL("../playwright.config.ts", import.meta.url), "utf8");
+    const ciWorkflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
     const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
       scripts: Record<string, string>;
     };
@@ -618,6 +736,27 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain('NODE_ENV: "production"');
     expect(runner).toContain('PLAYWRIGHT_OFFLINE_MODE: "true"');
     expect(runner).toContain('NEXT_PUBLIC_MOCKUPS_ENABLED: mockupProjectRequested ? "true" : "false"');
+    expect(runner).toContain("process.env.PLAYWRIGHT_BUILD_ROOT_ID?.trim()");
+    expect(runner).toContain('PLAYWRIGHT_KEEP_BUILD_ROOT must be unset or exactly "true"');
+    expect(runner).toContain("PLAYWRIGHT_KEEP_BUILD_ROOT requires PLAYWRIGHT_BUILD_ROOT_ID");
+    expect(runner).toContain("if (!keepBuildRoot)");
+    // Run-scoped artifact sharing (not actions/cache) — avoids the measured 804 MB
+    // Actions-cache budget regression while still warming the three production shards.
+    expect(ciWorkflow).toContain("name: playwright-next-build-cache-${{ github.run_id }}");
+    expect(ciWorkflow).toContain("Publish isolated Next.js build cache");
+    expect(ciWorkflow).toContain("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1");
+    // Dot-directory paths require include-hidden-files or upload-artifact v4.4+
+    // silently publishes nothing (same class of bug as eval-canary's `.local/`).
+    expect(ciWorkflow).toContain("include-hidden-files: true");
+    expect(ciWorkflow).toContain("compression-level: 0");
+    // Publish must not gate the critical job: a cache miss falls back to cold builds.
+    expect(ciWorkflow).toMatch(
+      /Publish isolated Next\.js build cache[\s\S]*?continue-on-error:\s*true[\s\S]*?actions\/upload-artifact/,
+    );
+    expect(ciWorkflow).not.toMatch(/playwright-next-\$\{\{\s*runner\.os\s*\}\}/);
+    expect(ciWorkflow.match(/path: \.next-playwright\/ci-production\/dist\/cache/g)).toHaveLength(2);
+    expect(ciWorkflow.match(/PLAYWRIGHT_BUILD_ROOT_ID: ci-production/g)).toHaveLength(2);
+    expect(ciWorkflow.match(/PLAYWRIGHT_KEEP_BUILD_ROOT: "true"/g)).toHaveLength(2);
     expect(runner).toContain("!explicitProjectRequested ||");
     // Empty 3xx bodies from legacy redirect route handlers must not fail readiness.
     expect(runner).toContain("body === null || body.includes(missingErrorComponentsNeedle)");
@@ -633,6 +772,8 @@ describe("provider-safe test environment", () => {
     );
     expect(preflight).toContain("chromium_headless_shell");
     expect(preflight).toContain("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH");
+    expect(preflight).toContain("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD");
+    expect(runner).toContain("process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = preinstalledChromium.path");
     expect(packageJson.scripts["test:e2e:pr"]).toContain('--grep-invert "@quarantine|@mockup"');
     expect(packageJson.scripts["test:e2e:regression"]).toContain('--grep-invert "@critical|@quarantine|@mockup"');
     expect(baseUrl.indexOf("if (!allowEnsure)")).toBeLessThan(baseUrl.indexOf("findExistingLocalProjectUrl();"));

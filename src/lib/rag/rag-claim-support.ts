@@ -1083,7 +1083,10 @@ function evidenceAssessment(source: SearchResult, claims: SupportedClaim[], inpu
   return {
     relevance: source.relevance?.verdict ?? (mappedInputs.length > 0 ? "nearby" : "none"),
     claimSupport: supports.length ? "direct" : partial ? "partial" : "unsupported",
-    authority: metadata?.clinical_validation_status ?? "unverified",
+    authority:
+      metadata?.clinical_validation_status && metadata.clinical_validation_status !== "unknown"
+        ? metadata.clinical_validation_status
+        : "unverified",
     currency: metadata?.document_status ?? "unknown",
     extractionQuality: metadata?.extraction_quality ?? "unknown",
   };

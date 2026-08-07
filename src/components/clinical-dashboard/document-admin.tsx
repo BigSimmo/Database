@@ -39,7 +39,7 @@ import {
   fieldIcon,
   floatingControl,
   iconTilePremium,
-  metadataPill,
+  metadataPillDensity,
   panelSubtle,
   primaryControl,
   sourceCard,
@@ -220,9 +220,9 @@ function DocumentLabelReviewPanel({
                   </p>
                 </div>
                 {item.needsReview ? (
-                  <span className={cn(metadataPill, toneWarning, "min-h-7 text-2xs")}>Needs review</span>
+                  <span className={cn(metadataPillDensity.dense, toneWarning)}>Needs review</span>
                 ) : (
-                  <span className={cn(metadataPill, toneSuccess, "min-h-7 text-2xs")}>Reviewed</span>
+                  <span className={cn(metadataPillDensity.dense, toneSuccess)}>Reviewed</span>
                 )}
               </div>
 
@@ -250,12 +250,10 @@ function DocumentLabelReviewPanel({
                               <span className="truncate text-xs font-semibold text-[color:var(--text)]">
                                 {label.displayLabel}
                               </span>
-                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-2xs")}>
+                              <span className={cn(metadataPillDensity.compact, labelTierTone[label.tier])}>
                                 {label.tier}
                               </span>
-                              <span className={cn(metadataPill, "min-h-6 text-2xs")}>
-                                {labelTypeDisplay(label.labelType)}
-                              </span>
+                              <span className={metadataPillDensity.compact}>{labelTypeDisplay(label.labelType)}</span>
                             </div>
                             <p className={cn("mt-1 text-2xs font-semibold", textMuted)}>
                               {label.source} · {Math.round(label.confidence * 100)}% · {label.reviewStatus}
@@ -411,7 +409,7 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
       <div className="mt-3 space-y-3">
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(counts) as SmartDocumentTagQualityIssueKind[]).map((kind) => (
-            <span key={kind} className={cn(metadataPill, "min-h-7 px-2 text-2xs", tagQualityTone[kind])}>
+            <span key={kind} className={cn(metadataPillDensity.dense, tagQualityTone[kind])}>
               {tagQualityLabel(kind)}: {counts[kind]}
             </span>
           ))}
@@ -424,7 +422,7 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn(metadataPill, "min-h-6 px-2 text-2xs", tagQualityTone[issue.kind])}>
+                  <span className={cn(metadataPillDensity.compact, tagQualityTone[issue.kind])}>
                     {tagQualityLabel(issue.kind)}
                   </span>
                   <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{issue.label}</p>
@@ -509,16 +507,16 @@ function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[]
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{item.document.title}</p>
-              <span className={cn(metadataPill, "nums text-2xs")}>
+              <span className={cn(metadataPillDensity.dense, "nums")}>
                 index {Number.isFinite(item.score) ? item.score.toFixed(2) : "n/a"}
               </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className={cn(metadataPill, "text-2xs")}>extraction:{item.extractionQuality}</span>
-              <span className={cn(metadataPill, "text-2xs")}>sections:{item.sectionCount}</span>
-              <span className={cn(metadataPill, "text-2xs")}>memory:{item.memoryCardCount}</span>
+              <span className={metadataPillDensity.dense}>extraction:{item.extractionQuality}</span>
+              <span className={metadataPillDensity.dense}>sections:{item.sectionCount}</span>
+              <span className={metadataPillDensity.dense}>memory:{item.memoryCardCount}</span>
               {item.issues.slice(0, 4).map((issue) => (
-                <span key={issue} className={cn(metadataPill, "text-2xs")}>
+                <span key={issue} className={metadataPillDensity.dense}>
                   {issue}
                 </span>
               ))}
@@ -647,22 +645,6 @@ export function DocumentDrawer({
   }, [documents]);
 
   const isAdminMode = mode === "admin" && canManageDocuments;
-  const modeLabel =
-    mode === "recent"
-      ? "Recent documents"
-      : mode === "source"
-        ? "Source PDFs"
-        : mode === "admin"
-          ? statusFilterLabel(statusFilter)
-          : "Sources";
-  const modeSummary =
-    mode === "recent"
-      ? "Recently updated indexed sources."
-      : mode === "source"
-        ? "PDF source documents ready to open."
-        : mode === "admin"
-          ? "Document maintenance and indexing tools."
-          : "Search and open indexed clinical sources.";
   const filterValue = filter.toLowerCase();
 
   const filtered = documents
@@ -739,14 +721,6 @@ export function DocumentDrawer({
 
   return (
     <div className="space-y-3">
-      <div className={cn(panelSubtle, "flex flex-wrap items-center justify-between gap-2 p-3")}>
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">{modeLabel}</p>
-          <p className={cn("text-xs", textMuted)}>
-            {modeSummary} {filtered.length} matching document{filtered.length === 1 ? "" : "s"}.
-          </p>
-        </div>
-      </div>
       <label className="relative block">
         <Search aria-hidden="true" className={fieldIcon} />
         <input
@@ -884,7 +858,7 @@ export function DocumentDrawer({
           />
           <label
             htmlFor="needs-review-filter"
-            className="text-xs font-semibold text-[color:var(--text-soft)] cursor-pointer select-none"
+            className="text-xs font-semibold text-[color:var(--text-muted)] cursor-pointer select-none"
           >
             Show &quot;Needs review&quot; queue only
           </label>
@@ -1069,19 +1043,23 @@ export function DocumentDrawer({
                 ? "Upload a guideline to start indexing."
                 : "Try another document title or file name."
             }
+            live="polite"
           />
         ) : (
           filtered.slice(0, 12).map((document) => {
             const selected = selectedDocumentIds.includes(document.id);
             return (
-              <div key={document.id} className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div key={document.id} className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                 <div className="min-w-0">
                   <Link
                     href={`/documents/${document.id}`}
                     className="flex min-h-tap min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                   >
                     <span className="truncate">{documentDisplayTitle(document)}</span>
-                    <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
+                    <ExternalLink
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]"
+                    />
                   </Link>
                   <DocumentOrganizationBadges document={document} compact className="mt-1" />
                   <p className={cn("mt-1 truncate text-xs", textMuted)}>
@@ -1102,7 +1080,7 @@ export function DocumentDrawer({
                   />
                   <SourceProvenance metadata={document.metadata} />
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                   <StatusBadge status={document.status} />
                   <SourceDesignationBadge metadata={document.metadata} />
                   <SourceStatusBadge metadata={document.metadata} />
@@ -1160,11 +1138,4 @@ function documentStatusMatchesFilter(document: ClinicalDocument, filter: Documen
   if (filter === "indexed") return document.status === "indexed";
   if (filter === "indexing") return document.status === "queued" || document.status === "processing";
   return document.status === "failed";
-}
-
-function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
-  if (filter === "indexed") return "Indexed documents";
-  if (filter === "indexing") return "Indexing documents";
-  if (filter === "failed") return "Failed documents";
-  return "All documents";
 }

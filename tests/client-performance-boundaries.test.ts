@@ -47,6 +47,9 @@ describe("fixture-free client performance boundaries", () => {
 
   it("loads administration data only after its source surface opens", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
+    expect(dashboard).not.toContain('from "@/components/clinical-dashboard/DocumentManagerPanel"');
+    expect(dashboard).toContain('from "@/components/clinical-dashboard/document-manager-contracts"');
+    expect(dashboard).toContain('from "@/components/clinical-dashboard/library-health-strip"');
     expect(dashboard).toContain("includeSetup: true, includeDashboardData: false");
     expect(dashboard).toContain("dashboardDataSurfaceVisible && !dashboardDataLoadedRef.current");
     expect(dashboard).toContain("administrationSurfaceVisible && !administrationDataLoadedRef.current");

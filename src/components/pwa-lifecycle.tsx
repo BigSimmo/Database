@@ -582,7 +582,7 @@ export function PwaLifecycle() {
             <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
               Open it from your device like an app. Private clinical features still require a connection.
             </p>
-            <p className="mt-1.5 text-xs font-semibold tracking-[0.01em] text-[color:var(--text-soft)]">
+            <p className="mt-1.5 text-xs font-semibold tracking-normal text-[color:var(--text-muted)]">
               Free · No app store · Takes a few seconds
             </p>
             <div className="mt-3.5 flex flex-wrap gap-2">

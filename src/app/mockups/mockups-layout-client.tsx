@@ -26,7 +26,27 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Renders the results header inside its own device frames; the shared composer
   // would read as a second, real search bar over the study.
   const isSearchRefineAdaptiveMockup = pathname === "/mockups/search-refine-adaptive";
+  // Draws its own result bands inside device frames; the shared chrome above
+  // them would read as a third, real band competing with the two on offer.
+  const isSearchBandDirectionsMockup = pathname === "/mockups/search-band-directions";
   const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
+  // Draws its own composer in every frame, and the notice under study is the one
+  // the shared composer renders — showing both would put two different privacy
+  // lines on screen at once.
+  const isWarningConsolidationMockup = pathname === "/mockups/warning-consolidation";
+  const isWarningLineMockup = pathname === "/mockups/warning-line";
+  const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
+  // Draws its own sticky chrome + device frames for /privacy; shared shell would
+  // read as a second real header over the study.
+  const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
+  const isPrivacyLiveSignalPerfectedMockup = pathname === "/mockups/privacy-live-signal-perfected";
+  // These studies draw complete app shells and their own search composers, so
+  // shared chrome would make the interaction studies ambiguous.
+  const isSearchLensMenuMockup = pathname === "/mockups/search-lens-menu";
+  const isPinnedPlusMenuMockup = pathname === "/mockups/pinned-plus-menu";
+  // Draws its own phone frames with an in-frame Choose mode sheet; shared chrome
+  // would read as a second real header over the study.
+  const isPhoneModeSheetYesMockup = pathname === "/mockups/phone-mode-sheet-yes";
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
@@ -63,14 +83,32 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
         !isPhoneInPageNavigationMockup &&
-        !isTherapyNavigationMockup
+        !isSearchBandDirectionsMockup &&
+        !isTherapyNavigationMockup &&
+        !isWarningConsolidationMockup &&
+        !isWarningLineMockup &&
+        !isAnswerHomeProposalMockup &&
+        !isPrivacyPageDirectionsMockup &&
+        !isPrivacyLiveSignalPerfectedMockup &&
+        !isSearchLensMenuMockup &&
+        !isPinnedPlusMenuMockup &&
+        !isPhoneModeSheetYesMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
         !isSearchHeadingMockup &&
         !isSearchRefineAdaptiveMockup &&
+        !isSearchBandDirectionsMockup &&
         !isPhoneInPageNavigationMockup &&
-        !isTherapyNavigationMockup
+        !isTherapyNavigationMockup &&
+        !isWarningConsolidationMockup &&
+        !isWarningLineMockup &&
+        !isAnswerHomeProposalMockup &&
+        !isPrivacyPageDirectionsMockup &&
+        !isPrivacyLiveSignalPerfectedMockup &&
+        !isSearchLensMenuMockup &&
+        !isPinnedPlusMenuMockup &&
+        !isPhoneModeSheetYesMockup
       }
     >
       {children}

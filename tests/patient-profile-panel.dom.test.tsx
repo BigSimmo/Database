@@ -82,7 +82,7 @@ describe("PatientProfilePanel — physiological input validation", () => {
 
     // Switching to mg/dL must convert (90 / 88.4 ≈ 1.02), not leave 90 to be
     // reinterpreted as 90 mg/dL by the alert engine.
-    fireEvent.click(screen.getByRole("button", { name: "mg/dL" }));
+    fireEvent.click(screen.getByRole("radio", { name: "mg/dL" }));
     expect(storedProfile().scrUnit).toBe("mg/dL");
     expect(storedProfile().scr as number).toBeCloseTo(1.02, 2);
     const scrMgdl = screen.getByTestId("patient-scr") as HTMLInputElement;
@@ -90,14 +90,14 @@ describe("PatientProfilePanel — physiological input validation", () => {
     expect(scrMgdl).not.toHaveAttribute("aria-invalid");
 
     // Switching back restores ~90 µmol/L (round-trip within display rounding).
-    fireEvent.click(screen.getByRole("button", { name: "µmol/L" }));
+    fireEvent.click(screen.getByRole("radio", { name: "µmol/L" }));
     expect(storedProfile().scrUnit).toBe("umol/L");
     expect(storedProfile().scr).toBe(90);
   });
 
   it("applies unit-aware bounds to serum creatinine after switching to mg/dL", () => {
     renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: "mg/dL" }));
+    fireEvent.click(screen.getByRole("radio", { name: "mg/dL" }));
     const scr = screen.getByTestId("patient-scr") as HTMLInputElement;
 
     // 200 mg/dL ≈ 17680 µmol/L — valid as a µmol/L number but absurd as mg/dL.

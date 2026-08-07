@@ -35,7 +35,11 @@ describe("mode-home loading contract", () => {
     );
     expect(shellSource).not.toMatch(/import\s*\{[^}]*ClientHydrationBoundary/);
     expect(shellSource).not.toMatch(/<ClientHydrationBoundary\b/);
-    expect(shellSource).toContain("SearchCommandProvider value={searchCommandContextValue}>{children}");
+    // Children stay under SearchCommandProvider; pending mode navigation may
+    // temporarily swap in ModeHomeRouteLoading instead of blanking the provider.
+    expect(shellSource).toMatch(
+      /<SearchCommandProvider value=\{searchCommandContextValue\}>[\s\S]*?\{pendingModeNavigation \? \([\s\S]*?<ModeHomeRouteLoading \/>[\s\S]*?\) : \(\s*children\s*\)\}/,
+    );
   });
 
   it("keeps route children outside useSearchParams Suspense on standalone shells", () => {
@@ -56,7 +60,7 @@ describe("mode-home loading contract", () => {
       /function GlobalStandaloneSearchShellClient[\s\S]*?<Suspense fallback=\{null\}>[\s\S]*?ShellSearchParamsBridge/,
     );
     expect(shellSource).toMatch(
-      /function GlobalStandaloneSearchShellBody[\s\S]*?SearchCommandProvider value=\{searchCommandContextValue\}>\{children\}/,
+      /function GlobalStandaloneSearchShellBody[\s\S]*?<SearchCommandProvider value=\{searchCommandContextValue\}>[\s\S]*?\{pendingModeNavigation \? \([\s\S]*?<ModeHomeRouteLoading \/>[\s\S]*?\) : \(\s*children\s*\)\}/,
     );
     expect(shellSource).not.toMatch(/function GlobalStandaloneSearchShellBody[\s\S]*?useSearchParams\(\)/);
     // Secondary nav is mounted inside the standalone body; it must consume the

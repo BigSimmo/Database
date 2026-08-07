@@ -313,6 +313,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (signInError) {
         setStatus("error");
         setError(signInError.message);
+        return;
       }
       // onAuthStateChange flips status to "authenticated" on success.
     },
@@ -359,6 +360,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (oauthError) {
         setStatus("error");
         setError(oauthError.message);
+        return;
       }
       // On success the browser is redirected to the provider.
     },
@@ -368,7 +370,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!client) return;
     invalidateAuthRequests();
-    await client.auth.signOut();
+    try {
+      await client.auth.signOut();
+    } catch {
+      setStatus("error");
+      setError("Sign out failed. Please try again.");
+      return;
+    }
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();

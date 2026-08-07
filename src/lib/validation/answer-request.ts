@@ -21,7 +21,9 @@ export const answerRequestSchema = z
     }
     if (
       value.summaryMode &&
+      value.documentId &&
       value.documentIds &&
+      value.documentIds.length > 0 &&
       (value.documentIds.length !== 1 || value.documentIds[0] !== value.documentId)
     ) {
       context.addIssue({

@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DocumentSearchResultsPanel } from "@/components/clinical-dashboard/document-search-results";
 import type { DocumentMatch } from "@/lib/types";
@@ -65,6 +65,10 @@ const lithiumMatch: DocumentMatch = {
 };
 
 describe("document search record path fault reporting", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("reports a failed registry once, not twice", () => {
     render(<DocumentSearchResultsPanel {...baseProps} recordStatus="error" />);
 
@@ -119,9 +123,64 @@ describe("document search record path fault reporting", () => {
     expect(screen.queryByRole("button", { name: /Preview evidence/i })).toBeNull();
     expect(screen.getByText("1 source marked outdated.")).toBeInTheDocument();
     expect(screen.getByText("1 source due for review.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: `Open ${lithiumMatch.title}` })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: `Scope search to ${lithiumMatch.title}` })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: `Answer from ${lithiumMatch.title}` })).toBeInTheDocument();
+    const resultCard = screen.getByTestId("document-result-card");
+    expect(within(resultCard).getByTestId("document-result-rank")).toHaveTextContent("1");
+    expect(within(resultCard).queryByText("PDF", { exact: true })).toBeNull();
+    expect(
+      within(resultCard).getByRole("link", { name: `Preview page 3 of ${lithiumMatch.title}` }),
+    ).toBeInTheDocument();
+    expect(within(resultCard).getByRole("link", { name: `Open ${lithiumMatch.title}` })).toHaveTextContent("Open");
+
+    const askButton = within(resultCard).getByRole("button", { name: `Ask about ${lithiumMatch.title}` });
+    fireEvent.click(askButton);
+    expect(baseProps.onAnswerFromDocument).toHaveBeenCalledWith(lithiumMatch.document_id);
+
+    expect(within(resultCard).queryByRole("button", { name: /Scope search to/i })).toBeNull();
+    const moreButton = within(resultCard).getByRole("button", { name: `More actions for ${lithiumMatch.title}` });
+    fireEvent.click(moreButton);
+    expect(within(resultCard).queryByRole("menu")).toBeNull();
+    const menu = screen.getByTestId("document-result-more-menu");
+    expect(within(menu).getByRole("menuitem", { name: "Copy citation" })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "Copy link" })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "View images (2)" })).toBeInTheDocument();
+
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Search only this source" }));
+    expect(baseProps.onScopeDocument).toHaveBeenCalledWith(lithiumMatch.document_id);
+  });
+});
+
+describe("library reachability on the record-match path", () => {
+  // A services search that matched records but no documents. This render used to
+  // return `null` outright, so once Library moved off the utility rail its three
+  // homes — the sheet footer, the zero-result empty state, the inline fallback —
+  // all missed this path: the footer needs `matches.length > 0` and the empty
+  // state needs `recordMatchCount === 0`. The reader was left with no route to
+  // the corpus that did not first destroy the search they were reading, which is
+  // the exact thing `docs/search-results-bar-decisions.md` requires be kept.
+  const recordOnlyProps = {
+    ...baseProps,
+    matches: [],
+    documentCount: 2014,
+    recordMatches: [
+      {
+        service: { slug: "crisis-line", title: "Crisis line" },
+        score: 0.9,
+        reasons: ["Matched service name"],
+      },
+    ],
+  };
+
+  it("offers Browse all sources when records matched but no documents did", async () => {
+    const user = userEvent.setup();
+    const onOpenLibrary = vi.fn();
+    render(<DocumentSearchResultsPanel {...recordOnlyProps} onOpenLibrary={onOpenLibrary} />);
+
+    const browse = screen.getByTestId("document-results-browse-library");
+    expect(browse).toBeVisible();
+    expect(browse).toHaveTextContent("2,014");
+
+    await user.click(browse);
+    expect(onOpenLibrary).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -137,11 +196,18 @@ describe("document search state matrix", () => {
 
     const loadingLabel = screen.getByText("Finding matching documents");
     expect(loadingLabel.closest('[role="status"]')).toBeInTheDocument();
-    expect(screen.queryByText("No matching documents")).not.toBeInTheDocument();
+    // The zero-match branch adopted `SearchResultsEmptyState` so Library stays
+    // reachable from a search that returned nothing, which changed the heading
+    // from "No matching documents" to the shared "No matches for <query>".
+    expect(screen.queryByText("No matches for “lithium”")).not.toBeInTheDocument();
 
     rerender(<DocumentSearchResultsPanel {...documentProps} query="lithium" loading={false} />);
     expect(screen.queryByText("Finding matching documents")).not.toBeInTheDocument();
-    expect(screen.getByText("No matching documents")).toBeInTheDocument();
+    // A heading, not a paragraph. This state owns its region, so #1612 gave it
+    // `h3`; adopting the shared empty state initially demoted it back to `<p>`
+    // and the only thing that caught it was a Chromium journey. Pin the level
+    // here so the fast gate carries it.
+    expect(screen.getByRole("heading", { level: 3, name: "No matches for “lithium”" })).toBeInTheDocument();
   });
 
   it("renders the document home for an empty query and wires every escape action", async () => {
@@ -161,7 +227,7 @@ describe("document search state matrix", () => {
 
     expect(screen.getByTestId("document-search-empty-state")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Recent documents/i }));
-    await user.click(screen.getByRole("button", { name: /Browse sources/i }));
+    await user.click(screen.getByRole("button", { name: /Browse library/i }));
     await user.click(screen.getByRole("button", { name: /Open a source PDF/i }));
     expect(onOpenRecentDocuments).toHaveBeenCalledTimes(1);
     expect(onOpenLibrary).toHaveBeenCalledTimes(1);
@@ -172,6 +238,6 @@ describe("document search state matrix", () => {
     render(<DocumentSearchResultsPanel {...documentProps} query="lithium" realDataReady={false} apiUnavailable />);
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.getByText(/No matching documents/)).toBeInTheDocument();
+    expect(screen.getByText(/No matches for/)).toBeInTheDocument();
   });
 });

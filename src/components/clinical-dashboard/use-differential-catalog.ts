@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 
+import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import type { DifferentialDetailContext } from "@/lib/differential-detail";
 import type { DifferentialSourceStatus, DifferentialValidationStatus } from "@/lib/differential-records";
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differentials";
@@ -13,7 +14,7 @@ export type DifferentialSearchMatches = {
 };
 
 export type DifferentialSearchState = {
-  status: "loading" | "ready" | "unauthorized" | "error";
+  status: "loading" | "refetching" | "ready" | "unauthorized" | "error";
   matches: DifferentialSearchMatches;
   demoMode: boolean;
 };
@@ -107,9 +108,9 @@ export function clearDifferentialSearchCacheForTests() {
 export type DifferentialSearchResult = DifferentialSearchState & { refetch: () => void };
 
 export function useDifferentialSearch(query: string): DifferentialSearchResult {
-  const { authorizationHeader, markSessionExpired, status: authStatus } = useAuthSession();
+  const { authorizationHeader, markSessionExpired, session, status: authStatus } = useAuthSession();
   const requestKey = query.trim().toLowerCase();
-  const authSignature = JSON.stringify(authorizationHeader ?? {});
+  const authSignature = authSessionFingerprint(authStatus, session?.user.id);
   const cacheKey = requestKey ? differentialCacheKey(requestKey, authSignature) : null;
   const cached = cacheKey ? peekDifferentialCache(cacheKey) : undefined;
 
@@ -127,11 +128,33 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
   // Auth must clear prior identity's matches immediately (parity with useUniversalSearch).
   const [lastRequestKey, setLastRequestKey] = useState(requestKey);
   const [lastAuthSignature, setLastAuthSignature] = useState(authSignature);
-  if (lastRequestKey !== requestKey || lastAuthSignature !== authSignature) {
+  const [lastAuthorizationHeader, setLastAuthorizationHeader] = useState(authorizationHeader);
+  const [requestLifecycle] = useState(() => createAuthRequestLifecycle());
+  const requestChanged = lastRequestKey !== requestKey;
+  const identityChanged = lastAuthSignature !== authSignature;
+  const credentialChanged = lastAuthorizationHeader !== authorizationHeader;
+  if (requestChanged || identityChanged || credentialChanged) {
     setLastRequestKey(requestKey);
     setLastAuthSignature(authSignature);
-    if (!requestKey) {
-      setState({ status: "ready", matches: emptyDifferentialMatches, demoMode: false });
+    setLastAuthorizationHeader(authorizationHeader);
+    if (!requestKey || identityChanged) {
+      setState(
+        requestKey
+          ? { status: "loading", matches: emptyDifferentialMatches, demoMode: false }
+          : { status: "ready", matches: emptyDifferentialMatches, demoMode: false },
+      );
+    } else if (credentialChanged && !requestChanged && (state.status === "ready" || state.status === "refetching")) {
+      setState({ ...state, status: "refetching" });
+    } else if (credentialChanged && !requestChanged) {
+      // Error/unauthorized/loading: drop the same-identity LRU entry so the
+      // render/effect cache short-circuits cannot paint stale ready matches
+      // without revalidating the new Authorization header.
+      if (cacheKey) differentialSearchCache.delete(cacheKey);
+      setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false });
+    } else if (credentialChanged && cached) {
+      // Query changed in the same pulse as the credential: show the warm hit
+      // but stay in refetching so the new Authorization header is revalidated.
+      setState({ status: "refetching", matches: cached.matches, demoMode: cached.demoMode });
     } else if (cached) {
       setState({ status: "ready", matches: cached.matches, demoMode: cached.demoMode });
     } else {
@@ -139,25 +162,42 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
     }
   }
 
+  useLayoutEffect(() => {
+    requestLifecycle.invalidate();
+  }, [authSignature, authorizationHeader, requestKey, requestLifecycle]);
+
   // Retry bumps this so the fetch effect re-runs on an unchanged query. Without
   // it a Retry button is inert: the hook keys on query + auth identity, neither
   // of which changes when the reader asks to try again.
   const [retryAttempt, setRetryAttempt] = useState(0);
   const refetch = useCallback(() => {
     if (!requestKey) return;
-    setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false });
+    setState((current) => {
+      if (current.status === "ready" || current.status === "refetching") {
+        return { ...current, status: "refetching" };
+      }
+      // Retry after error/unauthorized must not soft-succeed from a warm LRU
+      // entry that survived the failed attempt. Use refetching (not loading):
+      // the render short-circuit still promotes loading+cache → ready.
+      if (cacheKey) differentialSearchCache.delete(cacheKey);
+      return { status: "refetching", matches: emptyDifferentialMatches, demoMode: false };
+    });
     setRetryAttempt((attempt) => attempt + 1);
-  }, [requestKey]);
+  }, [cacheKey, requestKey, setState]);
 
   useEffect(() => {
     if (!requestKey || !cacheKey) return undefined;
 
-    if (peekDifferentialCache(cacheKey)) {
+    // Only a settled ready hit may skip the network. loading/refetching must
+    // revalidate so Retry and credential pulses cannot soft-succeed offline.
+    if (state.status === "ready" && peekDifferentialCache(cacheKey)) {
       touchDifferentialCache(cacheKey);
       return undefined;
     }
 
     const controller = new AbortController();
+    const registration = requestLifecycle.register(controller);
+    const isCurrentRequest = () => requestLifecycle.isCurrent(registration.epoch);
     const timer = window.setTimeout(() => {
       const encoded = encodeURIComponent(requestKey);
       Promise.all([
@@ -171,7 +211,7 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
         }),
       ])
         .then(async ([diagnosisResponse, presentationResponse]) => {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || !isCurrentRequest()) return;
           if (diagnosisResponse.status === 401 || presentationResponse.status === 401) {
             if (authStatus === "loading") return;
             if (authStatus === "authenticated") markSessionExpired();
@@ -193,7 +233,7 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
             matches?: DifferentialSearchMatches["presentations"];
             demoMode?: boolean;
           };
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || !isCurrentRequest()) return;
           const matches: DifferentialSearchMatches = {
             diagnoses: diagnosisPayload.matches ?? [],
             presentations: presentationPayload.matches ?? [],
@@ -203,7 +243,12 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
           setState({ status: "ready", matches, demoMode });
         })
         .catch((error: unknown) => {
-          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+          if (
+            controller.signal.aborted ||
+            !isCurrentRequest() ||
+            (error instanceof DOMException && error.name === "AbortError")
+          )
+            return;
           setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false });
         });
     }, debounceMs);
@@ -211,13 +256,23 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
     return () => {
       window.clearTimeout(timer);
       controller.abort();
+      registration.release();
     };
-  }, [requestKey, cacheKey, authStatus, authorizationHeader, markSessionExpired, retryAttempt]);
+  }, [
+    requestKey,
+    cacheKey,
+    authStatus,
+    authorizationHeader,
+    markSessionExpired,
+    retryAttempt,
+    state.status,
+    requestLifecycle,
+  ]);
 
   if (!requestKey) {
     return { status: "ready", matches: emptyDifferentialMatches, demoMode: false, refetch };
   }
-  if (cached && state.status !== "unauthorized" && state.status !== "error") {
+  if (cached && state.status !== "unauthorized" && state.status !== "error" && state.status !== "refetching") {
     return { status: "ready", matches: cached.matches, demoMode: cached.demoMode, refetch };
   }
   return { ...state, refetch };

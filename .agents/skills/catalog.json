@@ -15,6 +15,7 @@
         "health",
         "audit",
         "export",
+        "ledger",
         "prompt-perfector"
       ]
     },

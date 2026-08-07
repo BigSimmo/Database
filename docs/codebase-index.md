@@ -42,9 +42,10 @@ Smaller top-level directories that are easy to miss:
 | `plugins/`      | `plugins/clinical-kb/` Codex plugin manifest and workflow skill                                                                                                                                                                                                                                           |
 | `.agents/`      | Single-word skill catalogue (`npm run skills`, validated by `npm run check:skills`)                                                                                                                                                                                                                       |
 | `.claude/`      | Claude Code agents, skills, hooks, settings — plus the `.claude/worktrees/` working copies                                                                                                                                                                                                                |
+| `.codex/`       | Trusted Desktop/CLI config; tracked `config.toml` has disabled, secret-free Figma, Supabase, Railway, and Sentry MCP templates. Hosted ChatGPT/Codex apps are installed and authenticated separately; OAuth stays in the host credential store.                                                           |
 | `.cursor/`      | Cursor project rules and local-agent configuration                                                                                                                                                                                                                                                        |
 | `.design-sync/` | Generated design-system package metadata, validation notes, and project-sync artifacts                                                                                                                                                                                                                    |
-| `.githooks/`    | Installed by `npm install`; `pre-push` runs `scripts/guard-push.mjs` (format, auto-merge race, drift staleness)                                                                                                                                                                                           |
+| `.githooks/`    | Installed by `npm install`; `pre-push` runs `scripts/guard-push.mjs` (format, auto-merge race, drift staleness, static lint+typecheck)                                                                                                                                                                    |
 | `.vscode/`      | Shared VS Code workspace recommendations and settings                                                                                                                                                                                                                                                     |
 
 **Do not commit:** `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
@@ -123,7 +124,7 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 | `rag.ts`                                                                                                                | Main answer pipeline orchestrator                                                            |
 | `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface                                                   |
 | `rag-contracts.ts`, `rag-answer-support.ts`, `rag-query-guard.ts`                                                       | Shared RAG contracts and pure answer/query policy                                            |
-| `rag-evidence-gates.ts`, `rag-coverage-gate.ts`                                                                         | Evidence-sufficiency predicates and the fast-path evidence coverage gate                     |
+| `rag-evidence-gates.ts`, `rag-coverage-gate.ts`, `rag-second-stage.ts`                                                  | Evidence predicates, fast-path coverage gating, and second-stage ranking                     |
 | `rag-hydration.ts`                                                                                                      | Per-request hydration: document ranking metadata, cached index quality, page visual evidence |
 | `rag-cache.ts`, `rag-retrieval-variants.ts`                                                                             | Bounded caches and retrieval variants                                                        |
 | `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection                                                          |
@@ -171,12 +172,13 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Infra helpers
 
-| Module                                                                                           | Role                                                          |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                                      | External APIs and rate limits                                 |
-| `observability/` — `answer-slo.ts`, `cache-metrics.ts`, `spend-metrics.ts`                       | Deep-health SLO / cache-hit / answer-spend snapshots          |
-| `validation/`                                                                                    | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts` |
-| `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs` | Routing and project identity                                  |
+| Module                                                                                                                 | Role                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                                                            | External APIs and rate limits                                                                                                                                            |
+| `observability/` — `answer-slo.ts`, `cache-metrics.ts`, `spend-metrics.ts`, `error-tracking.ts`, `agent-monitoring.ts` | Deep-health SLO / cache-hit / answer-spend snapshots; privacy-safe Sentry error + DB-span scrubbers and metadata-only OpenAI agent monitoring (`docs/error-tracking.md`) |
+| `validation/`                                                                                                          | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts`                                                                                                            |
+| `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs`                       | Routing and project identity                                                                                                                                             |
+| `tailwind-merge.ts`                                                                                                    | The `extendTailwindMerge` config behind `cn()` — declares this repo's custom `@theme` scales so twMerge does not misclassify them (`docs/design-system/TOKENS.md`)       |
 
 ---
 
@@ -226,14 +228,15 @@ Cron-triggered agent for indexing v3 completion gates. Auth via `INDEXING_V3_AGE
 
 ## Worker (`worker/`)
 
-| File                           | Role                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------ |
-| `index.ts`                     | Bootstrap → `main.ts`                                                    |
-| `main.ts`                      | Polls `ingestion_jobs`, extracts, chunks, embeds, writes index artifacts |
-| `embedding-fields.ts`          | Additional embedding field inputs                                        |
-| `table-facts.ts`               | Table fact extraction                                                    |
-| `prerequisites.ts`             | Python/PDF OCR checks                                                    |
-| `python/extract_pdf_assets.py` | PDF asset extraction (PyMuPDF/Tesseract)                                 |
+| File                           | Role                                                                                    |
+| ------------------------------ | --------------------------------------------------------------------------------------- |
+| `index.ts`                     | Bootstrap → `main.ts`                                                                   |
+| `main.ts`                      | Polls `ingestion_jobs`, extracts, chunks, embeds, writes index artifacts                |
+| `observability.ts`             | Worker-side Sentry init/capture/flush, app privacy scrubbers (`docs/error-tracking.md`) |
+| `embedding-fields.ts`          | Additional embedding field inputs                                                       |
+| `table-facts.ts`               | Table fact extraction                                                                   |
+| `prerequisites.ts`             | Python/PDF OCR checks                                                                   |
+| `python/extract_pdf_assets.py` | PDF asset extraction (PyMuPDF/Tesseract)                                                |
 
 **Flow:** Upload → Storage + job queue → worker parses (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI embeddings → pgvector.
 

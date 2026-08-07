@@ -25,14 +25,15 @@ import {
 import { type FormEvent, useMemo, useState } from "react";
 
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
-import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeHero } from "@/components/mode-home-template";
 import {
   MobileResultFilterControl,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
-import { cn, toneInfo, toneSuccess, toneWarning } from "@/components/ui-primitives";
+import { cn, EmptyState } from "@/components/ui-primitives";
+import { Chip, type ChipStatusTone } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -205,22 +206,28 @@ function ToolIcon({ app, size = "md" }: { app: LauncherApp; size?: "sm" | "md" |
   );
 }
 
-function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "source" | "safety" | "high" }) {
+// Launcher status vocabulary mapped onto the design-system `Chip`. The tone and
+// icon choices are the launcher's; the chip geometry, tone palette, and truncation
+// are the design system's, so this no longer carries a second copy of the recipe.
+type StatusChipTone = "neutral" | "source" | "safety" | "high";
+
+const statusChipTone: Record<StatusChipTone, ChipStatusTone> = {
+  neutral: "neutral",
+  source: "success",
+  safety: "warning",
+  high: "info",
+};
+
+const statusChipIcon: Partial<Record<StatusChipTone, LucideIcon>> = {
+  source: ShieldCheck,
+  safety: Sparkles,
+};
+
+function StatusChip({ label, tone = "neutral" }: { label: string; tone?: StatusChipTone }) {
   return (
-    <span
-      className={cn(
-        "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-2xs font-bold leading-none",
-        tone === "source" && toneSuccess,
-        tone === "safety" && toneWarning,
-        tone === "high" && toneInfo,
-        tone === "neutral" &&
-          "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-      )}
-    >
-      {tone === "source" ? <ShieldCheck className="h-3 w-3" aria-hidden /> : null}
-      {tone === "safety" ? <Sparkles className="h-3 w-3" aria-hidden /> : null}
+    <Chip appearance={{ kind: "status", tone: statusChipTone[tone] }} icon={statusChipIcon[tone]}>
       {label}
-    </span>
+    </Chip>
   );
 }
 
@@ -245,7 +252,11 @@ function ToolSearch({
         onSubmit();
       }}
       className={cn(
-        "grid min-h-13 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
+        // Both end tracks hold tap-sized children and the row has no gap, so they
+        // read the tap knob rather than a copy of its value — a literal here
+        // overlaps the input (or undersizes the submit control) the moment
+        // `--spacing-tap` moves.
+        "grid min-h-13 grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
         className,
       )}
     >
@@ -259,14 +270,15 @@ function ToolSearch({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={copy.searchPlaceholder}
-          className="w-full min-w-0 bg-transparent text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none"
+          className="w-full min-w-0 bg-transparent text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)] focus:outline-none"
         />
       </label>
       <button
         type="submit"
         aria-label={copy.openSelectedAriaLabel}
+        data-testid="tools-local-search-submit"
         className={cn(
-          "mr-1 grid h-10 w-10 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
+          "grid h-tap w-tap place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
           focusRing,
         )}
       >
@@ -344,7 +356,7 @@ function QuickActions({
                 {mobile ? action.label : action.desktopLabel}
               </span>
               {!mobile ? (
-                <span className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                <span className="mt-0.5 block text-xs font-medium leading-4 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
                   {app.bestFor}
                 </span>
               ) : null}
@@ -440,7 +452,7 @@ function ToolCard({
       <ToolIcon app={app} size="lg" />
       <span className="min-w-0">
         <span className="block text-base font-extrabold leading-5 text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="mt-2 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+        <span className="mt-2 block text-sm font-medium leading-5 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
           {app.description}
         </span>
         <span className="mt-3 block text-xs font-bold text-[color:var(--text-heading)]">
@@ -487,7 +499,7 @@ function MobileToolRow({
       <ToolIcon app={app} size="sm" />
       <span className="min-w-0">
         <span className="block truncate text-sm font-extrabold text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="mt-1 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
+        <span className="mt-1 block text-xs font-medium leading-4 text-[color:var(--text-muted)] [overflow-wrap:anywhere]">
           {app.description}
         </span>
       </span>
@@ -599,7 +611,7 @@ function MobileDetailSections({ app }: { app: LauncherApp }) {
               <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{label}</span>
               <ChevronRight
                 className={cn(
-                  "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                  "h-4 w-4 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
                   expanded && "rotate-90",
                 )}
                 aria-hidden
@@ -851,10 +863,10 @@ export function ApplicationsLauncherWorkspace({
 
         <div id="launcher-results-panel" role="group" aria-label={resultsPanelLabel} className="grid grid-cols-1 gap-4">
           {filteredApps.length === 0 ? (
-            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-10 text-center shadow-[var(--shadow-inset)]">
-              <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[color:var(--text-muted)]">{copy.emptyBody}</p>
-            </div>
+            // The filter/query that empties this list is applied without a navigation,
+            // so the state is introduced dynamically and keeps EmptyState's polite
+            // announcement rather than appearing silently.
+            <EmptyState icon={Search} title={copy.emptyTitle} body={copy.emptyBody} live="polite" />
           ) : (
             <>
               <div className="hidden grid-cols-2 gap-4 lg:grid xl:grid-cols-3">
@@ -889,8 +901,6 @@ export function ApplicationsLauncherWorkspace({
           Colour coding reference
         </Link>
       </div>
-
-      <ModeHomeVerificationFooter icon={ShieldCheck} label="Clinical tools" body="Source-backed workflows" />
 
       <DetailDialog app={selectedApp} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </main>

@@ -70,6 +70,8 @@ export function anonymousApiSubjectKey(request: Request) {
   return `anon:${createHash("sha256").update(source).digest("hex").slice(0, 32)}`;
 }
 
+const OWNER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 type OwnerScopedQuery<T> = {
   eq(column: string, value: unknown): T;
   is(column: string, value: null): T;
@@ -84,7 +86,11 @@ type OwnerScopedQuery<T> = {
  * publication-review workflow promotes them to the public corpus.
  */
 export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, ownerId: string | undefined): T {
-  if (ownerId) return query.or(`owner_id.eq.${ownerId},owner_id.is.null`);
+  // The owner id is interpolated into a PostgREST `or=` filter string, where a comma,
+  // parenthesis, or dot is filter syntax rather than data. Supabase user ids are always
+  // UUIDs, so anything else is rejected and the read falls back to the public corpus
+  // instead of letting a crafted identity widen the filter.
+  if (ownerId && OWNER_ID_PATTERN.test(ownerId)) return query.or(`owner_id.eq.${ownerId},owner_id.is.null`);
   return query.is("owner_id", null);
 }
 

@@ -212,7 +212,14 @@ function compactEvidenceCell(value: string | null | undefined, max = 140) {
 
 export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
   if (rows.length === 0) {
-    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title={emptyStates.evidenceMap.title}
+        body={emptyStates.evidenceMap.body}
+        live="polite"
+      />
+    );
   }
 
   const tableRows = rows.map((row) => [
@@ -243,7 +250,7 @@ export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
               data-testid="evidence-map-open-source"
               className={cn(
                 sourceCard,
-                "grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-sm transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                "grid min-h-tap grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-sm transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               )}
               aria-label={`Open source for ${row.section}: ${row.bestSourceLabel}`}
             >

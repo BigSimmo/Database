@@ -15,6 +15,8 @@ recall — always read the file first, so the answer is correct even in a fresh 
 ## Trigger
 
 - User types `/issues` (optionally with a subcommand or filter below).
+- User says **`issues list`**: refresh the artifact from the current worktree's
+  `docs/outstanding-issues.md`, then open `C:\Users\joshs\OneDrive\ISSUES-LIST.html` in Codex.
 - User asks to add / close / update / list / capture an outstanding task, recommendation, or issue.
 
 ## Default: `/issues` (read-only)
@@ -56,6 +58,23 @@ paragraph; put the smallest next action in **Detail / next action**.
 
 ## Writing rules
 
+**Use the writer, not an editor.** Row mechanics are handled by
+`scripts/outstanding-issues.mjs`, the counterpart to the gate:
+
+```bash
+npm run issues:add -- --pri P2 --type issue --summary "…" --detail "…" --source "…"
+npm run issues:done -- '#151' --outcome "Resolved 2026-07-31 by PR #1494. …"
+npm run issues:update -- '#151' --detail "…"
+```
+
+It allocates the id from the marker and bumps it, appends into the **open** table (never the
+archive), moves rather than copies on `done`, reshapes to each table's width, escapes `|`, and
+re-runs the gate against its own output — refusing to write anything CI would reject. Hand-editing
+is what produced the wrong-table inserts, unescaped pipes and broken cell counts this writer exists
+to prevent; treat it like `ledger:append` for the review ledger. It does **not** solve id collisions
+between concurrent branches (see `#156` / `#168`) — that needs a different id scheme, not a better
+writer.
+
 - Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
 - Add a retained task to the recommended queue with order, acuity, capability, timing, estimate,
   gate, success criteria, verification, and stop rule. Reorder rather than duplicate related work.
@@ -73,14 +92,28 @@ paragraph; put the smallest next action in **Detail / next action**.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
   surface — recording it here is fine, but acting on it later still needs the usual gate.
 
+## Refresh the visual register
+
+`docs/outstanding-issues.md` remains the only source of truth. After every successful add, update,
+done, capture, or ledger sweep—and before opening an `issues list`—refresh the user-facing artifact:
+
+```powershell
+& 'C:\Users\joshs\.codex\scripts\refresh-issues-list.ps1' -LedgerPath (Join-Path (Get-Location) 'docs\outstanding-issues.md')
+```
+
+Require the decisive `ISSUES_LIST_UPDATED` line. The stable artifact is
+`C:\Users\joshs\OneDrive\ISSUES-LIST.html`. If refresh fails, do not undo a valid ledger mutation;
+report that the Markdown source is current and the visual artifact is stale. Still proceed to
+commit the Markdown ledger below — a stale visual artifact must not block persisting the source.
+
 ## Persist the memory (commit)
 
-After any mutation, stage and commit **only** `docs/outstanding-issues.md` so the memory survives the
-ephemeral container and other worktrees:
+After any mutation (and after the refresh gate above), commit **only**
+`docs/outstanding-issues.md` so the memory survives the ephemeral container and other worktrees.
+Use `--only` so unrelated already-staged files cannot ride along:
 
-```
-git add docs/outstanding-issues.md
-git commit -m "issues: <what changed>"
+```bash
+git commit --only docs/outstanding-issues.md -m "issues: <what changed>"
 ```
 
 Do not stage or commit anything else, and do not push unless the user asks (or you are already in a

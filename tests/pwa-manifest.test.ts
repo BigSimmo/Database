@@ -79,6 +79,27 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(offlineHtml).toMatch(/queries, answers, documents, uploads, signed URLs, or API responses/i);
   });
 
+  it("keeps offline browser chrome and surfaces on the canonical v2 palette", () => {
+    const offlineHtml = readFileSync(join(process.cwd(), "public", "offline.html"), "utf8");
+
+    expect(offlineHtml).toContain(
+      '<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />',
+    );
+    expect(offlineHtml).toContain('<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0e11" />');
+    expect(offlineHtml).toContain("--page-background: #ffffff; /* --background */");
+    expect(offlineHtml).toContain("--page-accent: #111827; /* --command */");
+    expect(offlineHtml).toContain("--page-accent-hover: #0b1220; /* --command-hover */");
+    expect(offlineHtml).toContain("--page-accent-contrast: #ffffff; /* --command-contrast */");
+    expect(offlineHtml).toContain("--page-glow: rgb(17 24 39 / 10%); /* command at low alpha */");
+    expect(offlineHtml).toContain("--page-background: #0b0e11; /* dark --background */");
+    expect(offlineHtml).toContain("--page-surface: #1c2126; /* dark --surface-raised */");
+    expect(offlineHtml).toContain("--page-accent: #f5f7f7; /* dark --command */");
+    expect(offlineHtml).toContain("--page-accent-hover: #e6e9e8; /* dark --command-hover */");
+    expect(offlineHtml).toContain("--page-accent-contrast: #0a0c0e; /* dark --command-contrast */");
+    expect(offlineHtml).toContain("--page-glow: rgb(245 247 247 / 10%);");
+    expect(offlineHtml).not.toContain("#060708");
+  });
+
   it("binds the precached offline document to the service-worker cache version", () => {
     // The offline document is precached at install time only, so an edit that
     // ships without a CACHE_VERSION bump strands installed clients on the old
@@ -87,8 +108,8 @@ describe("PWA manifest and public bootstrap resources", () => {
     // value (never reuse a previous one, even for rollbacks) and record the
     // new offline.html hash here.
     const expectedPairing = {
-      cacheVersion: "2026-07-18-v1",
-      offlineHtmlSha256: "a7c0106c30621d5191db06cf4dea1516186f0fdb945529aeb083d5a88148721e",
+      cacheVersion: "2026-08-05-v3",
+      offlineHtmlSha256: "a681b26a0cbe0c046dc6f694d9f9990946614a11338fd38ec14527cd693f93eb",
     };
 
     const workerSource = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { chromium, firefox, webkit } from "playwright";
 
@@ -45,6 +45,65 @@ const CHROMIUM_HEADLESS_SHELL_LAYOUTS = Object.freeze({
   "chrome-mac-arm64": ["chrome-headless-shell-mac-arm64", "chrome-headless-shell"],
   "chrome-win64": ["chrome-headless-shell-win64", "chrome-headless-shell.exe"],
 });
+
+const PREINSTALLED_CHROMIUM_LAYOUTS = Object.freeze({
+  linux: {
+    x64: [
+      ["chrome-headless-shell-linux64", "chrome-headless-shell"],
+      ["chrome-linux", "headless_shell"],
+    ],
+    arm64: [["chrome-linux", "headless_shell"]],
+  },
+  darwin: {
+    x64: [["chrome-headless-shell-mac-x64", "chrome-headless-shell"]],
+    arm64: [["chrome-headless-shell-mac-arm64", "chrome-headless-shell"]],
+  },
+  win32: [["chrome-headless-shell-win64", "chrome-headless-shell.exe"]],
+});
+
+function preinstalledChromiumLayouts(platform = process.platform, architecture = process.arch) {
+  if (platform === "linux" || platform === "darwin") {
+    return PREINSTALLED_CHROMIUM_LAYOUTS[platform][architecture] ?? [];
+  }
+  return PREINSTALLED_CHROMIUM_LAYOUTS[platform] ?? [];
+}
+
+/**
+ * Find the newest headless shell supplied by a download-disabled container.
+ *
+ * This is intentionally narrower than scanning every Playwright cache: a stale
+ * developer cache must still fail closed. The caller separately validates the
+ * designated immutable-container root before invoking this search.
+ */
+export function newestPreinstalledChromiumHeadlessShell(
+  browsersRoot,
+  {
+    fileExists = existsSync,
+    readDirectory = readdirSync,
+    platform = process.platform,
+    architecture = process.arch,
+  } = {},
+) {
+  if (!browsersRoot) return null;
+  let directories;
+  try {
+    directories = readDirectory(browsersRoot, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  const revisions = directories
+    .filter((entry) => entry.isDirectory() && /^chromium_headless_shell-\d+$/.test(entry.name))
+    .map((entry) => ({ name: entry.name, revision: Number(entry.name.slice("chromium_headless_shell-".length)) }))
+    .sort((left, right) => right.revision - left.revision);
+  const layouts = preinstalledChromiumLayouts(platform, architecture);
+  for (const directory of revisions) {
+    for (const layout of layouts) {
+      const executable = path.join(browsersRoot, directory.name, ...layout);
+      if (fileExists(executable)) return executable;
+    }
+  }
+  return null;
+}
 
 /**
  * Derive the default headless-shell binary Playwright launches for Chromium
@@ -96,7 +155,17 @@ function browserFamilyForProject(project) {
   return PROJECT_BROWSER_FAMILIES[project] ?? null;
 }
 
-export function resolvePlaywrightBrowserExecutable(family, env = process.env) {
+export function resolvePlaywrightBrowserExecutable(
+  family,
+  env = process.env,
+  {
+    managedChromiumPath = defaultChromiumHeadlessShellPath(),
+    fileExists = existsSync,
+    platform = process.platform,
+    architecture = process.arch,
+    containerBrowsersRoot = platform === "linux" ? "/opt/pw-browsers" : null,
+  } = {},
+) {
   if (family === "chromium") {
     const override = env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim();
     if (override) {
@@ -106,9 +175,37 @@ export function resolvePlaywrightBrowserExecutable(family, env = process.env) {
         source: "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH",
       };
     }
+    if (managedChromiumPath && fileExists(managedChromiumPath)) {
+      return {
+        family,
+        path: managedChromiumPath,
+        source: "playwright chromium-headless-shell",
+      };
+    }
+    const downloadsDisabled = /^(?:1|true)$/i.test(env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD?.trim() ?? "");
+    const exposedBrowsersRoot = env.PLAYWRIGHT_BROWSERS_PATH?.trim();
+    const normalizedExposedRoot = exposedBrowsersRoot?.replaceAll("\\", "/").replace(/\/+$/, "");
+    const normalizedContainerRoot = containerBrowsersRoot?.replaceAll("\\", "/").replace(/\/+$/, "");
+    const designatedContainerRoot =
+      normalizedExposedRoot && normalizedContainerRoot && normalizedExposedRoot === normalizedContainerRoot;
+    if (downloadsDisabled && designatedContainerRoot) {
+      const preinstalled = newestPreinstalledChromiumHeadlessShell(exposedBrowsersRoot, {
+        fileExists,
+        platform,
+        architecture,
+      });
+      if (preinstalled) {
+        return {
+          family,
+          path: preinstalled,
+          source: "preinstalled container Chromium (PLAYWRIGHT_BROWSERS_PATH)",
+          managedPath: managedChromiumPath,
+        };
+      }
+    }
     return {
       family,
-      path: defaultChromiumHeadlessShellPath(),
+      path: managedChromiumPath,
       source: "playwright chromium-headless-shell",
     };
   }

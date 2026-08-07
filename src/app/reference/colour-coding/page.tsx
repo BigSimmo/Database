@@ -9,7 +9,7 @@ import {
   raisedCard,
   searchPageCanvas,
   searchPageContainer,
-  searchPageShell,
+  searchPageShellStandalone,
 } from "@/components/ui-primitives";
 import { CONTENT_DOMAIN_META, CONTENT_DOMAIN_ORDER, flagsForDomain } from "@/lib/semantic-flags";
 import { SEMANTIC_TONE_META, SEMANTIC_TONES } from "@/lib/semantic-tone";
@@ -41,10 +41,12 @@ export default function ColourCodingReferencePage() {
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
       )}
     >
-      <div className={cn(searchPageShell)}>
+      <div className={cn(searchPageShellStandalone)}>
         <div className={cn(searchPageContainer, "space-y-6")}>
           <header className="space-y-3">
-            <NavigationBackButton fallbackHref={appModeHomeHref("tools")} />
+            <div className="flex min-h-tap items-center">
+              <NavigationBackButton fallbackHref={appModeHomeHref("tools")} />
+            </div>
             <div className="space-y-2">
               <p className={eyebrowText}>Reference</p>
               <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
@@ -61,9 +63,7 @@ export default function ColourCodingReferencePage() {
           </header>
 
           <section className={cn(raisedCard, "p-4 sm:p-5")}>
-            <h2 className="text-sm font-semibold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-              Tone key
-            </h2>
+            <h2 className="text-sm font-semibold uppercase tracking-label text-[color:var(--text-muted)]">Tone key</h2>
             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
               {SEMANTIC_TONES.map((tone) => (
                 <div

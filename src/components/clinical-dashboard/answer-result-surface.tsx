@@ -1,17 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
-import {
-  isPreformattedGroundedAnswer,
-  NaturalLanguageAnswer,
-  UserQuestionBubble,
-} from "@/components/clinical-dashboard/answer-content";
+import { isPreformattedGroundedAnswer, NaturalLanguageAnswer } from "@/components/clinical-dashboard/answer-content";
+import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import {
   AnswerSupportSummaryCard,
   answerSupportPriority,
@@ -24,7 +22,9 @@ import {
   primaryVisualTable,
   SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
+import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { CanonicalAnswerTables, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
+import { AnswerCard, AnswerCardQueryEcho } from "@/components/ui/answer-card";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
@@ -99,6 +99,7 @@ function StagedAnswerResultSurfaceImpl({
   crossModeQueries?: Array<string | null | undefined>;
   onCrossModeSearch?: (mode: AppModeId, query: string) => void;
 }) {
+  const router = useRouter();
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes =
     safetyFindings.length > 0 ||
@@ -178,10 +179,54 @@ function StagedAnswerResultSurfaceImpl({
       setCopiedQuotes(false);
     }
   }, [renderModel.quoteCards]);
+  /**
+   * PR 13 answer adoption. The design system's projection of the same payload,
+   * built here so the live support-priority caution and the DS
+   * `RetrievalStateBanner` are two renderings of one state rather than two
+   * independent readings of the same fields.
+   *
+   * Goes through `answerStateForAnswer` so empty `answer.sources` still falls
+   * back to the search-result set — the same resolution the clipboard path uses.
+   * `weakEvidence` is passed through rather than re-derived — render trust is
+   * the render policy's decision, not this layer's.
+   */
+  const answerState = useMemo(
+    () => answerStateForAnswer({ answer, sources, weakEvidence }),
+    [answer, sources, weakEvidence],
+  );
   const priority = answerSupportPriority(answer, safeAnswerSections, centralVisualEvidence, safetyFindings, {
     grounded: answerGrounded,
     weakEvidence,
+    answerState,
   });
+  // Built once so both arms of the `ready` / degraded split below stay identical.
+  // The split exists only because `AnswerCardProps` discriminates on `state` to make
+  // `onOpenSource` required for a degraded card (DECISIONS §Q1), and a union-typed
+  // `state` cannot narrow that at the call site.
+  const answerVerification = {
+    state: answerState.kind,
+    presentation: "responsive-compact" as const,
+    // From the quality tier, never from the state kind: #207 precedence lets
+    // stale/partial/ungrounded outrank source_only, so keying on the kind announced
+    // "AI-generated" directly above the Source-only disclosure saying no model wrote
+    // it (#228).
+    attribution: (answer.answerQualityTier === "source_only" ? "extractive" : "model") as "extractive" | "model",
+    sourceCount: "sourceCount" in answerState ? answerState.sourceCount : sourceCount,
+  };
+  const answerProse = (
+    <NaturalLanguageAnswer
+      text={answer.answer}
+      query={query}
+      preformatted={isPreformattedGroundedAnswer(answer)}
+      sourceCount={sourceCount}
+      sourceOnly={answer.answerQualityTier === "source_only"}
+      bestSource={bestSource}
+      sources={sources}
+      sourceLinks={renderModel.primarySources}
+      copied={copiedAnswer}
+      onCopy={onCopyAnswer}
+    />
+  );
   const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
   const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
   const showInlineSupportCard = Boolean(priority || showClinicalNotes || showEvidenceDrawer);
@@ -189,9 +234,16 @@ function StagedAnswerResultSurfaceImpl({
 
   return (
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
-      <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
-        <UserQuestionBubble query={query} />
-
+      {/* No outer p-2.5: AnswerCard is the raised surface (#216). Nesting panel
+          padding here stacked on the card's own pad and blew the phone short-answer
+          scroll budget (#227) by ~60px. */}
+      <div className={cn(answerSurface, "space-y-3")}>
+        {/* When a table aside is present, keep the query echo above the grid — the
+            same placement UserQuestionBubble had — so desktop tableTop aligns with
+            the card chrome rather than sitting ~40px above prose buried under the
+            in-card query+notice stack (ui-smoke clinical-table delta). Phone-only
+            answers without a table keep the echo inside AnswerCard. */}
+        {showLayoutAside ? <AnswerCardQueryEcho query={query} className="px-1" /> : null}
         <div
           data-testid="table-specific-answer-layout"
           data-desktop-table-aside={centralTables.length ? "true" : "false"}
@@ -202,18 +254,49 @@ function StagedAnswerResultSurfaceImpl({
           )}
         >
           <div className="min-w-0 space-y-3">
-            <NaturalLanguageAnswer
-              text={answer.answer}
-              query={query}
-              preformatted={isPreformattedGroundedAnswer(answer)}
-              sourceCount={sourceCount}
-              sourceOnly={answer.answerQualityTier === "source_only"}
-              bestSource={bestSource}
-              sources={sources}
-              sourceLinks={renderModel.primarySources}
-              copied={copiedAnswer}
-              onCopy={onCopyAnswer}
-            />
+            {/* PR 13 answer adoption. System-owned verification wording above the
+                prose, in document order, on screen and on print alike — the call
+                site chooses the state, never the words. The degraded banner sits
+                directly under it and carries the one-click route back to the
+                cited page, so a caution is never raised with nowhere to go. */}
+            {/* One count, not two. The notice and the banner are the two
+                governance statements on this surface and they sit adjacent, so
+                reading "Based on 3 cited sources." directly above "2 of 7
+                sources for this answer are past their review date" leaves a
+                clinician unable to tell how much of the evidence base is
+                overdue. Both now come from the projection. `source_only` is the
+                one kind that carries no count, hence the `in` guard.
+
+                The card owns the notice, the banner, the query echo, and their
+                order now. The banner it raises is scoped to
+                `stale_evidence`/`partial_retrieval` — the two kinds that say
+                something the notice cannot (#227 over #207; see answer-card.tsx).
+                This surface no longer decides that. */}
+            {answerState.kind === "ready" ? (
+              <AnswerCard
+                state={answerState}
+                verification={answerVerification}
+                query={showLayoutAside ? undefined : query}
+              >
+                {answerProse}
+              </AnswerCard>
+            ) : (
+              <AnswerCard
+                state={answerState}
+                verification={answerVerification}
+                query={showLayoutAside ? undefined : query}
+                // Navigate to the cited page — do not reuse onScopeDocument. That
+                // handler only replaces selectedDocumentIds and leaves the clinician
+                // on the answer screen with a silent filter change while the button
+                // is labelled "Open <source>, p. N".
+                onOpenSource={(sourceId, locator) => {
+                  const href = citedDocumentHref(sourceId, locator, [...sources, ...(answer.sources ?? [])]);
+                  if (href) router.push(href);
+                }}
+              >
+                {answerProse}
+              </AnswerCard>
+            )}
 
             {showInlineSupportCard ? (
               <AnswerSupportSummaryCard
@@ -233,7 +316,11 @@ function StagedAnswerResultSurfaceImpl({
             ) : null}
 
             {crossModeQueries?.length && onCrossModeSearch ? (
-              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} />
+              <CrossModeLinksSection
+                queries={crossModeQueries}
+                onModeSearch={onCrossModeSearch}
+                variant="responsive-compact"
+              />
             ) : null}
 
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (

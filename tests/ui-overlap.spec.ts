@@ -134,9 +134,16 @@ test.describe("Header element overlap coverage", () => {
       let report = await collectHeaderOverlaps(page);
       await expect(async () => {
         report = await collectHeaderOverlaps(page);
-        expect(report.count, "expected at least the mode pill and one control in the header").toBeGreaterThanOrEqual(2);
+        expect(report.count, "expected the active mode control in the header").toBeGreaterThanOrEqual(
+          width >= 768 ? 1 : 2,
+        );
       }).toPass({ timeout: 15_000 });
       expect(report.overlaps, `overlapping header elements at ${width}px`).toEqual([]);
+
+      if (width >= 768) {
+        await expect(page.getByRole("button", { name: "Start a new chat" })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "New chat", exact: true })).toBeVisible();
+      }
     });
   }
 

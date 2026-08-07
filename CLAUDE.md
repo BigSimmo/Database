@@ -18,15 +18,16 @@ in it is already in force. This file is the **orientation layer** — what the s
 it is laid out, how work flows through it. It deliberately does not restate AGENTS.md policy;
 where the two ever disagree, **AGENTS.md wins**.
 
-| Need                                        | Read                                                                   |
-| ------------------------------------------- | ---------------------------------------------------------------------- |
-| Rules, gates, shortcuts, safety boundaries  | `AGENTS.md` (auto-loaded)                                              |
-| Architecture, modules, schema, domain flows | `docs/codebase-index.md` — the deep map; start there for any real task |
-| Routes and modes                            | `docs/site-map.md` (generated — `npm run sitemap:update`)              |
-| Which gate to run for a change              | `docs/process-hardening.md`, or the `gates` skill                      |
-| Test execution, focused/live, flake policy  | `docs/testing.md`                                                      |
-| Every maintained doc, categorised           | `docs/README.md`                                                       |
-| Outstanding work across sessions            | `docs/outstanding-issues.md` (`/issues`)                               |
+| Need                                        | Read                                                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Rules, gates, shortcuts, safety boundaries  | `AGENTS.md` (auto-loaded)                                                                                    |
+| Architecture, modules, schema, domain flows | `docs/codebase-index.md` — the deep map; start there for any real task                                       |
+| Design-system rules before any UI building  | `docs/design-system/README.md` — the system of record: tokens, component contracts, gates, adoption playbook |
+| Routes and modes                            | `docs/site-map.md` (generated — `npm run sitemap:update`)                                                    |
+| Which gate to run for a change              | `docs/process-hardening.md`, or the `gates` skill                                                            |
+| Test execution, focused/live, flake policy  | `docs/testing.md`                                                                                            |
+| Every maintained doc, categorised           | `docs/README.md`                                                                                             |
+| Outstanding work across sessions            | `docs/outstanding-issues.md` (`/issues`)                                                                     |
 
 When adding to this file, add **orientation**. Policy belongs in `AGENTS.md`; deep structure
 belongs in `docs/codebase-index.md`. Keeping those three non-overlapping is what stops five
@@ -138,28 +139,30 @@ npm run dev        # direct dev server on the project-stable port
 
 Verification pyramid — run the **smallest gate that covers the change**, then widen:
 
-| Gate                                      | What it is                                                                                                                                                                            |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                              |
-| `npm run verify:cheap`                    | The broad local gate: 29 static/consistency gates + `lint` + `typecheck` + full offline unit suite                                                                                    |
-| `npm run verify:pr-local`                 | Closest local mirror of the PR gate; adds format and conditional build / client-bundle scan / RAG fixture validation. `-- --dry-run --files <paths>` shows selection without running. |
-| `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                             |
-| `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                               |
-| `npm run verify:release`                  | Full build + all browsers + readiness. **Provider-backed — needs approval.**                                                                                                          |
+| Gate                                      | What it is                                                                                                                                                                                   |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                                     |
+| `npm run verify:cheap`                    | The broad local gate: 30 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
+| `npm run verify:pr-local`                 | Risk-routed PR mirror: focused docs/workflow contracts for recognised light scope, fail-closed heavy checks for executable or unknown scope. `-- --dry-run --files <paths>` shows selection. |
+| `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                                    |
+| `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                                      |
+| `npm run verify:release`                  | Full build + all browsers + readiness. **Provider-backed — needs approval.**                                                                                                                 |
 
-`verify:cheap` deliberately does **not** run `format:check`, which is why the installed
-pre-push hook (`.githooks/pre-push` → `scripts/guard-push.mjs`) blocks on unformatted files.
-It also guards the auto-merge race on `claude/*` branches and drift-manifest staleness. Each
-guard has a documented override env var.
+`verify:cheap` deliberately does **not** run formatting, which is why changed-file CI and the
+installed pre-push hook (`.githooks/pre-push` → `scripts/guard-push.mjs`) block on unformatted files.
+It also guards the auto-merge race on `claude/*` branches, drift-manifest staleness, and a
+static gate (lint + source typecheck; override `SKIP_STATIC_GUARD=1`). Each guard has a
+documented override env var.
 
 Domain changes (auth, Supabase, ingestion, answer generation, search/ranking, clinical
 output, source governance) additionally want the smallest relevant domain check plus
 `npm run check:production-readiness`.
 
 CI (`.github/workflows/ci.yml`) is risk-scoped: a `changes` job classifies paths, `static-pr`
-always runs, and `pr-required` is the single always-reporting required aggregate. Heavier
-jobs (coverage, build, Chromium, Supabase migration replay, Docker builds) run only when
-their file scope applies.
+always runs a small baseline and conditionally selects docs/workflow or heavy static checks,
+and `pr-required` is the single always-reporting required aggregate. Coverage, safety/RAG,
+build, Chromium, Supabase migration replay, and Docker builds run only when their file scope
+applies; unknown non-document paths fail closed to heavy scope.
 
 ## Conventions the gates enforce
 
@@ -185,8 +188,14 @@ These fail builds, so they are worth knowing before you write code:
   clinical-risk diff lacks a complete `## Clinical Governance Preflight` or a RAG-surface
   diff lacks a satisfying `RAG impact:` line. Write those in full prose from
   `.github/pull_request_template.md`, structure verbatim — paraphrasing silently fails.
-- **Mockups are exempt.** `src/app/mockups/**` and `*-mockups.tsx` are design scratch, 404 in
-  production, and outside the wiring/reachability gates.
+- **Mockups are exempt from two gates, not all of them.** `src/app/mockups/**` and `*-mockups.tsx`
+  are design scratch and 404 in production, so they sit outside the **wiring** and **reachability**
+  gates — and nothing else. They are still compiled: they are typechecked like any source, and their
+  client chunks still count toward `check:bundle-budget`, which totals **every** built chunk rather
+  than the initial production bundle. A mockup-only PR can therefore fail `Build` on bundle budget
+  (PR #1580: `+10.1% vs baseline`, tolerance 10%) even though the routes never serve a user. Budget
+  scope vs. the "not an initial production bundle" position in `/issues` `#013` is unreconciled —
+  see `#252` before assuming either number governs.
 
 ## Repo-specific tooling
 

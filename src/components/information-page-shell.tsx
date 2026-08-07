@@ -1,8 +1,8 @@
-import Link from "next/link";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { cn, eyebrowText, pageContainer } from "@/components/ui-primitives";
+import { Breadcrumb, PageHeader, type Crumb } from "@/components/ui/page-header";
+import { cn, pageContainer } from "@/components/ui-primitives";
 
 /**
  * Shared outer chrome for mode information (detail/record) pages.
@@ -71,6 +71,13 @@ export type InformationPageCrumb = {
 /**
  * Back-link + optional trail. Prefer this over mode-local `router.push` icon buttons
  * so history-less deep links still land on the mode home.
+ *
+ * Now a projection onto the DS `Breadcrumb` rather than a second implementation
+ * of one. The semantics it already shipped are the ones that survive: a crumb
+ * with an `href` is a link, the trailing crumb without one carries
+ * `aria-current="page"`, and the home crumb keeps its back-arrow — that arrow is
+ * the whole reason this wrapper exists, so it moved into `Crumb.icon` rather than
+ * being dropped in the name of convergence.
  */
 export function InformationPageBreadcrumbs({
   home,
@@ -83,49 +90,21 @@ export function InformationPageBreadcrumbs({
   current?: string;
   className?: string;
 }) {
-  return (
-    <nav
-      aria-label="Breadcrumb"
-      className={cn(
-        "flex min-h-tap items-center gap-1 text-xs font-semibold text-[color:var(--text-muted)]",
-        className,
-      )}
-    >
-      <Link
-        href={home.href}
-        className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-1.5 hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden />
-        {home.label}
-      </Link>
-      {crumbs.map((crumb) => (
-        <span key={`${crumb.label}-${crumb.href ?? "text"}`} className="flex min-w-0 items-center gap-1">
-          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
-          {crumb.href ? (
-            <Link
-              href={crumb.href}
-              className="truncate rounded-md px-1 hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            >
-              {crumb.label}
-            </Link>
-          ) : (
-            <span className="truncate">{crumb.label}</span>
-          )}
-        </span>
-      ))}
-      {current ? (
-        <>
-          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
-          <span aria-current="page" className="truncate text-[color:var(--text)]">
-            {current}
-          </span>
-        </>
-      ) : null}
-    </nav>
-  );
+  const items: Crumb[] = [
+    { label: home.label, href: home.href, icon: ArrowLeft },
+    ...crumbs,
+    ...(current ? [{ label: current }] : []),
+  ];
+
+  return <Breadcrumb items={items} className={cn("min-h-tap", className)} />;
 }
 
-/** Title stack used above record body content (eyebrow → h1 → subtitle → badges/actions). */
+/**
+ * Title stack used above record body content (eyebrow → h1 → subtitle →
+ * badges/actions). A projection onto `PageHeader`, which owns the `<h1>`: the
+ * prop names stay because they are the vocabulary the record pages speak, and
+ * `subtitle`/`badges` are `description`/`meta` under different names.
+ */
 export function InformationPageHeader({
   eyebrow,
   title,
@@ -136,34 +115,33 @@ export function InformationPageHeader({
   className,
 }: {
   eyebrow?: string;
-  title: ReactNode;
+  /**
+   * A page title is a string. It was `ReactNode` while this component owned its
+   * own `<h1>`; `PageHeader` takes a string so the title cannot smuggle block
+   * content into a heading.
+   */
+  title: string;
   subtitle?: ReactNode;
   badges?: ReactNode;
   actions?: ReactNode;
-  icon?: ReactNode;
+  /**
+   * Narrowed from `ReactNode` to the icon component `PageHeader` takes, so the
+   * leading tile is rendered by the one component that owns that treatment
+   * rather than by whatever node a caller happened to pass.
+   */
+  icon?: LucideIcon;
   className?: string;
 }) {
   return (
-    <header className={cn("flex flex-wrap items-start justify-between gap-4", className)}>
-      <div className="min-w-0 max-w-4xl">
-        {eyebrow ? <p className={eyebrowText}>{eyebrow}</p> : null}
-        <div className={cn("flex min-w-0 items-start gap-3", eyebrow && "mt-1.5")}>
-          {icon ? <span className="mt-0.5 shrink-0">{icon}</span> : null}
-          <div className="min-w-0">
-            <h1 className="text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-              {title}
-            </h1>
-            {subtitle ? (
-              <div className="mt-1.5 max-w-3xl text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                {subtitle}
-              </div>
-            ) : null}
-            {badges ? <div className="mt-3 flex flex-wrap gap-2">{badges}</div> : null}
-          </div>
-        </div>
-      </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
-    </header>
+    <PageHeader
+      title={title}
+      eyebrow={eyebrow}
+      description={subtitle}
+      icon={icon}
+      actions={actions}
+      meta={badges}
+      className={className}
+    />
   );
 }
 
