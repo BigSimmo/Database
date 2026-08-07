@@ -14,35 +14,63 @@ const MIN_SCALE = 1;
 const MAX_SCALE = 6;
 const clampScale = (value: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
 
+type ImageLightboxBaseProps = {
+  open: boolean;
+  onClose: () => void;
+  alt: string;
+  caption?: string;
+  returnFocusRef?: RefObject<HTMLElement | null>;
+};
+
 /**
- * Fullscreen, zoomable viewer for a single private image (diagram / table crop).
+ * Endpoint mode: fetch a private image through `/api/.../signed-url` (rail crops).
+ * URL mode: parent already owns a document signed URL (whole-document images).
+ * Exactly one source must be provided — URL mode must never touch the signed-URL LRU.
+ */
+export type ImageLightboxProps = ImageLightboxBaseProps &
+  ({ endpoint: string; url?: never } | { url: string; endpoint?: never });
+
+/**
+ * Fullscreen, zoomable viewer for a single private image (diagram / table crop /
+ * whole-document photo).
  *
  * Built on the shared Sheet (focus trap, Escape, scroll-lock, focus return) and
  * the shared useViewerGestures hook, so wheel/pinch zoom and drag-to-pan match
  * the PDF canvas. Zoom/pan/rotate are pure CSS transforms on the <img>.
  */
-export function ImageLightbox({
-  open,
-  onClose,
-  endpoint,
-  alt,
-  caption,
-  returnFocusRef,
-}: {
-  open: boolean;
-  onClose: () => void;
-  endpoint: string;
-  alt: string;
-  caption?: string;
-  returnFocusRef?: RefObject<HTMLElement | null>;
-}) {
-  const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, open);
+export function ImageLightbox(props: ImageLightboxProps) {
+  const { open, onClose, alt, caption, returnFocusRef } = props;
+  const endpoint = "endpoint" in props ? props.endpoint : undefined;
+  const directUrl = "url" in props ? props.url : undefined;
+  const endpointMode = typeof endpoint === "string" && endpoint.length > 0;
+
+  const {
+    url: fetchedUrl,
+    failed: fetchFailed,
+    retry: retryFetch,
+    markFailed: markFetchFailed,
+  } = useSignedImageUrl(endpoint ?? "", open && endpointMode);
+
+  const [directFailed, setDirectFailed] = useState(false);
   const [retryDisabled, setRetryDisabled] = useState(false);
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const stageRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
+  // Fresh direct URL after parent re-issue clears a prior load failure during render
+  // (same identity-adjust pattern as useSignedImageUrl — no set-state-in-effect).
+  const [seenDirectUrl, setSeenDirectUrl] = useState(directUrl ?? null);
+  if (!endpointMode && (directUrl ?? null) !== seenDirectUrl) {
+    setSeenDirectUrl(directUrl ?? null);
+    setDirectFailed(false);
+  }
+
+  // URL mode: blank when the parent clears the signed URL (auth identity change).
+  // Never seed from the module LRU — that would revive a prior identity's image.
+  // Hide the <img> once a load failure is recorded so role=alert can surface.
+  const url = endpointMode ? fetchedUrl : open && directUrl && !directFailed ? directUrl : null;
+  const failed = endpointMode ? fetchFailed : directFailed;
 
   useEffect(() => {
     scaleRef.current = scale;
@@ -51,15 +79,28 @@ export function ImageLightbox({
   const handleRetry = useCallback(() => {
     if (retryDisabled) return;
     setRetryDisabled(true);
-    retry();
+    if (endpointMode) {
+      retryFetch();
+    } else {
+      setDirectFailed(false);
+    }
     setTimeout(() => setRetryDisabled(false), 2000);
-  }, [retryDisabled, retry]);
+  }, [endpointMode, retryDisabled, retryFetch]);
+
+  const markFailed = useCallback(() => {
+    if (endpointMode) {
+      markFetchFailed();
+      return;
+    }
+    setDirectFailed(true);
+  }, [endpointMode, markFetchFailed]);
 
   // Reset the view on close so the next open never inherits a prior image's zoom.
   const handleClose = useCallback(() => {
     setScale(1);
     setRotation(0);
     setTranslate({ x: 0, y: 0 });
+    setDirectFailed(false);
     onClose();
   }, [onClose]);
 
@@ -104,6 +145,8 @@ export function ImageLightbox({
       <div
         ref={stageRef}
         {...handlers}
+        data-testid="image-lightbox-stage"
+        data-source-mode={endpointMode ? "endpoint" : "url"}
         className={cn(
           "relative flex h-full min-h-[62vh] w-full select-none items-center justify-center overflow-hidden bg-[color:var(--surface-inset)] [touch-action:none] lg:min-h-[70vh]",
           zoomed && "cursor-grab active:cursor-grabbing",
