@@ -32,6 +32,7 @@ export const SignedImage = memo(function SignedImage({
   zoomable = false,
   caption,
   aspectRatio,
+  priority = false,
 }: {
   /** Signed-URL API route, e.g. `/api/images/{id}/signed-url`. */
   endpoint: string;
@@ -51,8 +52,13 @@ export const SignedImage = memo(function SignedImage({
   caption?: string;
   /** Optional intrinsic width/height ratio for document crops that are not 4:3. */
   aspectRatio?: number | null;
+  /**
+   * When true, skip IntersectionObserver deferral and mark the image as
+   * above-the-fold for next/image (`priority`) — for hero/evidence figures.
+   */
+  priority?: boolean;
 }) {
-  const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
+  const [shouldLoad, setShouldLoad] = useState(() => priority || Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -157,6 +163,7 @@ export const SignedImage = memo(function SignedImage({
           fill
           sizes="(max-width: 768px) 92vw, 320px"
           unoptimized
+          priority={priority}
           onLoad={() => setLoaded(true)}
           onError={handleImageError}
           className={cn(
