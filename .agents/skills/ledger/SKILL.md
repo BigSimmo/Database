@@ -5,7 +5,7 @@ description: Sweep the current session, repo/task context, local task files, and
 
 # Ledger
 
-1. Target `docs/outstanding-issues.md` only — never `docs/branch-review-ledger.md` or the `ledger:*` npm scripts, which belong to the review ledger.
+1. Target `docs/outstanding-issues.md` only — never `docs/branch-review-ledger.md` or the `ledger:*` npm scripts, which belong to the review ledger. Agents must revalidate against `origin/main:docs/outstanding-issues.md` (or fast-forward first) before answering `/issues` prompts to avoid proposing stale work.
 2. Sweep the full chat context, git state, files touched this session, and local task notes for deferred work, unresolved TODO/"should"/"follow up" statements, blockers, and unmet acceptance criteria. Remote task stores (GitHub, MCP) stay approval-gated.
 3. Report before writing, in order: confirmed outstanding tasks, risky/blocked areas, then up to three `/ledger` improvement suggestions.
 4. Keep only useful high-confidence items; dedupe against existing open rows by intent and reference duplicates as `#NNN`.
