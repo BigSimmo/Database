@@ -1660,7 +1660,14 @@ test.describe("Clinical KB tools launcher", () => {
         element.lastElementChild?.getAttribute("data-testid") === "search-query-ribbon-mobile-controls",
     }));
     expect(railMetrics.lastChildIsPageFilter).toBe(true);
-    await expect(utilities.getByRole("group", { name: "Sort results" })).toBeHidden();
+    // Mounted-and-hidden is two facts, and `toBeHidden()` alone cannot separate
+    // them: it passes for a hidden node AND for one that does not exist. Plain
+    // `getByRole` also filters hidden nodes out, so it would resolve to nothing
+    // here and pass even with the control deleted. Count under `includeHidden`,
+    // then visibility.
+    const phoneSort = utilities.getByRole("group", { name: "Sort results", includeHidden: true });
+    await expect(phoneSort).toHaveCount(1);
+    await expect(phoneSort).toBeHidden();
     const filterHeight = await pageFilters.evaluate((element) => element.getBoundingClientRect().height);
     expect(filterHeight).toBeGreaterThanOrEqual(43);
 
@@ -1764,7 +1771,14 @@ test.describe("Clinical KB tools launcher", () => {
         element.lastElementChild?.getAttribute("data-testid") === "search-query-ribbon-mobile-controls",
     }));
     expect(railMetrics.lastChildIsPageFilter).toBe(true);
-    await expect(utilities.getByRole("group", { name: "Sort results" })).toBeHidden();
+    // Mounted-and-hidden is two facts, and `toBeHidden()` alone cannot separate
+    // them: it passes for a hidden node AND for one that does not exist. Plain
+    // `getByRole` also filters hidden nodes out, so it would resolve to nothing
+    // here and pass even with the control deleted. Count under `includeHidden`,
+    // then visibility.
+    const phoneSort = utilities.getByRole("group", { name: "Sort results", includeHidden: true });
+    await expect(phoneSort).toHaveCount(1);
+    await expect(phoneSort).toBeHidden();
     const filterHeight = await pageFilters.evaluate((element) => element.getBoundingClientRect().height);
     expect(filterHeight).toBeGreaterThanOrEqual(43);
 

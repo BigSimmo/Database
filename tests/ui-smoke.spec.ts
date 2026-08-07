@@ -3558,9 +3558,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(queryRibbon.getByTestId("document-filter-trigger-wide")).toBeHidden();
     // Sort is `sm`-and-up. Its two segments cost about half the band's one line
     // on a phone, and relevance — the default, and what `?sort=` still carries
-    // in from a link — is the order a phone reader wants. Asserted hidden rather
-    // than absent, so putting it back in the phone line fails here.
-    await expect(queryRibbon.getByLabel("Sort results")).toBeHidden();
+    // in from a link — is the order a phone reader wants.
+    //
+    // Mounted-and-hidden, asserted as two facts, because `toBeHidden()` alone
+    // cannot tell them apart: it passes for a hidden node AND for a node that
+    // does not exist. So `includeHidden` (plain `getByRole` filters hidden nodes
+    // out and would resolve to nothing) plus a count, then the visibility. A
+    // deleted control fails the count; a control returned to the phone line
+    // fails the hidden check.
+    const phoneSort = queryRibbon.getByRole("group", { name: "Sort results", includeHidden: true });
+    await expect(phoneSort).toHaveCount(1);
+    await expect(phoneSort).toBeHidden();
     const mobileFilterTrigger = queryRibbon.getByTestId("document-filter-trigger-phone");
     await expect(mobileFilterTrigger).toBeVisible();
     await expect(mobileFilterTrigger).toHaveAccessibleName(/Filter/);
