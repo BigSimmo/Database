@@ -453,7 +453,6 @@ export function ToggleSwitch({
   );
 }
 
-<<<<<<< HEAD
 type IconComponent = LucideIcon;
 
 export type SourceDesignationBadgeProps = {
@@ -462,9 +461,6 @@ export type SourceDesignationBadgeProps = {
 };
 
 export function SourceDesignationBadge({ metadata, className }: SourceDesignationBadgeProps) {
-=======
-export function SourceDesignationBadge({ metadata, className }: { metadata?: unknown; className?: string }) {
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
   const source = normalizeSourceMetadata(metadata);
   const classification = classifySourceAuthority(source);
   const toneClassName =

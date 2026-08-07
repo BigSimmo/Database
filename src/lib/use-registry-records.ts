@@ -174,11 +174,7 @@ export function useRegistryRecords(
       controller.abort();
       registration.release();
     };
-<<<<<<< HEAD
   }, [enabled, kind, authStatus, authorizationHeader, markSessionExpired, attempt, requestLifecycle]);
-=======
-  }, [enabled, kind, authIdentity, authStatus, authorizationHeader, markSessionExpired, attempt, requestLifecycle]);
->>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
 
   return { ...visibleState, refetch };
 }

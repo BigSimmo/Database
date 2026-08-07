@@ -23,7 +23,6 @@ npm run docs:check-links
 
 ## Architecture
 
-<<<<<<< HEAD
 - [frontend-architecture.md](architecture/frontend-architecture.md) — shell, routing, dashboard module structure
 - [wiring-conventions.md](architecture/wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
 - [search-chrome-behaviour.md](rag-behaviour/search-chrome-behaviour.md) — shared search-chrome contract: composer ownership, phone edge-to-edge dock, hide/reveal reserves
@@ -45,22 +44,6 @@ npm run docs:check-links
 - [webhooks.md](architecture/webhooks.md) — the two inbound webhook receivers and the outbound Actions notifier
 - [api-jobs-ops-surface.md](architecture/api-jobs-ops-surface.md) — standing decision to keep `GET /api/jobs` as an ops/admin surface
 - [verified-answer-incremental-delivery-design.md](architecture/verified-answer-incremental-delivery-design.md) — staged, clinical-safety-preserving design for delivering verified evidence and answer sections before the canonical final SSE frame
-=======
-- [frontend-architecture.md](frontend-architecture.md) — shell, routing, dashboard module structure
-- [wiring-conventions.md](wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
-- [search-chrome-behaviour.md](search-chrome-behaviour.md) — shared search-chrome contract: composer ownership, phone edge-to-edge dock, hide/reveal reserves
-- [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
-- [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states
-- [design-system.md](design-system.md) — tokens, primitives, styling conventions
-- [comparison-behaviour.md](comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
-- [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
-- [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
-- [multi-user-auth-setup.md](multi-user-auth-setup.md) — auth, sessions, owner scoping
-- [pwa.md](pwa.md) — PWA install assets, privacy-first service worker, offline shell
-- [webhooks.md](webhooks.md) — the two inbound webhook receivers and the outbound Actions notifier
-- [api-jobs-ops-surface.md](api-jobs-ops-surface.md) — standing decision to keep `GET /api/jobs` as an ops/admin surface
-- [verified-answer-incremental-delivery-design.md](verified-answer-incremental-delivery-design.md) — staged, clinical-safety-preserving design for delivering verified evidence and answer sections before the canonical final SSE frame
->>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
 
 ## Operations runbooks
 

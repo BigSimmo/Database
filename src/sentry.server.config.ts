@@ -1,5 +1,4 @@
 import * as Sentry from "@sentry/nextjs";
-<<<<<<< HEAD
 import { createClient } from "@supabase/supabase-js";
 
 import {
@@ -21,13 +20,6 @@ const sentryDsn = process.env.SENTRY_DSN?.trim();
 const tracesSampleRate = resolveTracesSampleRate();
 const sentryRelease =
   process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
-=======
-
-const sentryEnvironment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
-const sentryDsn = process.env.SENTRY_DSN;
-const sentryRelease = process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
-const tracesSampleRate = Number(process.env.NODE_ENV === "production" ? 0.2 : 1.0);
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
 
 const ignoredServerErrors = [
   /404/,
@@ -42,16 +34,6 @@ const ignoredServerErrors = [
   "RateLimitedError",
 ];
 
-<<<<<<< HEAD
-=======
-function coerceSampleRate(value: number) {
-  if (!Number.isFinite(value)) return 0;
-  if (value < 0) return 0;
-  if (value > 1) return 1;
-  return value;
-}
-
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
 function isBotTrafficEvent(event: Sentry.Event): boolean {
   const userAgentHeader = event.request?.headers?.["user-agent"];
   const userAgent = Array.isArray(userAgentHeader) ? userAgentHeader[0] : (userAgentHeader as string | undefined);
@@ -61,7 +43,6 @@ function isBotTrafficEvent(event: Sentry.Event): boolean {
   );
 }
 
-<<<<<<< HEAD
 /** Bootstrap client used only to attach constructor-level Supabase DB instrumentation. */
 function supabaseTracingIntegrations() {
   // Inert unless DSN is set and tracing sample rate is > 0 (docs/error-tracking.md).
@@ -139,19 +120,3 @@ try {
 } catch {
   // Optional observability must never take down the clinical server.
 }
-=======
-Sentry.init({
-  ...(sentryDsn ? { dsn: sentryDsn } : {}),
-  release: sentryRelease,
-  environment: sentryEnvironment,
-  tracesSampleRate: coerceSampleRate(tracesSampleRate),
-  sendDefaultPii: false,
-  includeLocalVariables: true,
-  enableLogs: true,
-  ignoreErrors: ignoredServerErrors,
-  beforeSend(event) {
-    if (isBotTrafficEvent(event)) return null;
-    return event;
-  },
-});
->>>>>>> origin/codex/chat-full-page-review-speedup-96de

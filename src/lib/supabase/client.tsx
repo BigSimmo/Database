@@ -398,26 +398,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!client) return;
     invalidateAuthRequests();
-<<<<<<< HEAD
     try {
       await client.auth.signOut();
     } catch {
-=======
-    Sentry.logger?.info("auth.sign_out_requested");
-    try {
-      await client.auth.signOut();
-    } catch (error) {
-      Sentry.logger?.error("auth.sign_out_failed", { provider: "browser", error: String(error instanceof Error ? error.message : `${error}`) });
-      Sentry.captureException(error);
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
       setStatus("error");
       setError("Sign out failed. Please try again.");
       return;
     }
-<<<<<<< HEAD
-=======
-    Sentry.logger?.info("auth.sign_out_succeeded");
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();

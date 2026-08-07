@@ -84,26 +84,17 @@ function emit(level: LogLevel, message: string, context?: Record<string, unknown
   // Keep tests quiet; they assert on responses, not log output.
   if (env().NODE_ENV === "test") return;
   if (LEVEL_RANK[level] < LEVEL_RANK[activeLevel()]) return;
-<<<<<<< HEAD
   const redacted = context ? redactLogContext(context) : undefined;
-=======
-  const redactedContext = context ? (redactLogContext(context) as Record<string, unknown>) : undefined;
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
   const line = JSON.stringify({
     level,
     message,
     timestamp: new Date().toISOString(),
-<<<<<<< HEAD
     ...(redacted ?? {}),
-=======
-    ...(redactedContext || {}),
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
   });
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
 
-<<<<<<< HEAD
   // Forward warn/error to privacy-scrubbed Sentry Logs when instrumentation registered a bridge.
   if ((level === "warn" || level === "error") && sentryLogForwarder) {
     try {
@@ -111,11 +102,6 @@ function emit(level: LogLevel, message: string, context?: Record<string, unknown
     } catch {
       // Optional observability must never interfere with request handling.
     }
-=======
-  const sentryLogger = getSentryLogger();
-  if (sentryLogger?.[level]) {
-    sentryLogger[level]?.(message, redactedContext ?? {});
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
   }
 }
 

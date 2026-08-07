@@ -243,14 +243,9 @@
   },
   "dependencies": {
     "@next/env": "16.2.12",
-<<<<<<< HEAD
     "@sentry/nextjs": "^10.69.0",
     "@sentry/node": "^10.69.0",
     "@supabase/ssr": "^0.12.4",
-=======
-    "@sentry/nextjs": "^10.17.0",
-    "@supabase/ssr": "^0.12.3",
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
     "@supabase/supabase-js": "^2.110.8",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.1",

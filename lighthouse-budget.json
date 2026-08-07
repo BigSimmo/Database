@@ -5,19 +5,10 @@
   "lighthouseVersion": "12.8.2",
   "routes": [
     "/",
-<<<<<<< HEAD
     "/therapy-compass",
     "/documents/search",
     "/dsm",
     "/forms"
-=======
-    "/services",
-    "/forms",
-    "/differentials",
-    "/dsm",
-    "/specifiers",
-    "/tools"
->>>>>>> origin/codex/chat-perf-metadata-cd20
   ],
   "strategies": [
     "mobile",
@@ -37,7 +28,6 @@
     }
   },
   "baseline": {
-<<<<<<< HEAD
     "desktop-documents-search": {
 <<<<<<< HEAD
       "lcpMs": 912.6572000000001,
@@ -111,79 +101,6 @@
     }
   },
   "updatedAt": "2026-08-05T08:26:50.745Z"
-=======
-      "lcpMs": 1223,
-      "cls": 0.097096057555506,
-      "tbtMs": 1,
-      "fcpMs": 420,
-      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
-    },
-    "desktop-dsm": {
-      "lcpMs": 1221.5,
-      "cls": 0.03213333321395112,
-      "tbtMs": 26,
-      "fcpMs": 420,
-      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
-    },
-    "desktop-forms": {
-      "lcpMs": 1220,
-      "cls": 0.06690822503874698,
-      "tbtMs": 7.5,
-      "fcpMs": 420,
-      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
-    },
-    "desktop-root": {
-      "lcpMs": 1510,
-      "cls": 0,
-      "tbtMs": 36,
-      "fcpMs": 420,
-      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
-    },
-    "desktop-therapy-compass": {
-      "lcpMs": 1342,
-      "cls": 0.058917804379118505,
-      "tbtMs": 5,
-      "fcpMs": 420,
-      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
-    },
-    "mobile-documents-search": {
-      "lcpMs": 2756.019,
-      "cls": 0.2195919560509,
-      "tbtMs": 699.6579999999994,
-      "fcpMs": 2756.019,
-      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
-    },
-    "mobile-dsm": {
-      "lcpMs": 2971.073,
-      "cls": 0.3444470855374567,
-      "tbtMs": 920.6080000000024,
-      "fcpMs": 2971.073,
-      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
-    },
-    "mobile-forms": {
-      "lcpMs": 2790.386,
-      "cls": 0.18652087833239087,
-      "tbtMs": 737.3380000000002,
-      "fcpMs": 2790.386,
-      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
-    },
-    "mobile-root": {
-      "lcpMs": 2432.995,
-      "cls": 0.02134117984022536,
-      "tbtMs": 726.4979999999996,
-      "fcpMs": 2432.995,
-      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
-    },
-    "mobile-therapy-compass": {
-      "lcpMs": 6546.466,
-      "cls": 0.1419221678091444,
-      "tbtMs": 793.6949999694825,
-      "fcpMs": 2734.515,
-      "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
-    }
-  },
-  "updatedAt": "2026-07-31T22:02:53.653Z"
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
 =======
     "desktop-differentials": {
       "lcpMs": 1174.1899999999998,

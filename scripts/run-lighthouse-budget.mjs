@@ -25,11 +25,7 @@
  *        --keep (leave reports in place), --dir <path>.
  */
 import { spawn, spawnSync } from "node:child_process";
-<<<<<<< HEAD
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-=======
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -370,34 +366,10 @@ try {
     for (const route of routes) {
       const output = path.join(reportDirectory, `${strategy}-${slugFor(route)}.json`);
       console.log(`Measuring ${strategy} ${route}`);
-<<<<<<< HEAD
       const result = spawnSync(
         npxInvocation.command,
         [
           ...npxInvocation.prefixArgs,
-=======
-      let routeSuccess = false;
-      let routeFailure = "not run";
-
-      for (let attempt = 1; attempt <= LH_MAX_ATTEMPTS; attempt += 1) {
-        const attemptTempRoot = path.join(lighthouseTempRoot, `${strategy}-${slugFor(route)}-attempt-${attempt}`);
-        const profileDir = path.join(lighthouseUserDataRoot, `${strategy}-${slugFor(route)}-attempt-${attempt}`);
-        try {
-          rmSync(attemptTempRoot, { recursive: true, force: true });
-          rmSync(profileDir, { recursive: true, force: true });
-        } catch {
-          /* best effort */
-        }
-        mkdirSync(profileDir, { recursive: true });
-        mkdirSync(attemptTempRoot, { recursive: true });
-        const chromeFlags = [
-          "--headless=new",
-          "--no-sandbox",
-          "--disable-dev-shm-usage",
-          `--user-data-dir=${profileDir}`,
-        ].join(" ");
-        const lighthouseArgs = [
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
           "--yes",
           `lighthouse@${LIGHTHOUSE_VERSION}`,
           `${baseUrl}${route}`,
@@ -440,15 +412,11 @@ try {
 
       // Not downgraded to a warning: the grader treats a missing report as
       // incomplete evidence and fails, which is the behaviour we want locally too.
-<<<<<<< HEAD
       if (childProcessExitCode(result) !== 0) {
         const failure = `${strategy} ${route}`;
         failures.push(failure);
         console.log(`::warning::lighthouse ${failure} failed (${childProcessFailureSummary(result)})`);
       }
-=======
-      if (!routeSuccess) failures.push(`${strategy} ${route}: ${routeFailure}`);
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
     }
   }
 

@@ -143,7 +143,6 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
           ? { status: "loading", matches: emptyDifferentialMatches, demoMode: false }
           : { status: "ready", matches: emptyDifferentialMatches, demoMode: false },
       );
-<<<<<<< HEAD
     } else if (credentialChanged && !requestChanged && (state.status === "ready" || state.status === "refetching")) {
       setState({ ...state, status: "refetching" });
     } else if (credentialChanged && !requestChanged) {
@@ -156,10 +155,6 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
       // Query changed in the same pulse as the credential: show the warm hit
       // but stay in refetching so the new Authorization header is revalidated.
       setState({ status: "refetching", matches: cached.matches, demoMode: cached.demoMode });
-=======
-    } else if (!requestChanged && credentialChanged && (state.status === "ready" || state.status === "refetching")) {
-      setState({ ...state, status: "refetching" });
->>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
     } else if (cached) {
       setState({ status: "ready", matches: cached.matches, demoMode: cached.demoMode });
     } else {
@@ -177,7 +172,6 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
   const [retryAttempt, setRetryAttempt] = useState(0);
   const refetch = useCallback(() => {
     if (!requestKey) return;
-<<<<<<< HEAD
     setState((current) => {
       if (current.status === "ready" || current.status === "refetching") {
         return { ...current, status: "refetching" };
@@ -188,26 +182,15 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
       if (cacheKey) differentialSearchCache.delete(cacheKey);
       return { status: "refetching", matches: emptyDifferentialMatches, demoMode: false };
     });
-=======
-    setState((current) =>
-      current.status === "ready" || current.status === "refetching"
-        ? { ...current, status: "refetching" }
-        : { status: "loading", matches: emptyDifferentialMatches, demoMode: false },
-    );
->>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
     setRetryAttempt((attempt) => attempt + 1);
   }, [cacheKey, requestKey, setState]);
 
   useEffect(() => {
     if (!requestKey || !cacheKey) return undefined;
 
-<<<<<<< HEAD
     // Only a settled ready hit may skip the network. loading/refetching must
     // revalidate so Retry and credential pulses cannot soft-succeed offline.
     if (state.status === "ready" && peekDifferentialCache(cacheKey)) {
-=======
-    if (peekDifferentialCache(cacheKey) && state.status !== "refetching") {
->>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
       touchDifferentialCache(cacheKey);
       return undefined;
     }

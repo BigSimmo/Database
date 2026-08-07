@@ -362,19 +362,12 @@ function selfTest() {
     "",
     "## Open items",
     "",
-<<<<<<< HEAD
     "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
     "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
     "| #005 | P2 | issue | first | detail one | src | 2026-01-01 |",
     "| #006 | P3 | task | second | detail two | src | 2026-01-02 |",
     "| #013 | P3 | task | left | detail | src | 2026-01-03 |",
     "| #016 | P3 | task | right | detail | src | 2026-01-04 |",
-=======
-    "| ID | Type | Priority / status | Group / main issue | Before starting | Codex | Checks / CI | External input / time | Done when | Details |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
-    "| #005 | issue | <strong>P2</strong><br>Ready | <strong>Test</strong><br>first | None | 1h | 5m | None | first is fixed | <details><summary>Evidence</summary><strong>Context:</strong> detail one<br><strong>Source:</strong> src<br><strong>Added:</strong> 2026-01-01</details> |",
-    "| #006 | task | <strong>P3</strong><br>Open | <strong>Test</strong><br>second | Revalidate | 2h | 10m | None | second is done | <details><summary>Evidence</summary><strong>Context:</strong> detail two<br><strong>Source:</strong> src<br><strong>Added:</strong> 2026-01-02</details> |",
->>>>>>> origin/codex/issue-ledger-audit-findings-20260805
     "",
     "## Resolved / archive",
     "",

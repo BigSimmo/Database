@@ -890,7 +890,6 @@ async function buildScopedSearchPayload(
     facets: buildSearchFacets(results),
     visualEvidence,
     relevance,
-<<<<<<< HEAD
     relatedDocuments: relatedDocuments.map((document) => ({
       document_id: document.document_id,
       title: document.title,
@@ -907,11 +906,6 @@ async function buildScopedSearchPayload(
     })),
     documentMatches,
     smartPanel: { ...smartPanel, relevance, relatedDocuments },
-=======
-    relatedDocuments: clientRelatedDocuments,
-    documentMatches: documentMatches.map(projectDocumentMatchForClient),
-    smartPanel: projectSmartPanelForClient({ ...smartPanel, relevance, relatedDocuments: clientRelatedDocuments }),
->>>>>>> origin/codex/rag-next-issues-20260731
     smartApiPlan,
     scope: { ...scope, queryMode: body.queryMode, retrieval: retrievalHealthFromTelemetry(search.telemetry) },
     sourceGovernanceWarnings: sourceGovernanceWarnings({ results, relevance }),

@@ -6,11 +6,8 @@ import { captureRequestError } from "@/lib/observability/error-tracking";
 // unauthenticated demo content — on the first request. See production-readiness
 // plan items 0.1 and 0.3.
 export async function register() {
-<<<<<<< HEAD
   // Single Sentry init path per runtime (sentry.*.config.ts). Do not also call
   // initializeErrorTracking() — a second Sentry.init() races privacy/sampling options.
-=======
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("./sentry.server.config");
   }
@@ -68,7 +65,6 @@ export async function register() {
   // A keyed HMAC secret must be present so clinical-query hashes written to the log
   // tables are not reversible (PIA-2). Fail closed rather than degrade to weak SHA-256.
   requireQueryHashSecret();
-<<<<<<< HEAD
   // Runtime DSN consistency only. Sourcemap upload credentials are build-time
   // and are gated in next.config.ts — not re-checked here.
   requireSentryEnv();
@@ -77,11 +73,6 @@ export async function register() {
   // Non-blocking: failures are swallowed inside warmEnabledRagAliasCache.
   const { warmEnabledRagAliasCache } = await import("@/lib/rag/rag-retrieval-variants");
   void warmEnabledRagAliasCache();
-=======
-  requireSentryEnv();
-  // Optional, server-only tracking. Missing DSN means no provider calls.
-  await initializeErrorTracking();
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
 }
 
 export { captureRequestError as onRequestError };

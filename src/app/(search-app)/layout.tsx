@@ -1,12 +1,7 @@
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
 
-<<<<<<< HEAD
 import { SharedSearchAppShell } from "@/components/clinical-dashboard/shared-search-app-shell";
-=======
-import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
-import "@/components/therapy-compass/therapy-compass.css";
->>>>>>> origin/codex/chat-perf-metadata-cd20
 
 const SharedSearchAppShell = dynamic(
   () =>

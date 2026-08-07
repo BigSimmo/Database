@@ -218,16 +218,10 @@ export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
   if (rows.length === 0) {
     return (
       <EmptyState
-<<<<<<< HEAD
         icon={BookOpen}
         title={emptyStates.evidenceMap.title}
         body={emptyStates.evidenceMap.body}
         live="polite"
-=======
-        icon={BookOpenStateIcon}
-        title={emptyStates.evidenceMap.title}
-        body={emptyStates.evidenceMap.body}
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
       />
     );
   }

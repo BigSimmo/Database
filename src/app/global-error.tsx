@@ -1,14 +1,7 @@
 "use client";
 
-<<<<<<< HEAD
 import { useEffect, useRef } from "react";
 import { useCopyDiagnostics } from "@/lib/use-copy-diagnostics";
-=======
-import * as Sentry from "@sentry/nextjs";
-import { useEffect, useRef, useState } from "react";
-import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
-import { redactLogValue } from "@/lib/privacy";
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
 
 /**
  * Last-resort boundary for the App Router. Unlike `app/error.tsx`, this replaces

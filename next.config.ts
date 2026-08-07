@@ -148,19 +148,12 @@ function shouldEnableSentrySourceMapUpload() {
 }
 
 function getSentryRelease() {
-<<<<<<< HEAD
   return (
     process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev"
   );
 }
 
 export default async function loadNextConfig() {
-=======
-  return process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
-}
-
-export default async function () {
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
   const baseConfig = await withOptionalBundleAnalyzer(nextConfig);
 
   if (!shouldEnableSentrySourceMapUpload()) {
@@ -175,12 +168,9 @@ export default async function () {
     silent: process.env.NODE_ENV === "production",
     sourcemaps: {
       disable: false,
-<<<<<<< HEAD
       // Successor to the removed `hideSourceMaps` option: upload maps to
       // Sentry, never serve them publicly.
       deleteSourcemapsAfterUpload: true,
-=======
->>>>>>> origin/codex/chat-full-page-review-speedup-96de
     },
     widenClientFileUpload: true,
   });
