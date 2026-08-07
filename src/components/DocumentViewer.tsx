@@ -200,14 +200,18 @@ export function DocumentViewer({
   const activeScrollOwner = useActiveScrollOwner(shellScrollContainer, documentId);
   const { useNativePdfViewer, togglePdfViewerMode } = usePdfViewerPreference();
   // Phase 2a: DocumentFrame owns zoom/fit/viewing-aid chrome for canvas PDF.
+  // Reset viewing chrome when the document identity changes (render-time adjust,
+  // not an effect — avoids react-hooks/set-state-in-effect).
+  const [pdfViewingDocumentId, setPdfViewingDocumentId] = useState(documentId);
   const [pdfFitWidth, setPdfFitWidth] = useState(true);
   const [pdfZoom, setPdfZoom] = useState(VIEWER_DEFAULT_ZOOM);
   const [pdfViewingAid, setPdfViewingAid] = useState(false);
-  useEffect(() => {
+  if (pdfViewingDocumentId !== documentId) {
+    setPdfViewingDocumentId(documentId);
     setPdfFitWidth(true);
     setPdfZoom(VIEWER_DEFAULT_ZOOM);
     setPdfViewingAid(false);
-  }, [documentId]);
+  }
   const {
     status: authStatus,
     session,
