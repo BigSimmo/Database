@@ -1,8 +1,19 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
 import { LiveAnnouncer, resetAnnouncerForTests } from "@/components/ui/live-announcer";
+
+vi.mock("@/lib/supabase/client", () => ({
+  useAuthSession: () => ({
+    status: "authenticated",
+    session: { user: { id: "user-a" } },
+    authorizationHeader: { Authorization: "Bearer user-a" },
+    markSessionExpired: vi.fn(),
+    registerAuthRequest: vi.fn(() => ({ epoch: 1, release: vi.fn() })),
+    isAuthEpochCurrent: vi.fn(() => true),
+  }),
+}));
 
 describe("DocumentViewer non-PDF image preview", () => {
   beforeEach(() => resetAnnouncerForTests());
@@ -10,6 +21,29 @@ describe("DocumentViewer non-PDF image preview", () => {
   afterEach(() => {
     resetAnnouncerForTests();
     vi.useRealTimers();
+  });
+
+  it("opens the shared immersive lightbox from the primary expand control", async () => {
+    render(
+      <NonPdfSourcePreview
+        fileType="image/png"
+        title="Clinical chart"
+        signedUrl="https://example.test/chart.png"
+        downloadSignedUrl="https://example.test/chart-download.png"
+      />,
+    );
+
+    expect(screen.queryByTestId("image-lightbox")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Expand image: Clinical chart" }));
+    expect(await screen.findByTestId("image-lightbox")).toBeInTheDocument();
+    expect(screen.getByTestId("image-lightbox-stage")).toHaveAttribute("data-source-mode", "url");
+    expect(screen.getAllByRole("img", { name: "Clinical chart" }).length).toBeGreaterThanOrEqual(1);
+
+    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "https://example.test/chart.png");
+    expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute(
+      "href",
+      "https://example.test/chart-download.png",
+    );
   });
 
   it("observably announces sub-second fail-retry-fail transitions while same-state rerenders stay silent", () => {
@@ -52,5 +86,27 @@ describe("DocumentViewer non-PDF image preview", () => {
     expect(assertiveRegion).toBeEmptyDOMElement();
     act(() => vi.advanceTimersByTime(50));
     expect(assertiveRegion).toHaveTextContent("Image preview could not load");
+  });
+
+  it("unmounts the lightbox when the parent blanks the signed URL", async () => {
+    const { rerender } = render(
+      <NonPdfSourcePreview
+        fileType="image/png"
+        title="Clinical chart"
+        signedUrl="https://example.test/chart.png"
+        downloadSignedUrl={null}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "View immersive" }));
+    expect(await screen.findByTestId("image-lightbox")).toBeInTheDocument();
+
+    rerender(
+      <NonPdfSourcePreview fileType="image/png" title="Clinical chart" signedUrl={null} downloadSignedUrl={null} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("image-lightbox")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText(/signed URL is generated/i)).toBeInTheDocument();
   });
 });
