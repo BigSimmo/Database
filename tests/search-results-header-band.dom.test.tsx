@@ -297,6 +297,13 @@ describe("SearchResultsHeaderBand", () => {
     // the query fully truncated, so the utilities take their own row there.
     expect(utilities).toContain("max-[413px]:w-full");
     expect(utilities).toContain("max-[413px]:basis-full");
+    // `basis-full` is inert without a wrapping parent. Dropping
+    // `max-[413px]:flex-wrap` from the row would leave the band `flex-nowrap`,
+    // push Sort+Filter off-screen inside `overflow-hidden`, and still leave the
+    // child class checks above green — so the parent wrap is part of the same
+    // contract and must move with the child utilities assertions.
+    const rowClass = (screen.getByTestId("search-query-ribbon").firstElementChild as HTMLElement | null)?.className;
+    expect(rowClass).toContain("max-[413px]:flex-wrap");
   });
 
   it("keeps row geometry while loading even though the page control is gated off", () => {

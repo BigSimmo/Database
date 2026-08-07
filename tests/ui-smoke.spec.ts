@@ -3580,6 +3580,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Polled, because `useRailOverflow` remeasures through a ResizeObserver a
     // frame after the viewport changes.
     const utilityTrack = queryRibbon.getByTestId("search-query-ribbon-utility-track");
+    const utilitiesGroup = queryRibbon.getByTestId("search-query-ribbon-utilities");
     for (const width of [320, 375, 390, 402, 414, 430, 440, 540]) {
       await page.setViewportSize({ width, height: 820 });
       await expect
@@ -3597,6 +3598,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
           { message: `results-band utility rail clipped its own controls at ${width}px` },
         )
         .toEqual({ overflow: 0, sortClipped: 0, masked: false });
+      // Below 414px the wrap is the active mechanism. Track overflow alone is
+      // blind to wrap failure: if the utilities group is pushed off-screen by
+      // the band's `overflow-hidden`, both `scrollWidth`/`clientWidth` and
+      // `sortClipped` still report zero. Require the group itself to stay in
+      // the viewport at the wrap widths.
+      if (width < 414) {
+        const utilitiesBox = await utilitiesGroup.boundingBox();
+        expect(utilitiesBox, `utilities clipped off-screen at ${width}px`).not.toBeNull();
+        expect(utilitiesBox!.x).toBeGreaterThanOrEqual(0);
+        expect(utilitiesBox!.x + utilitiesBox!.width).toBeLessThanOrEqual(width + 1);
+      }
     }
     await page.setViewportSize({ width: 390, height: 820 });
     // The panel is what the trigger exists to reach — the state that was
