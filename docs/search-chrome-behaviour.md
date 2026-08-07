@@ -118,9 +118,17 @@ chrome and changes to it land on every mode at once. Keep these rules:
    it appears. The `role="status"` / `aria-live="polite"` announcement stays either way — except
    while faulted, when the spine goes `aria-live="off"` and the fault panel's `role="alert"`
    makes the single announcement instead of both speaking.
-3. **Sort is a segmented control, not a select.** Two values do not justify a menu you must open
-   to read. `ResultSortControl` renders `sortOptions` as `aria-pressed` buttons inside a
-   `role="group"` named "Sort results"; add a third order only if it still fits the rail.
+3. **Sort is a segmented control, not a select — and it is `sm`-and-up.** Two values do not
+   justify a menu you must open to read. `ResultSortControl` renders `sortOptions` as
+   `aria-pressed` buttons inside a `role="group"` named "Sort results"; add a third order only if
+   it still fits the rail. Below 640px it is `hidden`: the two segments cost roughly half the
+   band's one line, and the query truncated to pay for a control set about once a session. Only
+   the affordance is `sm`-and-up — `?sort=` still carries an alpha order onto a phone and the
+   results honour it. The display class belongs in the component's own base string, because `cn`
+   is a plain join with no Tailwind conflict resolution. A page whose only utility is sort hides
+   the whole utilities group below `sm` (`hasPhoneUtilities`) rather than leaving an empty flex
+   child — in `inline` placement under 414px that child is `w-full basis-full`, i.e. a blank
+   second line.
 4. **Native selects are pinned to 16px below `sm`.** The unlayered iOS anti-zoom rule in
    `globals.css` ("Interactive element defaults") deliberately beats Tailwind's `text-*`
    utilities on `input`/`select`/`textarea`. Do not fight it with `!important` or a per-call-site
