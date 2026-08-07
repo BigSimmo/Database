@@ -20,6 +20,7 @@ except Exception as exc:
 MAX_TABLE_ROWS = 400
 MAX_TABLE_TEXT_CHARS = 24000
 TARGET_CROP_DPI = 220
+TARGET_COVER_MAX_WIDTH = 480
 MAX_RENDER_SCALE = 4.0
 MIN_USEFUL_RENDER_SCALE = 0.25
 
@@ -222,6 +223,62 @@ def write_pixmap(pix, path, budget):
     with open(path, "wb") as handle:
         handle.write(image_bytes)
     return {"width": pix.width, "height": pix.height}
+
+
+def save_cover_page(page, output_dir, budget, warnings):
+    """Render page 1 as a compact non-searchable cover thumbnail for search cards."""
+    page_rect = page.rect
+    if page_rect.is_empty or page_rect.width < 40 or page_rect.height < 40:
+        return None
+
+    scale = min(TARGET_COVER_MAX_WIDTH / max(float(page_rect.width), 1.0), MAX_RENDER_SCALE)
+    if scale < MIN_USEFUL_RENDER_SCALE:
+        warnings.append("render_skipped: cover_page has unsafe geometry")
+        return None
+
+    render_scale = bounded_render_scale(page_rect, scale, budget.limits["maxRenderPixels"])
+    if render_scale is None:
+        warnings.append("render_skipped: cover_page has unsafe geometry")
+        return None
+
+    budget.ensure_artifact_slot()
+    pix = page.get_pixmap(matrix=fitz.Matrix(render_scale, render_scale), alpha=False)
+    if pix.width * pix.height > budget.limits["maxRenderPixels"]:
+        warnings.append("render_skipped: cover_page exceeded the rounded pixel limit")
+        return None
+    if pix.width < 64 or pix.height < 64:
+        return None
+
+    image_path = os.path.join(output_dir, "page-1-cover.png")
+    dimensions = write_pixmap(pix, image_path, budget)
+    return {
+        "pageNumber": 1,
+        "path": image_path,
+        "mimeType": "image/png",
+        "bbox": rect_payload(page_rect),
+        "width": dimensions["width"],
+        "height": dimensions["height"],
+        "sourceKind": "cover_page",
+        "metadata": {
+            "pageNumber": 1,
+            "source_kind": "cover_page",
+            "candidate_type": "document_cover",
+            "bbox": rect_payload(page_rect),
+            "page_width": round(float(page_rect.width), 2),
+            "page_height": round(float(page_rect.height), 2),
+            "page_rotation": int(page.rotation or 0),
+            "render_scale": round(render_scale, 3),
+            "render_dpi": round(render_scale * 72),
+            "clinical_use_class": "decorative_or_empty",
+            "source_regions": [
+                {
+                    "source_kind": "cover_page",
+                    "bbox": rect_payload(page_rect),
+                    "page_number": 1,
+                }
+            ],
+        },
+    }
 
 
 def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata, budget, warnings):
@@ -1224,6 +1281,16 @@ def extract(pdf_path, output_dir, budget=None):
                 )
                 if crop:
                     images.append(crop)
+
+    # Optional cover after searchable artifacts so a near-limit budget cannot
+    # fail indexing because the decorative thumbnail consumed the last slot.
+    if document.page_count > 0:
+        try:
+            cover = save_cover_page(document[0], output_dir, budget, warnings)
+            if cover:
+                images.append(cover)
+        except ExtractionBudgetExceeded as exc:
+            warnings.append(f"cover_page_skipped: {exc}")
 
     return {
         "pages": pages,
