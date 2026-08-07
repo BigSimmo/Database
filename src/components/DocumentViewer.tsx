@@ -879,7 +879,11 @@ export function DocumentViewer({
       // Condensed view keeps IndexedTextPanel React-controlled. A raw
       // `details.open = true` from the section jump would lose on the next
       // render unless we also raise the inspect reveal for this citation.
-      if (id === "source-text") setInspectRevealKey(`${documentId}::${activeChunkId ?? ""}`);
+      // Jumping anywhere else must lower it again — otherwise IndexedTextPanel's
+      // controlled `open` stays true and the exclusive accordion group (native
+      // `name="document-viewer-section"`) closes the section this jump targets
+      // right back on the next render.
+      setInspectRevealKey(id === "source-text" ? `${documentId}::${activeChunkId ?? ""}` : null);
       selectSection(id);
       jumpToDocumentSection(id);
     },
