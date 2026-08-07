@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Funnel, X } from "lucide-react";
-import { type ReactNode } from "react";
+import { type ReactNode, useCallback, useRef } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
@@ -166,6 +166,134 @@ export function ResultFilterTrigger({
 }
 
 /**
+ * A single radio group inside the filter sheet.
+ *
+ * Implements the roving-tabIndex pattern (Arrow keys + Home/End, single tab
+ * stop) so the group behaves like a real radio group for keyboard users —
+ * consistent with `SegmentedControl` and matching the `role="radiogroup"` it
+ * exposes to AT. Dead-end options are excluded from arrow-key navigation
+ * because they cannot be selected; they remain reachable via Tab so the user
+ * still learns why they are unavailable.
+ */
+function FilterRadioGroup({ group, panelId }: { group: ResultFilterGroup; panelId: string }) {
+  const refs = useRef(new Map<string, HTMLButtonElement>());
+  const groupLabelId = `${panelId}-${group.id}-label`;
+
+  // Only selectable (non-dead-end) options participate in arrow-key navigation.
+  const selectable = group.options.filter((option) => !(Boolean(option.disabled) && option.value !== group.value));
+  // The roving tab stop is the selected option; fall back to the first
+  // selectable one when nothing is selected.
+  const tabStopValue = selectable.some((o) => o.value === group.value) ? group.value : selectable[0]?.value;
+
+  const selectAndFocus = useCallback(
+    (next: ResultFilterOption<string> | undefined) => {
+      if (!next) return;
+      group.onChange(next.value);
+      refs.current.get(next.value)?.focus();
+    },
+    [group],
+  );
+
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!selectable.length) return;
+      const currentValue = (event.target as HTMLElement).dataset.radioValue;
+      const current = Math.max(
+        selectable.findIndex((o) => o.value === currentValue),
+        0,
+      );
+      let next: number | null = null;
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (current + 1) % selectable.length;
+      else if (event.key === "ArrowLeft" || event.key === "ArrowUp")
+        next = (current - 1 + selectable.length) % selectable.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = selectable.length - 1;
+      if (next == null) return;
+      event.preventDefault();
+      selectAndFocus(selectable[next]);
+    },
+    [selectable, selectAndFocus],
+  );
+
+  return (
+    <section className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
+      <h3
+        id={groupLabelId}
+        className="flex min-h-9 items-center text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]"
+      >
+        {group.label}
+      </h3>
+      <div
+        role="radiogroup"
+        aria-labelledby={groupLabelId}
+        onKeyDown={onKeyDown}
+        className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5"
+      >
+        {group.options.map((option) => {
+          const selected = option.value === group.value;
+          const deadEnd = Boolean(option.disabled) && !selected;
+          const deadEndDescId = `${panelId}-${group.id}-${option.value.replace(/[^A-Za-z0-9_-]/g, "-")}-note`;
+          return (
+            <button
+              key={option.value}
+              ref={(node) => {
+                if (node) refs.current.set(option.value, node);
+                else refs.current.delete(option.value);
+              }}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              // `aria-disabled` rather than `disabled`: a real disabled
+              // button leaves the tab order, so a keyboard or screen-reader
+              // user loses the option entirely and never learns why. Kept
+              // focusable and explained, with the click guarded instead —
+              // the disabled-affordance pattern in docs/wiring-conventions.md.
+              aria-disabled={deadEnd || undefined}
+              aria-describedby={deadEnd ? deadEndDescId : undefined}
+              // Dead-end options stay reachable via Tab but are excluded from the
+              // roving tab stop so arrow keys skip them.
+              tabIndex={!deadEnd && option.value === tabStopValue ? 0 : -1}
+              data-radio-value={option.value}
+              onClick={() => {
+                if (deadEnd) return;
+                group.onChange(option.value);
+              }}
+              className={cn(
+                // The tap floor is the token, relaxing to compact density
+                // from `sm` where a pointer is likely. Same recipe as the
+                // documents facet chips, so the two sheets read as one
+                // component family.
+                "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:gap-1 sm:px-2 lg:min-h-8",
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                selected
+                  ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                  : deadEnd
+                    ? // Not `opacity-50`. Transparency multiplies against an
+                      // already-muted foreground; a real muted pair plus a
+                      // dashed border reads as a different KIND of thing
+                      // rather than a faded one, and survives forced colors,
+                      // where border-style is preserved and opacity is not.
+                      "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                    : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+              )}
+            >
+              {selected ? <Check aria-hidden="true" className="h-3 w-3 shrink-0" /> : null}
+              <span className="truncate">{option.label}</span>
+              {option.hint ? <span className="nums text-[color:var(--text-muted)]">{option.hint}</span> : null}
+              {deadEnd ? (
+                <span id={deadEndDescId} className="sr-only">
+                  Not selectable from here.
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/**
  * A single-choice filter sheet: one radio group per dimension.
  *
  * `role="radiogroup"` with real radio semantics rather than the `aria-pressed`
@@ -173,10 +301,10 @@ export function ResultFilterTrigger({
  * one-of-N — a reader who has selected "Presentations" cannot also be on
  * "Diagnoses", and a bank of independent pressed-states says they could.
  *
-  * The sheet does not stay mounted while closed (`Sheet` returns null when `open` is
-  * false), so it holds no chrome state of its own that could survive a new search.
-  * Selection lives in the page, exactly where the desktop control already reads and
-  * writes it, which is what keeps the two breakpoints in agreement.
+ * `Sheet` returns null when `open` is false (unmounted), so it holds no chrome
+ * state of its own that could survive a new search. Selection lives in the page,
+ * exactly where the desktop control already reads and writes it, which is what
+ * keeps the two breakpoints in agreement.
  */
 export function ResultFilterSheet({
   open,
@@ -246,72 +374,9 @@ export function ResultFilterSheet({
       }
     >
       <div className="grid min-w-0 gap-1">
-        {groups.map((group) => {
-          const groupLabelId = `${panelId}-${group.id}-label`;
-          return (
-            <section key={group.id} className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
-              <h3
-                id={groupLabelId}
-                className="flex min-h-9 items-center text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]"
-              >
-                {group.label}
-              </h3>
-              <div role="radiogroup" aria-labelledby={groupLabelId} className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5">
-                {group.options.map((option) => {
-                  const selected = option.value === group.value;
-                  const deadEnd = Boolean(option.disabled) && !selected;
-                  const deadEndDescId = `${panelId}-${group.id}-${option.value.replace(/[^A-Za-z0-9_-]/g, "-")}-note`;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      // `aria-disabled` rather than `disabled`: a real disabled
-                      // button leaves the tab order, so a keyboard or screen-reader
-                      // user loses the option entirely and never learns why. Kept
-                      // focusable and explained, with the click guarded instead —
-                      // the disabled-affordance pattern in docs/wiring-conventions.md.
-                      aria-disabled={deadEnd || undefined}
-                      aria-describedby={deadEnd ? deadEndDescId : undefined}
-                      onClick={() => {
-                        if (deadEnd) return;
-                        group.onChange(option.value);
-                      }}
-                      className={cn(
-                        // The tap floor is the token, relaxing to compact density
-                        // from `sm` where a pointer is likely. Same recipe as the
-                        // documents facet chips, so the two sheets read as one
-                        // component family.
-                        "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:gap-1 sm:px-2 lg:min-h-8",
-                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                        selected
-                          ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                          : deadEnd
-                            ? // Not `opacity-50`. Transparency multiplies against an
-                              // already-muted foreground; a real muted pair plus a
-                              // dashed border reads as a different KIND of thing
-                              // rather than a faded one, and survives forced colors,
-                              // where border-style is preserved and opacity is not.
-                              "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
-                            : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                      )}
-                    >
-                      {selected ? <Check aria-hidden="true" className="h-3 w-3 shrink-0" /> : null}
-                      <span className="truncate">{option.label}</span>
-                      {option.hint ? <span className="nums text-[color:var(--text-muted)]">{option.hint}</span> : null}
-                      {deadEnd ? (
-                        <span id={deadEndDescId} className="sr-only">
-                          Not selectable from here.
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+        {groups.map((group) => (
+          <FilterRadioGroup key={group.id} group={group} panelId={panelId} />
+        ))}
       </div>
     </Sheet>
   );
