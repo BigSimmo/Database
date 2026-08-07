@@ -34,6 +34,22 @@ export type AnswerCardAction = {
   onActivate: () => void;
 };
 
+/**
+ * Question echo owned by the answer shell. Live product may render this above a
+ * table-aside grid (so desktop tableTop stays aligned with the card, matching the
+ * old UserQuestionBubble placement) while still using the AnswerCard test id.
+ */
+export function AnswerCardQueryEcho({ query, className }: { query: string; className?: string }) {
+  const cleaned = query.trim();
+  if (!cleaned) return null;
+  return (
+    <p data-testid="answer-card-query" className={cn("text-sm text-[color:var(--text-muted)]", className)}>
+      <span className="sr-only">Question: </span>
+      {cleaned}
+    </p>
+  );
+}
+
 type AnswerCardBase = {
   /** System-owned verification wording. Required: a generated answer cannot render without it. */
   verification: VerificationNoticeProps;
@@ -68,6 +84,14 @@ export function AnswerCard({
   onOpenSource,
   className,
 }: AnswerCardProps) {
+  // Vertical density: lux horizontal `--pad-panel` stays, but stacked header+body
+  // each carrying full panel padding added ~60px of phantom phone scroll against the
+  // `#227` budget of 8 (short-answer smoke) and pushed the desktop table/prose delta
+  // past 180px once the query echo moved into this header. Keep the raised card chrome;
+  // reclaim the double vertical pad at the header/body seam and the loose gap-stack.
+  const panelX = "px-[var(--pad-panel,1.5rem)]";
+  const panelY = "py-3";
+
   return (
     <article
       data-testid="answer-card"
@@ -77,17 +101,33 @@ export function AnswerCard({
         className,
       )}
     >
-      <div className="space-y-[var(--gap-stack)] border-b border-[color:var(--border)] p-[var(--pad-panel)]">
-        {query ? (
-          <p data-testid="answer-card-query" className="text-sm text-[color:var(--text-muted)]">
-            <span className="sr-only">Question: </span>
-            {query}
-          </p>
-        ) : null}
+      <div className={cn("space-y-2 border-b border-[color:var(--border)]", panelX, panelY)}>
+        {query ? <AnswerCardQueryEcho query={query} /> : null}
         {/* Above the prose and above the actions, in document order, on screen
             and on print alike. */}
         <VerificationNotice {...verification} />
-        {state.kind !== "ready" ? (
+        {/*
+         * Ledger `#227` over `#207`, decided 3 Aug 2026. `#207` required a banner on
+         * every degraded state, on the reasoning that an adoption failure here is
+         * silent — "the card renders, the prose is fine, and the caution the product
+         * shows today is simply gone". That reasoning holds only where the banner is
+         * the sole carrier of the caution, and it is not: `VerificationNotice` above
+         * states `ungrounded` and `source_only` in words, and for those two kinds the
+         * banner restates it almost verbatim. `#227` measured the cost of the
+         * duplicate on a one-sentence answer — three renderings of one warning,
+         * eleven lines of caution around one line of answer, 147px of scroll against
+         * a phone budget of 8. Three identical alarms teach a reader to skip all
+         * three, so the duplicate is the dangerous outcome, not the omission.
+         *
+         * The banner survives for exactly the two kinds where it says something the
+         * notice cannot: `stale_evidence` names WHICH sources are overdue,
+         * `partial_retrieval` names HOW MUCH was missed. The caution itself is never
+         * lost for any kind — it is carried by the notice and by `data-state`.
+         *
+         * `onOpenSource` stays required for every degraded state (DECISIONS §Q1): a
+         * degraded answer must remain re-verifiable whether or not a banner renders.
+         */}
+        {state.kind === "stale_evidence" || state.kind === "partial_retrieval" ? (
           <RetrievalStateBanner
             state={state}
             onOpenSource={onOpenSource as (sourceId: string, locator?: string) => void}
@@ -96,7 +136,10 @@ export function AnswerCard({
       </div>
       <div
         className={cn(
-          "p-[var(--pad-panel)]",
+          panelX,
+          // Header already ends with py-3; keep a tight seam to the prose so the
+          // card does not reintroduce the old space-y-3 gap as 24px of stacked pad.
+          "pt-2 pb-3",
           // Prose measure is a hard ceiling: an answer that runs the full width of a
           // desktop viewport is unreadable regardless of type size.
           "max-w-[var(--measure)] text-[length:var(--text-md)] leading-prose text-[color:var(--text)]",
@@ -105,7 +148,7 @@ export function AnswerCard({
         {children}
       </div>
       {actions?.length ? (
-        <div className="flex flex-wrap gap-2 px-[var(--pad-panel)] pb-[var(--pad-panel)]">
+        <div className={cn("flex flex-wrap gap-2", panelX, "pb-3")}>
           {actions.map((action) => (
             <button
               key={action.id}
