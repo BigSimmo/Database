@@ -146,6 +146,10 @@ When a branch or PR review completes, record it with `npm run ledger:append -- -
 
 Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit ledger append (that marks every other open PR behind). One Run PR row per PR per sweep; on a later sweep of the same PR, pass `--supersede` rather than stacking another "main sync" row. After `git merge origin/main`, run `npm run ledger:dedupe` before committing when the ledger changed.
 
+- **Concurrent editing warning:** Multiple agent sessions can silently undo each other's work on shared `claude/*` branches and the ledger, so they must coordinate.
+- **CI Visibility:** `gh pr checks` cannot read CI, but the Actions API can.
+- **Stable identifiers:** Row IDs are not stable identifiers for "did my change land", confirm by content.
+
 <!-- END:codex-review-throttling -->
 
 <!-- BEGIN:local-server-safety -->
