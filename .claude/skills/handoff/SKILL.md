@@ -46,6 +46,12 @@ force-push, or discard work.
 7. **Record** the review with `npm run ledger:append`, passing `--ref <branch>`, `--head`
    (the full 40-character SHA), `--scope`, `--outcome`, and `--checks`. Do not hand-write
    the row into `docs/branch-review-ledger.md`.
+8. **Stop.** Report the PR URL and a short summary, then end the turn. Do not follow the
+   PR from here — no CI polling, no `gh run watch`, no re-runs, no branch sync, no replies
+   to review bots, no `Monitor`/`ScheduleWakeup`/cron parked on it. That tail is the
+   wasted-usage loop AGENTS.md "Stop when the pull request is open" rules out, and
+   `.claude/hooks/pr-handoff-stop.sh` denies those commands, the equivalent GitHub MCP
+   tools, and that loop machinery for the rest of the session.
 
 ## Requires explicit confirmation (do not do automatically)
 
