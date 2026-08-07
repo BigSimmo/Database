@@ -113,4 +113,17 @@ describe("ToggleSwitch", () => {
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Available: on" })).toBeInTheDocument();
   });
+
+  it("moves the knob on transform, never left/right", () => {
+    const { rerender } = render(<ToggleSwitch enabled={false} onToggle={() => undefined} aria-label="Notify" />);
+    const offKnob = screen.getByRole("switch", { name: "Notify" }).querySelector("[aria-hidden]");
+    expect(offKnob?.className).toMatch(/translate-x-0/);
+    expect(offKnob?.className).not.toMatch(/\bright-1\b/);
+    expect(offKnob?.className).toMatch(/\bleft-1\b/);
+
+    rerender(<ToggleSwitch enabled onToggle={() => undefined} aria-label="Notify" />);
+    const onKnob = screen.getByRole("switch", { name: "Notify" }).querySelector("[aria-hidden]");
+    expect(onKnob?.className).toMatch(/translate-x-4/);
+    expect(onKnob?.className).not.toMatch(/\bright-1\b/);
+  });
 });
