@@ -204,10 +204,11 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const { screen, slug: routeSlug } = resolveRoute(pathname);
   // Search needs the complete prose corpus to preserve its existing weighted
-  // matches. Browse/pathway screens need catalogue metadata only, so keeping
-  // the 2.5 MB full dataset off their critical path materially improves mobile
-  // paint without silently narrowing search recall.
-  const usesCatalogueIndex = screen === "home" || screen === "pathways";
+  // matches. Browse/pathway/review screens need only catalogue metadata plus
+  // review progress metrics, so keeping the 2.5 MB full dataset off their
+  // critical path materially improves mobile paint without silently narrowing
+  // recall.
+  const usesCatalogueIndex = screen === "home" || screen === "pathways" || screen === "review";
   const { data, loading, error, retry } = useTherapyData({
     catalogue: usesCatalogueIndex ? "index" : "full",
     includePathways: screen === "pathways",

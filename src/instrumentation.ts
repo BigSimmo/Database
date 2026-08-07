@@ -64,7 +64,6 @@ export async function register() {
   // tables are not reversible (PIA-2). Fail closed rather than degrade to weak SHA-256.
   requireQueryHashSecret();
   requireSentryEnv();
-}
   // Optional, server-only tracking. Missing DSN means no provider calls.
   await initializeErrorTracking();
 }

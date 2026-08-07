@@ -148,12 +148,11 @@ export default async function () {
     org: process.env.SENTRY_ORG,
     project: process.env.SENTRY_PROJECT,
     authToken: process.env.SENTRY_AUTH_TOKEN,
-    release: getSentryRelease(),
+    release: { name: getSentryRelease() },
     silent: process.env.NODE_ENV === "production",
     sourcemaps: {
       disable: false,
     },
     widenClientFileUpload: true,
-    hideSourceMaps: true,
   });
 }

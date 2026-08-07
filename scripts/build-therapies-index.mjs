@@ -50,6 +50,9 @@ const browserProjected = therapies
     reviewStatus: therapy.reviewStatus ?? "needs_review",
     patientSheetAvailable: Boolean(therapy.patientSheetAvailable),
     briefInterventionAvailable: Boolean(therapy.briefInterventionAvailable),
+    sourceCompleteness: therapy.sourceCompleteness ?? null,
+    indexCompleteness: therapy.indexCompleteness ?? null,
+    reviewCompleteness: therapy.reviewCompleteness ?? null,
     tags: Array.isArray(therapy.tags) ? therapy.tags : [],
     aliases: Array.isArray(therapy.aliases) ? therapy.aliases : [],
   }))

@@ -8,6 +8,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -34,6 +37,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -57,6 +63,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -83,6 +92,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Personality/interpersonal",
@@ -104,6 +116,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -123,6 +138,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -148,6 +166,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -170,6 +191,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Personality/interpersonal",
@@ -189,6 +213,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -213,6 +240,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -239,6 +269,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -260,6 +293,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Substance use",
       "Crisis/risk",
@@ -279,6 +315,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -300,6 +339,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -322,6 +364,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -347,6 +392,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Sleep",
@@ -368,6 +416,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Eating/body image",
@@ -386,6 +437,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -405,6 +459,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Personality/interpersonal",
@@ -423,6 +480,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Personality/interpersonal",
@@ -443,6 +503,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -468,6 +531,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -491,6 +557,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -514,6 +583,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Neurodevelopmental",
@@ -533,6 +605,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -557,6 +632,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -584,6 +662,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -604,6 +685,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -629,6 +713,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -653,6 +740,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 71,
     "tags": [
       "Mood",
       "Anxiety",
@@ -679,6 +769,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -701,6 +794,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -725,6 +821,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -744,6 +843,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -766,6 +868,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -791,6 +896,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Substance use",
@@ -811,6 +919,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -835,6 +946,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -855,6 +969,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -879,6 +996,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -900,6 +1020,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Substance use",
       "CBT",
@@ -918,6 +1041,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -942,6 +1068,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -962,6 +1091,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -988,6 +1120,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1012,6 +1147,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Substance use",
       "Eating/body image",
@@ -1032,6 +1170,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -1056,6 +1197,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Anxiety",
       "Personality/interpersonal",
@@ -1078,6 +1222,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1100,6 +1247,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -1125,6 +1275,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1148,6 +1301,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 71,
     "tags": [
       "Mood",
       "Trauma",
@@ -1175,6 +1331,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -1196,6 +1355,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -1215,6 +1377,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1241,6 +1406,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Personality/interpersonal",
       "Substance use",
@@ -1263,6 +1431,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 71,
     "tags": [
       "Personality/interpersonal",
       "Eating/body image",
@@ -1284,6 +1455,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1303,6 +1477,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -1327,6 +1504,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -1347,6 +1527,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1369,6 +1552,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1394,6 +1580,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 71,
     "tags": [
       "Mood",
       "Trauma",
@@ -1416,6 +1605,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Eating/body image",
       "Pain/somatic",
@@ -1436,6 +1628,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1458,6 +1653,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Anxiety",
       "Trauma",
@@ -1479,6 +1677,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -1502,6 +1703,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -1521,6 +1725,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1542,6 +1749,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Eating/body image",
@@ -1560,6 +1770,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1580,6 +1793,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Eating/body image",
       "Crisis/risk",
@@ -1600,6 +1816,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Eating/body image",
       "Crisis/risk",
@@ -1619,6 +1838,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1640,6 +1862,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1661,6 +1886,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1682,6 +1910,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1705,6 +1936,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1730,6 +1964,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Anxiety",
       "Trauma",
@@ -1750,6 +1987,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1772,6 +2012,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -1795,6 +2038,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1815,6 +2061,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -1836,6 +2085,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1857,6 +2109,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1881,6 +2136,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Eating/body image",
       "Crisis/risk",
@@ -1899,6 +2157,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 71,
     "tags": [
       "Substance use",
       "Eating/body image",
@@ -1917,6 +2178,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1941,6 +2205,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1960,6 +2227,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -1982,6 +2252,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2006,6 +2279,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2026,6 +2302,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -2047,6 +2326,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -2068,6 +2350,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2095,6 +2380,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2117,6 +2405,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -2136,6 +2427,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2158,6 +2452,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2179,6 +2476,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2202,6 +2502,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Anxiety",
       "Trauma",
@@ -2222,6 +2525,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -2248,6 +2554,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 71,
     "tags": [
       "Mood",
       "Trauma",
@@ -2274,6 +2583,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2294,6 +2606,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -2315,6 +2630,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -2333,6 +2651,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Personality/interpersonal",
       "Substance use",
@@ -2354,6 +2675,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2375,6 +2699,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2401,6 +2728,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2426,6 +2756,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 71,
     "tags": [
       "Mood",
       "Trauma",
@@ -2450,6 +2783,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Anxiety",
       "Trauma",
@@ -2474,6 +2810,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2496,6 +2835,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2519,6 +2861,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2541,6 +2886,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2563,6 +2911,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -2585,6 +2936,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -2606,6 +2960,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Anxiety",
       "Psychosis",
@@ -2627,6 +2984,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Personality/interpersonal",
@@ -2645,6 +3005,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2666,6 +3029,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Substance use",
       "Eating/body image",
@@ -2686,6 +3052,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2709,6 +3078,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2729,6 +3101,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -2748,6 +3123,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2773,6 +3151,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2797,6 +3178,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -2818,6 +3202,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Neurodevelopmental",
       "Crisis/risk",
@@ -2835,6 +3222,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Neurodevelopmental",
       "Crisis/risk",
@@ -2852,6 +3242,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Neurodevelopmental",
@@ -2871,6 +3264,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -2892,6 +3288,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Substance use",
       "Crisis/risk",
@@ -2909,6 +3308,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Eating/body image",
@@ -2927,6 +3329,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -2947,6 +3352,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -2969,6 +3377,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -2991,6 +3402,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3014,6 +3428,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3038,6 +3455,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3061,6 +3481,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3084,6 +3507,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3106,6 +3532,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3127,6 +3556,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3151,6 +3583,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3173,6 +3608,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Eating/body image",
@@ -3191,6 +3629,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3211,6 +3652,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -3232,6 +3676,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -3251,6 +3698,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Substance use",
@@ -3270,6 +3720,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3294,6 +3747,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -3313,6 +3769,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -3333,6 +3792,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Substance use",
@@ -3353,6 +3815,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 71,
     "tags": [
       "Mood",
       "Trauma",
@@ -3377,6 +3842,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3403,6 +3871,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3424,6 +3895,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3447,6 +3921,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -3466,6 +3943,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -3484,6 +3964,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3506,6 +3989,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3532,6 +4018,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -3554,6 +4043,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3574,6 +4066,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3598,6 +4093,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 71,
     "tags": [
       "Mood",
       "Trauma",
@@ -3623,6 +4121,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3645,6 +4146,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3665,6 +4169,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -3685,6 +4192,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -3708,6 +4218,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3732,6 +4245,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 71,
     "tags": [
       "Anxiety",
       "Sleep",
@@ -3751,6 +4267,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -3772,6 +4291,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3793,6 +4315,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Eating/body image",
       "Crisis/risk",
@@ -3812,6 +4337,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3838,6 +4366,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3864,6 +4395,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Substance use",
       "Crisis/risk",
@@ -3881,6 +4415,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3900,6 +4437,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3924,6 +4464,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3946,6 +4489,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3969,6 +4515,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -3991,6 +4540,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -4015,6 +4567,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -4038,6 +4593,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -4059,6 +4617,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -4081,6 +4642,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -4104,6 +4668,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -4122,6 +4689,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -4144,6 +4714,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -4167,6 +4740,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -4192,6 +4768,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -4217,6 +4796,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -4241,6 +4823,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -4263,6 +4848,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 100,
+    "reviewCompleteness": 57,
     "tags": [
       "Substance use",
       "Eating/body image",
@@ -4283,6 +4871,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -4302,6 +4893,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -4320,6 +4914,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -4341,6 +4938,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Psychosis",
@@ -4363,6 +4963,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -4386,6 +4989,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Anxiety",
@@ -4412,6 +5018,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -4435,6 +5044,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",
@@ -4460,6 +5072,9 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
+    "sourceCompleteness": 100,
+    "indexCompleteness": 92,
+    "reviewCompleteness": 57,
     "tags": [
       "Mood",
       "Trauma",

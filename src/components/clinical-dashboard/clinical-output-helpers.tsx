@@ -205,6 +205,10 @@ export const simpleClinicalTableProps = {
   expandOnMobile: true,
 } as const;
 
+const BookOpenStateIcon = ({ className }: { className?: string; [key: string]: unknown }) => (
+  <BookOpen className={className} />
+);
+
 function compactEvidenceCell(value: string | null | undefined, max = 140) {
   const text = value ? value.replace(/\s+/g, " ").trim() : "";
   return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
@@ -212,7 +216,13 @@ function compactEvidenceCell(value: string | null | undefined, max = 140) {
 
 export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
   if (rows.length === 0) {
-    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
+    return (
+      <EmptyState
+        icon={BookOpenStateIcon}
+        title={emptyStates.evidenceMap.title}
+        body={emptyStates.evidenceMap.body}
+      />
+    );
   }
 
   const tableRows = rows.map((row) => [

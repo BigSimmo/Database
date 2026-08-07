@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ComponentPropsWithoutRef, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactElement, ReactNode } from "react";
 import {
   extractionQualityLabel,
   formatClinicalDate,
@@ -14,8 +14,8 @@ export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-type PrimitiveIconProps = Omit<ComponentPropsWithoutRef<"span">, "children">;
-type IconComponent = (props: PrimitiveIconProps) => JSX.Element;
+type PrimitiveIconProps = { className?: string; [key: string]: unknown };
+type IconComponent = (props: PrimitiveIconProps) => ReactNode;
 type LucideIcon = IconComponent;
 
 const Loader2: IconComponent = ({ className, ...props }) => (
