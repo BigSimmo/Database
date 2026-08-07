@@ -19,17 +19,19 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs
 import { cn, floatingControl, toolbarButton } from "@/components/ui-primitives";
 import { announce } from "@/components/ui/live-announcer";
 import { useViewerGestures } from "@/components/document-viewer/use-viewer-gestures";
+import {
+  clampViewerZoom,
+  VIEWER_DEFAULT_ZOOM,
+  VIEWER_MAX_ZOOM,
+  VIEWER_MIN_ZOOM,
+  VIEWER_ZOOM_STEP,
+} from "@/components/document-viewer/viewer-zoom";
 
 const iconButton = toolbarButton;
 const secondaryButton = floatingControl;
 
 const MAX_FIT_SCALE = 2.8;
-const MAX_ZOOM_SCALE = 4;
-const MIN_ZOOM_SCALE = 0.55;
 const MAX_RENDER_SCALE = 2.5;
-const ZOOM_STEP = 0.15;
-
-const clampZoom = (value: number) => Math.min(MAX_ZOOM_SCALE, Math.max(MIN_ZOOM_SCALE, value));
 
 // A signed URL that has passed its (10-min) TTL fails pdf.js with an auth/HTTP
 // error rather than a parse error. Detect those so the parent can re-issue a
@@ -56,6 +58,10 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   onUrlExpired,
   onLoadSuccess,
   onPageChange,
+  fitWidth: fitWidthProp,
+  zoom: zoomProp,
+  onFitWidthChange,
+  onZoomChange,
 }: {
   url: string;
   title: string;
@@ -66,6 +72,14 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   onLoadSuccess?: () => void;
   /** Keeps the document route in sync when the reader changes pages. */
   onPageChange?: (page: number) => void;
+  /**
+   * Controlled fit/zoom from DocumentFrame (Phase 2a). When both change handlers
+   * are provided, Frame owns the chrome and this toolbar keeps page/rotate/fullscreen.
+   */
+  fitWidth?: boolean;
+  zoom?: number;
+  onFitWidthChange?: (fitWidth: boolean) => void;
+  onZoomChange?: (zoom: number) => void;
 }) {
   const fullscreenRootRef = useRef<HTMLDivElement>(null);
   const holderRef = useRef<HTMLDivElement>(null);
@@ -74,14 +88,40 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   const [page, setPage] = useState(initialPage);
   const [pageInput, setPageInput] = useState(String(initialPage));
   const [totalPages, setTotalPages] = useState(0);
-  const [zoom, setZoom] = useState(1.1);
+  const [internalZoom, setInternalZoom] = useState(VIEWER_DEFAULT_ZOOM);
   // Debounced mirror of `zoom`. Zoom steps update `zoom` immediately (an interim
   // CSS transform gives instant visual feedback) but only `renderZoom` drives the
   // pdf.js raster, so rapid +/-, wheel, and pinch input re-rasterise once on
   // settle instead of queueing a RenderTask per delta.
-  const [renderZoom, setRenderZoom] = useState(1.1);
+  const [renderZoom, setRenderZoom] = useState(VIEWER_DEFAULT_ZOOM);
   const [rotation, setRotation] = useState(0);
-  const [fitWidth, setFitWidth] = useState(true);
+  const [internalFitWidth, setInternalFitWidth] = useState(true);
+  const frameOwnsZoomChrome = typeof onFitWidthChange === "function" && typeof onZoomChange === "function";
+  const fitWidth = frameOwnsZoomChrome ? Boolean(fitWidthProp) : internalFitWidth;
+  const zoom = frameOwnsZoomChrome ? (typeof zoomProp === "number" ? zoomProp : VIEWER_DEFAULT_ZOOM) : internalZoom;
+  const setFitWidth = useCallback(
+    (next: boolean | ((current: boolean) => boolean)) => {
+      const resolved = typeof next === "function" ? next(fitWidth) : next;
+      if (frameOwnsZoomChrome) {
+        onFitWidthChange?.(resolved);
+        return;
+      }
+      setInternalFitWidth(resolved);
+    },
+    [fitWidth, frameOwnsZoomChrome, onFitWidthChange],
+  );
+  const setZoom = useCallback(
+    (next: number | ((current: number) => number)) => {
+      const resolved = typeof next === "function" ? next(zoom) : next;
+      const clamped = clampViewerZoom(resolved);
+      if (frameOwnsZoomChrome) {
+        onZoomChange?.(clamped);
+        return;
+      }
+      setInternalZoom(clamped);
+    },
+    [frameOwnsZoomChrome, onZoomChange, zoom],
+  );
   const [holderWidth, setHolderWidth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [rendering, setRendering] = useState(false);
@@ -245,9 +285,9 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
         const baseViewport = pdfPage.getViewport({ scale: 1, rotation });
         const availableWidth = Math.max(220, holderRef.current.clientWidth - 16);
         const requestedScale = fitWidth
-          ? Math.min(MAX_FIT_SCALE, Math.max(MIN_ZOOM_SCALE, availableWidth / baseViewport.width))
+          ? Math.min(MAX_FIT_SCALE, Math.max(VIEWER_MIN_ZOOM, availableWidth / baseViewport.width))
           : renderZoom;
-        const viewportScale = Math.min(MAX_ZOOM_SCALE, Math.max(MIN_ZOOM_SCALE, requestedScale));
+        const viewportScale = Math.min(VIEWER_MAX_ZOOM, Math.max(VIEWER_MIN_ZOOM, requestedScale));
         const outputScale = Math.min(MAX_RENDER_SCALE, window.devicePixelRatio || 1);
         const viewport = pdfPage.getViewport({ scale: viewportScale * outputScale, rotation });
         const canvas = canvasRef.current;
@@ -296,7 +336,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
 
   function zoomBy(delta: number) {
     setFitWidth(false);
-    setZoom((current) => Number(clampZoom(current + delta).toFixed(2)));
+    setZoom((current) => Number((current + delta).toFixed(2)));
   }
 
   async function enterFullscreenFitView() {
@@ -338,10 +378,13 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   // sized by the container, so it never carries an interim scale.
   const interimZoomScale = !fitWidth && renderZoom > 0 && zoom !== renderZoom ? zoom / renderZoom : 1;
 
-  const handleZoomByFactor = useCallback((factor: number) => {
-    setFitWidth(false);
-    setZoom((current) => Number(clampZoom(current * factor).toFixed(3)));
-  }, []);
+  const handleZoomByFactor = useCallback(
+    (factor: number) => {
+      setFitWidth(false);
+      setZoom((current) => Number((current * factor).toFixed(3)));
+    },
+    [setFitWidth, setZoom],
+  );
 
   const handlePanByDelta = useCallback((dx: number, dy: number) => {
     const holder = holderRef.current;
@@ -380,11 +423,11 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       case "+":
       case "=":
         event.preventDefault();
-        zoomBy(ZOOM_STEP);
+        zoomBy(VIEWER_ZOOM_STEP);
         break;
       case "-":
         event.preventDefault();
-        zoomBy(-ZOOM_STEP);
+        zoomBy(-VIEWER_ZOOM_STEP);
         break;
       case "0":
         event.preventDefault();
@@ -452,32 +495,43 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
           <ChevronRight aria-hidden="true" className="h-4 w-4" />
         </button>
         <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1 shadow-[var(--shadow-inset)] sm:ml-auto">
-          <button
-            onClick={() => zoomBy(-ZOOM_STEP)}
-            disabled={!pagesReady}
-            className={iconButton}
-            aria-label="Zoom out"
-          >
-            <Minus aria-hidden="true" className="h-4 w-4" />
-          </button>
-          <button
-            onClick={enterFullscreenFitView}
-            disabled={!pagesReady}
-            aria-label="Fit page width and enter fullscreen"
-            className={cn(
-              "inline-flex min-h-tap min-w-tap items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition",
-              "disabled:cursor-not-allowed disabled:opacity-45",
-              fitWidth || fullscreenActive
-                ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
-            )}
-          >
-            <Maximize2 aria-hidden="true" className="h-4 w-4" />
-            <span className="hidden sm:inline">Fit</span>
-          </button>
-          <button onClick={() => zoomBy(ZOOM_STEP)} disabled={!pagesReady} className={iconButton} aria-label="Zoom in">
-            <Plus aria-hidden="true" className="h-4 w-4" />
-          </button>
+          {frameOwnsZoomChrome ? null : (
+            <>
+              <button
+                onClick={() => zoomBy(-VIEWER_ZOOM_STEP)}
+                disabled={!pagesReady}
+                className={iconButton}
+                aria-label="Zoom out"
+              >
+                <Minus aria-hidden="true" className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => {
+                  setFitWidth(true);
+                }}
+                disabled={!pagesReady}
+                aria-label="Fit page width"
+                className={cn(
+                  "inline-flex min-h-tap min-w-tap items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition",
+                  "disabled:cursor-not-allowed disabled:opacity-45",
+                  fitWidth
+                    ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+                )}
+              >
+                <Maximize2 aria-hidden="true" className="h-4 w-4" />
+                <span className="hidden sm:inline">Fit</span>
+              </button>
+              <button
+                onClick={() => zoomBy(VIEWER_ZOOM_STEP)}
+                disabled={!pagesReady}
+                className={iconButton}
+                aria-label="Zoom in"
+              >
+                <Plus aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </>
+          )}
           <button
             onClick={() => setRotation((current) => (current + 90) % 360)}
             disabled={!pagesReady}
@@ -496,7 +550,18 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
               <Minimize2 aria-hidden="true" className="h-4 w-4" />
               <span className="hidden sm:inline">Exit</span>
             </button>
-          ) : null}
+          ) : (
+            <button
+              onClick={enterFullscreenFitView}
+              disabled={!pagesReady}
+              aria-label="Enter fullscreen document view"
+              className={iconButton}
+              type="button"
+            >
+              <Maximize2 aria-hidden="true" className="h-4 w-4" />
+              <span className="hidden sm:inline">Full</span>
+            </button>
+          )}
         </div>
       </div>
 

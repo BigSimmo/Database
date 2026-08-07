@@ -4119,7 +4119,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await switchToCanvasMode.click();
     }
     await expect(toolbar).toBeVisible({ timeout: 30000 });
-    const enterFullscreen = page.getByRole("button", { name: "Fit page width and enter fullscreen" });
+    const enterFullscreen = page.getByRole("button", { name: "Enter fullscreen document view" });
     // The toolbar is mounted before pdf.js finishes painting. Wait for its
     // existing pagesReady signal so late canvas height changes cannot move a
     // target between Firefox's actionability check and pointer dispatch.
