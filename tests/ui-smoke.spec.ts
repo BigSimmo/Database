@@ -1164,24 +1164,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("desktop sidebar defaults to the labelled state for new users", async ({ page }) => {
+  test("desktop sidebar defaults to the collapsed state for new users", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
-    // No stored preference (PT-10): the labelled navigation remains the default,
-    // so first-run desktop shows the labelled sidebar; collapse is remembered.
-    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
+    // No stored preference (PT-10): the collapsed icon rail is the default,
+    // so first-run desktop shows the collapsed rail, not the labelled panel;
+    // expanding is remembered. #clinical-tools-sidebar only mounts when
+    // expanded, so its absence (not just hidden) is the collapsed signal.
+    await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
+    await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toHaveCount(0);
   });
 
   test("desktop sidebar mode sync and accessibility affordances stay coherent", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    // This journey exercises the remembered-collapsed rail; new users now
-    // default to the labelled sidebar, so seed the stored preference.
+    // This journey starts from the collapsed rail (now the default for new
+    // users too) and exercises expanding/collapsing it.
     await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/?mode=tools");
 
@@ -1226,13 +1229,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await mockDemoApi(page);
+    // Seed expanded preference so #clinical-tools-sidebar mounts. Without this
+    // seed the panel is absent (count 0) and toBeHidden() would pass vacuously;
+    // we need the remembered-expanded path where the panel exists but stays
+    // display:none below lg while tablet still only presents the icon rail.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "0"));
     await gotoApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
     await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
-    // With the labelled default the expanded panel exists in the DOM but stays
-    // display:none below lg; tablet must still only present the icon rail.
     await expect(page.locator("#clinical-tools-sidebar")).toBeHidden();
     await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
 
@@ -1336,8 +1342,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    // Exercises both collapsed and expanded account affordances; seed the
-    // remembered-collapsed preference now that new users default to labelled.
+    // Exercises both collapsed and expanded account affordances; seed collapsed
+    // explicitly (also the new-user default) so the journey starts on the rail.
     await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
@@ -1378,6 +1384,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
+
+    // Sidebar defaults to collapsed for new users; expand so the in-rail Settings
+    // control this journey asserts is reachable (same as the account-setup case).
+    await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
 
     const settings = accountSettingsDialog(page);
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
