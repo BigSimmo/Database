@@ -40,6 +40,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // read as a second real header over the study.
   const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
   const isPrivacyLiveSignalPerfectedMockup = pathname === "/mockups/privacy-live-signal-perfected";
+  const isPrivacyLiveSignalVariantsMockup = pathname === "/mockups/privacy-live-signal-variants";
   // These studies draw complete app shells and their own search composers, so
   // shared chrome would make the interaction studies ambiguous.
   const isSearchLensMenuMockup = pathname === "/mockups/search-lens-menu";
@@ -90,6 +91,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isAnswerHomeProposalMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
+        !isPrivacyLiveSignalVariantsMockup &&
         !isSearchLensMenuMockup &&
         !isPinnedPlusMenuMockup &&
         !isPhoneModeSheetYesMockup
@@ -106,6 +108,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isAnswerHomeProposalMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
+        !isPrivacyLiveSignalVariantsMockup &&
         !isSearchLensMenuMockup &&
         !isPinnedPlusMenuMockup &&
         !isPhoneModeSheetYesMockup

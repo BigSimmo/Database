@@ -41,6 +41,7 @@ Some document-search mockups include live handoff routes (for example `document-
 
 - Selected perfected direction: [`/mockups/privacy-live-signal-perfected`](../src/app/mockups/privacy-live-signal-perfected/page.tsx)
 - Full three-direction study: [`/mockups/privacy-page-directions`](../src/app/mockups/privacy-page-directions/page.tsx)
+- Live Signal variants (no phone top number chips): [`/mockups/privacy-live-signal-variants`](../src/app/mockups/privacy-live-signal-variants/page.tsx) — Quiet scroll · Region-fused · Contents card
 - Static comps: [`public/mockups/privacy-page-redesign-2026-08/`](../public/mockups/privacy-page-redesign-2026-08/README.md)
 
 ## Phone Choose mode sheet YES comps
