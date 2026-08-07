@@ -3101,7 +3101,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
 
-    await page.getByRole("button", { name: "New chat", exact: true }).click();
+    // Desktop hides the header New chat when the sidebar already owns it.
+    await page.getByRole("complementary", { name: "Clinical Guide" }).getByRole("button", { name: "New chat" }).click();
     await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
