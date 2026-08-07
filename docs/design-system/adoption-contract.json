@@ -592,7 +592,7 @@
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["AnswerResultSurface", "VerificationNotice", "RetrievalStateBanner"],
+      "sanctionedSpecialPatterns": ["AnswerResultSurface", "RetrievalStateBanner"],
       "documentedDisposition": "Answers are rendered inside the shared ClinicalDashboard route rather than a standalone page route."
     },
     {
