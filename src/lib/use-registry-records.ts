@@ -174,7 +174,7 @@ export function useRegistryRecords(
       controller.abort();
       registration.release();
     };
-  }, [enabled, kind, authStatus, authorizationHeader, markSessionExpired, attempt, requestLifecycle]);
+  }, [enabled, kind, authIdentity, authStatus, authorizationHeader, markSessionExpired, attempt, requestLifecycle]);
 
   return { ...visibleState, refetch };
 }

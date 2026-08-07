@@ -143,7 +143,7 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
           ? { status: "loading", matches: emptyDifferentialMatches, demoMode: false }
           : { status: "ready", matches: emptyDifferentialMatches, demoMode: false },
       );
-    } else if (!requestChanged && credentialChanged && state.status === "ready") {
+    } else if (!requestChanged && credentialChanged && (state.status === "ready" || state.status === "refetching")) {
       setState({ ...state, status: "refetching" });
     } else if (cached) {
       setState({ status: "ready", matches: cached.matches, demoMode: cached.demoMode });

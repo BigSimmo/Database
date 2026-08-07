@@ -215,6 +215,62 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     expect(result.current.status).toBe("ready");
   });
 
+  it("starts the latest same-user refresh when credentials change again while refetching", async () => {
+    const initialMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    const refreshedMatch = {
+      record: { slug: "persistent-depressive-disorder", title: "Persistent depressive disorder" },
+      score: 10,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [initialMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current).toMatchObject({ status: "ready", matches: { diagnoses: [initialMatch] } });
+
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => pending.push(resolve)));
+
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user-1" };
+    rerender();
+    expect(result.current).toMatchObject({ status: "refetching", matches: { diagnoses: [initialMatch] } });
+    await advanceDebounce();
+    expect(pending).toHaveLength(2);
+
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user-2" };
+    rerender();
+    expect(result.current).toMatchObject({ status: "refetching", matches: { diagnoses: [initialMatch] } });
+    await advanceDebounce();
+    expect(pending).toHaveLength(4);
+
+    await act(async () => {
+      pending[0](jsonResponse({ matches: [], demoMode: false }));
+      pending[1](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current).toMatchObject({ status: "refetching", matches: { diagnoses: [initialMatch] } });
+
+    await act(async () => {
+      pending[2](jsonResponse({ matches: [refreshedMatch], demoMode: false }));
+      pending[3](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current).toMatchObject({ status: "ready", matches: { diagnoses: [refreshedMatch] } });
+  });
+
   it("ignores a late previous-user refresh after the auth identity changes", async () => {
     const diagnosisMatch = {
       record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },

@@ -94,13 +94,17 @@ npm run eval:quality -- --rag-only  # grounded-supported must not drop; citation
 
 Record outcomes in release notes / [process-hardening.md](process-hardening.md).
 
-## 3. Provision staging + seed 🧑 Supabase + Railway (billable)
+## 3. Revalidate staging + reconcile schema 🧑 Supabase + Railway
 
 Detailed: [staging-setup.md](staging-setup.md). No code change — the identity guard activates on env.
 
-1. **⏸ PAUSE** create Supabase project `Clinical KB Staging`, same org, **ap-southeast-2**, generate DB
-   password (Supabase MCP `create_project` after `confirm_cost`, or dashboard). Record `<staging-ref>`.
-2. `supabase link --project-ref <staging-ref>` → `supabase db push` → `npm run check:indexing`.
+1. **⏸ PAUSE** verify the existing `Clinical KB Staging` project identity and credentials against
+   [staging-setup.md](staging-setup.md). Do not create a replacement. Stop on a ref/name mismatch or
+   unavailable staging database credential, and record the verified value as `<staging-ref>`.
+2. `supabase link --project-ref <staging-ref>` → `supabase migration list --linked` →
+   `supabase db push --linked --include-all --dry-run`. Confirm the exact reviewed 24-version chain;
+   only after explicit approval run `supabase db push --linked --include-all`, then
+   `npm run check:indexing`. A normal or partial push is unavailable while history is divergent.
 3. Seed synthetic (~50 docs, **never** production clinical docs):
    ```bash
    npm run samples && npm run import:docs

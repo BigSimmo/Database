@@ -5,10 +5,10 @@ import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medica
 import { useRegistryRecords } from "@/lib/use-registry-records";
 
 const authSession = vi.hoisted(() => ({
-  authorizationHeader: { Authorization: "Bearer user-a-token" },
+  authorizationHeader: { Authorization: "Bearer user-a-token" } as HeadersInit,
   markSessionExpired: vi.fn(),
-  session: { user: { id: "user-a" } },
-  status: "authenticated" as const,
+  session: { user: { id: "user-a" } } as { user: { id: string } } | null,
+  status: "authenticated" as "loading" | "authenticated" | "signed_out",
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -36,6 +36,7 @@ beforeEach(() => {
   authSession.authorizationHeader = { Authorization: "Bearer user-a-token" };
   authSession.markSessionExpired.mockReset();
   authSession.session = { user: { id: "user-a" } };
+  authSession.status = "authenticated";
   fetchMock = vi.fn<typeof fetch>();
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -77,6 +78,28 @@ describe("auth-backed catalogue background refresh", () => {
     expect(result.current).toMatchObject({ status: "ready", records: [], total: 0 });
   });
 
+  it("starts a new registry request when identity changes but the header object is unchanged", async () => {
+    const sharedHeader = authSession.authorizationHeader;
+    const record = { slug: "cmht", title: "Community Mental Health Team" };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ records: [record], total: 1, governance: {} }));
+
+    const { result, rerender } = renderHook(() => useRegistryRecords("service"));
+    await flushMicrotasks();
+    expect(result.current).toMatchObject({ status: "ready", records: [record], total: 1 });
+
+    let resolveNextIdentity!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => (resolveNextIdentity = resolve)));
+    authSession.session = { user: { id: "user-b" } };
+    rerender();
+    expect(authSession.authorizationHeader).toBe(sharedHeader);
+    expect(result.current).toMatchObject({ status: "loading", records: [], total: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => resolveNextIdentity(jsonResponse({ records: [], total: 0, governance: {} })));
+    await flushMicrotasks();
+    expect(result.current).toMatchObject({ status: "ready", records: [], total: 0 });
+  });
+
   it("preserves medication data only while query and identity are unchanged", async () => {
     vi.useFakeTimers();
     const payload = { records: [{ slug: "clozapine", name: "Clozapine" }], total: 1 };
@@ -109,5 +132,28 @@ describe("auth-backed catalogue background refresh", () => {
     await act(async () => resolveNextIdentity(jsonResponse({ records: [], total: 0 })));
     await flushMicrotasks();
     expect(result.current).toMatchObject({ data: { records: [], total: 0 }, loading: false, error: null });
+  });
+
+  it("refetches when auth resolves to signed out without changing the shared empty header", async () => {
+    vi.useFakeTimers();
+    const emptyHeader: HeadersInit = {};
+    authSession.authorizationHeader = emptyHeader;
+    authSession.session = null;
+    authSession.status = "loading";
+    const payload = { records: [{ slug: "fluoxetine", name: "Fluoxetine" }], total: 1 };
+    fetchMock.mockResolvedValue(jsonResponse(payload));
+
+    const { result, rerender } = renderHook(() => useMedicationCatalog(undefined, { debounceMs: 0 }));
+    expect(result.current).toMatchObject({ data: null, loading: true, error: null });
+
+    authSession.status = "signed_out";
+    rerender();
+    expect(authSession.authorizationHeader).toBe(emptyHeader);
+    expect(result.current).toMatchObject({ data: null, loading: true, error: null });
+
+    await act(async () => vi.runOnlyPendingTimersAsync());
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current).toMatchObject({ data: payload, loading: false, error: null });
   });
 });
