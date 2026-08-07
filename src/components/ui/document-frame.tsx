@@ -3,6 +3,7 @@
 import { CircleAlert, Eye, Loader2, Maximize2, Minus, Plus, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { VIEWER_MAX_ZOOM, VIEWER_MIN_ZOOM, VIEWER_ZOOM_STEP } from "@/components/document-viewer/viewer-zoom";
 import { cn, textMuted } from "@/components/ui-primitives";
 
 export type DocumentFrameSource =
@@ -68,9 +69,9 @@ function boundedZoom(value: number, minimum: number, maximum: number) {
 }
 
 function DocumentControls({ controls }: { controls: DocumentFrameControls }) {
-  const minimum = controls.minZoom ?? 0.5;
-  const maximum = controls.maxZoom ?? 4;
-  const step = controls.zoomStep ?? 0.25;
+  const minimum = controls.minZoom ?? VIEWER_MIN_ZOOM;
+  const maximum = controls.maxZoom ?? VIEWER_MAX_ZOOM;
+  const step = controls.zoomStep ?? VIEWER_ZOOM_STEP;
   const zoom = boundedZoom(controls.zoom, minimum, maximum);
   const zoomed = !controls.fitWidth;
   const viewingAidActive = controls.viewingAid && !zoomed;
