@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(__file__))
 import extract_pdf_assets as extractor
 
-FIXTURE_PDF = Path(__file__).resolve().parents[2] / "public" / "demo-documents" / "synthetic-lithium-monitoring.pdf"
+FIXTURE_PDF = Path(__file__).resolve().parent / "fixtures" / "synthetic-lithium-monitoring.pdf"
 
 
 class CoverPageExtractionTests(unittest.TestCase):
