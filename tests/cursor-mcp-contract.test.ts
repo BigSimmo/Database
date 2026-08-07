@@ -37,9 +37,10 @@ describe("Cursor project MCP contract", () => {
   });
 
   it("keeps the sanctioned co-resident MCP set with chrome-devtools pinned", () => {
-    expect(Object.keys(servers).sort()).toEqual(["chrome-devtools", "context7", "supabase"]);
+    expect(Object.keys(servers).sort()).toEqual(["chrome-devtools", "context7", "figma", "supabase"]);
     expect(servers["chrome-devtools"]?.command).toBe("npx");
     expect(servers["chrome-devtools"]?.args).toEqual(["-y", "chrome-devtools-mcp@1.6.0"]);
+    expect(servers.figma?.url).toBe("https://mcp.figma.com/mcp");
     expect(servers.supabase?.url).toBe("https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true");
   });
 });
