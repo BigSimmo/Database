@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent as ReactKeyboardEvent, memo, useCallback, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -103,8 +103,10 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   // re-renders — especially on the Frame-owned path where zoom lives in a parent.
   const fitWidthRef = useRef(fitWidth);
   const zoomRef = useRef(zoom);
-  fitWidthRef.current = fitWidth;
-  zoomRef.current = zoom;
+  useLayoutEffect(() => {
+    fitWidthRef.current = fitWidth;
+    zoomRef.current = zoom;
+  }, [fitWidth, zoom]);
   const setFitWidth = useCallback(
     (next: boolean | ((current: boolean) => boolean)) => {
       if (frameOwnsZoomChrome) {
