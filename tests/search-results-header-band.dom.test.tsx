@@ -6,10 +6,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
-  MobileResultFilterControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 
 describe("SearchResultsHeaderBand", () => {
   it("presents the query and completed count as one labelled results ribbon", () => {
@@ -469,10 +473,10 @@ describe("SearchResultsHeaderBand", () => {
     expect(onFilterTables).toHaveBeenCalledOnce();
   });
 
-  it("pairs sort with a page-specific dropdown on mobile without changing either action", async () => {
+  it("pairs sort with a page-specific filter trigger on mobile without changing either action", async () => {
     const user = userEvent.setup();
     const onSortChange = vi.fn();
-    const onFilterChange = vi.fn();
+    const onToggleFilters = vi.fn();
 
     render(
       <SearchResultsHeaderBand
@@ -482,17 +486,15 @@ describe("SearchResultsHeaderBand", () => {
         sortValue="relevance"
         onSortChange={onSortChange}
         filterLabel="Filter differential result type"
+        mobileControlsPlacement="inline"
         mobileControls={
-          <MobileResultFilterControl
-            label="Show"
-            ariaLabel="Filter by result type"
-            value="all"
-            options={[
-              { value: "all", label: "All (8)" },
-              { value: "presentation", label: "Presentations (1)" },
-              { value: "diagnosis", label: "Diagnoses (7)" },
-            ]}
-            onChange={onFilterChange}
+          <ResultFilterTrigger
+            panelId="differential-filter-panel"
+            testId="differential-filter-trigger-phone"
+            title="Filter differentials"
+            open={false}
+            activeCount={0}
+            onToggle={onToggleFilters}
           />
         }
         filterControls={
@@ -510,11 +512,343 @@ describe("SearchResultsHeaderBand", () => {
     const pageFilters = screen.getByTestId("search-query-ribbon-mobile-controls");
     expect(utilities.lastElementChild).toBe(pageFilters);
     await user.click(within(utilities).getByRole("button", { name: "A–Z" }));
-    await user.selectOptions(within(pageFilters).getByLabelText("Filter by result type"), "diagnosis");
+    await user.click(within(pageFilters).getByTestId("differential-filter-trigger-phone"));
 
     expect(onSortChange).toHaveBeenCalledWith("alpha");
-    expect(onFilterChange).toHaveBeenCalledWith("diagnosis");
+    expect(onToggleFilters).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("search-query-ribbon-filters")).toHaveClass("hidden", "sm:block");
+  });
+
+  // The trigger is what makes the one-line phone bar legal, so its two states
+  // are asserted here rather than left to a journey: a resting trigger must not
+  // claim a count, and an active one must announce it in text as well as in the
+  // badge, because the badge is the only visual difference between them.
+  it("reports active filter count on the trigger, in the badge and in text", () => {
+    const { rerender } = render(
+      <ResultFilterTrigger
+        panelId="panel"
+        testId="trigger"
+        title="Filter differentials"
+        open={false}
+        activeCount={0}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("trigger")).toHaveAccessibleName(/No filters active/);
+    expect(screen.getByTestId("trigger")).not.toHaveAttribute("aria-controls");
+
+    rerender(
+      <ResultFilterTrigger
+        panelId="panel"
+        testId="trigger"
+        title="Filter differentials"
+        open
+        activeCount={2}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("trigger")).toHaveAccessibleName(/2 filters active/);
+    expect(screen.getByTestId("trigger")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("trigger")).toHaveAttribute("aria-controls", "panel");
+  });
+});
+
+describe("ResultFilterSheet", () => {
+  it("exposes each dimension as a radio group and reports the selection back typed", async () => {
+    const user = userEvent.setup();
+    const onFamilyChange = vi.fn();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="specifier-panel"
+        testId="specifier-filter-panel"
+        title="Filter specifiers"
+        groups={[
+          resultFilterGroup({
+            id: "family",
+            label: "Family",
+            value: "all" as "all" | "course-onset",
+            options: [
+              { value: "all", label: "All" },
+              { value: "course-onset", label: "Course" },
+            ],
+            onChange: onFamilyChange,
+          }),
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole("radiogroup", { name: "Family" });
+    // One-of-N, so exactly one option may be checked — an `aria-pressed` bank
+    // would let the DOM claim two mutually exclusive filters at once.
+    expect(within(group).getByRole("radio", { name: "All" })).toBeChecked();
+    expect(within(group).getByRole("radio", { name: "Course" })).not.toBeChecked();
+
+    await user.click(within(group).getByRole("radio", { name: "Course" }));
+    expect(onFamilyChange).toHaveBeenCalledWith("course-onset");
+  });
+
+  // `role="radio"` is a promise about the keyboard, not only about the
+  // announcement: one tab stop per group, arrows to move and select. Asserted
+  // here because the failure mode is silent — the group still reads correctly to
+  // a screen reader while answering none of the keys it just advertised.
+  it("gives each dimension one tab stop and moves selection with the arrow keys", async () => {
+    const user = userEvent.setup();
+    const onFamilyChange = vi.fn();
+    const onDiagnosisChange = vi.fn();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="specifier-panel"
+        testId="specifier-filter-panel"
+        title="Filter specifiers"
+        groups={[
+          resultFilterGroup({
+            id: "family",
+            label: "Family",
+            value: "all",
+            options: [
+              { value: "all", label: "All" },
+              { value: "features", label: "Features" },
+              { value: "course", label: "Course" },
+            ],
+            onChange: onFamilyChange,
+          }),
+          resultFilterGroup({
+            id: "diagnosis",
+            label: "Diagnosis",
+            value: "",
+            options: [
+              { value: "", label: "All diagnoses" },
+              { value: "bipolar", label: "Bipolar" },
+            ],
+            onChange: onDiagnosisChange,
+          }),
+        ]}
+      />,
+    );
+
+    const family = screen.getByRole("radiogroup", { name: "Family" });
+    const diagnosis = screen.getByRole("radiogroup", { name: "Diagnosis" });
+
+    // Exactly one tab stop per group — the checked option — so a reader does not
+    // Tab through five options across two dimensions to reach Done.
+    expect(within(family).getByRole("radio", { name: "All" })).toHaveAttribute("tabindex", "0");
+    expect(within(family).getByRole("radio", { name: "Features" })).toHaveAttribute("tabindex", "-1");
+    expect(within(family).getByRole("radio", { name: "Course" })).toHaveAttribute("tabindex", "-1");
+    expect(within(diagnosis).getByRole("radio", { name: "All diagnoses" })).toHaveAttribute("tabindex", "0");
+
+    within(family).getByRole("radio", { name: "All" }).focus();
+    await user.keyboard("{ArrowRight}");
+    expect(onFamilyChange).toHaveBeenLastCalledWith("features");
+    await user.keyboard("{End}");
+    expect(onFamilyChange).toHaveBeenLastCalledWith("course");
+    await user.keyboard("{Home}");
+    expect(onFamilyChange).toHaveBeenLastCalledWith("all");
+    // Wrapping stays inside the dimension: ArrowLeft from the first option must
+    // not walk into the neighbouring group.
+    await user.keyboard("{ArrowLeft}");
+    expect(onFamilyChange).toHaveBeenLastCalledWith("course");
+    expect(onDiagnosisChange).not.toHaveBeenCalled();
+  });
+
+  it("makes a checked placeholder the tab stop and arrows off it onto a real option", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="service-panel"
+        testId="service-filter-panel"
+        title="Filter services"
+        groups={[
+          resultFilterGroup({
+            id: "quick-filter",
+            label: "Quick filters",
+            // Services and formulation both sit here: the checked option is a
+            // placeholder naming the state you are already in. It is the checked
+            // radio, so it is the tab stop — that is how a reader arriving by
+            // keyboard learns the current state before moving off it.
+            value: "current",
+            options: [
+              { value: "current", label: "Current search", disabled: true },
+              { value: "crisis", label: "Crisis" },
+              { value: "free", label: "Free" },
+            ],
+            onChange,
+          }),
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole("radiogroup", { name: "Quick filters" });
+    const placeholder = within(group).getByRole("radio", { name: "Current search" });
+    expect(placeholder).toHaveAttribute("tabindex", "0");
+    expect(within(group).getByRole("radio", { name: "Crisis" })).toHaveAttribute("tabindex", "-1");
+
+    placeholder.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(onChange).toHaveBeenLastCalledWith("crisis");
+    expect(within(group).getByRole("radio", { name: "Crisis" })).toHaveFocus();
+  });
+
+  // Defensive today — no shipped call site renders an unselected disabled option
+  // — but the arrangement is the whole answer to "how does a keyboard reader
+  // hear why this one is unavailable", so it is pinned rather than assumed.
+  it("puts a dead end on the arrow path without ever selecting it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="dead-end-panel"
+        testId="dead-end-filter-panel"
+        title="Filter"
+        groups={[
+          resultFilterGroup({
+            id: "kind",
+            label: "Kind",
+            value: "all",
+            options: [
+              { value: "all", label: "All" },
+              { value: "retired", label: "Retired", disabled: true },
+              { value: "acute", label: "Acute" },
+            ],
+            onChange,
+          }),
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole("radiogroup", { name: "Kind" });
+    const deadEnd = within(group).getByRole("radio", { name: /Retired/ });
+    expect(deadEnd).toHaveAttribute("aria-disabled", "true");
+    // Not a second tab stop: the group keeps exactly one.
+    expect(deadEnd).toHaveAttribute("tabindex", "-1");
+    expect(within(group).getByRole("radio", { name: "All" })).toHaveAttribute("tabindex", "0");
+
+    within(group).getByRole("radio", { name: "All" }).focus();
+    await user.keyboard("{ArrowRight}");
+    // Focus lands on it — that is how the "Not selectable from here" note is
+    // announced — but nothing was selected, and "All" was not committed either.
+    expect(deadEnd).toHaveFocus();
+    expect(onChange).not.toHaveBeenCalled();
+
+    await user.keyboard("{ArrowRight}");
+    expect(onChange).toHaveBeenCalledExactlyOnceWith("acute");
+  });
+
+  it("keeps the group tabbable when the selected value matches no option at all", () => {
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="stale-panel"
+        testId="stale-filter-panel"
+        title="Filter"
+        groups={[
+          resultFilterGroup({
+            // A value the option list no longer offers — a stale URL param, or a
+            // catalogue that dropped a category between renders. Nothing is
+            // checked, so without a fallback the group would have no tab stop and
+            // drop out of the tab order entirely.
+            id: "category",
+            label: "Category",
+            value: "retired",
+            options: [
+              { value: "all", label: "All" },
+              { value: "acute", label: "Acute" },
+            ],
+            onChange: vi.fn(),
+          }),
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole("radiogroup", { name: "Category" });
+    expect(within(group).getByRole("radio", { name: "All" })).toHaveAttribute("tabindex", "0");
+    expect(within(group).getByRole("radio", { name: "Acute" })).toHaveAttribute("tabindex", "-1");
+    expect(within(group).queryAllByRole("radio", { checked: true })).toHaveLength(0);
+  });
+
+  it("keeps an unselectable placeholder focusable and explained rather than removing it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="service-panel"
+        testId="service-filter-panel"
+        title="Filter services"
+        groups={[
+          resultFilterGroup({
+            id: "quick-filter",
+            label: "Quick filters",
+            value: "current",
+            options: [
+              { value: "current", label: "Current search", disabled: true },
+              { value: "crisis", label: "Crisis" },
+            ],
+            onChange,
+          }),
+        ]}
+      />,
+    );
+
+    // Selected-and-disabled is the state the reader is already in, so it renders
+    // as the checked option rather than as a dead end.
+    const placeholder = screen.getByRole("radio", { name: "Current search" });
+    expect(placeholder).toBeChecked();
+    expect(placeholder).not.toHaveAttribute("aria-disabled");
+
+    await user.click(screen.getByRole("radio", { name: "Crisis" }));
+    expect(onChange).toHaveBeenCalledWith("crisis");
+  });
+
+  it("offers Clear only when something is clearable", () => {
+    const groups = [
+      resultFilterGroup({
+        id: "category",
+        label: "Category",
+        value: "all",
+        options: [{ value: "all", label: "All" }],
+        onChange: vi.fn(),
+      }),
+    ];
+    const { rerender } = render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="p"
+        testId="factsheet-filter-panel"
+        title="Filter factsheets"
+        groups={groups}
+      />,
+    );
+    expect(screen.queryByTestId("factsheet-filter-panel-clear")).toBeNull();
+
+    rerender(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="p"
+        testId="factsheet-filter-panel"
+        title="Filter factsheets"
+        groups={groups}
+        onClearAll={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("factsheet-filter-panel-clear")).toBeVisible();
   });
 });
 

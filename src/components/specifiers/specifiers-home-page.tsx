@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { ArrowRight, ChevronRight, GitCompareArrows, ListChecks, Search, Tags } from "lucide-react";
 
 import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
-  MobileResultFilterControl,
-  SearchResultsHeaderBand,
-} from "@/components/clinical-dashboard/search-results-header-band";
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import {
   CategoryTag,
   ReviewStatusBadge,
@@ -199,6 +201,8 @@ function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch
 function SpecifierResults({ query }: { query: string }) {
   const [family, setFamily] = useState<"all" | SpecifierFamily>("all");
   const [diagnosis, setDiagnosis] = useState("");
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
   const results = useMemo(() => searchSpecifiers(query, { family, diagnosis }), [diagnosis, family, query]);
   // The full-catalogue section is additive and diagnosis-specific, so it is NOT
   // de-duped against the curated cards: those are generic mood-only specifiers, and
@@ -219,25 +223,18 @@ function SpecifierResults({ query }: { query: string }) {
         matchCount={totalMatches}
         headingLevel={1}
         filterLabel="Filter specifier results"
+        // One compact badged trigger replaces the two-column grid of selects, so
+        // the band collapses to one line here too.
+        mobileControlsPlacement="inline"
         mobileControls={
-          <div className="grid min-w-0 grid-cols-2 gap-1.5">
-            <MobileResultFilterControl
-              label="Family"
-              ariaLabel="Filter by specifier family"
-              testId="specifier-family-select"
-              value={family}
-              options={specifierFamilies.map((option) => ({ value: option.id, label: option.shortLabel }))}
-              onChange={setFamily}
-            />
-            <MobileResultFilterControl
-              label="Diagnosis"
-              ariaLabel="Filter by diagnosis"
-              testId="specifier-diagnosis-select"
-              value={diagnosis}
-              options={diagnosisOptions}
-              onChange={setDiagnosis}
-            />
-          </div>
+          <ResultFilterTrigger
+            panelId={filterPanelId}
+            testId="specifier-filter-trigger-phone"
+            title="Filter specifiers"
+            open={filterOpen}
+            activeCount={(family === "all" ? 0 : 1) + (diagnosis === "" ? 0 : 1)}
+            onToggle={() => setFilterOpen((current) => !current)}
+          />
         }
         filterControls={
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5">
@@ -245,6 +242,42 @@ function SpecifierResults({ query }: { query: string }) {
             <SpecifierDiagnosisFilter value={diagnosis} onChange={setDiagnosis} options={diagnosisOptions} />
           </div>
         }
+      />
+      {/* Phone-only by construction: the trigger that opens it lives in the
+          ribbon's `mobileControls` slot, which the band hides from `sm` up. Both
+          dimensions narrow the same list, so the badge counts them independently
+          — unlike formulation, where one group is a new search. */}
+      <ResultFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        panelId={filterPanelId}
+        testId="specifier-filter-panel"
+        title="Filter specifiers"
+        groups={[
+          resultFilterGroup({
+            id: "family",
+            label: "Family",
+            value: family,
+            options: specifierFamilies.map((option) => ({ value: option.id, label: option.shortLabel })),
+            onChange: setFamily,
+          }),
+          resultFilterGroup({
+            id: "diagnosis",
+            label: "Diagnosis",
+            value: diagnosis,
+            options: diagnosisOptions,
+            onChange: setDiagnosis,
+          }),
+        ]}
+        onClearAll={
+          family === "all" && diagnosis === ""
+            ? undefined
+            : () => {
+                setFamily("all");
+                setDiagnosis("");
+              }
+        }
+        footerNote={`${totalMatches} showing`}
       />
 
       {totalMatches === 0 ? (

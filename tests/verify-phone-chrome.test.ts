@@ -159,7 +159,7 @@ describe("runPhoneChromeStages", () => {
       runCommand,
       exit,
       log: () => undefined,
-      env: {},
+      env: { NODE_ENV: "test" },
       cleanupBuildRoot,
     });
 
@@ -189,7 +189,7 @@ describe("runPhoneChromeStages", () => {
       runCommand,
       exit: vi.fn() as unknown as typeof process.exit,
       log: () => undefined,
-      env: {},
+      env: { NODE_ENV: "test" },
       cleanupBuildRoot,
     });
 

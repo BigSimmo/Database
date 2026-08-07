@@ -17,7 +17,7 @@ describe("check-playwright-browser-revision", () => {
 
   it("passes when no designated container browser root is forced", () => {
     const result = playwrightBrowserRevisionCheck({
-      env: {},
+      env: { NODE_ENV: "test" },
     });
     expect(result.ok).toBe(true);
     expect(result.status).toBe("managed-or-unconstrained");
@@ -37,6 +37,7 @@ describe("check-playwright-browser-revision", () => {
       projectRoot,
       containerBrowsersRoot: root,
       env: {
+        NODE_ENV: "test",
         PLAYWRIGHT_BROWSERS_PATH: root,
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
       },

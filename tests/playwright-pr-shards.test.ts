@@ -29,7 +29,7 @@ describe("playwright PR UI shard groups", () => {
   });
 
   it("keeps every shard non-empty and returns files for CI runners", () => {
-    for (const shard of [1, 2, 3]) {
+    for (const shard of [1, 2, 3] as const) {
       const files = filesForPrUiShard(shard);
       expect(files.length).toBeGreaterThan(0);
       expect(prUiShardGroups[shard]).toEqual(files);
