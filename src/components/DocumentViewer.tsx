@@ -1461,6 +1461,8 @@ export function DocumentViewer({
           reviewingTableFactId={reviewingTableFactId}
           onReviewTableFact={reviewTableFact}
           indexHealth={indexHealth}
+          activePage={activePage}
+          onSelectPage={navigateToPage}
         />
       </section>
       {readyDocument ? (
