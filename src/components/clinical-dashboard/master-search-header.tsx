@@ -2082,10 +2082,13 @@ export function MasterSearchHeader({
             onKeyDown={handleModeTriggerKeyDown}
             className={cn(
               // Size utilities live in the per-variant branch, never the shared
-              // base: cn() is plain concat (no tailwind-merge), so keeping the
+              // base: cn() was plain concat (no tailwind-merge), so keeping the
               // default h-/w-/min-w- here too made the workflow overrides dead —
               // Tailwind v4 emits same-property utilities in canonical order and
-              // the base won at every breakpoint but lg:.
+              // the base won at every breakpoint but lg:. That constraint is
+              // lifted (ledger #218): cn() merges, so a base size would now lose
+              // to the branch that follows it. The split stays because one place
+              // per size is still the clearer shape, not because it is forced.
               "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               isWorkflowHeader
                 ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
