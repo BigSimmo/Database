@@ -19,6 +19,15 @@ export const answerEmptyState = {
   recentLabel: "Recent searches",
 } as const;
 
+// Answer-mode consolidated trust strip (#165 / #166). The obligation sentence
+// and privacy link label are APP-5 / PIA-5 governance copy — keep verbatim and
+// in lockstep with tests/privacy-ui.test.ts. The verify caveat closes the gap
+// every other clinical mode already states on its ModeHomeVerificationFooter.
+export const ANSWER_SAFETY_OBLIGATION = "Do not enter patient-identifiable information.";
+export const ANSWER_SAFETY_PRIVACY_LINK = "Privacy and data processing";
+export const ANSWER_SAFETY_VERIFY =
+  "Answers are AI-generated — verify against the cited source before clinical use.";
+
 // Recovery copy for the answer flow — actions and calm no-results guidance shown
 // when a question fails or returns nothing usable.
 export const answerRecovery = {
