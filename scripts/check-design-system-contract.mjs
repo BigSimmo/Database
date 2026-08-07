@@ -25,6 +25,7 @@ const SOURCE_EXTENSIONS = new Set([".css", ".ts", ".tsx"]);
 const RAW_COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch)\(/gi;
 /** Whole-file backstop for literal shadow utilities the AST class-root pass can miss. */
 const LITERAL_SHADOW_TEXT = /(?:^|[\s"'`])shadow-\[(?!var\()[^\]]+\]/g;
+const ARBITRARY_TRACKING_TEXT = /(?:^|[\s"'`])tracking-\[(?!var\()[^\]]+\]/g;
 const CUSTOM_CONTROL_CLASS_PROP =
   /(?:closeButtonClassName|sheetCloseButtonClassName|buttonClassName|triggerClassName)\s*=\s*(?:"([^"]*)"|`([^`]*)`)/g;
 
@@ -116,6 +117,7 @@ const metrics = {
   legacyPaletteUtilities: 0,
   darkColorOverrides: 0,
   legacyShadowAliases: 0,
+  arbitraryTracking: 0,
   layoutTransitionExceptions: 0,
   textSoftConsumers: 0,
 };
@@ -149,6 +151,7 @@ for (const file of files) {
   const classTextSource = withoutComments(source);
   const textLegacyTap = countMatches(classTextSource, LEGACY_TAP_CLASS);
   const textLiteralShadow = countMatches(classTextSource, LITERAL_SHADOW_TEXT);
+  const textArbitraryTracking = countMatches(classTextSource, ARBITRARY_TRACKING_TEXT);
   assert(
     classAnalysis.legacyTapClasses.length >= textLegacyTap,
     `${file.relativePath} has ${textLegacyTap} legacy tap class text match(es) but the AST class-root pass only saw ${classAnalysis.legacyTapClasses.length}`,
@@ -157,11 +160,16 @@ for (const file of files) {
     classAnalysis.literalShadowClasses.length >= textLiteralShadow,
     `${file.relativePath} has ${textLiteralShadow} literal shadow class text match(es) but the AST class-root pass only saw ${classAnalysis.literalShadowClasses.length}`,
   );
+  assert(
+    classAnalysis.arbitraryTracking.length >= textArbitraryTracking,
+    `${file.relativePath} has ${textArbitraryTracking} arbitrary tracking text match(es) but the AST class-root pass only saw ${classAnalysis.arbitraryTracking.length}`,
+  );
   const fileEdgeFindings = classAnalysis.edgeOwnershipConflicts;
   recordDebt("edgeOwnershipConflicts", file.relativePath, fileEdgeFindings.length);
   recordDebt("legacyPaletteUtilities", file.relativePath, classAnalysis.legacyPaletteUtilities.length);
   recordDebt("darkColorOverrides", file.relativePath, classAnalysis.darkColorOverrides.length);
   recordDebt("legacyShadowAliases", file.relativePath, classAnalysis.legacyShadowAliases.length);
+  recordDebt("arbitraryTracking", file.relativePath, classAnalysis.arbitraryTracking.length);
   densityOverrideFindings.push(...classAnalysis.densityOverrides);
   hardcodedMotionClassFindings.push(...classAnalysis.hardcodedMotionClasses);
   layoutTransitionFindings.push(...classAnalysis.layoutTransitions);
@@ -374,7 +382,7 @@ console.log(
   `Design-system contract passed (${files.length} production files; raw colors ${metrics.rawColorLiterals}; literal shadows ${metrics.literalShadowClasses}; legacy tap classes ${metrics.legacyTapClasses}; edge conflicts ${metrics.edgeOwnershipConflicts}; 1px shadow spreads ${metrics.onePixelShadowSpreads}).`,
 );
 console.log(
-  `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; layout transitions ${metrics.layoutTransitionExceptions}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}.`,
+  `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; layout transitions ${metrics.layoutTransitionExceptions}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}; arbitrary tracking ${metrics.arbitraryTracking}.`,
 );
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);
