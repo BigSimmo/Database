@@ -197,6 +197,23 @@ let server = null;
 let released = false;
 let lock = null;
 
+function stopOwnedProcessTree(child) {
+  if (!child?.pid || child.exitCode !== null) return;
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    return;
+  }
+  try {
+    process.kill(-child.pid, "SIGTERM");
+  } catch {
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
 function cleanup() {
   if (released) return;
   released = true;
@@ -343,32 +360,48 @@ try {
   const suiteDeadline = deadlineAfter(LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS);
   console.log(`Lighthouse measurement suite has ${LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS / 60_000} minutes.`);
 
-  const measure = (strategy, route, output, timeout) =>
-    spawnSync(
-      npxInvocation.command,
-      [
-        ...npxInvocation.prefixArgs,
-        "--yes",
-        `lighthouse@${LIGHTHOUSE_VERSION}`,
-        `${baseUrl}${route}`,
-        "--output=json",
-        `--output-path=${output}`,
-        `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
-        "--only-categories=performance",
-        "--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage",
-        "--max-wait-for-load=60000",
-        "--quiet",
-      ],
-      {
-        cwd: projectRoot,
-        env: { ...offlineEnv, ...(chromePath ? { CHROME_PATH: chromePath } : {}) },
-        stdio: "inherit",
-        // --max-wait-for-load bounds navigation only. A stuck Chrome or Lighthouse
-        // process must become one failed, retryable cell rather than consume the
-        // whole CI job and prevent its evidence artifact from uploading.
-        timeout,
-      },
-    );
+  const measure = (strategy, route, output, timeoutMs) =>
+    new Promise((resolve) => {
+      const child = spawn(
+        npxInvocation.command,
+        [
+          ...npxInvocation.prefixArgs,
+          "--yes",
+          `lighthouse@${LIGHTHOUSE_VERSION}`,
+          `${baseUrl}${route}`,
+          "--output=json",
+          `--output-path=${output}`,
+          `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
+          "--only-categories=performance",
+          "--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage",
+          "--max-wait-for-load=60000",
+          "--quiet",
+        ],
+        {
+          cwd: projectRoot,
+          env: { ...offlineEnv, ...(chromePath ? { CHROME_PATH: chromePath } : {}) },
+          stdio: "inherit",
+          // Own the npx/Lighthouse/Chrome tree so a per-cell timeout can SIGTERM
+          // the whole group. spawnSync's timeout only stops the npx wrapper.
+          detached: process.platform !== "win32",
+        },
+      );
+
+      let settled = false;
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      };
+
+      child.on("error", (error) => finish({ status: 1, error }));
+      child.on("close", (code, signal) => finish({ status: code, signal }));
+
+      const timer = setTimeout(() => {
+        stopOwnedProcessTree(child);
+      }, timeoutMs);
+    });
 
   const readIfPresent = (file) => (existsSync(file) ? readFileSync(file, "utf8") : null);
 
@@ -383,7 +416,7 @@ try {
         continue;
       }
       console.log(`Measuring ${cell}`);
-      let result = measure(strategy, route, output, firstAttemptTimeout);
+      let result = await measure(strategy, route, output, firstAttemptTimeout);
       let reason = measurementFailureReason(childProcessExitCode(result), readIfPresent(output));
 
       if (reason) {
@@ -407,7 +440,7 @@ try {
         // otherwise be graded, or baked into a refreshed baseline, if the retry fails
         // before writing.
         rmSync(output, { force: true });
-        result = measure(strategy, route, output, retryTimeout);
+        result = await measure(strategy, route, output, retryTimeout);
         const after = measurementFailureReason(childProcessExitCode(result), readIfPresent(output));
         retried.push(`${cell} (${reason}${after ? ` -> still ${after}` : " -> recovered"})`);
         reason = after;

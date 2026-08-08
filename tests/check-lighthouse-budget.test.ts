@@ -420,10 +420,12 @@ describe("committed lighthouse-budget.json", () => {
 
     expect(runner).toContain('const npxCli = path.join(path.dirname(npmExecPath), "npx-cli.js")');
     expect(runner).toContain("process.env.npm_node_execpath ?? process.execPath");
-    expect(runner).toMatch(/spawnSync\(\s*npxInvocation\.command,/);
+    expect(runner).toMatch(/spawn\(\s*npxInvocation\.command,/);
     expect(runner).toContain("...npxInvocation.prefixArgs");
     expect(runner).not.toMatch(/spawnSync\(\s*"npx",/);
     expect(runner).not.toMatch(/spawnSync\(\s*"npx\.cmd",/);
+    expect(runner).toContain("stopOwnedProcessTree(child)");
+    expect(runner).toContain('detached: process.platform !== "win32"');
   });
 
   it("bounds each Lighthouse process independently of its navigation timeout", () => {
@@ -435,6 +437,7 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).toContain("deadlineAfter(LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS)");
     expect(runner).toContain("LIGHTHOUSE_PROCESS_TIMEOUT_MS");
     expect(runner).toContain("--max-wait-for-load=60000");
+    expect(runner).not.toMatch(/stdio:\s*"inherit",\s*\n\s*timeout,/);
   });
 });
 

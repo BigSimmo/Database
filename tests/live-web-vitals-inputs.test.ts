@@ -10,7 +10,7 @@ describe("parseLiveWebVitalsInputs", () => {
       parseLiveWebVitalsInputs({
         origin: `${origin}/`,
         routes: " /, /therapy-compass, /documents/search ",
-        samples: "3",
+        samples: " 3 ",
       }),
     ).toEqual({ origin, routes: ["/", "/therapy-compass", "/documents/search"], samples: 3, invocations: 18 });
   });

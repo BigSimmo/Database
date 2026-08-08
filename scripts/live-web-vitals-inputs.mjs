@@ -3,12 +3,21 @@
  * Validate the dispatch-only live Web Vitals matrix before it can spend time on
  * the public origin. Keeping this outside YAML makes the same rules unit-testable.
  */
+import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { collidingRouteSlugs, WEB_VITALS_STRATEGIES, WEB_VITALS_MIN_SAMPLES } from "./summarise-web-vitals.mjs";
 
 export const MAX_LIVE_LIGHTHOUSE_INVOCATIONS = 30;
+/** Per-run cap; matches the GNU timeout wrapper in live-web-vitals.yml. */
+export const LIVE_WEB_VITALS_PROCESS_TIMEOUT_SEC = 80;
+/**
+ * The live job allows 45 minutes. Reserve ~13 minutes for checkout, validation,
+ * reachability, summarising, and artifact upload so measurement cannot consume
+ * the whole job before upload.
+ */
+export const LIVE_WEB_VITALS_MEASUREMENT_SUITE_TIMEOUT_MS = 32 * 60_000;
 
 function parseOrigin(value) {
   let origin;
@@ -108,4 +117,16 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   console.log(
     `live Lighthouse matrix -> ${result.invocations} runs (${result.routes.length} routes × 2 strategies × ${result.samples} samples)`,
   );
+  if (process.env.GITHUB_ENV) {
+    appendFileSync(process.env.GITHUB_ENV, `ROUTES=${result.routes.join(",")}\n`);
+    appendFileSync(process.env.GITHUB_ENV, `SAMPLES=${result.samples}\n`);
+    appendFileSync(
+      process.env.GITHUB_ENV,
+      `LIVE_WEB_VITALS_PROCESS_TIMEOUT_SEC=${LIVE_WEB_VITALS_PROCESS_TIMEOUT_SEC}\n`,
+    );
+    appendFileSync(
+      process.env.GITHUB_ENV,
+      `LIVE_WEB_VITALS_MEASUREMENT_SUITE_SECONDS=${LIVE_WEB_VITALS_MEASUREMENT_SUITE_TIMEOUT_MS / 1000}\n`,
+    );
+  }
 }
