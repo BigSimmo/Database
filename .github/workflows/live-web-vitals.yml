@@ -56,7 +56,7 @@ jobs:
   measure:
     name: Lighthouse against the live domain
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       # Repository variable overrides the default (e.g. a staging cutover),
       # matching live-domain-monitor.yml.
@@ -99,26 +99,13 @@ jobs:
           echo "LIVE_DOMAIN_URL=$normalized" >> "$GITHUB_ENV"
           echo "origin -> $normalized"
 
-      - name: Reject a sample count too small to grade
+      - name: Validate the bounded target matrix
         run: |
           set -euo pipefail
-          # `samples` is a free-text dispatch input, so `samples=1` is accepted
-          # by the form and would produce one report per cell — a "median" of
-          # one, a zero-width range, and a straddle check that can never fire.
-          # The summariser refuses the same count, but refusing HERE means the
-          # operator finds out in seconds instead of after a full measurement
-          # pass against the live domain.
-          case "$SAMPLES" in
-            ''|*[!0-9]*)
-              echo "::error::samples must be a positive integer, got '$SAMPLES'"
-              exit 1
-              ;;
-          esac
-          if [ "$SAMPLES" -lt 3 ]; then
-            echo "::error::samples=$SAMPLES cannot be graded — #017 needs at least 3 runs per cell so a median has dispersion behind it"
-            exit 1
-          fi
-          echo "samples -> $SAMPLES per route/strategy"
+          # Dispatch inputs are free text. Validate route identity, collision-free
+          # artifact names, the minimum sample count, and the capped total before
+          # this workflow makes any request to the live origin.
+          node scripts/live-web-vitals-inputs.mjs "$LIVE_DOMAIN_URL" "$ROUTES" "$SAMPLES"
 
       - name: Confirm the target is reachable before spending a Lighthouse run
         run: |
@@ -135,26 +122,38 @@ jobs:
           set -euo pipefail
           mkdir -p web-vitals
           IFS=',' read -ra route_list <<< "$ROUTES"
+          suite_deadline=$((SECONDS + LIVE_WEB_VITALS_MEASUREMENT_SUITE_SECONDS))
+          suite_expired=0
           for strategy in mobile desktop; do
+            if [ "$suite_expired" -eq 1 ]; then break; fi
             for route in "${route_list[@]}"; do
+              if [ "$suite_expired" -eq 1 ]; then break; fi
               route="$(echo "$route" | xargs)"
               [ -n "$route" ] || continue
               # Filename-safe slug: "/" -> root, "/a/b" -> a-b
               slug="$(echo "$route" | sed 's|^/||; s|/|-|g')"
               [ -n "$slug" ] || slug="root"
               for sample in $(seq 1 "$SAMPLES"); do
-              out="web-vitals/${strategy}-${slug}-${sample}"
-              echo "::group::$strategy $route (sample $sample/$SAMPLES)"
-              # One flaky route must not discard the whole run, so a failure is
-              # a warning here; the summary step fails if NOTHING was produced.
-              npx --yes "lighthouse@$LIGHTHOUSE_VERSION" "$LIVE_DOMAIN_URL$route" \
-                --output=json --output-path="${out}.json" \
-                --preset="$([ "$strategy" = desktop ] && echo desktop || echo perf)" \
-                --only-categories=performance \
-                --chrome-flags="--headless=new --no-sandbox --disable-dev-shm-usage" \
-                --max-wait-for-load=60000 \
-                --quiet || echo "::warning::lighthouse failed for $strategy $route sample $sample"
-              echo "::endgroup::"
+                remaining=$((suite_deadline - SECONDS))
+                if [ "$remaining" -le 0 ]; then
+                  echo "::warning::live web vitals measurement suite deadline expired; skipping remaining cells"
+                  suite_expired=1
+                  break
+                fi
+                run_timeout="$LIVE_WEB_VITALS_PROCESS_TIMEOUT_SEC"
+                if [ "$remaining" -lt "$run_timeout" ]; then run_timeout="$remaining"; fi
+                out="web-vitals/${strategy}-${slug}-${sample}"
+                echo "::group::$strategy $route (sample $sample/$SAMPLES)"
+                # One flaky route must not discard the whole run, so a failure is
+                # a warning here; the summary step fails if NOTHING was produced.
+                timeout --signal=TERM --kill-after=10s "${run_timeout}s" npx --yes "lighthouse@$LIGHTHOUSE_VERSION" "$LIVE_DOMAIN_URL$route" \
+                  --output=json --output-path="${out}.json" \
+                  --preset="$([ "$strategy" = desktop ] && echo desktop || echo perf)" \
+                  --only-categories=performance \
+                  --chrome-flags="--headless=new --no-sandbox --disable-dev-shm-usage" \
+                  --max-wait-for-load=60000 \
+                  --quiet || echo "::warning::lighthouse failed for $strategy $route sample $sample"
+                echo "::endgroup::"
               done
             done
           done

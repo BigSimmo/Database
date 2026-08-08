@@ -871,7 +871,7 @@ jobs:
       - name: Show the baseline diff and the browser it was measured on
         run: |
           git --no-pager diff --stat -- lighthouse-budget.json
-          node -e "const b=require('./lighthouse-budget.json');console.log([...new Set(Object.values(b.baseline??{}).map(r=>r.chromeVersion))].join('\n'))"
+          node -e "const b=require('./lighthouse-budget.json');const versions=[...new Set(Object.values(b.baseline??{}).map(r=>r.chromeVersion).filter(v=>typeof v==='string'&&v.length>0))];console.log(versions.join('\n'));if(versions.length!==1){console.error('Expected exactly one baseline Chrome version; found '+versions.length+'.');process.exit(1)}"
 
       - name: Upload the refreshed baseline
         if: always()
