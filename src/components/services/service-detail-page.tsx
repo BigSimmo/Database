@@ -41,7 +41,7 @@ import {
 import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
-import { compactBestUseTitle } from "@/lib/compact-best-use-title";
+import { compactCatalogField } from "@/lib/compact-best-use-title";
 import {
   serviceNavigatorQuery,
   type ServiceContact,
@@ -57,7 +57,7 @@ const missingText = "Not listed";
 
 function hasText(value: string | null | undefined): value is string {
   if (!value?.trim()) return false;
-  return !/^(?:none|none listed|not listed|n\/a|unknown)$/i.test(value.trim());
+  return !/^(?:none|none listed|not listed|n\/a|na|unknown|not publicly stated|confirm locally)$/i.test(value.trim());
 }
 
 function displayText(value: string | null | undefined, fallback = missingText) {
@@ -66,7 +66,26 @@ function displayText(value: string | null | undefined, fallback = missingText) {
 
 function bestUseCardTitle(bestUse: string | null | undefined) {
   if (!hasText(bestUse)) return "Assess service fit";
-  return compactBestUseTitle(bestUse);
+  return compactCatalogField(bestUse, 120);
+}
+
+/** Short label for website contacts so long URLs do not dominate the contact band. */
+function contactDisplayValue(contact: ServiceContact | null | undefined) {
+  const value = contact?.value?.trim();
+  if (!value) return undefined;
+  if (contact?.kind === "web" || /^https?:\/\//i.test(value)) {
+    try {
+      const host = new URL(value).hostname.replace(/^www\./i, "");
+      return host || "Website";
+    } catch {
+      return "Website";
+    }
+  }
+  return value.includes("|") ? compactCatalogField(value, 160) : value;
+}
+
+function summaryCardIsRenderable(card: ServiceSummaryCard) {
+  return hasText(card.title) && !/\|/.test(card.title ?? "");
 }
 
 function chipToneClass(tone: ServiceStatusChip["tone"] | undefined | null) {
@@ -143,34 +162,67 @@ function hrefIsExternal(href: string | undefined) {
 }
 
 function summaryCardsFor(service: ServiceRecord): ServiceSummaryCard[] {
-  if (service.summaryCards?.length) return service.summaryCards;
-  return [
-    {
+  if (Array.isArray(service.summaryCards)) {
+    return service.summaryCards
+      .map((card) => ({
+        ...card,
+        title: hasText(card.title) ? compactCatalogField(card.title, 120) : card.title,
+        detail: hasText(card.detail) ? compactCatalogField(card.detail, 120) : undefined,
+      }))
+      .filter(summaryCardIsRenderable);
+  }
+
+  const cards: ServiceSummaryCard[] = [];
+  if (hasText(service.route)) {
+    cards.push({
       id: "route",
       label: "Route",
-      title: displayText(service.route),
-      detail: displayText(service.referral, "Primary route"),
-    },
-    { id: "eligibility", label: "Eligibility", title: displayText(service.eligibility), detail: "Referral fit" },
-    { id: "cost", label: "Cost", title: displayText(service.cost), detail: "Funding detail" },
-    {
+      title: compactCatalogField(service.route, 120),
+      detail: hasText(service.referral) ? compactCatalogField(service.referral, 120) : undefined,
+    });
+  }
+  if (hasText(service.eligibility)) {
+    cards.push({
+      id: "eligibility",
+      label: "Eligibility",
+      title: compactCatalogField(service.eligibility, 120),
+    });
+  }
+  if (hasText(service.cost)) {
+    cards.push({
+      id: "cost",
+      label: "Cost",
+      title: compactCatalogField(service.cost, 120),
+    });
+  }
+  if (hasText(service.bestUse)) {
+    cards.push({
       id: "best-use",
       label: "Best use",
       title: bestUseCardTitle(service.bestUse),
-      detail: "Clinical fit and referral priority",
-    },
-  ];
+    });
+  }
+  return cards.filter(summaryCardIsRenderable);
 }
 
 function referralRowsFor(service: ServiceRecord, primaryContact: ServiceContact | null): ServiceInfoRow[] {
-  if (service.referralInfo?.length) return service.referralInfo;
-  return [
-    { label: "Primary route", value: displayText(service.referral, primaryContact?.detail ?? "") },
-    { label: "Phone", value: primaryContact?.kind === "phone" ? primaryContact.value : "" },
-    { label: "Eligibility", value: service.eligibility ?? "" },
-    { label: "Cost / funding", value: service.cost ?? "" },
-    { label: "Region", value: service.location ?? service.catchments?.join(", ") ?? "" },
-  ].filter((row) => hasText(row.value));
+  // Explicit arrays (including empty) mean the mapper already decided which rows exist.
+  const sourceRows = Array.isArray(service.referralInfo)
+    ? service.referralInfo
+    : [
+        { label: "Primary route", value: service.referral ?? primaryContact?.detail ?? "" },
+        { label: "Phone", value: primaryContact?.kind === "phone" ? (primaryContact.value ?? "") : "" },
+        { label: "Eligibility", value: service.eligibility ?? "" },
+        { label: "Cost / funding", value: service.cost ?? "" },
+        { label: "Region", value: service.location ?? service.catchments?.join(", ") ?? "" },
+      ];
+
+  return sourceRows
+    .map((row) => ({
+      ...row,
+      value: hasText(row.value) ? compactCatalogField(row.value, 160) : undefined,
+    }))
+    .filter((row) => hasText(row.value));
 }
 
 function normalizeTagForList(tag: string) {
@@ -270,7 +322,9 @@ function SummaryCard({ card }: { card: ServiceSummaryCard }) {
           aria-hidden
         />
       </div>
-      <p className={cn("pl-[3.25rem] text-xs leading-5", textMuted)}>{displayText(card.detail)}</p>
+      {hasText(card.detail) ? (
+        <p className={cn("pl-[3.25rem] text-xs leading-5", textMuted)}>{card.detail.trim()}</p>
+      ) : null}
     </article>
   );
 }
@@ -441,35 +495,26 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   const referralRows = referralRowsFor(service, primaryContact);
   const callHref = contactHref(primaryContact);
   const verified = service.verification?.locallyVerified === true;
+  const preferredCardOrder = ["route", "best-use", "eligibility", "cost"] as const;
   const summaryCardById = new Map(summaryCards.map((card) => [card.id, card]));
-  const compactSummaryCards: ServiceSummaryCard[] = [
-    summaryCardById.get("route") ?? {
-      id: "route",
-      label: "Route",
-      title: displayText(service.route),
-      detail: displayText(primaryContact?.detail, "Primary route"),
-    },
-    summaryCardById.get("best-use") ?? {
-      id: "best-use",
-      label: "Best use",
-      title: bestUseCardTitle(service.bestUse),
-      detail: "Clinical fit and referral priority",
-    },
-    summaryCardById.get("eligibility") ?? {
-      id: "eligibility",
-      label: "Eligibility",
-      title: displayText(service.eligibility),
-      detail: "See details",
-    },
-    summaryCardById.get("cost") ?? {
-      id: "cost",
-      label: "Cost",
-      title: displayText(service.cost),
-      detail: "Cost to access",
-    },
-  ];
-  const meetCount = (service.criteria ?? []).filter((item) => item.tone === "meet").length;
-  const cautionCount = (service.criteria ?? []).filter((item) => item.tone !== "meet").length;
+  const compactSummaryCards = preferredCardOrder
+    .map((id) => summaryCardById.get(id))
+    .filter((card): card is ServiceSummaryCard => Boolean(card && summaryCardIsRenderable(card)));
+  const leftoverCards = summaryCards.filter(
+    (card) => !preferredCardOrder.includes(card.id as (typeof preferredCardOrder)[number]),
+  );
+  const visibleSummaryCards = [...compactSummaryCards, ...leftoverCards.filter(summaryCardIsRenderable)];
+  const compactedBestUse = hasText(service.bestUse) ? compactCatalogField(service.bestUse, 160) : "";
+  const compactedSubtitle = hasText(service.subtitle) ? compactCatalogField(service.subtitle, 160) : "";
+  const tagItems = dedupeTagItems([...(service.catchments ?? []), ...(service.tags ?? [])]);
+  const criteria = service.criteria ?? [];
+  const showReferralSection = referralRows.length > 0;
+  const showCriteriaSection = criteria.length > 0 || Boolean(compactedBestUse);
+  const showTagsSection = tagItems.length > 0;
+  const showQuickFacts = visibleSummaryCards.length > 0;
+  const meetCount = criteria.filter((item) => item.tone === "meet").length;
+  const cautionCount = criteria.filter((item) => item.tone !== "meet").length;
+  const contactLabel = contactDisplayValue(primaryContact);
   const localConfirmationDetail =
     service.verification?.notes?.find((note) => /hour/i.test(note)) ??
     service.verification?.notes?.find((note) => /local|confirm/i.test(note)) ??
@@ -565,9 +610,11 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                     ))}
                   </div>
                 ) : null}
-                <p className="mt-3 max-w-4xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                  {displayText(service.subtitle, "Service details and referral pathway.")}
-                </p>
+                {compactedSubtitle ? (
+                  <p className="mt-3 max-w-4xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                    {compactedSubtitle}
+                  </p>
+                ) : null}
               </div>
               <div className="flex items-center gap-2 justify-self-end">
                 <ActionIconButton
@@ -596,11 +643,19 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-[color:var(--text-muted)]">Contact</p>
                 <h2 className="mt-1 break-words text-xl font-semibold text-[color:var(--text-heading)]">
-                  Contact: {displayText(primaryContact?.value)}
+                  {contactLabel
+                    ? primaryContact?.kind === "web" || /^https?:\/\//i.test(primaryContact?.value ?? "")
+                      ? contactLabel
+                      : `Contact: ${contactLabel}`
+                    : "Contact not listed"}
                 </h2>
-                <p className={cn("mt-1 text-sm leading-5", textMuted)}>
-                  {displayText(primaryContact?.detail ?? service.route)}
-                </p>
+                {hasText(primaryContact?.detail) || hasText(service.route) ? (
+                  <p className={cn("mt-1 text-sm leading-5", textMuted)}>
+                    {hasText(primaryContact?.detail)
+                      ? compactCatalogField(primaryContact.detail, 120)
+                      : compactCatalogField(service.route, 120)}
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
@@ -628,42 +683,58 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
             </div>
           </section>
 
-          <section
-            id="service-quick-facts"
-            aria-label="Service quick facts"
-            className="grid gap-3 pt-3 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4"
-          >
-            {compactSummaryCards.map((card) => (
-              <SummaryCard key={card.id} card={card} />
-            ))}
-          </section>
+          {showQuickFacts ? (
+            <section
+              id="service-quick-facts"
+              aria-label="Service quick facts"
+              className="grid gap-3 pt-3 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4"
+            >
+              {visibleSummaryCards.map((card) => (
+                <SummaryCard key={card.id} card={card} />
+              ))}
+            </section>
+          ) : null}
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(28rem,0.86fr)_minmax(0,1fr)]">
-            <Section id="service-referral" icon={Clipboard} title="Referral information">
-              <ReferralTable rows={referralRows} onCopy={copyValue} />
-            </Section>
+          <div
+            className={cn(
+              "grid gap-4",
+              showReferralSection && showCriteriaSection
+                ? "xl:grid-cols-[minmax(28rem,0.86fr)_minmax(0,1fr)]"
+                : undefined,
+            )}
+          >
+            {showReferralSection ? (
+              <Section id="service-referral" icon={Clipboard} title="Referral information">
+                <ReferralTable rows={referralRows} onCopy={copyValue} />
+              </Section>
+            ) : null}
 
             <div className="min-w-0 space-y-3">
-              <Section
-                id="service-criteria"
-                icon={ShieldCheck}
-                title="Referral criteria"
-                action={
-                  <div className="flex flex-wrap gap-2">
-                    <span className={cn(metadataPillDensity.roomy, "rounded-full", toneSuccess)}>{meetCount} meet</span>
-                    <span className={cn(metadataPillDensity.roomy, "rounded-full", toneWarning)}>
-                      {cautionCount} caution
-                    </span>
-                  </div>
-                }
-              >
-                {service.bestUse ? (
-                  <p className="mb-3 border-b border-[color:var(--border)] pb-3 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                    <span className="font-semibold text-[color:var(--text-heading)]">Best use:</span> {service.bestUse}
-                  </p>
-                ) : null}
-                <CriteriaBoard criteria={service.criteria ?? []} />
-              </Section>
+              {showCriteriaSection ? (
+                <Section
+                  id="service-criteria"
+                  icon={ShieldCheck}
+                  title="Referral criteria"
+                  action={
+                    <div className="flex flex-wrap gap-2">
+                      <span className={cn(metadataPillDensity.roomy, "rounded-full", toneSuccess)}>
+                        {meetCount} meet
+                      </span>
+                      <span className={cn(metadataPillDensity.roomy, "rounded-full", toneWarning)}>
+                        {cautionCount} caution
+                      </span>
+                    </div>
+                  }
+                >
+                  {compactedBestUse ? (
+                    <p className="mb-3 border-b border-[color:var(--border)] pb-3 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                      <span className="font-semibold text-[color:var(--text-heading)]">Best use:</span>{" "}
+                      {compactedBestUse}
+                    </p>
+                  ) : null}
+                  {criteria.length > 0 ? <CriteriaBoard criteria={criteria} /> : null}
+                </Section>
+              ) : null}
 
               <section
                 id="service-verification"
@@ -702,18 +773,17 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                 </div>
               </section>
 
-              <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                    <Tag className="h-5 w-5" aria-hidden />
-                  </span>
-                  <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Tags & catchments</h2>
-                  <TagList
-                    items={[...(service.catchments ?? []), ...(service.tags ?? [])]}
-                    emptyLabel="No tags listed."
-                  />
-                </div>
-              </section>
+              {showTagsSection ? (
+                <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                      <Tag className="h-5 w-5" aria-hidden />
+                    </span>
+                    <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Tags & catchments</h2>
+                    <TagList items={tagItems} emptyLabel="No tags listed." />
+                  </div>
+                </section>
+              ) : null}
             </div>
           </div>
 
