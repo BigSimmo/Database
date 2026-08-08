@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   isAlwaysStandaloneShellPath,
   isDashboardModeHref,
+  isDashboardOwnedModeHomePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -63,6 +64,8 @@ describe("shared-search route ownership", () => {
       "/factsheets",
       "/therapy-compass",
       "/tools",
+      "/documents",
+      "/medications",
     ]) {
       expect(isStandaloneModeHomePath(pathname)).toBe(true);
     }
@@ -254,5 +257,45 @@ describe("shared-search route ownership", () => {
     expect(ask).toMatch(
       /const modeDestination = appModeHomeHref\(searchMode, \{[\s\S]*?run: true,[\s\S]*?\}\);\n    if \(trimmedQuery && !isDashboardModeHref\(modeDestination\)\) \{[\s\S]*?router\.push\(modeDestination\);\n      return;/,
     );
+  });
+
+  it("keeps unsubmitted dashboard-owned mode homes from auto-running composer drafts", () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    // `/documents` mounts ClinicalDashboard with nothing submitted. autoRunSearch
+    // must stay gated on run=1 there — otherwise every keystroke fires search.
+    expect(shellSource).toMatch(
+      /autoRunSearch=\{\s*pathname === "\/" \|\| isDashboardOwnedModeHomePath\(pathname\) \? hasSubmittedModeSearch : true\s*\}/,
+    );
+    expect(isDashboardOwnedModeHomePath("/documents")).toBe(true);
+    expect(isDashboardOwnedModeHomePath("/medications")).toBe(false);
+    expect(isDashboardOwnedModeHomePath("/")).toBe(false);
+    expect(
+      shouldRenderClinicalDashboard({ hasSubmittedSearch: false, mode: "documents", pathname: "/documents" }),
+    ).toBe(true);
+    // `/medications` is always-standalone; the dashboard gate never sees it.
+    expect(isAlwaysStandaloneShellPath("/medications")).toBe(true);
+  });
+
+  it("sends settings landing views to real mode homes, not bare /?mode=", () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    expect(shellSource).toContain('router.replace("/documents", { scroll: false })');
+    expect(shellSource).toContain('router.replace("/tools", { scroll: false })');
+    expect(shellSource).not.toContain("router.replace(`/?mode=${landingMode}`");
+  });
+
+  it("lets settings landing win over remembered-mode seeding on cold /", () => {
+    const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+    const seedStart = dashboardSource.indexOf("// Seed a cold `/` visit from the remembered mode.");
+    expect(seedStart).toBeGreaterThan(-1);
+    const seedEffect = dashboardSource.slice(seedStart, seedStart + 1800);
+    expect(seedEffect).toContain("landingModeForPreference(readAppPreferences().landing)");
+    expect(seedEffect).toContain('window.history.replaceState(null, "", appModeSelectionHref(lastAppMode))');
+    expect(seedEffect).toContain("Settings landing view also wins over last-mode");
   });
 });

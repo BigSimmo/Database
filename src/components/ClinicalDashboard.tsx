@@ -170,6 +170,7 @@ import {
   type AppModeSearchKind,
 } from "@/lib/app-modes";
 import { DEFAULT_APP_MODE, useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
+import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
@@ -1607,11 +1608,15 @@ export function ClinicalDashboard({
   // actions change the mode on `/` without touching the URL (openDocumentsDrawer
   // does exactly that), so a re-firing effect would rewrite `?mode=` back to the
   // remembered mode and silently undo them.
+  // Settings landing view also wins over last-mode: when landing is Documents or
+  // Tools the shell navigates to those homes, and seeding `?mode=` here would
+  // race that redirect and leave the landing preference ignored.
   useEffect(() => {
     if (homeModeSeededRef.current) return;
     if (pathname !== "/") return;
     if (searchParams.has("mode") || searchParams.has("q") || searchParams.has("query")) return;
     homeModeSeededRef.current = true;
+    if (landingModeForPreference(readAppPreferences().landing)) return;
     if (lastAppMode === DEFAULT_APP_MODE) return;
     window.history.replaceState(null, "", appModeSelectionHref(lastAppMode));
   }, [pathname, searchParams, lastAppMode]);

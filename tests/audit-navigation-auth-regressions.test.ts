@@ -46,10 +46,12 @@ describe("audit navigation and auth regressions", () => {
       "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
 
-    // `/medications` is no longer a redirect handler. It became a real Medication
-    // mode home when `/` turned into the single shared home for every mode, so the
-    // 307 to `/?mode=prescribing` it used to serve would now point back at the
-    // shared home rather than at any medication content.
+    // `/medications` is a real Medication mode home (no blanket 307). Submitted
+    // deep links (`q` + `run=1`) still redirect to the dashboard prescribing
+    // results surface so old bookmarks keep working.
+    const medicationsPage = source("src/app/(search-app)/medications/page.tsx");
+    expect(medicationsPage).toContain('redirect(appModeHomeHref("prescribing", { query, run: true }))');
+    expect(medicationsPage).not.toContain('redirect("/?mode=prescribing")');
     expect([headApplications, headPresentations]).toEqual([redirectApplications, redirectPresentations]);
   });
 

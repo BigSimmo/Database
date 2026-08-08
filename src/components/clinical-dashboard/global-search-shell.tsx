@@ -83,6 +83,7 @@ import {
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import {
   isAlwaysStandaloneShellPath,
+  isDashboardOwnedModeHomePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -181,8 +182,17 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
     if (params.get("mode") || params.get("q")?.trim() || params.get("query")?.trim() || params.get("run") === "1") {
       return;
     }
+    // Settings "Default landing view" points at real mode homes now that bare
+    // `/?mode=documents` is the shared home with Documents preselected, not the
+    // Documents Start-here surface.
     const landingMode = landingModeForPreference(readAppPreferences().landing);
-    if (landingMode) router.replace(`/?mode=${landingMode}`, { scroll: false });
+    if (landingMode === "documents") {
+      router.replace("/documents", { scroll: false });
+      return;
+    }
+    if (landingMode === "tools") {
+      router.replace("/tools", { scroll: false });
+    }
   }, [pathname, router]);
   const initialMode = props.initialMode ?? "answer";
   const visibleShellModes = visibleAppModeDefinitions().filter(
@@ -216,7 +226,10 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
           initialSearchMode={resolvedSearchMode}
           initialQuery={requestedQuery}
           focusSearch={searchParams.get("focus") === "1"}
-          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
+          // Dashboard-owned mode homes (`/documents`) mount ClinicalDashboard with
+          // nothing submitted. Keystroke drafts must not auto-run there — same
+          // contract as bare `/` — or every composer edit fires `/api/search`.
+          autoRunSearch={pathname === "/" || isDashboardOwnedModeHomePath(pathname) ? hasSubmittedModeSearch : true}
         />
       </SettingsStateProvider>
     );
