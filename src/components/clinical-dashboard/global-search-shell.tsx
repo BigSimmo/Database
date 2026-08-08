@@ -429,7 +429,7 @@ function GlobalStandaloneSearchShellBody({
   // searchMode before router.push landed, which made isStandaloneModeHome false
   // for one frame (dock reserve + 200ms padding transition = choppy resize).
   const isStandaloneModeHome = !hasSubmittedModeSearch && !rendersDashboardSearch && isStandaloneModeHomePath(pathname);
-  const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
+  const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations/");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";

@@ -281,6 +281,37 @@ describe("Disclosure / Progress", () => {
     expect(screen.getByRole("heading", { level: 4, name: "Monitoring" })).toBeVisible();
   });
 
+  it("keeps description as a visual preview outside the accessible name", async () => {
+    const user = userEvent.setup();
+    render(
+      <Disclosure
+        title="Does not authorise"
+        description="Treatment, detention, transport, restraint, seclusion or force by itself."
+        headingLevel={4}
+      >
+        Treatment, detention, transport, restraint, seclusion or force by itself.
+      </Disclosure>,
+    );
+
+    const description = "Treatment, detention, transport, restraint, seclusion or force by itself.";
+
+    const trigger = screen.getByRole("button", { name: "Does not authorise" });
+    expect(trigger).toHaveAccessibleName("Does not authorise");
+    expect(within(trigger).getByText(description)).toBeVisible();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const panelId = trigger.getAttribute("aria-controls");
+    expect(panelId).toEqual(expect.any(String));
+    if (!panelId) return;
+    const panel = document.getElementById(panelId);
+    expect(panel).toBeTruthy();
+    if (!panel) return;
+    expect(
+      within(panel).getByText("Treatment, detention, transport, restraint, seclusion or force by itself."),
+    ).toBeVisible();
+  });
+
   it("animates determinate progress with scaleX rather than width", () => {
     render(<Progress value={42} label="Indexing" />);
     const fill = screen.getByTestId("progress-fill");

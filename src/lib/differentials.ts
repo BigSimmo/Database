@@ -86,42 +86,232 @@ export function getPresentationWorkflow(slug: string | null | undefined) {
   return differentialPresentations().find((presentation) => presentation.id === normalizedSlug) ?? null;
 }
 
+/** Reserved workflow id for cross-presentation compare selections. */
+export const AD_HOC_DIFFERENTIAL_COMPARE_ID = "selected-differentials";
+
+const AD_HOC_COMPARE_CRITERIA: DifferentialComparisonCriterion[] = [
+  { id: "why-it-fits", title: "Why it fits", tone: "fit" },
+  // Catalogue diagnoses do not ship a `what-argues-against` section; omit it so
+  // ad-hoc compare rows never render an all-placeholder criterion.
+  { id: "must-not-miss", title: "Must-not-miss", tone: "warning" },
+  { id: "bedside-question", title: "Bedside question", tone: "question" },
+  { id: "immediate-action", title: "Immediate action", tone: "action" },
+  { id: "investigations", title: "Investigations", tone: "test" },
+  { id: "mimics-overlap", title: "Mimics / overlap", tone: "overlap" },
+];
+
+export type DifferentialCompareSelection = {
+  kind: "presentation" | "ad-hoc";
+  workflow: DifferentialPresentationWorkflow;
+  diagnosisIds: string[];
+};
+
+function normalizeRequestedDiagnosisIds(ids: Iterable<string>): string[] {
+  const seen = new Set<string>();
+  const diagnosisIds: string[] = [];
+  for (const id of ids) {
+    const normalized = id.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    // Drop unknown slugs so redirects never advertise IDs the catalogue cannot
+    // compare. Presentation membership is decided only among real records.
+    if (!getDifferentialRecord(normalized)) continue;
+    seen.add(normalized);
+    diagnosisIds.push(normalized);
+  }
+  return diagnosisIds;
+}
+
+function presentationContainsAllDiagnosisIds(
+  presentation: DifferentialPresentationWorkflow,
+  diagnosisIds: readonly string[],
+) {
+  if (!diagnosisIds.length) return false;
+  const candidateIds = new Set(presentation.candidates.map((candidate) => candidate.slug));
+  return diagnosisIds.every((id) => candidateIds.has(id));
+}
+
+function comparisonCellFromSection(section: DifferentialSection | undefined) {
+  if (!section) return "Review locally.";
+  const summary = section.summary.trim();
+  if (summary) return summary;
+  const items = section.items.map((item) => item.trim()).filter(Boolean);
+  return items.length ? items.join("; ") : "Review locally.";
+}
+
+/** Build a presentation-shaped workflow from diagnosis records so selections
+ *  that span multiple catalogue presentations still compare side by side. */
+export function buildAdHocPresentationWorkflow(ids: Iterable<string>): DifferentialPresentationWorkflow | null {
+  const diagnosisIds = normalizeRequestedDiagnosisIds(ids);
+  if (!diagnosisIds.length) return null;
+
+  const records = diagnosisIds
+    .map((id) => getDifferentialRecord(id))
+    .filter((record): record is DifferentialRecord => Boolean(record));
+  if (!records.length) return null;
+
+  const status = records.some((record) => record.status === "emergent")
+    ? "emergent"
+    : records.some((record) => record.status === "urgent")
+      ? "urgent"
+      : "routine";
+
+  const candidates: DifferentialComparisonCandidate[] = records.map((record) => {
+    const sectionsById = new Map(record.sections.map((section) => [section.id, section]));
+    const comparison: Record<string, string> = {};
+    for (const criterion of AD_HOC_COMPARE_CRITERIA) {
+      if (criterion.id === "investigations" && !sectionsById.has("investigations")) {
+        comparison[criterion.id] = record.investigations.filter(Boolean).join("; ") || "Review locally.";
+        continue;
+      }
+      if (criterion.id === "immediate-action" && !sectionsById.has("immediate-action")) {
+        comparison[criterion.id] = record.immediateActions.filter(Boolean).join("; ") || "Review locally.";
+        continue;
+      }
+      comparison[criterion.id] = comparisonCellFromSection(sectionsById.get(criterion.id));
+    }
+    return { slug: record.slug, selected: true, comparison };
+  });
+
+  const safetyTags = Array.from(
+    new Set(records.flatMap((record) => record.safetySnapshot.tags.map((tag) => tag.trim()).filter(Boolean))),
+  ).slice(0, 6);
+
+  return {
+    id: AD_HOC_DIFFERENTIAL_COMPARE_ID,
+    title: "Selected differentials",
+    status,
+    subtitle: "Side-by-side comparison of the diagnoses you selected from search.",
+    selectedCount: candidates.length,
+    totalCount: candidates.length,
+    safetySnapshot: {
+      summary:
+        records
+          .map((record) => record.safetySnapshot.summary.trim())
+          .filter(Boolean)
+          .join(" ") || "Review safety notes for each selected diagnosis.",
+      tags: safetyTags,
+    },
+    criteria: AD_HOC_COMPARE_CRITERIA,
+    candidates,
+    reviewChecklist: [
+      "Confirm each selected diagnosis still fits the current presentation",
+      "Review must-not-miss risks across the selected set",
+      "Choose immediate actions and investigations that discriminate",
+      "Document and handoff the working differential",
+    ],
+    highestUrgencyNote:
+      status === "emergent"
+        ? "At least one selected diagnosis is emergent. Act early."
+        : status === "urgent"
+          ? "At least one selected diagnosis is urgent. Prioritise safety."
+          : "Review selected differentials before acting.",
+    sourceStatus: {
+      label: "Selected from catalogue",
+      version: catalog().governance.version || "Local content only",
+      lastUpdated: catalog().exportedAt || "Pending review",
+    },
+  };
+}
+
+/**
+ * Prefer a presentation that contains every requested diagnosis. When IDs span
+ * presentations (or none match), fall back to the highest partial overlap so
+ * callers that only need "a related workflow" still get a useful default.
+ */
 export function getPresentationWorkflowForDiagnosisIds(ids: Iterable<string>) {
-  const requestedIds = new Set(Array.from(ids, (id) => id.trim().toLowerCase()).filter(Boolean));
+  const requestedIds = new Set(normalizeRequestedDiagnosisIds(ids));
   if (!requestedIds.size) return null;
 
   let bestMatch: DifferentialPresentationWorkflow | null = null;
   let bestMatchCount = 0;
-  let bestCoversAll = false;
+  let fullCoverage: DifferentialPresentationWorkflow | null = null;
+
   for (const presentation of differentialPresentations()) {
     const matchCount = presentation.candidates.reduce(
       (count, candidate) => count + (requestedIds.has(candidate.slug) ? 1 : 0),
       0,
     );
-    if (matchCount === 0) continue;
-    const coversAll = matchCount === requestedIds.size;
-    if (coversAll && !bestCoversAll) {
-      bestMatch = presentation;
-      bestMatchCount = matchCount;
-      bestCoversAll = true;
-      continue;
+    // First full-coverage host in catalogue order wins ties (stable with the
+    // historical single-ID redirect, e.g. delirium → acute-confusion).
+    if (!fullCoverage && matchCount === requestedIds.size) {
+      fullCoverage = presentation;
     }
-    if (coversAll === bestCoversAll && matchCount > bestMatchCount) {
+    if (matchCount > bestMatchCount) {
       bestMatch = presentation;
       bestMatchCount = matchCount;
     }
   }
-  return bestMatch;
+  return fullCoverage ?? bestMatch;
 }
 
-export function getPresentationWorkflowSelectionForDiagnosisIds(ids: Iterable<string>) {
-  const diagnosisIds = Array.from(new Set(Array.from(ids, (id) => id.trim().toLowerCase()).filter(Boolean)));
-  const workflow = getPresentationWorkflowForDiagnosisIds(diagnosisIds);
+/**
+ * Resolve compare handoff for selected diagnosis IDs.
+ * - `presentation`: every ID belongs to one catalogue presentation (keep rich cells).
+ * - `ad-hoc`: IDs span presentations (or have no host); keep every valid ID.
+ */
+export function getPresentationWorkflowSelectionForDiagnosisIds(
+  ids: Iterable<string>,
+): DifferentialCompareSelection | null {
+  const diagnosisIds = normalizeRequestedDiagnosisIds(ids);
+  if (!diagnosisIds.length) return null;
+
+  const fullCoverage = differentialPresentations().find((presentation) =>
+    presentationContainsAllDiagnosisIds(presentation, diagnosisIds),
+  );
+  if (fullCoverage) {
+    return { kind: "presentation", workflow: fullCoverage, diagnosisIds };
+  }
+
+  const workflow = buildAdHocPresentationWorkflow(diagnosisIds);
   if (!workflow) return null;
-  const candidateIds = new Set(workflow.candidates.map((candidate) => candidate.slug));
+  return { kind: "ad-hoc", workflow, diagnosisIds };
+}
+
+function differentialCompareHref(path: string, query: string, selectedIds: readonly string[]) {
+  const params = new URLSearchParams();
+  const trimmedQuery = query.trim();
+  if (trimmedQuery) params.set("q", trimmedQuery);
+  if (selectedIds.length > 0) params.set("ids", selectedIds.join(","));
+  const suffix = params.toString();
+  return suffix ? `${path}?${suffix}` : path;
+}
+
+export type DifferentialCompareHandoff =
+  | {
+      kind: "ad-hoc";
+      href: string;
+      selection: DifferentialCompareSelection;
+    }
+  | {
+      kind: "presentation";
+      href: string;
+      selection: DifferentialCompareSelection | null;
+    };
+
+/**
+ * Resolve `/differentials/compare` handoff without a competing route handler.
+ * Same-presentation (or empty/unknown) selections redirect into a catalogue
+ * presentation; cross-presentation selections stay on the compare page.
+ */
+export function resolveDifferentialCompareHandoff(ids: Iterable<string>, query = ""): DifferentialCompareHandoff {
+  const selection = getPresentationWorkflowSelectionForDiagnosisIds(ids);
+  if (selection?.kind === "ad-hoc") {
+    return {
+      kind: "ad-hoc",
+      href: differentialCompareHref("/differentials/compare", query, selection.diagnosisIds),
+      selection,
+    };
+  }
+
+  const workflowId =
+    selection?.kind === "presentation" && selection.workflow.id !== AD_HOC_DIFFERENTIAL_COMPARE_ID
+      ? selection.workflow.id
+      : "acute-confusion-encephalopathy";
+  const diagnosisIds = selection?.diagnosisIds ?? [];
   return {
-    workflow,
-    diagnosisIds: diagnosisIds.filter((id) => candidateIds.has(id)),
+    kind: "presentation",
+    href: differentialCompareHref(`/differentials/presentations/${workflowId}`, query, diagnosisIds),
+    selection,
   };
 }
 
