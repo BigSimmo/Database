@@ -18,7 +18,7 @@ import {
 
 import { AccessibleTable } from "@/components/AccessibleTable";
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
-import { ScopeAndGovernanceNotice, SourceImage } from "@/components/clinical-dashboard/answer-content";
+import { SourceImage } from "@/components/clinical-dashboard/answer-content";
 import { SectionHeading, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import {
@@ -48,7 +48,6 @@ import {
 import { type AnswerRenderModel, type CanonicalAnswerTableRecord } from "@/lib/answer-render-policy";
 import { formatCompactCitationLabel } from "@/lib/citations";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
-import { type SourceGovernanceWarning } from "@/lib/source-governance";
 import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import type { QuoteCard, RagAnswer, SearchResult, VisualEvidenceCard } from "@/lib/types";
 import { emptyStates } from "@/lib/ui-copy";
@@ -509,7 +508,6 @@ export function MobileEvidenceSheetContent({
   renderModel,
   visualEvidence,
   answerEvidenceMapRows,
-  sourceGovernanceWarnings,
   demoMode,
   initialTab,
   pendingFeedback,
@@ -524,7 +522,6 @@ export function MobileEvidenceSheetContent({
   renderModel: AnswerRenderModel;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  sourceGovernanceWarnings: SourceGovernanceWarning[];
   demoMode: boolean;
   initialTab?: EvidenceTabName | null;
   pendingFeedback: AnswerFeedbackType | null;
@@ -661,7 +658,6 @@ export function MobileEvidenceSheetContent({
           );
         })}
       </div>
-      <ScopeAndGovernanceNotice scope={null} warnings={sourceGovernanceWarnings} />
       <AnswerSafetyNotice
         demoMode={demoMode}
         weakEvidence={renderModel.trust !== "high"}

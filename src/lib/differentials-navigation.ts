@@ -16,9 +16,9 @@ export function differentialRouteWithQuery(path: string, query: string, selected
 
 /**
  * Compare-selected CTA href. Resolves the presentation workflow on the server
- * via `/differentials/presentations` (see presentations/route.ts) so the client
- * never loads the differentials snapshot just to build a link.
+ * via `/differentials/compare` (see compare/route.ts) so the client never loads
+ * the differentials snapshot just to build a link.
  */
 export function differentialSelectedCompareHref(query: string, selectedIds: Iterable<string>) {
-  return differentialRouteWithQuery("/differentials/presentations", query, selectedIds);
+  return differentialRouteWithQuery("/differentials/compare", query, selectedIds);
 }

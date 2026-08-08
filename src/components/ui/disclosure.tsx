@@ -97,7 +97,18 @@ export function Disclosure({
           />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">{title}</span>
-            {description ? <span className={cn("block truncate text-xs", textMuted)}>{description}</span> : null}
+            {/* Visual preview only: keep it out of the accessible name so the
+                trigger stays label-sized. Full copy lives in the panel for SR
+                once expanded. Wrap from sm+ so desktop scanners are not forced
+                through a tap the way phone truncation requires. */}
+            {description ? (
+              <span
+                aria-hidden="true"
+                className={cn("block truncate text-xs sm:whitespace-normal sm:leading-5", textMuted)}
+              >
+                {description}
+              </span>
+            ) : null}
           </span>
           {meta ? <span className="nums shrink-0 text-xs text-[color:var(--text-muted)]">{meta}</span> : null}
         </button>
