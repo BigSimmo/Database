@@ -26,9 +26,18 @@ export type DisclosureProps = {
  * that exact gap was the `AccessibleTable` expander defect.
  *
  * The panel is kept in the DOM and hidden with `hidden` rather than unmounted, so
- * in-page find, print, and Ctrl-F all reach collapsed content. For a clinical
- * reference tool that is the difference between "the guideline does not mention
- * it" and "the section was collapsed".
+ * the content is there to be revealed rather than re-fetched. On screen, `hidden`
+ * is `display:none`, so a collapsed panel is genuinely out of the accessibility
+ * tree and out of Ctrl-F — that is correct for a control the reader can open, and
+ * the docstring here used to claim otherwise.
+ *
+ * Print is the case where it is NOT correct. A printed page has no disclosure to
+ * open, so a collapsed section prints as if the guideline never mentioned it —
+ * exactly the failure this component is supposed to prevent, made permanent on
+ * paper and unnoticeable, because the reader holding the printout has no way to
+ * tell a section was omitted. `print:block` on the panel (author styles beat the
+ * UA `[hidden]` rule) expands every collapsed section for print; the chevron is
+ * dropped, since a rotated arrow means nothing on paper.
  *
  * No height animation. Animating `height` or `grid-template-rows` forces layout
  * every frame and is a measurable CLS contributor; the chevron rotates on
@@ -63,6 +72,9 @@ export function Disclosure({
       data-testid="disclosure"
       className={cn(
         "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
+        // A print-expanded panel must not be clipped by the collapsed-height
+        // container it was sized for.
+        "print:overflow-visible",
         className,
       )}
     >
@@ -79,7 +91,7 @@ export function Disclosure({
             aria-hidden="true"
             className={cn(
               "size-icon-sm shrink-0 text-[color:var(--text-muted)] transition-transform duration-[var(--duration-fast)]",
-              "motion-reduce:transition-none",
+              "motion-reduce:transition-none print:hidden",
               open && "rotate-90",
             )}
           />
@@ -95,7 +107,8 @@ export function Disclosure({
         role="region"
         aria-labelledby={`${id}-trigger`}
         hidden={!open}
-        className="border-t border-[color:var(--border)] px-3 py-3"
+        data-open={open ? "true" : "false"}
+        className="border-t border-[color:var(--border)] px-3 py-3 print:block"
       >
         {children}
       </div>
