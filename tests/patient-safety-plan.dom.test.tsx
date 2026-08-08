@@ -170,6 +170,7 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
       }
       setTimeoutSpy.mockRestore();
     }
+  });
 
   it("clears the scheduled copy-feedback timer on unmount", async () => {
     vi.useFakeTimers();
