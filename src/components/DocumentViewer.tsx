@@ -217,11 +217,19 @@ export function DocumentViewer({
   const [pdfFitWidth, setPdfFitWidth] = useState(true);
   const [pdfZoom, setPdfZoom] = useState(VIEWER_DEFAULT_ZOOM);
   const [pdfViewingAid, setPdfViewingAid] = useState(false);
+  const [pdfRotation, setPdfRotation] = useState(0);
+  const [pdfFullscreen, setPdfFullscreen] = useState(false);
+  // pdf.js is authoritative for the page count: `document.page_count` can be
+  // absent or stale for a document whose indexing has not caught up.
+  const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   if (pdfViewingDocumentId !== documentId) {
     setPdfViewingDocumentId(documentId);
     setPdfFitWidth(true);
     setPdfZoom(VIEWER_DEFAULT_ZOOM);
     setPdfViewingAid(false);
+    setPdfRotation(0);
+    setPdfFullscreen(false);
+    setPdfPageCount(null);
   }
   const {
     status: authStatus,
@@ -816,6 +824,10 @@ export function DocumentViewer({
   const handlePdfFitWidthChange = useCallback((nextFitWidth: boolean) => {
     setPdfFitWidth(nextFitWidth);
   }, []);
+  const handlePdfRotate = useCallback(() => {
+    setPdfRotation((current) => (current + 90) % 360);
+  }, []);
+  const effectivePdfPageCount = pdfPageCount ?? document?.page_count ?? undefined;
   const pdfFrameControls: DocumentFrameControls | undefined = canvasPdfReady
     ? {
         fitWidth: pdfFitWidth,
@@ -827,6 +839,13 @@ export function DocumentViewer({
         minZoom: VIEWER_MIN_ZOOM,
         maxZoom: VIEWER_MAX_ZOOM,
         zoomStep: VIEWER_ZOOM_STEP,
+        page: activePage,
+        pageCount: effectivePdfPageCount,
+        onPageChange: navigateToPage,
+        rotation: pdfRotation,
+        onRotate: handlePdfRotate,
+        fullscreen: pdfFullscreen,
+        onFullscreenChange: setPdfFullscreen,
       }
     : undefined;
   const headerTitle = readyDocument
@@ -954,8 +973,11 @@ export function DocumentViewer({
   // A successful reload means the refreshed URL was accepted, so the recovery
   // worked — restore the budget for the next (unrelated) TTL expiry. A broken
   // URL never loads, so it never resets, and the cap still stops its loop.
-  const handlePdfLoadSuccess = useCallback(() => {
+  const handlePdfLoadSuccess = useCallback((pageCount: number) => {
     signedUrlRefreshCountRef.current = 0;
+    // pdf.js has opened the file, so its page count now outranks the indexed
+    // metadata the toolbar fell back to.
+    setPdfPageCount(pageCount > 0 ? pageCount : null);
   }, []);
   const handleDocumentRenamed = (updatedDocument: ClinicalDocument) => {
     setDocument((current) => (current?.id === updatedDocument.id ? { ...current, ...updatedDocument } : current));
@@ -1398,6 +1420,8 @@ export function DocumentViewer({
                     onPageChange={navigateToPage}
                     fitWidth={pdfFitWidth}
                     zoom={pdfZoom}
+                    rotation={pdfRotation}
+                    fullscreen={pdfFullscreen}
                     onFitWidthChange={handlePdfFitWidthChange}
                     onZoomChange={handlePdfZoomChange}
                   />

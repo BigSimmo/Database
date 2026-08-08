@@ -9,22 +9,10 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  FileText,
-  Loader2,
-  Maximize2,
-  Minimize2,
-  Minus,
-  Plus,
-  RefreshCw,
-  RotateCw,
-} from "lucide-react";
+import { ExternalLink, FileText, Loader2, RefreshCw } from "lucide-react";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 
-import { cn, floatingControl, toolbarButton } from "@/components/ui-primitives";
+import { cn, floatingControl } from "@/components/ui-primitives";
 import { announce } from "@/components/ui/live-announcer";
 import { useViewerGestures } from "@/components/document-viewer/use-viewer-gestures";
 import {
@@ -35,7 +23,6 @@ import {
   VIEWER_ZOOM_STEP,
 } from "@/components/document-viewer/viewer-zoom";
 
-const iconButton = toolbarButton;
 const secondaryButton = floatingControl;
 
 const MAX_FIT_SCALE = 2.8;
@@ -59,6 +46,10 @@ function isLikelyExpiredUrl(error: unknown): boolean {
 // pdf.js document and re-rasters the canvas). With stable props from the parent
 // it skips re-render when unrelated parent state (search, composer, connectivity)
 // changes, so a keystroke elsewhere never re-rasterises the page.
+//
+// This component renders source pixels and nothing else. Every viewing control —
+// page navigation, zoom, fit, rotation, viewing aid, fullscreen — belongs to
+// DocumentFrame, so the viewer has exactly one toolbar and one page readout.
 export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   url,
   title,
@@ -66,8 +57,10 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   onUrlExpired,
   onLoadSuccess,
   onPageChange,
-  fitWidth: fitWidthProp,
-  zoom: zoomProp,
+  fitWidth,
+  zoom,
+  rotation = 0,
+  fullscreen = false,
   onFitWidthChange,
   onZoomChange,
 }: {
@@ -76,39 +69,31 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   initialPage: number;
   /** Called when a load/render fails in a way consistent with an expired signed URL. */
   onUrlExpired?: () => void;
-  /** Called when the PDF document loads successfully (a genuine URL is valid). */
-  onLoadSuccess?: () => void;
+  /** Called with the document's page count when pdf.js opens it successfully. */
+  onLoadSuccess?: (pageCount: number) => void;
   /** Keeps the document route in sync when the reader changes pages. */
   onPageChange?: (page: number) => void;
-  /**
-   * Controlled fit/zoom from DocumentFrame (Phase 2a). When both change handlers
-   * are provided, Frame owns the chrome and this toolbar keeps page/rotate/fullscreen.
-   */
-  fitWidth?: boolean;
-  zoom?: number;
-  onFitWidthChange?: (fitWidth: boolean) => void;
-  onZoomChange?: (zoom: number) => void;
+  /** Controlled viewing state owned by DocumentFrame via DocumentViewer. */
+  fitWidth: boolean;
+  zoom: number;
+  rotation?: number;
+  fullscreen?: boolean;
+  onFitWidthChange: (fitWidth: boolean) => void;
+  onZoomChange: (zoom: number) => void;
 }) {
-  const fullscreenRootRef = useRef<HTMLDivElement>(null);
   const holderRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(initialPage);
-  const [pageInput, setPageInput] = useState(String(initialPage));
   const [totalPages, setTotalPages] = useState(0);
-  const [internalZoom, setInternalZoom] = useState(VIEWER_DEFAULT_ZOOM);
   // Debounced mirror of `zoom`. Zoom steps update `zoom` immediately (an interim
   // CSS transform gives instant visual feedback) but only `renderZoom` drives the
   // pdf.js raster, so rapid +/-, wheel, and pinch input re-rasterise once on
   // settle instead of queueing a RenderTask per delta.
   const [renderZoom, setRenderZoom] = useState(VIEWER_DEFAULT_ZOOM);
-  const [rotation, setRotation] = useState(0);
-  const [internalFitWidth, setInternalFitWidth] = useState(true);
-  const frameOwnsZoomChrome = typeof onFitWidthChange === "function" && typeof onZoomChange === "function";
-  const fitWidth = frameOwnsZoomChrome ? Boolean(fitWidthProp) : internalFitWidth;
-  const zoom = frameOwnsZoomChrome ? (typeof zoomProp === "number" ? zoomProp : VIEWER_DEFAULT_ZOOM) : internalZoom;
   // Eager refs so rapid functional updates (wheel/pinch) compose before React
-  // re-renders — especially on the Frame-owned path where zoom lives in a parent.
+  // re-renders — the zoom lives in a parent, so a closed-over prop would drop
+  // every delta but the last (Sentry 15778840).
   const fitWidthRef = useRef(fitWidth);
   const zoomRef = useRef(zoom);
   useLayoutEffect(() => {
@@ -116,36 +101,25 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     zoomRef.current = zoom;
   }, [fitWidth, zoom]);
   const setFitWidth = useCallback(
-    (next: boolean | ((current: boolean) => boolean)) => {
-      if (frameOwnsZoomChrome) {
-        const resolved = typeof next === "function" ? next(fitWidthRef.current) : next;
-        fitWidthRef.current = resolved;
-        onFitWidthChange?.(resolved);
-        return;
-      }
-      setInternalFitWidth((current) => (typeof next === "function" ? next(current) : next));
+    (next: boolean) => {
+      fitWidthRef.current = next;
+      onFitWidthChange(next);
     },
-    [frameOwnsZoomChrome, onFitWidthChange],
+    [onFitWidthChange],
   );
   const setZoom = useCallback(
     (next: number | ((current: number) => number)) => {
-      if (frameOwnsZoomChrome) {
-        const clamped = resolveViewerZoomUpdate(zoomRef.current, next);
-        zoomRef.current = clamped;
-        onZoomChange?.(clamped);
-        return;
-      }
-      setInternalZoom((current) => resolveViewerZoomUpdate(current, next));
+      const clamped = resolveViewerZoomUpdate(zoomRef.current, next);
+      zoomRef.current = clamped;
+      onZoomChange(clamped);
     },
-    [frameOwnsZoomChrome, onZoomChange],
+    [onZoomChange],
   );
   const [holderWidth, setHolderWidth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [rendering, setRendering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [fullscreenFallback, setFullscreenFallback] = useState(false);
 
   const onUrlExpiredRef = useRef(onUrlExpired);
   const onLoadSuccessRef = useRef(onLoadSuccess);
@@ -204,7 +178,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
         setPage((current) => Math.min(Math.max(current, 1), loadedPdf?.numPages ?? current));
         // A valid load means any prior expiry was genuinely recovered — let the
         // parent restore the refresh budget so a long session isn't dead-ended.
-        onLoadSuccessRef.current?.();
+        onLoadSuccessRef.current?.(loadedPdf.numPages);
       } catch (loadError) {
         if (active) {
           if (isLikelyExpiredUrl(loadError)) reportUrlExpired();
@@ -228,7 +202,6 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     const boundedPage = totalPages > 0 ? Math.min(nextPage, totalPages) : nextPage;
     const frame = window.requestAnimationFrame(() => {
       setPage((current) => (current === boundedPage ? current : boundedPage));
-      setPageInput(String(boundedPage));
     });
     return () => window.cancelAnimationFrame(frame);
   }, [initialPage, totalPages]);
@@ -248,35 +221,6 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       observer.disconnect();
     };
   }, []);
-
-  useEffect(() => {
-    function updateFullscreenState() {
-      const active = document.fullscreenElement === fullscreenRootRef.current;
-      setIsFullscreen(active);
-      if (active) setFullscreenFallback(false);
-    }
-
-    document.addEventListener("fullscreenchange", updateFullscreenState);
-    return () => document.removeEventListener("fullscreenchange", updateFullscreenState);
-  }, []);
-
-  // Escape exits whichever fullscreen mode is active. Native fullscreen usually
-  // exits via the browser, but handling it here too keeps the in-app state in
-  // sync (and covers the in-app fallback overlay, which the browser doesn't own).
-  useEffect(() => {
-    if (!isFullscreen && !fullscreenFallback) return;
-
-    function exitOnEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setFullscreenFallback(false);
-      if (document.fullscreenElement === fullscreenRootRef.current && document.exitFullscreen) {
-        void document.exitFullscreen();
-      }
-    }
-
-    window.addEventListener("keydown", exitOnEscape);
-    return () => window.removeEventListener("keydown", exitOnEscape);
-  }, [isFullscreen, fullscreenFallback]);
 
   // Settle rapid zoom deltas into a single raster. The interim CSS transform on
   // the canvas keeps the view visually correct during this window.
@@ -344,51 +288,25 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     };
   }, [fitWidth, holderWidth, page, pdf, renderZoom, reportUrlExpired, rotation]);
 
-  function jumpToPage(nextPage: number) {
-    const bounded = Math.min(Math.max(nextPage, 1), totalPages || nextPage);
-    setPage(bounded);
-    setPageInput(String(bounded));
-    if (bounded !== page) onPageChange?.(bounded);
-  }
+  const jumpToPage = useCallback(
+    (nextPage: number) => {
+      const bounded = Math.min(Math.max(nextPage, 1), totalPages || nextPage);
+      if (bounded === page) return;
+      setPage(bounded);
+      onPageChange?.(bounded);
+    },
+    [onPageChange, page, totalPages],
+  );
 
-  function zoomBy(delta: number) {
-    setFitWidth(false);
-    setZoom((current) => Number((current + delta).toFixed(2)));
-  }
-
-  async function enterFullscreenFitView() {
-    setFitWidth(true);
-    const element = fullscreenRootRef.current;
-    if (!element) return;
-
-    try {
-      if (document.fullscreenElement === element) {
-        setIsFullscreen(true);
-        return;
-      }
-      if (element.requestFullscreen) {
-        await element.requestFullscreen();
-        setIsFullscreen(true);
-        return;
-      }
-    } catch {
-      // Fall back to a fixed in-app fullscreen surface when native fullscreen is unavailable.
-    }
-
-    setFullscreenFallback(true);
-    setIsFullscreen(true);
-  }
-
-  async function exitFullscreenView() {
-    if (document.fullscreenElement === fullscreenRootRef.current && document.exitFullscreen) {
-      await document.exitFullscreen();
-    }
-    setFullscreenFallback(false);
-    setIsFullscreen(false);
-  }
+  const zoomBy = useCallback(
+    (delta: number) => {
+      setFitWidth(false);
+      setZoom((current) => Number((current + delta).toFixed(2)));
+    },
+    [setFitWidth, setZoom],
+  );
 
   const pagesReady = Boolean(pdf && totalPages > 0 && !loading);
-  const fullscreenActive = isFullscreen || fullscreenFallback;
   // While a zoom step waits for its debounced raster, scale the last raster with
   // a CSS transform so the view tracks the target zoom instantly. It resets to 1
   // the moment `renderZoom` catches up and the crisp raster paints. Fit mode is
@@ -457,131 +375,9 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
 
   return (
     <div
-      ref={fullscreenRootRef}
-      data-testid="pdf-fullscreen-root"
-      className={cn(
-        "bg-[color:var(--surface-inset)]",
-        fullscreenActive &&
-          "fixed inset-0 z-[80] flex flex-col overflow-hidden bg-[color:var(--surface)] supports-[selector(:fullscreen)]:fixed",
-      )}
+      data-testid="pdf-canvas-owner"
+      className={cn("bg-[color:var(--surface-inset)]", fullscreen && "flex min-h-0 flex-1 flex-col")}
     >
-      <div
-        data-testid="pdf-toolbar"
-        className="z-10 flex flex-nowrap items-center gap-1 border-b border-[color:var(--border-lux)] bg-[linear-gradient(180deg,var(--surface-highlight),transparent_78%),var(--surface-glass)] p-2 shadow-[var(--shadow-tight)] backdrop-blur-xl sm:sticky sm:top-[69px] sm:flex-wrap sm:gap-2 sm:p-3"
-      >
-        <button
-          onClick={() => jumpToPage(page - 1)}
-          disabled={!pagesReady || page <= 1}
-          className={cn(iconButton, "shrink-0")}
-          aria-label="Previous page"
-        >
-          <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-        </button>
-        {pagesReady ? (
-          <label className="flex min-h-tap min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-1.5 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:flex-none sm:gap-2 sm:px-3">
-            <span className="hidden sm:inline">Page</span>
-            <input
-              aria-label="PDF page number"
-              value={pageInput}
-              disabled={!pagesReady}
-              onChange={(event) => setPageInput(event.target.value)}
-              onBlur={() => jumpToPage(Number(pageInput) || page)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") jumpToPage(Number(pageInput) || page);
-              }}
-              inputMode="numeric"
-              className="nums h-tap w-full min-w-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-center text-sm font-semibold text-[color:var(--text)] outline-none transition focus:border-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-14 sm:flex-none"
-            />
-            <span className="nums shrink-0 whitespace-nowrap text-sm-minus font-semibold sm:text-sm">
-              of {totalPages}
-            </span>
-          </label>
-        ) : (
-          <div className="flex min-h-tap min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:flex-none sm:px-3">
-            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
-            <span className="hidden sm:inline">{error ? "Page unavailable" : "Loading pages"}</span>
-            <span className="sm:hidden">{error ? "Unavailable" : "Loading"}</span>
-          </div>
-        )}
-        <button
-          onClick={() => jumpToPage(page + 1)}
-          disabled={!pagesReady || page >= totalPages}
-          className={cn(iconButton, "shrink-0")}
-          aria-label="Next page"
-        >
-          <ChevronRight aria-hidden="true" className="h-4 w-4" />
-        </button>
-        <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1 shadow-[var(--shadow-inset)] sm:ml-auto">
-          {frameOwnsZoomChrome ? null : (
-            <>
-              <button
-                onClick={() => zoomBy(-VIEWER_ZOOM_STEP)}
-                disabled={!pagesReady}
-                className={iconButton}
-                aria-label="Zoom out"
-              >
-                <Minus aria-hidden="true" className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => {
-                  setFitWidth(true);
-                }}
-                disabled={!pagesReady}
-                aria-label="Fit page width"
-                className={cn(
-                  "inline-flex min-h-tap min-w-tap items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition",
-                  "disabled:cursor-not-allowed disabled:opacity-45",
-                  fitWidth
-                    ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
-                )}
-              >
-                <Maximize2 aria-hidden="true" className="h-4 w-4" />
-                <span className="hidden sm:inline">Fit</span>
-              </button>
-              <button
-                onClick={() => zoomBy(VIEWER_ZOOM_STEP)}
-                disabled={!pagesReady}
-                className={iconButton}
-                aria-label="Zoom in"
-              >
-                <Plus aria-hidden="true" className="h-4 w-4" />
-              </button>
-            </>
-          )}
-          <button
-            onClick={() => setRotation((current) => (current + 90) % 360)}
-            disabled={!pagesReady}
-            className={iconButton}
-            aria-label="Rotate page 90 degrees"
-          >
-            <RotateCw aria-hidden="true" className="h-4 w-4" />
-          </button>
-          {fullscreenActive ? (
-            <button
-              onClick={exitFullscreenView}
-              className={iconButton}
-              aria-label="Exit fullscreen document view"
-              type="button"
-            >
-              <Minimize2 aria-hidden="true" className="h-4 w-4" />
-              <span className="hidden sm:inline">Exit</span>
-            </button>
-          ) : (
-            <button
-              onClick={enterFullscreenFitView}
-              disabled={!pagesReady}
-              aria-label="Enter fullscreen document view"
-              className={iconButton}
-              type="button"
-            >
-              <Maximize2 aria-hidden="true" className="h-4 w-4" />
-              <span className="hidden sm:inline">Full</span>
-            </button>
-          )}
-        </div>
-      </div>
-
       <div
         data-testid="pdf-canvas-scroll"
         ref={holderRef}
@@ -594,8 +390,8 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
           "polished-scroll relative flex w-full min-w-0 max-w-full justify-center overscroll-contain p-2 [-webkit-overflow-scrolling:touch] focus-visible:outline-2 focus-visible:outline-[color:var(--focus)] sm:p-4",
           // Reserve height only before a page has rendered; once it paints, the
           // holder fits the page so short pages don't float in a tall void.
-          !pagesReady && !fullscreenActive && "min-h-[46vh] sm:min-h-[62vh]",
-          fullscreenActive && "min-h-0 flex-1 sm:min-h-0",
+          !pagesReady && !fullscreen && "min-h-[46vh] sm:min-h-[62vh]",
+          fullscreen && "min-h-0 flex-1 sm:min-h-0",
           fitWidth
             ? "overflow-x-hidden overflow-y-auto [touch-action:pan-y]"
             : // Zoomed: we own touch, so pinch-zoom and single-finger drag-pan work.

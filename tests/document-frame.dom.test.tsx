@@ -76,14 +76,17 @@ describe("DocumentFrame", () => {
 
     const toolbar = screen.getByRole("toolbar", { name: "Document viewing controls" });
     expect(toolbar).toHaveAttribute("data-print-hide");
-    expect(screen.getByText("Page 2 of 7")).toBeVisible();
     expect(screen.getByRole("button", { name: "Fit document to width" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Zoom out" })).toHaveClass("min-h-tap", "min-w-tap");
-    expect(screen.getByRole("button", { name: "Zoom in" })).toHaveClass("min-h-tap", "min-w-tap");
+    // Zoom renders twice by design: inline from 380px up, and inside the phone
+    // overflow below it. CSS shows exactly one; jsdom sees both.
+    const [inlineZoomOut] = screen.getAllByRole("button", { name: "Zoom out" });
+    const [inlineZoomIn] = screen.getAllByRole("button", { name: "Zoom in" });
+    expect(inlineZoomOut).toHaveClass("min-h-tap", "min-w-tap");
+    expect(inlineZoomIn).toHaveClass("min-h-tap", "min-w-tap");
     expect(screen.getByLabelText("Document zoom")).toHaveTextContent("100%");
 
-    fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
-    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    fireEvent.click(inlineZoomOut);
+    fireEvent.click(inlineZoomIn);
     fireEvent.click(screen.getByRole("button", { name: "Fit document to width" }));
     fireEvent.click(screen.getByRole("button", { name: "Reduce document surround glare" }));
 
@@ -91,6 +94,91 @@ describe("DocumentFrame", () => {
     expect(onZoomChange).toHaveBeenNthCalledWith(2, 1.15);
     expect(onFitWidth).toHaveBeenCalledOnce();
     expect(onViewingAidChange).toHaveBeenCalledWith(true);
+  });
+
+  // The viewer used to print the page number twice — once in the frame band and
+  // again in the PDF component's own toolbar — and used Maximize2 for both "fit
+  // width" and "fullscreen". One toolbar owns both now.
+  it("owns page navigation with a single readout and distinct fit/fullscreen actions", () => {
+    const onPageChange = vi.fn();
+    const onRotate = vi.fn();
+    const onFullscreenChange = vi.fn();
+    render(
+      <DocumentFrame
+        alt="Clinical guideline page"
+        src={{ kind: "pdf-page", url: "https://example.test/guideline.pdf", page: 2, pageCount: 7 }}
+        state="ready"
+        controls={readyControls({ page: 2, pageCount: 7, onPageChange, onRotate, onFullscreenChange })}
+      >
+        <canvas aria-label="Clinical guideline page 2" />
+      </DocumentFrame>,
+    );
+
+    expect(screen.getByLabelText("Page number")).toHaveValue("2");
+    expect(screen.getAllByText("/ 7")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(onPageChange).toHaveBeenCalledWith(3);
+    fireEvent.click(screen.getByRole("button", { name: "Previous page" }));
+    expect(onPageChange).toHaveBeenCalledWith(1);
+
+    fireEvent.change(screen.getByLabelText("Page number"), { target: { value: "5" } });
+    fireEvent.blur(screen.getByLabelText("Page number"));
+    expect(onPageChange).toHaveBeenCalledWith(5);
+
+    // Out-of-range entries clamp instead of navigating past the document.
+    fireEvent.change(screen.getByLabelText("Page number"), { target: { value: "99" } });
+    fireEvent.blur(screen.getByLabelText("Page number"));
+    expect(onPageChange).toHaveBeenLastCalledWith(7);
+
+    expect(screen.getByRole("button", { name: "Fit document to width" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Enter fullscreen document view" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Fit page width and enter fullscreen" })).toBeNull();
+  });
+
+  // A 320px row cannot hold page navigation plus six tap targets, so the
+  // narrowest phones reach zoom, fit, rotate, viewing aid and fullscreen through
+  // one overflow. Every one of them keeps the production tap target.
+  it("keeps every phone overflow action at the production tap target", () => {
+    render(
+      <DocumentFrame
+        alt="Clinical guideline page"
+        src={{ kind: "pdf-page", url: "https://example.test/guideline.pdf", page: 1, pageCount: 3 }}
+        state="ready"
+        controls={readyControls({
+          page: 1,
+          pageCount: 3,
+          onPageChange: vi.fn(),
+          onRotate: vi.fn(),
+          onFullscreenChange: vi.fn(),
+        })}
+      >
+        <canvas aria-label="Clinical guideline page 1" />
+      </DocumentFrame>,
+    );
+
+    const overflow = screen.getByTestId("document-frame-overflow");
+    for (const name of ["Zoom out", "Zoom in", "Fit width", "Rotate 90°", "Viewing aid", "Fullscreen"]) {
+      const control = within(overflow).getByRole("button", { name });
+      expect(control.className).toMatch(/min-h-tap/);
+    }
+  });
+
+  it("omits page navigation for sources that are not paged", () => {
+    render(
+      <DocumentFrame
+        alt="Clinical figure"
+        src={{ kind: "image", url: "https://example.test/figure.png" }}
+        state="ready"
+        controls={readyControls()}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- A plain image is the document-content fixture under test. */}
+        <img src="https://example.test/figure.png" alt="Clinical figure" />
+      </DocumentFrame>,
+    );
+
+    expect(screen.queryByLabelText("Page number")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Next page" })).toBeNull();
   });
 
   it("suppresses the viewing aid while zoomed and never decorates source pixels", () => {

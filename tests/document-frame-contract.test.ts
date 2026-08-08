@@ -35,7 +35,7 @@ describe("DocumentFrame contract", () => {
     expect(imageOwnerSource).not.toMatch(forbiddenSourcePixelTreatment);
   });
 
-  it("adopts one frame with DocumentFrame zoom/fit controls and keeps PDF page chrome separate", () => {
+  it("adopts one frame that owns every viewing control, leaving source owners the pixels", () => {
     expect(viewerSource).toContain(
       'import { DocumentFrame, type DocumentFrameControls, type DocumentFrameSource } from "@/components/ui/document-frame"',
     );
@@ -45,15 +45,26 @@ describe("DocumentFrame contract", () => {
     expect(viewerSource).toContain("<NonPdfSourcePreview");
     expect(viewerSource).toContain("onFitWidthChange={handlePdfFitWidthChange}");
     expect(viewerSource).toContain("onZoomChange={handlePdfZoomChange}");
-    expect(pdfOwnerSource.match(/data-testid="pdf-toolbar"/g)).toHaveLength(1);
-    expect(pdfOwnerSource).toContain("frameOwnsZoomChrome");
-    // Rapid wheel/pinch functional updates must compose against a ref / React
-    // state updater — not a closed-over zoom prop (Sentry 15778840).
+
+    // One toolbar, one page readout, one meaning per icon. The PDF owner used to
+    // ship a second toolbar with its own page number and a Maximize2 that meant
+    // "fullscreen" while the frame's Maximize2 meant "fit width".
+    expect(frameSource.match(/data-testid="document-frame-controls"/g)).toHaveLength(1);
+    expect(pdfOwnerSource).not.toContain('data-testid="pdf-toolbar"');
+    expect(pdfOwnerSource).not.toContain('role="toolbar"');
+    expect(pdfOwnerSource).not.toContain("frameOwnsZoomChrome");
+    expect(frameSource).toContain('"Enter fullscreen document view"');
+    expect(frameSource).toContain('"Exit fullscreen document view"');
+    expect(frameSource).toContain('aria-label="Fit document to width"');
+    expect(frameSource).not.toContain('"Fit page width and enter fullscreen"');
+
+    // Rapid wheel/pinch functional updates must compose against a ref, not a
+    // closed-over zoom prop (Sentry 15778840). The PDF owner is fully controlled
+    // now, so the ref is the only thing standing between a pinch and dropped deltas.
     expect(pdfOwnerSource).toContain("zoomRef");
     expect(pdfOwnerSource).toContain("resolveViewerZoomUpdate");
-    expect(pdfOwnerSource).toContain("setInternalZoom((current) => resolveViewerZoomUpdate(current, next))");
-    expect(pdfOwnerSource).toContain('aria-label="Enter fullscreen document view"');
-    expect(pdfOwnerSource).not.toContain('aria-label="Fit page width and enter fullscreen"');
+    expect(pdfOwnerSource).toContain("const clamped = resolveViewerZoomUpdate(zoomRef.current, next)");
+
     expect(viewerSource).toContain('from "@/components/document-viewer/viewer-zoom"');
     expect(pdfOwnerSource).toContain('from "@/components/document-viewer/viewer-zoom"');
     expect(frameSource).toContain('from "@/components/document-viewer/viewer-zoom"');
