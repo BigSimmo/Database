@@ -88,6 +88,14 @@ const BAND_ROUTE_ALLOWLIST = new Map<string, string>([
     "Composer-driven landing stub with no result list of its own; the band is mounted by document-search-results.tsx inside the dashboard shell.",
   ],
   [
+    "src/app/(search-app)/documents/page.tsx",
+    "Documents mode home is a content slot; the band is mounted by document-search-results.tsx inside the dashboard shell.",
+  ],
+  [
+    "src/app/(search-app)/medications/page.tsx",
+    "Medication mode home is a content slot; the band is mounted by medication-prescribing-workspace.tsx inside the dashboard shell.",
+  ],
+  [
     "src/app/(search-app)/dsm/page.tsx",
     "DSM mode home is a catalogue landing; result lists (and the band) live on /dsm/search.",
   ],
@@ -618,8 +626,18 @@ describe("search results band adoption", () => {
       .filter((rel): rel is string => Boolean(rel))
       .map((rel) => ({ abs: path.join(REPO_ROOT, rel), rel }));
 
+    // The root dashboard route still renders submitted results for the modes it
+    // owns (`/?mode=prescribing&q=…&run=1`, and answer), so it belongs in the
+    // inventory on its own account. It used to arrive only via the Documents and
+    // prescribing hrefs; both now point at real mode homes, and relying on that
+    // coincidence is how this gate could quietly stop checking the root page.
+    const rootDashboardRoute = {
+      abs: ROOT_DASHBOARD_ROUTE,
+      rel: path.relative(REPO_ROOT, ROOT_DASHBOARD_ROUTE).replaceAll(path.sep, "/"),
+    };
+
     const routeKeys = new Map<string, { abs: string; rel: string }>();
-    for (const route of [...nestedSearchRoutes, ...modeHomeRoutes]) {
+    for (const route of [...nestedSearchRoutes, ...modeHomeRoutes, rootDashboardRoute]) {
       routeKeys.set(route.rel, route);
     }
     const searchRoutes = [...routeKeys.values()];

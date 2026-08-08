@@ -95,6 +95,10 @@ export const appModeDefinitions = [
     id: "documents",
     label: "Documents",
     description: "Find source PDFs, notes, and evidence passages",
+    // Documents owns a real home at /documents so it is reachable from nav like
+    // every other mode. `/` is the shared home for all modes and no longer renders
+    // any one mode's content. A query still routes to /documents/search below.
+    href: "/documents",
     search: {
       kind: "documents",
       placeholder: "Search source documents...",
@@ -281,7 +285,10 @@ export const appModeDefinitions = [
     id: "prescribing",
     label: "Medication",
     description: "Medication dosing, safety, and monitoring checks",
-    href: "/?mode=prescribing",
+    // Medication owns a real home at /medications (previously a 307 alias for
+    // /?mode=prescribing, which is now the shared home). A submitted search still
+    // resolves to /?mode=prescribing&q=…&run=1, which stays dashboard-owned.
+    href: "/medications",
     search: {
       // Deliberately kind:"documents" (unlike forms): prescribing intentionally searches the
       // document corpus for dosing/threshold guidance (defaultQueryMode dose_threshold_lookup).
@@ -454,6 +461,25 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
     return suffix ? `${mode.href}${separator}${suffix}` : mode.href;
   }
 
+  return appModeSelectionHref(modeId, options);
+}
+
+/**
+ * The shared home URL (`/`) with `modeId` preselected.
+ *
+ * `/` is the single home page for every mode: the mode pill retargets the
+ * composer rather than navigating, so selecting a mode rewrites this href in
+ * place (`history.replaceState`) instead of pushing a route. Keeping the mode in
+ * the URL means a reload or a shared link server-renders the right placeholder
+ * with no hydration flip, and lets the existing render-time URL sync keep owning
+ * `searchMode` — never an optimistic state set, per the hero-vs-dock rule in
+ * docs/search-chrome-behaviour.md.
+ *
+ * Distinct from `appModeHomeHref`, which resolves a mode's *own* surface
+ * (`/dsm/search`, `/tools`, …). This always stays on `/`.
+ */
+export function appModeSelectionHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
+  const query = options.query?.trim();
   const params = new URLSearchParams({ mode: modeId });
   if (query) params.set("q", query);
   if (options.focus) params.set("focus", "1");
