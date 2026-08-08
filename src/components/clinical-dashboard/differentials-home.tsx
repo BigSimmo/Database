@@ -894,7 +894,7 @@ function SearchResultsView({
   const sourcesChecked = evidenceIsCurrent && documentMatches !== undefined;
   const evidenceState: DifferentialEvidenceState = hasSourceEvidence ? "source-backed" : "guided";
   // Count the sources that actually matched this search, never the whole
-  // indexed library - the surrounding copy states these reflect real matches.
+  // indexed library.
   const reviewedSourceCount = hasSourceEvidence ? (currentDocumentMatches?.length ?? 0) : 0;
   const catalogLoading = catalog.status === "loading";
   const catalogFailed = catalog.status === "error" || catalog.status === "unauthorized";
@@ -1024,16 +1024,6 @@ function SearchResultsView({
         onClearAll={kindFilter === "all" ? undefined : () => setKindFilter("all")}
         footerNote={`${visibleResults.length} showing`}
       />
-      <p
-        data-testid="differentials-catalogue-notice"
-        className="flex min-w-0 items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/50 px-3 py-1.5 text-xs font-semibold leading-5 text-[color:var(--info)] sm:py-2 sm:text-sm"
-      >
-        <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-        <span className="min-w-0 text-pretty">
-          Ranked from your imported differentials catalogue. Source counts reflect real matches from your indexed
-          library.
-        </span>
-      </p>
       {catalogLoading ? (
         <div className="grid gap-2" aria-hidden data-testid="differentials-results-loading">
           {[0, 1, 2].map((placeholder) => (

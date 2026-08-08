@@ -20,6 +20,7 @@ const streamCopy: Record<
     heading: string;
     description: string;
     intro: string;
+    entriesLabel: string;
     cards: DifferentialStreamCard[];
   }
 > = {
@@ -27,12 +28,14 @@ const streamCopy: Record<
     heading: "Differentials: Presentations",
     description: "Search and refine by presenting pattern before locking differential pathways.",
     intro: "Use this stream for symptom-first intake, acute presentations, and rapid sorting.",
+    entriesLabel: "Presentation-focused differential content",
     cards: differentialPresentationsCards,
   },
   diagnoses: {
     heading: "Differentials: Diagnoses",
     description: "Compare likely causes side-by-side and check exclusion clues.",
     intro: "Use this stream for differential ranking, safety ordering, and comparison notes.",
+    entriesLabel: "Diagnosis-focused differential content",
     cards: differentialDiagnosesCards,
   },
 };
@@ -56,7 +59,7 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
         <section className="grid gap-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-base font-bold text-[color:var(--text-heading)]">Clinical entries</h2>
-            <span className="text-sm text-[color:var(--text-muted)]">Diagnosis-focused differential content</span>
+            <span className="text-sm text-[color:var(--text-muted)]">{copy.entriesLabel}</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {copy.cards.map((card) => (

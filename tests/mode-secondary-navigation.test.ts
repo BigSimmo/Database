@@ -18,7 +18,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   services: [],
   forms: [],
   favourites: [],
-  differentials: ["Search", "Diagnoses", "Compare"],
+  differentials: ["Search", "Diagnoses", "Presentations", "Compare"],
   dsm: ["Search", "Compare"],
   specifiers: ["Find", "Build", "Compare", "Map"],
   formulation: ["Find", "Build", "Compare", "Map"],
@@ -172,6 +172,15 @@ describe("mode secondary navigation registry", () => {
       }),
     ).toBe("/differentials/compare?q=confusion&ids=delirium%2Cdementia");
 
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "differentials",
+        itemId: "presentations",
+        href: "/differentials/presentations",
+        currentSearchParams: new URLSearchParams("q=confusion&ids=delirium%2Cdementia"),
+      }),
+    ).toBe("/differentials/presentations?q=confusion&ids=delirium%2Cdementia");
+
     // Search is the CURRENT tab on /factsheets/search, so its own link must not
     // reset what you are looking at. `run` is carried with the query because
     // dropping it flips hasSubmittedModeSearch and re-places the composer.
@@ -301,10 +310,49 @@ describe("information page classification", () => {
     "/factsheets/search",
     "/therapy-compass/search",
     "/differentials/diagnoses",
+    "/differentials/presentations",
     "/differentials/compare",
     "/dsm/compare",
     "/documents/search",
   ])("does not classify workflow route %s as an information page", (pathname) => {
     expect(isInformationPage(pathname)).toBe(false);
+  });
+});
+
+describe("differentials mode secondary navigation active destinations", () => {
+  it("marks the presentations catalogue and compare surfaces distinctly", () => {
+    expect(activeModeSecondaryNavigationId("differentials", "/differentials/presentations")).toBe("presentations");
+    expect(activeModeSecondaryNavigationId("differentials", "/differentials/presentations?q=confusion")).toBe(
+      "presentations",
+    );
+    expect(
+      activeModeSecondaryNavigationId("differentials", "/differentials/presentations/acute-confusion-encephalopathy"),
+    ).toBe("compare");
+    expect(activeModeSecondaryNavigationId("differentials", "/differentials/compare")).toBe("compare");
+    expect(activeModeSecondaryNavigationId("differentials", "/differentials/diagnoses")).toBe("diagnoses");
+  });
+
+  it("opens the mode bar on the presentations catalogue and compare entry", () => {
+    expect(
+      isModeSecondaryNavigationRoute({
+        modeId: "differentials",
+        pathname: "/differentials/presentations",
+        hasSubmittedSearch: false,
+      }),
+    ).toBe(true);
+    expect(
+      isModeSecondaryNavigationRoute({
+        modeId: "differentials",
+        pathname: "/differentials/compare",
+        hasSubmittedSearch: false,
+      }),
+    ).toBe(true);
+    expect(
+      isModeSecondaryNavigationRoute({
+        modeId: "differentials",
+        pathname: "/differentials/presentations/acute-confusion-encephalopathy",
+        hasSubmittedSearch: false,
+      }),
+    ).toBe(false);
   });
 });

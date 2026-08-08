@@ -38,11 +38,11 @@ type SiteMapData = {
   nonRoutedMockupArtifacts: string[];
 };
 
-const productRouteHandlerPaths = new Set(["/applications", "/differentials/presentations"]);
+const productRouteHandlerPaths = new Set(["/applications", "/differentials/compare"]);
 
 const documentedRedirectTargets: Record<string, string> = {
   "/applications": "/tools",
-  "/differentials/presentations": "/differentials/presentations/[workflow-slug]",
+  "/differentials/compare": "/differentials/presentations/[workflow-slug]",
   // The source page redirects a valid id to the canonical `/documents/[id]` viewer
   // (page.tsx line 20) and only falls back to `/documents/search` for an invalid id
   // (line 14). Pin the canonical target here so the generated map does not report the
@@ -54,10 +54,11 @@ const routeDescriptions: Record<string, string> = {
   "/": "Main Clinical KB shell.",
   "/applications": "Legacy application launcher redirect to Tools.",
   "/differentials": "Differentials home and search surface.",
-  "/differentials/compare": "Selected differential diagnosis comparison.",
+  "/differentials/compare": "Compare entry redirect into a presentation workflow or ad-hoc diagnosis comparison.",
   "/differentials/diagnoses": "Diagnosis stream.",
   "/differentials/diagnoses/[slug]": "Differential diagnosis detail.",
-  "/differentials/presentations": "Presentation workflow stream.",
+  "/differentials/presentations": "Presentation catalogue stream.",
+  "/differentials/presentations/[slug]": "Presentation comparison workflow.",
   "/dsm": "DSM-5 Diagnosis home.",
   "/dsm/search": "DSM diagnosis search and catalogue browser.",
   "/dsm/compare": "DSM diagnosis comparison.",
@@ -343,7 +344,7 @@ function renderModePageIndex() {
       home: appModeHomeHref("differentials"),
       search: appModeHomeHref("differentials", { query: "acute confusion", focus: true, run: true }),
       detail:
-        "`/differentials/diagnoses`, `/differentials/diagnoses/[slug]`, `/differentials/compare`, and `/differentials/presentations`.",
+        "`/differentials/diagnoses`, `/differentials/diagnoses/[slug]`, `/differentials/presentations`, `/differentials/presentations/[slug]`, and `/differentials/compare`.",
     },
     {
       mode: "DSM-5 Diagnosis",

@@ -36,6 +36,7 @@ export const modeSecondaryNavigationRegistry = {
   differentials: [
     { id: "search", label: "Search", href: appModeHomeHref("differentials", { focus: true }) },
     { id: "diagnoses", label: "Diagnoses", href: "/differentials/diagnoses" },
+    { id: "presentations", label: "Presentations", href: "/differentials/presentations" },
     { id: "compare", label: "Compare", href: "/differentials/compare" },
   ],
   dsm: [
@@ -141,7 +142,11 @@ export function routedModeSecondaryNavigationCount(modeId: AppModeId): number {
 export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: string): string | null {
   if (modeId === "differentials") {
     if (pathname.startsWith("/differentials/diagnoses")) return "diagnoses";
-    if (pathname.startsWith("/differentials/compare") || pathname.startsWith("/differentials/presentations")) {
+    // Catalogue owns the exact presentations path; workflow slugs are the Compare surface.
+    if (pathname === "/differentials/presentations" || pathname.startsWith("/differentials/presentations?")) {
+      return "presentations";
+    }
+    if (pathname.startsWith("/differentials/presentations/") || pathname.startsWith("/differentials/compare")) {
       return "compare";
     }
     if (pathname === "/differentials" || pathname.startsWith("/differentials?")) return "search";
@@ -193,9 +198,8 @@ export function isModeSecondaryNavigationRoute(params: {
   if (modeId === "differentials") {
     return (
       pathname === "/differentials/diagnoses" ||
-      pathname === "/differentials/compare" ||
       pathname === "/differentials/presentations" ||
-      pathname.startsWith("/differentials/presentations/")
+      pathname === "/differentials/compare"
     );
   }
   if (modeId === "dsm") return pathname === "/dsm/search" || pathname === "/dsm/compare";

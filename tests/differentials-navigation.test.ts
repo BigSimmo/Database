@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
-import { GET as redirectPresentations } from "@/app/(search-app)/differentials/presentations/route";
+import { GET as redirectCompare } from "@/app/(search-app)/differentials/compare/route";
 import {
   differentialIdsFromSearchParams,
   differentialRouteWithQuery,
@@ -35,9 +35,9 @@ describe("differentials navigation", () => {
   });
 
   it("redirects same-presentation compare selection to the hosting workflow", () => {
-    const response = redirectPresentations(
+    const response = redirectCompare(
       new NextRequest(
-        "http://0.0.0.0:4461/differentials/presentations?q=Pain&ids=anorexia-nervosa,bulimia-nervosa-binge-purge-pattern",
+        "http://0.0.0.0:4461/differentials/compare?q=Pain&ids=anorexia-nervosa,bulimia-nervosa-binge-purge-pattern",
       ),
     );
 
@@ -50,9 +50,9 @@ describe("differentials navigation", () => {
   });
 
   it("redirects cross-presentation compare selection to the ad-hoc compare route with every id", () => {
-    const response = redirectPresentations(
+    const response = redirectCompare(
       new NextRequest(
-        "http://0.0.0.0:4461/differentials/presentations?q=Pain&ids=medical-gi-endocrine-painful-organic-cause,bpsd-as-unmet-need-delirium-pain-mimic",
+        "http://0.0.0.0:4461/differentials/compare?q=Pain&ids=medical-gi-endocrine-painful-organic-cause,bpsd-as-unmet-need-delirium-pain-mimic",
       ),
     );
 
