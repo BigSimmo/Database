@@ -38,7 +38,7 @@ type SiteMapData = {
   nonRoutedMockupArtifacts: string[];
 };
 
-const productRouteHandlerPaths = new Set(["/applications", "/differentials/presentations", "/medications"]);
+const productRouteHandlerPaths = new Set(["/applications", "/differentials/presentations"]);
 
 const documentedRedirectTargets: Record<string, string> = {
   "/applications": "/tools",
@@ -48,7 +48,6 @@ const documentedRedirectTargets: Record<string, string> = {
   // (line 14). Pin the canonical target here so the generated map does not report the
   // invalid-id fallback that its first-`redirect()` regex would otherwise capture.
   "/documents/source": "/documents/[id]",
-  "/medications": "/?mode=prescribing",
 };
 
 const routeDescriptions: Record<string, string> = {
@@ -71,7 +70,7 @@ const routeDescriptions: Record<string, string> = {
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
-  "/medications": "Medication index redirect.",
+  "/medications": "Medication mode home.",
   "/medications/[slug]": "Medication detail.",
   "/privacy": "Privacy and data-processing governance draft.",
   "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
@@ -368,7 +367,7 @@ function renderModePageIndex() {
       mode: "Medication",
       home: appModeHomeHref("prescribing"),
       search: appModeHomeHref("prescribing", { query: "acamprosate renal dose", focus: true, run: true }),
-      detail: "`/medications/[slug]`; `/medications` redirects to medication mode.",
+      detail: "`/medications/[slug]`; submitted searches resolve to `/?mode=prescribing&q=…&run=1`.",
     },
     {
       mode: "Tools",

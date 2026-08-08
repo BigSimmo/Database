@@ -1902,7 +1902,11 @@
       "id": "root-shell-and-settings",
       "disposition": "shared-shell",
       "documentedDisposition": "The root route, shared application shell, global overlays, answer orchestration and settings UI are owned by the mounted shell rather than separate settings routes.",
-      "routes": ["src/app/(search-app)/page.tsx"],
+      "routes": [
+        "src/app/(search-app)/documents/page.tsx",
+        "src/app/(search-app)/medications/page.tsx",
+        "src/app/(search-app)/page.tsx"
+      ],
       "routeRoots": true,
       "proofApplicability": "required",
       "nonVisualRoute": null,
@@ -1942,7 +1946,7 @@
       "sanctionedSpecialPatterns": ["ClinicalDashboard", "OverlayRoot", "SettingsDialog"],
       "roots": [
         {
-          "file": "src/app/(search-app)/page.tsx",
+          "file": "src/app/(search-app)/documents/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -1950,6 +1954,26 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": ["ClinicalDashboard"]
+        },
+        {
+          "file": "src/app/(search-app)/medications/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/layout.tsx",
@@ -3160,6 +3184,7 @@
       "src/app/(search-app)/differentials/page.tsx",
       "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
       "src/app/(search-app)/documents/[id]/page.tsx",
+      "src/app/(search-app)/documents/page.tsx",
       "src/app/(search-app)/documents/search/page.tsx",
       "src/app/(search-app)/documents/source/evidence/page.tsx",
       "src/app/(search-app)/documents/source/page.tsx",
@@ -3180,6 +3205,7 @@
       "src/app/(search-app)/formulation/map/page.tsx",
       "src/app/(search-app)/formulation/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
+      "src/app/(search-app)/medications/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
@@ -3210,6 +3236,7 @@
       "src/app/(search-app)/differentials/page.tsx",
       "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
       "src/app/(search-app)/documents/[id]/page.tsx",
+      "src/app/(search-app)/documents/page.tsx",
       "src/app/(search-app)/documents/search/page.tsx",
       "src/app/(search-app)/documents/source/evidence/page.tsx",
       "src/app/(search-app)/documents/source/page.tsx",
@@ -3230,6 +3257,7 @@
       "src/app/(search-app)/formulation/map/page.tsx",
       "src/app/(search-app)/formulation/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
+      "src/app/(search-app)/medications/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
@@ -3258,7 +3286,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 55,
+    "inheritedCkbV2RootCount": 57,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -3267,8 +3295,8 @@
     "registeredComponentCount": 53,
     "previewCount": 53,
     "productImportedComponentCount": 30,
-    "rootCount": 56,
-    "productionRouteCount": 48,
-    "nextUiEntryCount": 100
+    "rootCount": 58,
+    "productionRouteCount": 50,
+    "nextUiEntryCount": 102
   }
 }

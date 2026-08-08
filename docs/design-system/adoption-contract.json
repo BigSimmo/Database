@@ -72,7 +72,11 @@
     {
       "id": "root-shell-and-settings",
       "disposition": "shared-shell",
-      "routes": ["src/app/(search-app)/page.tsx"],
+      "routes": [
+        "src/app/(search-app)/page.tsx",
+        "src/app/(search-app)/documents/page.tsx",
+        "src/app/(search-app)/medications/page.tsx"
+      ],
       "routeRoots": true,
       "roots": [
         "src/app/layout.tsx",
