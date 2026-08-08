@@ -912,7 +912,7 @@
         "preview": ".design-sync/previews/LinkAction.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
