@@ -177,6 +177,55 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 
 <!-- END:codex-desktop-worktree-setup -->
 
+<!-- BEGIN:reasoning-effort-calibration -->
+
+# Reasoning effort calibration
+
+Reasoning effort is a budget in the same way verification is a budget, and it is misspent the same
+way — by defaulting to the maximum instead of matching the spend to the risk. **Scale effort to how
+expensive the mistake is to undo (irreversibility × branching factor), never to the phase label.**
+"Plan high, build lower" is a good default, not a rule; it is wrong often enough that it must be
+chosen deliberately rather than assumed.
+
+**Why it is a good default.** Planning errors compound and implementation errors stay local: a wrong
+approach throws away the build, a wrong identifier is one edit. A plan is also a few thousand output
+tokens against a build's many long turns, so effort is cheapest exactly where it has the most leverage.
+
+**The mechanism that makes it work — do not skip this part.** A lower-effort build only succeeds
+against a plan concrete enough to execute: named files, named symbols, ordered steps, and the gate
+that will prove it. Downgrading the build against a vague plan does not save effort, it relocates the
+thinking into the expensive phase. If the plan cannot name those things, the build is not eligible for
+the downgrade.
+
+| Situation                                                                                      | Plan        | Build       |
+| ---------------------------------------------------------------------------------------------- | ----------- | ----------- |
+| Architecture, Supabase migrations/RLS, RAG ranking surfaces, auth/privacy, ingestion contracts | xhigh       | high        |
+| Ordinary feature or UI work with a clear shape                                                 | high        | medium–high |
+| Mechanical and fully specified — ledger append, docs edit, rename, version bump                | low or skip | medium      |
+| Debugging an unknown failure                                                                   | low         | high        |
+
+**Where the default inverts and the build needs more than the plan.** These are plan-light and
+execution-heavy; treating them as plan-heavy spends the budget in the wrong place:
+
+- **Debugging.** The plan is "find why X fails." The real reasoning is hypothesis-forming over live
+  state, which happens during the build.
+- **Constraint-dense implementation.** A one-sentence plan whose edit must simultaneously satisfy
+  button wiring, design tokens, the one-composer rule, unlayered CSS, and the tap-target and
+  phone-chrome contracts. Holding all of it at once is the hard part, not deciding what to do.
+- **Areas where training data is stale.** Next 16 is the standing case. Effort does not repair a wrong
+  prior — reading `node_modules/next/dist/docs/` does. Raising effort instead of reading is itself the
+  failure mode.
+
+**Constrain xhigh planning output, not just its effort.** Extra-high planning over-produces:
+alternatives, contingency branches, and surveys that are never used, paid for twice — once generating
+and once reading. Ask for the chosen approach, the files, and the gate, not a survey.
+
+**State the split before non-trivial planning work.** One line before starting: plan effort, build
+effort, and the risk that justifies them. It is cheap, it makes a wrong allocation visible while it is
+still free to change, and it stops the blanket default from being applied silently.
+
+<!-- END:reasoning-effort-calibration -->
+
 <!-- BEGIN:process-hardening -->
 
 # Process hardening phases
