@@ -831,21 +831,43 @@ describe("design-system adoption manifest", () => {
     }
   });
 
-  it("requires the exact static AWAITING_BASELINE transition from canonical six to empty", { timeout: 90_000 }, () => {
+  it("accepts a first adoption or a refresh, and nothing else", { timeout: 90_000 }, () => {
     const exactRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-exact-"));
+    const refreshRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-refresh-"));
     const retainedRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-retained-"));
     const missingRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-missing-"));
     const extraRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-extra-"));
     const dynamicRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-dynamic-"));
     const spreadRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-spread-"));
     const duplicateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-duplicate-"));
-    const fixtureRoots = [exactRoot, retainedRoot, missingRoot, extraRoot, dynamicRoot, spreadRoot, duplicateRoot];
+    const fixtureRoots = [
+      exactRoot,
+      refreshRoot,
+      retainedRoot,
+      missingRoot,
+      extraRoot,
+      dynamicRoot,
+      spreadRoot,
+      duplicateRoot,
+    ];
     try {
       initialiseCandidateRepository(exactRoot, canonicalAwaitingValues);
       setCurrentAwaitingValues(exactRoot, "");
       const exact = writeBaselineSet(exactRoot);
       expect(
         validateLinuxVisualBaselineSet(exact.paths, { root: exactRoot, trackedFiles: exact.trackedFiles }),
+      ).toEqual([]);
+
+      // A REFRESH binds too: empty at both ends, suite byte-identical. This is the
+      // ordinary case once baselines exist — a surface is deliberately re-shot and
+      // its goldens replaced. Without it the six-to-empty transition was satisfiable
+      // exactly once, so the first intentional design change would have left the
+      // goldens red with no supported way to re-adopt them.
+      initialiseCandidateRepository(refreshRoot, "");
+      setCurrentAwaitingValues(refreshRoot, "");
+      const refresh = writeBaselineSet(refreshRoot);
+      expect(
+        validateLinuxVisualBaselineSet(refresh.paths, { root: refreshRoot, trackedFiles: refresh.trackedFiles }),
       ).toEqual([]);
 
       initialiseCandidateRepository(retainedRoot, canonicalAwaitingValues);
@@ -872,14 +894,18 @@ describe("design-system adoption manifest", () => {
           root: missingRoot,
           trackedFiles: missing.trackedFiles,
         }),
-      ).toContain("candidateSourceHead AWAITING_BASELINE must contain exactly the canonical six ids");
+      ).toContain(
+        "candidateSourceHead AWAITING_BASELINE must be either the canonical six ids (first adoption) or empty (refresh)",
+      );
 
       initialiseCandidateRepository(extraRoot, `${canonicalAwaitingValues}, "extra-target"`);
       setCurrentAwaitingValues(extraRoot, "");
       const extra = writeBaselineSet(extraRoot);
       expect(
         validateLinuxVisualBaselineSet(extra.paths, { root: extraRoot, trackedFiles: extra.trackedFiles }),
-      ).toContain("candidateSourceHead AWAITING_BASELINE must contain exactly the canonical six ids");
+      ).toContain(
+        "candidateSourceHead AWAITING_BASELINE must be either the canonical six ids (first adoption) or empty (refresh)",
+      );
 
       initialiseCandidateRepository(dynamicRoot, "BASELINE_IDS");
       setCurrentAwaitingValues(dynamicRoot, "");

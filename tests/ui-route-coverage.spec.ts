@@ -305,12 +305,20 @@ test.describe("previously uncovered production routes", () => {
         await expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();
       },
       async (currentPage) => {
-        const remove = currentPage.getByRole("link", {
+        // Scope to the visible comparison owner (#093): under Production UI load,
+        // Next streaming can leave a hidden duplicate root, and same-route
+        // search-param `<Link>` soft-nav has been observed to click without
+        // updating the URL. Pin the visible tree and wait for navigation with
+        // the click (DsmCompareRemoveLink uses router.push for this hop).
+        const pageRoot = visibleByTestId(currentPage, "dsm-comparison-page");
+        const remove = pageRoot.getByRole("link", {
           name: "Remove Major depressive disorder from comparison",
         });
         await expect(remove).toBeEnabled();
-        await remove.click();
-        await expect(currentPage).toHaveURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/);
+        await Promise.all([
+          currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, { timeout: 15_000 }),
+          remove.click(),
+        ]);
         await expect(currentPage.getByRole("heading", { name: "Choose at least two diagnoses" })).toBeVisible();
       },
     );
