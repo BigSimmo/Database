@@ -1320,7 +1320,11 @@ export function DocumentViewer({
         data-phone-chrome-transition={reserveTransitioning ? "active" : "idle"}
         data-document-view={compactView ? "condensed" : "full"}
         className={cn(
-          "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
+          // Base `grid-cols-1` for the same reason as the rail grid: without an
+          // explicit track this is an implicit `auto` column sized by its items'
+          // min-content, so a single child that forgets `min-w-0` can widen the
+          // whole page past the viewport and get clipped by `overflow-x: clip`.
+          "mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
           // remove all artificial clearance so Safari can paint document content
           // beneath its translucent toolbar instead of showing a blank band.
