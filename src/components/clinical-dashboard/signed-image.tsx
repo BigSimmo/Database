@@ -5,6 +5,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { CircleAlert, Maximize2 } from "lucide-react";
 
 import { cn, Skeleton } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
 import { getCachedSignedUrl } from "@/lib/signed-url-cache";
 import { useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
 import { ImageLightbox } from "@/components/clinical-dashboard/image-lightbox";
@@ -33,6 +34,7 @@ export const SignedImage = memo(function SignedImage({
   caption,
   aspectRatio,
   priority = false,
+  expandLabel,
 }: {
   /** Signed-URL API route, e.g. `/api/images/{id}/signed-url`. */
   endpoint: string;
@@ -57,6 +59,13 @@ export const SignedImage = memo(function SignedImage({
    * above-the-fold for next/image (`priority`) — for hero/evidence figures.
    */
   priority?: boolean;
+  /**
+   * Renders a labelled control beneath the frame that opens the same lightbox,
+   * for crops the inline card cannot show legibly. Requires `zoomable`. Opt-in:
+   * ordinary figures stay uncluttered, and every existing caller's DOM is
+   * unchanged.
+   */
+  expandLabel?: string;
 }) {
   const [shouldLoad, setShouldLoad] = useState(() => priority || Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
@@ -135,7 +144,7 @@ export const SignedImage = memo(function SignedImage({
   // never resizes the layout (the placeholder and the image share one box). The
   // image object-contains within it and fades in on decode, so nothing below
   // shifts when it arrives.
-  return (
+  const frame = (
     <div
       ref={frameRef}
       style={
@@ -183,7 +192,13 @@ export const SignedImage = memo(function SignedImage({
           >
             <span
               aria-hidden="true"
-              className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)]/85 p-1 text-[color:var(--text-muted)] opacity-0 shadow-[var(--shadow-tight)] backdrop-blur-md transition group-hover/signed-image:opacity-100 group-focus-within/signed-image:opacity-100 motion-reduce:transition-none"
+              // Reveal-on-hover leaves the affordance permanently invisible on a
+              // phone, where there is no hover to reveal it — so the one cue that
+              // a clipped clinical table opens full screen never appeared on the
+              // devices that need it most. `hover:none` is the precise predicate:
+              // it targets exactly the pointers that cannot trigger the reveal.
+              // Hover-capable pointers keep the quiet, uncluttered original.
+              className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)]/85 p-1 text-[color:var(--text-muted)] opacity-0 shadow-[var(--shadow-tight)] backdrop-blur-md transition group-hover/signed-image:opacity-100 group-focus-within/signed-image:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
             >
               <Maximize2 aria-hidden="true" className="h-3.5 w-3.5" />
             </span>
@@ -207,6 +222,33 @@ export const SignedImage = memo(function SignedImage({
           )}
         </div>
       ) : null}
+    </div>
+  );
+
+  if (!expandLabel || !zoomable) return frame;
+
+  // A wide clinical table cannot be made legible inside a phone card — the
+  // contained fit is already the largest faithful rendering — so the card's job
+  // is to be an unclipped thumbnail with an unmissable route to the full-screen
+  // viewer. This mirrors "Expand table" (AccessibleTable) and "View immersive"
+  // (NonPdfSourcePreview) rather than inventing a fourth affordance.
+  return (
+    <div className="min-w-0">
+      {frame}
+      <Button
+        variant="secondary"
+        size="sm"
+        block
+        trailingIcon={Maximize2}
+        testId="signed-image-expand"
+        disabled={!url || !loaded}
+        aria-haspopup="dialog"
+        aria-expanded={lightboxOpen}
+        onClick={() => setLightboxOpen(true)}
+        className="mt-2"
+      >
+        {expandLabel}
+      </Button>
     </div>
   );
 });

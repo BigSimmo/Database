@@ -269,8 +269,15 @@
       "source": "src/components/ui/button.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/AccessibleTable.tsx", "src/components/ui/confirm-dialog.tsx"],
-      "productImportFiles": ["src/components/AccessibleTable.tsx"],
+      "directImportFiles": [
+        "src/components/AccessibleTable.tsx",
+        "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/ui/confirm-dialog.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/AccessibleTable.tsx",
+        "src/components/clinical-dashboard/signed-image.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1463,6 +1470,7 @@
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
         "tests/header-scroll-hide-contract.test.ts",
+        "tests/image-lightbox-geometry.test.ts",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",
