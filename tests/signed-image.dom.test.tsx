@@ -150,3 +150,61 @@ describe("SignedImage failure/retry (jsdom)", () => {
     expect(src).not.toContain("resize=");
   });
 });
+
+describe("SignedImage expand affordance (jsdom)", () => {
+  const stubUrl = (url = "/demo/wide-table.png") =>
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ url }) }));
+
+  it("keeps the expand chip visible on pointers that cannot hover", async () => {
+    stubUrl();
+    render(<SignedImage endpoint={ENDPOINT} alt="Wide table" zoomable />);
+
+    const img = await screen.findByRole("img", { name: "Wide table" });
+    fireEvent.load(img);
+
+    const trigger = await screen.findByRole("button", { name: /Expand image/ });
+    const chip = trigger.querySelector("span");
+    // Reveal-on-hover left this permanently invisible on a phone — the one cue
+    // that a clipped clinical table opens full screen never appeared on the
+    // devices that need it. jsdom cannot evaluate a media query, so the class
+    // contract is the assertion; the paint is covered by the Chromium journey.
+    expect(chip?.className).toContain("[@media(hover:none)]:opacity-100");
+    // Hover-capable pointers keep the quiet original.
+    expect(chip?.className).toContain("group-hover/signed-image:opacity-100");
+  });
+
+  it("adds a labelled full-screen control only when the caller opts in", async () => {
+    stubUrl();
+    const { unmount } = render(<SignedImage endpoint={ENDPOINT} alt="Wide table" zoomable />);
+    fireEvent.load(await screen.findByRole("img", { name: "Wide table" }));
+    // Default DOM is unchanged for every existing caller.
+    expect(screen.queryByTestId("signed-image-expand")).toBeNull();
+    unmount();
+
+    stubUrl();
+    render(<SignedImage endpoint={ENDPOINT} alt="Wide table" zoomable expandLabel="Open full screen" />);
+    fireEvent.load(await screen.findByRole("img", { name: "Wide table" }));
+
+    const expand = await screen.findByTestId("signed-image-expand");
+    expect(expand).toHaveTextContent("Open full screen");
+    expect(expand).toHaveAttribute("aria-haspopup", "dialog");
+    expect(expand).not.toBeDisabled();
+  });
+
+  it("opens the same lightbox from the labelled control", async () => {
+    const user = userEvent.setup();
+    stubUrl();
+    render(<SignedImage endpoint={ENDPOINT} alt="Wide table" zoomable expandLabel="Open full screen" />);
+    fireEvent.load(await screen.findByRole("img", { name: "Wide table" }));
+
+    expect(screen.queryByTestId("image-lightbox")).toBeNull();
+    await user.click(await screen.findByTestId("signed-image-expand"));
+    expect(await screen.findByTestId("image-lightbox")).toBeInTheDocument();
+  });
+
+  it("ignores expandLabel without zoomable, since there would be nothing to open", () => {
+    stubUrl();
+    render(<SignedImage endpoint={ENDPOINT} alt="Wide table" expandLabel="Open full screen" />);
+    expect(screen.queryByTestId("signed-image-expand")).toBeNull();
+  });
+});
