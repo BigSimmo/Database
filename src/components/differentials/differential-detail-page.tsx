@@ -41,7 +41,9 @@ import {
   formatExportedDate,
   groupCurrentPresentation,
   isDetailTabId,
+  isRedundantSafetySummary,
   resolveSafetyFacts,
+  safetyFactCompactLabel,
   sectionBadgeLabel,
   visibleSectionItems,
   type DifferentialDetailContext,
@@ -365,6 +367,13 @@ const factIcons: Record<DifferentialSafetyFact["id"], LucideIcon> = {
   related: GitBranch,
 };
 
+function safetyFactGridClass(count: number): string {
+  if (count <= 1) return "grid-cols-1";
+  if (count === 3) return "grid-cols-3";
+  if (count >= 4) return "grid-cols-2 sm:grid-cols-4";
+  return "grid-cols-2";
+}
+
 function SafetySnapshot({
   record,
   onReviewMustNotMiss,
@@ -374,78 +383,98 @@ function SafetySnapshot({
 }) {
   const theme = snapshotThemes[record.status];
   const facts = resolveSafetyFacts(record);
+  const tags = record.safetySnapshot.tags;
+  const summary = record.safetySnapshot.summary.trim();
+  const showSummary = summary.length > 0 && !isRedundantSafetySummary(summary, tags);
 
   return (
-    <section className={cn("rounded-lg border p-3 shadow-[var(--shadow-inset)] sm:p-5", theme.container)}>
-      <div className="flex items-start gap-3">
+    <section
+      className={cn("rounded-lg border p-3 shadow-[var(--shadow-inset)] sm:p-4", theme.container)}
+      data-testid="differential-safety-snapshot"
+    >
+      <div className="flex flex-wrap items-center gap-2">
         <span
-          className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg border sm:h-9 sm:w-9", theme.iconTile)}
+          className={cn(
+            "grid h-7 w-7 shrink-0 place-items-center rounded-md border sm:h-8 sm:w-8 sm:rounded-lg",
+            theme.iconTile,
+          )}
         >
-          <theme.Icon className="h-4 w-4" aria-hidden />
+          <theme.Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className={cn("text-sm font-extrabold uppercase tracking-label", theme.heading)}>Safety snapshot</h2>
+        <h2 className={cn("text-sm font-extrabold uppercase tracking-label", theme.heading)}>Safety snapshot</h2>
+        <span
+          className={cn(
+            "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-extrabold uppercase",
+            statusToneClass[record.status],
+          )}
+        >
+          {differentialStatusLabel(record.status)}
+        </span>
+      </div>
+
+      {showSummary ? (
+        <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)] sm:leading-6">{summary}</p>
+      ) : null}
+
+      {tags.length > 0 ? (
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <span className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
+            Watch for
+          </span>
+          {tags.map((tag) => (
             <span
+              key={tag}
               className={cn(
-                "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-extrabold uppercase",
-                statusToneClass[record.status],
+                "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-semibold",
+                theme.chip,
               )}
             >
-              {differentialStatusLabel(record.status)}
+              {cleanDifferentialItem(tag)}
             </span>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-[color:var(--text)]">{record.safetySnapshot.summary}</p>
-          {facts.length > 0 ? (
-            <div className={cn("mt-3 grid grid-cols-2 gap-3 border-y py-3 sm:grid-cols-4 sm:gap-2", theme.divider)}>
-              {facts.map((fact, index) => {
-                const Icon = factIcons[fact.id];
-                return (
-                  <div
-                    key={fact.id}
-                    className={cn("min-w-0", index > 0 && "sm:border-l sm:pl-4", index > 0 && theme.divider)}
-                  >
-                    <p className="grid gap-1 text-2xs font-bold leading-tight text-[color:var(--text-heading)] sm:flex sm:items-center sm:gap-2 sm:text-xs">
-                      <Icon className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", theme.accentText)} aria-hidden />
-                      <span>{fact.label}</span>
-                    </p>
-                    <p className="mt-1 text-2xs font-semibold text-[color:var(--text-muted)] sm:text-xs">
-                      {fact.value}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-          {record.safetySnapshot.tags.length > 0 ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-[color:var(--text-heading)]">Watch for</span>
-              {record.safetySnapshot.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className={cn(
-                    "inline-flex min-h-7 items-center rounded-md border px-2.5 text-2xs font-semibold",
-                    theme.chip,
-                  )}
-                >
-                  {cleanDifferentialItem(tag)}
-                </span>
-              ))}
-            </div>
-          ) : null}
-          {onReviewMustNotMiss ? (
-            <button
-              type="button"
-              data-testid="differential-safety-cta"
-              onClick={onReviewMustNotMiss}
-              className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
-            >
-              <TriangleAlert className={cn("h-4 w-4", theme.accentText)} aria-hidden />
-              Review must-not-miss causes
-            </button>
-          ) : null}
+          ))}
         </div>
-      </div>
+      ) : null}
+
+      {facts.length > 0 ? (
+        <div
+          className={cn(
+            "mt-2.5 grid gap-2 border-y py-2 sm:gap-3 sm:py-2.5",
+            safetyFactGridClass(facts.length),
+            theme.divider,
+          )}
+          role="list"
+          aria-label="Safety metrics"
+        >
+          {facts.map((fact) => {
+            const Icon = factIcons[fact.id];
+            const compactLabel = safetyFactCompactLabel[fact.id] ?? fact.label;
+            return (
+              <div key={fact.id} className="min-w-0 text-center sm:text-left" role="listitem">
+                <p className={cn("text-base font-extrabold leading-none tabular-nums", theme.accentText)}>
+                  {fact.value}
+                </p>
+                <p className="mt-1 flex items-center justify-center gap-1 text-2xs font-bold leading-tight text-[color:var(--text-muted)] sm:justify-start sm:text-xs">
+                  <Icon className={cn("h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5", theme.accentText)} aria-hidden />
+                  <span className="sm:hidden">{compactLabel}</span>
+                  <span className="hidden sm:inline">{fact.label}</span>
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {onReviewMustNotMiss ? (
+        <button
+          type="button"
+          data-testid="differential-safety-cta"
+          onClick={onReviewMustNotMiss}
+          className="mt-2.5 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] sm:w-auto sm:justify-start"
+        >
+          <TriangleAlert className={cn("h-4 w-4", theme.accentText)} aria-hidden />
+          Review must-not-miss causes
+        </button>
+      ) : null}
     </section>
   );
 }

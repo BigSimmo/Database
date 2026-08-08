@@ -5,6 +5,7 @@ import {
   formatDifferentialCopyText,
   groupCurrentPresentation,
   isDetailTabId,
+  isRedundantSafetySummary,
   resolveSafetyFacts,
   sectionBadgeLabel,
   visibleSectionItems,
@@ -124,6 +125,54 @@ describe("resolveSafetyFacts", () => {
     ]);
     expect(facts.map((fact) => fact.value)).toEqual(["2", "1", "1", "1"]);
     expect(facts.some((fact) => ["Onset", "Course", "Treatable"].includes(fact.label))).toBe(false);
+  });
+});
+
+describe("isRedundantSafetySummary", () => {
+  it("treats an exact comma-joined tag list as redundant", () => {
+    expect(
+      isRedundantSafetySummary("Superimposed delirium, aspiration, falls, abuse/neglect", [
+        "Superimposed delirium",
+        "aspiration",
+        "falls",
+        "abuse/neglect",
+      ]),
+    ).toBe(true);
+  });
+
+  it("ignores case and trailing punctuation", () => {
+    expect(
+      isRedundantSafetySummary("Wandering, exploitation, medication mismanagement.", [
+        "wandering",
+        "Exploitation",
+        "medication mismanagement",
+      ]),
+    ).toBe(true);
+  });
+
+  it("treats high-overlap list summaries as redundant (tags preferred)", () => {
+    expect(
+      isRedundantSafetySummary("Superimposed delirium, aspiration, falls, abuse/neglect, unsafe living.", [
+        "Superimposed delirium",
+        "aspiration",
+        "falls",
+        "abuse/neglect",
+      ]),
+    ).toBe(true);
+  });
+
+  it("keeps unique prose summaries that tags do not cover", () => {
+    expect(
+      isRedundantSafetySummary("Acute change needs a delirium workup before attributing decline to dementia alone.", [
+        "Superimposed delirium",
+        "aspiration",
+      ]),
+    ).toBe(false);
+  });
+
+  it("hides an empty summary and keeps a summary when there are no tags", () => {
+    expect(isRedundantSafetySummary("", ["falls"])).toBe(true);
+    expect(isRedundantSafetySummary("Falls and aspiration risk.", [])).toBe(false);
   });
 });
 
