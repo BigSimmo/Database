@@ -49,10 +49,13 @@ export function Pagination({
 
   const currentRef = useRef<HTMLButtonElement | null>(null);
   const currentValueRef = useRef(current);
-  currentValueRef.current = current;
   // Set when the control the user just activated is about to disable itself.
   const restoreFocus = useRef(false);
   const pendingTarget = useRef<number | null>(null);
+
+  useEffect(() => {
+    currentValueRef.current = current;
+  }, [current]);
 
   useEffect(() => {
     const target = pendingTarget.current;
@@ -83,12 +86,14 @@ export function Pagination({
     // `onPageChange` does not guarantee the parent accepts `target`. Announce and
     // restore focus only after `current` commits to the pending page; if the
     // parent rejects the change, clear the pending state without announcing.
-    queueMicrotask(() => {
+    // Parent may reject `onPageChange`; defer the check until after React can
+    // commit a synchronous controlled update (microtasks run too early).
+    window.setTimeout(() => {
       if (pendingTarget.current === target && currentValueRef.current !== target) {
         restoreFocus.current = false;
         pendingTarget.current = null;
       }
-    });
+    }, 0);
   }
 
   const step =
