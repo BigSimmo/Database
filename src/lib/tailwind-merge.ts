@@ -63,19 +63,34 @@ export const CLINICAL_TWMERGE_THEME = {
   // which are padding utilities and should conflict with pt-*/pb-* like any
   // other.
   //
-  // `tap` (--spacing-tap, the 48px target knob) is DELIBERATELY ABSENT, and
-  // this is the one omission that is not an oversight. Tailwind emits
-  // `.min-h-tap` after every numeric `.min-h-*` and `.h-tap` after `.h-4` /
-  // `.h-10.5`, so at equal specificity the tap token wins today wherever a
-  // call site pairs the two. Declaring `tap` here would hand the win to the
-  // later class instead — measured across 22 call sites (document-admin,
-  // DocumentManagerPanel, favourites-hub, settings-dialog, service-detail-page,
-  // form-detail-page, clinical-output-helpers, account-setup-dialog), 18 of
-  // which would drop from 48px to 32/36/40/42px. AGENTS.md and SPEC §4.10 are
-  // explicit that no production target is ever reduced, so the merge stays off
-  // for this family until those sites drop the numeric class they already
-  // cannot apply. Until then `min-h-tap min-h-9` passes through unmerged,
-  // exactly as it does today; `tests/tailwind-merge-config.test.ts` pins that.
+  // `tap` (--spacing-tap, the 48px target knob) was held out of this list until
+  // 8 August 2026. The stated reason was that declaring it hands the win to the
+  // later class — "22 call sites, 18 of which would drop from 48px to
+  // 32/36/40/42px". That figure did not survive re-measurement (#270), and the
+  // omission is no longer justified:
+  //
+  //   - There are ZERO same-variant tap/numeric pairs in production source. The
+  //     84 survivors the old scan counted are cross-variant responsive
+  //     step-downs (`min-h-tap` with `sm:min-h-9`, `h-10.5` with `sm:h-tap`),
+  //     and tailwind-merge groups by variant, so declaring `tap` cannot reach
+  //     them. They are live breakpoint steps, not dead classes — deleting them
+  //     would RAISE those controls at their breakpoint.
+  //   - The named call sites were stale: DocumentManagerPanel and
+  //     settings-dialog carry no tap token at all, and document-admin and
+  //     service-detail-page pair theirs with no numeric height.
+  //   - A per-string-literal scan cannot see a conflict composed across `cn()`
+  //     arguments — `cn(recipe, "min-h-tap")` pairs the recipe's `min-h-7` with
+  //     the token. A composition-aware sweep that resolves constant recipe
+  //     identifiers at each of the 1418 `cn()` call sites finds zero
+  //     same-variant pairs in either direction. It was mutation-tested against
+  //     synthetic `cn("h-tap", "h-4")` and `cn("min-h-tap", recipe)` probes,
+  //     both of which it flags, so that zero is a measurement rather than a
+  //     pattern that never matches.
+  //
+  // AGENTS.md and SPEC §4.10 remain explicit that no production target is ever
+  // reduced. That rule is unchanged; what changed is the evidence that declaring
+  // `tap` would reduce one. Re-measure before introducing a same-variant pair:
+  // order decides the outcome, and tap-then-numeric is the forbidden direction.
   spacing: [
     "icon-xs",
     "icon-sm",
@@ -86,6 +101,7 @@ export const CLINICAL_TWMERGE_THEME = {
     "mode-home-composer-wide",
     "safe",
     "safe-2",
+    "tap",
   ],
 
   // globals.css @theme --ease-*.
