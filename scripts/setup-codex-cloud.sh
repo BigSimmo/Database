@@ -22,7 +22,7 @@ diagnose_setup_failure() {
     if [[ -n "$diagnostic_python_bin" ]]; then
       diagnostic_args+=(--python-bin "$diagnostic_python_bin")
     fi
-    node scripts/diagnose-codex-cloud.mjs "${diagnostic_args[@]}" || true
+    CODEX_CLOUD=1 node scripts/diagnose-codex-cloud.mjs "${diagnostic_args[@]}" || true
   else
     printf '[codex-cloud:setup] FIX: review the first error above, then retry setup.\n' >&2
   fi
@@ -312,6 +312,6 @@ npm run check:installed-lock-parity
 npm run check:worker-python-locks:static
 npm run check:codex-cloud
 CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime
-npm run diagnose:codex-cloud
+CODEX_CLOUD=1 npm run diagnose:codex-cloud
 trap - ERR
 log "Setup complete with ${CODEX_CLOUD_ACCESS_PROFILE} access profile."
