@@ -14,7 +14,7 @@ Staging is two independent tiers: a **staging Supabase project** (data) and a
 > staging, run with `RAG_PROVIDER_MODE=offline`, and have no OpenAI key. Linked migration history
 > has **24** local-only versions: ten holes before/at `20260719053533` (four are historical
 > placeholders) and fourteen versions after `20260719055623`. `supabase db push --linked
-> --include-all --dry-run` prints that exact 24-version chain. Do not run a normal or partial push:
+--include-all --dry-run` prints that exact 24-version chain. Do not run a normal or partial push:
 > history is divergent, and the full chain currently ends in the separately governed BMJ
 > attestation migration `20260727010000`. Reconcile the entire reviewed chain only in an approved
 > scope, then repeat the identity, indexing, health, and empty-data-boundary proof.
