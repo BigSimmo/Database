@@ -154,7 +154,14 @@ async function settle(page: Page, target: BaselineTarget): Promise<Locator> {
  * that adds the PNG. `declares no baseline it already has` below fails if the two
  * ever disagree, so the list cannot rot into a permanent exemption.
  */
-const AWAITING_BASELINE: ReadonlySet<string> = new Set([]);
+const AWAITING_BASELINE: ReadonlySet<string> = new Set([
+  "dashboard-shell",
+  "dashboard-shell-phone",
+  "search-results-band",
+  "search-results-band-phone",
+  "document-viewer",
+  "therapy-compass-home",
+]);
 
 /**
  * Where a candidate PNG is written when no baseline exists.
