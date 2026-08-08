@@ -27,7 +27,8 @@ describe("Form information disclosures", () => {
     render(<FormDetailPage form={form} />);
 
     const section = screen.getByRole("region", { name: "Form information" });
-    const trigger = within(section).getByRole("button", { name: /Does not authorise/i });
+    const trigger = within(section).getByRole("button", { name: "Does not authorise" });
+    expect(trigger).toHaveAccessibleName("Does not authorise");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 
     const panelId = trigger.getAttribute("aria-controls");
