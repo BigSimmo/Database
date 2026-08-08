@@ -1139,6 +1139,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(
       page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order"),
     ).toHaveAttribute("href", "/forms/transport-crisis-form");
+    // Documents-style funnel Filter on the results band (wide slot at this viewport).
+    await expect(page.getByTestId("form-filter-trigger-wide")).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Forms search sections" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Refine" })).toHaveCount(0);
     await expect(page.getByTestId("form-search-results")).not.toContainText(/pathway/i);
     await expect(page.getByText(/Evidence 278|Pathways 12|Tasks 8|Source verified|Aligned to MHA 2014/)).toHaveCount(0);
