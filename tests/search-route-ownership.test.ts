@@ -296,9 +296,20 @@ describe("shared-search route ownership", () => {
     );
     const seedStart = dashboardSource.indexOf("Seed a cold `/` visit from the remembered mode.");
     expect(seedStart).toBeGreaterThan(-1);
-    const seedEffect = dashboardSource.slice(seedStart, seedStart + 1800);
+    // Slice to end of file rather than a fixed window: the module is this hook and
+    // its doc comment, and a character budget silently stops covering the effect
+    // as soon as the comment grows.
+    const seedEffect = dashboardSource.slice(seedStart);
     expect(seedEffect).toContain("landingModeForPreference(readAppPreferences().landing)");
-    expect(seedEffect).toContain('window.history.replaceState(null, "", appModeSelectionHref(lastAppMode))');
+    // replaceState, never a push: seeding must not add a history entry.
+    expect(seedEffect).toMatch(/window\.history\.replaceState\(\s*null,\s*"",\s*appModeSelectionHref\(lastAppMode/);
+    expect(seedEffect).not.toContain("router.push");
+    // The rest of the URL rides along. Seeding only runs with no mode/query in the
+    // URL, but `focus=1` and the scope/queryMode context can still be present, and
+    // rewriting without them silently dropped them on a cold `/` visit.
+    expect(seedEffect).toContain("readSearchNavigationContext(searchParams)");
+    expect(seedEffect).toMatch(/focus: searchParams\.get\("focus"\) === "1"/);
+    expect(seedEffect).toContain("scopeFilters: navigationContext.scopeFilters");
     expect(seedEffect).toContain("Settings landing view also wins over last-mode");
     expect(readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8")).toContain(
       "useHomeModeSeed({ pathname, searchParams, lastAppMode })",
