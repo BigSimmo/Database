@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, type LucideIcon } from "lucide-react";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { cn, controlBase } from "@/components/ui-primitives";
 
 export type ButtonVariant = "primary" | "secondary" | "toolbar" | "ghost" | "danger";
@@ -51,6 +51,23 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childre
    */
   busy?: boolean;
   busyLabel?: string;
+  /**
+   * Forwarded to the underlying `<button>`. Declared explicitly rather than left
+   * to `...props`: React 19 passes `ref` as an ordinary prop for function
+   * components, but `ButtonHTMLAttributes` does not carry it, so without this
+   * line every caller needing the node — anchoring a popover, driving focus
+   * after a destructive confirm, measuring for a tooltip — could not reach it,
+   * and TypeScript rejected the attempt rather than failing silently.
+   */
+  ref?: Ref<HTMLButtonElement>;
+  /**
+   * Rendered as `data-testid`. A bare `data-testid` cannot be passed to a
+   * component: `@types/react@19` gives `HTMLAttributes` no `data-${string}`
+   * index signature, and TypeScript only waives unknown `data-*` attributes on
+   * intrinsic elements. Same `testId` spelling `Sheet` and the dashboard shells
+   * already use.
+   */
+  testId?: string;
 };
 
 export function Button({
@@ -65,11 +82,15 @@ export function Button({
   className,
   disabled,
   type,
+  ref,
+  testId,
   ...props
 }: ButtonProps) {
   return (
     <button
       {...props}
+      ref={ref}
+      data-testid={testId}
       type={type ?? "button"}
       disabled={busy || disabled}
       aria-busy={busy || undefined}
