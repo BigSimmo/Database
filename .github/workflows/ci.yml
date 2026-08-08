@@ -730,10 +730,12 @@ jobs:
     #                       merge latency and can never change the outcome. If it is
     #                       ever promoted (#118), merge_group MUST come back —
     #                       tests/ci-cache-safety.test.ts enforces that pairing.
-    #   push (main/…)     – always on perf scope. This lane catches what the PR arm
-    #                       deliberately does not: a runtime dependency bump, which
-    #                       perf scope excludes because ci-change-scope.mjs sees paths,
-    #                       not lockfile contents.
+    #   push (main/…)     – perf scope, PLUS lockfile_changed. The lockfile arm is the
+    #                       backstop for a runtime dependency bump: perf scope excludes
+    #                       package.json / package-lock.json because ci-change-scope.mjs
+    #                       sees paths, not lockfile contents, so without this arm a
+    #                       lockfile-only push would skip Lighthouse on both the PR and
+    #                       the subsequent push to main and leave only the weekly schedule.
     #   schedule          – weekly; resolves to the full-run sentinel, which trips perf
     #                       scope (asserted in ci-change-scope.mjs's self-tests).
     #   workflow_dispatch – always, except a run dispatched to refresh the baseline
@@ -757,7 +759,13 @@ jobs:
         github.event_name == 'workflow_dispatch' ||
         contains(github.event.pull_request.labels.*.name, 'lighthouse-budget') ||
         (
-          needs.changes.outputs.perf_changed == 'true' &&
+          (
+            needs.changes.outputs.perf_changed == 'true' ||
+            (
+              github.event_name == 'push' &&
+              needs.changes.outputs.lockfile_changed == 'true'
+            )
+          ) &&
           github.event_name != 'merge_group' &&
           github.event.pull_request.draft != true
         )

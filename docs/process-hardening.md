@@ -313,12 +313,14 @@ Three gates added for the "mature repo" verification pass. Full usage is in
   baseline is a gate that can green itself.
 - **The budget runs on perf scope, not the ui/build union (2026-08-08).** `perf_changed` in
   `scripts/ci-change-scope.mjs` excludes `worker/**` and container surfaces, dependency manifests and
-  the lockfile, Playwright/test surfaces, `src/app/api/**` and `src/app/mockups/**`. The lockfile
-  exclusion is the one deliberate hole: the classifier sees paths, never the lockfile diff, so it
-  cannot tell a devDependency bump from a React/Next bump. It is covered by `check:bundle-budget` on
-  the same PRs and by the `push`-to-`main` arm of the job's `if:`. If a runtime dep bump ever lands an
-  unnoticed LCP regression, teach the classifier to read the lockfile diff — do not put the whole
-  lockfile back into perf scope.
+  the lockfile, Playwright/test surfaces, most of `src/app/api/**` (except the initial-load handlers
+  `/api/setup-status` and `/api/local-project-id`), and `src/app/mockups/**`. `src/proxy.ts` stays in
+  scope because it runs before every budgeted navigation. The lockfile exclusion is the one
+  deliberate hole on the PR arm: the classifier sees paths, never the lockfile diff, so it cannot
+  tell a devDependency bump from a React/Next bump. The push-to-`main` arm re-runs when
+  `lockfile_changed` is true, and `check:bundle-budget` still covers the same PRs. If a runtime dep
+  bump ever lands an unnoticed LCP regression despite that, teach the classifier to read the lockfile
+  diff — do not put the whole lockfile back into perf scope.
 - **Verification debt remaining.** (1) No pixel baselines are committed, so `visual-baseline` reports
   rather than gates until an operator adopts them from the CI artifact. (2) A Lighthouse baseline is
   committed, but `enforce` stays `false` until #147 (`/dsm` mobile CLS 0.363) and #117 are resolved —

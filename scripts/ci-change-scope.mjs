@@ -206,17 +206,30 @@ const perfPatterns = [
   // it matched no CI scope pattern at all.
   "lighthouse-budget.json",
   /^scripts\/(run-lighthouse-budget|check-lighthouse-budget|summarise-web-vitals|lighthouse-measurement-outcome)\.mjs$/,
+  // Measuring and refreshing jobs MUST resolve the same Chromium. Editing this action
+  // changes which browser grades the baseline, so it belongs in perf scope even when
+  // no application source moved.
+  ".github/actions/setup-lighthouse-chromium",
 ];
+
+/**
+ * App Router handlers that budgeted routes fetch during the initial Lighthouse
+ * navigation. ClinicalDashboard always calls /api/setup-status on mount, and
+ * readLocalProjectIdentity always calls /api/local-project-id before that. A bare
+ * URL with no query string does NOT imply "no API on load".
+ */
+const perfInitialLoadApiPatterns = ["src/app/api/setup-status", "src/app/api/local-project-id"];
 
 /**
  * Paths inside a `perfPatterns` root that cannot reach a measured route's render
  * path. Each is a deliberate loss of coverage; a path NOT listed here stays in scope.
  */
 const perfExclusionPatterns = [
-  // App Router API handlers. No measured route issues an API request during load:
-  // /documents/search is a static server-rendered shell, and every budget route is
-  // measured without a query string. assertBudgetRoutesAreQueryFree() fails closed if
-  // that ever changes. Precedent: isUiChangedPath already excludes API routes.
+  // Most App Router API handlers are off the Lighthouse critical path. Initial-load
+  // handlers in perfInitialLoadApiPatterns are carved out above and stay in scope.
+  // assertBudgetRoutesAreQueryFree() still fails closed if a budget route gains a
+  // query string — that is the usual signal that more handlers may need carving out.
+  // Precedent: isUiChangedPath already excludes API routes from the UI lane.
   "src/app/api",
   // Separate route segments, 404 in production, and the runner sets
   // NEXT_PUBLIC_MOCKUPS_ENABLED=false. Tailwind does scan src/**, so a utility class
@@ -224,14 +237,16 @@ const perfExclusionPatterns = [
   // an lcpMs floor of +100ms, and check:bundle-budget still enforces gzip growth.
   "src/app/mockups",
   // Server/edge runtime only. src/instrumentation-client.ts is deliberately NOT here:
-  // it executes in the browser and is a direct TBT contributor.
+  // it executes in the browser and is a direct TBT contributor. src/proxy.ts is also
+  // NOT here: its matcher runs before every budgeted page request (CSP/nonce and
+  // optional session refresh), so added latency there moves TTFB/LCP directly.
   "src/instrumentation.ts",
-  "src/proxy.ts",
   "src/sentry.server.config.ts",
   "src/sentry.edge.config.ts",
 ];
 
 function isPerfChangedPath(filePath) {
+  if (pathMatches(filePath, perfInitialLoadApiPatterns)) return true;
   if (pathMatches(filePath, perfExclusionPatterns)) return false;
   return pathMatches(filePath, perfPatterns);
 }
@@ -599,14 +614,12 @@ function assertMockupSpecParity() {
 }
 
 /**
- * `perfExclusionPatterns` drops `src/app/api/**` on one measured fact: every route in
- * `lighthouse-budget.json` is requested as a bare URL, so none of them issues an API
- * request during load. A route gaining a query string (`/documents/search?q=…`) would
- * silently invalidate that, and the resulting miss is exactly the kind that shows a
- * green PR while the perf gate never ran against the code it depends on.
- *
- * So the assumption is guarded rather than hoped for. Fails CLOSED on an unreadable
- * budget, like the mockup guard above.
+ * Budget routes stay query-free so a silent `?q=` addition cannot hide new
+ * client-driven API traffic from review. This is a signal, not a complete proof that
+ * no API runs on load — `/` already fetches /api/setup-status and
+ * /api/local-project-id via ClinicalDashboard, and those handlers are carved into
+ * perfInitialLoadApiPatterns. A new query-bearing route usually means more handlers
+ * need the same carve-out. Fails CLOSED on an unreadable budget.
  */
 function assertBudgetRoutesAreQueryFree() {
   let budget;
@@ -631,7 +644,7 @@ function assertBudgetRoutesAreQueryFree() {
   if (withQuery.length > 0) {
     throw new Error(
       `budget-routes-query-free: ${withQuery.join(", ")} carries a query string. A query-bearing budget route may ` +
-        "fetch src/app/api/** on load, so remove the `src/app/api` entry from perfExclusionPatterns or drop the route.",
+        "fetch additional src/app/api/** handlers on load — extend perfInitialLoadApiPatterns or drop the route.",
     );
   }
   console.log(`Budget routes query-free: ${routes.length} routes carry no query string.`);
@@ -791,9 +804,10 @@ function selfTest() {
 
   // #1668 (dependabot js-yaml, a devDependency) paid the full budget run. This
   // classifier only ever sees PATHS, never the lockfile diff, so it cannot tell a
-  // devDependency bump from a React/Next bump. The gap is covered by
-  // check:bundle-budget (enforced on the same PRs), by the push-to-main arm of the
-  // job's `if:`, and by the weekly schedule — NOT by putting the lockfile back here.
+  // devDependency bump from a React/Next bump. The PR arm therefore leaves
+  // perf_changed=false for manifests; the push-to-main arm of the job's `if:`
+  // re-runs when lockfile_changed is true, and the weekly schedule remains the
+  // delayed backstop. Do NOT put the lockfile back into perfPatterns.
   assertScope("perf-off-for-dependency-manifests", ["package.json", "package-lock.json"], {
     build_changed: true,
     lockfile_changed: true,
@@ -812,6 +826,17 @@ function selfTest() {
     build_changed: true,
     ui_changed: false,
     perf_changed: false,
+  });
+  // Initial-load handlers the budgeted `/` dashboard always fetches on mount.
+  assertScope("perf-on-for-initial-load-setup-status", ["src/app/api/setup-status/route.ts"], {
+    build_changed: true,
+    ui_changed: false,
+    perf_changed: true,
+  });
+  assertScope("perf-on-for-initial-load-local-project-id", ["src/app/api/local-project-id/route.ts"], {
+    build_changed: true,
+    ui_changed: false,
+    perf_changed: true,
   });
   // A spec, fixture, golden PNG or browser config cannot change a byte the production
   // server sends, and the Lighthouse runner builds and serves its own isolated app
@@ -834,9 +859,15 @@ function selfTest() {
   });
   assertScope(
     "perf-off-for-server-runtime-entrypoints",
-    ["src/instrumentation.ts", "src/proxy.ts", "src/sentry.server.config.ts", "src/sentry.edge.config.ts"],
+    ["src/instrumentation.ts", "src/sentry.server.config.ts", "src/sentry.edge.config.ts"],
     { build_changed: true, perf_changed: false },
   );
+  // The request proxy runs before every budgeted navigation (CSP/nonce, optional
+  // session refresh). Keeping it out of perf scope would miss TTFB/LCP regressions.
+  assertScope("perf-on-for-request-proxy", ["src/proxy.ts"], {
+    build_changed: true,
+    perf_changed: true,
+  });
   assertScope("perf-off-for-bundle-budget-config", ["bundle-budget.json"], {
     build_changed: true,
     perf_changed: false,
@@ -875,6 +906,10 @@ function selfTest() {
   // editing it changes the verdict. Before perfPatterns it matched no scope at all.
   assertScope("perf-on-for-grader-dependency", ["scripts/summarise-web-vitals.mjs"], { perf_changed: true });
   assertScope("perf-on-for-retry-outcome-module", ["scripts/lighthouse-measurement-outcome.mjs"], {
+    perf_changed: true,
+  });
+  assertScope("perf-on-for-chromium-pin-action", [".github/actions/setup-lighthouse-chromium/action.yml"], {
+    workflow_changed: true,
     perf_changed: true,
   });
   // Proves the unknown-path direction: a new top-level directory under src/ is IN

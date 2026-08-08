@@ -394,9 +394,10 @@ describe("committed lighthouse-budget.json", () => {
   });
 
   it("measures every route without a query string", () => {
-    // ci-change-scope.mjs excludes src/app/api/** from perf_changed on exactly this
-    // fact: a bare URL cannot issue an API request on load. A query-bearing route
-    // would silently invalidate that exclusion, so it is asserted in both places.
+    // Budget routes stay query-free so a silent `?q=` addition cannot hide new
+    // client-driven API traffic. This is a signal, not a complete proof that no API
+    // runs on load — `/` already fetches /api/setup-status and /api/local-project-id,
+    // and those handlers are carved into perfInitialLoadApiPatterns.
     expect(committed.routes.filter((route) => route.includes("?"))).toEqual([]);
   });
 

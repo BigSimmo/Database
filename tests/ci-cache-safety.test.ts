@@ -333,6 +333,15 @@ describe("Lighthouse budget routing", () => {
     expect(lighthouseJob).not.toContain("needs.changes.outputs.build_changed");
   });
 
+  it("re-runs Lighthouse on push when the lockfile changed", () => {
+    // perf_changed deliberately stays false for package.json / package-lock.json
+    // (paths cannot distinguish a React bump from a js-yaml bump). Without this
+    // push arm, a lockfile-only merge would skip Lighthouse on the PR and again
+    // on the push to main, leaving only the weekly schedule.
+    expect(lighthouseJob).toContain("github.event_name == 'push'");
+    expect(lighthouseJob).toContain("needs.changes.outputs.lockfile_changed == 'true'");
+  });
+
   it("tests draft with `!= true`, so push and schedule runs survive", () => {
     // `github.event.pull_request` is null on push/schedule/merge_group, so
     // `draft == false` is FALSE there and would silently kill both arms.

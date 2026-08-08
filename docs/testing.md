@@ -171,21 +171,24 @@ Keyed off `perf_changed` (`scripts/ci-change-scope.mjs`), which is deliberately 
 `ui_changed || build_changed` union it replaced — that union put every dependabot lockfile bump and
 every `worker/**` ingestion change through a ~7 minute isolated production build plus ten Lighthouse
 runs. In scope: `src/**`, `data/**`, `public/**`, `next.config.ts`, `postcss.config.mjs`,
-`tsconfig.json`, and the budget's own inputs. Excluded: `worker/**` and container surfaces, dependency
-manifests and the lockfile, Playwright/test surfaces including committed screenshots,
-`src/app/api/**`, `src/app/mockups/**`, and the server/edge runtime entry points. An unrecognised path
-under a listed root stays **in** scope, so a future refactor over-triggers by one job rather than
-silently dropping a render surface.
+`tsconfig.json`, the Chromium pin composite action, and the budget's own inputs. Excluded:
+`worker/**` and container surfaces, dependency manifests and the lockfile, Playwright/test surfaces
+including committed screenshots, most of `src/app/api/**` (except the initial-load handlers
+`/api/setup-status` and `/api/local-project-id` that `/` always fetches), `src/app/mockups/**`, and
+server/edge runtime entry points other than `src/proxy.ts` (which runs before every budgeted
+navigation). An unrecognised path under a listed root stays **in** scope, so a future refactor
+over-triggers by one job rather than silently dropping a render surface.
 
 Event matrix: pull requests on perf scope when not a draft; `merge_group` skipped while the job is
 advisory (it could only add merge latency without changing the outcome — promoting it to
 `pr-required` must restore `merge_group` in the same edit, which `tests/ci-cache-safety.test.ts`
-enforces); `push` to `main`/`release/**` always on perf scope, which is the lane that catches a
-runtime dependency bump the PR arm deliberately excludes; the weekly `schedule`; and
-`workflow_dispatch`. The `lighthouse-budget` label forces a run and `skip-lighthouse-budget` opts out,
-with skip winning. Caveat: `on.pull_request.types` has no `labeled` (adding it would re-run all of CI
-on every label change), so the opt-in label takes effect on the next push or re-run — use
-`workflow_dispatch` for an immediate run.
+enforces); `push` to `main`/`release/**` on perf scope **or** when `lockfile_changed` is true (the
+lockfile arm is the backstop for a runtime dependency bump the PR arm deliberately excludes from
+`perf_changed`); the weekly `schedule`; and `workflow_dispatch`. The `lighthouse-budget` label
+forces a run and `skip-lighthouse-budget` opts out, with skip winning. Caveat:
+`on.pull_request.types` has no `labeled` (adding it would re-run all of CI on every label change),
+so the opt-in label takes effect on the next push or re-run — use `workflow_dispatch` for an
+immediate run.
 
 This is distinct from `.github/workflows/live-web-vitals.yml`, which measures the deployed origin for
 ledger #017 and is dispatch-only — by the time it runs, `main` has already auto-deployed. Both pin
@@ -204,7 +207,7 @@ UI scope runs a fail-fast `@critical` Chromium job on pull requests, then one re
 
 PR body synchronization is skipped unless the checked-out head actually contains `PR_POLICY_BODY.md`. The eval-canary liveness API probe runs once with the daily Ops Digest cadence rather than on every PR. These remove repeated provider-side work without weakening a required result.
 
-Two further jobs are advisory (`continue-on-error`, deliberately outside `pr-required`): `visual-baseline` on UI scope and `lighthouse-budget` on the narrower perf scope (see "When the budget runs" above — `worker/**` and container surfaces, dependency manifests and the lockfile, Playwright/test surfaces, `src/app/api/**` and `src/app/mockups/**` are all excluded). Both upload their evidence on every run, pass or fail, because the artifact is the whole point on a first run — the baselines to adopt and the reports to grade. Promote either to required by adding it to `pr-required` and removing `continue-on-error` in the same edit; for `lighthouse-budget` that edit must also restore `merge_group` to its `if:`.
+Two further jobs are advisory (`continue-on-error`, deliberately outside `pr-required`): `visual-baseline` on UI scope and `lighthouse-budget` on the narrower perf scope (see "When the budget runs" above — `worker/**` and container surfaces, dependency manifests and the lockfile, Playwright/test surfaces, most of `src/app/api/**` other than initial-load handlers, and `src/app/mockups/**` are excluded; `src/proxy.ts` stays in). Both upload their evidence on every run, pass or fail, because the artifact is the whole point on a first run — the baselines to adopt and the reports to grade. Promote either to required by adding it to `pr-required` and removing `continue-on-error` in the same edit; for `lighthouse-budget` that edit must also restore `merge_group` to its `if:`.
 
 ## Contribution checklist (UI changes)
 
