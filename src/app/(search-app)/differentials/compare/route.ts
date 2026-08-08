@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getPresentationWorkflowSelectionForDiagnosisIds } from "@/lib/differentials";
 
-function presentationsRedirectLocation(request: NextRequest) {
+function compareRedirectLocation(request: NextRequest) {
   const query = (request.nextUrl.searchParams.get("query") ?? request.nextUrl.searchParams.get("q"))?.trim();
   const selectedIds = (request.nextUrl.searchParams.get("ids") ?? "")
     .split(",")
@@ -23,7 +23,7 @@ export function GET(request: NextRequest) {
   return new NextResponse(null, {
     status: 307,
     headers: {
-      Location: presentationsRedirectLocation(request),
+      Location: compareRedirectLocation(request),
     },
   });
 }

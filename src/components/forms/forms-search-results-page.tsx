@@ -35,7 +35,9 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { ResultFilterTrigger } from "@/components/clinical-dashboard/result-filter-control";
 import { FormCodeBadge } from "@/components/forms/form-code-badge";
+import { Sheet } from "@/components/ui/sheet";
 import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
 import { useResultSort } from "@/components/use-result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -185,46 +187,6 @@ function findExactFormCodeMatch(items: CodedFormMatch[], query: string): CodedFo
       const code = formCatalogDetails(item.match.service)?.form;
       return code ? normalizeFormCodeQuery(code) === normalizedQuery : false;
     }) ?? null
-  );
-}
-
-function ResultTabs({ formsCount }: { formsCount: number }) {
-  const tabs = [
-    ["Results", null],
-    ["Forms", formsCount],
-  ] as const;
-
-  return (
-    <nav
-      aria-label="Forms search sections"
-      className="flex min-w-0 items-end gap-5 text-sm font-extrabold text-[color:var(--text)] sm:gap-7"
-    >
-      {tabs.map(([label, count], index) => (
-        <button
-          key={label}
-          type="button"
-          disabled={index !== 0}
-          title={index !== 0 ? "Coming soon" : undefined}
-          className={cn(
-            "relative -mb-px flex min-h-12 items-center gap-2 whitespace-nowrap rounded-t-md",
-            searchFocusRing,
-            index === 0
-              ? "text-[color:var(--clinical-accent)]"
-              : "cursor-not-allowed text-[color:var(--text)] opacity-70",
-          )}
-        >
-          {label}
-          {count ? (
-            <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-xs text-[color:var(--text)]">
-              {count}
-            </span>
-          ) : null}
-          {index === 0 ? (
-            <span className="absolute bottom-0 left-0 h-1 w-full rounded-t-full bg-[color:var(--clinical-accent)]" />
-          ) : null}
-        </button>
-      ))}
-    </nav>
   );
 }
 
@@ -776,6 +738,8 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const registryReady = registry.status === "ready" || registry.status === "refetching";
   const [refineOpen, setRefineOpen] = useState(false);
   const refinePanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterPanelId = useId();
   const deferredQuery = useDeferredValue(query);
   const matches = useMemo(() => {
     if (!registryReady) return [];
@@ -788,6 +752,17 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const displayedMatches = useMemo(
     () => sortResultItems(matches, sortValue, (match) => match.service.title),
     [matches, sortValue],
+  );
+
+  const renderFilterTrigger = (testId: string) => (
+    <ResultFilterTrigger
+      panelId={filterPanelId}
+      testId={testId}
+      title="Filter form results"
+      open={filterOpen}
+      activeCount={0}
+      onToggle={() => setFilterOpen((current) => !current)}
+    />
   );
 
   return (
@@ -831,17 +806,66 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
           sortValue={sortValue}
           onSortChange={setSortValue}
           filterLabel="Filter form results"
+          // Same Documents idiom: compact funnel trigger in both slots so the
+          // one-line band stays universal. The panel is a coming-soon placeholder
+          // until form facets ship (see docs/search-results-bar-decisions.md).
+          mobileControlsPlacement="inline"
+          mobileControls={renderFilterTrigger("form-filter-trigger-phone")}
           filterControls={
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="min-w-0 flex-1 overflow-x-auto">
-                <ResultTabs formsCount={displayedMatches.length} />
-              </div>
-              {supportsPathwayClaims ? (
+            supportsPathwayClaims ? (
+              <div className="flex min-w-0 items-center gap-2">
+                {renderFilterTrigger("form-filter-trigger-wide")}
                 <RefineBar open={refineOpen} onToggle={() => setRefineOpen((open) => !open)} panelId={refinePanelId} />
-              ) : null}
-            </div>
+              </div>
+            ) : (
+              renderFilterTrigger("form-filter-trigger-wide")
+            )
           }
         />
+        <Sheet
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          title="Filter form results"
+          description="Form filters are not available yet."
+          portal
+          id={filterPanelId}
+          testId="form-filter-panel"
+          footer={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setFilterOpen(false)}
+                data-testid="form-filter-panel-done"
+                className={cn(
+                  "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:min-h-9",
+                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                )}
+              >
+                Done
+              </button>
+            </div>
+          }
+        >
+          <div className="grid min-w-0 gap-3 py-1">
+            <p className="text-sm font-semibold leading-6 text-[color:var(--text-muted)]">
+              Form filters are coming soon. Sorting still works from the results bar.
+            </p>
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              aria-describedby="form-filters-unavailable"
+              title="Form filters — coming soon"
+              className="inline-flex min-h-tap cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)] opacity-60 sm:min-h-9"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              Apply filters
+            </button>
+            <span id="form-filters-unavailable" className="sr-only">
+              Form filters are coming soon.
+            </span>
+          </div>
+        </Sheet>
         {registryReady ? (
           <>
             {query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (

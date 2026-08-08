@@ -139,6 +139,12 @@ function summaryIcon(card: ServiceSummaryCard) {
   return <Icon className="h-5 w-5" aria-hidden />;
 }
 
+const PRIORITY_FACT_LABELS: Record<string, string> = {
+  clock: "Clock / review",
+  authority: "Made by / authority",
+  criteria: "Criteria",
+};
+
 function priorityFactBody(form: FormRecord, cardId: string): { title: string; body: string; detail?: string } | null {
   const details = formCatalogDetails(form);
   if (!details) return null;
@@ -148,7 +154,7 @@ function priorityFactBody(form: FormRecord, cardId: string): { title: string; bo
     const body = fact?.body?.trim() || fallbackBody.trim();
     if (!body) return null;
     return {
-      title: fact?.title?.trim() || displayText(cardId),
+      title: fact?.title?.trim() || PRIORITY_FACT_LABELS[cardId] || displayText(cardId),
       detail: fact?.detail?.trim() || fallbackDetail,
       body,
     };

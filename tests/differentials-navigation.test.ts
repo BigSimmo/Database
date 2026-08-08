@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
-import { GET as redirectPresentations } from "@/app/(search-app)/differentials/presentations/route";
+import { GET as redirectCompare } from "@/app/(search-app)/differentials/compare/route";
 import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
 
 describe("differentials navigation", () => {
@@ -17,7 +17,7 @@ describe("differentials navigation", () => {
       new Set(["anorexia-nervosa", "bulimia-nervosa-binge-purge-pattern"]),
     );
 
-    expect(href).toBe("/differentials/presentations?q=Pain&ids=anorexia-nervosa%2Cbulimia-nervosa-binge-purge-pattern");
+    expect(href).toBe("/differentials/compare?q=Pain&ids=anorexia-nervosa%2Cbulimia-nervosa-binge-purge-pattern");
     expect(href).not.toContain("0.0.0.0");
     expect(href).not.toMatch(/^https?:\/\//);
   });
@@ -30,9 +30,9 @@ describe("differentials navigation", () => {
   });
 
   it("redirects compare selection with a relative Location even when the request host is a bind address", () => {
-    const response = redirectPresentations(
+    const response = redirectCompare(
       new NextRequest(
-        "http://0.0.0.0:4461/differentials/presentations?q=Pain&ids=anorexia-nervosa,bulimia-nervosa-binge-purge-pattern",
+        "http://0.0.0.0:4461/differentials/compare?q=Pain&ids=anorexia-nervosa,bulimia-nervosa-binge-purge-pattern",
       ),
     );
 
