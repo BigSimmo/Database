@@ -267,8 +267,8 @@
       "source": "src/components/ui/button.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/confirm-dialog.tsx"],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/AccessibleTable.tsx", "src/components/ui/confirm-dialog.tsx"],
+      "productImportFiles": ["src/components/AccessibleTable.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -276,6 +276,7 @@
         "previewValid": true
       },
       "testFiles": [
+        "tests/accessible-table.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/ui-v2-components.dom.test.tsx"
@@ -288,8 +289,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -1056,7 +1057,7 @@
         "preview": ".design-sync/previews/PageHeader.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1625,7 +1626,7 @@
         "preview": ".design-sync/previews/StageList.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1657,7 +1658,7 @@
         "preview": ".design-sync/previews/StatusMark.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -3242,7 +3243,7 @@
   "summary": {
     "registeredComponentCount": 53,
     "previewCount": 53,
-    "productImportedComponentCount": 29,
+    "productImportedComponentCount": 30,
     "rootCount": 55,
     "productionRouteCount": 47,
     "nextUiEntryCount": 99
