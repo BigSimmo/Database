@@ -294,7 +294,12 @@ export function DocumentImage({
         caption={tableHeading || cleanCaption || undefined}
         failureLabel="Image preview failed."
         retryLabel="Retry"
-        className="max-h-[70dvh] min-h-40 w-full"
+        // No `min-h-*` here. `aspect-ratio` transfers size constraints across
+        // axes, so a min-height of 10rem on a 3:1 table crop became a *minimum
+        // width* of 480px and blew the phone card past the viewport. The frame
+        // already has a definite height from the ratio (or the 4:3 fallback), so
+        // the floor was only ever redundant.
+        className="max-h-[70dvh] w-full"
         aspectRatio={imageAspectRatio(image)}
         zoomable
       />
