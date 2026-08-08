@@ -34,6 +34,7 @@ import type { FormattedDocumentSummary } from "@/lib/document-summary-formatting
 import type { DocumentSummaryBadge } from "@/lib/document-summary-badges";
 
 export function DocumentViewerRail({
+  className,
   headerHidden,
   documentSections,
   activeSectionId,
@@ -60,6 +61,7 @@ export function DocumentViewerRail({
   activePage,
   onSelectPage,
 }: {
+  className?: string;
   headerHidden: boolean;
   documentSections: DocumentSection[];
   activeSectionId: string | null;
@@ -90,6 +92,7 @@ export function DocumentViewerRail({
     <aside
       className={cn(
         "min-w-0 grid content-start gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:sticky lg:grid-cols-1 lg:self-start lg:pr-1",
+        className,
         // The rail clears the top bar while it is there, and reclaims that
         // space the moment it hides — otherwise a dead band the height of the
         // bar sits above the rail for as long as chrome stays away. When the

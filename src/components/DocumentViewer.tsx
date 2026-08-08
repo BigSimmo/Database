@@ -83,6 +83,7 @@ import type {
 import { IndexedTextPanel, PinnedSourceEvidence } from "@/components/document-viewer/source-panels";
 import { DocumentViewerRail } from "@/components/document-viewer/document-rail-panels";
 import { DocumentOverviewLanding } from "@/components/document-viewer/document-overview-landing";
+import { DocumentClinicalSummary } from "@/components/document-viewer/document-clinical-summary";
 import { buildDocumentSectionIndex, documentOverviewSectionId } from "@/components/document-viewer/section-index";
 import {
   DocumentSectionSheet,
@@ -1324,26 +1325,39 @@ export function DocumentViewer({
         {readyDocument ? (
           <div
             id={documentOverviewSectionId}
-            className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] lg:col-span-2"
+            className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] max-sm:order-1 lg:col-span-2"
           >
             <DocumentOverviewLanding
               document={readyDocument}
               signedUrl={signedUrl}
               pages={pages}
-              pageHref={usefulPageHref}
-              onPageChange={navigateToPage}
               onAskFromDocument={() => void summarize()}
               onAddToScope={() => router.push(scopedDocumentHref)}
               onDownload={() => void openSourceDownload()}
               downloading={downloadingSource}
               canSummarizeDocument={canSummarizeDocument}
+            />
+          </div>
+        ) : null}
+
+        {/* Phone order is source-first: the title strip, then the PDF, then this.
+            `buildDocumentSectionIndex` has always described the summary as coming
+            after the source — the DOM was what disagreed, by rendering this card
+            inside the overview landing above the PDF. Desktop keeps its position
+            directly under the title card, so only the phone order changes. */}
+        {readyDocument ? (
+          <div className="min-w-0 max-sm:order-3 lg:col-span-2">
+            <DocumentClinicalSummary
+              document={readyDocument}
+              pageHref={usefulPageHref}
+              onPageChange={navigateToPage}
               compact={compactView}
             />
           </div>
         ) : null}
 
         {!readyDocument && viewerState !== "loading" ? (
-          <div className="min-w-0 lg:col-span-2">
+          <div className="min-w-0 max-sm:order-1 lg:col-span-2">
             <section className={cn(panel, "p-4")}>
               <button type="button" disabled className={cn(secondaryButton, "min-h-tap text-xs")}>
                 <Sparkles aria-hidden="true" className="h-4 w-4" />
@@ -1353,7 +1367,7 @@ export function DocumentViewer({
           </div>
         ) : null}
 
-        <div className="min-w-0 space-y-4 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
+        <div className="min-w-0 space-y-4 max-sm:order-2 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
           <div
             id="pdf-preview-section"
             className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)] overflow-hidden")}
@@ -1464,6 +1478,7 @@ export function DocumentViewer({
         </div>
 
         <DocumentViewerRail
+          className="max-sm:order-4"
           headerHidden={headerHidden}
           documentSections={documentSections}
           activeSectionId={activeSectionId}
