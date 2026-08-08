@@ -6,6 +6,7 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { buildSmartPanel, buildVisualEvidence, diversifySearchResults } from "@/lib/evidence";
 import { annotateDocumentMatches, annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { fetchRelatedDocuments, toDocumentMatch } from "@/lib/document-enrichment";
+import { projectRelatedDocumentForClient } from "@/lib/client-source-projection";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
@@ -873,27 +874,26 @@ async function buildScopedSearchPayload(
     results,
   });
 
+  // Privacy: relatedDocuments carries DocumentLabel[], which has server-only
+  // owner_id and arbitrary metadata fields. Never spread the raw array into a
+  // client-facing payload — project each document (and its labels) through
+  // projectRelatedDocumentForClient first.
+  const clientRelatedDocuments = relatedDocuments.map(projectRelatedDocumentForClient).map((document) => ({
+    ...document,
+    summary: document.summary ? compactText(document.summary, 360) : null,
+    table_count: document.table_count ?? 0,
+    cover_image_id: document.cover_image_id ?? null,
+    labels: document.labels.slice(0, 6),
+  }));
+
   const payload = {
     results: compactSearchResults(searchFocusQuery, results),
     facets: buildSearchFacets(results),
     visualEvidence,
     relevance,
-    relatedDocuments: relatedDocuments.map((document) => ({
-      document_id: document.document_id,
-      title: document.title,
-      file_name: document.file_name,
-      score: document.score,
-      best_pages: document.best_pages,
-      best_chunk_ids: document.best_chunk_ids,
-      image_count: document.image_count,
-      table_count: document.table_count ?? 0,
-      cover_image_id: document.cover_image_id ?? null,
-      match_reason: document.match_reason,
-      summary: document.summary ? compactText(document.summary, 360) : null,
-      labels: document.labels?.slice(0, 6) ?? [],
-    })),
+    relatedDocuments: clientRelatedDocuments,
     documentMatches,
-    smartPanel: { ...smartPanel, relevance, relatedDocuments },
+    smartPanel: { ...smartPanel, relevance, relatedDocuments: clientRelatedDocuments },
     smartApiPlan,
     scope: { ...scope, queryMode: body.queryMode, retrieval: retrievalHealthFromTelemetry(search.telemetry) },
     sourceGovernanceWarnings: sourceGovernanceWarnings({ results, relevance }),
