@@ -219,6 +219,9 @@ runtime later appears stale:
 npm run diagnose:codex-cloud
 ```
 
+The command is Cloud-only: outside a `CODEX_CLOUD=1` shell it reports `NOT_APPLICABLE` rather than
+mistaking a desktop Python installation for Cloud runtime drift.
+
 The production worker image and Codex Cloud deliberately use separate hashed Python locks because
 medspaCy 1.3.1 requires spaCy `<3.8` on Python 3.11 but `>=3.8` on Python 3.12. Production uses
 `worker/python/requirements.txt` (Python 3.11); Cloud uses

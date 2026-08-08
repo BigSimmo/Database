@@ -349,7 +349,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
     test(`many documents and citations do not overflow at ${viewport.name}`, async ({ page }) => {
       await mockStressData(page);
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto("/?mode=documents", { waitUntil: "domcontentloaded" });
+      await page.goto("/documents", { waitUntil: "domcontentloaded" });
       await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 
       if (viewport.name === "mobile") {

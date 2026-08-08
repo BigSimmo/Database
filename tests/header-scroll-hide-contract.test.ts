@@ -98,9 +98,14 @@ describe("shared header hide/reveal wiring", () => {
   it("drops the DocumentViewer rail offset when the universal top bar hides", () => {
     // Otherwise a dead band the height of the hidden bar stays above the rail.
     // When the universal bar is hidden, the rail still clears the page-owned
-    // sticky document header on sm+.
-    expect(read("src/components/document-viewer/document-rail-panels.tsx")).toContain(
-      'headerHidden ? "lg:top-[var(--document-sticky-header-height,0px)]" : "lg:top-[69px]"',
+    // sticky document header on sm+; when it is visible, the rail offsets by the
+    // bar's measured height rather than a hand-copied 69px that drifts with type
+    // size. The literal survives only as a first-paint fallback.
+    const rail = read("src/components/document-viewer/document-rail-panels.tsx");
+    expect(rail).toContain('"lg:top-[var(--document-sticky-header-height,0px)]"');
+    expect(rail).toContain('"lg:top-[var(--document-collapse-height,69px)]"');
+    expect(read("src/components/document-viewer/use-document-chrome-metrics.ts")).toContain(
+      '"--document-collapse-height"',
     );
     expect(read("src/components/document-viewer/use-document-chrome-metrics.ts")).toContain(
       'data-testid="universal-header-collapse"',
