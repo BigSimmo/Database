@@ -402,7 +402,11 @@ function DocumentControls({
         ) : null}
 
         <details ref={overflowRef} className="relative sm:hidden" data-testid="document-frame-overflow">
+          {/* role="button" is deliberate: nested under role="toolbar", Chromium
+              exposes a bare <summary> as generic, so getByRole('button') and
+              assistive tech miss it (Production UI flake on tip 23dfb955). */}
           <summary
+            role="button"
             aria-label="More viewing options"
             className={cn(frameControl, "cursor-pointer list-none [&::-webkit-details-marker]:hidden")}
           >

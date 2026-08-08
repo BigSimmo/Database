@@ -4138,14 +4138,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // sm+ shows them inline. The toolbar is mounted before pdf.js finishes
     // painting, so wait for a control to enable before dispatching a pointer.
     const overflow = page.getByTestId("document-frame-overflow");
+    // Prefer the accessible name over role: a bare <summary> under role="toolbar"
+    // was exposed as generic in Chromium (CI tip 23dfb955), so button queries hung.
+    const overflowToggle = overflow.getByLabel("More viewing options");
     const openOverflow = async () => {
-      await overflow.getByRole("button", { name: "More viewing options" }).click();
+      await overflowToggle.click();
     };
     // At 320px Zoom in lives only inside the overflow menu (inline from 380px).
     await openOverflow();
     await expect(overflow.getByRole("button", { name: "Zoom in" })).toBeEnabled({ timeout: 30000 });
     // Toggle the summary closed so later openOverflow() calls start from closed.
-    await overflow.getByRole("button", { name: "More viewing options" }).click();
+    await overflowToggle.click();
     await expect(pdfScroller.locator("canvas")).toBeVisible();
 
     await expectDomIntegrity(page);

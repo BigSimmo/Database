@@ -211,6 +211,9 @@ describe("DocumentFrame", () => {
     );
 
     const overflow = screen.getByTestId("document-frame-overflow");
+    // Nested under role="toolbar", a bare <summary> was exposed as generic in
+    // Chromium — keep an explicit button role so assistive tech and E2E agree.
+    expect(within(overflow).getByRole("button", { name: "More viewing options" })).toBeVisible();
     for (const name of ["Zoom out", "Zoom in", "Fit width", "Rotate 90°", "Viewing aid", "Fullscreen"]) {
       const control = within(overflow).getByRole("button", { name });
       expect(control.className).toMatch(/min-h-tap/);
