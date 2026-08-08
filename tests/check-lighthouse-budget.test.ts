@@ -15,6 +15,7 @@ import {
   renderBudgetTable,
 } from "../scripts/check-lighthouse-budget.mjs";
 import { measurementFailureReason } from "../scripts/lighthouse-measurement-outcome.mjs";
+import { deadlineAfter, processTimeoutMs, remainingMs } from "../scripts/lighthouse-time-budget.mjs";
 
 /** Kept in step with lighthouse-budget.json. */
 const ROUTES = ["/", "/therapy-compass", "/documents/search", "/dsm", "/forms"];
@@ -372,6 +373,7 @@ describe("committed lighthouse-budget.json", () => {
     strategies: string[];
     lighthouseVersion: string;
     enforce: boolean;
+    baseline: Record<string, { chromeVersion?: unknown }>;
   };
 
   it("measures the routes this suite grades", () => {
@@ -393,6 +395,18 @@ describe("committed lighthouse-budget.json", () => {
     expect(committed.strategies).toEqual(["mobile", "desktop"]);
   });
 
+  it("records a complete baseline from one named browser identity", () => {
+    const rows = Object.values(committed.baseline ?? {});
+    const versions = rows
+      .map((row) => row.chromeVersion)
+      .filter((version): version is string => typeof version === "string" && version.length > 0);
+
+    expect(rows).toHaveLength(committed.routes.length * committed.strategies.length);
+    expect(versions).toHaveLength(rows.length);
+    expect(new Set(versions).size).toBe(1);
+    expect(versions[0]).toContain("HeadlessChrome/");
+  });
+
   it("measures every route without a query string", () => {
     // Budget routes stay query-free so a silent `?q=` addition cannot hide new
     // client-driven API traffic. This is a signal, not a complete proof that no API
@@ -410,6 +424,28 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).toContain("...npxInvocation.prefixArgs");
     expect(runner).not.toMatch(/spawnSync\(\s*"npx",/);
     expect(runner).not.toMatch(/spawnSync\(\s*"npx\.cmd",/);
+  });
+
+  it("bounds each Lighthouse process independently of its navigation timeout", () => {
+    const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
+
+    expect(runner).toContain("timeout: LIGHTHOUSE_BUILD_TIMEOUT_MS");
+    expect(runner).toContain("waitForServer(baseUrl, server, LIGHTHOUSE_SERVER_READY_TIMEOUT_MS)");
+    expect(runner).toContain("if (requestTimeout === 0) break");
+    expect(runner).toContain("deadlineAfter(LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS)");
+    expect(runner).toContain("LIGHTHOUSE_PROCESS_TIMEOUT_MS");
+    expect(runner).toContain("--max-wait-for-load=60000");
+  });
+});
+
+describe("Lighthouse time budget", () => {
+  it("uses a real deadline for server readiness and each process", () => {
+    const deadline = deadlineAfter(120_000, 1_000);
+
+    expect(deadline).toBe(121_000);
+    expect(remainingMs(deadline, 61_000)).toBe(60_000);
+    expect(processTimeoutMs(deadline, 120_000, 61_000)).toBe(60_000);
+    expect(processTimeoutMs(deadline, 120_000, deadline)).toBe(0);
   });
 });
 

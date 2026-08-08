@@ -205,7 +205,7 @@ const perfPatterns = [
   // measuredRequestedPage from it — editing it changes the VERDICT, and before this
   // it matched no CI scope pattern at all.
   "lighthouse-budget.json",
-  /^scripts\/(run-lighthouse-budget|check-lighthouse-budget|summarise-web-vitals|lighthouse-measurement-outcome)\.mjs$/,
+  /^scripts\/(run-lighthouse-budget|check-lighthouse-budget|summarise-web-vitals|lighthouse-measurement-outcome|lighthouse-time-budget|child-process-result|test-environment)\.mjs$/,
   // Measuring and refreshing jobs MUST resolve the same Chromium. Editing this action
   // changes which browser grades the baseline, so it belongs in perf scope even when
   // no application source moved.
@@ -908,6 +908,14 @@ function selfTest() {
   assertScope("perf-on-for-retry-outcome-module", ["scripts/lighthouse-measurement-outcome.mjs"], {
     perf_changed: true,
   });
+  assertScope(
+    "perf-on-for-runner-dependencies",
+    ["scripts/lighthouse-time-budget.mjs", "scripts/child-process-result.mjs", "scripts/test-environment.mjs"],
+    { perf_changed: true },
+  );
+  // The Lighthouse script regex is intentionally anchored. A sibling script must
+  // not turn every scripts/ edit into an unnecessary full budget measurement.
+  assertScope("perf-off-for-unrelated-script", ["scripts/run-vitest.mjs"], { perf_changed: false });
   assertScope("perf-on-for-chromium-pin-action", [".github/actions/setup-lighthouse-chromium/action.yml"], {
     workflow_changed: true,
     perf_changed: true,

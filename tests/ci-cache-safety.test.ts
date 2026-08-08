@@ -5,7 +5,15 @@ import { describe, expect, it } from "vitest";
 
 const nodeSetup = readFileSync(new URL("../.github/actions/setup-node-cached/action.yml", import.meta.url), "utf8");
 const uiSetup = readFileSync(new URL("../.github/actions/setup-ui-e2e/action.yml", import.meta.url), "utf8");
+const lighthouseChromiumSetup = readFileSync(
+  new URL("../.github/actions/setup-lighthouse-chromium/action.yml", import.meta.url),
+  "utf8",
+);
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+const liveWebVitalsWorkflow = readFileSync(
+  new URL("../.github/workflows/live-web-vitals.yml", import.meta.url),
+  "utf8",
+);
 const opsDigestWorkflow = readFileSync(new URL("../.github/workflows/ops-digest.yml", import.meta.url), "utf8");
 
 describe("CI cache safety", () => {
@@ -28,6 +36,22 @@ describe("CI cache safety", () => {
   it("installs Playwright system dependencies when browser caches hit", () => {
     expect(uiSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
     expect(workflow).toMatch(/cache-hit.*?install-deps\n\s+npx playwright install/s);
+  });
+
+  it("rejects a refreshed Lighthouse baseline that has zero or mixed browser identities", () => {
+    expect(workflow).toContain("versions.length!==1");
+    expect(workflow).toContain("Expected exactly one baseline Chrome version");
+  });
+
+  it("exports the pinned browser through both Lighthouse environment contracts", () => {
+    expect(lighthouseChromiumSetup).toContain("CHROME_PATH=$chromium_path");
+    expect(lighthouseChromiumSetup).toContain("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$chromium_path");
+  });
+
+  it("caps the dispatch-only live Lighthouse matrix and each child process", () => {
+    expect(liveWebVitalsWorkflow).toContain("timeout-minutes: 45");
+    expect(liveWebVitalsWorkflow).toContain("node scripts/live-web-vitals-inputs.mjs");
+    expect(liveWebVitalsWorkflow).toContain("timeout --signal=TERM --kill-after=10s 80s");
   });
 
   it("routes recognised workflow-only changes through focused contracts", () => {

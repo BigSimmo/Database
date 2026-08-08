@@ -56,7 +56,7 @@ jobs:
   measure:
     name: Lighthouse against the live domain
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       # Repository variable overrides the default (e.g. a staging cutover),
       # matching live-domain-monitor.yml.
@@ -99,26 +99,13 @@ jobs:
           echo "LIVE_DOMAIN_URL=$normalized" >> "$GITHUB_ENV"
           echo "origin -> $normalized"
 
-      - name: Reject a sample count too small to grade
+      - name: Validate the bounded target matrix
         run: |
           set -euo pipefail
-          # `samples` is a free-text dispatch input, so `samples=1` is accepted
-          # by the form and would produce one report per cell — a "median" of
-          # one, a zero-width range, and a straddle check that can never fire.
-          # The summariser refuses the same count, but refusing HERE means the
-          # operator finds out in seconds instead of after a full measurement
-          # pass against the live domain.
-          case "$SAMPLES" in
-            ''|*[!0-9]*)
-              echo "::error::samples must be a positive integer, got '$SAMPLES'"
-              exit 1
-              ;;
-          esac
-          if [ "$SAMPLES" -lt 3 ]; then
-            echo "::error::samples=$SAMPLES cannot be graded — #017 needs at least 3 runs per cell so a median has dispersion behind it"
-            exit 1
-          fi
-          echo "samples -> $SAMPLES per route/strategy"
+          # Dispatch inputs are free text. Validate route identity, collision-free
+          # artifact names, the minimum sample count, and the capped total before
+          # this workflow makes any request to the live origin.
+          node scripts/live-web-vitals-inputs.mjs "$LIVE_DOMAIN_URL" "$ROUTES" "$SAMPLES"
 
       - name: Confirm the target is reachable before spending a Lighthouse run
         run: |
@@ -147,7 +134,7 @@ jobs:
               echo "::group::$strategy $route (sample $sample/$SAMPLES)"
               # One flaky route must not discard the whole run, so a failure is
               # a warning here; the summary step fails if NOTHING was produced.
-              npx --yes "lighthouse@$LIGHTHOUSE_VERSION" "$LIVE_DOMAIN_URL$route" \
+              timeout --signal=TERM --kill-after=10s 80s npx --yes "lighthouse@$LIGHTHOUSE_VERSION" "$LIVE_DOMAIN_URL$route" \
                 --output=json --output-path="${out}.json" \
                 --preset="$([ "$strategy" = desktop ] && echo desktop || echo perf)" \
                 --only-categories=performance \
