@@ -35,6 +35,7 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     expect(className).toContain("pt-[max(0.75rem,var(--safe-area-top))]");
     expect(className).toContain("sm:pt-[max(1.25rem,var(--safe-area-top))]");
     expect(className).not.toMatch(/(?:^|\s)py-\S+/);
+    expect(className).not.toMatch(/(?:^|\s)sm:py-\S+/);
     expect(screen.getByRole("heading", { name: /Safety plan generator/i })).toBeTruthy();
   });
 
