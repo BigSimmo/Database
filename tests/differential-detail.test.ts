@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -264,5 +265,16 @@ describe("getDifferentialDetailContext", () => {
         expect(getDifferentialRecord(slug), `overlap link ${slug} from ${record.slug}`).not.toBeNull();
       }
     }
+  });
+});
+
+describe("Safety Snapshot phone metric labels", () => {
+  it("keeps the full fact label available to assistive tech when the compact label is shown", () => {
+    const source = readFileSync(
+      new URL("../src/components/differentials/differential-detail-page.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("aria-label={fact.label}");
+    expect(source).toMatch(/sm:hidden[^>]*>\s*\{[\s\S]*compactLabel/);
   });
 });

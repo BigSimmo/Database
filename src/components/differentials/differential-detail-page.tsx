@@ -455,9 +455,14 @@ function SafetySnapshot({
                 <p className={cn("text-base font-extrabold leading-none tabular-nums", theme.accentText)}>
                   {fact.value}
                 </p>
-                <p className="mt-1 flex items-center justify-center gap-1 text-2xs font-bold leading-tight text-[color:var(--text-muted)] sm:justify-start sm:text-xs">
+                <p
+                  className="mt-1 flex items-center justify-center gap-1 text-2xs font-bold leading-tight text-[color:var(--text-muted)] sm:justify-start sm:text-xs"
+                  aria-label={fact.label}
+                >
                   <Icon className={cn("h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5", theme.accentText)} aria-hidden />
-                  <span className="sm:hidden">{compactLabel}</span>
+                  <span className="sm:hidden" aria-hidden>
+                    {compactLabel}
+                  </span>
                   <span className="hidden sm:inline">{fact.label}</span>
                 </p>
               </div>
