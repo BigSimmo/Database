@@ -309,6 +309,25 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
   });
 });
 
+describe("Visual baseline routing", () => {
+  /** The `visual-baseline:` block, up to the next top-level job key. */
+  const visualBaselineJob = /\n  visual-baseline:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+
+  it("finds the visual-baseline job", () => {
+    expect(visualBaselineJob, "visual-baseline job not found in ci.yml").not.toBe("");
+  });
+
+  it("stays off pull_request and merge_group; only post-land/manual events run it", () => {
+    // Owner decision (PR #1755 / #118): pre-merge UI churn is the wrong place for
+    // an unavoidably-red pixel gate. merge_group is still pre-merge.
+    expect(visualBaselineJob).toContain('["push","schedule","workflow_dispatch"]');
+    expect(visualBaselineJob).toContain("continue-on-error: true");
+    const prRequiredNeeds = /\n  pr-required:\n[\s\S]*?needs:\s*\n?\s*\[([\s\S]*?)\]/.exec(workflow)?.[1] ?? "";
+    expect(prRequiredNeeds, "could not read pr-required's needs list from ci.yml").not.toBe("");
+    expect(prRequiredNeeds).not.toMatch(/\bvisual-baseline\b/);
+  });
+});
+
 describe("Lighthouse budget routing", () => {
   /** The `lighthouse-budget:` block, up to the next top-level job key. */
   const lighthouseJob = /\n  lighthouse-budget:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
