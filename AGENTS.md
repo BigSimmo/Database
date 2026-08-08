@@ -201,14 +201,14 @@ the downgrade.
 | ---------------------------------------------------------------------------------------------- | ----------- | ----------- |
 | Architecture, Supabase migrations/RLS, RAG ranking surfaces, auth/privacy, ingestion contracts | xhigh       | high        |
 | Ordinary feature or UI work with a clear shape                                                 | high        | medium–high |
-| Mechanical and fully specified — ledger append, docs edit, rename, version bump                | low or skip | medium      |
+| Mechanical and fully specified — ledger append, docs edit, rename (not dependency maintenance) | low or skip | medium      |
 | Debugging an unknown failure                                                                   | low         | high        |
 
 **Where the default inverts and the build needs more than the plan.** These are plan-light and
 execution-heavy; treating them as plan-heavy spends the budget in the wrong place:
 
-- **Debugging.** The plan is "find why X fails." The real reasoning is hypothesis-forming over live
-  state, which happens during the build.
+- **Debugging.** The plan is "find why X fails." The real reasoning is hypothesis-forming over local
+  runtime, logs, and repro state during the build — hosted providers still need explicit confirmation.
 - **Constraint-dense implementation.** A one-sentence plan whose edit must simultaneously satisfy
   button wiring, design tokens, the one-composer rule, unlayered CSS, and the tap-target and
   phone-chrome contracts. Holding all of it at once is the hard part, not deciding what to do.
