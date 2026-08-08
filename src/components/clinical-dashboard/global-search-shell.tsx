@@ -57,11 +57,13 @@ import { cn } from "@/components/ui-primitives";
 import {
   appModeDefinition,
   appModeHomeHref,
+  appModeSelectionHref,
   isAppModeId,
   isAppModeVisible,
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
+import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 
 // Namespaced mode homes share this client shell but never render the dashboard
 // body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
@@ -81,6 +83,7 @@ import {
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import {
   isAlwaysStandaloneShellPath,
+  isDashboardOwnedModeHomePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -179,8 +182,17 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
     if (params.get("mode") || params.get("q")?.trim() || params.get("query")?.trim() || params.get("run") === "1") {
       return;
     }
+    // Settings "Default landing view" points at real mode homes now that bare
+    // `/?mode=documents` is the shared home with Documents preselected, not the
+    // Documents Start-here surface.
     const landingMode = landingModeForPreference(readAppPreferences().landing);
-    if (landingMode) router.replace(`/?mode=${landingMode}`, { scroll: false });
+    if (landingMode === "documents") {
+      router.replace("/documents", { scroll: false });
+      return;
+    }
+    if (landingMode === "tools") {
+      router.replace("/tools", { scroll: false });
+    }
   }, [pathname, router]);
   const initialMode = props.initialMode ?? "answer";
   const visibleShellModes = visibleAppModeDefinitions().filter(
@@ -214,7 +226,10 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
           initialSearchMode={resolvedSearchMode}
           initialQuery={requestedQuery}
           focusSearch={searchParams.get("focus") === "1"}
-          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
+          // Dashboard-owned mode homes (`/documents`) mount ClinicalDashboard with
+          // nothing submitted. Keystroke drafts must not auto-run there — same
+          // contract as bare `/` — or every composer edit fires `/api/search`.
+          autoRunSearch={pathname === "/" || isDashboardOwnedModeHomePath(pathname) ? hasSubmittedModeSearch : true}
         />
       </SettingsStateProvider>
     );
@@ -366,6 +381,7 @@ function GlobalStandaloneSearchShellBody({
       ? requestedMode
       : initialSearchMode;
   const [query, setQuery] = useState(requestedQuery);
+  const [, setLastAppMode] = useLastAppMode();
   // Previous URL snapshot for during-render sync (React "adjusting state when a
   // prop changes"). Pathname must be tracked separately: with the shared
   // `(search-app)` layout, /services → /dsm keeps an empty query string, and a
@@ -634,11 +650,21 @@ function GlobalStandaloneSearchShellBody({
       openAccountSetup("favourites");
       return;
     }
-    // Same-mode picks are load-bearing: the checked mode-menu option and every
-    // ModeActionPopup quick action route through changeMode to leave a detail /
-    // submitted URL and land on the clean mode home. Skip only a true no-op
-    // (already exactly on that home) when nothing else is in flight.
-    const href = appModeHomeHref(mode, { queryMode, scopeFilters });
+    setLastAppMode(mode);
+
+    // The mode pill retargets the composer; it no longer navigates to a mode home.
+    // From anywhere with a query in play, carry that query into the newly picked
+    // mode's search page rather than dropping it (this is the same transition the
+    // cross-mode chips make). With nothing to carry, return to the shared home at
+    // `/` with the mode preselected — that is now the single starting point.
+    const carriedQuery = query.trim() || requestedQuery.trim();
+    if (carriedQuery) {
+      setMobileMenuOpen(false);
+      router.push(appModeHomeHref(mode, { query: carriedQuery, run: true, queryMode, scopeFilters }));
+      return;
+    }
+
+    const href = appModeSelectionHref(mode, { queryMode, scopeFilters });
     const destination = new URL(href, window.location.origin);
     const destinationSearch = destination.search.startsWith("?") ? destination.search.slice(1) : destination.search;
     const alreadyOnDestination = pathname === destination.pathname && searchParamString === destinationSearch;

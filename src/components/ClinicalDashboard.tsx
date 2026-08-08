@@ -1,6 +1,6 @@
 "use client";
 import { useSettingsState } from "./clinical-dashboard/SettingsStateProvider";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CircleAlert,
   BookOpen,
@@ -122,6 +122,27 @@ import {
   type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/dashboard-contracts";
 import {
+  activeIndexingPollFallbackMs,
+  clinicalQueryModeOptions,
+  documentPageSize,
+  indexingWorkDetailsPollMs,
+  stagedDashboardExtraction,
+  type BatchesPayload,
+  type DocumentsPayload,
+  type IngestionQualityPayload,
+  type JobsPayload,
+  type RefreshOptions,
+  type SearchResultModePayload,
+  type SetupStatusPayload,
+  type SourceLibrarySearchMode,
+} from "@/components/clinical-dashboard/clinical-dashboard-payloads";
+import {
+  type IndexingMonitorFilter,
+  type LibraryHealthTarget,
+  type UploadIndexingTab,
+} from "@/components/clinical-dashboard/document-admin";
+import { useHomeModeSeed } from "@/components/clinical-dashboard/use-home-mode-seed";
+import {
   DifferentialsHome,
   DocumentDrawer,
   DocumentSearchResultsPanel,
@@ -162,12 +183,13 @@ import {
   appModeResultKind,
   appModeCanUseSourceLibraryShortcut,
   appModeSearchConfig,
+  appModeSelectionHref,
   appModeSourceLibrarySearchMode,
   isAppModeId,
   isAppModeVisible,
   type AppModeId,
-  type AppModeSearchKind,
 } from "@/lib/app-modes";
+import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
@@ -230,86 +252,8 @@ import {
   maxVisiblePriorTurns,
   PriorAnswerTurnSurface,
 } from "@/components/clinical-dashboard/answer-thread-turn";
-const documentPageSize = 150;
-const activeIndexingPollFallbackMs = 5_000;
-const indexingWorkDetailsPollMs = 15_000;
-const stagedDashboardExtraction = {
-  answerSurface: true,
-} as const;
-type RefreshOptions = {
-  includeSetup?: boolean;
-  includeDashboardData?: boolean;
-  includeAdministrationData?: boolean;
-  includeDocumentMeta?: boolean;
-};
-type PollHint = {
-  active?: boolean;
-  pollAfterMs?: number | null;
-};
-type SetupStatusPayload = {
-  demoMode?: boolean;
-  checks?: SetupCheck[];
-  indexingActive?: boolean;
-  pollAfterMs?: number | null;
-};
-type DocumentsPayload = {
-  documents?: ClinicalDocument[];
-  pagination?: DocumentPagination | null;
-  demoMode?: boolean;
-  setupRequired?: boolean;
-  error?: string;
-  indexing?: PollHint;
-};
-type JobsPayload = {
-  jobs?: IngestionJob[];
-  demoMode?: boolean;
-  setupRequired?: boolean;
-  error?: string;
-  hasActiveJobs?: boolean;
-  pollAfterMs?: number | null;
-};
-type BatchesPayload = {
-  batches?: ImportBatch[];
-  demoMode?: boolean;
-  hasActiveBatches?: boolean;
-  pollAfterMs?: number | null;
-};
 import type { AnswerFeedbackType } from "@/lib/answer-feedback";
 export type { AnswerFeedbackType } from "@/lib/answer-feedback";
-type IngestionQualityPayload = {
-  items?: IngestionQualityReviewItem[];
-  demoMode?: boolean;
-};
-export const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
-  { value: "auto", label: "Auto" },
-  { value: "monitoring_schedule", label: "Monitoring" },
-  { value: "dose_threshold_lookup", label: "Dose / thresholds" },
-  { value: "contraindications_cautions", label: "Cautions" },
-  { value: "escalation_criteria", label: "Escalation" },
-  { value: "required_documentation", label: "Documentation" },
-  { value: "compare_guidance", label: "Compare" },
-];
-type SearchResultModePayload =
-  | {
-      kind: "documents";
-      query: string;
-      demoMode?: boolean;
-      sources: SearchResult[];
-      documentMatches: DocumentMatch[];
-      relevance?: EvidenceRelevance;
-      facets?: SearchFacets;
-      scope?: SearchScopeSummary;
-      sourceGovernanceWarnings?: SourceGovernanceWarning[];
-    }
-  | {
-      kind: "answer";
-      query: string;
-      payload: AnswerPayload;
-    };
-type SourceLibrarySearchMode = Extract<AppModeSearchKind, "documents" | "differentials">;
-type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
-type IndexingMonitorFilter = "all" | "active" | "failed";
-type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
 
 /**
  * Renders the clinical search dashboard, including document search, answer generation, conversation history, source management, and ingestion controls.
@@ -327,6 +271,8 @@ export function ClinicalDashboard({
 }: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const [lastAppMode, setLastAppMode] = useLastAppMode();
   const [initialSearchNavigationContext] = useState(() => readSearchNavigationContext(searchParams));
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
@@ -1592,6 +1538,8 @@ export function ClinicalDashboard({
     return () => window.cancelAnimationFrame(frame);
   }, [searchParams, clearDifferentialModeResultState, focusComposerInput]);
 
+  useHomeModeSeed({ pathname, searchParams, lastAppMode });
+
   useEffect(() => {
     if (urlSearchBootstrappedRef.current) return;
     const params = new URLSearchParams(window.location.search);
@@ -2221,7 +2169,16 @@ export function ClinicalDashboard({
     rememberRecentQuery(trimmedSearchText);
     window.requestAnimationFrame(() => scrollSurface(mainRef.current, 0, resolveScrollBehavior()));
     if (updateUrl) {
-      router.replace(appModeHomeHref("prescribing", { query: trimmedSearchText, queryMode, scopeFilters }));
+      // Include run=1 so a refresh keeps the submitted results surface instead of
+      // falling back to the shared home with Medication merely preselected.
+      router.replace(
+        appModeHomeHref("prescribing", {
+          query: trimmedSearchText,
+          run: true,
+          queryMode,
+          scopeFilters,
+        }),
+      );
     }
   }
 
@@ -2234,13 +2191,31 @@ export function ClinicalDashboard({
       (selectedDocumentIds.length > 0 && auth.session?.user.id
         ? (persistPrivateSearchScope(window.sessionStorage, auth.session.user.id, selectedDocumentIds) ?? undefined)
         : undefined);
+    const navigationContext = {
+      queryMode: effectiveQueryMode,
+      scopeFilters: effectiveScopeFilters,
+      scopeRef: privateScopeRef,
+    };
+
+    // Submitting from the shared home routes to the selected mode's own search
+    // page. Only answer/prescribing (`/?mode=…`) and documents (`/documents/search`)
+    // are dashboard-owned and stay here; every namespaced mode navigates out.
+    // Without this, modes like DSM would silently run an in-dashboard search,
+    // because `/` + a namespaced mode was unreachable before the pill stopped
+    // navigating.
+    const modeDestination = appModeHomeHref(searchMode, {
+      query: trimmedQuery,
+      run: true,
+      ...navigationContext,
+    });
+    if (trimmedQuery && !isDashboardModeHref(modeDestination)) {
+      rememberRecentQuery(trimmedQuery);
+      router.push(modeDestination);
+      return;
+    }
+
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
-      const navigationContext = {
-        queryMode: effectiveQueryMode,
-        scopeFilters: effectiveScopeFilters,
-        scopeRef: privateScopeRef,
-      };
       autoRunSearchSignatureRef.current = searchSubmissionSignature(searchMode, trimmedQuery, navigationContext);
       window.history.pushState(
         null,
@@ -2654,15 +2629,34 @@ export function ClinicalDashboard({
       openAccountSetup("favourites");
       return;
     }
-    const href = appModeHomeHref(mode, { queryMode, scopeFilters });
-    // Leaving the dashboard shell (e.g. Answer → Services): navigate without
-    // rewriting local chrome first. Eager setSearchMode flipped overlay/hero
-    // and reserved dock padding for a frame before ClinicalDashboard unmounted.
-    if (!isDashboardModeHref(href)) {
-      modeChangeFromUiRef.current = true;
-      router.push(href);
+    setLastAppMode(mode);
+
+    // On the shared home the pill is NOT navigation — it only decides where the
+    // composer will send you. Keep the page, the draft query and the scroll
+    // position, and rewrite `?mode=` in place. replaceState (not push) means Back
+    // still leaves home rather than stepping back through mode picks, and Next's
+    // router syncs `useSearchParams()` from it so the render-time URL sync keeps
+    // owning searchMode.
+    if (showSharedHome) {
+      // Deliberately NOT setting modeChangeFromUiRef: the URL sync effect must
+      // pick this up and own `searchMode`. It leaves the draft query alone
+      // (no `q` in the href) so switching mode mid-typing keeps what you wrote.
+      window.history.replaceState(null, "", appModeSelectionHref(mode, { queryMode, scopeFilters }));
       return;
     }
+
+    // Results are on screen: carry the query into the newly picked mode rather
+    // than dropping it. crossModeSearch already owns that transition.
+    const carriedQuery = query.trim() || submittedUrlQuery.trim();
+    if (carriedQuery) {
+      crossModeSearch(mode, carriedQuery);
+      return;
+    }
+
+    // Nothing to carry: return to the shared home with the mode preselected. This
+    // always stays on `/`, so the transition is dashboard-internal — no unmount,
+    // and no chrome flip from an eager mode set before a route landed.
+    const href = appModeSelectionHref(mode, { queryMode, scopeFilters });
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setQuery("");
@@ -3033,7 +3027,20 @@ export function ClinicalDashboard({
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
-  const showAnswerHome = activeModeResultKind === "answer" && !answer && !loading && !submittedAnswerSearchActive;
+  // `/` is the single home page for every mode. The mode pill retargets the
+  // composer instead of navigating, so the hero must not be answer-only: picking
+  // DSM on home keeps this exact surface and only swaps the placeholder. Gated on
+  // the pathname (never on `searchMode`) per the hero-vs-dock rule in
+  // docs/search-chrome-behaviour.md — a mode pick must not flip composer reserve.
+  const isHomeRoute = pathname === "/";
+  const showSharedHome =
+    isHomeRoute &&
+    !error &&
+    !answer &&
+    !loading &&
+    !modeSearchSubmitted &&
+    !submittedUrlQuery &&
+    !submittedAnswerSearchActive;
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
@@ -3054,14 +3061,14 @@ export function ClinicalDashboard({
       (activeModeResultKind === "answer" && Boolean(answer) && !loading));
   const showDesktopHomeComposer =
     !error &&
-    (activeModeResultKind === "tools" ||
+    (showSharedHome ||
+      activeModeResultKind === "tools" ||
       (activeModeResultKind === "favourites" && favouritesAccessible) ||
       (!loading &&
-        (showAnswerHome ||
-          (searchMode === "documents" &&
-            activeModeResultKind === "documents" &&
-            documentMatches.length === 0 &&
-            !modeSearchSubmitted) ||
+        ((searchMode === "documents" &&
+          activeModeResultKind === "documents" &&
+          documentMatches.length === 0 &&
+          !modeSearchSubmitted) ||
           // Prescribing keeps MedicationHome (and the hero/phone composer) until
           // an explicit submit — draft keystrokes must not flip to results/dock.
           (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
@@ -3530,7 +3537,7 @@ export function ClinicalDashboard({
                       activeModeResultKind === "answer" && answer
                       ? "sm:min-h-[calc(100dvh-11rem)]"
                       : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
-                  centeredModeHome || showAnswerHome
+                  centeredModeHome || showSharedHome
                     ? // Phones centre the home block mid-screen, matching the
                       // standalone-route homes; the pop-up action surface picks
                       // its own up/down placement so it stays unclipped either way.
@@ -3652,7 +3659,20 @@ export function ClinicalDashboard({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
-                {activeModeResultKind === "differentials" ? (
+                {showSharedHome ? (
+                  // The one home surface, shared by all 13 modes. It sits above every
+                  // mode-specific branch so picking a mode on `/` changes only the pill
+                  // and the composer placeholder; the mode's own content stays behind
+                  // its own route (/tools, /favourites, /dsm, …).
+                  <AnswerEmptyState
+                    desktopComposerSlotId={desktopHomeComposerSlotId}
+                    recentQueries={recentQueries}
+                    onSelectRecent={(recentQuery) => {
+                      setQuery(recentQuery);
+                      void ask(recentQuery);
+                    }}
+                  />
+                ) : activeModeResultKind === "differentials" ? (
                   <DifferentialsHome
                     query={query}
                     loading={loading}
@@ -3797,15 +3817,6 @@ export function ClinicalDashboard({
                       />
                     </>
                   ) : null
-                ) : showAnswerHome ? (
-                  <AnswerEmptyState
-                    desktopComposerSlotId={desktopHomeComposerSlotId}
-                    recentQueries={recentQueries}
-                    onSelectRecent={(recentQuery) => {
-                      setQuery(recentQuery);
-                      void ask(recentQuery);
-                    }}
-                  />
                 ) : null}
 
                 {showUniversalAlsoMatches && activeModeResultKind === "answer" ? (
