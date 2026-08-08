@@ -231,7 +231,7 @@ function PageControls({
               event.currentTarget.blur();
             }
           }}
-          className="nums h-tap w-11 shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-center text-xs font-semibold text-[color:var(--text)] outline-none transition focus:border-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="nums h-tap w-10 shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-center text-xs font-semibold text-[color:var(--text)] outline-none transition focus:border-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-60"
         />
         <span className={cn("nums shrink-0 whitespace-nowrap text-xs font-semibold", textMuted)}>
           {finalPage ? `/ ${finalPage}` : "/ ?"}
@@ -394,7 +394,7 @@ function DocumentControls({
           </summary>
           <div
             id={overflowId}
-            className="absolute right-0 top-[calc(100%+0.5rem)] z-20 grid w-56 gap-1 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-lux)]"
+            className="absolute right-0 top-[calc(100%+0.5rem)] z-20 grid w-56 gap-1 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-inset)]"
           >
             <p className={cn("nums px-3 pt-1 text-xs font-semibold", textMuted)}>Zoom {Math.round(zoom * 100)}%</p>
             <div className="grid grid-cols-2 gap-1 min-[380px]:hidden">
