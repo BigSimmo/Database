@@ -991,8 +991,9 @@ export function MasterSearchHeader({
           className={cn(
             "relative grid w-full items-center gap-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             usesPhoneSearchLayout
-              ? "grid-cols-[2rem_minmax(0,1fr)_1.25rem] min-h-12 rounded-lg px-2 py-1"
-              : "grid-cols-[2rem_minmax(0,1fr)_auto] min-h-[3.25rem] rounded-md px-2.5 py-2",
+              ? "grid-cols-[2rem_minmax(0,1fr)_1.25rem] rounded-lg px-2 py-1"
+              : "grid-cols-[2rem_minmax(0,1fr)_auto] rounded-md px-2.5 py-2",
+            usesPhoneSearchLayout ? "min-h-12" : "min-h-[3.25rem]",
             active
               ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)]"
               : "text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
