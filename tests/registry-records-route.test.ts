@@ -530,6 +530,35 @@ describe("registry records API", () => {
     expect(payload.linkedDocuments).toEqual([]);
   });
 
+  it("uses catalogue summary cards for forms even when owner row has non-null stored cards", async () => {
+    const staleCards = [{ id: "old", label: "Old card", title: "Legacy value", detail: "stale" }];
+    const client = createSupabaseMock((call) =>
+      call.table === "clinical_registry_records"
+        ? ok([
+            registryRow({
+              kind: "form",
+              slug: "form-1a",
+              title: "Form 1A",
+              summary_cards: staleCards,
+            }),
+          ])
+        : ok([]),
+    );
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(authedRequest("/api/registry/records?kind=form"));
+    const payload = (await response.json()) as {
+      records: Array<{ slug: string; summaryCards?: Array<{ id: string; label: string }> }>;
+    };
+    const record = payload.records.find((r) => r.slug === "form-1a");
+
+    expect(response.status).toBe(200);
+    // Catalogue-derived cards must win over the stale owner row.
+    expect(record?.summaryCards?.map((c) => c.id)).not.toContain("old");
+    expect(record?.summaryCards?.length).toBeGreaterThan(0);
+  });
+
   it("does not seed when the owner already has registry records", async () => {
     const client = createSupabaseMock((call) =>
       call.table === "clinical_registry_records" ? ok([registryRow()]) : ok([]),

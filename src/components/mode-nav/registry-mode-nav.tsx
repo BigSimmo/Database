@@ -2,6 +2,7 @@
 
 import {
   BookOpenText,
+  ClipboardList,
   GitCompareArrows,
   ListChecks,
   Network,
@@ -28,6 +29,7 @@ import {
 const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   search: Search,
   diagnoses: Stethoscope,
+  presentations: ClipboardList,
   compare: GitCompareArrows,
   builder: ListChecks,
   map: Network,
