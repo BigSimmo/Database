@@ -45,4 +45,47 @@ describe("Form information disclosures", () => {
     expect(panel).not.toHaveAttribute("hidden");
     expect(within(panel).getByText(fullText)).toBeVisible();
   });
+
+  it("keeps duplicate labels on independent disclosure triggers", async () => {
+    const user = userEvent.setup();
+    const base = getFormRecord("form-1a");
+    expect(base).toBeTruthy();
+    if (!base) return;
+
+    const form = {
+      ...base,
+      referralInfo: [
+        { label: "Clinical note", value: "First clinical detail" },
+        { label: "Clinical note", value: "Second clinical detail" },
+      ],
+    };
+
+    render(<FormDetailPage form={form} />);
+
+    const section = screen.getByRole("region", { name: "Form information" });
+    const triggers = within(section).getAllByRole("button", { name: "Clinical note" });
+    expect(triggers).toHaveLength(2);
+
+    const panelIds = triggers.map((trigger) => trigger.getAttribute("aria-controls"));
+    expect(panelIds.every((id) => Boolean(id))).toBe(true);
+    expect(new Set(panelIds).size).toBe(2);
+
+    await user.click(triggers[0]);
+    expect(triggers[0]).toHaveAttribute("aria-expanded", "true");
+    expect(triggers[1]).toHaveAttribute("aria-expanded", "false");
+
+    const firstPanel = document.getElementById(panelIds[0]!);
+    expect(firstPanel).toBeTruthy();
+    if (!firstPanel) return;
+    expect(firstPanel).not.toHaveAttribute("hidden");
+    expect(within(firstPanel).getByText("First clinical detail")).toBeVisible();
+
+    await user.click(triggers[1]);
+    expect(triggers[0]).toHaveAttribute("aria-expanded", "true");
+    expect(triggers[1]).toHaveAttribute("aria-expanded", "true");
+    const secondPanel = document.getElementById(panelIds[1]!);
+    expect(secondPanel).toBeTruthy();
+    if (!secondPanel) return;
+    expect(within(secondPanel).getByText("Second clinical detail")).toBeVisible();
+  });
 });

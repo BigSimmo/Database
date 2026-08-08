@@ -614,11 +614,11 @@ function formInformationIcon(label: string): LucideIcon {
 }
 
 function formInformationItems(rows: Array<{ label: string; value?: string | null }>) {
-  return rows.map((row) => {
+  return rows.map((row, index) => {
     const Icon = formInformationIcon(row.label);
     const value = displayText(row.value);
     return {
-      id: `form-info-${row.label}`,
+      id: `form-info-${index}-${row.label}`,
       title: (
         <span className="inline-flex min-w-0 items-center gap-2">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
