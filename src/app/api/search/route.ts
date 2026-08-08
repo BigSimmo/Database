@@ -895,7 +895,7 @@ async function buildScopedSearchPayload(
     visualEvidence,
     relevance,
     relatedDocuments: clientRelatedDocuments,
-    documentMatches,
+    documentMatches: documentMatches.map(projectDocumentMatchForClient),
     smartPanel: {
       ...projectSmartPanelForClient(smartPanel),
       relevance,
