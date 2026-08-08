@@ -5,6 +5,9 @@
     },
     "figma": {
       "enabled": true
+    },
+    "github": {
+      "enabled": false
     }
   }
 }
