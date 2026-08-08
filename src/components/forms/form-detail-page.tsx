@@ -43,6 +43,7 @@ import {
 } from "@/components/ui-primitives";
 import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
 import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge";
+import { DisclosureGroup } from "@/components/ui/disclosure";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, formTitleForCode, type FormRecord } from "@/lib/form-catalog";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
@@ -602,21 +603,34 @@ function RailCard({ icon: Icon, title, children }: { icon: LucideIcon; title: st
   );
 }
 
-function InfoRow({ label, value, icon: Icon }: { label: string; value: string | null | undefined; icon: LucideIcon }) {
-  return (
-    <article className="group grid min-h-[4.25rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]">
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-        <Icon className="h-4 w-4" aria-hidden />
-      </span>
-      <div className="min-w-0">
-        <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">{label}</h3>
-        <p className={cn("mt-0.5 truncate text-xs font-medium sm:whitespace-normal sm:leading-5", textMuted)}>
-          {displayText(value)}
-        </p>
-      </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
-    </article>
-  );
+function formInformationIcon(label: string): LucideIcon {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("only")) return Route;
+  if (normalized.includes("sign")) return Clipboard;
+  if (normalized.includes("clinical")) return Info;
+  if (normalized.includes("source")) return FileText;
+  if (normalized.includes("pathway")) return Navigation;
+  return CircleCheck;
+}
+
+function formInformationItems(rows: Array<{ label: string; value?: string | null }>) {
+  return rows.map((row, index) => {
+    const Icon = formInformationIcon(row.label);
+    const value = displayText(row.value);
+    return {
+      id: `form-info-${index}-${row.label}`,
+      title: (
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+            <Icon className="h-3.5 w-3.5" aria-hidden />
+          </span>
+          <span className="truncate">{row.label}</span>
+        </span>
+      ),
+      description: value,
+      content: <p className={cn("text-sm leading-6", textMuted)}>{value}</p>,
+    };
+  });
 }
 
 export function FormDetailPage({ form }: { form: FormRecord }) {
@@ -857,21 +871,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
           </section>
 
           <section id="form-information" aria-label="Form information" className="grid gap-2">
-            {detailRows.map((row) => {
-              const label = row.label.toLowerCase();
-              const Icon = label.includes("only")
-                ? Route
-                : label.includes("sign")
-                  ? Clipboard
-                  : label.includes("clinical")
-                    ? Info
-                    : label.includes("source")
-                      ? FileText
-                      : label.includes("pathway")
-                        ? Navigation
-                        : CircleCheck;
-              return <InfoRow key={row.label} label={row.label} value={row.value} icon={Icon} />;
-            })}
+            <DisclosureGroup items={formInformationItems(detailRows)} headingLevel={3} />
           </section>
 
           {/* The `-mobile`/`-desktop` id pairs below are the section anchors
