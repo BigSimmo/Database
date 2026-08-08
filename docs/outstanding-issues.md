@@ -163,6 +163,7 @@ removed after current-main verification; it is not missing recommended work.
 | 110 | `#255` | A2 | High — Cloud/browser gates | Next environment image update | 2–4 hours | Align Cloud Playwright browser builds with lockfile pin; document CI delegation until then. **Stop:** do not force mismatched Chromium revisions. |
 | 111 | `#256` | A2 | High — mode section nav | Next information-page / mode-nav pass | 2–4 hours | Declared information-page section sets whose target ids nothing renders — verify each set against the rendered DOM per route; render anchors or delete the set. **Stop:** do not audit by grepping for `id=` alone (sectionId props exist). |
 | 112 | `#257` | Optional | High — formulation/specifiers flake | Standing until second reproduction | 15–30 min | Single unreproduced ui-formulation flake when run with ui-specifiers — record a second sighting only; do not quarantine until three on the same SHA. **Stop:** do not weaken assertions. |
+| 113 | `#286` | A2 | High — auth/identity | Next auth module touch | 1–2 hours | Export a named helper (e.g. `authorizationIdentity(headers)`) from the auth module and use it at every property-access call site; consider a lint rule or branded type so `.Authorization` stops type-checking at all. **Stop:** do not change `authorizationHeadersForAccessToken` to emit uppercase — lowercase is the correct Fetch/Headers convention and callers that pass the object wholesale to `fetch` depend on it. |
 
 
 <!-- issues:next-id=287 -->
