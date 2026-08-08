@@ -47,19 +47,31 @@ export type PageSection = {
  * page that computed one knows something measurement cannot see. Measured
  * weights come next. Equal shares are the floor, which is what server rendering
  * and the first client frame get.
+ *
+ * The resolved set is then renormalised to sum to one. `usePageSectionWeights`
+ * normalises only the measured subset; combining those values with already-
+ * normalised explicit weights without a second pass would let flexGrow render
+ * an 80% segment at ~44% (0.8 beside 0.5/0.5). Pure all-explicit or all-
+ * measured inputs that already sum to one are unchanged.
  */
 export function toDocumentSections(
   sections: readonly PageSection[],
   measuredWeights?: ReadonlyMap<string, number>,
 ): DocumentSection[] {
-  const equalShare = sections.length > 0 ? 1 / sections.length : 1;
+  if (sections.length === 0) return [];
 
-  return sections.map((section) => ({
+  const equalShare = 1 / sections.length;
+  const rawWeights = sections.map((section) => section.weight ?? measuredWeights?.get(section.id) ?? equalShare);
+  const total = rawWeights.reduce((sum, weight) => sum + weight, 0);
+
+  return sections.map((section, index) => ({
     id: section.id,
     label: section.label,
     icon: section.icon,
     detail: section.detail ?? "",
-    weight: section.weight ?? measuredWeights?.get(section.id) ?? equalShare,
+    // Zero-total is pathological (every raw weight 0); equal shares keep the
+    // track paintable instead of collapsing to flexGrow:0 hairlines.
+    weight: total > 0 ? (rawWeights[index] ?? 0) / total : equalShare,
     collapsible: section.collapsible ?? false,
     pending: section.pending,
   }));

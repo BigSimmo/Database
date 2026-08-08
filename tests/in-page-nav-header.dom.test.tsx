@@ -59,15 +59,53 @@ describe("toDocumentSections", () => {
   it("prefers an explicit weight over a measured one", () => {
     // A page that computed its own weights knows something measurement cannot
     // see — a tab panel that is not on screen has no height at all.
-    const measured = new Map([["service-overview", 0.9]]);
-    const [first] = toDocumentSections([{ ...sections[0]!, weight: 0.25 }, ...sections.slice(1)], measured);
-    expect(first!.weight).toBe(0.25);
+    const measured = new Map([
+      ["service-overview", 0.9],
+      ["service-referral", 0.05],
+      ["service-verification", 0.05],
+    ]);
+    const projected = toDocumentSections([{ ...sections[0]!, weight: 0.25 }, ...sections.slice(1)], measured);
+    // Explicit 0.25 wins over measured 0.9; the set is then renormalised.
+    expect(projected[0]!.weight).toBeCloseTo(0.25 / (0.25 + 0.05 + 0.05), 5);
+    expect(projected[0]!.weight).not.toBeCloseTo(0.9, 5);
   });
 
   it("uses a measured weight when the section declares none", () => {
-    const measured = new Map([["service-overview", 0.6]]);
-    const [first] = toDocumentSections(sections, measured);
-    expect(first!.weight).toBe(0.6);
+    const measured = new Map([
+      ["service-overview", 0.6],
+      ["service-referral", 0.25],
+      ["service-verification", 0.15],
+    ]);
+    const projected = toDocumentSections(sections, measured);
+    expect(projected[0]!.weight).toBeCloseTo(0.6, 5);
+    expect(projected.reduce((sum, section) => sum + section.weight, 0)).toBeCloseTo(1, 10);
+  });
+
+  it("renormalises mixed explicit and measured weights so the track stays proportional", () => {
+    // usePageSectionWeights normalises only the measured subset to 1. Combining
+    // that with an already-normalised explicit weight without a second pass
+    // would hand DocumentSectionTrack 0.8/0.5/0.5 and flexGrow would paint the
+    // intended 80% segment at ~44%.
+    const measured = new Map([
+      ["service-referral", 0.5],
+      ["service-verification", 0.5],
+    ]);
+    const projected = toDocumentSections([{ ...sections[0]!, weight: 0.8 }, ...sections.slice(1)], measured);
+    const total = projected.reduce((sum, section) => sum + section.weight, 0);
+    expect(total).toBeCloseTo(1, 10);
+    expect(projected[0]!.weight).toBeCloseTo(0.8 / 1.8, 5);
+    expect(projected[1]!.weight).toBeCloseTo(0.5 / 1.8, 5);
+    expect(projected[2]!.weight).toBeCloseTo(0.5 / 1.8, 5);
+  });
+
+  it("leaves an already-normalised all-explicit set unchanged", () => {
+    const explicit = [
+      { ...sections[0]!, weight: 0.5 },
+      { ...sections[1]!, weight: 0.3 },
+      { ...sections[2]!, weight: 0.2 },
+    ];
+    const projected = toDocumentSections(explicit);
+    expect(projected.map((section) => section.weight)).toEqual([0.5, 0.3, 0.2]);
   });
 });
 
