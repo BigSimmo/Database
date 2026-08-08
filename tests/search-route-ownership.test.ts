@@ -290,12 +290,18 @@ describe("shared-search route ownership", () => {
   });
 
   it("lets settings landing win over remembered-mode seeding on cold /", () => {
-    const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
-    const seedStart = dashboardSource.indexOf("// Seed a cold `/` visit from the remembered mode.");
+    const dashboardSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/use-home-mode-seed.ts"),
+      "utf8",
+    );
+    const seedStart = dashboardSource.indexOf("Seed a cold `/` visit from the remembered mode.");
     expect(seedStart).toBeGreaterThan(-1);
     const seedEffect = dashboardSource.slice(seedStart, seedStart + 1800);
     expect(seedEffect).toContain("landingModeForPreference(readAppPreferences().landing)");
     expect(seedEffect).toContain('window.history.replaceState(null, "", appModeSelectionHref(lastAppMode))');
     expect(seedEffect).toContain("Settings landing view also wins over last-mode");
+    expect(readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8")).toContain(
+      "useHomeModeSeed({ pathname, searchParams, lastAppMode })",
+    );
   });
 });

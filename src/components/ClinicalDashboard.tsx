@@ -122,6 +122,27 @@ import {
   type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/dashboard-contracts";
 import {
+  activeIndexingPollFallbackMs,
+  clinicalQueryModeOptions,
+  documentPageSize,
+  indexingWorkDetailsPollMs,
+  stagedDashboardExtraction,
+  type BatchesPayload,
+  type DocumentsPayload,
+  type IngestionQualityPayload,
+  type JobsPayload,
+  type RefreshOptions,
+  type SearchResultModePayload,
+  type SetupStatusPayload,
+  type SourceLibrarySearchMode,
+} from "@/components/clinical-dashboard/clinical-dashboard-payloads";
+import {
+  type IndexingMonitorFilter,
+  type LibraryHealthTarget,
+  type UploadIndexingTab,
+} from "@/components/clinical-dashboard/document-admin";
+import { useHomeModeSeed } from "@/components/clinical-dashboard/use-home-mode-seed";
+import {
   DifferentialsHome,
   DocumentDrawer,
   DocumentSearchResultsPanel,
@@ -167,10 +188,8 @@ import {
   isAppModeId,
   isAppModeVisible,
   type AppModeId,
-  type AppModeSearchKind,
 } from "@/lib/app-modes";
-import { DEFAULT_APP_MODE, useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
-import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
+import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
@@ -233,86 +252,8 @@ import {
   maxVisiblePriorTurns,
   PriorAnswerTurnSurface,
 } from "@/components/clinical-dashboard/answer-thread-turn";
-const documentPageSize = 150;
-const activeIndexingPollFallbackMs = 5_000;
-const indexingWorkDetailsPollMs = 15_000;
-const stagedDashboardExtraction = {
-  answerSurface: true,
-} as const;
-type RefreshOptions = {
-  includeSetup?: boolean;
-  includeDashboardData?: boolean;
-  includeAdministrationData?: boolean;
-  includeDocumentMeta?: boolean;
-};
-type PollHint = {
-  active?: boolean;
-  pollAfterMs?: number | null;
-};
-type SetupStatusPayload = {
-  demoMode?: boolean;
-  checks?: SetupCheck[];
-  indexingActive?: boolean;
-  pollAfterMs?: number | null;
-};
-type DocumentsPayload = {
-  documents?: ClinicalDocument[];
-  pagination?: DocumentPagination | null;
-  demoMode?: boolean;
-  setupRequired?: boolean;
-  error?: string;
-  indexing?: PollHint;
-};
-type JobsPayload = {
-  jobs?: IngestionJob[];
-  demoMode?: boolean;
-  setupRequired?: boolean;
-  error?: string;
-  hasActiveJobs?: boolean;
-  pollAfterMs?: number | null;
-};
-type BatchesPayload = {
-  batches?: ImportBatch[];
-  demoMode?: boolean;
-  hasActiveBatches?: boolean;
-  pollAfterMs?: number | null;
-};
 import type { AnswerFeedbackType } from "@/lib/answer-feedback";
 export type { AnswerFeedbackType } from "@/lib/answer-feedback";
-type IngestionQualityPayload = {
-  items?: IngestionQualityReviewItem[];
-  demoMode?: boolean;
-};
-export const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
-  { value: "auto", label: "Auto" },
-  { value: "monitoring_schedule", label: "Monitoring" },
-  { value: "dose_threshold_lookup", label: "Dose / thresholds" },
-  { value: "contraindications_cautions", label: "Cautions" },
-  { value: "escalation_criteria", label: "Escalation" },
-  { value: "required_documentation", label: "Documentation" },
-  { value: "compare_guidance", label: "Compare" },
-];
-type SearchResultModePayload =
-  | {
-      kind: "documents";
-      query: string;
-      demoMode?: boolean;
-      sources: SearchResult[];
-      documentMatches: DocumentMatch[];
-      relevance?: EvidenceRelevance;
-      facets?: SearchFacets;
-      scope?: SearchScopeSummary;
-      sourceGovernanceWarnings?: SourceGovernanceWarning[];
-    }
-  | {
-      kind: "answer";
-      query: string;
-      payload: AnswerPayload;
-    };
-type SourceLibrarySearchMode = Extract<AppModeSearchKind, "documents" | "differentials">;
-type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
-type IndexingMonitorFilter = "all" | "active" | "failed";
-type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
 
 /**
  * Renders the clinical search dashboard, including document search, answer generation, conversation history, source management, and ingestion controls.
@@ -348,8 +289,6 @@ export function ClinicalDashboard({
   const urlDocumentSearchBootstrappedRef = useRef(false);
   const lastSyncedSearchParamsRef = useRef(searchParams.toString());
   const modeChangeFromUiRef = useRef(false);
-  /** Guards the one-shot cold-`/` mode seed below. */
-  const homeModeSeededRef = useRef(false);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const documentsRef = useRef(documents);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
@@ -1599,27 +1538,7 @@ export function ClinicalDashboard({
     return () => window.cancelAnimationFrame(frame);
   }, [searchParams, clearDifferentialModeResultState, focusComposerInput]);
 
-  // Seed a cold `/` visit from the remembered mode. `?mode=` always wins — it is
-  // the SSR source of truth, so a reloaded or shared link server-renders the right
-  // placeholder with no hydration flip. This only fills the gap when the URL says
-  // nothing, and does it with replaceState: no history entry, no server round trip,
-  // and only the placeholder changes (never composer geometry).
-  // Seeds at most once per mount, and never reads `searchMode`. Both matter: in-app
-  // actions change the mode on `/` without touching the URL (openDocumentsDrawer
-  // does exactly that), so a re-firing effect would rewrite `?mode=` back to the
-  // remembered mode and silently undo them.
-  // Settings landing view also wins over last-mode: when landing is Documents or
-  // Tools the shell navigates to those homes, and seeding `?mode=` here would
-  // race that redirect and leave the landing preference ignored.
-  useEffect(() => {
-    if (homeModeSeededRef.current) return;
-    if (pathname !== "/") return;
-    if (searchParams.has("mode") || searchParams.has("q") || searchParams.has("query")) return;
-    homeModeSeededRef.current = true;
-    if (landingModeForPreference(readAppPreferences().landing)) return;
-    if (lastAppMode === DEFAULT_APP_MODE) return;
-    window.history.replaceState(null, "", appModeSelectionHref(lastAppMode));
-  }, [pathname, searchParams, lastAppMode]);
+  useHomeModeSeed({ pathname, searchParams, lastAppMode });
 
   useEffect(() => {
     if (urlSearchBootstrappedRef.current) return;
