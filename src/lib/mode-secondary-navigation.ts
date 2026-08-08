@@ -253,6 +253,8 @@ export function modeSecondaryNavigationHref(params: {
   if (modeId === "differentials") {
     const entries: Array<readonly [string, string]> = query ? [["q", query]] : [];
     if (itemId === "search" && currentSearchParams.get("run") === "1") entries.push(["run", "1"]);
+    // Compare (and other in-mode tabs) reuse URL-backed selection so ticks on
+    // search survive ModeNav handoff without a second client store.
     if (currentSearchParams.get("ids")) {
       entries.push(["ids", currentSearchParams.get("ids") ?? ""]);
     }

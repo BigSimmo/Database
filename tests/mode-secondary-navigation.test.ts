@@ -275,6 +275,10 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder-notes")).toBeNull();
     expect(activeModeSecondaryNavigationId("formulation", "/formulation/map")).toBe("map");
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/compare")).toBe("compare");
+    expect(activeModeSecondaryNavigationId("differentials", "/differentials/compare")).toBe("compare");
+    expect(
+      activeModeSecondaryNavigationId("differentials", "/differentials/presentations/acute-confusion-encephalopathy"),
+    ).toBe("compare");
   });
 });
 

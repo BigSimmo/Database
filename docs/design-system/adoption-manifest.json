@@ -2205,6 +2205,7 @@
       "disposition": "owned",
       "documentedDisposition": null,
       "routes": [
+        "src/app/(search-app)/differentials/compare/page.tsx",
         "src/app/(search-app)/differentials/diagnoses/[slug]/page.tsx",
         "src/app/(search-app)/differentials/diagnoses/page.tsx",
         "src/app/(search-app)/differentials/page.tsx",
@@ -2249,6 +2250,16 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["Differential"],
       "roots": [
+        {
+          "file": "src/app/(search-app)/differentials/compare/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Differential"]
+        },
         {
           "file": "src/app/(search-app)/differentials/diagnoses/[slug]/page.tsx",
           "exists": true,
@@ -3182,6 +3193,7 @@
   "routeCoverage": {
     "discovered": [
       "src/app/(search-app)/calculators/page.tsx",
+      "src/app/(search-app)/differentials/compare/page.tsx",
       "src/app/(search-app)/differentials/diagnoses/[slug]/page.tsx",
       "src/app/(search-app)/differentials/diagnoses/page.tsx",
       "src/app/(search-app)/differentials/page.tsx",
@@ -3234,6 +3246,7 @@
     ],
     "declared": [
       "src/app/(search-app)/calculators/page.tsx",
+      "src/app/(search-app)/differentials/compare/page.tsx",
       "src/app/(search-app)/differentials/diagnoses/[slug]/page.tsx",
       "src/app/(search-app)/differentials/diagnoses/page.tsx",
       "src/app/(search-app)/differentials/page.tsx",
@@ -3290,7 +3303,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 57,
+    "inheritedCkbV2RootCount": 58,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -3299,8 +3312,8 @@
     "registeredComponentCount": 53,
     "previewCount": 53,
     "productImportedComponentCount": 31,
-    "rootCount": 58,
-    "productionRouteCount": 50,
-    "nextUiEntryCount": 102
+    "rootCount": 59,
+    "productionRouteCount": 51,
+    "nextUiEntryCount": 103
   }
 }

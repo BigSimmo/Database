@@ -70,14 +70,9 @@ describe("tracked sitemap", () => {
     const apiSection = siteMap.slice(siteMap.indexOf("## API routes"), siteMap.indexOf("## Redirects"));
     const expectedProductHandlers = [
       ["/applications", "src/app/applications/route.ts", "/tools"],
-      [
-        "/differentials/compare",
-        "src/app/(search-app)/differentials/compare/route.ts",
-        "/differentials/presentations/[workflow-slug]",
-      ],
-      // `/medications` is deliberately absent: it became a real Medication mode
-      // home when `/` turned into the single shared home for every mode, so it is
-      // a page route now rather than a redirect handler.
+      // `/differentials/compare` and `/medications` are deliberately absent:
+      // compare is a real page that conditionally redirects same-presentation
+      // selections, and medications is a real Medication mode home.
     ] as const;
     const redirectSection = siteMap.slice(siteMap.indexOf("## Redirects"));
 

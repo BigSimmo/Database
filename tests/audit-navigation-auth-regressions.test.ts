@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
 import { GET as redirectApplications, HEAD as headApplications } from "@/app/applications/route";
-import { GET as redirectCompare, HEAD as headCompare } from "@/app/(search-app)/differentials/compare/route";
+import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 
 function source(relativePath: string) {
@@ -33,15 +33,19 @@ describe("audit navigation and auth regressions", () => {
     expect(applications.status).toBe(307);
     expect(applications.headers.get("location")).toBe("/tools?q=acute+care&tag=one&tag=two");
 
-    const compare = redirectCompare(
-      new NextRequest(
-        "https://clinical-kb.test/differentials/compare?query=+acute+confusion+&q=ignored&ids=DELIRIUM,unknown,delirium",
-      ),
-    );
-    expect(compare.status).toBe(307);
-    expect(compare.headers.get("location")).toBe(
+    // `/differentials/compare` is a real page (no competing route.ts). Same-
+    // presentation/bare selections redirect into a catalogue workflow; the
+    // page source must keep that handoff via next/navigation redirect().
+    const compareHandoff = resolveDifferentialCompareHandoff(["DELIRIUM", "unknown", "delirium"], "acute confusion");
+    expect(compareHandoff.kind).toBe("presentation");
+    expect(compareHandoff.href).toBe(
       "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
+    const comparePage = source("src/app/(search-app)/differentials/compare/page.tsx");
+    expect(comparePage).toContain('from "next/navigation"');
+    expect(comparePage).toContain("resolveDifferentialCompareHandoff");
+    expect(comparePage).toContain("redirect(handoff.href)");
+    expect(comparePage).not.toContain("NextResponse");
 
     // `/medications` is a real Medication mode home (no blanket 307). Submitted
     // deep links (`q` + `run=1`) still redirect to the dashboard prescribing
@@ -52,7 +56,7 @@ describe("audit navigation and auth regressions", () => {
     expect(medicationsPage).toContain("readSearchNavigationContext");
     expect(medicationsPage).toContain("redirect(");
     expect(medicationsPage).not.toContain('redirect("/?mode=prescribing")');
-    expect([headApplications, headCompare]).toEqual([redirectApplications, redirectCompare]);
+    expect(headApplications).toBe(redirectApplications);
   });
 
   it("only redirects submitted root legacy mode aliases, leaving bare /?mode= on the shared home", () => {

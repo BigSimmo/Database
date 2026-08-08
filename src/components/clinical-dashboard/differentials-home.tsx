@@ -36,7 +36,12 @@ import { useResultSort } from "@/components/use-result-sort";
 import { Chip as DesignChip } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
+import {
+  differentialIdsFromSearchParams,
+  differentialRouteWithQuery,
+  differentialSelectedCompareHref,
+  syncDifferentialSelectionIdsToUrl,
+} from "@/lib/differentials-navigation";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import {
   composeDifferentialSearchResults,
@@ -819,6 +824,12 @@ function SearchResultsView({
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  // Capture cold-load URL ids in state so a loading catalogue cannot wipe `ids`
+  // via replaceState before the first result set hydrates selection.
+  const [initialUrlIds] = useState(() =>
+    typeof window === "undefined" ? [] : differentialIdsFromSearchParams(window.location.search),
+  );
+  const [urlHydrationPending, setUrlHydrationPending] = useState(() => initialUrlIds.length > 0);
   // Selection, filter, and sort follow the ranked result set: seed the top two
   // for comparison and drop stale ids whenever a new query changes the results
   // (render-time sync, matching the repo's set-state-in-render pattern).
@@ -827,14 +838,16 @@ function SearchResultsView({
   if (lastResultSignature !== resultSignature) {
     setLastResultSignature(resultSignature);
     setKindFilter("all");
-    setSelectedIds(
-      new Set(
-        results
-          .filter((result) => result.kind === "diagnosis")
-          .slice(0, 2)
-          .map((result) => result.id),
-      ),
-    );
+    const diagnosisIds = results.filter((result) => result.kind === "diagnosis").map((result) => result.id);
+    const diagnosisIdSet = new Set(diagnosisIds);
+    // First result set may hydrate shareable URL ids; later query changes always
+    // re-seed so a new scope never silently inherits the previous ticks.
+    const urlIds = urlHydrationPending ? initialUrlIds.filter((id) => diagnosisIdSet.has(id)) : [];
+    const nextIds = lastResultSignature === "" && urlIds.length > 0 ? urlIds : diagnosisIds.slice(0, 2);
+    if (urlHydrationPending && lastResultSignature === "" && resultSignature !== "") {
+      setUrlHydrationPending(false);
+    }
+    setSelectedIds(new Set(nextIds));
   }
 
   const presentationCount = results.filter((result) => result.kind === "presentation").length;
@@ -861,6 +874,16 @@ function SearchResultsView({
     [results, selectedIds],
   );
   const selectedCount = comparisonIds.size;
+  const comparisonIdsKey = Array.from(comparisonIds).join(",");
+
+  // Publish selection into the URL so ModeNav Compare can forward the same ids.
+  // Defer while the catalogue is still loading so a cold submitted-search load
+  // does not delete bookmarked `ids` before matches arrive for hydration.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (catalog.status === "loading") return;
+    syncDifferentialSelectionIdsToUrl(comparisonIdsKey ? comparisonIdsKey.split(",") : []);
+  }, [catalog.status, comparisonIdsKey]);
   // Catalogue results follow composer edits live, but document evidence only
   // updates on an executed source search — treat evidence fetched for a
   // different query as pending so the two panels never claim to be in sync.

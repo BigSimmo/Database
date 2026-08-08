@@ -21,6 +21,7 @@ import { CopyAfterReviewButton } from "@/components/differentials/differential-p
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { cn } from "@/components/ui-primitives";
 import {
+  AD_HOC_DIFFERENTIAL_COMPARE_ID,
   acuteConfusionPresentationWorkflow,
   getDifferentialRecord,
   getPresentationWorkflow,
@@ -29,6 +30,7 @@ import {
   type DifferentialRecord,
   type DifferentialSection,
 } from "@/lib/differentials";
+import { differentialRouteWithQuery } from "@/lib/differentials-navigation";
 
 type CandidateView = {
   record: DifferentialRecord;
@@ -592,12 +594,24 @@ function MobileComparison({
   );
 }
 
-function MobileTabs({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
+function MobileTabs({
+  workflow,
+  query,
+  selectedIds,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  query: string;
+  selectedIds: string[];
+}) {
   const firstCandidate = workflow.candidates[0]?.slug ?? "delirium";
   const diagnosisBase = `/differentials/diagnoses/${firstCandidate}`;
+  const compareHref =
+    workflow.id === AD_HOC_DIFFERENTIAL_COMPARE_ID
+      ? differentialRouteWithQuery("/differentials/compare", query, selectedIds)
+      : differentialRouteWithQuery(`/differentials/presentations/${workflow.id}`, query, selectedIds);
   const tabs = [
     { label: "Overview", href: diagnosisBase },
-    { label: "Compare", href: `/differentials/presentations/${workflow.id}` },
+    { label: "Compare", href: compareHref },
     { label: "Map", href: `${diagnosisBase}?tab=map` },
     { label: "Related", href: `${diagnosisBase}?tab=related` },
   ] as const;
@@ -633,24 +647,32 @@ export function DifferentialPresentationWorkflowPage({
   query = "",
   presentationSlug = "acute-confusion-encephalopathy",
   selectedIds = [],
+  workflow: workflowOverride,
 }: {
   query?: string;
   presentationSlug?: string;
   selectedIds?: string[];
+  /** Prebuilt workflow (ad-hoc or already resolved). When set, skips catalogue slug lookup. */
+  workflow?: DifferentialPresentationWorkflow;
 }) {
-  const baseWorkflow = getPresentationWorkflow(presentationSlug) ?? acuteConfusionPresentationWorkflow;
-  const requestedIds = new Set(selectedIds);
-  const workflow = requestedIds.size
-    ? (() => {
-        let selectedCount = 0;
-        const candidates = baseWorkflow.candidates.map((candidate) => {
-          const selected = requestedIds.has(candidate.slug);
-          if (selected) selectedCount += 1;
-          return { ...candidate, selected };
-        });
-        return { ...baseWorkflow, candidates, selectedCount };
-      })()
-    : baseWorkflow;
+  const baseWorkflow =
+    workflowOverride ?? getPresentationWorkflow(presentationSlug) ?? acuteConfusionPresentationWorkflow;
+  const requestedIds = new Set(selectedIds.map((id) => id.trim().toLowerCase()).filter(Boolean));
+  // Ad-hoc workflows already encode selection; overlay only applies to catalogue presentations.
+  const workflow =
+    workflowOverride?.id === AD_HOC_DIFFERENTIAL_COMPARE_ID
+      ? workflowOverride
+      : requestedIds.size
+        ? (() => {
+            let selectedCount = 0;
+            const candidates = baseWorkflow.candidates.map((candidate) => {
+              const selected = requestedIds.has(candidate.slug);
+              if (selected) selectedCount += 1;
+              return { ...candidate, selected };
+            });
+            return { ...baseWorkflow, candidates, selectedCount };
+          })()
+        : baseWorkflow;
   const candidates = getCandidates(workflow);
 
   return (
@@ -741,7 +763,7 @@ export function DifferentialPresentationWorkflowPage({
             </div>
           </section>
 
-          <MobileTabs workflow={workflow} />
+          <MobileTabs workflow={workflow} query={query} selectedIds={selectedIds} />
           {/* Tablet / mid (md–lg): safety leads, then the scrollable table, then
               the review panels reflow into a grid below — no fixed side rail. */}
           <div className="mb-4 hidden md:block xl:hidden">
