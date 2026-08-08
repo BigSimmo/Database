@@ -2,7 +2,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
 import { phoneChromePlan, renderPhoneChromeCommand } from "./phone-chrome-plan.mjs";
 
@@ -128,7 +128,8 @@ export function runPhoneChromeStages(
   } finally {
     // Clean before process.exit — Node does not run finally after exit().
     if (shared?.PLAYWRIGHT_BUILD_ROOT_ID) {
-      cleanupBuildRoot(shared.PLAYWRIGHT_BUILD_ROOT_ID, { log });
+      const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+      cleanupBuildRoot(shared.PLAYWRIGHT_BUILD_ROOT_ID, { log, projectRoot });
     }
   }
   if (exitCode !== 0) {
