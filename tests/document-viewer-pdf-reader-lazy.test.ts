@@ -14,36 +14,48 @@ const viewerLazySource = readFileSync(
   fileURLToPath(new URL("../src/components/document-viewer-lazy.tsx", import.meta.url)),
   "utf8",
 );
+const pdfCanvasSource = readFileSync(
+  fileURLToPath(new URL("../src/components/document-viewer/pdf-canvas-viewer.tsx", import.meta.url)),
+  "utf8",
+);
+
+const securityHeadersSource = readFileSync(
+  fileURLToPath(new URL("../src/lib/security-headers.ts", import.meta.url)),
+  "utf8",
+);
 
 describe("DocumentViewer PDF reader loading", () => {
-  it("keeps both PDF reader exports out of the document route's initial client chunk", () => {
+  it("keeps the PDF reader out of the document route's initial client chunk", () => {
     expect(viewerSource).not.toMatch(
-      /import\s*\{[^}]*\b(?:NativePdfEmbed|PdfCanvasViewer)\b[^}]*\}\s*from\s*["']@\/components\/document-viewer\/pdf-canvas-viewer["']/,
+      /import\s*\{[^}]*\bPdfCanvasViewer\b[^}]*\}\s*from\s*["']@\/components\/document-viewer\/pdf-canvas-viewer["']/,
     );
-    expect(viewerSource).toContain(
-      'import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pdf-readers-lazy"',
-    );
+    expect(viewerSource).toContain('import { PdfCanvasViewer } from "@/components/document-viewer/pdf-readers-lazy"');
 
     expect(readersLazySource).toContain("export const PdfCanvasViewer = dynamic(");
     expect(readersLazySource).toContain(
       '() => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.PdfCanvasViewer)',
     );
-    expect(readersLazySource).toContain("export const NativePdfEmbed = dynamic(");
-    expect(readersLazySource).toContain(
-      '() => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.NativePdfEmbed)',
-    );
     expect(readersLazySource).toContain(
       'import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading"',
     );
 
-    const canvasStart = readersLazySource.indexOf("export const PdfCanvasViewer = dynamic(");
-    const nativeStart = readersLazySource.indexOf("export const NativePdfEmbed = dynamic(");
-    const canvasBlock = readersLazySource.slice(canvasStart, nativeStart);
-    const nativeBlock = readersLazySource.slice(nativeStart);
+    const canvasBlock = readersLazySource.slice(readersLazySource.indexOf("export const PdfCanvasViewer = dynamic("));
     expect(canvasBlock).toContain("ssr: false");
-    expect(nativeBlock).toContain("ssr: false");
     expect(canvasBlock).toContain("loading: () => <PdfPreviewLoading />");
-    expect(nativeBlock).toContain("loading: () => <PdfPreviewLoading />");
+  });
+
+  // The browser-engine reader was removed because it could never work in
+  // production: buildContentSecurityPolicy sets `default-src 'self'` and declares
+  // no frame-src/child-src, so an <iframe> at the cross-origin Supabase signed URL
+  // inherits 'self' and is refused. It only appeared to work against the
+  // same-origin demo corpus — which is also all Playwright can exercise, so no
+  // browser test can catch its return. This source contract is that guard.
+  it("ships no framed PDF reader while the CSP has no cross-origin frame-src", () => {
+    for (const source of [viewerSource, readersLazySource, pdfCanvasSource]) {
+      expect(source).not.toContain("<iframe");
+      expect(source).not.toContain("NativePdfEmbed");
+    }
+    expect(securityHeadersSource).not.toMatch(/\b(?:frame-src|child-src)\b/);
   });
 
   it("documents that document-viewer-lazy is a re-export, not the PDF code-split", () => {
