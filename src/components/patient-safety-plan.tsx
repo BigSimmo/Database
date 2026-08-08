@@ -615,32 +615,47 @@ export function PatientSafetyPlan() {
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
       )}
     >
-      {/* Tool header */}
-      <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
-        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-8">
-          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-3">
-            <NavigationBackButton
-              className="size-tap"
-              fallbackHref={appModeHomeHref("tools")}
-              onBeforeNavigate={() => {
-                if (!isDirty) return true;
-                return window.confirm(
-                  "Leave this safety plan? Your entries are only in this browser tab and will be lost.",
-                );
-              }}
-            />
-            <span className="grid size-tap shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-              <ShieldCheck className="size-icon-lg" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <p className={eyebrowText}>Clinical KB · Clinical tool</p>
-              <h1 className="mt-0.5 text-2xl-minus font-extrabold leading-tight text-[color:var(--text-heading)]">
-                Safety plan generator
-              </h1>
-              <p className="mt-1 max-w-xl text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
-                Build an identifier-free safety plan <em>with</em> your patient — the six prioritised steps — then
-                export it through your approved clinical workflow.
-              </p>
+      {/*
+        Safety plan sits outside the search shell, so this header owns the OS top
+        inset via max(safe-area-top) — same contract as /privacy and colour-coding.
+        Avoid axis py-* here so it cannot fight the side-specific pt-* pad.
+      */}
+      <header
+        data-testid="safety-plan-tool-header"
+        className="border-b border-[color:var(--border)] bg-[color:var(--surface)] pt-[max(0.75rem,var(--safe-area-top))] sm:pt-[max(1.25rem,var(--safe-area-top))]"
+      >
+        <div className="mx-auto grid max-w-7xl gap-4 px-4 pb-4 pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-8">
+          {/*
+            Phone: back on its own min-h-tap row, then shield + title.
+            lg+: lg:contents folds back/shield/title into one three-column row.
+          */}
+          <div className="grid gap-3 lg:grid-cols-[auto_auto_minmax(0,1fr)] lg:items-start lg:gap-3">
+            <div className="flex min-h-tap items-center lg:contents">
+              <NavigationBackButton
+                className="size-tap"
+                fallbackHref={appModeHomeHref("tools")}
+                onBeforeNavigate={() => {
+                  if (!isDirty) return true;
+                  return window.confirm(
+                    "Leave this safety plan? Your entries are only in this browser tab and will be lost.",
+                  );
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 lg:contents">
+              <span className="grid size-tap shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                <ShieldCheck className="size-icon-lg" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className={eyebrowText}>Clinical KB · Clinical tool</p>
+                <h1 className="mt-0.5 text-2xl-minus font-extrabold leading-tight text-[color:var(--text-heading)]">
+                  Safety plan generator
+                </h1>
+                <p className="mt-1 max-w-xl text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
+                  Build an identifier-free safety plan <em>with</em> your patient — the six prioritised steps — then
+                  export it through your approved clinical workflow.
+                </p>
+              </div>
             </div>
           </div>
 
