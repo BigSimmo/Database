@@ -78,9 +78,11 @@ describe("fixture-free client performance boundaries", () => {
     expect(pdfViewer).toContain("disableStream: true");
 
     // A canvas holds its backing store until collection — real memory on a phone
-    // for a document the reader has already left.
+    // for a document the reader has already left. Page cleanup is effect-local
+    // (pageToCleanup) so a rapid flip cannot release the next page's resources.
     expect(pdfViewer).toContain("canvas.width = 0");
-    expect(pdfViewer).toContain("renderedPageRef.current?.cleanup()");
+    expect(pdfViewer).toContain("pageToCleanup?.cleanup()");
+    expect(pdfViewer).not.toContain("renderedPageRef.current?.cleanup()");
   });
 
   it("revalidates cached document download URLs on every viewer action", () => {
