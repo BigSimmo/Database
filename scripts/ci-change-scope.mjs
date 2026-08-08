@@ -24,6 +24,7 @@ const outputs = [
   "static_heavy_changed",
   "coverage_changed",
   "ui_changed",
+  "perf_changed",
   "advisory_ui_changed",
   "db_changed",
   "container_changed",
@@ -170,6 +171,71 @@ const uiPatterns = [
   /^scripts\/(run|check)-lighthouse-budget\.mjs$/,
 ];
 
+/**
+ * perf_changed — surfaces that can plausibly move LCP / TBT / CLS on the five routes
+ * `lighthouse-budget.json` measures. Deliberately NARROWER than the `ui_changed ||
+ * build_changed` union the budget job used to key off: that union put a dev-dependency
+ * lockfile bump (#1668, js-yaml) and every `worker/**` ingestion change through a ~7
+ * minute isolated `next build --webpack` plus ten Lighthouse runs, with zero
+ * render-path relevance.
+ *
+ * Direction of failure is deliberate: an UNRECOGNISED path under a listed root is IN
+ * scope. Adding `src/features/` later over-triggers by one job rather than silently
+ * dropping a render surface out of the perf gate.
+ */
+const perfPatterns = [
+  // Every measured route is a segment of src/app, and the root layout, the
+  // (search-app) group layout and both CSS entry points ship on all five. src/lib is
+  // NOT split into server/client here: only 13 of ~256 files carry `import
+  // "server-only"`, and src/lib/supabase/client.tsx is a browser provider in the
+  // render tree, so a path-based split would fail open.
+  "src",
+  // Route payload, both forms: data/** is imported into route chunks and public/** is
+  // fetched on the critical path (#117 therapies-home ~136 KB, #013 forms-catalog
+  // ~132 KB).
+  "data",
+  "public",
+  // These rewrite the emitted bundle/CSS for every route, so a change invalidates the
+  // whole baseline rather than one route.
+  "next.config.ts",
+  "postcss.config.mjs",
+  "tsconfig.json",
+  // The budget's own inputs. summarise-web-vitals.mjs is here because
+  // check-lighthouse-budget.mjs imports summariseReport / hasUsableMetrics /
+  // measuredRequestedPage from it — editing it changes the VERDICT, and before this
+  // it matched no CI scope pattern at all.
+  "lighthouse-budget.json",
+  /^scripts\/(run-lighthouse-budget|check-lighthouse-budget|summarise-web-vitals|lighthouse-measurement-outcome)\.mjs$/,
+];
+
+/**
+ * Paths inside a `perfPatterns` root that cannot reach a measured route's render
+ * path. Each is a deliberate loss of coverage; a path NOT listed here stays in scope.
+ */
+const perfExclusionPatterns = [
+  // App Router API handlers. No measured route issues an API request during load:
+  // /documents/search is a static server-rendered shell, and every budget route is
+  // measured without a query string. assertBudgetRoutesAreQueryFree() fails closed if
+  // that ever changes. Precedent: isUiChangedPath already excludes API routes.
+  "src/app/api",
+  // Separate route segments, 404 in production, and the runner sets
+  // NEXT_PUBLIC_MOCKUPS_ENABLED=false. Tailwind does scan src/**, so a utility class
+  // used only by a mockup adds bytes to the shared stylesheet — tens of bytes against
+  // an lcpMs floor of +100ms, and check:bundle-budget still enforces gzip growth.
+  "src/app/mockups",
+  // Server/edge runtime only. src/instrumentation-client.ts is deliberately NOT here:
+  // it executes in the browser and is a direct TBT contributor.
+  "src/instrumentation.ts",
+  "src/proxy.ts",
+  "src/sentry.server.config.ts",
+  "src/sentry.edge.config.ts",
+];
+
+function isPerfChangedPath(filePath) {
+  if (pathMatches(filePath, perfExclusionPatterns)) return false;
+  return pathMatches(filePath, perfPatterns);
+}
+
 // Migration replay validates schema/SQL tooling, not every API handler. API
 // route edits stay covered by unit/coverage (+ RAG offline when rag-scoped).
 const dbPatterns = [
@@ -279,6 +345,7 @@ function classify(files, { readLedger = readFlakeLedger, prPolicyBodyPresent = e
   const docsChanged = normalized.some((file) => pathMatches(file, docPatterns));
   const sourceChanged = normalized.some((file) => pathMatches(file, [...sourcePatterns, ...staticConfigPatterns]));
   const uiChanged = normalized.some((file) => isUiChangedPath(file));
+  const perfChanged = normalized.some((file) => isPerfChangedPath(file));
   const advisoryUiChanged =
     normalized.some((file) => pathMatches(file, mockupPatterns)) || quarantineLedgerHasEntries(readLedger);
   const dbChanged = normalized.some((file) => pathMatches(file, dbPatterns));
@@ -316,6 +383,7 @@ function classify(files, { readLedger = readFlakeLedger, prPolicyBodyPresent = e
     static_heavy_changed: staticHeavyChanged,
     coverage_changed: coverageChanged,
     ui_changed: uiChanged,
+    perf_changed: perfChanged,
     advisory_ui_changed: advisoryUiChanged,
     db_changed: dbChanged,
     container_changed: containerChanged,
@@ -530,6 +598,45 @@ function assertMockupSpecParity() {
   console.log(`Mockup spec parity: ${specs.length} advisory specs all match mockupPatterns.`);
 }
 
+/**
+ * `perfExclusionPatterns` drops `src/app/api/**` on one measured fact: every route in
+ * `lighthouse-budget.json` is requested as a bare URL, so none of them issues an API
+ * request during load. A route gaining a query string (`/documents/search?q=…`) would
+ * silently invalidate that, and the resulting miss is exactly the kind that shows a
+ * green PR while the perf gate never ran against the code it depends on.
+ *
+ * So the assumption is guarded rather than hoped for. Fails CLOSED on an unreadable
+ * budget, like the mockup guard above.
+ */
+function assertBudgetRoutesAreQueryFree() {
+  let budget;
+  try {
+    budget = JSON.parse(readFileSync("lighthouse-budget.json", "utf8"));
+  } catch (error) {
+    throw new Error(
+      `budget-routes-query-free: could not read lighthouse-budget.json (${
+        error instanceof Error ? error.message : String(error)
+      }). If that file moved, update this guard — do not delete it.`,
+    );
+  }
+
+  const routes = Array.isArray(budget?.routes) ? budget.routes : null;
+  if (!routes || routes.length === 0) {
+    throw new Error(
+      "budget-routes-query-free: lighthouse-budget.json lists no routes; this guard has nothing to check.",
+    );
+  }
+
+  const withQuery = routes.filter((route) => typeof route === "string" && route.includes("?"));
+  if (withQuery.length > 0) {
+    throw new Error(
+      `budget-routes-query-free: ${withQuery.join(", ")} carries a query string. A query-bearing budget route may ` +
+        "fetch src/app/api/** on load, so remove the `src/app/api` entry from perfExclusionPatterns or drop the route.",
+    );
+  }
+  console.log(`Budget routes query-free: ${routes.length} routes carry no query string.`);
+}
+
 function selfTest() {
   // #137: the advisory lane runs only when it has something to cover. All four
   // directions matter — a lane that silently never runs is the failure mode.
@@ -674,6 +781,106 @@ function selfTest() {
       ui_changed: true,
     },
   );
+
+  // ---- perf_changed: the narrow scope the Lighthouse budget job keys off. ----
+  //
+  // Both directions are load-bearing. A false negative means a render regression
+  // reaches main unmeasured; a false positive is the ~7 minute build+measure this
+  // scope exists to stop paying. Each `perf-off-*` case below is a deliberate,
+  // argued loss of coverage, not an oversight — see perfExclusionPatterns.
+
+  // #1668 (dependabot js-yaml, a devDependency) paid the full budget run. This
+  // classifier only ever sees PATHS, never the lockfile diff, so it cannot tell a
+  // devDependency bump from a React/Next bump. The gap is covered by
+  // check:bundle-budget (enforced on the same PRs), by the push-to-main arm of the
+  // job's `if:`, and by the weekly schedule — NOT by putting the lockfile back here.
+  assertScope("perf-off-for-dependency-manifests", ["package.json", "package-lock.json"], {
+    build_changed: true,
+    lockfile_changed: true,
+    perf_changed: false,
+  });
+  assertScope("perf-off-for-worker", ["worker/main.ts", "worker/python/requirements.txt"], {
+    build_changed: true,
+    container_changed: true,
+    perf_changed: false,
+  });
+  assertScope("perf-off-for-container-surfaces", ["Dockerfile.worker", "railway.worker.json"], {
+    container_changed: true,
+    perf_changed: false,
+  });
+  assertScope("perf-off-for-api-route", ["src/app/api/answer/route.ts"], {
+    build_changed: true,
+    ui_changed: false,
+    perf_changed: false,
+  });
+  // A spec, fixture, golden PNG or browser config cannot change a byte the production
+  // server sends, and the Lighthouse runner builds and serves its own isolated app
+  // without ever loading Playwright.
+  assertScope(
+    "perf-off-for-playwright-surfaces",
+    [
+      "tests/ui-smoke.spec.ts",
+      "tests/helpers/zero-touch.ts",
+      "tests/__screenshots__/linux/dashboard-shell.png",
+      "playwright.config.ts",
+      "scripts/run-playwright.mjs",
+    ],
+    { ui_changed: true, perf_changed: false },
+  );
+  assertScope("perf-off-for-mockup-route", ["src/app/mockups/page.tsx"], {
+    ui_changed: true,
+    advisory_ui_changed: true,
+    perf_changed: false,
+  });
+  assertScope(
+    "perf-off-for-server-runtime-entrypoints",
+    ["src/instrumentation.ts", "src/proxy.ts", "src/sentry.server.config.ts", "src/sentry.edge.config.ts"],
+    { build_changed: true, perf_changed: false },
+  );
+  assertScope("perf-off-for-bundle-budget-config", ["bundle-budget.json"], {
+    build_changed: true,
+    perf_changed: false,
+  });
+  assertScope("perf-off-for-docs", ["docs/testing.md"], { docs_only: true, perf_changed: false });
+  assertScope("perf-off-for-supabase", ["supabase/migrations/20260101000000_example.sql"], {
+    db_changed: true,
+    perf_changed: false,
+  });
+
+  assertScope("perf-on-for-route-page", ["src/app/(search-app)/dsm/page.tsx"], {
+    ui_changed: true,
+    perf_changed: true,
+  });
+  assertScope("perf-on-for-shared-component", ["src/components/clinical-dashboard/dashboard-nav.tsx"], {
+    perf_changed: true,
+  });
+  // Pins the exclusion that was CONSIDERED AND REJECTED: src/lib is not split into
+  // server/client by path, because this file is a browser Supabase provider that sits
+  // in the render tree while its siblings are server-only.
+  assertScope("perf-on-for-browser-supabase-client", ["src/lib/supabase/client.tsx"], { perf_changed: true });
+  // The mirror image: instrumentation-client.ts runs in the browser and is a direct
+  // TBT contributor, so the `src/instrumentation.ts` exclusion must not over-reach.
+  assertScope("perf-on-for-client-instrumentation", ["src/instrumentation-client.ts"], { perf_changed: true });
+  assertScope("perf-on-for-css-entrypoints", ["src/app/globals.css"], { perf_changed: true });
+  assertScope(
+    "perf-on-for-route-payload",
+    ["public/therapy-compass-data/therapies-home.json", "data/medications-snapshot.json"],
+    { perf_changed: true },
+  );
+  assertScope("perf-on-for-build-config", ["next.config.ts", "postcss.config.mjs", "tsconfig.json"], {
+    perf_changed: true,
+  });
+  assertScope("perf-on-for-budget-inputs", ["lighthouse-budget.json"], { ui_changed: true, perf_changed: true });
+  // New coverage: the grader imports its completeness primitives from this file, so
+  // editing it changes the verdict. Before perfPatterns it matched no scope at all.
+  assertScope("perf-on-for-grader-dependency", ["scripts/summarise-web-vitals.mjs"], { perf_changed: true });
+  assertScope("perf-on-for-retry-outcome-module", ["scripts/lighthouse-measurement-outcome.mjs"], {
+    perf_changed: true,
+  });
+  // Proves the unknown-path direction: a new top-level directory under src/ is IN
+  // scope, so a future refactor over-triggers by one job rather than silently
+  // dropping a render surface.
+  assertScope("perf-on-for-unrecognised-src-path", ["src/features/new-thing/index.ts"], { perf_changed: true });
   assertScope("runtime-data", ["data/medications-snapshot.json"], {
     source_changed: true,
     coverage_changed: true,
@@ -881,6 +1088,10 @@ function selfTest() {
     static_heavy_changed: true,
     coverage_changed: true,
     ui_changed: true,
+    // The weekly schedule and any unresolvable base resolve to these sentinels, and
+    // the perf gate's `if:` relies on that to keep measuring routes when no PR does.
+    // Asserted so a future edit to fullRunSentinelFiles cannot silently retire it.
+    perf_changed: true,
     db_changed: true,
     container_changed: true,
     rag_eval_changed: true,
@@ -907,6 +1118,7 @@ function selfTest() {
 const args = process.argv.slice(2);
 if (args.includes("--self-test")) {
   assertMockupSpecParity();
+  assertBudgetRoutesAreQueryFree();
   selfTest();
   process.exit(0);
 }

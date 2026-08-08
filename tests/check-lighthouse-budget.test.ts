@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -10,8 +11,10 @@ import {
   expectedBudgetRuns,
   gradeRun,
   incompleteBudgetEvidence,
+  readReports,
   renderBudgetTable,
 } from "../scripts/check-lighthouse-budget.mjs";
+import { measurementFailureReason } from "../scripts/lighthouse-measurement-outcome.mjs";
 
 /** Kept in step with lighthouse-budget.json. */
 const ROUTES = ["/", "/therapy-compass", "/documents/search", "/dsm", "/forms"];
@@ -133,13 +136,60 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     expect(result.reason).toBe("evidence incomplete");
   });
 
-  it("rejects a baseline measured by a different browser", () => {
+  it("rejects a baseline measured by a different browser, collapsed to one instruction", () => {
+    // One browser bump reds every run in the budget. Ten near-identical sentences
+    // buried the single actionable line, so drift collapses to one message when it is
+    // the whole story — the VERDICT is unchanged and asserted below.
     const rows = completeRows();
     const stale = baselineFromRows(rows.map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })));
     const problems = incompleteBudgetEvidence(rows, budget({ baseline: stale }));
 
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("browser drift on 10 run(s)");
+    expect(problems[0]).toContain("HeadlessChrome/131");
+    expect(problems[0]).toContain("HeadlessChrome/140");
+    expect(problems[0]).toContain("Refresh Lighthouse baseline");
+
+    // The collapse is cosmetic. Incomplete evidence still fails closed, and still
+    // does so independently of `enforce`.
+    for (const enforce of [true, false]) {
+      const result = compareToLighthouseBudget(rows, budget({ baseline: stale, enforce }));
+      expect(result.status).toBe("fail");
+      expect(result.reason).toBe("evidence incomplete");
+    }
+  });
+
+  it("lists drift per run when the browsers themselves disagree", () => {
+    // Two different baseline browsers is not one fact, so it must not read as one.
+    const rows = completeRows();
+    const mixed = Object.fromEntries(
+      Object.entries(baselineFromRows(rows)).map(([run, entry], index) => [
+        run,
+        { ...(entry as object), chromeVersion: index % 2 === 0 ? "HeadlessChrome/131" : "HeadlessChrome/132" },
+      ]),
+    );
+    const problems = incompleteBudgetEvidence(rows, budget({ baseline: mixed }));
+
     expect(problems).toHaveLength(10);
-    expect(problems[0]).toContain("measured by a different browser");
+    expect(problems.every((problem: string) => problem.includes("measured by a different browser"))).toBe(true);
+  });
+
+  it("keeps drift per run when a measurement gap shares the verdict", () => {
+    // A missing report and a browser bump are different facts with different fixes;
+    // collapsing here would hide the one that --update cannot resolve.
+    const rows = completeRows().filter((entry: Row) => entry.run !== "mobile-dsm");
+    const stale = baselineFromRows(
+      completeRows().map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })),
+    );
+    const problems = incompleteBudgetEvidence(rows, budget({ baseline: stale }));
+
+    expect(problems).toEqual(
+      expect.arrayContaining([
+        "mobile-dsm: no Lighthouse report produced",
+        expect.stringContaining("measured by a different browser"),
+      ]),
+    );
+    expect(problems.length).toBeGreaterThan(1);
   });
 
   it("ignores browser drift and missing baseline rows when refreshing", () => {
@@ -343,6 +393,13 @@ describe("committed lighthouse-budget.json", () => {
     expect(committed.strategies).toEqual(["mobile", "desktop"]);
   });
 
+  it("measures every route without a query string", () => {
+    // ci-change-scope.mjs excludes src/app/api/** from perf_changed on exactly this
+    // fact: a bare URL cannot issue an API request on load. A query-bearing route
+    // would silently invalidate that exclusion, so it is asserted in both places.
+    expect(committed.routes.filter((route) => route.includes("?"))).toEqual([]);
+  });
+
   it("invokes npm's JavaScript npx CLI through Node when available", () => {
     const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
 
@@ -352,6 +409,71 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).toContain("...npxInvocation.prefixArgs");
     expect(runner).not.toMatch(/spawnSync\(\s*"npx",/);
     expect(runner).not.toMatch(/spawnSync\(\s*"npx\.cmd",/);
+  });
+});
+
+describe("measurementFailureReason", () => {
+  const report = (extra: Record<string, unknown> = {}) =>
+    JSON.stringify({ requestedUrl: "http://localhost:4461/forms", audits: {}, ...extra });
+
+  it("passes a clean run through", () => {
+    expect(measurementFailureReason(0, report())).toBeNull();
+  });
+
+  it("flags a non-zero exit", () => {
+    expect(measurementFailureReason(1, null)).toContain("exited 1");
+  });
+
+  it("flags a run that was killed without a status", () => {
+    expect(measurementFailureReason(null, null)).toContain("without a status");
+  });
+
+  it("flags a clean exit that wrote no report", () => {
+    expect(measurementFailureReason(0, null)).toBe("no report file was written");
+    expect(measurementFailureReason(0, "")).toBe("no report file was written");
+  });
+
+  it("flags an unparseable report", () => {
+    expect(measurementFailureReason(0, "{not json")).toBe("report is not valid JSON");
+  });
+
+  it("flags the NO_NAVSTART shape that exits zero with a well-formed report", () => {
+    // Ledger #147: `/forms` did this locally while the live dispatch measured it
+    // fine. An exit-code check alone leaves it unretried, because Lighthouse both
+    // exits 0 and writes a valid file whose only content is the runtime error.
+    expect(measurementFailureReason(0, report({ runtimeError: { code: "NO_NAVSTART" } }))).toBe(
+      "lighthouse runtimeError NO_NAVSTART",
+    );
+  });
+
+  it("never retries a real measurement that produced bad numbers", () => {
+    // The line that keeps this a retry and not a re-roll: a page that loaded and
+    // scored badly is evidence, and re-running it until it goes green is the failure
+    // mode this whole gate exists to prevent.
+    const slow = report({ audits: { "largest-contentful-paint": { numericValue: 9999 } } });
+
+    expect(measurementFailureReason(0, slow)).toBeNull();
+  });
+});
+
+describe("readReports", () => {
+  it("ignores the retry sidecar rather than reading it as a report", () => {
+    // retries.txt is deliberately not .json: readReports globs *.json and skips only
+    // summary.json, so a JSON sidecar would be parsed as a Lighthouse report and
+    // become a phantom row named `retries` — a run the budget never asked for,
+    // carrying no metrics.
+    const directory = mkdtempSync(path.join(tmpdir(), "lighthouse-reports-"));
+    try {
+      writeFileSync(
+        path.join(directory, "mobile-root.json"),
+        JSON.stringify({ requestedUrl: "http://localhost:4461/", finalUrl: "http://localhost:4461/", audits: {} }),
+      );
+      writeFileSync(path.join(directory, "retries.txt"), "mobile /forms (lighthouse runtimeError NO_NAVSTART)\n");
+
+      expect(readReports(directory).map((entry: { run: string }) => entry.run)).toEqual(["mobile-root"]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });
 
