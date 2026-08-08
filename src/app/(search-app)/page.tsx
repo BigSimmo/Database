@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { HomePageClient } from "./home-page-client";
 import { appModeHomeHref, isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 import { isDashboardModeHref } from "@/lib/search-route-ownership";
+import { readSearchNavigationContext } from "@/lib/search-navigation-context";
 
 type HomeProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -11,6 +12,19 @@ type HomeProps = {
 
 function firstSearchParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function searchParamsFromRecord(params: Record<string, string | string[] | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const entry of value) search.append(key, entry);
+    } else {
+      search.set(key, value);
+    }
+  }
+  return search;
 }
 
 export default async function Home({ searchParams }: HomeProps) {
@@ -36,7 +50,15 @@ export default async function Home({ searchParams }: HomeProps) {
   const submitted = Boolean(query) && run;
 
   if (submitted) {
-    const destination = appModeHomeHref(initialSearchMode, { query, focus, run });
+    const navigationContext = readSearchNavigationContext(searchParamsFromRecord(params));
+    const destination = appModeHomeHref(initialSearchMode, {
+      query,
+      focus,
+      run,
+      queryMode: navigationContext.queryMode,
+      scopeFilters: navigationContext.scopeFilters,
+      scopeRef: navigationContext.scopeRef,
+    });
     // Answer and prescribing resolve back to `/?mode=…`; redirecting there would
     // loop. Everything else names a route the dashboard does not own.
     if (!isDashboardModeHref(destination)) {

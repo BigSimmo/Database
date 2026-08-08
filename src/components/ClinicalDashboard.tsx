@@ -2169,7 +2169,16 @@ export function ClinicalDashboard({
     rememberRecentQuery(trimmedSearchText);
     window.requestAnimationFrame(() => scrollSurface(mainRef.current, 0, resolveScrollBehavior()));
     if (updateUrl) {
-      router.replace(appModeHomeHref("prescribing", { query: trimmedSearchText, queryMode, scopeFilters }));
+      // Include run=1 so a refresh keeps the submitted results surface instead of
+      // falling back to the shared home with Medication merely preselected.
+      router.replace(
+        appModeHomeHref("prescribing", {
+          query: trimmedSearchText,
+          run: true,
+          queryMode,
+          scopeFilters,
+        }),
+      );
     }
   }
 

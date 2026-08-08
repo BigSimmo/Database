@@ -50,7 +50,10 @@ describe("audit navigation and auth regressions", () => {
     // deep links (`q` + `run=1`) still redirect to the dashboard prescribing
     // results surface so old bookmarks keep working.
     const medicationsPage = source("src/app/(search-app)/medications/page.tsx");
-    expect(medicationsPage).toContain('redirect(appModeHomeHref("prescribing", { query, run: true }))');
+    expect(medicationsPage).toContain('appModeHomeHref("prescribing"');
+    expect(medicationsPage).toContain("run: true");
+    expect(medicationsPage).toContain("readSearchNavigationContext");
+    expect(medicationsPage).toContain("redirect(");
     expect(medicationsPage).not.toContain('redirect("/?mode=prescribing")');
     expect([headApplications, headPresentations]).toEqual([redirectApplications, redirectPresentations]);
   });
