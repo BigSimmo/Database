@@ -21,6 +21,8 @@ const phoneMediaQuery = "(max-width: 639px)";
  * - `--document-anchor-offset` replaces a fixed `scroll-mt`, so a jump taken
  *   while chrome is hidden still lands with the heading below the sticky
  *   document header instead of underneath it.
+ * - `--document-collapse-height` is the live height of the universal collapse
+ *   row, for page-owned sticky chrome that needs to clear it.
  */
 export function useDocumentChromeMetrics(rootRef: RefObject<HTMLElement | null>) {
   const [headerHidden, setHeaderHidden] = useState(false);
@@ -49,6 +51,10 @@ export function useDocumentChromeMetrics(rootRef: RefObject<HTMLElement | null>)
       const anchorClearance = collapseHeight + (collapseHidden ? stickyHeaderHeight : 0);
       root.style.setProperty("--document-anchor-offset", `${Math.round(anchorClearance) + 16}px`);
       root.style.setProperty("--document-sticky-header-height", `${Math.round(stickyHeaderHeight)}px`);
+      // The live height of the universal collapse row, so page-owned sticky
+      // chrome can offset from what is actually on screen rather than from a
+      // hand-copied pixel value that drifts with type size and chrome changes.
+      root.style.setProperty("--document-collapse-height", `${Math.round(collapseHeight)}px`);
     };
 
     const syncHidden = () => {

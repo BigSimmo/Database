@@ -98,6 +98,14 @@ function argument(name) {
 }
 
 export function main() {
+  if (process.env.CODEX_CLOUD !== "1") {
+    console.log("[Codex Cloud Diagnose] status=NOT_APPLICABLE issues=0");
+    console.log(
+      "[Codex Cloud Diagnose] INFO DESKTOP_CONTEXT: Run this command inside a Codex Cloud shell; local Python versions are not Cloud runtime evidence.",
+    );
+    return 0;
+  }
+
   const cloudLock = workerPythonLockTargets.cloud.outputFile;
   const pythonBin = argument("--python-bin") || process.env.CODEX_CLOUD_OCR_PYTHON || "python3";
   const issues = diagnoseCodexCloud({
