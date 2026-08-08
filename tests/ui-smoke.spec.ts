@@ -3896,6 +3896,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       .getByRole("heading", { name: "Documents" })
       .first()
       .click({ position: { x: 2, y: 2 } });
+    // Scope restore can land on the composer + trigger; the command listbox must
+    // stay closed so it cannot cover Start-here actions (Browse library).
+    await expect(page.getByRole("listbox", { name: /search suggestions/i })).toHaveCount(0);
 
     await page
       .getByRole("button", { name: /Browse library/i })
