@@ -87,6 +87,17 @@ describe("services catalogue", () => {
     expect(cost).toBe("Free/confidential");
     expect(cost).not.toContain("|");
     expect(cost.length).toBeLessThanOrEqual(80);
+
+    const routeCard = record.summaryCards?.find((card) => card.id === "route");
+    const eligibilityCard = record.summaryCards?.find((card) => card.id === "eligibility");
+    const costCard = record.summaryCards?.find((card) => card.id === "cost");
+    expect(routeCard?.title).toBe("Self-referral accepted; clinician referral form available");
+    expect(routeCard?.title).not.toContain("|");
+    expect(eligibilityCard?.title).toBe("Age 12+ or family/carer; nearest CADS by region");
+    expect(eligibilityCard?.title).not.toContain("|");
+    expect(costCard?.title).toBe("Free/confidential");
+    expect(costCard?.title).not.toContain("|");
+    expect(costCard?.detail).not.toContain("|");
   });
 
   it("compacts pipe-joined patient-group blobs in best-use card detail", () => {
