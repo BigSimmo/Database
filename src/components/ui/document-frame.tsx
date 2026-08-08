@@ -338,7 +338,7 @@ function DocumentControls({
       aria-label="Document viewing controls"
       data-testid="document-frame-controls"
       data-print-hide
-      className="relative flex min-w-0 items-center justify-between gap-1.5 sm:flex-wrap sm:justify-end sm:gap-2"
+      className="flex min-w-0 items-center justify-between gap-1.5 sm:flex-wrap sm:justify-end sm:gap-2"
     >
       {typeof page === "number" ? <PageControls controls={controls} page={page} pageCount={pageCount} /> : <span />}
 
