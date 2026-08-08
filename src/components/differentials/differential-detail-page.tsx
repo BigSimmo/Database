@@ -1,9 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
+} from "react";
 import Link from "next/link";
 import {
   Activity,
+  ArrowLeft,
   TriangleAlert,
   Bookmark,
   BookmarkCheck,
@@ -15,6 +24,7 @@ import {
   ChevronsUpDown,
   CircleHelp,
   Clock3,
+  Ellipsis,
   FlaskConical,
   GitBranch,
   GitCompareArrows,
@@ -26,8 +36,14 @@ import {
 } from "lucide-react";
 
 import type { DifferentialRecordGovernance } from "@/components/clinical-dashboard/use-differential-catalog";
+import {
+  buildDifferentialSectionIndex,
+  type DifferentialDetailSection,
+} from "@/components/differentials/detail-section-index";
 import { DiagnosisMapPanel } from "@/components/differentials/diagnosis-map-panel";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
+import { DocumentSectionList, DocumentSectionTrack } from "@/components/document-viewer/section-nav";
+import { Sheet } from "@/components/ui/sheet";
 import { cn, pageContainer, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -811,33 +827,152 @@ function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
   );
 }
 
-function HeaderChrome() {
+const actionRowClass =
+  "focus-ring-tab flex min-h-tap w-full items-center gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-left text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-raised)]";
+
+/**
+ * Body of the header's ellipsis sheet. This is where the page actions live now
+ * that the header's right slot is a single actions control — including "New
+ * differentials search", which used to be a bare `+` in the old header row.
+ */
+function DiagnosisActions({
+  record,
+  saved,
+  onToggleSaved,
+  onCompare,
+  onNavigate,
+}: {
+  record: DifferentialRecord;
+  saved: boolean;
+  onToggleSaved: () => void;
+  onCompare: () => void;
+  onNavigate: () => void;
+}) {
+  return (
+    <div className="grid gap-2">
+      <button type="button" onClick={onCompare} className={actionRowClass}>
+        <GitCompareArrows className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        Compare ({record.related.length + 1})
+      </button>
+      <CopyAfterReviewButton
+        label="Copy after review"
+        text={formatDifferentialCopyText(record)}
+        className={cn(
+          actionRowClass,
+          "justify-start !bg-[color:var(--surface-subtle)] !text-[color:var(--text-heading)]",
+        )}
+      />
+      <button type="button" onClick={onToggleSaved} aria-pressed={saved} className={actionRowClass}>
+        {saved ? (
+          <BookmarkCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        ) : (
+          <Bookmark className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        )}
+        {saved ? "Remove saved diagnosis" : "Save diagnosis"}
+      </button>
+      <Link href={appModeHomeHref("differentials", { focus: true })} onClick={onNavigate} className={actionRowClass}>
+        <Plus className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        New differentials search
+      </Link>
+    </div>
+  );
+}
+
+/**
+ * The page's in-page navigation, built to the default template in
+ * `docs/search-chrome-behaviour.md`: back control, title with the active section
+ * on line two behind a chevron disclosure, ellipsis page actions, and a weighted
+ * segment track pinned to the header's bottom edge.
+ *
+ * `relative` (rather than the older `max-sm:static`) is load-bearing: the track is
+ * absolutely positioned against this header, and a `static` phone header would let
+ * it escape to whichever ancestor happens to be positioned. `sm:sticky` still only
+ * applies from `sm`, because below that `PhoneHeaderCollapsePortal` moves this
+ * subtree into the universal header's collapse row, which owns the scroll motion.
+ */
+function HeaderChrome({
+  record,
+  sections,
+  activeTab,
+  sectionSheetOpen,
+  onOpenSectionSheet,
+  sectionTriggerRef,
+  actionsOpen,
+  onOpenActions,
+  actionsTriggerRef,
+}: {
+  record: DifferentialRecord;
+  sections: DifferentialDetailSection[];
+  activeTab: DifferentialDetailTabId;
+  sectionSheetOpen: boolean;
+  onOpenSectionSheet: () => void;
+  sectionTriggerRef: RefObject<HTMLButtonElement | null>;
+  actionsOpen: boolean;
+  onOpenActions: () => void;
+  actionsTriggerRef: RefObject<HTMLButtonElement | null>;
+}) {
+  const activeSection = sections.find((section) => section.id === activeTab) ?? sections[0];
+
   return (
     <PhoneHeaderCollapsePortal>
       <header
         data-testid="differential-detail-header"
-        className="z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 max-sm:static sm:sticky sm:top-0 sm:px-6 lg:px-8"
+        className="relative z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 sm:sticky sm:top-0 sm:px-6 lg:px-8"
       >
-        <div className={cn(pageContainer, "flex items-center justify-between gap-3")}>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/differentials"
-              aria-label="Back to differentials"
-              className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
-            >
-              <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
-            </Link>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href={appModeHomeHref("differentials", { focus: true })}
-              aria-label="New differentials search"
-              className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
-            >
-              <Plus className="h-5 w-5" aria-hidden />
-            </Link>
-          </div>
+        <div className={cn(pageContainer, "flex min-h-12 min-w-0 items-center gap-2")}>
+          <Link
+            href="/differentials"
+            aria-label="Back to differentials"
+            className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]"
+          >
+            <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
+            <span className="hidden sm:inline">Differentials</span>
+          </Link>
+          {/* The title is the section-list disclosure. Line two names the panel you
+              are on, which the track can place but never label. */}
+          <button
+            type="button"
+            ref={sectionTriggerRef}
+            onClick={onOpenSectionSheet}
+            aria-expanded={sectionSheetOpen}
+            aria-haspopup="dialog"
+            data-testid="differential-section-trigger"
+            className="focus-ring-tab flex min-h-tap min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 text-left transition hover:bg-[color:var(--surface-subtle)]"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold leading-tight text-[color:var(--text-heading)] sm:text-base">
+                {record.title}
+              </span>
+              {activeSection ? (
+                <span className="mt-0.5 flex items-center gap-1.5 text-3xs font-bold text-[color:var(--clinical-accent)]">
+                  <activeSection.icon className="h-3 w-3 shrink-0" aria-hidden />
+                  <span className="min-w-0 truncate">{activeSection.label}</span>
+                </span>
+              ) : null}
+            </span>
+            <ChevronDown
+              aria-hidden
+              className={cn(
+                "h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition motion-reduce:transition-none",
+                sectionSheetOpen && "rotate-180",
+              )}
+            />
+          </button>
+          <button
+            type="button"
+            ref={actionsTriggerRef}
+            onClick={onOpenActions}
+            aria-label="Open diagnosis actions"
+            aria-haspopup="dialog"
+            aria-expanded={actionsOpen}
+            title="Diagnosis actions"
+            data-testid="differential-actions-trigger"
+            className="focus-ring-tab ml-auto grid h-tap w-tap shrink-0 place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]"
+          >
+            <Ellipsis className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+          </button>
         </div>
+        <DocumentSectionTrack sections={sections} activeId={activeTab} />
       </header>
     </PhoneHeaderCollapsePortal>
   );
@@ -890,7 +1025,9 @@ function Tabs({
     <nav
       role="tablist"
       onKeyDown={handleKeyDown}
-      className="flex border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)]"
+      // Phones navigate from the header disclosure and its sheet instead — one
+      // affordance per breakpoint, and no strip to clip at 320px.
+      className="hidden border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)] sm:flex"
       aria-label="Diagnosis sections"
     >
       {detailTabs.map((tab) => {
@@ -938,6 +1075,13 @@ export function DifferentialDetailPage({
   const accountData = useAccountData();
   const saved = accountData.isSaved("differential", record.slug);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [sectionSheetOpen, setSectionSheetOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const sectionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const sections = useMemo(() => buildDifferentialSectionIndex(record, detailContext), [record, detailContext]);
+  const activeSection = sections.find((section) => section.id === activeTab) ?? sections[0];
 
   const expandableSectionIds = useMemo(
     () =>
@@ -1010,7 +1154,65 @@ export function DifferentialDetailPage({
       data-testid="differential-detail-page"
       className="min-h-dvh bg-[color:var(--background)] pb-24 text-[color:var(--text)] lg:pb-6"
     >
-      <HeaderChrome />
+      <HeaderChrome
+        record={record}
+        sections={sections}
+        activeTab={activeTab}
+        sectionSheetOpen={sectionSheetOpen}
+        onOpenSectionSheet={() => setSectionSheetOpen(true)}
+        sectionTriggerRef={sectionTriggerRef}
+        actionsOpen={actionsOpen}
+        onOpenActions={() => setActionsOpen(true)}
+        actionsTriggerRef={actionsTriggerRef}
+      />
+      {/* Both sheets are siblings of the portal, never children of it: a sheet
+          inside the collapse row would be carried away with the header when the
+          shared chrome scroll-hides. */}
+      <Sheet
+        open={sectionSheetOpen}
+        onClose={() => setSectionSheetOpen(false)}
+        title={record.title}
+        description={
+          activeSection
+            ? `${activeSection.label} · ${sections.findIndex((section) => section.id === activeTab) + 1} of ${sections.length}`
+            : undefined
+        }
+        closeLabel="Close section list"
+        returnFocusRef={sectionTriggerRef}
+        testId="differential-section-sheet"
+      >
+        <DocumentSectionList
+          sections={sections}
+          activeId={activeTab}
+          onSelect={(id) => {
+            if (isDetailTabId(id)) changeTab(id);
+            setSectionSheetOpen(false);
+          }}
+        />
+      </Sheet>
+      <Sheet
+        open={actionsOpen}
+        onClose={() => setActionsOpen(false)}
+        title="This diagnosis"
+        description="Choose how to use this differential."
+        closeLabel="Close diagnosis actions"
+        returnFocusRef={actionsTriggerRef}
+        testId="differential-actions-sheet"
+      >
+        <DiagnosisActions
+          record={record}
+          saved={saved}
+          onToggleSaved={() => {
+            setActionsOpen(false);
+            void toggleSaved();
+          }}
+          onCompare={() => {
+            setActionsOpen(false);
+            openCompareTab();
+          }}
+          onNavigate={() => setActionsOpen(false)}
+        />
+      </Sheet>
       <div className={cn(pageContainer, "grid gap-4 px-3 py-3 sm:px-6 sm:py-4 lg:gap-5 lg:px-8")}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -1056,10 +1258,13 @@ export function DifferentialDetailPage({
 
         <Tabs active={activeTab} onChange={changeTab} />
 
+        {/* Named by its own label rather than by the tab button: below `sm` the
+            strip is `display:none`, and assistive tech ignores a hidden
+            `aria-labelledby` target, which would leave the panel unnamed. */}
         <div
           role="tabpanel"
           id={`differential-panel-${activeTab}`}
-          aria-labelledby={`differential-tab-${activeTab}`}
+          aria-label={activeSection?.label ?? "Diagnosis section"}
           className="grid gap-4"
         >
           {activeTab === "overview" ? (
