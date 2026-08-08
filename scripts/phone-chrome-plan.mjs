@@ -37,6 +37,7 @@ const phoneScrollConsumerSpecs = [
   "tests/ui-phone-scroll.spec.ts",
   "tests/ui-phone-scroll-page-owned.spec.ts",
   "tests/ui-phone-scroll-routes.spec.ts",
+  "tests/ui-phone-scroll-document-rail.spec.ts",
 ];
 
 const patterns = {
