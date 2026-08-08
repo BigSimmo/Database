@@ -34,7 +34,7 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
-import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pdf-readers-lazy";
+import { PdfCanvasViewer } from "@/components/document-viewer/pdf-readers-lazy";
 import {
   requestSignedUrlPayload,
   rowsById,
@@ -42,7 +42,6 @@ import {
 } from "@/components/document-viewer/signed-url-request";
 import { useDocumentSummarize } from "@/components/document-viewer/use-document-summarize";
 import { useDocumentViewerRoute } from "@/components/document-viewer/use-document-viewer-route";
-import { usePdfViewerPreference } from "@/components/document-viewer/use-pdf-viewer-preference";
 import { DocumentFrame, type DocumentFrameControls, type DocumentFrameSource } from "@/components/ui/document-frame";
 import {
   VIEWER_DEFAULT_ZOOM,
@@ -210,10 +209,10 @@ export function DocumentViewer({
     composerChromeFocused,
   );
   const activeScrollOwner = useActiveScrollOwner(shellScrollContainer, documentId);
-  const { useNativePdfViewer, togglePdfViewerMode } = usePdfViewerPreference();
-  // Phase 2a: DocumentFrame owns zoom/fit/viewing-aid chrome for canvas PDF.
-  // Reset viewing chrome when the document identity changes (render-time adjust,
-  // not an effect — avoids react-hooks/set-state-in-effect).
+  // DocumentFrame owns every viewing control for the canvas PDF — there is one
+  // reader, so there is one toolbar. Reset viewing chrome when the document
+  // identity changes (render-time adjust, not an effect — avoids
+  // react-hooks/set-state-in-effect).
   const [pdfViewingDocumentId, setPdfViewingDocumentId] = useState(documentId);
   const [pdfFitWidth, setPdfFitWidth] = useState(true);
   const [pdfZoom, setPdfZoom] = useState(VIEWER_DEFAULT_ZOOM);
@@ -804,7 +803,6 @@ export function DocumentViewer({
   const canvasPdfReady =
     Boolean(signedUrl) &&
     document?.file_type === "application/pdf" &&
-    !useNativePdfViewer &&
     !effectiveLoadingDocument &&
     !effectiveViewerError &&
     !previewError;
@@ -1388,46 +1386,21 @@ export function DocumentViewer({
                 }
               >
                 {signedUrl && document?.file_type === "application/pdf" ? (
-                  <>
-                    <div className="mb-2 flex items-center justify-end px-2 pt-2 sm:px-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          togglePdfViewerMode();
-                        }}
-                        aria-label={
-                          useNativePdfViewer
-                            ? "Switch to the standard viewer with fit and zoom controls"
-                            : "Switch to sharper zoom using your browser's PDF viewer"
-                        }
-                        title={
-                          useNativePdfViewer
-                            ? "Standard viewer with built-in fit and zoom controls."
-                            : "Sharper zoom — uses your browser's PDF engine to keep heavy-zoom pages crisp."
-                        }
-                        className={cn(secondaryButton, "min-h-tap w-full justify-center px-3 text-xs sm:w-auto")}
-                      >
-                        {useNativePdfViewer ? "Standard view" : "Sharper zoom"}
-                      </button>
-                    </div>
-                    {useNativePdfViewer ? (
-                      <NativePdfEmbed url={signedUrl} title={documentDisplayTitle(document)} initialPage={activePage} />
-                    ) : (
-                      <PdfCanvasViewer
-                        key={`${documentId}-${useNativePdfViewer ? "native" : "canvas"}`}
-                        url={signedUrl}
-                        title={documentDisplayTitle(document)}
-                        initialPage={activePage}
-                        onUrlExpired={handleSignedUrlExpired}
-                        onLoadSuccess={handlePdfLoadSuccess}
-                        onPageChange={navigateToPage}
-                        fitWidth={pdfFitWidth}
-                        zoom={pdfZoom}
-                        onFitWidthChange={handlePdfFitWidthChange}
-                        onZoomChange={handlePdfZoomChange}
-                      />
-                    )}
-                  </>
+                  <PdfCanvasViewer
+                    // Keyed on the document alone. The page must never enter this
+                    // key — that would remount pdf.js on every flip.
+                    key={documentId}
+                    url={signedUrl}
+                    title={documentDisplayTitle(document)}
+                    initialPage={activePage}
+                    onUrlExpired={handleSignedUrlExpired}
+                    onLoadSuccess={handlePdfLoadSuccess}
+                    onPageChange={navigateToPage}
+                    fitWidth={pdfFitWidth}
+                    zoom={pdfZoom}
+                    onFitWidthChange={handlePdfFitWidthChange}
+                    onZoomChange={handlePdfZoomChange}
+                  />
                 ) : (
                   <NonPdfSourcePreview
                     fileType={document?.file_type}

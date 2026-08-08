@@ -17,7 +17,7 @@ const placeholderSurface =
 /**
  * Inline preview for non-PDF source documents.
  *
- * PDFs render in PdfCanvasViewer/NativePdfEmbed; everything else lands here:
+ * PDFs render in PdfCanvasViewer; everything else lands here:
  * - image/* → inline stage + shared ImageLightbox (same gestures as rail crops),
  * - text/* → a pointer to the already-extracted indexed text below,
  * - other (DOCX/XLSX/…) → an honest "download to view" affordance,

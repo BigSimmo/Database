@@ -42,7 +42,6 @@ describe("DocumentFrame contract", () => {
     expect(viewerSource.match(/<DocumentFrame\b/g)).toHaveLength(1);
     expect(viewerSource).toContain("controls={pdfFrameControls}");
     expect(viewerSource).toContain("<PdfCanvasViewer");
-    expect(viewerSource).toContain("<NativePdfEmbed");
     expect(viewerSource).toContain("<NonPdfSourcePreview");
     expect(viewerSource).toContain("onFitWidthChange={handlePdfFitWidthChange}");
     expect(viewerSource).toContain("onZoomChange={handlePdfZoomChange}");

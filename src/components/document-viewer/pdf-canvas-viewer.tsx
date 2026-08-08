@@ -659,33 +659,3 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     </div>
   );
 });
-
-function nativePdfEmbedUrl(url: string, initialPage: number) {
-  const page = Math.max(1, Math.trunc(initialPage || 1));
-  return `${url.split("#")[0]}#page=${page}`;
-}
-
-export const NativePdfEmbed = memo(function NativePdfEmbed({
-  url,
-  title,
-  initialPage,
-}: {
-  url: string;
-  title: string;
-  initialPage: number;
-}) {
-  return (
-    <div
-      data-testid="native-pdf-embed"
-      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]"
-    >
-      <iframe
-        title={title}
-        src={nativePdfEmbedUrl(url, initialPage)}
-        className="h-[min(76vh,64rem)] w-full border-0 bg-[color:var(--surface-raised)]"
-        loading="lazy"
-        referrerPolicy="no-referrer"
-      />
-    </div>
-  );
-});

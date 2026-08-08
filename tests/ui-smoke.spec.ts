@@ -4066,7 +4066,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect.poll(() => signedUrlRequests.filter((kind) => kind === "download").length).toBe(1);
   });
 
-  test("document frame stretches canvas and native owners at phone and desktop", async ({ page }) => {
+  test("document frame stretches the canvas owner at phone and desktop", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
     await mockDemoApi(page);
     await gotoApp(
@@ -4078,23 +4078,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
     await expectDocumentOwnerFillsFrame(page, canvasOwner);
 
-    await page.evaluate(() => {
-      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "native");
-    });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
-    const nativeOwner = page.getByTestId("native-pdf-embed");
-    await expectDocumentOwnerFillsFrame(page, nativeOwner);
+    // There is one reader. The browser-engine iframe was removed because the
+    // production CSP (`default-src 'self'`, no frame-src) refuses a cross-origin
+    // frame; it only ever rendered against this same-origin demo corpus.
+    await expect(page.locator("iframe")).toHaveCount(0);
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await expectDocumentOwnerFillsFrame(page, nativeOwner);
-
-    await page.evaluate(() => {
-      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "canvas");
-    });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
     await expectDocumentOwnerFillsFrame(page, canvasOwner);
     await expectNoPageHorizontalOverflow(page);
   });
