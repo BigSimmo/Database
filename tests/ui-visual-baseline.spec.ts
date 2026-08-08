@@ -100,8 +100,12 @@ const targets: readonly BaselineTarget[] = [
      * exists to watch. A mask is a hole in the gate, so it is limited to the two
      * pinned elements — their own geometry is covered by the phone chrome
      * contracts in `docs/search-chrome-behaviour.md`, not by this pixel gate.
+     * The header selector is the document-specific `data-document-sticky-header`
+     * attribute, not `.edge-glass-header`, because the universal search header
+     * also carries that class and would keep the fail-loud mask guard green after
+     * a DocumentViewer rename.
      */
-    mask: [".edge-glass-header", ".document-viewer-composer"],
+    mask: ["[data-document-sticky-header]", ".document-viewer-composer"],
     prepare: async (page) => {
       const sectionIndex = page.getByTestId("document-section-index");
       const sourceText = sectionIndex.getByRole("button", { name: /Indexed source text/ });

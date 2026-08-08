@@ -136,6 +136,11 @@ if (captureKind === "refresh" && currentAwaiting.ids.length !== 0) {
  *   - `tests/__screenshots__/linux/` inside the artifact when it compared and passed
  *   - the committed baseline in this repository when a partial refresh left the
  *     target unchanged and the artifact carried no replacement image
+ *
+ * Retained baselines (the last two) are only trusted when visual-junit.xml shows
+ * that target passed. The artifact always uploads `tests/__screenshots__/`, even
+ * for a target that failed before producing an actual — without the junit gate a
+ * partial refresh could silently keep a stale PNG and claim it came from this run.
  */
 function findCandidateSource(id) {
   const candidate = path.join(from, "test-results", "visual-candidates", "linux", `${id}.png`);
@@ -143,14 +148,17 @@ function findCandidateSource(id) {
 
   const results = path.join(from, "test-results");
   if (fs.existsSync(results)) {
-    const wanted = new Set([`${id}-actual.png`, `${id}.png`]);
+    // Only Playwright's `*-actual.png` counts as a fresh diff under test-results.
+    // A bare `<id>.png` here can be an expected-snapshot copy and must not override
+    // a retained baseline for an unchanged target.
+    const wanted = `${id}-actual.png`;
     const stack = [results];
     while (stack.length > 0) {
       const dir = stack.pop();
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) stack.push(full);
-        else if (wanted.has(entry.name)) return { source: full, origin: "diff" };
+        else if (entry.name === wanted) return { source: full, origin: "diff" };
       }
     }
   }
@@ -162,6 +170,30 @@ function findCandidateSource(id) {
   if (fs.existsSync(committedBaseline)) return { source: committedBaseline, origin: "committed" };
 
   return null;
+}
+
+/**
+ * Map canonical baseline ids to pass/fail/skip from the artifact's visual-junit.xml.
+ * Missing file or missing case → null (caller decides whether that is fatal).
+ */
+function readJunitBaselineOutcomes() {
+  const junitPath = path.join(from, "test-results", "visual-junit.xml");
+  if (!fs.existsSync(junitPath)) return null;
+  const xml = fs.readFileSync(junitPath, "utf8");
+  const outcomes = new Map();
+  const casePattern =
+    /<testcase\b[^>]*\bname="([^"]+)"[^>]*>([\s\S]*?)<\/testcase>|<testcase\b[^>]*\bname="([^"]+)"[^>]*\/>/g;
+  let match;
+  while ((match = casePattern.exec(xml)) !== null) {
+    const name = match[1] ?? match[3] ?? "";
+    const body = match[2] ?? "";
+    const id = CANONICAL.find((candidate) => name.includes(`${candidate} matches its baseline`));
+    if (!id) continue;
+    if (body.includes("<skipped")) outcomes.set(id, "skipped");
+    else if (body.includes("<failure") || body.includes("<error")) outcomes.set(id, "failed");
+    else outcomes.set(id, "passed");
+  }
+  return outcomes;
 }
 
 /** Minimal PNG header read — width/height live at a fixed offset in the IHDR chunk. */
@@ -214,6 +246,34 @@ const replacedCandidateIds = resolved
   .filter((entry) => entry.origin === "candidate" || entry.origin === "diff")
   .map((entry) => entry.id)
   .sort();
+const retainedIds = resolved
+  .filter((entry) => entry.origin === "artifact-baseline" || entry.origin === "committed")
+  .map((entry) => entry.id)
+  .sort();
+
+if (captureKind === "refresh" && replacedCandidateIds.length === 0) {
+  fail(
+    "refresh requires at least one fresh candidate or actual image — refusing an all-green run with nothing to adopt",
+  );
+}
+
+if (retainedIds.length > 0) {
+  const outcomes = readJunitBaselineOutcomes();
+  if (!outcomes) {
+    fail(
+      `retained baselines (${retainedIds.join(", ")}) require test-results/visual-junit.xml in the artifact ` +
+        "so each can be confirmed passed rather than assumed from a stale screenshots upload",
+    );
+  }
+  const unproven = retainedIds.filter((id) => outcomes.get(id) !== "passed");
+  if (unproven.length > 0) {
+    fail(
+      `cannot retain baseline(s) without a passing visual-junit result: ${unproven
+        .map((id) => `${id}=${outcomes.get(id) ?? "missing"}`)
+        .join(", ")}`,
+    );
+  }
+}
 
 const changed = resolved.filter((entry) => entry.sha256 !== entry.previous);
 for (const entry of resolved) {

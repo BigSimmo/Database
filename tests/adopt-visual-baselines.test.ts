@@ -54,6 +54,25 @@ function writePng(fixtureRoot: string, relativePath: string, content: Buffer = v
   fs.writeFileSync(absolutePath, content);
 }
 
+function writeVisualJunit(artifactDir: string, outcomes: Record<string, "passed" | "failed" | "skipped">) {
+  const cases = baselineIds
+    .map((id) => {
+      const outcome = outcomes[id] ?? "passed";
+      if (outcome === "failed") {
+        return `<testcase name="visual baselines › ${id} matches its baseline" classname="ui-visual-baseline.spec.ts" time="1"><failure message="diff">failed</failure></testcase>`;
+      }
+      if (outcome === "skipped") {
+        return `<testcase name="visual baselines › ${id} matches its baseline" classname="ui-visual-baseline.spec.ts" time="1"><skipped/></testcase>`;
+      }
+      return `<testcase name="visual baselines › ${id} matches its baseline" classname="ui-visual-baseline.spec.ts" time="1"/>`;
+    })
+    .join("");
+  const xml = `<?xml version="1.0"?><testsuites><testsuite name="ui-visual-baseline.spec.ts" tests="${baselineIds.length}">${cases}</testsuite></testsuites>`;
+  const absolutePath = path.join(artifactDir, "test-results/visual-junit.xml");
+  fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+  fs.writeFileSync(absolutePath, xml);
+}
+
 function adoptBaselines(
   fixtureRoot: string,
   {
@@ -112,6 +131,14 @@ describe("adopt-visual-baselines.mjs", () => {
       for (const id of baselineIds.slice(1)) {
         writePng(artifactDir, `tests/__screenshots__/linux/${id}.png`, validPng);
       }
+      writeVisualJunit(artifactDir, {
+        "dashboard-shell": "failed",
+        "dashboard-shell-phone": "passed",
+        "search-results-band": "passed",
+        "search-results-band-phone": "passed",
+        "document-viewer": "passed",
+        "therapy-compass-home": "passed",
+      });
 
       const output = adoptBaselines(fixtureRoot, { artifactDir, head });
       expect(output).toContain("dashboard-shell");
@@ -145,12 +172,40 @@ describe("adopt-visual-baselines.mjs", () => {
       for (const id of baselineIds.slice(1)) {
         writePng(artifactDir, `tests/__screenshots__/linux/${id}.png`, validPng);
       }
+      writeVisualJunit(artifactDir, {
+        "dashboard-shell": "failed",
+        "dashboard-shell-phone": "passed",
+        "search-results-band": "passed",
+        "search-results-band-phone": "passed",
+        "document-viewer": "passed",
+        "therapy-compass-home": "passed",
+      });
 
       adoptBaselines(fixtureRoot, { artifactDir, head });
 
       const baselinePaths = baselineIds.map((id) => `tests/__screenshots__/linux/${id}.png`);
       const trackedFiles = new Set([...baselinePaths, "tests/__screenshots__/linux/provenance.json"]);
       expect(validateLinuxVisualBaselineSet(baselinePaths, { root: fixtureRoot, trackedFiles })).toEqual([]);
+    } finally {
+      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+      fs.rmSync(artifactDir, { force: true, recursive: true });
+    }
+  });
+
+  it("refuses to retain a baseline without a passing visual-junit result", () => {
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-nojunit-"));
+    const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
+    try {
+      const head = seedRepository(fixtureRoot, "");
+      for (const id of baselineIds) writePng(fixtureRoot, `tests/__screenshots__/linux/${id}.png`, validPng);
+      commitFixture(fixtureRoot, "seed committed baselines");
+
+      writePng(artifactDir, "test-results/ui-visual-baseline/dashboard-shell-actual.png", validPng);
+      for (const id of baselineIds.slice(1)) {
+        writePng(artifactDir, `tests/__screenshots__/linux/${id}.png`, validPng);
+      }
+
+      expect(() => adoptBaselines(fixtureRoot, { artifactDir, head })).toThrow(/visual-junit\.xml/);
     } finally {
       fs.rmSync(fixtureRoot, { force: true, recursive: true });
       fs.rmSync(artifactDir, { force: true, recursive: true });
