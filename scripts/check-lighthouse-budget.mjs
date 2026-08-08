@@ -87,6 +87,10 @@ export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false 
   // before anything is measured rather than a per-run problem.
   const problems = new Set(collidingRouteSlugs(budget?.routes ?? []).map((slug) => `route slug collision: ${slug}`));
   const byRun = new Map(rows.map((row) => [row.run, row]));
+  // Browser drift is collected separately from the other problems because it is ONE
+  // fact about the baseline, not N independent per-route defects — see the collapse
+  // below. The verdict is identical either way; only the message changes.
+  const drift = new Map();
 
   for (const run of expectedBudgetRuns(budget)) {
     const row = byRun.get(run);
@@ -123,10 +127,27 @@ export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false 
     // version, so a browser bump is otherwise indistinguishable from an application
     // regression. summarise-web-vitals.mjs makes the same point about its baselines.
     if (before.chromeVersion && row.chromeVersion && before.chromeVersion !== row.chromeVersion) {
-      problems.add(
-        `${run}: baseline measured by a different browser (${before.chromeVersion} vs ${row.chromeVersion}) — refresh with --update`,
-      );
+      drift.set(run, { before: before.chromeVersion, after: row.chromeVersion });
     }
+  }
+
+  // One browser bump reds every run in the budget, and printing ten near-identical
+  // sentences buried the single actionable instruction. Collapse to one line ONLY
+  // when drift is the whole story and every run drifted the same way — any
+  // measurement gap, or a mixed set of browsers, still lists per run because those
+  // are genuinely different facts. This changes the message, never the verdict:
+  // `compareToLighthouseBudget` still returns `fail` on a non-empty result,
+  // independently of `enforce`.
+  const driftPairs = new Set([...drift.values()].map(({ before, after }) => JSON.stringify([before, after])));
+  if (drift.size > 0 && problems.size === 0 && driftPairs.size === 1) {
+    const [{ before, after }] = drift.values();
+    return [
+      `browser drift on ${drift.size} run(s): the baseline was measured by ${before}, this run used ${after} — ` +
+        'refresh it with the CI "Refresh Lighthouse baseline" dispatch (workflow_dispatch, refresh_lighthouse_baseline)',
+    ];
+  }
+  for (const [run, { before, after }] of drift) {
+    problems.add(`${run}: baseline measured by a different browser (${before} vs ${after}) — refresh with --update`);
   }
   return [...problems].sort();
 }

@@ -40,7 +40,24 @@ export type DownloadLinkProps = BaseProps & { href: string; format?: string; siz
     "href" | "children" | "className" | "download"
   >;
 
-export type LinkActionProps = BaseProps & { href: string };
+/**
+ * `tone` is deliberately refused rather than inherited from `BaseProps`. A
+ * forward action is the accent by design — that is what makes it read as the
+ * card's next step rather than as prose — so there is no `inherit` variant to
+ * select. Accepting the prop and ignoring it was worse than refusing it: three
+ * sibling links honour `tone`, so `tone="inherit"` here looked like it worked
+ * and silently did nothing.
+ *
+ * `tone?: never`, not `Omit<BaseProps, "tone">`. Omit alone only closes the
+ * literal path: excess-property checking runs on object literals, so
+ * `<LinkAction tone="inherit" />` is rejected, but a caller who builds props in
+ * a variable or wrapper and writes `<LinkAction {...props} />` is doing an
+ * ordinary assignment, where extra properties are allowed — measured, that form
+ * type-checked clean and still rendered the accent, which is the exact silent
+ * behaviour this change exists to end. `never` rejects both forms; the contract
+ * test in `ui-v2-components.dom.test.tsx` pins the spread one.
+ */
+export type LinkActionProps = Omit<BaseProps, "tone"> & { href: string; tone?: never };
 
 /**
  * Internal navigation. Wraps `next/link` so a call site never reaches for a raw
