@@ -78,14 +78,40 @@ describe("DocumentClinicalSummary", () => {
     expect(desktopPriorities).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("does not label an unindexed empty state as source-backed", () => {
+  // The card used to render its gradient header, icon and heading around
+  // "not been indexed for this document yet" — most of a phone's first viewport
+  // spent saying the document has no summary. It now renders nothing at all.
+  it("renders nothing when the document has no indexed summary", () => {
     const emptyDocument = { ...document, summary: undefined } as ClinicalDocument;
 
-    render(
+    const { container } = render(
       <DocumentClinicalSummary document={emptyDocument} pageHref={(page) => `?page=${page}`} onPageChange={vi.fn()} />,
     );
 
-    expect(screen.getByText("A structured clinical summary has not been indexed for this document yet.")).toBeVisible();
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByTestId("document-clinical-summary")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("A structured clinical summary has not been indexed for this document yet."),
+    ).not.toBeInTheDocument();
+  });
+
+  // A stored summary row is not the same as usable content: the model discards
+  // placeholder text, so this row yields a card only because it still has
+  // priorities to show, and the empty-summary line stays for that case.
+  it("keeps the unindexed line when priorities survive but the summary text does not", () => {
+    const placeholderDocument = {
+      ...document,
+      summary: { ...document.summary, summary: "Source-backed review", clinical_specifics: {} },
+    } as ClinicalDocument;
+
+    render(
+      <DocumentClinicalSummary
+        document={placeholderDocument}
+        pageHref={(page) => `?page=${page}`}
+        onPageChange={vi.fn()}
+      />,
+    );
+
     expect(screen.queryByText("Source-backed")).not.toBeInTheDocument();
   });
 

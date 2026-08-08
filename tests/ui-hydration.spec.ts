@@ -13,9 +13,9 @@ test.describe("React Hydration Safety", () => {
       themeCookie: "dark",
     },
     {
-      name: "document viewer persisted PDF mode",
+      name: "document viewer deep-linked page",
       route: "/documents/11111111-1111-4111-8111-111111111111?page=1",
-      storage: { "clinical-kb:pdf-viewer-mode": "native" },
+      storage: {},
     },
   ] as const;
 

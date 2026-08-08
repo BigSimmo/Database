@@ -67,6 +67,24 @@ describe("fixture-free client performance boundaries", () => {
     expect('import type { PDFDocumentProxy } from "pdfjs-dist";').not.toMatch(eagerPdfJsImport);
   });
 
+  it("fetches PDF bytes on demand and releases the raster on teardown", () => {
+    const pdfViewer = source("src/components/document-viewer/pdf-canvas-viewer.tsx");
+
+    // pdf.js otherwise keeps pulling the rest of the file down in the background
+    // even when the reader only ever looks at one page. The two flags are a pair:
+    // disabling pre-fetch has no effect while streaming is on (pdfjs-dist types,
+    // GetDocumentParameters.disableAutoFetch), so neither may be dropped alone.
+    expect(pdfViewer).toContain("disableAutoFetch: true");
+    expect(pdfViewer).toContain("disableStream: true");
+
+    // A canvas holds its backing store until collection — real memory on a phone
+    // for a document the reader has already left. Page cleanup is effect-local
+    // (pageToCleanup) so a rapid flip cannot release the next page's resources.
+    expect(pdfViewer).toContain("canvas.width = 0");
+    expect(pdfViewer).toContain("pageToCleanup?.cleanup()");
+    expect(pdfViewer).not.toContain("renderedPageRef.current?.cleanup()");
+  });
+
   it("revalidates cached document download URLs on every viewer action", () => {
     const viewer = source("src/components/DocumentViewer.tsx");
 

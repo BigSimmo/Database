@@ -2,23 +2,19 @@
   "schemaVersion": 2,
   "platform": "linux",
   "runnerImage": "ubuntu-24.04",
-  "candidateSourceHead": "ac1d0ddbe6d2b58fe94ed6dec35d59723c5acfbf",
-  "capture": {
-    "kind": "refresh",
-    "replacedCandidateIds": ["document-viewer"]
-  },
+  "candidateSourceHead": "f20e908723efe6a6266a82f3d42e148eb6749dd2",
   "source": {
     "kind": "hosted-ci-artifact",
-    "runId": "31267928439",
-    "artifactName": "visual-baseline-31267928439",
-    "candidateSourceHead": "ac1d0ddbe6d2b58fe94ed6dec35d59723c5acfbf"
+    "runId": "31265543648",
+    "artifactName": "visual-baseline-31265543648",
+    "candidateSourceHead": "f20e908723efe6a6266a82f3d42e148eb6749dd2"
   },
   "review": {
     "status": "approved",
     "reviewerType": "human",
     "reviewedBy": "BigSimmo",
-    "reviewedAt": "2026-08-08T17:00:37Z",
-    "candidateSourceHead": "ac1d0ddbe6d2b58fe94ed6dec35d59723c5acfbf"
+    "reviewedAt": "2026-08-08T16:43:29Z",
+    "candidateSourceHead": "f20e908723efe6a6266a82f3d42e148eb6749dd2"
   },
   "candidates": [
     {
@@ -52,9 +48,9 @@
     {
       "id": "document-viewer",
       "path": "tests/__screenshots__/linux/document-viewer.png",
-      "sha256": "9df2549adc69326ce3cdd3c8f2937572275f3e7122d9bfbc44fa7b73b0ee2235",
+      "sha256": "4c7ce8fad2780b22770ceeed6afc518a95350fd99e93d0a72ed57ce01e6c5cfd",
       "width": 1196,
-      "height": 2903
+      "height": 2816
     },
     {
       "id": "therapy-compass-home",
