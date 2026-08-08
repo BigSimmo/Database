@@ -442,6 +442,19 @@ describe("Codex Cloud environment contract", () => {
     ).toContain(`.codex/config.toml supabase_cloud must keep the production project read-only.`);
   });
 
+  it("keeps Railway's cross-client template separate from the hosted OAuth app", () => {
+    const projectTemplate = readFileSync(new URL("../.codex/config.toml", import.meta.url), "utf8");
+    const crossClientTemplate = readFileSync(new URL("../.mcp.json", import.meta.url), "utf8");
+    const ownershipDocumentation = readFileSync(new URL("../docs/codex-cloud.md", import.meta.url), "utf8");
+
+    expect(validateCodexProjectMcpConfiguration(projectTemplate)).toEqual([]);
+    expect(validateMcpConfiguration(crossClientTemplate)).toEqual([]);
+    expect(projectTemplate).toMatch(/\[mcp_servers\.railway\][\s\S]*?enabled = false/);
+    expect(projectTemplate).not.toContain("[mcp_servers.railway_connected]");
+    expect(ownershipDocumentation).toContain("cross-client Desktop/CLI template");
+    expect(ownershipDocumentation).toMatch(/separately installed\/authenticated\s+workspace app/);
+  });
+
   it("rejects a stale Railway app from an explicitly supplied hosted inventory", () => {
     const inventory = parseHostedAppInventoryArgument([
       "--environment",
@@ -566,6 +579,8 @@ describe("Codex Cloud environment contract", () => {
     expect(setup.match(/unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy/g)).toHaveLength(2);
     expect(setup).toContain("worker/python/requirements-cloud.txt");
     expect(setup).toContain("diagnose-codex-cloud.mjs");
+    expect(setup).toContain("CODEX_CLOUD=1 node scripts/diagnose-codex-cloud.mjs");
+    expect(setup).toContain("CODEX_CLOUD=1 npm run diagnose:codex-cloud");
     expect(setup).toContain("trap diagnose_setup_failure ERR");
     expect(setup).toContain('setup_step="python-worker-requirements"');
     expect(setup).toContain("--require-hashes -r worker/python/requirements-cloud.txt");
