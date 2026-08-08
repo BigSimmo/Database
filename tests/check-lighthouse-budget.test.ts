@@ -142,6 +142,33 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     expect(problems[0]).toContain("measured by a different browser");
   });
 
+  it("ignores browser drift and missing baseline rows when refreshing", () => {
+    // `--update` must remain reachable after a runner Chrome bump; grading still
+    // fails closed on the same evidence via the default ignoreBaseline:false path.
+    const rows = completeRows();
+    const stale = baselineFromRows(
+      rows
+        .filter((entry: Row) => entry.run !== "mobile-forms")
+        .map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })),
+    );
+
+    expect(incompleteBudgetEvidence(rows, budget({ baseline: stale }), { ignoreBaseline: true })).toEqual([]);
+    expect(incompleteBudgetEvidence(rows, budget({ baseline: stale }))).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("measured by a different browser"),
+        "mobile-forms: no baseline row recorded — refresh with --update",
+      ]),
+    );
+  });
+
+  it("still refuses a refresh when a report is missing", () => {
+    const rows = completeRows().filter((entry: Row) => entry.run !== "mobile-dsm");
+
+    expect(incompleteBudgetEvidence(rows, budget(), { ignoreBaseline: true })).toEqual([
+      "mobile-dsm: no Lighthouse report produced",
+    ]);
+  });
+
   it("accepts a baseline that recorded no browser identity at all", () => {
     // Older baselines predate the field; absent is not the same as mismatched.
     const rows = completeRows();
