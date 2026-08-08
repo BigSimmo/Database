@@ -4,7 +4,7 @@
     "targetLayer": "v2",
     "liveLayer": "v2",
     "remoteStatus": "unverified",
-    "visualBaselineStatus": "not-committed"
+    "visualBaselineStatus": "committed"
   },
   "globalShell": {
     "file": "src/app/layout.tsx",
@@ -116,14 +116,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "AnswerCard",
@@ -152,14 +152,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "AnswerFooter",
@@ -186,14 +186,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "AsyncButton",
@@ -224,14 +224,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Breadcrumb",
@@ -252,14 +252,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Button",
@@ -285,14 +285,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Checkbox",
@@ -313,14 +313,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Chip",
@@ -355,14 +355,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Citation",
@@ -392,14 +392,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "CitationList",
@@ -420,14 +420,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "ConfirmDialog",
@@ -452,14 +452,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "DateDisplay",
@@ -492,14 +492,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Disclosure",
@@ -520,14 +520,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "DisclosureGroup",
@@ -548,14 +548,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "DoseLine",
@@ -580,14 +580,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "DownloadLink",
@@ -608,14 +608,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "EmptyState",
@@ -668,14 +668,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "ErrorSummary",
@@ -696,14 +696,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "ExternalTextLink",
@@ -724,14 +724,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "FieldError",
@@ -752,14 +752,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "FieldHint",
@@ -780,14 +780,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "FormField",
@@ -813,14 +813,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "IconButton",
@@ -847,14 +847,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "InlineNotice",
@@ -889,14 +889,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "LinkAction",
@@ -917,14 +917,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "LoadingPanel",
@@ -961,14 +961,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "MissingValue",
@@ -1002,14 +1002,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "OverlayRoot",
@@ -1034,14 +1034,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "PageHeader",
@@ -1062,14 +1062,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Pagination",
@@ -1090,14 +1090,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "PanelHeading",
@@ -1118,14 +1118,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Progress",
@@ -1146,14 +1146,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Quantity",
@@ -1178,14 +1178,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "RadioGroup",
@@ -1206,14 +1206,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "RetrievalStateBanner",
@@ -1238,14 +1238,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "SafeBoldText",
@@ -1284,14 +1284,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "SearchField",
@@ -1312,14 +1312,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "SegmentedControl",
@@ -1346,14 +1346,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Select",
@@ -1387,14 +1387,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Sheet",
@@ -1477,14 +1477,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Skeleton",
@@ -1519,14 +1519,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "SourceDesignationBadge",
@@ -1547,14 +1547,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "SourceProvenance",
@@ -1575,14 +1575,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "SourceStatusBadge",
@@ -1603,14 +1603,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "StageList",
@@ -1631,14 +1631,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "StatusMark",
@@ -1663,14 +1663,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Tabs",
@@ -1691,14 +1691,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "TextField",
@@ -1727,14 +1727,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "TextLink",
@@ -1755,14 +1755,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "ToastRegion",
@@ -1783,14 +1783,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "ToggleSwitch",
@@ -1817,14 +1817,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "Tooltip",
@@ -1845,14 +1845,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": false,
       "v2MountMode": "none",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     },
     {
       "name": "VerificationNotice",
@@ -1877,14 +1877,14 @@
         "targetLayer": "v2",
         "liveLayer": "v2",
         "remoteStatus": "unverified",
-        "visualBaselineStatus": "not-committed"
+        "visualBaselineStatus": "committed"
       },
       "built": true,
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
-      "baselineCommitted": false
+      "baselineCommitted": true
     }
   ],
   "surfaces": [
@@ -1925,8 +1925,11 @@
         }
       },
       "baseline": {
-        "status": "not-committed",
-        "files": []
+        "status": "committed",
+        "files": [
+          "tests/__screenshots__/linux/dashboard-shell-phone.png",
+          "tests/__screenshots__/linux/dashboard-shell.png"
+        ]
       },
       "permittedComponentFamilies": ["answer", "controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["ClinicalDashboard", "OverlayRoot", "SettingsDialog"],
@@ -2501,8 +2504,8 @@
         }
       },
       "baseline": {
-        "status": "not-committed",
-        "files": []
+        "status": "committed",
+        "files": ["tests/__screenshots__/linux/therapy-compass-home.png"]
       },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["TherapyCompass"],
@@ -2650,8 +2653,8 @@
         }
       },
       "baseline": {
-        "status": "not-committed",
-        "files": []
+        "status": "committed",
+        "files": ["tests/__screenshots__/linux/document-viewer.png"]
       },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["DocumentViewer", "SourceEvidence"],
@@ -2991,8 +2994,11 @@
         }
       },
       "baseline": {
-        "status": "not-committed",
-        "files": []
+        "status": "committed",
+        "files": [
+          "tests/__screenshots__/linux/search-results-band-phone.png",
+          "tests/__screenshots__/linux/search-results-band.png"
+        ]
       },
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
       "sanctionedSpecialPatterns": ["SearchResultsHeaderBand"],

@@ -102,8 +102,11 @@
         }
       },
       "baseline": {
-        "status": "not-committed",
-        "files": []
+        "status": "committed",
+        "files": [
+          "tests/__screenshots__/linux/dashboard-shell-phone.png",
+          "tests/__screenshots__/linux/dashboard-shell.png"
+        ]
       },
       "sanctionedSpecialPatterns": ["OverlayRoot", "ClinicalDashboard", "SettingsDialog"],
       "documentedDisposition": "The root route, shared application shell, global overlays, answer orchestration and settings UI are owned by the mounted shell rather than separate settings routes."
@@ -324,8 +327,8 @@
         }
       },
       "baseline": {
-        "status": "not-committed",
-        "files": []
+        "status": "committed",
+        "files": ["tests/__screenshots__/linux/therapy-compass-home.png"]
       },
       "sanctionedSpecialPatterns": ["TherapyCompass"]
     },
@@ -364,8 +367,8 @@
         }
       },
       "baseline": {
-        "status": "not-committed",
-        "files": []
+        "status": "committed",
+        "files": ["tests/__screenshots__/linux/document-viewer.png"]
       },
       "sanctionedSpecialPatterns": ["DocumentViewer", "SourceEvidence"]
     },
@@ -549,8 +552,11 @@
         }
       },
       "baseline": {
-        "status": "not-committed",
-        "files": []
+        "status": "committed",
+        "files": [
+          "tests/__screenshots__/linux/search-results-band-phone.png",
+          "tests/__screenshots__/linux/search-results-band.png"
+        ]
       },
       "sanctionedSpecialPatterns": ["SearchResultsHeaderBand"],
       "documentedDisposition": "Submitted catalogue and document searches share the shell-owned results header band while their page routes remain owned by the domain surfaces above."
@@ -692,6 +698,6 @@
     "targetLayer": "v2",
     "liveLayer": "v2",
     "remoteStatus": "unverified",
-    "visualBaselineStatus": "not-committed"
+    "visualBaselineStatus": "committed"
   }
 }

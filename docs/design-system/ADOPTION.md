@@ -338,18 +338,18 @@ Observed v2 under a compatibility declaration fails closed. A declared v2 shell 
 
 | Surface                            | Disposition     | Routes | Roots | Declared shell | Observed shell (mount)     | Proof          | Baseline       |
 | ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------------------- | -------------- | -------------- |
-| `root-shell-and-settings`          | shared-shell    |      1 |     4 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `root-shell-and-settings`          | shared-shell    |      1 |     4 | v2             | v2 (inherited-global-root) | passed         | committed      |
 | `catalogues-forms-and-info`        | owned           |     13 |    13 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `differentials`                    | owned           |      4 |     4 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `formulation`                      | owned           |      5 |     5 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `specifiers`                       | owned           |      5 |     5 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `therapy-compass`                  | owned           |      9 |    10 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `documents-and-source-evidence`    | owned           |      3 |     4 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `therapy-compass`                  | owned           |      9 |    10 | v2             | v2 (inherited-global-root) | passed         | committed      |
+| `documents-and-source-evidence`    | owned           |      3 |     4 | v2             | v2 (inherited-global-root) | passed         | committed      |
 | `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | v2             | v2 (inherited-global-root) | not-applicable | not-applicable |
 | `favourites`                       | owned           |      1 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `tools-and-calculators`            | owned           |      2 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `privacy-safety-and-reference`     | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `search-results-shared`            | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `search-results-shared`            | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | committed      |
 | `answers-shared`                   | shared-shell    |      0 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `source-preview-shared`            | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 
