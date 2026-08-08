@@ -32,6 +32,21 @@ describe("services catalogue", () => {
     expect(record.verification?.confidence).toBe("Medium");
   });
 
+  it("skips placeholder-first referral segments for CCI route cards", () => {
+    const snapshot = loadServicesSnapshot();
+    const cci = snapshot.services.find(
+      (service) => service.canonical_name_key === "centre-for-clinical-interventions-cci",
+    );
+    expect(cci?.referral_pathway?.includes("|")).toBe(true);
+    expect(cci!.referral_pathway).toMatch(/not publicly stated/i);
+
+    const record = catalogToServiceRecord(cci!);
+    const routeCard = record.summaryCards?.find((card) => card.id === "route");
+    expect(routeCard?.title).toBe("Contact service; external referral forms and inclusion/exclusion criteria");
+    expect(routeCard?.title).not.toMatch(/not publicly stated/i);
+    expect(routeCard?.title).not.toContain("|");
+  });
+
   it("compacts pipe-joined best-use blobs on summary cards", () => {
     const snapshot = loadServicesSnapshot();
     const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");

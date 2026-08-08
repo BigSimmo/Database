@@ -1244,10 +1244,11 @@ function SearchRecordResults({
                     <span className="line-clamp-2">{service.title}</span>
                   </Link>
                   <p className={cn("mt-1 line-clamp-2 text-sm leading-6", textMuted)}>
-                    {compactBestUseTitle(
-                      service.subtitle ?? service.bestUse ?? service.route ?? "Open the source-backed record.",
-                      120,
-                    )}
+                    {(() => {
+                      const subtitleText =
+                        service.subtitle ?? service.bestUse ?? service.route ?? "Open the source-backed record.";
+                      return mode === "services" ? compactBestUseTitle(subtitleText, 120) : subtitleText;
+                    })()}
                   </p>
                 </div>
                 <Link
