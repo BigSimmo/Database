@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import {
   FileText,
   Heart,
+  LayoutGrid,
   MessageSquarePlus,
   MessageSquare,
   PanelLeftClose,
@@ -73,8 +74,9 @@ const sidebarAccountLibraryItems = [
  * The modes with no primary sidebar entry. The mode pill no longer navigates to a
  * mode home (it retargets the shared composer), so without these the homes at
  * /forms, /differentials, /dsm, /specifiers, /formulation and /therapy-compass
- * would have no direct way in. Grouped below the primary list so the sidebar stays
- * scannable. Labels and icons come from the registry so a rename lands in one place.
+ * would have no direct way in. Opened from a single "More modes" control so the
+ * sidebar stays scannable. Labels and icons come from the registry so a rename
+ * lands in one place.
  */
 const sidebarMoreModeIds = [
   "forms",
@@ -92,6 +94,10 @@ const sidebarMoreModeItems = sidebarMoreModeIds.map((id) => ({
   href: appModeHomeHref(id),
 }));
 
+function isSidebarMoreMode(mode: AppModeId): boolean {
+  return (sidebarMoreModeIds as readonly AppModeId[]).includes(mode);
+}
+
 const visibleSidebarToolItems = sidebarToolItems;
 
 // Display-free base so callers can compose `grid` / `hidden lg:grid` without
@@ -101,6 +107,120 @@ const collapsedSidebarControl =
 const collapsedSidebarButton = `grid ${collapsedSidebarControl}`;
 const collapsedSidebarActiveButton =
   "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
+
+function MoreModesMenu({
+  variant,
+  activeMode,
+  onNavigate,
+}: {
+  variant: "expanded" | "collapsed";
+  activeMode: AppModeId;
+  onNavigate?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const active = isSidebarMoreMode(activeMode);
+
+  function closeMenu() {
+    setOpen(false);
+  }
+
+  function handleModeNavigate() {
+    closeMenu();
+    onNavigate?.();
+  }
+
+  const trigger =
+    variant === "expanded" ? (
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        data-testid="sidebar-more-modes"
+        className={cn(
+          sidebarItem,
+          "border-l-2 border-transparent",
+          active &&
+            "border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
+        )}
+      >
+        <LayoutGrid
+          aria-hidden="true"
+          className={cn(
+            "h-4 w-4 shrink-0",
+            active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
+          )}
+        />
+        <span className="min-w-0 flex-1 truncate text-left">More modes</span>
+      </button>
+    ) : (
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label="More modes"
+        title="More modes"
+        data-testid="sidebar-more-modes"
+        className={cn(collapsedSidebarButton, active && collapsedSidebarActiveButton)}
+      >
+        <LayoutGrid aria-hidden="true" className="h-4 w-4" />
+      </button>
+    );
+
+  return (
+    <>
+      {trigger}
+      <Sheet
+        open={open}
+        onClose={closeMenu}
+        title="More modes"
+        description="Open a specialist mode home."
+        closeLabel="Close more modes"
+        returnFocusRef={triggerRef}
+        portal
+        mobilePlacement="bottom"
+        mobileSize="content"
+        testId="sidebar-more-modes-sheet"
+        contentClassName="max-h-[calc(100dvh-0.5rem)] sm:max-w-md"
+        bodyClassName="p-2"
+        headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
+      >
+        <nav aria-label="More modes" className="grid gap-0.5">
+          {sidebarMoreModeItems.map((item) => {
+            const Icon = item.icon;
+            const itemActive = activeMode === item.id;
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                onClick={handleModeNavigate}
+                aria-current={itemActive ? "page" : undefined}
+                className={cn(
+                  sidebarItem,
+                  "border-l-2 border-transparent",
+                  itemActive &&
+                    "border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    itemActive ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
+                  )}
+                />
+                <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </Sheet>
+    </>
+  );
+}
 
 export function ClinicalSidebarContent({
   recentQueries,
@@ -270,39 +390,7 @@ export function ClinicalSidebarContent({
           </nav>
         </section>
 
-        <section className="min-w-0 shrink-0">
-          <div className="mb-2 flex items-center justify-between gap-2 px-1">
-            <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">More modes</p>
-          </div>
-          <nav aria-label="More modes" className="grid gap-0.5">
-            {sidebarMoreModeItems.map((item) => {
-              const Icon = item.icon;
-              const active = activeMode === item.id;
-              return (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  onClick={onNavigate}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    sidebarItem,
-                    "border-l-2 border-transparent",
-                    active &&
-                      "border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      "h-4 w-4 shrink-0",
-                      active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
-                    )}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </section>
+        <MoreModesMenu variant="expanded" activeMode={activeMode} onNavigate={onNavigate} />
 
         {showAccountLibrary ? (
           <section className="min-w-0 shrink-0">
@@ -490,24 +578,7 @@ function ClinicalCollapsedRail({
           })}
         </nav>
         <span className="my-1 h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
-        <nav aria-label="More modes" className="grid justify-items-center gap-1.5">
-          {sidebarMoreModeItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeMode === item.id;
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                className={cn(collapsedSidebarButton, active && collapsedSidebarActiveButton)}
-                aria-label={item.label}
-                title={item.label}
-                aria-current={active ? "page" : undefined}
-              >
-                <Icon className="h-4 w-4" />
-              </Link>
-            );
-          })}
-        </nav>
+        <MoreModesMenu variant="collapsed" activeMode={activeMode} />
         {showAccountLibrary ? (
           <>
             <span className="my-1 h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
