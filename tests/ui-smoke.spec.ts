@@ -3987,10 +3987,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("#source-evidence").getByTestId("highlighted-source-passage")).toContainText(
       "Escalate review when there is vomiting",
     );
+    // Citation landing keeps the indexed dump collapsed so the PDF stays primary.
+    await expect(page.locator("#source-text")).toHaveJSProperty("open", false);
+    await page.getByTestId("inspect-indexed-text").click();
+    await expect(page.locator("#source-text")).toHaveJSProperty("open", true);
     await expect(
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
-    await expect(page.locator("#source-text")).toHaveJSProperty("open", true);
     await expect(
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toHaveJSProperty("open", true);
@@ -4125,14 +4128,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(evidence).toBeVisible();
     await expect(evidence.getByText("Highlighted source passage")).toBeVisible();
     await expect(page.locator("#source-text")).toBeVisible();
-    await expect(
-      page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
-    ).toBeVisible();
+    await expect(page.locator("#source-text")).toHaveJSProperty("open", false);
+    await expect(page.getByTestId("inspect-indexed-text")).toBeVisible();
     await expect(sectionTrigger).toBeVisible();
     await revealPhoneHeaderControl(page, sectionTrigger);
     await sectionTrigger.click();
     const sectionSheet = page.getByTestId("document-section-sheet");
-    await expect(sectionSheet.getByRole("button", { name: /Pinned evidence/ })).toBeVisible();
+    await expect(sectionSheet.getByRole("button", { name: /Cited excerpt/ })).toBeVisible();
     await expect(sectionSheet.getByRole("button", { name: /PDF preview/ })).toBeVisible();
     await expect(sectionSheet.getByRole("button", { name: /Indexed source text/ })).toBeVisible();
     const mobileDensityToggle = sectionSheet.getByTestId("document-view-density-toggle");
@@ -4186,6 +4188,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(preview).toBeInViewport();
     await openSection(/Indexed source text/);
     await expect(indexedTextHeading).toBeInViewport();
+    await expect(page.locator("#source-text")).toHaveJSProperty("open", true);
+    await expect(
+      page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
+    ).toBeVisible();
     await openSection(/PDF preview/);
     await expect(preview).toBeInViewport();
 

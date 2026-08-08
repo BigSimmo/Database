@@ -308,3 +308,94 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(offenders).toEqual([]);
   });
 });
+
+describe("Lighthouse budget routing", () => {
+  /** The `lighthouse-budget:` block, up to the next top-level job key. */
+  const lighthouseJob = /\n  lighthouse-budget:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+  const refreshJob = /\n  lighthouse-baseline-refresh:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+
+  it("finds both Lighthouse jobs", () => {
+    // Fails closed on a rename rather than turning every assertion below into a
+    // vacuous match against an empty string.
+    expect(lighthouseJob, "lighthouse-budget job not found in ci.yml").not.toBe("");
+    expect(refreshJob, "lighthouse-baseline-refresh job not found in ci.yml").not.toBe("");
+  });
+
+  it("exports perf_changed from the change-scope job", () => {
+    expect(workflow).toContain("perf_changed: ${{ steps.scope.outputs.perf_changed }}");
+  });
+
+  it("keys the budget off perf scope, not the old ui/build union", () => {
+    // `ui_changed || build_changed` put every dependabot lockfile bump and every
+    // worker/** change through a ~7 minute build plus ten Lighthouse runs.
+    expect(lighthouseJob).toContain("needs.changes.outputs.perf_changed == 'true'");
+    expect(lighthouseJob).not.toContain("needs.changes.outputs.ui_changed");
+    expect(lighthouseJob).not.toContain("needs.changes.outputs.build_changed");
+  });
+
+  it("re-runs Lighthouse on push when the lockfile changed", () => {
+    // perf_changed deliberately stays false for package.json / package-lock.json
+    // (paths cannot distinguish a React bump from a js-yaml bump). Without this
+    // push arm, a lockfile-only merge would skip Lighthouse on the PR and again
+    // on the push to main, leaving only the weekly schedule.
+    expect(lighthouseJob).toContain("github.event_name == 'push'");
+    expect(lighthouseJob).toContain("needs.changes.outputs.lockfile_changed == 'true'");
+  });
+
+  it("tests draft with `!= true`, so push and schedule runs survive", () => {
+    // `github.event.pull_request` is null on push/schedule/merge_group, so
+    // `draft == false` is FALSE there and would silently kill both arms.
+    expect(lighthouseJob).toContain("github.event.pull_request.draft != true");
+    expect(lighthouseJob).not.toContain("github.event.pull_request.draft == false");
+  });
+
+  it("reads the dispatch input through github.event.inputs, which is null off-dispatch", () => {
+    // The `inputs` context only exists for workflow_dispatch/workflow_call; the
+    // github.event.inputs form is a string and is safely null everywhere else.
+    expect(lighthouseJob).toContain("github.event.inputs.refresh_lighthouse_baseline != 'true'");
+    expect(refreshJob).toContain("github.event.inputs.refresh_lighthouse_baseline == 'true'");
+    expect(workflow).toMatch(/workflow_dispatch:\n\s+inputs:\n\s+refresh_lighthouse_baseline:/);
+  });
+
+  it("pairs promotion to pr-required with merge_group coverage", () => {
+    // The budget skips merge_group ONLY because it is advisory and outside
+    // pr-required, where it could add ~7 minutes of merge latency without ever
+    // changing the outcome. Promoting it (#118) without restoring merge_group would
+    // leave the queue running a required check the PR never re-verified.
+    const prRequiredNeeds = /\n  pr-required:\n[\s\S]*?needs:\s*\n?\s*\[([\s\S]*?)\]/.exec(workflow)?.[1] ?? "";
+    // Fail closed on a lost anchor: an empty match would silently make this guard
+    // conclude "not required" forever, which is the branch that checks the least.
+    expect(prRequiredNeeds, "could not read pr-required's needs list from ci.yml").not.toBe("");
+    expect(prRequiredNeeds).toContain("static-pr");
+    const isRequired = /\blighthouse-budget\b/.test(prRequiredNeeds);
+
+    if (isRequired) {
+      expect(lighthouseJob, "lighthouse-budget is required — it must also run in merge_group").toContain("merge_group");
+      expect(lighthouseJob, "a required check must not be continue-on-error").not.toContain("continue-on-error: true");
+    } else {
+      expect(lighthouseJob).toContain("continue-on-error: true");
+    }
+  });
+
+  it("keeps the baseline refresh dispatch-only, red on failure, and unable to push", () => {
+    // A workflow that can rewrite a gate's own baseline is a gate that can green
+    // itself, so this job only ever produces an artifact for a human to commit.
+    expect(refreshJob).toContain("github.event_name == 'workflow_dispatch'");
+    expect(refreshJob).not.toContain("continue-on-error");
+    expect(refreshJob).not.toContain("git push");
+    expect(refreshJob).not.toContain("persist-credentials: true");
+    // An empty artifact would look like a successful refresh that recorded nothing.
+    expect(refreshJob).toContain("if-no-files-found: error");
+    expect(refreshJob).toContain("--update");
+  });
+
+  it("pins Chromium through one shared action in both jobs", () => {
+    // If the measuring and refreshing jobs resolve different browsers, the refreshed
+    // baseline records a browser other than the one grading against it and the gate
+    // goes permanently red — the exact failure this action was extracted to end.
+    expect(lighthouseJob).toContain("uses: ./.github/actions/setup-lighthouse-chromium");
+    expect(refreshJob).toContain("uses: ./.github/actions/setup-lighthouse-chromium");
+    expect(lighthouseJob).not.toContain("playwright install");
+    expect(refreshJob).not.toContain("playwright install");
+  });
+});
