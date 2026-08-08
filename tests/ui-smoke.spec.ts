@@ -1239,11 +1239,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
           links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
         ),
     ).toEqual([{ name: "Favourites", href: "/favourites" }]);
-    // Medication is a canonical rail mode; the remaining specialist catalogues
-    // stay in the MODE picker / Tools hub rather than duplicating the rail.
-    await expect(page.getByRole("link", { name: "Differentials", exact: true })).toHaveCount(0);
+    // The rail now carries a "More modes" group as well: the mode pill retargets
+    // the composer instead of opening mode homes, so the sidebar is the way in and
+    // the specialist catalogues can no longer live only in the MODE picker.
+    await expect(page.getByRole("navigation", { name: "More modes" })).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "Differentials", exact: true })).toHaveCount(1);
     await expect(page.getByRole("link", { name: "Medication", exact: true })).toHaveCount(1);
-    await expect(page.getByRole("link", { name: "Therapy", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Therapy", exact: true })).toHaveCount(1);
 
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1257,7 +1259,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { path: "/documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
       { path: "/medications", label: "Medication" },
-      { path: "/?mode=tools", label: "Tools" },
+      { path: "/tools", label: "Tools" },
     ] as const) {
       await gotoApp(page, route.path);
       if (route.path.includes("mode=answer")) {

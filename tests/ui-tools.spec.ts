@@ -280,7 +280,7 @@ async function commandSurfaceOpensAbovePill(page: Page) {
   expect(geometry?.dropdownBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual((geometry?.pillTop ?? 0) + 2);
 }
 
-async function gotoLauncher(page: Page, path = "/?mode=tools") {
+async function gotoLauncher(page: Page, path = "/tools") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 }
@@ -811,7 +811,7 @@ test.describe("Clinical KB tools launcher", () => {
     { path: "/?mode=answer", testId: "answer-empty-state", heroTestId: "answer-empty-state" },
     { path: "/documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
     { path: "/medications", testId: "medication-home", heroTestId: "medication-home" },
-    { path: "/?mode=tools", testId: "tools-home", heroTestId: "tools-home" },
+    { path: "/tools", testId: "tools-home", heroTestId: "tools-home" },
     { path: "/services", testId: "services-home", heroTestId: "services-home-template" },
     { path: "/forms", testId: "forms-home", heroTestId: "forms-home-template" },
     { path: "/differentials", testId: "differentials-home", heroTestId: "differentials-home-template" },
@@ -2210,7 +2210,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("tools mode opens tool details before navigation on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
-    await gotoLauncher(page, "/?mode=tools");
+    await gotoLauncher(page, "/tools");
 
     const toolsHub = page.getByTestId("tools-hub");
     await expect(toolsHub.getByText("Selected tool")).toHaveCount(0);
