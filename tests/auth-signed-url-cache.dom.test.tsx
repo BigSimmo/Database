@@ -245,6 +245,65 @@ describe("auth lifecycle clears signed URL cache", () => {
     await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(userBUrl));
   });
 
+  // Codex P1 on PR #1741: in-flight dedupe wrote the endpoint-only LRU inside the
+  // shared fetch, so user A's late response after an account switch could
+  // repopulate the cache AuthProvider had just cleared and hand B A's URL.
+  it("late in-flight response after account switch does not repopulate the endpoint cache", async () => {
+    let resolveUserA!: (value: { ok: boolean; status: number; json: () => Promise<{ url: string }> }) => void;
+    const userAFetch = new Promise<{ ok: boolean; status: number; json: () => Promise<{ url: string }> }>((resolve) => {
+      resolveUserA = resolve;
+    });
+    const userBUrl = "https://example.supabase.co/storage/v1/object/sign/private.png?token=user-b";
+
+    const fetchMock = vi.fn().mockImplementation((_url: string, init?: { headers?: Record<string, string> }) => {
+      const auth = init?.headers?.Authorization ?? "";
+      if (auth.includes("user-a-token")) return userAFetch;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ url: userBUrl }),
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AuthProvider>
+        <AuthActions />
+        <SignedImageProbe enabled />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const userBSession = {
+      access_token: "user-b-token",
+      refresh_token: "refresh-b",
+      expires_in: 3600,
+      token_type: "bearer",
+      user: { id: "user-b" },
+    };
+    for (const listener of authApi.listeners) listener("SIGNED_IN", userBSession);
+
+    await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(userBUrl));
+    expect(getCachedSignedUrl(ENDPOINT)?.url).toBe(userBUrl);
+
+    resolveUserA({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: PRIVATE_URL }),
+    });
+    await userAFetch;
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+
+    expect(getCachedSignedUrl(ENDPOINT)?.url).toBe(userBUrl);
+    expect(screen.getByTestId("signed-url")).toHaveTextContent(userBUrl);
+  });
+
   // The identity reset must not fire on an ordinary access-token refresh. Keying
   // it to `authorizationHeader` did: the header is a fresh object each refresh,
   // so a mounted image the same clinician is still entitled to see would blank

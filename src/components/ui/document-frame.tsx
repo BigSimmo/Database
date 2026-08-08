@@ -183,21 +183,25 @@ function PageControls({
 }) {
   const disabled = Boolean(controls.disabled) || typeof controls.onPageChange !== "function";
   const finalPage = pageCount && pageCount > 0 ? pageCount : undefined;
+  // A deep link or stale indexed page_count can leave `page` past the real end
+  // until the canvas reconciles the route. Bound navigation against that so
+  // Previous from 999/10 lands on 9, not 998.
+  const currentPage = finalPage ? Math.min(Math.max(page, 1), finalPage) : Math.max(page, 1);
 
   // Re-sync the input only when the route's page actually changes — React's
   // supported adjust-state-during-render pattern. Keying off a boolean "editing"
   // flag instead would clobber a half-typed page number on any unrelated
   // re-render of the parent.
-  const [draft, setDraft] = useState(String(page));
+  const [draft, setDraft] = useState(String(currentPage));
   const [syncedPage, setSyncedPage] = useState(page);
   if (syncedPage !== page) {
     setSyncedPage(page);
-    setDraft(String(page));
+    setDraft(String(currentPage));
   }
 
   const commit = (raw: string) => {
     const parsed = Number.parseInt(raw, 10);
-    const next = Number.isFinite(parsed) ? Math.max(1, finalPage ? Math.min(parsed, finalPage) : parsed) : page;
+    const next = Number.isFinite(parsed) ? Math.max(1, finalPage ? Math.min(parsed, finalPage) : parsed) : currentPage;
     setDraft(String(next));
     if (next !== page) controls.onPageChange?.(next);
   };
@@ -208,8 +212,8 @@ function PageControls({
         type="button"
         className={frameControl}
         aria-label="Previous page"
-        disabled={disabled || page <= 1}
-        onClick={() => controls.onPageChange?.(page - 1)}
+        disabled={disabled || currentPage <= 1}
+        onClick={() => controls.onPageChange?.(currentPage - 1)}
       >
         <ChevronLeft aria-hidden="true" className="size-icon-sm" />
       </button>
@@ -237,8 +241,8 @@ function PageControls({
         type="button"
         className={frameControl}
         aria-label="Next page"
-        disabled={disabled || (finalPage ? page >= finalPage : false)}
-        onClick={() => controls.onPageChange?.(page + 1)}
+        disabled={disabled || (finalPage ? currentPage >= finalPage : false)}
+        onClick={() => controls.onPageChange?.(currentPage + 1)}
       >
         <ChevronRight aria-hidden="true" className="size-icon-sm" />
       </button>

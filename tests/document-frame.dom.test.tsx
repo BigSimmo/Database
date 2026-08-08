@@ -136,6 +136,28 @@ describe("DocumentFrame", () => {
     expect(screen.queryByRole("button", { name: "Fit page width and enter fullscreen" })).toBeNull();
   });
 
+  // Codex P2 on PR #1741: a deep-linked ?page=999 left the toolbar on 999 while
+  // the canvas showed the last page. Bound the readout and Previous/Next against
+  // pageCount so navigation cannot walk further out of range.
+  it("bounds an out-of-range controlled page against pageCount", () => {
+    const onPageChange = vi.fn();
+    render(
+      <DocumentFrame
+        alt="Clinical guideline page"
+        src={{ kind: "pdf-page", url: "https://example.test/guideline.pdf", page: 999, pageCount: 10 }}
+        state="ready"
+        controls={readyControls({ page: 999, pageCount: 10, onPageChange })}
+      >
+        <canvas aria-label="Clinical guideline page" />
+      </DocumentFrame>,
+    );
+
+    expect(screen.getByLabelText("Page number")).toHaveValue("10");
+    fireEvent.click(screen.getByRole("button", { name: "Previous page" }));
+    expect(onPageChange).toHaveBeenCalledWith(9);
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+  });
+
   // A 320px row cannot hold page navigation plus six tap targets, so the
   // narrowest phones reach zoom, fit, rotate, viewing aid and fullscreen through
   // one overflow. Every one of them keeps the production tap target.

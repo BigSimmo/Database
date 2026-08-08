@@ -24,10 +24,13 @@ function signedUrlRequestKey(endpoint: string, headers: Record<string, string>) 
 }
 
 function beginSignedUrlRequest(key: string, endpoint: string, headers: Record<string, string>) {
+  // Do not write the module LRU here. Cache keys are endpoint-only, while this
+  // map is keyed by endpoint+identity: a superseded response that landed after
+  // an account switch would repopulate the cleared cache with the prior user's
+  // signed URL. Active consumers write the cache after their own identity check.
   const request = fetch(endpoint, { headers })
     .then(async (response): Promise<SignedUrlResponse> => {
       const data = response.ok ? await response.json() : null;
-      if (data?.url) setCachedSignedUrl(endpoint, data);
       return { status: response.status, data };
     })
     .finally(() => {
@@ -102,6 +105,10 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
         if (status === 401) markSessionExpired();
         if (!active) return;
         if (data?.url) {
+          // Only an active consumer for this identity may populate the shared
+          // endpoint-keyed cache — otherwise a late response after sign-out /
+          // account switch can hand the next user the prior bearer URL.
+          setCachedSignedUrl(endpoint, data);
           setUrl(data.url);
           setFailed(false);
         } else {

@@ -83,7 +83,6 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
 }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const renderedPageRef = useRef<PDFPageProxy | null>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(0);
@@ -124,6 +123,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
 
   const onUrlExpiredRef = useRef(onUrlExpired);
   const onLoadSuccessRef = useRef(onLoadSuccess);
+  const onPageChangeRef = useRef(onPageChange);
   const urlRef = useRef(url);
   const reportedExpiredUrlRef = useRef<string | null>(null);
   useEffect(() => {
@@ -132,6 +132,9 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   useEffect(() => {
     onLoadSuccessRef.current = onLoadSuccess;
   }, [onLoadSuccess]);
+  useEffect(() => {
+    onPageChangeRef.current = onPageChange;
+  }, [onPageChange]);
   useEffect(() => {
     urlRef.current = url;
   }, [url]);
@@ -215,6 +218,12 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     const boundedPage = totalPages > 0 ? Math.min(nextPage, totalPages) : nextPage;
     const frame = window.requestAnimationFrame(() => {
       setPage((current) => (current === boundedPage ? current : boundedPage));
+      // pdf.js is authoritative for page count. A deep link or stale indexed
+      // page_count can leave the frame toolbar on an out-of-range route value
+      // while the canvas shows the clamped page — reconcile the parent route.
+      if (totalPages > 0 && boundedPage !== nextPage) {
+        onPageChangeRef.current?.(boundedPage);
+      }
     });
     return () => window.cancelAnimationFrame(frame);
   }, [initialPage, totalPages]);
@@ -248,13 +257,22 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     const activePdf = pdf;
     let cancelled = false;
     let renderTask: RenderTask | null = null;
+    // Local to this effect run so a rapid page change cannot clean up the next
+    // page via a shared ref (Sentry 15801413).
+    let pageToCleanup: PDFPageProxy | null = null;
 
     async function renderPage() {
       setRendering(true);
       try {
         const pdfPage = await activePdf.getPage(page);
-        renderedPageRef.current = pdfPage;
-        if (cancelled || !canvasRef.current || !holderRef.current) return;
+        if (cancelled) {
+          // getPage resolved after we left this page — release it here so the
+          // next effect's page is never touched by this run's cleanup.
+          pdfPage.cleanup();
+          return;
+        }
+        pageToCleanup = pdfPage;
+        if (!canvasRef.current || !holderRef.current) return;
         // Rotation is applied in the viewport so width/height already reflect the
         // 90°/270° swap — the fit calculation and canvas sizing follow for free.
         const baseViewport = pdfPage.getViewport({ scale: 1, rotation });
@@ -307,9 +325,9 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     return () => {
       cancelled = true;
       renderTask?.cancel();
-      // Release the page's decoded resources when leaving it. pdf.js declines
-      // while a render is still live, so this cannot cut one short.
-      renderedPageRef.current?.cleanup();
+      // Release this run's page only. pdf.js declines while a render is still
+      // live, so cancel above cannot be cut short by cleanup.
+      pageToCleanup?.cleanup();
     };
   }, [fitWidth, holderWidth, page, pdf, renderZoom, reportUrlExpired, rotation]);
 
