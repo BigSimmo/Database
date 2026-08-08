@@ -109,17 +109,39 @@ export function incompleteBudgetEvidence(rows, budget) {
       problems.add(`${run}: no baseline row recorded — refresh with --update`);
       continue;
     }
-    // Numbers are only comparable when the same browser produced them. Chrome comes
-    // from the runner image and moves independently of the pinned Lighthouse
-    // version, so a browser bump is otherwise indistinguishable from an application
+    // Numbers are only comparable when the same browser produced them. Chrome on
+    // ubuntu-24.04 runners moves independently of the pinned Lighthouse version,
+    // so a browser bump is otherwise indistinguishable from an application
     // regression. summarise-web-vitals.mjs makes the same point about its baselines.
+    //
+    // While `enforce` is false the advisory CI job must not go red on every runner
+    // Chrome bump — that noise blocked signal on every UI PR. Soft-skip the drift
+    // check here; compareToLighthouseBudget still surfaces it as a warning so the
+    // baseline can be refreshed deliberately. Once enforce flips true, drift stays
+    // fail-closed and requires `check:lighthouse-budget -- --update`.
     if (before.chromeVersion && row.chromeVersion && before.chromeVersion !== row.chromeVersion) {
-      problems.add(
-        `${run}: baseline measured by a different browser (${before.chromeVersion} vs ${row.chromeVersion}) — refresh with --update`,
-      );
+      const drift = `${run}: baseline measured by a different browser (${before.chromeVersion} vs ${row.chromeVersion}) — refresh with --update`;
+      if (budget?.enforce) problems.add(drift);
     }
   }
   return [...problems].sort();
+}
+
+/** Browser identity mismatches that are advisory while enforce is false. */
+export function browserDriftWarnings(rows, budget) {
+  if (budget?.enforce) return [];
+  const baseline = budget?.baseline ?? null;
+  if (!baseline || Object.keys(baseline).length === 0) return [];
+  const warnings = [];
+  for (const row of rows ?? []) {
+    const before = baseline[row.run];
+    if (!before?.chromeVersion || !row.chromeVersion) continue;
+    if (before.chromeVersion === row.chromeVersion) continue;
+    warnings.push(
+      `${row.run}: baseline measured by a different browser (${before.chromeVersion} vs ${row.chromeVersion}) — refresh with --update`,
+    );
+  }
+  return warnings.sort();
 }
 
 /** Grade one run against its baseline. Returns the breaches, empty when within tolerance. */
@@ -175,11 +197,23 @@ export function compareToLighthouseBudget(rows, budget) {
   const baseline = budget?.baseline ?? null;
   const enforce = Boolean(budget?.enforce);
   const incomplete = incompleteBudgetEvidence(rows, budget);
+  const browserDrift = browserDriftWarnings(rows, budget);
 
   // Incompleteness is fatal regardless of `enforce`: there is nothing to grade, so
-  // "warn" would report a pass for a route that was never measured.
+  // "warn" would report a pass for a route that was never measured. Missing reports
+  // and wrong-page measurements stay here; Chrome drift alone does not while the
+  // gate is advisory (see incompleteBudgetEvidence).
   if (incomplete.length > 0) {
-    return { status: "fail", reason: "evidence incomplete", breaches: [], incomplete, baseline, enforce, tolerance };
+    return {
+      status: "fail",
+      reason: "evidence incomplete",
+      breaches: [],
+      incomplete,
+      browserDrift,
+      baseline,
+      enforce,
+      tolerance,
+    };
   }
 
   if (!baseline || Object.keys(baseline).length === 0) {
@@ -188,6 +222,7 @@ export function compareToLighthouseBudget(rows, budget) {
       reason: "no baseline recorded — run with --update after a known-good build",
       breaches: [],
       incomplete,
+      browserDrift,
       baseline,
       enforce,
       tolerance,
@@ -195,14 +230,36 @@ export function compareToLighthouseBudget(rows, budget) {
   }
 
   const breaches = rows.flatMap((row) => gradeRun(row, baseline[row.run], tolerance));
+  if (breaches.length === 0 && browserDrift.length === 0) {
+    return {
+      status: "ok",
+      reason: "within tolerance",
+      breaches,
+      incomplete,
+      browserDrift,
+      baseline,
+      enforce,
+      tolerance,
+    };
+  }
   if (breaches.length === 0) {
-    return { status: "ok", reason: "within tolerance", breaches, incomplete, baseline, enforce, tolerance };
+    return {
+      status: "warn",
+      reason: `browser drift on ${browserDrift.length} run(s) — refresh baseline with --update`,
+      breaches,
+      incomplete,
+      browserDrift,
+      baseline,
+      enforce,
+      tolerance,
+    };
   }
   return {
     status: enforce ? "fail" : "warn",
     reason: `${breaches.length} metric(s) outside tolerance`,
     breaches,
     incomplete,
+    browserDrift,
     baseline,
     enforce,
     tolerance,
@@ -249,6 +306,11 @@ export function renderBudgetTable(rows, result) {
   if (result.incomplete.length > 0) {
     lines.push(`**Evidence incomplete.** ${result.incomplete.join("; ")}. Nothing is graded from this run.`);
     return lines.join("\n");
+  }
+  if ((result.browserDrift ?? []).length > 0) {
+    lines.push(
+      `**Browser drift (advisory while enforce is false).** ${result.browserDrift.join("; ")}. Numbers are still graded; refresh the baseline after pinning a stable Chromium.`,
+    );
   }
   if (result.status === "warn" && result.breaches.length === 0) {
     lines.push(`_${result.reason}._`);
@@ -343,6 +405,9 @@ function main() {
     writeFileSync(process.env.GITHUB_STEP_SUMMARY, `## Lighthouse budget\n\n${table}\n`, { flag: "a" });
   }
 
+  for (const drift of result.browserDrift ?? []) {
+    console.log(`::warning::check:lighthouse-budget — ${drift}`);
+  }
   if (result.status === "fail") {
     console.error(`::error::check:lighthouse-budget failed — ${result.reason}`);
     process.exit(1);

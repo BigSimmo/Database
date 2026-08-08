@@ -716,12 +716,26 @@ jobs:
         with:
           persist-credentials: false
 
-      # Lighthouse drives the Chrome that ships in the ubuntu-24.04 runner image, so
-      # no browser install is needed here (matching live-web-vitals.yml).
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
+      # Pin Chromium through Playwright (same install path as Production UI) so the
+      # budget is not tied to whichever HeadlessChrome the ubuntu-24.04 image ships.
+      # Runner Chrome major bumps were failing every UI PR as "evidence incomplete"
+      # even while enforce is false. live-web-vitals.yml still uses the image Chrome
+      # because it grades the deployed origin, not a committed relative baseline.
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
+
+      - name: Resolve Playwright Chromium path
+        id: chromium
+        shell: bash
+        run: |
+          CHROME_PATH="$(node -e "const {chromium}=require('playwright'); process.stdout.write(chromium.executablePath())")"
+          test -x "$CHROME_PATH"
+          echo "path=$CHROME_PATH" >> "$GITHUB_OUTPUT"
+          echo "Using Playwright Chromium at $CHROME_PATH"
 
       - name: Measure routes and grade against the baseline
+        env:
+          CHROME_PATH: ${{ steps.chromium.outputs.path }}
         run: npm run verify:lighthouse -- --keep --dir lighthouse
 
       - name: Upload Lighthouse reports

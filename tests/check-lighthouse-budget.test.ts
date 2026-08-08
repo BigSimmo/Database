@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_TOLERANCE,
   baselineFromRows,
+  browserDriftWarnings,
   compareToLighthouseBudget,
   expectedBudgetRuns,
   gradeRun,
@@ -133,13 +134,26 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     expect(result.reason).toBe("evidence incomplete");
   });
 
-  it("rejects a baseline measured by a different browser", () => {
+  it("rejects a baseline measured by a different browser when enforcing", () => {
     const rows = completeRows();
     const stale = baselineFromRows(rows.map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })));
-    const problems = incompleteBudgetEvidence(rows, budget({ baseline: stale }));
+    const problems = incompleteBudgetEvidence(rows, budget({ baseline: stale, enforce: true }));
 
     expect(problems).toHaveLength(10);
     expect(problems[0]).toContain("measured by a different browser");
+  });
+
+  it("does not treat browser drift as incomplete evidence while advisory", () => {
+    // Runner Chrome major bumps were failing every UI PR as "evidence incomplete"
+    // even with enforce:false. Drift must warn and still grade until enforce flips.
+    const rows = completeRows();
+    const stale = baselineFromRows(rows.map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })));
+
+    expect(incompleteBudgetEvidence(rows, budget({ baseline: stale, enforce: false }))).toEqual([]);
+    expect(browserDriftWarnings(rows, budget({ baseline: stale, enforce: false }))).toHaveLength(10);
+    expect(browserDriftWarnings(rows, budget({ baseline: stale, enforce: false }))[0]).toContain(
+      "measured by a different browser",
+    );
   });
 
   it("accepts a baseline that recorded no browser identity at all", () => {
@@ -242,6 +256,18 @@ describe("compareToLighthouseBudget", () => {
     expect(result.breaches).toHaveLength(1);
   });
 
+  it("warns on browser drift while still grading when enforce is false", () => {
+    const rows = completeRows();
+    const stale = baselineFromRows(rows.map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })));
+    const result = compareToLighthouseBudget(rows, budget({ baseline: stale, enforce: false }));
+
+    expect(result.status).toBe("warn");
+    expect(result.reason).toMatch(/browser drift/);
+    expect(result.incomplete).toEqual([]);
+    expect(result.breaches).toEqual([]);
+    expect(result.browserDrift).toHaveLength(10);
+  });
+
   it("fails on incomplete evidence even when not enforcing", () => {
     // An ungraded route counted as a pass is the failure mode this repo has
     // already acted on; `enforce: false` must not downgrade it.
@@ -326,6 +352,23 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).not.toMatch(/spawnSync\(\s*"npx",/);
     expect(runner).not.toMatch(/spawnSync\(\s*"npx\.cmd",/);
   });
+
+  it("retries a transient Lighthouse failure once before leaving the route unmeasured", () => {
+    const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
+
+    expect(runner).toContain("const maxAttempts = 2");
+    expect(runner).toContain("retrying once");
+  });
+
+  it("pins the CI job to Playwright Chromium rather than the ubuntu runner image Chrome", () => {
+    const workflow = readFileSync(path.join(process.cwd(), ".github", "workflows", "ci.yml"), "utf8");
+    const job = workflow.split("lighthouse-budget:")[1]?.split(/\n  [a-z0-9-]+:/)[0] ?? "";
+
+    expect(job).toContain("setup-ui-e2e");
+    expect(job).toContain("CHROME_PATH");
+    expect(job).toContain("chromium.executablePath()");
+    expect(job).not.toMatch(/no browser install is needed/);
+  });
 });
 
 describe("renderBudgetTable", () => {
@@ -344,6 +387,17 @@ describe("renderBudgetTable", () => {
     );
 
     expect(renderBudgetTable(rows, result)).toContain("enforce` is false");
+  });
+
+  it("surfaces browser drift while still showing graded numbers", () => {
+    const rows = completeRows();
+    const stale = baselineFromRows(rows.map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })));
+    const result = compareToLighthouseBudget(rows, budget({ baseline: stale, enforce: false }));
+
+    const table = renderBudgetTable(rows, result);
+    expect(table).toContain("Browser drift");
+    expect(table).toContain("refresh the baseline");
+    expect(table).not.toContain("Evidence incomplete");
   });
 
   it("states the pass explicitly when every route is within tolerance", () => {

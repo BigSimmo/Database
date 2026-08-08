@@ -310,41 +310,60 @@ try {
   });
   await waitForServer(baseUrl, server);
 
+  // Prefer an explicit CHROME_PATH (CI pins Playwright Chromium so the budget is
+  // not tied to whichever HeadlessChrome the ubuntu runner image happens to ship —
+  // that version churn was failing every UI PR as "evidence incomplete").
   const chromePath = process.env.CHROME_PATH ?? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ?? "";
   const failures = [];
+  // Lighthouse's own "run again" transients (NO_NAVSTART / trace recording) are
+  // documented in ledger #147. One retry absorbs them without masking persistent
+  // launch failures — a second miss still leaves incomplete evidence.
+  const maxAttempts = 2;
 
   for (const strategy of strategies) {
     for (const route of routes) {
       const output = path.join(reportDirectory, `${strategy}-${slugFor(route)}.json`);
-      console.log(`Measuring ${strategy} ${route}`);
-      const result = spawnSync(
-        npxInvocation.command,
-        [
-          ...npxInvocation.prefixArgs,
-          "--yes",
-          `lighthouse@${LIGHTHOUSE_VERSION}`,
-          `${baseUrl}${route}`,
-          "--output=json",
-          `--output-path=${output}`,
-          `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
-          "--only-categories=performance",
-          "--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage",
-          "--max-wait-for-load=60000",
-          "--quiet",
-        ],
-        {
-          cwd: projectRoot,
-          env: { ...offlineEnv, ...(chromePath ? { CHROME_PATH: chromePath } : {}) },
-          stdio: "inherit",
-        },
-      );
+      let lastFailure = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        console.log(`Measuring ${strategy} ${route}${attempt > 1 ? ` (retry ${attempt - 1})` : ""}`);
+        const result = spawnSync(
+          npxInvocation.command,
+          [
+            ...npxInvocation.prefixArgs,
+            "--yes",
+            `lighthouse@${LIGHTHOUSE_VERSION}`,
+            `${baseUrl}${route}`,
+            "--output=json",
+            `--output-path=${output}`,
+            `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
+            "--only-categories=performance",
+            "--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage",
+            "--max-wait-for-load=60000",
+            "--quiet",
+          ],
+          {
+            cwd: projectRoot,
+            env: { ...offlineEnv, ...(chromePath ? { CHROME_PATH: chromePath } : {}) },
+            stdio: "inherit",
+          },
+        );
+        if (childProcessExitCode(result) === 0 && existsSync(output)) {
+          lastFailure = null;
+          break;
+        }
+        lastFailure = `${strategy} ${route}`;
+        console.log(
+          `::warning::lighthouse ${lastFailure} failed${attempt < maxAttempts ? "; retrying once" : ""} (${childProcessFailureSummary(result)})`,
+        );
+        try {
+          rmSync(output, { force: true });
+        } catch {
+          /* best effort — grader treats a missing file as incomplete */
+        }
+      }
       // Not downgraded to a warning: the grader treats a missing report as
       // incomplete evidence and fails, which is the behaviour we want locally too.
-      if (childProcessExitCode(result) !== 0) {
-        const failure = `${strategy} ${route}`;
-        failures.push(failure);
-        console.log(`::warning::lighthouse ${failure} failed (${childProcessFailureSummary(result)})`);
-      }
+      if (lastFailure) failures.push(lastFailure);
     }
   }
 
