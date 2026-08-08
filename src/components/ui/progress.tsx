@@ -46,7 +46,12 @@ export function Progress({ value, label, detail, className }: ProgressProps) {
             "h-full origin-left rounded-full bg-[color:var(--command)]",
             determinate
               ? "w-full transition-transform duration-[var(--duration-base)] motion-reduce:transition-none"
-              : "w-1/3 animate-[shimmer_1.4s_ease-in-out_infinite] motion-reduce:w-full motion-reduce:animate-none",
+              : // `animate-shimmer` is the `@theme` token (`--animate-shimmer`), not a
+                // second hand-written copy of the same sweep. The literal it replaces
+                // (`animate-[shimmer_1.4s_ease-in-out_infinite]`) pinned both the
+                // duration and a different easing here, so retiming the system's
+                // shimmer would have left this one bar behind.
+                "w-1/3 animate-shimmer motion-reduce:w-full motion-reduce:animate-none",
           )}
           style={determinate ? { transform: `scaleX(${(clamped ?? 0) / 100})`, transformOrigin: "left" } : undefined}
         />
@@ -78,71 +83,91 @@ export type StageListProps = {
  * which stage failed. A five-minute job with no named stage is indistinguishable
  * from a hung one.
  *
- * `aria-live="polite"` on the list so a stage transition is announced without
- * interrupting; the current stage carries `aria-current="step"`.
+ * The current stage carries `aria-current="step"`, and one `sr-only`
+ * `role="status"` node — NOT the list itself — is what announces a transition.
+ * `aria-live` on the `<ol>` made the whole list the live region, so advancing
+ * one stage re-read every stage label, its detail count and its position; on a
+ * five-stage ingestion that is five sentences to learn that step 3 started.
+ * The status node carries the one sentence that changed.
  */
 export function StageList({ stages, label = "Progress", className }: StageListProps) {
   const activeIndex = stages.findIndex((stage) => stage.state === "active");
+  const failedIndex = stages.findIndex((stage) => stage.state === "failed");
+  const currentIndex = activeIndex >= 0 ? activeIndex : failedIndex;
   const doneCount = stages.filter((stage) => stage.state === "done").length;
+  const step = stages.length
+    ? currentIndex >= 0
+      ? currentIndex + 1
+      : Math.min(Math.max(doneCount, 1), stages.length)
+    : 0;
+  const currentStage = currentIndex >= 0 ? stages[currentIndex] : undefined;
 
   return (
-    <ol
-      data-testid="stage-list"
-      aria-label={`${label}: step ${Math.max(activeIndex + 1, doneCount)} of ${stages.length}`}
-      aria-live="polite"
-      className={cn("m-0 flex list-none flex-col gap-0 p-0", className)}
-    >
-      {stages.map((stage, index) => {
-        const last = index === stages.length - 1;
-        return (
-          <li
-            key={stage.id}
-            data-state={stage.state}
-            aria-current={stage.state === "active" ? "step" : undefined}
-            className="relative flex items-start gap-3 pb-3 last:pb-0"
-          >
-            {/* Connector owned by the gutter column, stopping at the dot centres. */}
-            {!last ? (
-              <span
-                aria-hidden
-                className={cn(
-                  "absolute left-[calc(var(--gutter-col)/2)] top-4 h-[calc(100%-0.5rem)] w-px -translate-x-1/2",
-                  stage.state === "done" ? "bg-[color:var(--success)]" : "bg-[color:var(--border)]",
-                )}
-              />
-            ) : null}
-            <span className="relative z-5 grid w-[var(--gutter-col)] shrink-0 place-items-center pt-0.5">
-              {stage.state === "done" ? (
-                <Check aria-hidden="true" className="size-icon-sm text-[color:var(--success)]" strokeWidth={3} />
-              ) : stage.state === "active" ? (
-                <Loader2
-                  aria-hidden="true"
-                  className="size-icon-sm animate-spin text-[color:var(--command)] motion-reduce:animate-none"
+    <>
+      {/* Sibling of the list, never a child: an sr-only <li> would have made a
+          five-stage job announce as "list, 6 items". */}
+      <span data-testid="stage-list-status" role="status" className="sr-only">
+        {currentStage ? `${label}: step ${step} of ${stages.length}, ${currentStage.label}` : ""}
+      </span>
+      <ol
+        data-testid="stage-list"
+        aria-label={stages.length ? `${label}: step ${step} of ${stages.length}` : label}
+        className={cn("m-0 flex list-none flex-col gap-0 p-0", className)}
+      >
+        {stages.map((stage, index) => {
+          const last = index === stages.length - 1;
+          return (
+            <li
+              key={stage.id}
+              data-state={stage.state}
+              aria-current={index === currentIndex && currentIndex >= 0 ? "step" : undefined}
+              className="relative flex items-start gap-3 pb-3 last:pb-0"
+            >
+              {/* Connector owned by the gutter column, stopping at the dot centres. */}
+              {!last ? (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute left-[calc(var(--gutter-col)/2)] top-4 h-[calc(100%-var(--gutter-dot))] w-px -translate-x-1/2",
+                    stage.state === "done" ? "bg-[color:var(--success)]" : "bg-[color:var(--border)]",
+                  )}
                 />
-              ) : stage.state === "failed" ? (
-                <TriangleAlert aria-hidden="true" className="size-icon-sm text-[color:var(--danger)]" />
-              ) : (
-                <span className="size-2 rounded-full border border-[color:var(--border-strong)]" />
-              )}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span
-                className={cn(
-                  "block text-sm leading-5",
-                  stage.state === "pending"
-                    ? textMuted
-                    : stage.state === "failed"
-                      ? "font-semibold text-[color:var(--danger)]"
-                      : "font-medium text-[color:var(--text)]",
+              ) : null}
+              <span className="relative z-5 grid w-[var(--gutter-col)] shrink-0 place-items-center pt-0.5">
+                {stage.state === "done" ? (
+                  <Check aria-hidden="true" className="size-icon-sm text-[color:var(--success)]" strokeWidth={3} />
+                ) : stage.state === "active" ? (
+                  <Loader2
+                    aria-hidden="true"
+                    className="size-icon-sm animate-spin text-[color:var(--command)] motion-reduce:animate-none"
+                  />
+                ) : stage.state === "failed" ? (
+                  <TriangleAlert aria-hidden="true" className="size-icon-sm text-[color:var(--danger)]" />
+                ) : (
+                  <span className="size-2 rounded-full border border-[color:var(--border-strong)]" />
                 )}
-              >
-                {stage.label}
               </span>
-              {stage.detail ? <span className={cn("nums mt-0.5 block text-xs", textMuted)}>{stage.detail}</span> : null}
-            </span>
-          </li>
-        );
-      })}
-    </ol>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cn(
+                    "block text-sm leading-5",
+                    stage.state === "pending"
+                      ? textMuted
+                      : stage.state === "failed"
+                        ? "font-semibold text-[color:var(--danger)]"
+                        : "font-medium text-[color:var(--text)]",
+                  )}
+                >
+                  {stage.label}
+                </span>
+                {stage.detail ? (
+                  <span className={cn("nums mt-0.5 block text-xs", textMuted)}>{stage.detail}</span>
+                ) : null}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </>
   );
 }

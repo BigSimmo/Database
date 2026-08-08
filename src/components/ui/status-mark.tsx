@@ -1,9 +1,26 @@
 "use client";
 
 import { cn } from "@/components/ui-primitives";
-import type { ClinicalSourceMetadata } from "@/lib/types";
 
-export type DocumentStatus = NonNullable<ClinicalSourceMetadata["document_status"]>;
+/**
+ * The mark's own vocabulary, declared here rather than aliased off
+ * `ClinicalSourceMetadata["document_status"]` in `@/lib/types`.
+ *
+ * A design-system primitive that derives its API from an application row type
+ * inverts the dependency: the component then renders whatever the database
+ * happens to store, so adding a fifth `document_status` value silently widens
+ * this component's contract to a state it has no shape for — and it falls
+ * through to the `unknown` styling with no compile error anywhere. It also made
+ * the mark unusable outside this app's data model, which is the opposite of
+ * what a registered primitive is for.
+ *
+ * The relationship is not dropped, only inverted: the application type must
+ * conform to what the mark can draw, and that direction is asserted at compile
+ * time in `tests/ui-v2-components.dom.test.tsx` so widening the row type
+ * without adding a shape here fails `typecheck`.
+ */
+export type DocumentStatus = "current" | "review_due" | "outdated" | "unknown";
+
 export type StatusMarkProps = { status: DocumentStatus; className?: string };
 
 /**
