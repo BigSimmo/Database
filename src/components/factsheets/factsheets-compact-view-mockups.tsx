@@ -136,6 +136,7 @@ function CompactListRows({ sheets }: { sheets: Specimen[] }) {
   return (
     <section
       aria-label="Factsheet results"
+      data-list-variant="compact"
       className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
     >
       {sheets.map((sheet) => {
@@ -144,6 +145,7 @@ function CompactListRows({ sheets }: { sheets: Specimen[] }) {
           <button
             key={sheet.slug}
             type="button"
+            data-factsheet-result
             className={cn(
               "group flex w-full items-start gap-2.5 border-b border-[color:var(--border)] px-3 py-2.5 text-left transition last:border-b-0 hover:bg-[color:var(--surface-subtle)]",
               focusRing,
@@ -185,13 +187,14 @@ function CompactListRows({ sheets }: { sheets: Specimen[] }) {
 
 function CompactCards({ sheets }: { sheets: Specimen[] }) {
   return (
-    <section aria-label="Factsheet results" className="grid grid-cols-2 gap-2.5">
+    <section aria-label="Factsheet results" data-card-variant="compact" className="grid grid-cols-2 gap-2.5">
       {sheets.map((sheet) => {
         const theme = categoryTheme(sheet.category);
         return (
           <button
             key={sheet.slug}
             type="button"
+            data-factsheet-result
             className={cn(
               "group flex flex-col rounded-xl border border-[color:var(--border)] border-t-[3px] bg-[color:var(--surface)] p-2.5 text-left shadow-[var(--shadow-card)] transition hover:border-[color:var(--border-strong)]",
               focusRing,
@@ -227,13 +230,15 @@ function ComfortableList({ sheets }: { sheets: Specimen[] }) {
   return (
     <section
       aria-label="Factsheet results"
+      data-list-variant="comfortable"
       className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
     >
-      {sheets.slice(0, 3).map((sheet) => {
+      {sheets.map((sheet) => {
         const theme = categoryTheme(sheet.category);
         return (
           <div
             key={sheet.slug}
+            data-factsheet-result
             className="flex items-start gap-3.5 border-b border-[color:var(--border)] px-4 py-4 last:border-b-0"
           >
             <span
@@ -269,6 +274,53 @@ function ComfortableList({ sheets }: { sheets: Specimen[] }) {
               aria-hidden="true"
             />
           </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function ComfortableCards({ sheets }: { sheets: Specimen[] }) {
+  return (
+    <section aria-label="Factsheet results" data-card-variant="comfortable" className="grid gap-3">
+      {sheets.map((sheet) => {
+        const theme = categoryTheme(sheet.category);
+        return (
+          <button
+            key={sheet.slug}
+            type="button"
+            data-factsheet-result
+            className={cn(
+              "group flex flex-col rounded-xl border border-[color:var(--border)] border-t-[3px] bg-[color:var(--surface)] p-4 text-left shadow-[var(--shadow-card)] transition hover:border-[color:var(--border-strong)]",
+              focusRing,
+            )}
+            style={{ borderTopColor: theme.accent }}
+          >
+            <span className="flex items-start justify-between gap-2">
+              <span
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-lg"
+                style={{ backgroundColor: theme.soft, color: theme.accent }}
+              >
+                {factsheetGlyph(sheet.icon, "h-5 w-5")}
+              </span>
+              <span
+                className="rounded-md px-2 py-0.5 text-2xs font-bold"
+                style={{ backgroundColor: theme.soft, color: theme.accent }}
+              >
+                {sheet.category}
+              </span>
+            </span>
+            <span className="mt-2 text-base-minus font-bold text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
+              {sheet.title}
+              {sheet.brand ? <span className="font-medium text-[color:var(--text-muted)]"> {sheet.brand}</span> : null}
+            </span>
+            <span className="mt-1 text-pretty text-sm-minus leading-5 text-[color:var(--text-muted)]">
+              {sheet.summary}
+            </span>
+            <span className="mt-2 text-xs font-bold text-[color:var(--text-muted)]">
+              {sheet.audience} · {sheet.readTime}
+            </span>
+          </button>
         );
       })}
     </section>
@@ -433,6 +485,8 @@ function OptionB() {
       <div className="mt-3">
         {!compact && layout === "list" ? (
           <ComfortableList sheets={SPECIMENS} />
+        ) : !compact && layout === "cards" ? (
+          <ComfortableCards sheets={SPECIMENS} />
         ) : layout === "cards" ? (
           <CompactCards sheets={SPECIMENS} />
         ) : (
@@ -589,6 +643,8 @@ function OptionD() {
       <div className="mt-3">
         {density === "comfortable" && layout === "list" ? (
           <ComfortableList sheets={SPECIMENS} />
+        ) : density === "comfortable" && layout === "cards" ? (
+          <ComfortableCards sheets={SPECIMENS} />
         ) : layout === "cards" ? (
           <CompactCards sheets={SPECIMENS} />
         ) : (
