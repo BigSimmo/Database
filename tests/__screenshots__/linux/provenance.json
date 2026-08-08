@@ -2,19 +2,19 @@
   "schemaVersion": 2,
   "platform": "linux",
   "runnerImage": "ubuntu-24.04",
-  "candidateSourceHead": "c99debaf9914ee1ad2a6508c5feeec6bd51ec382",
+  "candidateSourceHead": "07ada91b7c29410a0c34cc43934d1a12c686b2cf",
   "source": {
     "kind": "hosted-ci-artifact",
     "runId": "31251091603",
     "artifactName": "visual-baseline-31251091603",
-    "candidateSourceHead": "c99debaf9914ee1ad2a6508c5feeec6bd51ec382"
+    "candidateSourceHead": "07ada91b7c29410a0c34cc43934d1a12c686b2cf"
   },
   "review": {
     "status": "approved",
     "reviewerType": "human",
     "reviewedBy": "BigSimmo",
     "reviewedAt": "2026-08-08T11:07:51Z",
-    "candidateSourceHead": "c99debaf9914ee1ad2a6508c5feeec6bd51ec382"
+    "candidateSourceHead": "07ada91b7c29410a0c34cc43934d1a12c686b2cf"
   },
   "candidates": [
     {
