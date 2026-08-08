@@ -682,7 +682,23 @@ jobs:
   visual-baseline:
     name: Visual baselines (advisory)
     needs: changes
-    if: needs.changes.outputs.ui_changed == 'true'
+    # Deliberately NOT on pull_request. Owner decision, 2026-08-09: a pixel gate
+    # that reports on every UI pull request taxes exactly the work it exists to
+    # support. During a redesign the honest result is red on every push, and the
+    # baselines cannot be refreshed until a run has produced the new images, so
+    # that red is unavoidable rather than actionable. It never blocked a merge
+    # (`continue-on-error`, and absent from `pr-required`), but a red check nobody
+    # can act on mid-iteration is friction whether or not it gates.
+    #
+    # Drift is still caught: this runs on pushes to main and release branches, on
+    # the weekly schedule, and on demand via workflow_dispatch. That puts the
+    # signal where a refresh is cheap — after the change has landed — instead of
+    # interrupting the change. Refresh with `npm run design-system:baselines:adopt`
+    # against that run's artifact.
+    #
+    # Do not add `pull_request` back, and do not add this job to `pr-required`,
+    # without the owner saying so.
+    if: needs.changes.outputs.ui_changed == 'true' && github.event_name != 'pull_request'
     continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
