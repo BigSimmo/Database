@@ -852,9 +852,6 @@ async function buildScopedSearchPayload(
   const relevance = buildEvidenceRelevance(searchFocusQuery, results);
   const visualEvidence = buildVisualEvidence(results);
   const smartPanel = buildSmartPanel(searchFocusQuery, results, { relevance, visualEvidence });
-  const documentMatches = isSourceLibrarySearchMode(body.mode)
-    ? annotateDocumentMatches(searchFocusQuery, relatedDocuments.map(toDocumentMatch), results)
-    : [];
   const smartApiPlan = buildSmartRagApiPlan({
     query: searchFocusQuery,
     queryClass: effectiveQueryClass,
@@ -880,12 +877,18 @@ async function buildScopedSearchPayload(
   // projectRelatedDocumentForClient first.
   // Labels are capped inside projectRelatedDocumentForClient (before
   // match_reason projection) so the reason cannot name a dropped label.
+  // documentMatches must be built from the same projected documents; toDocumentMatch
+  // copies labels verbatim, so mapping raw relatedDocuments would re-leak owner_id
+  // and raw metadata on the documents/differentials path.
   const clientRelatedDocuments = relatedDocuments.map(projectRelatedDocumentForClient).map((document) => ({
     ...document,
     summary: document.summary ? compactText(document.summary, 360) : null,
     table_count: document.table_count ?? 0,
     cover_image_id: document.cover_image_id ?? null,
   }));
+  const documentMatches = isSourceLibrarySearchMode(body.mode)
+    ? annotateDocumentMatches(searchFocusQuery, clientRelatedDocuments.map(toDocumentMatch), results)
+    : [];
 
   const payload = {
     results: compactSearchResults(searchFocusQuery, results),

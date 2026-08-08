@@ -5,6 +5,7 @@ import {
   projectDocumentLabelsForClient,
   projectRelatedDocumentForClient,
 } from "@/lib/client-source-projection";
+import { toDocumentMatch } from "@/lib/document-enrichment";
 import type { DocumentLabel, RelatedDocument } from "@/lib/types";
 
 function label(overrides: Partial<DocumentLabel> = {}): DocumentLabel {
@@ -13,7 +14,7 @@ function label(overrides: Partial<DocumentLabel> = {}): DocumentLabel {
     document_id: "doc-1",
     owner_id: "owner-uuid-should-not-leak",
     label: "clozapine",
-    label_type: "clinical_topic",
+    label_type: "medication",
     source: "generated",
     confidence: 0.9,
     metadata: { review_status: "approved", reviewer_notes: "internal note that should not leak" },
@@ -99,5 +100,14 @@ describe("projectRelatedDocumentForClient", () => {
     expect(projected.labels).toHaveLength(6);
     expect(projected.labels.map((entry) => entry.label)).not.toContain("topic-7");
     expect(projected.match_reason).toBe("Matched indexed passages");
+  });
+
+  it("keeps toDocumentMatch free of owner_id and raw label metadata when fed projected docs", () => {
+    const match = toDocumentMatch(projectRelatedDocumentForClient(relatedDocument()));
+    expect(JSON.stringify(match)).not.toContain("owner-uuid-should-not-leak");
+    expect(JSON.stringify(match)).not.toContain("internal note");
+    expect(match.labels).toHaveLength(1);
+    expect(match.labels[0].metadata).toEqual({ review_status: "approved" });
+    expect(match.labels[0].owner_id).toBeUndefined();
   });
 });
