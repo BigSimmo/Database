@@ -4,12 +4,19 @@
  * clinical-dashboard client bundle stays fixture-free.
  */
 
-export function differentialRouteWithQuery(path: string, query: string, selectedIds?: Iterable<string>) {
+export function differentialRouteWithQuery(
+  path: string,
+  query: string,
+  selectedIds?: Iterable<string>,
+  focus?: string,
+) {
   const params = new URLSearchParams();
   const trimmedQuery = query.trim();
   if (trimmedQuery) params.set("q", trimmedQuery);
   const ids = selectedIds ? Array.from(selectedIds, (id) => id.trim()).filter(Boolean) : [];
   if (ids.length > 0) params.set("ids", ids.join(","));
+  const trimmedFocus = focus?.trim();
+  if (trimmedFocus) params.set("focus", trimmedFocus);
   const suffix = params.toString();
   return suffix ? `${path}?${suffix}` : path;
 }
