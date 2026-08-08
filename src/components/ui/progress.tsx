@@ -92,12 +92,15 @@ export type StageListProps = {
  */
 export function StageList({ stages, label = "Progress", className }: StageListProps) {
   const activeIndex = stages.findIndex((stage) => stage.state === "active");
+  const failedIndex = stages.findIndex((stage) => stage.state === "failed");
+  const currentIndex = activeIndex >= 0 ? activeIndex : failedIndex;
   const doneCount = stages.filter((stage) => stage.state === "done").length;
-  // Clamp to 1: with nothing started `activeIndex` is -1 and `doneCount` is 0,
-  // which announced "step 0 of 5". There is no step zero — a job that has not
-  // begun is at its first step, not before it.
-  const step = stages.length ? Math.min(Math.max(activeIndex + 1, doneCount, 1), stages.length) : 0;
-  const currentStage = activeIndex >= 0 ? stages[activeIndex] : undefined;
+  const step = stages.length
+    ? currentIndex >= 0
+      ? currentIndex + 1
+      : Math.min(Math.max(doneCount, 1), stages.length)
+    : 0;
+  const currentStage = currentIndex >= 0 ? stages[currentIndex] : undefined;
 
   return (
     <>
@@ -117,7 +120,7 @@ export function StageList({ stages, label = "Progress", className }: StageListPr
             <li
               key={stage.id}
               data-state={stage.state}
-              aria-current={stage.state === "active" ? "step" : undefined}
+              aria-current={index === currentIndex && currentIndex >= 0 ? "step" : undefined}
               className="relative flex items-start gap-3 pb-3 last:pb-0"
             >
               {/* Connector owned by the gutter column, stopping at the dot centres. */}
@@ -125,7 +128,7 @@ export function StageList({ stages, label = "Progress", className }: StageListPr
                 <span
                   aria-hidden
                   className={cn(
-                    "absolute left-[calc(var(--gutter-col)/2)] top-4 h-[calc(100%-0.5rem)] w-px -translate-x-1/2",
+                    "absolute left-[calc(var(--gutter-col)/2)] top-4 h-[calc(100%-var(--gutter-dot))] w-px -translate-x-1/2",
                     stage.state === "done" ? "bg-[color:var(--success)]" : "bg-[color:var(--border)]",
                   )}
                 />

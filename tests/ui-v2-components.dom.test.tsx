@@ -1010,14 +1010,46 @@ describe("Progress / StageList", () => {
     expect(status).toHaveAttribute("role", "status");
     expect(status).toHaveTextContent("Ingestion: step 2 of 3, Parse");
   });
+
+  it("reports a failed stage as the current step when nothing is active", () => {
+    render(
+      <StageList
+        label="Ingestion"
+        stages={[
+          { id: "upload", label: "Upload", state: "done" },
+          { id: "parse", label: "Parse", state: "failed" },
+          { id: "index", label: "Index", state: "pending" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("stage-list")).toHaveAttribute("aria-label", "Ingestion: step 2 of 3");
+    expect(screen.getByTestId("stage-list-status")).toHaveTextContent("Ingestion: step 2 of 3, Parse");
+    const stages = screen.getByTestId("stage-list").querySelectorAll("li");
+    expect(stages[1]).toHaveAttribute("aria-current", "step");
+  });
 });
 
 describe("StatusMark — design-system vocabulary", () => {
   it("draws a distinct shape for every state it declares", () => {
-    const states: DocumentStatus[] = ["current", "review_due", "outdated", "unknown"];
-    for (const status of states) {
+    const shapeContract: Record<DocumentStatus, { childSelector: string | null; styleIncludes?: string }> = {
+      current: { childSelector: null, styleIncludes: "background" },
+      review_due: { childSelector: ".rounded-r-full" },
+      outdated: { childSelector: ".rotate-45" },
+      unknown: { childSelector: null, styleIncludes: "dashed" },
+    };
+
+    for (const status of Object.keys(shapeContract) as DocumentStatus[]) {
+      const { childSelector, styleIncludes } = shapeContract[status];
       const { unmount } = render(<StatusMark status={status} />);
-      expect(screen.getByTestId("status-mark")).toHaveAttribute("data-status", status);
+      const mark = screen.getByTestId("status-mark");
+      expect(mark).toHaveAttribute("data-status", status);
+      if (childSelector) {
+        expect(mark.querySelector(childSelector)).not.toBeNull();
+      }
+      if (styleIncludes) {
+        expect(mark.getAttribute("style")).toContain(styleIncludes);
+      }
       unmount();
     }
   });
@@ -1122,11 +1154,12 @@ describe("Tabs — invalid selected value", () => {
       <Tabs
         label="Answer sections"
         items={[{ id: "answer", label: "Answer", disabled: true }, ...items.slice(1)]}
-        value="removed-tab"
+        value="answer"
         onChange={() => {}}
       />,
     );
     expect(screen.getByRole("tab", { name: "Sources" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("tab", { name: "Answer" })).toHaveAttribute("aria-selected", "false");
   });
 
   it("keeps the panel wired to a tab that exists", () => {
@@ -1190,6 +1223,16 @@ describe("Pagination — clamping, focus and announcement", () => {
     render(<Pagination page={4} pageCount={7} onPageChange={() => {}} />);
     const row = screen.getByRole("button", { name: "Previous page" }).parentElement;
     expect(row?.className).toContain("flex-wrap");
+  });
+
+  it("does not announce a page the parent rejected", async () => {
+    const announceSpy = vi.spyOn(await import("@/components/ui/live-announcer"), "announce");
+    render(<Pagination page={2} pageCount={5} onPageChange={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(announceSpy).not.toHaveBeenCalled());
+
+    announceSpy.mockRestore();
   });
 });
 

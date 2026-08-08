@@ -48,14 +48,22 @@ export function Pagination({
   const current = Number.isFinite(page) ? Math.min(Math.max(1, Math.floor(page)), Math.max(total, 1)) : 1;
 
   const currentRef = useRef<HTMLButtonElement | null>(null);
+  const currentValueRef = useRef(current);
+  currentValueRef.current = current;
   // Set when the control the user just activated is about to disable itself.
   const restoreFocus = useRef(false);
+  const pendingTarget = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!restoreFocus.current) return;
-    restoreFocus.current = false;
-    currentRef.current?.focus();
-  }, [current]);
+    const target = pendingTarget.current;
+    if (target === null || current !== target) return;
+    if (restoreFocus.current) {
+      restoreFocus.current = false;
+      currentRef.current?.focus();
+    }
+    announce(`Page ${current} of ${total}`, { eventId: `pagination:${label}` });
+    pendingTarget.current = null;
+  }, [current, total, label]);
 
   if (total <= 1) return null;
   const items = pageWindow(current, total);
@@ -70,10 +78,17 @@ export function Pagination({
     // current-page button, which is always rendered (1 and `total` are both
     // permanent members of the window).
     if (target <= 1 || target >= total) restoreFocus.current = true;
+    pendingTarget.current = target;
     onPageChange(target);
-    // The page number is the whole state change and nothing visible announces
-    // it: `aria-current` moves silently, and the summary line is not live.
-    announce(`Page ${target} of ${total}`, { eventId: `pagination:${label}` });
+    // `onPageChange` does not guarantee the parent accepts `target`. Announce and
+    // restore focus only after `current` commits to the pending page; if the
+    // parent rejects the change, clear the pending state without announcing.
+    queueMicrotask(() => {
+      if (pendingTarget.current === target && currentValueRef.current !== target) {
+        restoreFocus.current = false;
+        pendingTarget.current = null;
+      }
+    });
   }
 
   const step =

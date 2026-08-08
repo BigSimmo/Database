@@ -86,7 +86,7 @@ export function Tabs({ items, value, onChange, label, className, children }: Tab
         className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-[color:var(--border)]"
       >
         {items.map((item) => {
-          const selected = item.id === value;
+          const selected = item.id === selectedId;
           const Icon = item.icon;
           return (
             <button
