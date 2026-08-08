@@ -239,7 +239,8 @@
     "sync:pr-branches": "node scripts/sync-open-pr-branches.mjs",
     "sync:pr-branches:apply": "node scripts/sync-open-pr-branches.mjs --apply",
     "check:assets": "node scripts/check-assets.mjs",
-    "check:pr-mergeability": "node scripts/pr-mergeability.mjs --self-test && node scripts/check-pr-mergeability-workflow.mjs"
+    "check:pr-mergeability": "node scripts/pr-mergeability.mjs --self-test && node scripts/check-pr-mergeability-workflow.mjs",
+    "design-system:baselines:adopt": "node scripts/adopt-visual-baselines.mjs"
   },
   "dependencies": {
     "@next/env": "16.2.12",
