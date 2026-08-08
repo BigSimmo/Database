@@ -15,10 +15,54 @@ export function differentialRouteWithQuery(path: string, query: string, selected
 }
 
 /**
- * Compare-selected CTA href. Resolves the presentation workflow on the server
- * via `/differentials/presentations` (see presentations/route.ts) so the client
- * never loads the differentials snapshot just to build a link.
+ * Compare-selected CTA href. The compare page resolves presentation vs ad-hoc
+ * workflows on the server so the client never loads the differentials snapshot
+ * just to build a link. Legacy `/differentials/presentations?ids=` still redirects.
  */
 export function differentialSelectedCompareHref(query: string, selectedIds: Iterable<string>) {
-  return differentialRouteWithQuery("/differentials/presentations", query, selectedIds);
+  return differentialRouteWithQuery("/differentials/compare", query, selectedIds);
+}
+
+/** Parse `ids` from a query string (comma-separated diagnosis slugs). */
+export function differentialIdsFromSearchParams(searchParams: URLSearchParams | string): string[] {
+  const params = typeof searchParams === "string" ? new URLSearchParams(searchParams) : searchParams;
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const raw of (params.get("ids") ?? "").split(",")) {
+    const id = raw.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+/** Pure helper: next `?…` suffix (including leading `?`) after writing `ids`. */
+export function differentialSelectionIdsSearch(selectedIds: Iterable<string>, currentSearch: string): string {
+  const params = new URLSearchParams(currentSearch.startsWith("?") ? currentSearch.slice(1) : currentSearch);
+  const nextIds = Array.from(selectedIds, (id) => id.trim()).filter(Boolean);
+  const current = params.get("ids") ?? "";
+  const next = nextIds.join(",");
+  if (current === next) {
+    const existing = params.toString();
+    return existing ? `?${existing}` : "";
+  }
+  if (next) params.set("ids", next);
+  else params.delete("ids");
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+/**
+ * Keep the current URL's `ids` param aligned with the active compare selection
+ * without a Next navigation (ModeNav reads this on Compare handoff).
+ */
+export function syncDifferentialSelectionIdsToUrl(
+  selectedIds: Iterable<string>,
+  location: Pick<Location, "pathname" | "search" | "hash"> = window.location,
+) {
+  const nextSearch = differentialSelectionIdsSearch(selectedIds, location.search);
+  const currentSearch = location.search.startsWith("?") || !location.search ? location.search : `?${location.search}`;
+  if (currentSearch === nextSearch) return;
+  window.history.replaceState(null, "", `${location.pathname}${nextSearch}${location.hash}`);
 }

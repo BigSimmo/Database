@@ -36,7 +36,12 @@ import { useResultSort } from "@/components/use-result-sort";
 import { Chip as DesignChip } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
+import {
+  differentialIdsFromSearchParams,
+  differentialRouteWithQuery,
+  differentialSelectedCompareHref,
+  syncDifferentialSelectionIdsToUrl,
+} from "@/lib/differentials-navigation";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import {
   composeDifferentialSearchResults,
@@ -827,14 +832,16 @@ function SearchResultsView({
   if (lastResultSignature !== resultSignature) {
     setLastResultSignature(resultSignature);
     setKindFilter("all");
-    setSelectedIds(
-      new Set(
-        results
-          .filter((result) => result.kind === "diagnosis")
-          .slice(0, 2)
-          .map((result) => result.id),
-      ),
-    );
+    const diagnosisIds = results.filter((result) => result.kind === "diagnosis").map((result) => result.id);
+    const diagnosisIdSet = new Set(diagnosisIds);
+    // First result set may hydrate shareable URL ids; later query changes always
+    // re-seed so a new scope never silently inherits the previous ticks.
+    const urlIds =
+      typeof window === "undefined"
+        ? []
+        : differentialIdsFromSearchParams(window.location.search).filter((id) => diagnosisIdSet.has(id));
+    const nextIds = lastResultSignature === "" && urlIds.length > 0 ? urlIds : diagnosisIds.slice(0, 2);
+    setSelectedIds(new Set(nextIds));
   }
 
   const presentationCount = results.filter((result) => result.kind === "presentation").length;
@@ -861,6 +868,13 @@ function SearchResultsView({
     [results, selectedIds],
   );
   const selectedCount = comparisonIds.size;
+  const comparisonIdsKey = Array.from(comparisonIds).join(",");
+
+  // Publish selection into the URL so ModeNav Compare can forward the same ids.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    syncDifferentialSelectionIdsToUrl(comparisonIdsKey ? comparisonIdsKey.split(",") : []);
+  }, [comparisonIdsKey]);
   // Catalogue results follow composer edits live, but document evidence only
   // updates on an executed source search — treat evidence fetched for a
   // different query as pending so the two panels never claim to be in sync.

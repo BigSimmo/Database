@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { getPresentationWorkflowSelectionForDiagnosisIds } from "@/lib/differentials";
+import { AD_HOC_DIFFERENTIAL_COMPARE_ID, getPresentationWorkflowSelectionForDiagnosisIds } from "@/lib/differentials";
 
 function presentationsRedirectLocation(request: NextRequest) {
   const query = (request.nextUrl.searchParams.get("query") ?? request.nextUrl.searchParams.get("q"))?.trim();
@@ -12,7 +12,20 @@ function presentationsRedirectLocation(request: NextRequest) {
   const params = new URLSearchParams();
   if (query) params.set("q", query);
   if (selection?.diagnosisIds.length) params.set("ids", selection.diagnosisIds.join(","));
-  const pathname = `/differentials/presentations/${selection?.workflow.id ?? "acute-confusion-encephalopathy"}`;
+
+  // Cross-presentation selections keep every valid ID on the ad-hoc compare
+  // route instead of silently dropping diagnoses that lose the presentation vote.
+  const pathname =
+    selection?.kind === "ad-hoc"
+      ? "/differentials/compare"
+      : `/differentials/presentations/${selection?.workflow.id ?? "acute-confusion-encephalopathy"}`;
+
+  // Guard against ever advertising the reserved ad-hoc id as a presentation slug.
+  if (selection?.kind === "presentation" && selection.workflow.id === AD_HOC_DIFFERENTIAL_COMPARE_ID) {
+    const suffix = params.toString();
+    return suffix ? `/differentials/compare?${suffix}` : "/differentials/compare";
+  }
+
   const suffix = params.toString();
   // Relative Location so redirects stay same-origin in the browser even when
   // the server request URL uses a bind address like 0.0.0.0.

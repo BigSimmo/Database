@@ -167,10 +167,10 @@ describe("mode secondary navigation registry", () => {
       modeSecondaryNavigationHref({
         modeId: "differentials",
         itemId: "compare",
-        href: "/differentials/presentations",
+        href: "/differentials/compare",
         currentSearchParams: new URLSearchParams("q=confusion&ids=delirium%2Cdementia"),
       }),
-    ).toBe("/differentials/presentations?q=confusion&ids=delirium%2Cdementia");
+    ).toBe("/differentials/compare?q=confusion&ids=delirium%2Cdementia");
 
     // Search is the CURRENT tab on /factsheets/search, so its own link must not
     // reset what you are looking at. `run` is carried with the query because
@@ -266,6 +266,10 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder-notes")).toBeNull();
     expect(activeModeSecondaryNavigationId("formulation", "/formulation/map")).toBe("map");
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/compare")).toBe("compare");
+    expect(activeModeSecondaryNavigationId("differentials", "/differentials/compare")).toBe("compare");
+    expect(
+      activeModeSecondaryNavigationId("differentials", "/differentials/presentations/acute-confusion-encephalopathy"),
+    ).toBe("compare");
   });
 });
 
@@ -297,6 +301,7 @@ describe("information page classification", () => {
     "/factsheets/search",
     "/therapy-compass/search",
     "/differentials/diagnoses",
+    "/differentials/compare",
     "/dsm/compare",
     "/documents/search",
   ])("does not classify workflow route %s as an information page", (pathname) => {

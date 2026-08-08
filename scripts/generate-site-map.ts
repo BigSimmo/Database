@@ -55,6 +55,7 @@ const routeDescriptions: Record<string, string> = {
   "/": "Main Clinical KB shell.",
   "/applications": "Legacy application launcher redirect to Tools.",
   "/differentials": "Differentials home and search surface.",
+  "/differentials/compare": "Selected differential diagnosis comparison.",
   "/differentials/diagnoses": "Diagnosis stream.",
   "/differentials/diagnoses/[slug]": "Differential diagnosis detail.",
   "/differentials/presentations": "Presentation workflow stream.",
@@ -342,7 +343,8 @@ function renderModePageIndex() {
       mode: "Differentials",
       home: appModeHomeHref("differentials"),
       search: appModeHomeHref("differentials", { query: "acute confusion", focus: true, run: true }),
-      detail: "`/differentials/diagnoses`, `/differentials/diagnoses/[slug]`, and `/differentials/presentations`.",
+      detail:
+        "`/differentials/diagnoses`, `/differentials/diagnoses/[slug]`, `/differentials/compare`, and `/differentials/presentations`.",
     },
     {
       mode: "DSM-5 Diagnosis",

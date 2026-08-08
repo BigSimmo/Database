@@ -36,7 +36,7 @@ export const modeSecondaryNavigationRegistry = {
   differentials: [
     { id: "search", label: "Search", href: appModeHomeHref("differentials", { focus: true }) },
     { id: "diagnoses", label: "Diagnoses", href: "/differentials/diagnoses" },
-    { id: "compare", label: "Compare", href: "/differentials/presentations" },
+    { id: "compare", label: "Compare", href: "/differentials/compare" },
   ],
   dsm: [
     { id: "search", label: "Search", href: appModeHomeHref("dsm", { focus: true }) },
@@ -141,7 +141,9 @@ export function routedModeSecondaryNavigationCount(modeId: AppModeId): number {
 export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: string): string | null {
   if (modeId === "differentials") {
     if (pathname.startsWith("/differentials/diagnoses")) return "diagnoses";
-    if (pathname.startsWith("/differentials/presentations")) return "compare";
+    if (pathname.startsWith("/differentials/compare") || pathname.startsWith("/differentials/presentations")) {
+      return "compare";
+    }
     if (pathname === "/differentials" || pathname.startsWith("/differentials?")) return "search";
     return null;
   }
@@ -189,7 +191,12 @@ export function isModeSecondaryNavigationRoute(params: {
   if (hasSubmittedSearch) return true;
 
   if (modeId === "differentials") {
-    return pathname === "/differentials/diagnoses" || pathname === "/differentials/presentations";
+    return (
+      pathname === "/differentials/diagnoses" ||
+      pathname === "/differentials/compare" ||
+      pathname === "/differentials/presentations" ||
+      pathname.startsWith("/differentials/presentations/")
+    );
   }
   if (modeId === "dsm") return pathname === "/dsm/search" || pathname === "/dsm/compare";
   if (modeId === "specifiers") {
@@ -242,6 +249,8 @@ export function modeSecondaryNavigationHref(params: {
   if (modeId === "differentials") {
     const entries: Array<readonly [string, string]> = query ? [["q", query]] : [];
     if (itemId === "search" && currentSearchParams.get("run") === "1") entries.push(["run", "1"]);
+    // Compare (and other in-mode tabs) reuse URL-backed selection so ticks on
+    // search survive ModeNav handoff without a second client store.
     if (currentSearchParams.get("ids")) {
       entries.push(["ids", currentSearchParams.get("ids") ?? ""]);
     }
