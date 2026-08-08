@@ -150,7 +150,7 @@ describe("isRedundantSafetySummary", () => {
     ).toBe(true);
   });
 
-  it("treats high-overlap list summaries as redundant (tags preferred)", () => {
+  it("keeps summary tokens that tags do not cover, even at high overlap", () => {
     expect(
       isRedundantSafetySummary("Superimposed delirium, aspiration, falls, abuse/neglect, unsafe living.", [
         "Superimposed delirium",
@@ -158,7 +158,13 @@ describe("isRedundantSafetySummary", () => {
         "falls",
         "abuse/neglect",
       ]),
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it("does not hide a summary when tags are only a subset of its risks", () => {
+    expect(
+      isRedundantSafetySummary("Suicide risk, violence risk, unsafe living", ["Suicide risk", "violence risk"]),
+    ).toBe(false);
   });
 
   it("keeps unique prose summaries that tags do not cover", () => {

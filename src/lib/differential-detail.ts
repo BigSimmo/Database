@@ -154,9 +154,9 @@ function splitSafetyTokens(value: string): string[] {
     .filter(Boolean);
 }
 
-/** True when the summary is effectively the same list as the Watch-for tags
- *  (exact match, either side a subset, or high token overlap). Prefer tags in
- *  the card; unique prose summaries stay visible. */
+/** True when every summary token is already covered by the Watch-for tags.
+ *  Prefer tags in the card; keep the summary whenever it adds any unique risk
+ *  token (tags being a subset of the summary must not hide those extras). */
 export function isRedundantSafetySummary(summary: string, tags: readonly string[]): boolean {
   const summaryTokens = [...new Set(splitSafetyTokens(summary))];
   if (summaryTokens.length === 0) return true;
@@ -164,16 +164,8 @@ export function isRedundantSafetySummary(summary: string, tags: readonly string[
   const tagTokens = [...new Set(tags.flatMap((tag) => splitSafetyTokens(tag)))];
   if (tagTokens.length === 0) return false;
 
-  const summarySet = new Set(summaryTokens);
   const tagSet = new Set(tagTokens);
-  let intersection = 0;
-  for (const token of summarySet) {
-    if (tagSet.has(token)) intersection += 1;
-  }
-  if (intersection === summarySet.size || intersection === tagSet.size) return true;
-
-  const union = new Set([...summarySet, ...tagSet]).size;
-  return union > 0 && intersection / union >= 0.75;
+  return summaryTokens.every((token) => tagSet.has(token));
 }
 
 /** Deterministic plain-text register of the record for the "Copy after
