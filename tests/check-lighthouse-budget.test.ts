@@ -353,11 +353,12 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).not.toMatch(/spawnSync\(\s*"npx\.cmd",/);
   });
 
-  it("retries a transient Lighthouse failure once before leaving the route unmeasured", () => {
+  it("does not retry failed Lighthouse routes — the Playwright Chromium pin is the durable fix", () => {
     const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
 
-    expect(runner).toContain("const maxAttempts = 2");
-    expect(runner).toContain("retrying once");
+    expect(runner).not.toContain("maxAttempts");
+    expect(runner).not.toContain("retrying once");
+    expect(runner).toContain("CHROME_PATH");
   });
 
   it("pins the CI job to Playwright Chromium rather than the ubuntu runner image Chrome", () => {

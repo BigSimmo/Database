@@ -122,9 +122,10 @@ runs; promote it by adding it to `pr-required` and dropping that flag together.
 
 `npm run verify:lighthouse` builds and serves an isolated production app in demo mode, measures the
 routes in `lighthouse-budget.json` on mobile and desktop, and grades the result. CI pins Chromium
-through Playwright (`CHROME_PATH`) so the budget is not tied to the ubuntu runner image Chrome;
-transient `NO_NAVSTART` failures retry once. While `enforce` is false, a Chrome identity drift warns
-and still grades — it only fails closed after `enforce` flips true. It is a **relative**
+through Playwright (`CHROME_PATH`) so the budget is not tied to the ubuntu runner image Chrome —
+that pin is the durable fix for browser-identity drift (no per-route retry; retries only lengthen
+CI). While `enforce` is false, a residual Chrome identity drift warns and still grades; once
+`enforce` flips true, drift fails closed until the baseline is refreshed. It is a **relative**
 gate: absolute web-vitals thresholds are meaningless against a localhost server with no network
 latency, so each route is compared to a committed known-good baseline with a per-metric tolerance,
 following the same shape as `check:bundle-budget`.
