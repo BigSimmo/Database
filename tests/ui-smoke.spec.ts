@@ -2964,27 +2964,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-  test("dashboard favourites mode param redirects to the standalone favourites route", async ({ page }) => {
+  test("dashboard favourites selection stays on the shared home; submitted links open Favourites", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     const redirectMeasureErrors: string[] = [];
     page.on("pageerror", (error) => {
       if (error.message.includes("cannot have a negative time stamp")) redirectMeasureErrors.push(error.message);
     });
-    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
 
-    await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1$/);
+    // Bare /?mode= favourites is the shared home with Favourites preselected —
+    // not a redirect to /favourites (legacy proxy used to hop early).
+    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
+    await expect(page).toHaveURL(/\/\?mode=favourites&q=lithium(\+|%20)set&focus=1$/);
+    await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
+    expect(redirectMeasureErrors).toEqual([]);
+
+    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1&run=1");
+    await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1&run=1$/);
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
-    expect(redirectMeasureErrors).toEqual([]);
   });
 
-  test("dashboard differentials mode param redirects to the standalone differentials route", async ({ page }) => {
+  test("dashboard differentials selection stays on the shared home; submitted links open Differentials", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
 
-    await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1$/);
+    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
+    await expect(page).toHaveURL(/\/\?mode=differentials&q=acute(\+|%20)confusion&focus=1$/);
+    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
+
+    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1&run=1");
+    await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1&run=1$/);
     // Production hydration can briefly overlap the outgoing server tree and the
     // settled client tree on this redirect; wait for one owner before strict
     // locators (same guard as the mode-home loop in ui-tools).

@@ -55,23 +55,30 @@ describe("audit navigation and auth regressions", () => {
     expect([headApplications, headPresentations]).toEqual([redirectApplications, redirectPresentations]);
   });
 
-  it("sanitizes root legacy mode aliases before request-time redirects", () => {
-    const favourites = legacyHomeRedirectUrl(
-      new URL("https://clinical-kb.test/?mode=favourites&q=+lithium+&focus=1&run=0&extra=drop"),
-      "GET",
-    );
+  it("only redirects submitted root legacy mode aliases, leaving bare /?mode= on the shared home", () => {
+    // Selection-only (no q+run=1) must stay on `/` so the shared-home contract
+    // covers favourites/differentials/specifiers the same as every other mode.
+    expect(
+      legacyHomeRedirectUrl(
+        new URL("https://clinical-kb.test/?mode=favourites&q=+lithium+&focus=1&run=0&extra=drop"),
+        "GET",
+      ),
+    ).toBeNull();
+    expect(
+      legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=specifiers&focus=1&unexpected=drop"), "GET"),
+    ).toBeNull();
+    expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=favourites"), "GET")).toBeNull();
+
     const differentials = legacyHomeRedirectUrl(
-      new URL("https://clinical-kb.test/?mode=differentials&q=acute+confusion&run=1&run=0"),
+      new URL("https://clinical-kb.test/?mode=differentials&q=acute+confusion&run=1&run=0&extra=drop"),
       "HEAD",
     );
-    const specifiers = legacyHomeRedirectUrl(
-      new URL("https://clinical-kb.test/?mode=specifiers&focus=1&unexpected=drop"),
+    const favouritesSubmitted = legacyHomeRedirectUrl(
+      new URL("https://clinical-kb.test/?mode=favourites&q=+lithium+&focus=1&run=1&extra=drop"),
       "GET",
     );
-
-    expect(favourites?.toString()).toBe("https://clinical-kb.test/favourites?q=lithium&focus=1");
     expect(differentials?.toString()).toBe("https://clinical-kb.test/differentials?q=acute+confusion&run=1");
-    expect(specifiers?.toString()).toBe("https://clinical-kb.test/specifiers?focus=1");
+    expect(favouritesSubmitted?.toString()).toBe("https://clinical-kb.test/favourites?q=lithium&focus=1&run=1");
     expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=favourites"), "POST")).toBeNull();
     expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=answer"), "GET")).toBeNull();
     expect(source("src/proxy.ts")).toContain("legacyHomeRedirectUrl(request.nextUrl, request.method)");

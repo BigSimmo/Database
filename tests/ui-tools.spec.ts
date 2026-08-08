@@ -2375,7 +2375,7 @@ test.describe("Responsive layout guards", () => {
 
   const modeHomeRoutes = [
     { name: "prescribing", path: "/medications" },
-    { name: "differentials", path: "/?mode=differentials" },
+    { name: "differentials", path: "/differentials" },
     { name: "services", path: "/?mode=services" },
     { name: "forms", path: "/?mode=forms" },
   ] as const;
@@ -2562,7 +2562,9 @@ test.describe("Responsive layout guards", () => {
   test("differentials recent work remains touch-sized inside its mobile scroll row", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 760 });
     await mockAnswerDashboardApi(page);
-    await gotoLauncher(page, "/?mode=differentials");
+    // Differentials home content lives on /differentials. Bare /?mode=differentials
+    // is the shared home with the mode preselected, not this template.
+    await gotoLauncher(page, "/differentials");
 
     const recentWork = page.getByTestId("differentials-home-template").getByRole("region", { name: "Recent work" });
     await expect(recentWork).toBeVisible();
