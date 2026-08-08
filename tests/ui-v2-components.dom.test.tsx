@@ -11,7 +11,7 @@ import { Chip } from "@/components/ui/chip";
 import { Checkbox, RadioGroup } from "@/components/ui/choice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Disclosure } from "@/components/ui/disclosure";
-import { DownloadLink, ExternalTextLink, TextLink } from "@/components/ui/link";
+import { DownloadLink, ExternalTextLink, LinkAction, TextLink, type LinkActionProps } from "@/components/ui/link";
 import { OverlayPortal, OverlayRoot } from "@/components/ui/overlay-root";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
@@ -1259,6 +1259,24 @@ describe("Links — invariants a spread cannot override", () => {
     const link = screen.getByRole("link", { name: /External/ });
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("refuses LinkAction's tone through a spread, not only through a literal", () => {
+    // `LinkAction` renders the accent unconditionally, so an accepted-but-ignored
+    // `tone` is a silent lie. `Omit<BaseProps, "tone">` alone does not close it:
+    // excess-property checking only runs on object literals, so the literal form
+    // is rejected while `<LinkAction {...props} />` — an ordinary assignment,
+    // where extra properties are allowed — type-checks clean and still renders
+    // the accent. `tone?: never` rejects both. This assertion is the gate: it
+    // stops compiling the moment the prop widens back to something assignable.
+    type ToneCarryingProps = { href: string; children: string; tone: "inherit" };
+    type SpreadIsRejected = ToneCarryingProps extends LinkActionProps ? false : true;
+    const spreadIsRejected: SpreadIsRejected = true;
+
+    expect(spreadIsRejected).toBe(true);
+
+    render(<LinkAction href="/documents">Review sources</LinkAction>);
+    expect(screen.getByRole("link", { name: /Review sources/ })).toHaveClass("text-[color:var(--clinical-accent)]");
   });
 });
 
