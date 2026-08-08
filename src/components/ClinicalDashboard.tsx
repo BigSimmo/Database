@@ -169,7 +169,7 @@ import {
   type AppModeId,
   type AppModeSearchKind,
 } from "@/lib/app-modes";
-import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
+import { DEFAULT_APP_MODE, useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
@@ -347,6 +347,8 @@ export function ClinicalDashboard({
   const urlDocumentSearchBootstrappedRef = useRef(false);
   const lastSyncedSearchParamsRef = useRef(searchParams.toString());
   const modeChangeFromUiRef = useRef(false);
+  /** Guards the one-shot cold-`/` mode seed below. */
+  const homeModeSeededRef = useRef(false);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const documentsRef = useRef(documents);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
@@ -1601,12 +1603,18 @@ export function ClinicalDashboard({
   // placeholder with no hydration flip. This only fills the gap when the URL says
   // nothing, and does it with replaceState: no history entry, no server round trip,
   // and only the placeholder changes (never composer geometry).
+  // Seeds at most once per mount, and never reads `searchMode`. Both matter: in-app
+  // actions change the mode on `/` without touching the URL (openDocumentsDrawer
+  // does exactly that), so a re-firing effect would rewrite `?mode=` back to the
+  // remembered mode and silently undo them.
   useEffect(() => {
+    if (homeModeSeededRef.current) return;
     if (pathname !== "/") return;
     if (searchParams.has("mode") || searchParams.has("q") || searchParams.has("query")) return;
-    if (lastAppMode === searchMode) return;
+    homeModeSeededRef.current = true;
+    if (lastAppMode === DEFAULT_APP_MODE) return;
     window.history.replaceState(null, "", appModeSelectionHref(lastAppMode));
-  }, [pathname, searchParams, lastAppMode, searchMode]);
+  }, [pathname, searchParams, lastAppMode]);
 
   useEffect(() => {
     if (urlSearchBootstrappedRef.current) return;
