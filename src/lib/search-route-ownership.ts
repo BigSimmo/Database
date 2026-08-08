@@ -33,7 +33,18 @@ const standaloneModeHomePaths = new Set<string>([
   "/factsheets",
   "/therapy-compass",
   "/tools",
+  // Documents and Medication gained real homes when `/` became the single shared
+  // home for every mode. Like the others they own an in-flow hero composer.
+  "/documents",
+  "/medications",
 ]);
+
+/**
+ * Mode homes whose body is rendered by ClinicalDashboard rather than by their own
+ * page component. They must mount the dashboard even with nothing submitted, which
+ * `pathname === "/"` alone would not cover.
+ */
+const dashboardOwnedModeHomePaths = new Set<string>(["/documents", "/medications"]);
 
 export function isStandaloneModeHomePath(pathname: string): boolean {
   return standaloneModeHomePaths.has(pathname);
@@ -98,6 +109,8 @@ export function shouldRenderClinicalDashboard({
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   return (
     !isMedicationDetailRoute &&
-    (pathname === "/" || shouldRenderDashboardSearch({ hasSubmittedSearch, mode, pathname }))
+    (pathname === "/" ||
+      dashboardOwnedModeHomePaths.has(pathname) ||
+      shouldRenderDashboardSearch({ hasSubmittedSearch, mode, pathname }))
   );
 }

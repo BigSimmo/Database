@@ -57,11 +57,13 @@ import { cn } from "@/components/ui-primitives";
 import {
   appModeDefinition,
   appModeHomeHref,
+  appModeSelectionHref,
   isAppModeId,
   isAppModeVisible,
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
+import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 
 // Namespaced mode homes share this client shell but never render the dashboard
 // body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
@@ -366,6 +368,7 @@ function GlobalStandaloneSearchShellBody({
       ? requestedMode
       : initialSearchMode;
   const [query, setQuery] = useState(requestedQuery);
+  const [, setLastAppMode] = useLastAppMode();
   // Previous URL snapshot for during-render sync (React "adjusting state when a
   // prop changes"). Pathname must be tracked separately: with the shared
   // `(search-app)` layout, /services → /dsm keeps an empty query string, and a
@@ -634,11 +637,21 @@ function GlobalStandaloneSearchShellBody({
       openAccountSetup("favourites");
       return;
     }
-    // Same-mode picks are load-bearing: the checked mode-menu option and every
-    // ModeActionPopup quick action route through changeMode to leave a detail /
-    // submitted URL and land on the clean mode home. Skip only a true no-op
-    // (already exactly on that home) when nothing else is in flight.
-    const href = appModeHomeHref(mode, { queryMode, scopeFilters });
+    setLastAppMode(mode);
+
+    // The mode pill retargets the composer; it no longer navigates to a mode home.
+    // From anywhere with a query in play, carry that query into the newly picked
+    // mode's search page rather than dropping it (this is the same transition the
+    // cross-mode chips make). With nothing to carry, return to the shared home at
+    // `/` with the mode preselected — that is now the single starting point.
+    const carriedQuery = query.trim() || requestedQuery.trim();
+    if (carriedQuery) {
+      setMobileMenuOpen(false);
+      router.push(appModeHomeHref(mode, { query: carriedQuery, run: true, queryMode, scopeFilters }));
+      return;
+    }
+
+    const href = appModeSelectionHref(mode, { queryMode, scopeFilters });
     const destination = new URL(href, window.location.origin);
     const destinationSearch = destination.search.startsWith("?") ? destination.search.slice(1) : destination.search;
     const alreadyOnDestination = pathname === destination.pathname && searchParamString === destinationSearch;

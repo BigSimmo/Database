@@ -101,9 +101,15 @@ describe("shared-search route ownership", () => {
     expect(shellSource).toContain("isStandaloneModeHomePath(pathname)");
     expect(shellSource).not.toMatch(/searchMode === "services" && pathname === "\/services"/);
     // changeMode must not optimistic-set searchMode before navigation.
-    // Same-mode picks still navigate to the mode home unless already there;
-    // cross-mode / leaving a detail URL uses router.push with pending state.
-    expect(shellSource).toMatch(/function changeMode\(mode: AppModeId\) \{[\s\S]*?router\.push\(href\);\n  \}/);
+    // The pill no longer opens a mode home: with a query in play it carries that
+    // query into the new mode's search page, and otherwise returns to the shared
+    // home at `/` with the mode preselected. Pending state still guards the push.
+    expect(shellSource).toMatch(
+      /function changeMode\(mode: AppModeId\) \{[\s\S]*?const carriedQuery = query\.trim\(\) \|\| requestedQuery\.trim\(\);\n    if \(carriedQuery\) \{[\s\S]*?router\.push\(appModeHomeHref\(mode, \{ query: carriedQuery, run: true[\s\S]*?\n      return;/,
+    );
+    expect(shellSource).toMatch(
+      /function changeMode\(mode: AppModeId\) \{[\s\S]*?const href = appModeSelectionHref\(mode[\s\S]*?router\.push\(href\);\n  \}/,
+    );
     expect(shellSource).not.toMatch(
       /function changeMode\(mode: AppModeId\) \{[\s\S]*?setSearchMode\(mode\);[\s\S]*?router\.push/,
     );
@@ -206,11 +212,47 @@ describe("shared-search route ownership", () => {
   it("leaves the dashboard shell without eager chrome thrash", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
     expect(dashboardSource).toContain("isDashboardModeHref");
-    expect(dashboardSource).toMatch(
-      /function selectSearchMode\(mode: AppModeId\) \{[\s\S]*?if \(!isDashboardModeHref\(href\)\) \{[\s\S]*?router\.push\(href\);\n      return;/,
-    );
+    // crossModeSearch still navigates out of the shell without rewriting local
+    // chrome first: an eager setSearchMode flipped hero/dock for a frame before
+    // ClinicalDashboard unmounted.
     expect(dashboardSource).toMatch(
       /function crossModeSearch\(mode: AppModeId, crossQuery: string\) \{[\s\S]*?if \(!isDashboardModeHref\(href\)\) \{[\s\S]*?router\.push\(href\);\n      return;/,
+    );
+  });
+
+  it("keeps the mode pill from navigating while the shared home is showing", () => {
+    const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+    const selectSearchMode = dashboardSource.slice(dashboardSource.indexOf("function selectSearchMode("));
+
+    // Isolate the shared-home branch so the negative assertions below cannot be
+    // satisfied by unrelated code further down selectSearchMode.
+    const branchStart = selectSearchMode.indexOf("if (showSharedHome) {");
+    expect(branchStart).toBeGreaterThan(-1);
+    const sharedHomeBranch = selectSearchMode.slice(branchStart, selectSearchMode.indexOf("\n    }", branchStart));
+
+    // `/` is the single home page. On it the pill only retargets the composer:
+    // rewrite `?mode=` in place, never push a route and never re-render the page.
+    expect(sharedHomeBranch).toMatch(/window\.history\.replaceState\(null, "", appModeSelectionHref\(mode/);
+    // replaceState only — a push would add a history entry per mode pick, so Back
+    // would step back through picks instead of leaving home.
+    expect(sharedHomeBranch).not.toContain("router.push");
+    // The URL must own searchMode here: setting modeChangeFromUiRef would make the
+    // URL-sync effect skip, and the pill would never update.
+    expect(sharedHomeBranch).not.toContain("modeChangeFromUiRef.current = true");
+    expect(sharedHomeBranch).not.toContain("setSearchMode(");
+    // Off the shared home a query in play is carried into the new mode, not dropped.
+    expect(selectSearchMode).toMatch(/crossModeSearch\(mode, carriedQuery\);/);
+  });
+
+  it("routes a submitted shared-composer search to the selected mode's own surface", () => {
+    const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+    const ask = dashboardSource.slice(dashboardSource.indexOf("async function ask("));
+
+    // Before this branch existed, every mode except documents/prescribing fell
+    // through to an in-place executeSearch. That was only safe while `/` plus a
+    // namespaced mode was unreachable; the shared home makes it the normal state.
+    expect(ask).toMatch(
+      /const modeDestination = appModeHomeHref\(searchMode, \{[\s\S]*?run: true,[\s\S]*?\}\);\n    if \(trimmedQuery && !isDashboardModeHref\(modeDestination\)\) \{[\s\S]*?router\.push\(modeDestination\);\n      return;/,
     );
   });
 });

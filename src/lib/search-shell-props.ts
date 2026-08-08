@@ -14,6 +14,13 @@ export type SearchShellPathProps = {
  * when navigating between namespaced modes).
  */
 export function searchShellPropsForPathname(pathname: string): SearchShellPathProps {
+  // Exact `/documents` is the Documents mode home — it matches neither
+  // `/documents/search` nor the `/documents/` prefix below, so it needs its own
+  // case to get the in-flow hero composer every other mode home has.
+  if (pathname === "/documents") {
+    return { initialMode: "documents", desktopSearchPlacement: "hero" };
+  }
+
   if (pathname === "/documents/search" || pathname.startsWith("/documents/")) {
     const isDocumentSearchRoute = pathname === "/documents/search";
     const documentFlowOwnsMobileChrome = pathname.startsWith("/documents/source");

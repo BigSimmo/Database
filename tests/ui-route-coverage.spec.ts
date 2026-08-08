@@ -432,12 +432,14 @@ test.describe("previously uncovered production routes", () => {
     await expect(page.getByRole("heading", { name: "Tools", level: 1 })).toBeVisible();
   });
 
-  test("Medications index redirects exactly to prescribing mode", async ({ page }) => {
+  test("Medications index serves the Medication mode home", async ({ page }) => {
+    // Previously a 307 to `/?mode=prescribing`. `/` is now the shared home for
+    // every mode, so Medication owns a real home here instead of aliasing to it.
     await gotoApp(page, "/medications");
-    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/");
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/medications");
     const destination = new URL(page.url());
-    expect(destination.pathname).toBe("/");
-    expect(destination.searchParams.toString()).toBe("mode=prescribing");
+    expect(destination.pathname).toBe("/medications");
+    expect(destination.searchParams.toString()).toBe("");
     await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
   });
 
