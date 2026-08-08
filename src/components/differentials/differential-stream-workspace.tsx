@@ -191,7 +191,7 @@ function StreamCard({
 }) {
   const cardTone =
     highlight === "match"
-      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--clinical-accent-border)]"
+      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-inset)]"
       : highlight === "related"
         ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] shadow-[var(--shadow-inset)]"
         : highlight === "dim"
@@ -447,7 +447,7 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
       className="min-h-0 overflow-x-clip bg-[color:var(--background)] px-4 py-10 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-6 lg:px-8"
     >
       <div className="mx-auto grid w-full max-w-6xl gap-6">
-        <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
+        <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)] sm:p-6">
           <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
             {copy.heading}
           </p>
@@ -520,7 +520,7 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
           <section
             id={matchJumpRegionId}
             data-testid="differentials-stream-match-controls"
-            className="sticky top-[calc(var(--shell-header-h)+0.5rem)] z-10 grid gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]"
+            className="sticky top-[calc(var(--shell-header-h)+0.5rem)] z-10 grid gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-bold text-[color:var(--text-heading)]">
