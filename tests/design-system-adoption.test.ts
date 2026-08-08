@@ -87,7 +87,19 @@ function setCurrentAwaitingValues(fixtureRoot: string, values: string) {
   );
 }
 
-function initialiseCandidateRepository(fixtureRoot: string, awaitingValues?: string) {
+/**
+ * Seeds a fixture repository whose candidate-source commit declares the canonical
+ * six as awaiting a baseline — the state a capture run is taken from.
+ *
+ * The default is the explicit canonical list rather than whatever
+ * `tests/ui-visual-baseline.spec.ts` happens to say right now. Inheriting the live
+ * file made every fixture depend on the repository not having adopted its baselines
+ * yet, so the commit that finally empties `AWAITING_BASELINE` — the outcome this
+ * contract exists to permit — turned the fixture's own candidate head into "must
+ * contain exactly the canonical six ids" and failed the two `toEqual([])` cases.
+ * A fixture states its precondition; it does not borrow it from the tree under test.
+ */
+function initialiseCandidateRepository(fixtureRoot: string, awaitingValues: string = canonicalAwaitingValues) {
   git(fixtureRoot, ["init", "-q"]);
   git(fixtureRoot, ["config", "user.email", "fixture@example.invalid"]);
   git(fixtureRoot, ["config", "user.name", "Fixture"]);
@@ -95,9 +107,7 @@ function initialiseCandidateRepository(fixtureRoot: string, awaitingValues?: str
   writeFixtureFile(
     fixtureRoot,
     "tests/ui-visual-baseline.spec.ts",
-    awaitingValues === undefined
-      ? read("tests/ui-visual-baseline.spec.ts")
-      : withAwaitingValues(read("tests/ui-visual-baseline.spec.ts"), awaitingValues),
+    withAwaitingValues(read("tests/ui-visual-baseline.spec.ts"), awaitingValues),
   );
   return commitFixture(fixtureRoot, "candidate source");
 }
