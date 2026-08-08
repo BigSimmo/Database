@@ -1039,7 +1039,7 @@ export function DifferentialDetailPage({
       className="min-h-dvh bg-[color:var(--background)] pb-24 text-[color:var(--text)] lg:pb-6"
     >
       <InPageNavHeader
-        back={{ href: "/differentials", label: "Differentials" }}
+        back={{ href: "/differentials/diagnoses", label: "Diagnoses" }}
         title={record.title}
         sections={sections}
         activeId={activeTab}
@@ -1073,7 +1073,9 @@ export function DifferentialDetailPage({
                 Differentials
               </Link>
               <ChevronRight className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
-              <span className="text-[color:var(--text-muted)]">Diagnosis</span>
+              <Link href="/differentials/diagnoses" className="text-[color:var(--clinical-accent)]">
+                Diagnosis
+              </Link>
               <ChevronRight className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
               <span className="text-[color:var(--text-muted)]">{record.title}</span>
             </nav>
