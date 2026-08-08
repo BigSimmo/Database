@@ -34,7 +34,7 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
-import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pdf-readers-lazy";
+import { PdfCanvasViewer } from "@/components/document-viewer/pdf-readers-lazy";
 import {
   requestSignedUrlPayload,
   rowsById,
@@ -42,7 +42,6 @@ import {
 } from "@/components/document-viewer/signed-url-request";
 import { useDocumentSummarize } from "@/components/document-viewer/use-document-summarize";
 import { useDocumentViewerRoute } from "@/components/document-viewer/use-document-viewer-route";
-import { usePdfViewerPreference } from "@/components/document-viewer/use-pdf-viewer-preference";
 import { DocumentFrame, type DocumentFrameControls, type DocumentFrameSource } from "@/components/ui/document-frame";
 import {
   VIEWER_DEFAULT_ZOOM,
@@ -54,9 +53,11 @@ import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import {
+  canSkipDetailRequest,
   documentLoadKey,
   documentPageHref,
   isFullDocumentReload,
+  type LoadedDetailWindow,
   nextLoadedDocumentKey,
 } from "@/lib/document-viewer-navigation";
 import { partitionViewerImages } from "@/lib/image-filtering";
@@ -84,6 +85,7 @@ import type {
 import { IndexedTextPanel, PinnedSourceEvidence } from "@/components/document-viewer/source-panels";
 import { DocumentViewerRail } from "@/components/document-viewer/document-rail-panels";
 import { DocumentOverviewLanding } from "@/components/document-viewer/document-overview-landing";
+import { DocumentClinicalSummary } from "@/components/document-viewer/document-clinical-summary";
 import { buildDocumentSectionIndex, documentOverviewSectionId } from "@/components/document-viewer/section-index";
 import {
   DocumentSectionSheet,
@@ -210,19 +212,27 @@ export function DocumentViewer({
     composerChromeFocused,
   );
   const activeScrollOwner = useActiveScrollOwner(shellScrollContainer, documentId);
-  const { useNativePdfViewer, togglePdfViewerMode } = usePdfViewerPreference();
-  // Phase 2a: DocumentFrame owns zoom/fit/viewing-aid chrome for canvas PDF.
-  // Reset viewing chrome when the document identity changes (render-time adjust,
-  // not an effect — avoids react-hooks/set-state-in-effect).
+  // DocumentFrame owns every viewing control for the canvas PDF — there is one
+  // reader, so there is one toolbar. Reset viewing chrome when the document
+  // identity changes (render-time adjust, not an effect — avoids
+  // react-hooks/set-state-in-effect).
   const [pdfViewingDocumentId, setPdfViewingDocumentId] = useState(documentId);
   const [pdfFitWidth, setPdfFitWidth] = useState(true);
   const [pdfZoom, setPdfZoom] = useState(VIEWER_DEFAULT_ZOOM);
   const [pdfViewingAid, setPdfViewingAid] = useState(false);
+  const [pdfRotation, setPdfRotation] = useState(0);
+  const [pdfFullscreen, setPdfFullscreen] = useState(false);
+  // pdf.js is authoritative for the page count: `document.page_count` can be
+  // absent or stale for a document whose indexing has not caught up.
+  const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
   if (pdfViewingDocumentId !== documentId) {
     setPdfViewingDocumentId(documentId);
     setPdfFitWidth(true);
     setPdfZoom(VIEWER_DEFAULT_ZOOM);
     setPdfViewingAid(false);
+    setPdfRotation(0);
+    setPdfFullscreen(false);
+    setPdfPageCount(null);
   }
   const {
     status: authStatus,
@@ -491,12 +501,40 @@ export function DocumentViewer({
   const localProjectIdentityPromiseRef = useRef<ReturnType<typeof readLocalProjectIdentity> | null>(null);
   const initialRouteRef = useRef({ documentId, initialPage, chunkId });
   const navigatedFromInitialRouteRef = useRef(false);
+  // The page window already in hand, and the request identity it was loaded
+  // under. A page flip inside this window needs no network at all: the server
+  // returns a window of pages centred on the requested one, so the neighbours
+  // arrived with it.
+  const loadedWindowRef = useRef<LoadedDetailWindow | null>(null);
+
+  // Everything the detail request depends on except the page. Callback identity
+  // is deliberately excluded — a new function reference does not change what
+  // would be fetched, and letting it force a refetch is what made page flips
+  // look like network work.
+  const detailRequestSignature = [
+    documentId,
+    previewAttempt,
+    activeChunkId ?? "",
+    authStatus,
+    String(clientDemoMode),
+    String(canUsePrivateApis),
+    String(isConfigured),
+    String(initialDetailIdentityStale),
+    // AuthProvider emits lowercase `authorization`; do not read Authorization.
+    authorizationHeader.authorization ?? authorizationHeader.Authorization ?? "",
+  ].join("|");
 
   useEffect(() => {
     if (!canViewSourceDocuments && authStatus === "loading") {
       return () => undefined;
     }
     if (!canViewSourceDocuments) {
+      return () => undefined;
+    }
+
+    // Skip the round trip when the only thing that moved is the page and the new
+    // page is already inside the loaded window.
+    if (canSkipDetailRequest(loadedWindowRef.current, detailRequestSignature, activePage)) {
       return () => undefined;
     }
 
@@ -613,6 +651,13 @@ export function DocumentViewer({
 
         if (detailLoaded) {
           const detail = detailResult.value;
+          // Remember the window this payload covers so a flip inside it can skip
+          // the network entirely. A chunk route is excluded: its window is centred
+          // on the selected chunk, so page arithmetic does not describe it.
+          loadedWindowRef.current =
+            !activeChunkId && detail.pageWindow
+              ? { signature: detailRequestSignature, from: detail.pageWindow.from, to: detail.pageWindow.to }
+              : null;
           setDocument(detail.document ?? null);
           // Keep the previous window visible while loading, then atomically
           // replace it so client memory and mounted DOM stay bounded.
@@ -626,6 +671,7 @@ export function DocumentViewer({
         } else {
           // Never retain evidence from the previous page under a newly selected
           // route. A navigation failure becomes an explicit retryable error.
+          loadedWindowRef.current = null;
           setDocument(null);
           setPages([]);
           setImages([]);
@@ -657,6 +703,7 @@ export function DocumentViewer({
           !isAuthEpochCurrent(authRequest.epoch)
         )
           return;
+        loadedWindowRef.current = null;
         setDocument(null);
         setPages([]);
         setImages([]);
@@ -684,6 +731,9 @@ export function DocumentViewer({
     canUsePrivateApis,
     canViewSourceDocuments,
     clientDemoMode,
+    // Every primitive input above is already a dependency; this is their joined
+    // form, used to decide whether an in-window page flip needs the network.
+    detailRequestSignature,
     documentId,
     activeChunkId,
     activePage,
@@ -804,7 +854,6 @@ export function DocumentViewer({
   const canvasPdfReady =
     Boolean(signedUrl) &&
     document?.file_type === "application/pdf" &&
-    !useNativePdfViewer &&
     !effectiveLoadingDocument &&
     !effectiveViewerError &&
     !previewError;
@@ -818,6 +867,10 @@ export function DocumentViewer({
   const handlePdfFitWidthChange = useCallback((nextFitWidth: boolean) => {
     setPdfFitWidth(nextFitWidth);
   }, []);
+  const handlePdfRotate = useCallback(() => {
+    setPdfRotation((current) => (current + 90) % 360);
+  }, []);
+  const effectivePdfPageCount = pdfPageCount ?? document?.page_count ?? undefined;
   const pdfFrameControls: DocumentFrameControls | undefined = canvasPdfReady
     ? {
         fitWidth: pdfFitWidth,
@@ -829,6 +882,13 @@ export function DocumentViewer({
         minZoom: VIEWER_MIN_ZOOM,
         maxZoom: VIEWER_MAX_ZOOM,
         zoomStep: VIEWER_ZOOM_STEP,
+        page: activePage,
+        pageCount: effectivePdfPageCount,
+        onPageChange: navigateToPage,
+        rotation: pdfRotation,
+        onRotate: handlePdfRotate,
+        fullscreen: pdfFullscreen,
+        onFullscreenChange: setPdfFullscreen,
       }
     : undefined;
   const headerTitle = readyDocument
@@ -956,9 +1016,21 @@ export function DocumentViewer({
   // A successful reload means the refreshed URL was accepted, so the recovery
   // worked — restore the budget for the next (unrelated) TTL expiry. A broken
   // URL never loads, so it never resets, and the cap still stops its loop.
-  const handlePdfLoadSuccess = useCallback(() => {
-    signedUrlRefreshCountRef.current = 0;
-  }, []);
+  const handlePdfLoadSuccess = useCallback(
+    (pageCount: number) => {
+      signedUrlRefreshCountRef.current = 0;
+      // pdf.js has opened the file, so its page count now outranks the indexed
+      // metadata the toolbar fell back to.
+      setPdfPageCount(pageCount > 0 ? pageCount : null);
+      // Deep links / stale page_count can leave the route past the real end.
+      // PdfCanvasViewer also reconciles via onPageChange; clamp here so the
+      // authoritative count cannot leave the toolbar on a non-existent page.
+      if (pageCount > 0 && activePage > pageCount) {
+        navigateToPage(pageCount);
+      }
+    },
+    [activePage, navigateToPage],
+  );
   const handleDocumentRenamed = (updatedDocument: ClinicalDocument) => {
     setDocument((current) => (current?.id === updatedDocument.id ? { ...current, ...updatedDocument } : current));
   };
@@ -1308,26 +1380,39 @@ export function DocumentViewer({
         {readyDocument ? (
           <div
             id={documentOverviewSectionId}
-            className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] lg:col-span-2"
+            className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] max-sm:order-1 lg:col-span-2"
           >
             <DocumentOverviewLanding
               document={readyDocument}
               signedUrl={signedUrl}
               pages={pages}
-              pageHref={usefulPageHref}
-              onPageChange={navigateToPage}
               onAskFromDocument={() => void summarize()}
               onAddToScope={() => router.push(scopedDocumentHref)}
               onDownload={() => void openSourceDownload()}
               downloading={downloadingSource}
               canSummarizeDocument={canSummarizeDocument}
+            />
+          </div>
+        ) : null}
+
+        {/* Phone order is source-first: the title strip, then the PDF, then this.
+            `buildDocumentSectionIndex` has always described the summary as coming
+            after the source — the DOM was what disagreed, by rendering this card
+            inside the overview landing above the PDF. Desktop keeps its position
+            directly under the title card, so only the phone order changes. */}
+        {readyDocument ? (
+          <div className="min-w-0 max-sm:order-3 lg:col-span-2">
+            <DocumentClinicalSummary
+              document={readyDocument}
+              pageHref={usefulPageHref}
+              onPageChange={navigateToPage}
               compact={compactView}
             />
           </div>
         ) : null}
 
         {!readyDocument && viewerState !== "loading" ? (
-          <div className="min-w-0 lg:col-span-2">
+          <div className="min-w-0 max-sm:order-1 lg:col-span-2">
             <section className={cn(panel, "p-4")}>
               <button type="button" disabled className={cn(secondaryButton, "min-h-tap text-xs")}>
                 <Sparkles aria-hidden="true" className="h-4 w-4" />
@@ -1337,7 +1422,7 @@ export function DocumentViewer({
           </div>
         ) : null}
 
-        <div className="min-w-0 space-y-4 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
+        <div className="min-w-0 space-y-4 max-sm:order-2 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
           <div
             id="pdf-preview-section"
             className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)] overflow-hidden")}
@@ -1392,46 +1477,23 @@ export function DocumentViewer({
                 }
               >
                 {signedUrl && document?.file_type === "application/pdf" ? (
-                  <>
-                    <div className="mb-2 flex items-center justify-end px-2 pt-2 sm:px-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          togglePdfViewerMode();
-                        }}
-                        aria-label={
-                          useNativePdfViewer
-                            ? "Switch to the standard viewer with fit and zoom controls"
-                            : "Switch to sharper zoom using your browser's PDF viewer"
-                        }
-                        title={
-                          useNativePdfViewer
-                            ? "Standard viewer with built-in fit and zoom controls."
-                            : "Sharper zoom — uses your browser's PDF engine to keep heavy-zoom pages crisp."
-                        }
-                        className={cn(secondaryButton, "min-h-tap w-full justify-center px-3 text-xs sm:w-auto")}
-                      >
-                        {useNativePdfViewer ? "Standard view" : "Sharper zoom"}
-                      </button>
-                    </div>
-                    {useNativePdfViewer ? (
-                      <NativePdfEmbed url={signedUrl} title={documentDisplayTitle(document)} initialPage={activePage} />
-                    ) : (
-                      <PdfCanvasViewer
-                        key={`${documentId}-${useNativePdfViewer ? "native" : "canvas"}`}
-                        url={signedUrl}
-                        title={documentDisplayTitle(document)}
-                        initialPage={activePage}
-                        onUrlExpired={handleSignedUrlExpired}
-                        onLoadSuccess={handlePdfLoadSuccess}
-                        onPageChange={navigateToPage}
-                        fitWidth={pdfFitWidth}
-                        zoom={pdfZoom}
-                        onFitWidthChange={handlePdfFitWidthChange}
-                        onZoomChange={handlePdfZoomChange}
-                      />
-                    )}
-                  </>
+                  <PdfCanvasViewer
+                    // Keyed on the document alone. The page must never enter this
+                    // key — that would remount pdf.js on every flip.
+                    key={documentId}
+                    url={signedUrl}
+                    title={documentDisplayTitle(document)}
+                    initialPage={activePage}
+                    onUrlExpired={handleSignedUrlExpired}
+                    onLoadSuccess={handlePdfLoadSuccess}
+                    onPageChange={navigateToPage}
+                    fitWidth={pdfFitWidth}
+                    zoom={pdfZoom}
+                    rotation={pdfRotation}
+                    fullscreen={pdfFullscreen}
+                    onFitWidthChange={handlePdfFitWidthChange}
+                    onZoomChange={handlePdfZoomChange}
+                  />
                 ) : (
                   <NonPdfSourcePreview
                     fileType={document?.file_type}
@@ -1471,6 +1533,7 @@ export function DocumentViewer({
         </div>
 
         <DocumentViewerRail
+          className="max-sm:order-4"
           headerHidden={headerHidden}
           documentSections={documentSections}
           activeSectionId={activeSectionId}

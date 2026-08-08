@@ -861,6 +861,7 @@ export function MasterSearchHeader({
 
   function closeModeSurfaces() {
     setActionMenuOpen(false);
+    setCommandDropdownOpen(false);
     closeScope(false);
     setScopeSheetOpen(false);
   }

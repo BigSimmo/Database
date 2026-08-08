@@ -60,7 +60,6 @@ vi.mock("@/lib/local-project-identity", () => ({
 // test environment. The shell state, not the raster preview, is under test.
 vi.mock("@/components/document-viewer/pdf-canvas-viewer", () => ({
   PdfCanvasViewer: () => null,
-  NativePdfEmbed: () => null,
 }));
 
 import { DocumentViewer } from "@/components/DocumentViewer";
