@@ -71,8 +71,8 @@ describe("tracked sitemap", () => {
     const expectedProductHandlers = [
       ["/applications", "src/app/applications/route.ts", "/tools"],
       [
-        "/differentials/presentations",
-        "src/app/(search-app)/differentials/presentations/route.ts",
+        "/differentials/compare",
+        "src/app/(search-app)/differentials/compare/route.ts",
         "/differentials/presentations/[workflow-slug]",
       ],
       // `/medications` is deliberately absent: it became a real Medication mode
