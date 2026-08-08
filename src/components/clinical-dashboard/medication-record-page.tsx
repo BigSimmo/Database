@@ -505,7 +505,11 @@ export function MedicationRecordPage({
       <InformationPageBreadcrumbs
         home={{
           label: "Medications",
-          href: appModeHomeHref("prescribing", { query: slug, focus: true }),
+          // Plain mode home. Carrying the slug as a query made sense when
+          // `/?mode=prescribing` was the Medication home; that URL is now the shared
+          // home, so a query here would land the breadcrumb on `/` with the drug
+          // name prefilled instead of on Medications.
+          href: appModeHomeHref("prescribing"),
         }}
         current={record?.name ?? slug}
       />
