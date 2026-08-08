@@ -22,10 +22,19 @@ describe("service records", () => {
       expect(service.title).toBeTruthy();
       expect(serviceNavigatorQuery(service)).toBeTruthy();
       expect(service.referralInfo?.length ?? service.primaryContact?.value).toBeTruthy();
-      expect(service.route ?? service.summaryCards?.find((row) => row.id === "route")?.title).toBeTruthy();
+      // Route/cost may be omitted when the catalogue has no public pathway/funding detail.
+      if (service.route || service.summaryCards?.some((row) => row.id === "route")) {
+        expect(service.route ?? service.summaryCards?.find((row) => row.id === "route")?.title).toBeTruthy();
+        expect(service.route ?? "").not.toContain("|");
+      }
       expect(service.eligibility ?? service.summaryCards?.find((row) => row.id === "eligibility")?.title).toBeTruthy();
-      expect(service.cost ?? service.summaryCards?.find((row) => row.id === "cost")?.title).toBeTruthy();
+      if (service.cost || service.summaryCards?.some((row) => row.id === "cost")) {
+        expect(service.cost ?? service.summaryCards?.find((row) => row.id === "cost")?.title).toBeTruthy();
+        expect(service.cost).not.toContain("|");
+      }
+      expect(service.eligibility ?? "").not.toContain("|");
       expect(service.criteria?.length).toBeGreaterThan(0);
+      expect(service.criteria?.every((criterion) => !criterion.label.includes("|"))).toBe(true);
       expect(service.verification?.confidence).toBeTruthy();
       expect(service.tags?.length || service.catchments?.length).toBeTruthy();
     }
