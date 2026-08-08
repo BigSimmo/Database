@@ -267,8 +267,8 @@
       "source": "src/components/ui/button.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/confirm-dialog.tsx"],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/AccessibleTable.tsx", "src/components/ui/confirm-dialog.tsx"],
+      "productImportFiles": ["src/components/AccessibleTable.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -276,6 +276,7 @@
         "previewValid": true
       },
       "testFiles": [
+        "tests/accessible-table.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/ui-v2-components.dom.test.tsx"
@@ -288,8 +289,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -1056,7 +1057,7 @@
         "preview": ".design-sync/previews/PageHeader.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1418,6 +1419,7 @@
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/differentials/diagnosis-map-panel.tsx",
+        "src/components/differentials/differential-detail-page.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
         "src/components/mode-nav/mode-nav.tsx",
@@ -1441,6 +1443,7 @@
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/differentials/diagnosis-map-panel.tsx",
+        "src/components/differentials/differential-detail-page.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
         "src/components/mode-nav/mode-nav.tsx",
@@ -1457,6 +1460,7 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
+        "tests/header-scroll-hide-contract.test.ts",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",
@@ -1622,7 +1626,7 @@
         "preview": ".design-sync/previews/StageList.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1654,7 +1658,7 @@
         "preview": ".design-sync/previews/StatusMark.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1682,11 +1686,7 @@
         "preview": ".design-sync/previews/Tabs.tsx",
         "previewValid": true
       },
-      "testFiles": [
-        "tests/design-sync-visual-exports.test.ts",
-        "tests/ui-tools.spec.ts",
-        "tests/ui-v2-components.dom.test.tsx"
-      ],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -3243,7 +3243,7 @@
   "summary": {
     "registeredComponentCount": 53,
     "previewCount": 53,
-    "productImportedComponentCount": 29,
+    "productImportedComponentCount": 30,
     "rootCount": 55,
     "productionRouteCount": 47,
     "nextUiEntryCount": 99

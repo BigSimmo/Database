@@ -349,7 +349,43 @@ describe("shared header hide/reveal wiring", () => {
     expect(documentViewerSource).toContain("max-sm:pt-2");
     expect(differentialDetailSource).toContain("<PhoneHeaderCollapsePortal>");
     expect(differentialDetailSource).toContain('data-testid="differential-detail-header"');
-    expect(differentialDetailSource).toContain("max-sm:static sm:sticky sm:top-0");
+    // `relative`, not the older `max-sm:static`: the weighted segment track is
+    // absolutely positioned against this header, so a static phone header would
+    // let it escape to whichever ancestor happens to be positioned. `sm:sticky`
+    // stays scoped to `sm+` because below that the portal hands the subtree to
+    // the universal collapse row, which owns the motion.
+    expect(differentialDetailSource).toContain("relative z-30 border-b");
+    expect(differentialDetailSource).toContain("sm:sticky sm:top-0");
+    expect(differentialDetailSource).not.toContain("max-sm:static sm:sticky sm:top-0");
+  });
+
+  it("builds differential detail navigation from the default in-page template", () => {
+    // docs/search-chrome-behaviour.md, "Default in-page navigation template":
+    // back control, title + active-section subtitle behind a chevron disclosure,
+    // ellipsis actions, and a weighted segment track on the header's bottom edge.
+    expect(differentialDetailSource).toContain('data-testid="differential-section-trigger"');
+    expect(differentialDetailSource).toContain('data-testid="differential-actions-trigger"');
+    expect(differentialDetailSource).toContain("<DocumentSectionTrack sections={sections} activeId={activeTab} />");
+    expect(differentialDetailSource).toContain("<DocumentSectionList");
+
+    // Both sheets must be siblings of the portal, never inside it — a sheet
+    // portaled into the collapse row is carried away when the chrome hides.
+    const portalBlock = differentialDetailSource.slice(
+      differentialDetailSource.indexOf("<PhoneHeaderCollapsePortal>"),
+      differentialDetailSource.indexOf("</PhoneHeaderCollapsePortal>"),
+    );
+    expect(portalBlock).not.toContain("<Sheet");
+    expect(portalBlock).not.toContain("DocumentSectionList");
+
+    // The labelled strip is the `sm+` affordance only; phones navigate from the
+    // header disclosure and its sheet, so there is no strip to clip at 320px.
+    expect(differentialDetailSource).toContain(
+      'className="hidden border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)] sm:flex"',
+    );
+
+    // The page must not grow a second scroll-hide owner for this chrome.
+    expect(differentialDetailSource).not.toContain("useHideOnScroll");
+    expect(differentialDetailSource).not.toContain("useDocumentSectionSpy");
   });
 
   it("gives the sticky chrome stack real travel against the viewport", () => {
