@@ -57,6 +57,27 @@ describe("differential stream model", () => {
     const delirium = model.items.find((item) => item.slug === "delirium");
     expect(delirium?.exclusionPreview).toBeTruthy();
   });
+  it("auto-seeds compare ticks only for diagnosis pairs that share a presentation workflow", async () => {
+    const { getPresentationWorkflowSelectionForDiagnosisIds } = await import("@/lib/differentials");
+    const model = buildDifferentialStreamModel("diagnoses", "pain");
+    expect(model.compareSeedIds.length).toBeGreaterThan(0);
+    expect(model.compareSeedIds.length).toBeLessThanOrEqual(2);
+    if (model.compareSeedIds.length === 2) {
+      const selection = getPresentationWorkflowSelectionForDiagnosisIds(model.compareSeedIds);
+      expect(selection?.diagnosisIds.length).toBeGreaterThanOrEqual(2);
+      for (const id of model.compareSeedIds) {
+        expect(selection?.diagnosisIds).toContain(id);
+      }
+    }
+  });
+
+  it("treats punctuation-only queries as empty browse mode", () => {
+    const model = buildDifferentialStreamModel("diagnoses", "!!!");
+    expect(model.matchCount).toBe(0);
+    expect(model.presets.length).toBeGreaterThan(0);
+    expect(model.chapters.length).toBeGreaterThan(0);
+    expect(model.compareSeedIds).toEqual([]);
+  });
 });
 
 describe("differential stream navigation helpers", () => {
@@ -76,5 +97,17 @@ describe("differential stream navigation helpers", () => {
     expect(workspace).not.toMatch(/loadDifferentialSnapshot|differentials-snapshot/);
     expect(modelTypes).not.toMatch(/from\s+["']@\/lib\/differentials["']/);
     expect(modelTypes).not.toMatch(/loadDifferentialSnapshot/);
+  });
+});
+
+describe("differential stream compare CTA contracts", () => {
+  it("requires two selections before enabling the mobile compare link", () => {
+    const workspace = readFileSync(
+      new URL("../src/components/differentials/differential-stream-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(workspace).toContain("const canCompare = selectedCount >= 2");
+    expect(workspace).toContain("normalizeSearchText(query)");
+    expect(workspace).toContain("model.compareSeedIds");
   });
 });

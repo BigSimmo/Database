@@ -11,7 +11,10 @@ function presentationsRedirectLocation(request: NextRequest) {
   const selection = getPresentationWorkflowSelectionForDiagnosisIds(selectedIds);
   const params = new URLSearchParams();
   if (query) params.set("q", query);
-  if (selection?.diagnosisIds.length) params.set("ids", selection.diagnosisIds.join(","));
+  // Preserve every selected diagnosis id. The workflow path still comes from the
+  // best shared presentation match; filtering here silently dropped cross-workflow
+  // compare selections (e.g. auto-seeded q=pain pairs).
+  if (selectedIds.length) params.set("ids", selectedIds.join(","));
   const pathname = `/differentials/presentations/${selection?.workflow.id ?? "acute-confusion-encephalopathy"}`;
   const suffix = params.toString();
   // Relative Location so redirects stay same-origin in the browser even when

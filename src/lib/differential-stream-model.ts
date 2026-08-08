@@ -51,4 +51,6 @@ export type DifferentialStreamModel = {
   presentationChapters: DifferentialStreamChapter[];
   presets: DifferentialStreamPresetChip[];
   safetyShelfIds: string[];
+  /** Diagnosis slugs safe to auto-tick for compare (share one presentation workflow). */
+  compareSeedIds: string[];
 };

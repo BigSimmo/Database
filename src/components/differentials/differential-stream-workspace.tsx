@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, FileText, GitCompareArrows, ShieldAlert } from "lucide-react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
+import { normalizeSearchText } from "@/lib/catalog-search";
 import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import type {
@@ -99,11 +100,11 @@ function StreamMobileCompareBar({
 
   if (!host) return null;
 
-  const hasSelection = selectedCount > 0;
+  const canCompare = selectedCount >= 2;
 
   return createPortal(
     <div aria-live="polite" className="differentials-mobile-compare-fab">
-      {hasSelection ? (
+      {canCompare ? (
         <Link
           href={differentialSelectedCompareHref(query, selectedIds)}
           data-testid="differentials-stream-compare-mobile"
@@ -119,9 +120,12 @@ function StreamMobileCompareBar({
         <p
           data-testid="differentials-stream-compare-mobile"
           className="differentials-mobile-compare-fab__button differentials-mobile-compare-fab__button--empty"
+          aria-disabled={selectedCount === 1 ? true : undefined}
         >
           <GitCompareArrows className="h-5 w-5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
-          <span className="truncate">Tick diagnoses to compare</span>
+          <span className="truncate">
+            {selectedCount === 1 ? "Select one more to compare" : "Tick diagnoses to compare"}
+          </span>
         </p>
       )}
     </div>,
@@ -299,7 +303,8 @@ function StreamCard({
 export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }: DifferentialStreamWorkspaceProps) {
   const router = useRouter();
   const copy = streamCopy[model.stream];
-  const hasQuery = query.trim().length > 0;
+  // Match buildDifferentialStreamModel: punctuation-only queries are browse mode.
+  const hasQuery = Boolean(normalizeSearchText(query));
   const matchItems = useMemo(() => model.items.filter((item) => item.isMatch), [model.items]);
   const itemBySlug = useMemo(() => new Map(model.items.map((item) => [item.slug, item])), [model.items]);
   const itemById = useMemo(() => new Map(model.items.map((item) => [item.id, item])), [model.items]);
@@ -320,7 +325,7 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
   if (lastResultSignature !== resultSignature) {
     setLastResultSignature(resultSignature);
     if (model.stream === "diagnoses") {
-      setSelectedIds(new Set(matchItems.slice(0, 2).map((item) => item.slug)));
+      setSelectedIds(new Set(model.compareSeedIds));
     } else {
       setSelectedIds(new Set());
     }

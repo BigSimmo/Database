@@ -43,4 +43,15 @@ describe("differentials navigation", () => {
     expect(location).toContain("ids=");
     expect(location).not.toContain("0.0.0.0");
   });
+
+  it("preserves every selected diagnosis id across the presentations redirect", () => {
+    const response = redirectPresentations(
+      new NextRequest(
+        "http://localhost/differentials/presentations?q=pain&ids=medical-gi-endocrine-painful-organic-cause,bpsd-as-unmet-need-delirium-pain-mimic",
+      ),
+    );
+    const location = response.headers.get("location") ?? "";
+    expect(location).toContain("medical-gi-endocrine-painful-organic-cause");
+    expect(location).toContain("bpsd-as-unmet-need-delirium-pain-mimic");
+  });
 });

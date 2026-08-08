@@ -92,12 +92,21 @@ export function getPresentationWorkflowForDiagnosisIds(ids: Iterable<string>) {
 
   let bestMatch: DifferentialPresentationWorkflow | null = null;
   let bestMatchCount = 0;
+  let bestCoversAll = false;
   for (const presentation of differentialPresentations()) {
     const matchCount = presentation.candidates.reduce(
       (count, candidate) => count + (requestedIds.has(candidate.slug) ? 1 : 0),
       0,
     );
-    if (matchCount > bestMatchCount) {
+    if (matchCount === 0) continue;
+    const coversAll = matchCount === requestedIds.size;
+    if (coversAll && !bestCoversAll) {
+      bestMatch = presentation;
+      bestMatchCount = matchCount;
+      bestCoversAll = true;
+      continue;
+    }
+    if (coversAll === bestCoversAll && matchCount > bestMatchCount) {
       bestMatch = presentation;
       bestMatchCount = matchCount;
     }

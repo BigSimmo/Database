@@ -12,6 +12,7 @@ import {
   rankDifferentialRecords,
   rankPresentationWorkflows,
   type DifferentialRecord,
+  getPresentationWorkflowSelectionForDiagnosisIds,
 } from "@/lib/differentials";
 import type {
   DifferentialStreamChapter,
@@ -169,6 +170,24 @@ function presetChips(): DifferentialStreamPresetChip[] {
  * the shared ranker), then dimmed non-matches. Without a query: urgency chapters
  * for diagnoses, presentation list for presentations.
  */
+
+function compareSeedIdsForMatches(matchSlugs: string[]): string[] {
+  const slugs = matchSlugs.map((slug) => slug.trim().toLowerCase()).filter(Boolean);
+  if (slugs.length < 2) return slugs.slice(0, 1);
+  // Prefer the highest-ranked pair that shares one presentation workflow so the
+  // compare CTA never auto-ticks a set the presentations redirect will trim.
+  for (let end = 1; end < Math.min(slugs.length, 8); end += 1) {
+    for (let start = 0; start < end; start += 1) {
+      const candidate = [slugs[start]!, slugs[end]!];
+      const selection = getPresentationWorkflowSelectionForDiagnosisIds(candidate);
+      if (selection && selection.diagnosisIds.length >= 2) {
+        return selection.diagnosisIds.slice(0, 2);
+      }
+    }
+  }
+  return slugs.slice(0, 1);
+}
+
 export function buildDifferentialStreamModel(stream: DifferentialStreamType, query: string): DifferentialStreamModel {
   const trimmedQuery = query.trim();
   const hasQuery = Boolean(normalizeSearchText(trimmedQuery));
@@ -256,6 +275,7 @@ export function buildDifferentialStreamModel(stream: DifferentialStreamType, que
         .filter((item) => item.status === "emergent")
         .slice(0, 6)
         .map((item) => item.id),
+      compareSeedIds: [],
     };
   }
 
@@ -296,5 +316,6 @@ export function buildDifferentialStreamModel(stream: DifferentialStreamType, que
           .filter((item) => item.status === "emergent")
           .slice(0, 6)
           .map((item) => item.id),
+    compareSeedIds: hasQuery ? compareSeedIdsForMatches(matchedItems.map((item) => item.slug)) : [],
   };
 }
