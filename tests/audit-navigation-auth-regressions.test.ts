@@ -97,6 +97,8 @@ describe("audit navigation and auth regressions", () => {
     expect(masterSearchHeaderSource).toContain("{!usesPhoneSearchLayout && modeMenuOpen ? (");
     expect(masterSearchHeaderSource).toContain('aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}');
     expect(masterSearchHeaderSource).toContain('mobilePlacement="bottom"');
+    expect(masterSearchHeaderSource).toContain('contentClassName="max-h-[calc(100dvh-0.5rem)] sm:max-w-md"');
+    expect(masterSearchHeaderSource).toContain('usesPhoneSearchLayout ? "min-h-12" : "min-h-[3.25rem]"');
     expect(masterSearchHeaderSource).toContain("phoneLayoutGateRef");
     // Hydration-safe: do not read matchMedia in useState (SSR/client mismatch → React #418).
     expect(masterSearchHeaderSource).toContain(

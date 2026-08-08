@@ -993,7 +993,8 @@ export function MasterSearchHeader({
             window.requestAnimationFrame(() => modeButtonRef.current?.focus());
           }}
           className={cn(
-            "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            "grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            usesPhoneSearchLayout ? "min-h-12" : "min-h-[3.25rem]",
             active
               ? "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)]"
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -2191,7 +2192,7 @@ export function MasterSearchHeader({
           mobilePlacement="bottom"
           mobileSize="content"
           testId="app-mode-menu-sheet"
-          contentClassName="max-h-[min(88dvh,36rem)] sm:max-w-md"
+          contentClassName="max-h-[calc(100dvh-0.5rem)] sm:max-w-md"
           bodyClassName="p-2"
           headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
         >
