@@ -29,6 +29,7 @@ export const prUiShardGroups = {
   1: [
     "tests/ui-phone-scroll.spec.ts",
     "tests/ui-phone-scroll-page-owned.spec.ts",
+    "tests/ui-phone-scroll-document-rail.spec.ts",
     "tests/ui-phone-scroll-routes.spec.ts",
     "tests/ui-route-coverage.spec.ts",
     "tests/ui-specifiers.spec.ts",
