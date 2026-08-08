@@ -8,6 +8,15 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
+    inputs:
+      refresh_lighthouse_baseline:
+        description: >
+          Re-measure the budgeted routes on this runner's PINNED Chromium and upload a refreshed
+          lighthouse-budget.json as an artifact for a human to review and commit. The baseline is a
+          browser-specific artefact, so it can only be produced on a runner — never from a developer
+          machine. Nothing is committed or pushed by this run.
+        type: boolean
+        default: false
   schedule:
     - cron: "0 18 * * 0"
 
@@ -39,6 +48,7 @@ jobs:
       static_heavy_changed: ${{ steps.scope.outputs.static_heavy_changed }}
       coverage_changed: ${{ steps.scope.outputs.coverage_changed }}
       ui_changed: ${{ steps.scope.outputs.ui_changed }}
+      perf_changed: ${{ steps.scope.outputs.perf_changed }}
       advisory_ui_changed: ${{ steps.scope.outputs.advisory_ui_changed }}
       db_changed: ${{ steps.scope.outputs.db_changed }}
       container_changed: ${{ steps.scope.outputs.container_changed }}
@@ -369,6 +379,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Full history: design-system-adoption validates provenance.candidateSourceHead
+          # with `git cat-file` / `git show` against an ancestor commit. Default depth-1
+          # checkouts only have HEAD, so the binding fails with "must identify an existing
+          # commit" even when the SHA is on the branch (Unit coverage on PR #1729).
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node and dependencies
@@ -706,7 +721,62 @@ jobs:
   lighthouse-budget:
     name: Lighthouse budget (advisory)
     needs: changes
-    if: needs.changes.outputs.ui_changed == 'true' || needs.changes.outputs.build_changed == 'true'
+    # Runs when the diff can plausibly move LCP/TBT/CLS on the five budgeted routes,
+    # and when the run is one whose result someone will act on. It used to key off
+    # `ui_changed || build_changed`, which put every dependabot lockfile bump (#1668)
+    # and every worker/** ingestion change through a ~7 minute isolated production
+    # build plus ten Lighthouse runs, with zero render-path relevance.
+    #
+    #   pull_request      – perf scope, non-draft. Drafts churn and this costs ~7 min;
+    #                       `types:` already includes ready_for_review, so undrafting
+    #                       re-triggers it without a push.
+    #   merge_group       – SKIPPED. The job is continue-on-error and is not in
+    #                       pr-required, so in the queue it can only add ~7 minutes of
+    #                       merge latency and can never change the outcome. If it is
+    #                       ever promoted (#118), merge_group MUST come back —
+    #                       tests/ci-cache-safety.test.ts enforces that pairing.
+    #   push (main/…)     – perf scope, PLUS lockfile_changed. The lockfile arm is the
+    #                       backstop for a runtime dependency bump: perf scope excludes
+    #                       package.json / package-lock.json because ci-change-scope.mjs
+    #                       sees paths, not lockfile contents, so without this arm a
+    #                       lockfile-only push would skip Lighthouse on both the PR and
+    #                       the subsequent push to main and leave only the weekly schedule.
+    #   schedule          – weekly; resolves to the full-run sentinel, which trips perf
+    #                       scope (asserted in ci-change-scope.mjs's self-tests).
+    #   workflow_dispatch – always, except a run dispatched to refresh the baseline
+    #                       (that belongs to lighthouse-baseline-refresh below).
+    #
+    # Labels mirror the codex-review / skip-codex-review convention; an explicit skip
+    # always wins. `on.pull_request.types` has no `labeled`, so the opt-in label takes
+    # effect on the next synchronize or re-run — adding `labeled` would re-run all of
+    # CI on every label change, so the escape hatch is workflow_dispatch instead.
+    #
+    # Two expression traps, both load-bearing:
+    #   - `github.event.inputs.X` is a STRING ('true'/'false') and is safely null on
+    #     non-dispatch events; the `inputs` context is a real boolean but only exists
+    #     for workflow_dispatch/workflow_call. Use the github.event.inputs form.
+    #   - `github.event.pull_request` is null on push/schedule/merge_group, so
+    #     `draft != true` is true there. Do NOT write `== false`: that is false on
+    #     every non-PR event and would silently kill the push and schedule arms.
+    if: >
+      (
+        github.event_name == 'schedule' ||
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'lighthouse-budget') ||
+        (
+          (
+            needs.changes.outputs.perf_changed == 'true' ||
+            (
+              github.event_name == 'push' &&
+              needs.changes.outputs.lockfile_changed == 'true'
+            )
+          ) &&
+          github.event_name != 'merge_group' &&
+          github.event.pull_request.draft != true
+        )
+      ) &&
+      !contains(github.event.pull_request.labels.*.name, 'skip-lighthouse-budget') &&
+      github.event.inputs.refresh_lighthouse_baseline != 'true'
     continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -716,10 +786,11 @@ jobs:
         with:
           persist-credentials: false
 
-      # Lighthouse drives the Chrome that ships in the ubuntu-24.04 runner image, so
-      # no browser install is needed here (matching live-web-vitals.yml).
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
+
+      - name: Setup pinned Chromium
+        uses: ./.github/actions/setup-lighthouse-chromium
 
       - name: Measure routes and grade against the baseline
         run: npm run verify:lighthouse -- --keep --dir lighthouse
@@ -731,6 +802,66 @@ jobs:
           name: lighthouse-budget-${{ github.run_id }}
           path: lighthouse/
           if-no-files-found: ignore
+
+  # Refresh the committed Lighthouse baseline FROM A CI RUNNER. Dispatch-only.
+  #
+  # The baseline is a browser-specific artefact: check-lighthouse-budget.mjs fails
+  # closed when a baseline row's chromeVersion differs from the measuring run's,
+  # because a browser bump is otherwise indistinguishable from an application
+  # regression. So the numbers must come from the same pinned Chromium the grading job
+  # uses, which a developer machine cannot supply (#118: never commit baselines from a
+  # developer machine). This job produces the file; a human reviews the diff and
+  # commits it. That division is the point — a workflow that can rewrite a gate's own
+  # baseline is a gate that can green itself.
+  #
+  # Deliberately NOT continue-on-error: a refresh that measured nothing must go red.
+  lighthouse-baseline-refresh:
+    name: Refresh Lighthouse baseline (dispatch only)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.refresh_lighthouse_baseline == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Setup pinned Chromium
+        uses: ./.github/actions/setup-lighthouse-chromium
+
+      # --update refuses on a measurement gap (incompleteBudgetEvidence with
+      # ignoreBaseline:true still blocks a missing or unusable report) and accepts
+      # browser drift, which is the reason to refresh. --keep retains the raw reports
+      # so the artifact carries evidence, not just a conclusion.
+      - name: Measure and rewrite the baseline
+        run: npm run verify:lighthouse -- --update --keep --dir lighthouse
+
+      # --update returns before rendering the table, so without this nothing describes
+      # what was recorded. Re-grading the same reports against the just-written
+      # baseline yields zero deltas by construction: this RENDERS the recorded numbers
+      # into the step summary, it does not verify them.
+      - name: Render the recorded baseline into the run summary
+        run: npm run check:lighthouse-budget -- --dir lighthouse
+
+      # The acceptance check for this job: exactly one distinct browser, and it is the
+      # pinned one. More than one line here means the refresh is not usable.
+      - name: Show the baseline diff and the browser it was measured on
+        run: |
+          git --no-pager diff --stat -- lighthouse-budget.json
+          node -e "const b=require('./lighthouse-budget.json');console.log([...new Set(Object.values(b.baseline??{}).map(r=>r.chromeVersion))].join('\n'))"
+
+      - name: Upload the refreshed baseline
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: lighthouse-baseline-refresh-${{ github.run_id }}
+          path: |
+            lighthouse-budget.json
+            lighthouse/
+          if-no-files-found: error
 
   db-reset-verify:
     name: Migration replay

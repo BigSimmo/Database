@@ -136,7 +136,15 @@ export function PageHeader({
   return (
     <header className={cn("min-w-0 space-y-3", className)}>
       {breadcrumb?.length ? <Breadcrumb items={breadcrumb} /> : null}
-      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+      {/* The title column has a floor and the actions column does not.
+          `[minmax(0,1fr)_auto]` gave the actions track its full max-content
+          width first and let the title track collapse toward 0, so a long
+          clinical title next to three buttons was still starved — the wrap
+          fixed WHERE the actions sat, not how much width they took. With
+          `minmax(20ch,1fr)` the title keeps a readable measure and the actions
+          track (`minmax(0,auto)`, contents already `flex-wrap min-w-0`) is the
+          one that gives way and wraps. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3 sm:grid-cols-[minmax(20ch,1fr)_minmax(0,auto)]">
         <div className="flex min-w-0 items-start gap-3">
           {/* Hidden on phones, as the hand-rolled record headers already had it
               (`sm:grid` on the DSM tile before adoption). The tile is decorative

@@ -35,6 +35,19 @@ export function Tabs({ items, value, onChange, label, className, children }: Tab
   const baseId = useId();
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
 
+  // A `value` that matches no enabled tab used to empty the tab order: every tab
+  // got `tabIndex={-1}`, so Tab skipped the entire strip and a keyboard user had
+  // no way to reach the arrow keys that would fix it. It is not a contrived
+  // state — it is what a stale saved filter, a deep link to a removed tab, or a
+  // tab that became `disabled` produces.
+  //
+  // The fallback restores REACHABILITY only. It does not call `onChange`, so the
+  // component never silently repairs the caller's state behind its back or fires
+  // a selection the user did not make; the strip is simply focusable again, and
+  // the first arrow-key press selects.
+  const selectedId = items.some((item) => item.id === value && !item.disabled) ? value : null;
+  const fallbackTabId = selectedId ?? items.find((item) => !item.disabled)?.id ?? null;
+
   const focusTab = useCallback(
     (id: string) => {
       refs.current[id]?.focus();
@@ -73,7 +86,7 @@ export function Tabs({ items, value, onChange, label, className, children }: Tab
         className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-[color:var(--border)]"
       >
         {items.map((item) => {
-          const selected = item.id === value;
+          const selected = item.id === selectedId;
           const Icon = item.icon;
           return (
             <button
@@ -85,10 +98,10 @@ export function Tabs({ items, value, onChange, label, className, children }: Tab
               role="tab"
               id={`${baseId}-tab-${item.id}`}
               aria-selected={selected}
-              // Only the selected tab points at the live panel. Unselected
+              // Only the tab that owns the rendered panel points at it. Other
               // tabs must not aria-controls missing IDs (APG / a11y tree).
-              aria-controls={children && selected ? `${baseId}-panel-${item.id}` : undefined}
-              tabIndex={selected ? 0 : -1}
+              aria-controls={children && item.id === fallbackTabId ? `${baseId}-panel-${fallbackTabId}` : undefined}
+              tabIndex={item.id === fallbackTabId ? 0 : -1}
               disabled={item.disabled}
               onClick={() => onChange(item.id)}
               className={cn(
@@ -111,8 +124,10 @@ export function Tabs({ items, value, onChange, label, className, children }: Tab
       {children ? (
         <div
           role="tabpanel"
-          id={`${baseId}-panel-${value}`}
-          aria-labelledby={`${baseId}-tab-${value}`}
+          // Wired to the tab that is actually in the DOM and tabbable. Keyed off
+          // `value` these dangled whenever `value` matched no enabled tab.
+          id={`${baseId}-panel-${fallbackTabId}`}
+          aria-labelledby={fallbackTabId ? `${baseId}-tab-${fallbackTabId}` : undefined}
           tabIndex={0}
           className="pt-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
