@@ -36,7 +36,8 @@ export const modeSecondaryNavigationRegistry = {
   differentials: [
     { id: "search", label: "Search", href: appModeHomeHref("differentials", { focus: true }) },
     { id: "diagnoses", label: "Diagnoses", href: "/differentials/diagnoses" },
-    { id: "compare", label: "Compare", href: "/differentials/presentations" },
+    { id: "presentations", label: "Presentations", href: "/differentials/presentations" },
+    { id: "compare", label: "Compare", href: "/differentials/compare" },
   ],
   dsm: [
     { id: "search", label: "Search", href: appModeHomeHref("dsm", { focus: true }) },
@@ -141,7 +142,13 @@ export function routedModeSecondaryNavigationCount(modeId: AppModeId): number {
 export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: string): string | null {
   if (modeId === "differentials") {
     if (pathname.startsWith("/differentials/diagnoses")) return "diagnoses";
-    if (pathname.startsWith("/differentials/presentations")) return "compare";
+    // Catalogue owns the exact presentations path; workflow slugs are the Compare surface.
+    if (pathname === "/differentials/presentations" || pathname.startsWith("/differentials/presentations?")) {
+      return "presentations";
+    }
+    if (pathname.startsWith("/differentials/presentations/") || pathname.startsWith("/differentials/compare")) {
+      return "compare";
+    }
     if (pathname === "/differentials" || pathname.startsWith("/differentials?")) return "search";
     return null;
   }
@@ -189,7 +196,11 @@ export function isModeSecondaryNavigationRoute(params: {
   if (hasSubmittedSearch) return true;
 
   if (modeId === "differentials") {
-    return pathname === "/differentials/diagnoses" || pathname === "/differentials/presentations";
+    return (
+      pathname === "/differentials/diagnoses" ||
+      pathname === "/differentials/presentations" ||
+      pathname === "/differentials/compare"
+    );
   }
   if (modeId === "dsm") return pathname === "/dsm/search" || pathname === "/dsm/compare";
   if (modeId === "specifiers") {
