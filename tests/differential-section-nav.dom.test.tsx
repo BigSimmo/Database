@@ -27,7 +27,17 @@ function buildRecord(overrides: Partial<DifferentialRecord> = {}): DifferentialR
   };
 }
 
-function buildContext(overrides: Partial<DifferentialDetailContext> = {}): DifferentialDetailContext {
+/**
+ * `source` is deliberately typed one level deeper than `Partial<…>` gives us:
+ * `Partial<DifferentialDetailContext>` makes the whole `source` object optional
+ * but still demands every field once supplied, so `{ source: { sourceStatus } }`
+ * would not compile. Callers here only ever care about one governance field.
+ */
+type DifferentialDetailContextOverrides = Partial<Omit<DifferentialDetailContext, "source">> & {
+  source?: Partial<DifferentialDetailContext["source"]>;
+};
+
+function buildContext(overrides: DifferentialDetailContextOverrides = {}): DifferentialDetailContext {
   // Spread non-source overrides first, then rebuild `source` so a partial
   // `source` override cannot wipe version/exportedAt/review fields.
   const { source: sourceOverride, ...rest } = overrides;
