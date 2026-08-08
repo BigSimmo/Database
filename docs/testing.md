@@ -115,8 +115,10 @@ motion off with carets hidden.
 Baselines are committed per platform (`tests/__screenshots__/{platform}/`). **Adopt them from the CI
 job's artifact, not from a developer machine** — font hinting and antialiasing differ, and a
 laptop-generated baseline makes every CI run red. A platform with no baseline fails loudly rather
-than passing silently. The CI job is `continue-on-error` until the baselines have held across a few
-runs; promote it by adding it to `pr-required` and dropping that flag together.
+than passing silently. The CI `visual-baseline` job is deliberately **off `pull_request` and
+`merge_group`** (owner decision on PR #1755 / `#118`): it still runs on pushes to main/release, the
+weekly schedule, and `workflow_dispatch`, and stays `continue-on-error` / outside `pr-required`. Do
+not re-add pre-merge triggers or promote it without an explicit owner ask.
 
 ## Performance budget
 
