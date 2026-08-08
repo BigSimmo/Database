@@ -93,7 +93,7 @@ describe("document search record path fault reporting", () => {
     expect(screen.getByText(/Loading your services registry/i)).toBeInTheDocument();
   });
 
-  it("keeps document results free of the selected-evidence panel while governance warnings remain", () => {
+  it("keeps document results free of the selected-evidence panel and scope/governance banner", () => {
     render(
       <DocumentSearchResultsPanel
         {...baseProps}
@@ -101,28 +101,15 @@ describe("document search record path fault reporting", () => {
         recordMatches={[]}
         showRecordMatches={false}
         query="lithium"
-        sourceGovernanceWarnings={[
-          {
-            code: "outdated_source",
-            severity: "danger",
-            message: "One or more supporting sources are marked outdated.",
-            title: lithiumMatch.title,
-          },
-          {
-            code: "review_due_source",
-            severity: "warning",
-            message: "One or more supporting sources are due for review.",
-            title: lithiumMatch.title,
-          },
-        ]}
       />,
     );
 
     expect(screen.getAllByText(lithiumMatch.title).length).toBeGreaterThan(0);
     expect(screen.queryByRole("complementary", { name: "Selected document evidence" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Preview evidence/i })).toBeNull();
-    expect(screen.getByText("1 source marked outdated.")).toBeInTheDocument();
-    expect(screen.getByText("1 source due for review.")).toBeInTheDocument();
+    expect(screen.queryByText("1 source marked outdated.")).toBeNull();
+    expect(screen.queryByText("1 source due for review.")).toBeNull();
+    expect(screen.queryByText(/^Scope:/)).toBeNull();
     const resultCard = screen.getByTestId("document-result-card");
     expect(within(resultCard).getByTestId("document-result-rank")).toHaveTextContent("1");
     expect(within(resultCard).queryByText("PDF", { exact: true })).toBeNull();

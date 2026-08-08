@@ -5,6 +5,7 @@ import { parse } from "@babel/parser";
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
+import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation";
 import { tools } from "@/components/tools-page-mockups/tool-fixtures";
 import { collectSiteMapData } from "../scripts/generate-site-map";
 
@@ -470,6 +471,15 @@ for (const mode of appModeDefinitions) {
   for (const href of hrefs) builderTargets.add(pathOnly(href));
 }
 for (const tool of tools) builderTargets.add(pathOnly(tool.href));
+
+// ModeNav destinations are data (registry href strings rendered as <Link>s), so
+// a JSX/router scan never sees `/differentials/compare` and peers as literals.
+// Treat the registry as a canonical nav builder, same as app-mode homes.
+for (const entries of Object.values(modeSecondaryNavigationRegistry)) {
+  for (const entry of entries) {
+    if ("href" in entry && entry.href) builderTargets.add(pathOnly(entry.href));
+  }
+}
 
 // Therapy Compass owns a self-contained route family whose fixed screens are
 // navigated via a local `screenHref(screen)` builder (`go*()` → router.push),

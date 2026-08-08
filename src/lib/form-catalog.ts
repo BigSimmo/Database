@@ -1,8 +1,8 @@
 import formsCatalog from "../../data/forms-catalog.json";
 import formsPdfManifest from "../../data/forms-pdf-manifest.json";
 
-import type { FormAvailability, FormCatalogDetails } from "@/lib/form-ranker";
-import type { ServiceChipTone, ServiceRecord } from "@/lib/services";
+import type { FormActSection, FormAvailability, FormCatalogDetails, FormPriorityFactCard } from "@/lib/form-ranker";
+import type { ServiceChipTone, ServiceRecord, ServiceSummaryCard } from "@/lib/services";
 
 export { formCatalogDetails } from "@/lib/form-ranker";
 export type { FormAvailability, FormCatalogDetails } from "@/lib/form-ranker";
@@ -175,6 +175,84 @@ function riskLevel(value: unknown): FormCatalogDetails["riskLevel"] {
   return value === "high" || value === "low" ? value : "medium";
 }
 
+function priorityFactCard(value: unknown): FormPriorityFactCard | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  const title = text(raw.title);
+  if (!title) return undefined;
+  return {
+    title,
+    detail: text(raw.detail) || undefined,
+    body: text(raw.body) || undefined,
+  };
+}
+
+function priorityFacts(value: unknown): FormCatalogDetails["priorityFacts"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  const clock = priorityFactCard(raw.clock);
+  const authority = priorityFactCard(raw.authority);
+  const criteria = priorityFactCard(raw.criteria);
+  if (!clock && !authority && !criteria) return undefined;
+  return { clock, authority, criteria };
+}
+
+function actSections(value: unknown): FormActSection[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const sections = value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const raw = entry as Record<string, unknown>;
+    const section = text(raw.section);
+    const title = text(raw.title);
+    const summary = text(raw.summary);
+    if (!section || !title || !summary) return [];
+    return [{ section, title, summary } satisfies FormActSection];
+  });
+  return sections.length ? sections : undefined;
+}
+
+function summaryCardsForDetails(details: FormCatalogDetails, availabilityLabel: string): ServiceSummaryCard[] {
+  const facts = details.priorityFacts;
+  const cards: ServiceSummaryCard[] = [
+    {
+      id: "clock",
+      label: "Clock / review",
+      title: facts?.clock?.title ?? details.clock,
+      detail: facts?.clock?.detail ?? details.indexedClock,
+    },
+    {
+      id: "authority",
+      label: "Made by / authority",
+      title: facts?.authority?.title ?? details.maker,
+      detail: facts?.authority?.detail ?? details.authorises,
+    },
+    {
+      id: "criteria",
+      label: "Criteria / threshold",
+      title: facts?.criteria?.title ?? details.threshold,
+      detail: facts?.criteria?.detail ?? details.doesNotAuthorise,
+    },
+  ];
+
+  if (details.actSections?.length) {
+    cards.push({
+      id: "act-sections",
+      label: "Act sections",
+      title: "MHA 2014 referral pathway",
+      detail: details.actSections.map((entry) => entry.section).join(" · "),
+    });
+    return cards;
+  }
+
+  cards.push({
+    id: "source",
+    label: "Source status",
+    title: availabilityLabel,
+    detail: `Official register checked ${officialFormsReviewedDate}`,
+  });
+  return cards;
+}
+
 const archiveGeneratedAt = text(
   (formsCatalog as { exportMetadata?: { generatedAt?: unknown } }).exportMetadata?.generatedAt,
 );
@@ -260,6 +338,8 @@ function detailsFor(form: OfficialForm): FormCatalogDetails {
       ? stringArray(raw.practicePearls)
       : (fallback.practicePearls ?? []),
     preUseChecks: stringArray(raw.preUseChecks).length ? stringArray(raw.preUseChecks) : (fallback.preUseChecks ?? []),
+    priorityFacts: priorityFacts(raw.priorityFacts),
+    actSections: actSections(raw.actSections),
     sourceFacts:
       raw.sourceFacts && typeof raw.sourceFacts === "object"
         ? (raw.sourceFacts as FormCatalogDetails["sourceFacts"])
@@ -356,17 +436,7 @@ function toFormRecord(details: FormCatalogDetails): ServiceRecord {
     cost: "Official WA Mental Health Act 2014 form",
     referral: details.preUseChecks[0] ?? details.safetyPearl,
     location: "Western Australia",
-    summaryCards: [
-      { id: "clock", label: "Clock / review", title: details.clock, detail: details.indexedClock },
-      { id: "authority", label: "Made by / authority", title: details.maker, detail: details.authorises },
-      { id: "criteria", label: "Criteria / threshold", title: details.threshold, detail: details.doesNotAuthorise },
-      {
-        id: "source",
-        label: "Source status",
-        title: availabilityLabel,
-        detail: `Official register checked ${officialFormsReviewedDate}`,
-      },
-    ],
+    summaryCards: summaryCardsForDetails(details, availabilityLabel),
     referralInfo: detailRows(details),
     bestUse: details.legalNote,
     criteria: [
