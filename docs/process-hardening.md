@@ -301,10 +301,30 @@ Three gates added for the "mature repo" verification pass. Full usage is in
 - **The performance budget is relative, not absolute.** `lighthouse-budget.json` holds a committed
   per-route baseline and a per-metric tolerance, following `check:bundle-budget`. Absolute
   web-vitals thresholds are meaningless against localhost with no network latency. `enforce` starts
-  `false` with no baseline; incomplete evidence fails regardless of `enforce`.
+  `false`; incomplete evidence fails regardless of `enforce`.
+- **The baseline is browser-specific, and the browser is now pinned (2026-08-08).** Each baseline row
+  records the `chromeVersion` that produced it, and a mismatch fails closed — a browser bump is
+  otherwise indistinguishable from an application regression. The ambient runner-image Chrome is not
+  pinned per commit (the fleet served HeadlessChrome/150 and /151 to jobs minutes apart on
+  2026-08-07), so both Lighthouse jobs resolve Playwright's managed Chromium through one shared
+  composite action, `./.github/actions/setup-lighthouse-chromium`. Refreshing is a `workflow_dispatch`
+  input (`refresh_lighthouse_baseline`) that uploads a rewritten `lighthouse-budget.json` for a human
+  to review and commit; it deliberately cannot push, because a workflow that rewrites a gate's own
+  baseline is a gate that can green itself.
+- **The budget runs on perf scope, not the ui/build union (2026-08-08).** `perf_changed` in
+  `scripts/ci-change-scope.mjs` excludes `worker/**` and container surfaces, dependency manifests and
+  the lockfile, Playwright/test surfaces, most of `src/app/api/**` (except the initial-load handlers
+  `/api/setup-status` and `/api/local-project-id`), and `src/app/mockups/**`. `src/proxy.ts` stays in
+  scope because it runs before every budgeted navigation. The lockfile exclusion is the one
+  deliberate hole on the PR arm: the classifier sees paths, never the lockfile diff, so it cannot
+  tell a devDependency bump from a React/Next bump. The push-to-`main` arm re-runs when
+  `lockfile_changed` is true, and `check:bundle-budget` still covers the same PRs. If a runtime dep
+  bump ever lands an unnoticed LCP regression despite that, teach the classifier to read the lockfile
+  diff — do not put the whole lockfile back into perf scope.
 - **Verification debt remaining.** (1) No pixel baselines are committed, so `visual-baseline` reports
-  rather than gates until an operator adopts them from the CI artifact. (2) No Lighthouse baseline is
-  recorded, so the budget warns rather than grades until `--update` runs against a known-good build.
+  rather than gates until an operator adopts them from the CI artifact. (2) A Lighthouse baseline is
+  committed, but `enforce` stays `false` until #147 (`/dsm` mobile CLS 0.363) and #117 are resolved —
+  enforcing today would ratify those breaches.
   (3) 37 of the 38 unlayered visual classes carry exemptions rather than effect contracts — the debt
   is enumerated in `STYLE_CONTRACT_EXEMPTIONS`, and ledger #094 stays open until the load-bearing
   ones have contracts. (4) `scripts/run-lighthouse-budget.mjs` duplicates roughly 50 lines of the
