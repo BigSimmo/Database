@@ -9,6 +9,7 @@ import {
 import { staleSeededPresentations } from "@/lib/differential-seed";
 import { isDifferentialMetadataArtifactTitle } from "@/lib/differential-snapshot";
 import {
+  buildAdHocPresentationWorkflow,
   composeDifferentialSearchResults,
   differentialDiagnosesCards,
   differentialPresentations,
@@ -72,6 +73,20 @@ describe("presentation workflow routing", () => {
     expect(selection?.kind).toBe("presentation");
     expect(selection?.workflow.id).toBe("food-refusal-not-eating-eating-disorder-spectrum");
     expect(selection?.diagnosisIds).toEqual(["anorexia-nervosa", "bulimia-nervosa-binge-purge-pattern"]);
+  });
+
+  it("omits unsupported ad-hoc compare criteria so cross-presentation rows are not placeholders", () => {
+    const workflow = buildAdHocPresentationWorkflow([
+      "medical-gi-endocrine-painful-organic-cause",
+      "bpsd-as-unmet-need-delirium-pain-mimic",
+    ]);
+    expect(workflow).not.toBeNull();
+    expect(workflow?.criteria.map((criterion) => criterion.id)).not.toContain("what-argues-against");
+    for (const candidate of workflow?.candidates ?? []) {
+      expect(candidate.comparison["what-argues-against"]).toBeUndefined();
+      const nonPlaceholder = Object.values(candidate.comparison).filter((cell) => cell !== "Review locally.");
+      expect(nonPlaceholder.length).toBeGreaterThan(0);
+    }
   });
 });
 

@@ -29,7 +29,8 @@ export function differentialIdsFromSearchParams(searchParams: URLSearchParams | 
   const seen = new Set<string>();
   const ids: string[] = [];
   for (const raw of (params.get("ids") ?? "").split(",")) {
-    const id = raw.trim();
+    // Lowercase to match server-side `normalizeRequestedDiagnosisIds` and catalogue slugs.
+    const id = raw.trim().toLowerCase();
     if (!id || seen.has(id)) continue;
     seen.add(id);
     ids.push(id);

@@ -65,6 +65,7 @@ describe("differentials navigation", () => {
 
   it("parses and builds compare selection ids on the current URL search", () => {
     expect(differentialIdsFromSearchParams("q=Pain&ids=a%2Cb")).toEqual(["a", "b"]);
+    expect(differentialIdsFromSearchParams("ids=DELIRIUM,Unknown,delirium")).toEqual(["delirium", "unknown"]);
     expect(
       differentialSelectionIdsSearch(
         ["medical-gi-endocrine-painful-organic-cause", "bpsd-as-unmet-need-delirium-pain-mimic"],

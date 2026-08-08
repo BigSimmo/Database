@@ -91,7 +91,8 @@ export const AD_HOC_DIFFERENTIAL_COMPARE_ID = "selected-differentials";
 
 const AD_HOC_COMPARE_CRITERIA: DifferentialComparisonCriterion[] = [
   { id: "why-it-fits", title: "Why it fits", tone: "fit" },
-  { id: "what-argues-against", title: "What argues against", tone: "overlap" },
+  // Catalogue diagnoses do not ship a `what-argues-against` section; omit it so
+  // ad-hoc compare rows never render an all-placeholder criterion.
   { id: "must-not-miss", title: "Must-not-miss", tone: "warning" },
   { id: "bedside-question", title: "Bedside question", tone: "question" },
   { id: "immediate-action", title: "Immediate action", tone: "action" },
