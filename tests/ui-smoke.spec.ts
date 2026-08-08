@@ -2997,13 +2997,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1&run=1");
     await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1&run=1$/);
-    // Production hydration can briefly overlap the outgoing server tree and the
-    // settled client tree on this redirect; wait for one owner before strict
-    // locators (same guard as the mode-home loop in ui-tools).
+    // Submitted differentials deep links resolve to the standalone results
+    // surface (`autoRunSearch`), not the mode-home template. Production
+    // hydration can briefly overlap the outgoing server tree and the settled
+    // client tree on this redirect; wait for one owner before strict locators.
     await expectSingleSettledOwner(page.getByTestId("differentials-search-results"), {
       message: "differentials redirect search results owner",
     });
-    await expect(page.getByTestId("search-query-ribbon")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
+    await expect(page.getByTestId("differentials-home")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 2, name: "acute confusion" })).toBeVisible();
   });
 
   test("DSM diagnosis mode redirects into the local catalogue and opens a diagnosis", async ({ page }) => {
