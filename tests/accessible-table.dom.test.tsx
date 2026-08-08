@@ -145,4 +145,49 @@ describe("AccessibleTable (jsdom)", () => {
     expect(screen.getByTestId("source-table-image")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
+
+  // COMPONENTS §0.4 AccessibleTable row — ledger #263.
+  it("keeps the full header string reachable when the dense preview ellipsises it", () => {
+    render(
+      <AccessibleTable
+        caption="Clozapine monitoring"
+        columns={["Recommended starting dose for the first 14 days", "Management"]}
+        rows={[["12.5 mg nocte", "Monitor observations"]]}
+        densePreview
+      />,
+    );
+
+    // A clipped header is the only thing that says what its column of numbers
+    // means, so the untruncated string has to survive somewhere.
+    const header = screen.getByRole("columnheader", { name: "Recommended starting dose for the first 14 days" });
+    expect(header.className).toContain("text-ellipsis");
+    expect(header).toHaveAttribute("title", "Recommended starting dose for the first 14 days");
+  });
+
+  it("does not add a title to headers that wrap rather than clip", () => {
+    render(<AccessibleTable caption="Clozapine monitoring" columns={columns} rows={rows} />);
+    expect(screen.getByRole("columnheader", { name: "Management" })).not.toHaveAttribute("title");
+  });
+
+  it("builds the expand control from the registered Button rather than a local recipe", () => {
+    setMatchMedia(true);
+    render(
+      <AccessibleTable
+        caption="Clozapine monitoring"
+        dialogTitle="Clozapine monitoring"
+        columns={columns}
+        rows={rows}
+        expandOnMobile
+      />,
+    );
+
+    const expander = screen.getByTestId("table-expand-button");
+    // The hand-rolled class string had drifted off the system: a ring focus
+    // treatment no other control uses, and a raw h-4/w-4 glyph off the icon scale.
+    expect(expander.className).toContain("focus-visible:outline");
+    expect(expander.className).not.toContain("focus-visible:ring");
+    expect(expander.querySelector(".h-4.w-4")).toBeNull();
+    expect(expander.querySelector(".size-icon-md")).not.toBeNull();
+    expect(expander).toHaveAccessibleName("Open Clozapine monitoring full screen");
+  });
 });
