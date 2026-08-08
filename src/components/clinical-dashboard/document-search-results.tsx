@@ -71,6 +71,7 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
+import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import {
   buildSmartDocumentTagFacetIndex,
   filterDocumentsBySmartTagFacetIndex,
@@ -1243,7 +1244,10 @@ function SearchRecordResults({
                     <span className="line-clamp-2">{service.title}</span>
                   </Link>
                   <p className={cn("mt-1 line-clamp-2 text-sm leading-6", textMuted)}>
-                    {service.subtitle ?? service.bestUse ?? service.route ?? "Open the source-backed record."}
+                    {compactBestUseTitle(
+                      service.subtitle ?? service.bestUse ?? service.route ?? "Open the source-backed record.",
+                      120,
+                    )}
                   </p>
                 </div>
                 <Link
