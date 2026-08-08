@@ -127,26 +127,35 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
           resolveWrite = () => resolve();
         }),
     );
+    const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText },
     });
     const setTimeoutSpy = vi.spyOn(window, "setTimeout");
 
-    const { unmount } = render(<PatientSafetyPlan />);
-    await user.click(screen.getByRole("button", { name: /^Copy$/ }));
-    expect(writeText).toHaveBeenCalledTimes(1);
+    try {
+      const { unmount } = render(<PatientSafetyPlan />);
+      await user.click(screen.getByRole("button", { name: /^Copy$/ }));
+      expect(writeText).toHaveBeenCalledTimes(1);
 
-    const callsBeforeUnmount = setTimeoutSpy.mock.calls.length;
-    unmount();
-    await act(async () => {
-      resolveWrite();
-    });
+      const callsBeforeUnmount = setTimeoutSpy.mock.calls.length;
+      unmount();
+      await act(async () => {
+        resolveWrite();
+      });
 
-    const feedbackTimers = setTimeoutSpy.mock.calls.slice(callsBeforeUnmount).filter((call) => call[1] === 1600);
-    expect(feedbackTimers).toHaveLength(0);
-    setTimeoutSpy.mockRestore();
-  });
+      const feedbackTimers = setTimeoutSpy.mock.calls.slice(callsBeforeUnmount).filter((call) => call[1] === 1600);
+      expect(feedbackTimers).toHaveLength(0);
+    } finally {
+      if (clipboardDescriptor) {
+        Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
+      } else {
+        // `navigator.clipboard` is usually inherited; delete the shadowing test override.
+        delete (navigator as any).clipboard;
+      }
+      setTimeoutSpy.mockRestore();
+    }
 
   it("clears the scheduled copy-feedback timer on unmount", async () => {
     vi.useFakeTimers();
