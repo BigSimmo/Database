@@ -565,7 +565,7 @@ function ComparePanel({
   const known = new Set(detailContext.knownRelatedSlugs);
   const compareHref = detailContext.comparePresentation
     ? `/differentials/presentations/${detailContext.comparePresentation.slug}`
-    : "/differentials/presentations";
+    : "/differentials/compare";
   const rowClassName =
     "flex min-h-12 items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]";
 

@@ -1431,6 +1431,7 @@
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
         "src/components/forms/form-detail-page.tsx",
+        "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/therapy-compass/filter-sheet.tsx",
@@ -1456,6 +1457,7 @@
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
         "src/components/forms/form-detail-page.tsx",
+        "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/therapy-compass/filter-sheet.tsx"
@@ -2206,7 +2208,8 @@
         "src/app/(search-app)/differentials/diagnoses/[slug]/page.tsx",
         "src/app/(search-app)/differentials/diagnoses/page.tsx",
         "src/app/(search-app)/differentials/page.tsx",
-        "src/app/(search-app)/differentials/presentations/[slug]/page.tsx"
+        "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
+        "src/app/(search-app)/differentials/presentations/page.tsx"
       ],
       "routeRoots": true,
       "proofApplicability": "required",
@@ -2278,6 +2281,16 @@
         },
         {
           "file": "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["Differential"]
+        },
+        {
+          "file": "src/app/(search-app)/differentials/presentations/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -3173,6 +3186,7 @@
       "src/app/(search-app)/differentials/diagnoses/page.tsx",
       "src/app/(search-app)/differentials/page.tsx",
       "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
+      "src/app/(search-app)/differentials/presentations/page.tsx",
       "src/app/(search-app)/documents/[id]/page.tsx",
       "src/app/(search-app)/documents/page.tsx",
       "src/app/(search-app)/documents/search/page.tsx",
@@ -3224,6 +3238,7 @@
       "src/app/(search-app)/differentials/diagnoses/page.tsx",
       "src/app/(search-app)/differentials/page.tsx",
       "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
+      "src/app/(search-app)/differentials/presentations/page.tsx",
       "src/app/(search-app)/documents/[id]/page.tsx",
       "src/app/(search-app)/documents/page.tsx",
       "src/app/(search-app)/documents/search/page.tsx",
@@ -3275,7 +3290,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 56,
+    "inheritedCkbV2RootCount": 57,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -3284,8 +3299,8 @@
     "registeredComponentCount": 53,
     "previewCount": 53,
     "productImportedComponentCount": 31,
-    "rootCount": 57,
-    "productionRouteCount": 49,
-    "nextUiEntryCount": 101
+    "rootCount": 58,
+    "productionRouteCount": 50,
+    "nextUiEntryCount": 102
   }
 }
