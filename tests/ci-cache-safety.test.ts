@@ -51,7 +51,9 @@ describe("CI cache safety", () => {
   it("caps the dispatch-only live Lighthouse matrix and each child process", () => {
     expect(liveWebVitalsWorkflow).toContain("timeout-minutes: 45");
     expect(liveWebVitalsWorkflow).toContain("node scripts/live-web-vitals-inputs.mjs");
-    expect(liveWebVitalsWorkflow).toContain("timeout --signal=TERM --kill-after=10s 80s");
+    expect(liveWebVitalsWorkflow).toContain('timeout --signal=TERM --kill-after=10s "${run_timeout}s"');
+    expect(liveWebVitalsWorkflow).toContain("LIVE_WEB_VITALS_PROCESS_TIMEOUT_SEC");
+    expect(liveWebVitalsWorkflow).toContain("LIVE_WEB_VITALS_MEASUREMENT_SUITE_SECONDS");
   });
 
   it("routes recognised workflow-only changes through focused contracts", () => {
