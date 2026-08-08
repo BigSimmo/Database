@@ -477,7 +477,7 @@ for (const tool of tools) builderTargets.add(pathOnly(tool.href));
 // Treat the registry as a canonical nav builder, same as app-mode homes.
 for (const entries of Object.values(modeSecondaryNavigationRegistry)) {
   for (const entry of entries) {
-    if (entry.href) builderTargets.add(pathOnly(entry.href));
+    if ("href" in entry && entry.href) builderTargets.add(pathOnly(entry.href));
   }
 }
 
