@@ -417,28 +417,30 @@ function SafetySnapshot({
       ) : null}
 
       {tags.length > 0 ? (
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+        <div className="mt-2 grid gap-1.5">
           <span className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
             Watch for
           </span>
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              className={cn(
-                "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-semibold",
-                theme.chip,
-              )}
-            >
-              {cleanDifferentialItem(tag)}
-            </span>
-          ))}
+          <div className="flex flex-wrap gap-1.5">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className={cn(
+                  "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-semibold",
+                  theme.chip,
+                )}
+              >
+                {cleanDifferentialItem(tag)}
+              </span>
+            ))}
+          </div>
         </div>
       ) : null}
 
       {facts.length > 0 ? (
         <div
           className={cn(
-            "mt-2.5 grid gap-2 border-y py-2 sm:gap-3 sm:py-2.5",
+            "mt-2 grid gap-2 border-y py-2 sm:mt-2.5 sm:gap-3 sm:py-2.5",
             safetyFactGridClass(facts.length),
             theme.divider,
           )}
@@ -469,7 +471,7 @@ function SafetySnapshot({
           type="button"
           data-testid="differential-safety-cta"
           onClick={onReviewMustNotMiss}
-          className="mt-2.5 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] sm:w-auto sm:justify-start"
+          className="mt-2 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] sm:mt-2.5 sm:w-auto sm:justify-start"
         >
           <TriangleAlert className={cn("h-4 w-4", theme.accentText)} aria-hidden />
           Review must-not-miss causes
