@@ -14,6 +14,7 @@ import {
   PinnedSourceEvidence,
   TableReviewPanel,
 } from "@/components/document-viewer/source-panels";
+import { DocumentImageFilmstrip } from "@/components/document-viewer/document-image-filmstrip";
 import type { ChunkRow, DocumentIndexHealth, ImageRow, TableFactRow } from "@/components/document-viewer/types";
 import type { DocumentSection } from "@/components/document-viewer/section-index";
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
@@ -58,6 +59,8 @@ export function DocumentViewerRail({
   reviewingTableFactId,
   onReviewTableFact,
   indexHealth,
+  activePage,
+  onSelectPage,
 }: {
   headerHidden: boolean;
   documentSections: DocumentSection[];
@@ -83,6 +86,8 @@ export function DocumentViewerRail({
   reviewingTableFactId: string | null;
   onReviewTableFact: (fact: TableFactRow, reviewClass: string) => void;
   indexHealth: DocumentIndexHealth | null;
+  activePage: number;
+  onSelectPage: (page: number) => void;
 }) {
   return (
     <aside
@@ -253,7 +258,12 @@ export function DocumentViewerRail({
               live="polite"
             />
           ) : (
-            clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
+            <>
+              <DocumentImageFilmstrip images={clinicalImages} activePage={activePage} onSelectPage={onSelectPage} />
+              {clinicalImages.map((image) => (
+                <DocumentImage key={image.id} image={image} activePage={activePage} onSelectPage={onSelectPage} />
+              ))}
+            </>
           )}
           {!effectiveLoadingDocument && auditImages.length > 0 ? (
             <details className={cn(sourceCard, "p-3")}>
@@ -262,7 +272,7 @@ export function DocumentViewerRail({
               </summary>
               <div className="mt-3 grid gap-3">
                 {auditImages.map((image) => (
-                  <DocumentImage key={image.id} image={image} />
+                  <DocumentImage key={image.id} image={image} activePage={activePage} onSelectPage={onSelectPage} />
                 ))}
               </div>
             </details>

@@ -980,7 +980,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              19 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              20 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |

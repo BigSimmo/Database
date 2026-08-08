@@ -14,6 +14,45 @@ This repo uses one shared search experience across the global shell, dashboard r
 | Calculators (`/calculators`)        | Page-owned composer (desktop top + phone bottom dock)                      | Calculators page pad; shell reserve stays `0`                                  |
 | Info/detail pages with no composer  | No fixed composer                                                          | Idle shell padding only                                                        |
 
+## Default in-page navigation template
+
+When adding or suggesting **in-page navigation** on any mode page, use the DocumentViewer
+header as the canonical visual and behaviour template. Do not invent a new phone header shape
+or a second scroll-hide owner.
+
+**Reference implementation:** `src/components/DocumentViewer.tsx` (sticky header row) and
+`src/components/document-viewer/section-nav.tsx` (`DocumentSectionTrack`, section sheet / list).
+Ownership and reserves for that chrome are the “Document section navigation” row above;
+detailed DocumentViewer rules remain invariant 22.
+
+**Visual slots (adapt labels, back href, sections, and actions to the mode):**
+
+- Left: back control (icon; text label from `sm` when useful).
+- Center: page title (`h1`) plus chevron disclosure. Line two is the active section in
+  `--clinical-accent` (section icon + label). The title control opens the section list.
+- Right: ellipsis / page-actions control.
+- Bottom edge of the header: weighted segment track showing section position
+  (`DocumentSectionTrack` or an equivalent that preserves weight + active styling).
+- Phone: section list is the shared `Sheet` (not viewport chrome). At `lg+`, keep an
+  in-column section index card when the page has a rail — phones stay on the header
+  disclosure + sheet.
+
+**Scroll / attachment (must match DocumentViewer):**
+
+- Wrap the header in `PhoneHeaderCollapsePortal` so below `sm` it portals into
+  `#phone-header-collapse-addon-slot` under the universal search header and
+  **hides/reveals with that one collapse owner**.
+- At `sm+`, the same subtree stays in its page position (sticky/in-flow as appropriate).
+  Never add a second sticky/fixed phone navigation header inside `#main-content`.
+- Do not give the in-page header its own scroll-hide hook; share the universal collapse
+  signal described under “Scroll hide/reveal”.
+
+**Not this template:** Therapy-style `ModeNav` (multi-route mode tabs via
+`ModeNavHeaderPortal`) is a different pattern for mode-level page switching. Info-page
+`PageHeader` / breadcrumb chrome is also not in-page section navigation. Existing
+simpler collapse headers (for example Differential detail) remain special cases; **new**
+in-page navigation work defaults to the DocumentViewer template above.
+
 ## Invariants
 
 1. Use `src/components/clinical-dashboard/mobile-composer-reserve.ts` as the TypeScript source of truth for phone composer clearances.
@@ -79,17 +118,40 @@ chrome and changes to it land on every mode at once. Keep these rules:
    it appears. The `role="status"` / `aria-live="polite"` announcement stays either way — except
    while faulted, when the spine goes `aria-live="off"` and the fault panel's `role="alert"`
    makes the single announcement instead of both speaking.
-3. **Sort is a segmented control, not a select.** Two values do not justify a menu you must open
-   to read. `ResultSortControl` renders `sortOptions` as `aria-pressed` buttons inside a
-   `role="group"` named "Sort results"; add a third order only if it still fits the rail.
-4. **Native selects are pinned to 16px below `sm`.** The unlayered iOS anti-zoom rule in
+3. **Sort is a segmented control, not a select — and it is `sm`-and-up.** Two values do not
+   justify a menu you must open to read. `ResultSortControl` renders `sortOptions` as
+   `aria-pressed` buttons inside a `role="group"` named "Sort results"; add a third order only if
+   it still fits the rail. Below 640px it is `hidden`: the two segments cost roughly half the
+   band's one line, and the query truncated to pay for a control set about once a session. Only
+   the affordance is `sm`-and-up — `?sort=` still carries an alpha order onto a phone and the
+   results honour it. The display class belongs in the component's own base string, because `cn`
+   is a plain join with no Tailwind conflict resolution. A page whose only utility is sort hides
+   the whole utilities group below `sm` (`hasPhoneUtilities`) rather than leaving an empty flex
+   child — in `inline` placement under 414px that child is `w-full basis-full`, i.e. a blank
+   second line.
+4. **The phone filter is a badged trigger opening a sheet — never a select.** Every mode's
+   `mobileControls` is a `ResultFilterTrigger` (`result-filter-control.tsx`) with
+   `mobileControlsPlacement="inline"`, so the band stays one line on a phone. **Six** band modes
+   used to pass a `w-full` native select there — differentials, services, factsheets, prescribing,
+   formulation and specifiers, the last two a two-column grid of them. (The tools launcher was a
+   seventh surface carrying the same select, hence "seven" elsewhere; it renders no results band,
+   so its trigger sits inline on the page rather than in this slot.) That control cost
+   the band a whole second row, could not report how many filters were active, and — because of
+   rule 5 — rendered its value at the same 16px as the query heading above it. Single-choice
+   dimensions go in `ResultFilterSheet` as one `role="radiogroup"` per dimension, because they
+   are genuinely one-of-N and a bank of `aria-pressed` toggles says they are not. Documents keeps
+   its own panel: multi-select facet groups with counts, a find-a-filter field and
+   collapse-by-default are not expressible as radios. Desktop is untouched — the ribbon renders
+   `filterControls` from `sm` up and `mobileControls` below it, never both, so each mode keeps
+   its own chip row or tab strip on a wide screen.
+5. **Native selects are pinned to 16px below `sm`.** The unlayered iOS anti-zoom rule in
    `globals.css` ("Interactive element defaults") deliberately beats Tailwind's `text-*`
    utilities on `input`/`select`/`textarea`. Do not fight it with `!important` or a per-call-site
    override — a sub-16px control zooms the viewport on focus in Safari. Any control that must
    read quieter than the query steps down in **weight and colour**, never in size, and any
    select carrying variable-length values must set `truncate` or it clips mid-word rather than
    ellipsing (the "Current search" → "Current searcl" defect fixed 2026-07-27).
-5. **The utility group is a swipe rail below `lg`, an inline row at `lg+`.** The row/stack switch
+6. **The utility group is a swipe rail below `lg`, an inline row at `lg+`.** The row/stack switch
    moved to `sm` (640) so portrait tablets stop rendering the phone layout, but the rail's
    overflow, fade mask and trailing spacer stay on `lg` deliberately: at 640-1023px a page with
    chips, sort, a mobile filter and utility controls can exceed the width, and containing that
@@ -97,10 +159,10 @@ chrome and changes to it land on every mode at once. Keep these rules:
    `shrink-0` so they keep their natural width; overflow scrolls instead of wrapping into a
    second tinted band. The right-edge fade is applied via `data-overflowing` only while the rail
    actually overflows — never as a permanent mask.
-6. **Active scopes render as removable chips at the head of that group**, in accent tone, so a
+7. **Active scopes render as removable chips at the head of that group**, in accent tone, so a
    constraint on the list is one tap from where it is read. Do not move them into a separate
    strip; `hasUtilities` already suppresses the whole group when nothing is active.
-7. **The accent is a border, never an overlay — and it is now a lead mark, not a full-width
+8. **The accent is a border, never an overlay — and it is now a lead mark, not a full-width
    rail.** An absolutely-positioned bar inside an `overflow-hidden` 12px-radius card is sliced by
    the corner arc, so it starts short and tapers while the 1px border curves past it — two lines,
    two geometries. A border avoids that by construction, and forced-colors maps it automatically.
@@ -116,7 +178,7 @@ chrome and changes to it land on every mode at once. Keep these rules:
    the band's forced-colors rules **must remain the last block in `globals.css`** — at equal
    specificity a later rule wins, so an earlier block is silently overridden while still reading
    correctly.
-8. **A new search page cannot skip the band.** `AppModeSearchConfig.resultsSurface` is required,
+9. **A new search page cannot skip the band.** `AppModeSearchConfig.resultsSurface` is required,
    so a new mode fails `typecheck` until it declares `results-band` or `answer`, and
    `tests/search-results-band-adoption.test.ts` then requires a matching mount plus a documented
    allowlist entry for any search route that legitimately has no result list.

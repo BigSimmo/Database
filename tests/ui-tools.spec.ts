@@ -414,12 +414,15 @@ test.describe("Clinical KB tools launcher", () => {
       await expect(page.locator("#launcher-results-panel")).toHaveAttribute("role", "group");
       await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "All tools");
       if (viewport.name === "mobile") {
-        const categorySelect = page.getByTestId("tool-category-select");
-        await expect(categorySelect).toBeVisible();
-        await expect(categorySelect).toHaveAccessibleName("Filter by tool category");
-        await categorySelect.selectOption("assessment");
+        const categoryTrigger = page.getByTestId("tool-filter-trigger-phone");
+        await expect(categoryTrigger).toBeVisible();
+        await expect(categoryTrigger).toHaveAccessibleName(/No filters active/);
+        await categoryTrigger.click();
+        await page.getByRole("radiogroup", { name: "Category" }).getByRole("radio", { name: "Assess" }).click();
         await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "Assess tools");
-        await categorySelect.selectOption("all");
+        await expect(categoryTrigger).toHaveAccessibleName(/1 filter active/);
+        await categoryTrigger.click();
+        await page.getByRole("radiogroup", { name: "Category" }).getByRole("radio", { name: "All tools" }).click();
         await page.getByTestId("application-row-medication-prescribing").click();
         const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });
         await expect(selectedSheet).toBeVisible();
@@ -855,10 +858,11 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     const input = visibleGlobalSearchInput(page).first();
     await expect(input).toBeVisible();
-    const quickFilter = page.getByTestId("service-quick-filter-select");
+    const quickFilter = page.getByTestId("service-filter-trigger-phone");
     await expect(quickFilter).toBeVisible();
-    await expect(quickFilter).toHaveAccessibleName("Apply a quick service filter");
-    await quickFilter.selectOption("crisis");
+    await expect(quickFilter).toHaveAccessibleName(/No filters active/);
+    await quickFilter.click();
+    await page.getByRole("radiogroup", { name: "Quick filters" }).getByRole("radio", { name: "Crisis" }).click();
     await expect(page).toHaveURL(/\/services\?.*q=crisis/);
 
     // Phones keep the full search results in the page instead of opening a
@@ -1639,18 +1643,22 @@ test.describe("Clinical KB tools launcher", () => {
     await submitDifferentialSearch(page, "acute confusion");
 
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
-    const typeSelect = page.getByTestId("differential-result-type-select");
-    await expect(typeSelect).toBeVisible();
-    await expect(typeSelect).toHaveAccessibleName("Filter by result type");
-    await expect(typeSelect).toHaveValue("all");
-    await typeSelect.selectOption("diagnosis");
-    await expect(typeSelect).toHaveValue("diagnosis");
-    await typeSelect.selectOption("all");
+    const typeTrigger = page.getByTestId("differential-filter-trigger-phone");
+    await expect(typeTrigger).toBeVisible();
+    await expect(typeTrigger).toHaveAccessibleName(/No filters active/);
+    await typeTrigger.click();
+    const typeGroup = page.getByRole("radiogroup", { name: "Show" });
+    await typeGroup.getByRole("radio", { name: /^Diagnoses/ }).click();
+    await expect(typeGroup.getByRole("radio", { name: /^Diagnoses/ })).toBeChecked();
+    await typeGroup.getByRole("radio", { name: /^All/ }).click();
+    await page.getByTestId("differential-filter-panel-done").click();
+    await expect(typeGroup).toBeHidden();
+    await expect(typeTrigger).toHaveAccessibleName(/No filters active/);
 
-    // Sort is a segmented group and the page filter is a select. They no longer
-    // sit paired: Sort is inboard and the page filter renders last, hard against
-    // the ribbon's right edge. What still has to hold is that both keep a matched
-    // phone tap height, and that the utility rail owns any overflow.
+    // Sort is `sm`-and-up, so on a phone the page filter is the whole utilities
+    // group: it renders last, hard against the ribbon's right edge, and it is
+    // what has to carry the phone tap height. Sort stays mounted but hidden —
+    // asserted, not assumed, so returning it to the phone line fails here.
     const utilities = page.getByTestId("search-query-ribbon-utilities");
     const pageFilters = page.getByTestId("search-query-ribbon-mobile-controls");
     const railMetrics = await utilities.evaluate((element) => ({
@@ -1660,12 +1668,16 @@ test.describe("Clinical KB tools launcher", () => {
         element.lastElementChild?.getAttribute("data-testid") === "search-query-ribbon-mobile-controls",
     }));
     expect(railMetrics.lastChildIsPageFilter).toBe(true);
-    const sortHeight = await utilities
-      .getByRole("group", { name: "Sort results" })
-      .evaluate((element) => element.getBoundingClientRect().height);
+    // Mounted-and-hidden is two facts, and `toBeHidden()` alone cannot separate
+    // them: it passes for a hidden node AND for one that does not exist. Plain
+    // `getByRole` also filters hidden nodes out, so it would resolve to nothing
+    // here and pass even with the control deleted. Count under `includeHidden`,
+    // then visibility.
+    const phoneSort = utilities.getByRole("group", { name: "Sort results", includeHidden: true });
+    await expect(phoneSort).toHaveCount(1);
+    await expect(phoneSort).toBeHidden();
     const filterHeight = await pageFilters.evaluate((element) => element.getBoundingClientRect().height);
-    expect(Math.abs(sortHeight - filterHeight)).toBeLessThanOrEqual(1);
-    expect(Math.min(sortHeight, filterHeight)).toBeGreaterThanOrEqual(43);
+    expect(filterHeight).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1746,18 +1758,21 @@ test.describe("Clinical KB tools launcher", () => {
     await submitDifferentialSearch(page, "acute confusion");
 
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
-    const typeSelect = page.getByTestId("differential-result-type-select");
-    await expect(typeSelect).toBeVisible();
-    await expect(typeSelect).toHaveAccessibleName("Filter by result type");
-    await expect(typeSelect).toHaveValue("all");
-    await typeSelect.selectOption("presentation");
-    await expect(typeSelect).toHaveValue("presentation");
-    await typeSelect.selectOption("all");
+    const typeTrigger = page.getByTestId("differential-filter-trigger-phone");
+    await expect(typeTrigger).toBeVisible();
+    await expect(typeTrigger).toHaveAccessibleName(/No filters active/);
+    await typeTrigger.click();
+    const typeGroup = page.getByRole("radiogroup", { name: "Show" });
+    await typeGroup.getByRole("radio", { name: /^Presentations/ }).click();
+    await expect(typeGroup.getByRole("radio", { name: /^Presentations/ })).toBeChecked();
+    await typeGroup.getByRole("radio", { name: /^All/ }).click();
+    await page.getByTestId("differential-filter-panel-done").click();
+    await expect(typeGroup).toBeHidden();
 
-    // Sort is a segmented group and the page filter is a select. They no longer
-    // sit paired: Sort is inboard and the page filter renders last, hard against
-    // the ribbon's right edge. What still has to hold is that both keep a matched
-    // phone tap height, and that the utility rail owns any overflow.
+    // Sort is `sm`-and-up, so on a phone the page filter is the whole utilities
+    // group: it renders last, hard against the ribbon's right edge, and it is
+    // what has to carry the phone tap height. Sort stays mounted but hidden —
+    // asserted, not assumed, so returning it to the phone line fails here.
     const utilities = page.getByTestId("search-query-ribbon-utilities");
     const pageFilters = page.getByTestId("search-query-ribbon-mobile-controls");
     const railMetrics = await utilities.evaluate((element) => ({
@@ -1767,12 +1782,16 @@ test.describe("Clinical KB tools launcher", () => {
         element.lastElementChild?.getAttribute("data-testid") === "search-query-ribbon-mobile-controls",
     }));
     expect(railMetrics.lastChildIsPageFilter).toBe(true);
-    const sortHeight = await utilities
-      .getByRole("group", { name: "Sort results" })
-      .evaluate((element) => element.getBoundingClientRect().height);
+    // Mounted-and-hidden is two facts, and `toBeHidden()` alone cannot separate
+    // them: it passes for a hidden node AND for one that does not exist. Plain
+    // `getByRole` also filters hidden nodes out, so it would resolve to nothing
+    // here and pass even with the control deleted. Count under `includeHidden`,
+    // then visibility.
+    const phoneSort = utilities.getByRole("group", { name: "Sort results", includeHidden: true });
+    await expect(phoneSort).toHaveCount(1);
+    await expect(phoneSort).toBeHidden();
     const filterHeight = await pageFilters.evaluate((element) => element.getBoundingClientRect().height);
-    expect(Math.abs(sortHeight - filterHeight)).toBeLessThanOrEqual(1);
-    expect(Math.min(sortHeight, filterHeight)).toBeGreaterThanOrEqual(43);
+    expect(filterHeight).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -2426,9 +2445,9 @@ test.describe("Responsive layout guards", () => {
     await expect(queryRibbon).toBeVisible();
     await expect(queryRibbon.getByRole("heading", { name: "acamprosate renal dose" })).toBeVisible();
     await expect(queryRibbon.getByRole("status")).toBeVisible();
-    const resultFilter = queryRibbon.getByTestId("medication-result-filter-select");
+    const resultFilter = queryRibbon.getByTestId("medication-filter-trigger-phone");
     await expect(resultFilter).toBeVisible();
-    await expect(resultFilter).toHaveAccessibleName("Filter medication results");
+    await expect(resultFilter).toHaveAccessibleName(/No filters active/);
     await expect(bottomDock).toBeVisible();
     await scrollPrimarySurface(page, "end");
     await expect

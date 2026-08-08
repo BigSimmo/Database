@@ -7,8 +7,8 @@
     "onePixelShadowSpreads": 2,
     "hardcodedCssMotionDurations": 42,
     "rawCssZIndices": 9,
-    "legacyPaletteUtilities": 2,
-    "darkColorOverrides": 3,
+    "legacyPaletteUtilities": 0,
+    "darkColorOverrides": 0,
     "legacyShadowAliases": 231,
     "arbitraryTracking": 0,
     "layoutTransitionExceptions": 12,
@@ -47,14 +47,8 @@
     "rawCssZIndices": {
       "src/app/globals.css": 9
     },
-    "legacyPaletteUtilities": {
-      "src/components/pwa-lifecycle.tsx": 2
-    },
-    "darkColorOverrides": {
-      "src/components/clinical-dashboard/dashboard-nav.tsx": 1,
-      "src/components/pwa-lifecycle.tsx": 1,
-      "src/components/ui-primitives.tsx": 1
-    },
+    "legacyPaletteUtilities": {},
+    "darkColorOverrides": {},
     "legacyShadowAliases": {
       "src/app/globals.css": 9,
       "src/app/layout.tsx": 1,

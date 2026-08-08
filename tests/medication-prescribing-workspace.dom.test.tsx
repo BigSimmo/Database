@@ -84,17 +84,18 @@ vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
   }),
 }));
 
-function renderWorkspace() {
+function renderWorkspace(overrides: Partial<{ query: string; showHome: boolean }> = {}) {
   return render(
     <PatientProfileProvider>
       <MedicationPrescribingWorkspace
-        query="prescribing"
+        query={overrides.query ?? "prescribing"}
         loading={false}
         realDataReady
         authUnavailable={false}
         apiUnavailable={false}
         setupWarning={null}
         onSuggestedSearch={vi.fn()}
+        showHome={overrides.showHome}
       />
     </PatientProfileProvider>,
   );
@@ -112,6 +113,21 @@ function filterButton(label: string): HTMLElement {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("MedicationPrescribingWorkspace — home vs submitted results", () => {
+  it("keeps the medication home while a draft query is typed before submit", () => {
+    renderWorkspace({ query: "l", showHome: true });
+    expect(screen.getByTestId("medication-home")).toBeInTheDocument();
+    expect(screen.queryByTestId("medication-result-clozapine-desktop")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Searching/i)).not.toBeInTheDocument();
+  });
+
+  it("shows medication results only after the parent marks the search submitted", () => {
+    renderWorkspace({ query: "l", showHome: false });
+    expect(screen.queryByTestId("medication-home")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("medication-result-clozapine-desktop").length).toBeGreaterThan(0);
+  });
 });
 
 describe("MedicationPrescribingWorkspace — result filter strip", () => {

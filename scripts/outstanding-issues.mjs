@@ -37,9 +37,7 @@ import { pathToFileURL } from "node:url";
 
 import { ISSUES_PATH, canonicalId, checkIssues, parseIssues } from "./check-outstanding-issues.mjs";
 
-const OPEN_CELLS = 10;
-// ID | Type | Priority/status | Group/main issue | Before starting | Codex |
-// Checks/CI | External input/time | Done when | collapsed details (context/source/added)
+const OPEN_CELLS = 7; // ID | Pri | Type | Summary | Detail / next action | Source | Added
 const ARCHIVE_CELLS = 5; // ID | Type | Summary | Outcome | Resolved
 const PRIORITIES = new Set(["P1", "P2", "P3"]);
 const TYPES = new Set(["task", "issue", "rec"]);
@@ -84,59 +82,6 @@ export function splitCells(line) {
 
 export function buildRow(cells) {
   return `| ${cells.join(" | ")} |`;
-}
-
-function escapeHtmlText(value) {
-  return escapeCell(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function unescapeHtmlText(value) {
-  return String(value)
-    .replace(/&gt;/g, ">")
-    .replace(/&lt;/g, "<")
-    .replace(/&amp;/g, "&")
-    .replace(/\\\|/g, "|");
-}
-
-function priorityStatusCell(pri, status) {
-  return `<strong>${escapeHtmlText(pri)}</strong><br>${escapeHtmlText(status)}`;
-}
-
-function parsePriorityStatusCell(cell) {
-  const match = cell.match(/^<strong>(.*?)<\/strong><br>(.*)$/);
-  if (!match) throw new Error("open row has a malformed priority/status cell");
-  return { pri: unescapeHtmlText(match[1]), status: unescapeHtmlText(match[2]) };
-}
-
-function mainIssueCell(group, summary) {
-  return `<strong>${escapeHtmlText(group)}</strong><br>${escapeHtmlText(summary)}`;
-}
-
-function parseMainIssueCell(cell) {
-  const match = cell.match(/^<strong>(.*?)<\/strong><br>(.*)$/);
-  if (!match) throw new Error("open row has a malformed group/main-issue cell");
-  return { group: unescapeHtmlText(match[1]), summary: unescapeHtmlText(match[2]) };
-}
-
-function detailsCell(detail, source, added) {
-  return (
-    "<details><summary>Evidence</summary>" +
-    `<strong>Context:</strong> ${escapeHtmlText(detail)}<br>` +
-    `<strong>Source:</strong> ${escapeHtmlText(source)}<br>` +
-    `<strong>Added:</strong> ${escapeHtmlText(added)}</details>`
-  );
-}
-
-function parseDetailsCell(cell) {
-  const match = cell.match(
-    /^<details><summary>Evidence<\/summary><strong>Context:<\/strong> (.*?)<br><strong>Source:<\/strong> (.*?)<br><strong>Added:<\/strong> (.*?)<\/details>$/,
-  );
-  if (!match) throw new Error("open row has a malformed collapsed evidence cell");
-  return {
-    detail: unescapeHtmlText(match[1]),
-    source: unescapeHtmlText(match[2]),
-    added: unescapeHtmlText(match[3]),
-  };
 }
 
 function today(options = {}) {
@@ -247,18 +192,14 @@ export function addIssue(markdown, fields, options = {}) {
     if (parsed.openStart < 0) throw new Error("no '## Open items' heading found");
 
     const id = canonicalId(parsed.nextId);
-    const added = today(options);
     const row = buildRow([
       id,
+      pri,
       type,
-      priorityStatusCell(pri, fields.status ?? "Open — revalidate"),
-      mainIssueCell(fields.group ?? "Needs classification", fields.summary),
-      escapeCell(fields.before ?? "Revalidate current main."),
-      escapeCell(fields.codex ?? "Estimate before start"),
-      escapeCell(fields.checks ?? "Select by changed risk"),
-      escapeCell(fields.external ?? "None identified"),
-      escapeCell(fields.done ?? "Acceptance criteria in context"),
-      detailsCell(fields.detail ?? "", fields.source ?? `session ${added}`, added),
+      escapeCell(fields.summary),
+      escapeCell(fields.detail ?? ""),
+      escapeCell(fields.source ?? `session ${today(options)}`),
+      today(options),
     ]);
     if (splitCells(row).length !== OPEN_CELLS) {
       throw new Error(`built an open row with ${splitCells(row).length} cells, expected ${OPEN_CELLS}`);
@@ -284,10 +225,9 @@ export function resolveIssue(markdown, id, outcome, options = {}) {
     if (row.table === "archive") throw new Error(`${id} is already archived`);
 
     const cells = splitCells(row.raw);
-    // Open retains planning and evidence fields; archive keeps only identity,
-    // type, the main issue/build summary, the actual outcome and resolution date.
-    const mainIssue = parseMainIssueCell(cells[3]);
-    const archived = buildRow([cells[0], cells[1], escapeCell(mainIssue.summary), escapeCell(outcome), today(options)]);
+    // Open is ID|Pri|Type|Summary|Detail|Source|Added; archive drops Pri,
+    // Detail and Source and gains Outcome + Resolved.
+    const archived = buildRow([cells[0], cells[2], cells[3], escapeCell(outcome), today(options)]);
     if (splitCells(archived).length !== ARCHIVE_CELLS) {
       throw new Error(`built an archive row with ${splitCells(archived).length} cells, expected ${ARCHIVE_CELLS}`);
     }
@@ -307,13 +247,9 @@ export function resolveIssue(markdown, id, outcome, options = {}) {
 }
 
 export function updateIssue(markdown, id, fields) {
-  const editable = ["status", "group", "summary", "before", "codex", "checks", "external", "done", "detail", "source"];
-  const requested = editable.filter((key) => fields[key] !== undefined);
-  if (requested.length === 0) {
-    throw new Error(
-      "pass at least one editable field (status, group, summary, before, codex, checks, external, done, detail, source)",
-    );
-  }
+  const editable = { summary: 3, detail: 4, source: 5 };
+  const requested = Object.keys(editable).filter((key) => fields[key] !== undefined);
+  if (requested.length === 0) throw new Error("pass at least one of --summary, --detail, --source");
 
   return guarded(markdown, (current) => {
     const parsed = parseIssues(current);
@@ -322,17 +258,7 @@ export function updateIssue(markdown, id, fields) {
     if (row.table !== "open") throw new Error(`${id} is archived; archived rows are history and are not edited`);
 
     const cells = splitCells(row.raw);
-    const priorityStatus = parsePriorityStatusCell(cells[2]);
-    const mainIssue = parseMainIssueCell(cells[3]);
-    const details = parseDetailsCell(cells[9]);
-    cells[2] = priorityStatusCell(priorityStatus.pri, fields.status ?? priorityStatus.status);
-    cells[3] = mainIssueCell(fields.group ?? mainIssue.group, fields.summary ?? mainIssue.summary);
-    if (fields.before !== undefined) cells[4] = escapeCell(fields.before);
-    if (fields.codex !== undefined) cells[5] = escapeCell(fields.codex);
-    if (fields.checks !== undefined) cells[6] = escapeCell(fields.checks);
-    if (fields.external !== undefined) cells[7] = escapeCell(fields.external);
-    if (fields.done !== undefined) cells[8] = escapeCell(fields.done);
-    cells[9] = detailsCell(fields.detail ?? details.detail, fields.source ?? details.source, details.added);
+    for (const key of requested) cells[editable[key]] = escapeCell(fields[key]);
     const lines = current.split("\n");
     lines[row.line - 1] = buildRow(cells);
     return lines.join("\n");
@@ -522,14 +448,7 @@ function main() {
       next = addIssue(markdown, {
         pri: argValue(argv, "pri"),
         type: argValue(argv, "type"),
-        status: argValue(argv, "status"),
-        group: argValue(argv, "group"),
         summary: argValue(argv, "summary"),
-        before: argValue(argv, "before"),
-        codex: argValue(argv, "codex"),
-        checks: argValue(argv, "checks"),
-        external: argValue(argv, "external"),
-        done: argValue(argv, "done"),
         detail: argValue(argv, "detail"),
         source: argValue(argv, "source"),
       });
@@ -537,14 +456,7 @@ function main() {
       next = resolveIssue(markdown, positional, argValue(argv, "outcome"));
     } else if (command === "update") {
       next = updateIssue(markdown, positional, {
-        status: argValue(argv, "status"),
-        group: argValue(argv, "group"),
         summary: argValue(argv, "summary"),
-        before: argValue(argv, "before"),
-        codex: argValue(argv, "codex"),
-        checks: argValue(argv, "checks"),
-        external: argValue(argv, "external"),
-        done: argValue(argv, "done"),
         detail: argValue(argv, "detail"),
         source: argValue(argv, "source"),
       });

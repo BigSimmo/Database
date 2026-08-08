@@ -43,7 +43,13 @@ import {
 import { useDocumentSummarize } from "@/components/document-viewer/use-document-summarize";
 import { useDocumentViewerRoute } from "@/components/document-viewer/use-document-viewer-route";
 import { usePdfViewerPreference } from "@/components/document-viewer/use-pdf-viewer-preference";
-import { DocumentFrame, type DocumentFrameSource } from "@/components/ui/document-frame";
+import { DocumentFrame, type DocumentFrameControls, type DocumentFrameSource } from "@/components/ui/document-frame";
+import {
+  VIEWER_DEFAULT_ZOOM,
+  VIEWER_MAX_ZOOM,
+  VIEWER_MIN_ZOOM,
+  VIEWER_ZOOM_STEP,
+} from "@/components/document-viewer/viewer-zoom";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
@@ -193,6 +199,19 @@ export function DocumentViewer({
   );
   const activeScrollOwner = useActiveScrollOwner(shellScrollContainer, documentId);
   const { useNativePdfViewer, togglePdfViewerMode } = usePdfViewerPreference();
+  // Phase 2a: DocumentFrame owns zoom/fit/viewing-aid chrome for canvas PDF.
+  // Reset viewing chrome when the document identity changes (render-time adjust,
+  // not an effect — avoids react-hooks/set-state-in-effect).
+  const [pdfViewingDocumentId, setPdfViewingDocumentId] = useState(documentId);
+  const [pdfFitWidth, setPdfFitWidth] = useState(true);
+  const [pdfZoom, setPdfZoom] = useState(VIEWER_DEFAULT_ZOOM);
+  const [pdfViewingAid, setPdfViewingAid] = useState(false);
+  if (pdfViewingDocumentId !== documentId) {
+    setPdfViewingDocumentId(documentId);
+    setPdfFitWidth(true);
+    setPdfZoom(VIEWER_DEFAULT_ZOOM);
+    setPdfViewingAid(false);
+  }
   const {
     status: authStatus,
     session,
@@ -770,6 +789,36 @@ export function DocumentViewer({
       : document?.file_type?.startsWith("image/")
         ? { kind: "image", url: signedUrl ?? undefined }
         : { kind: "document", url: signedUrl ?? undefined };
+  const canvasPdfReady =
+    Boolean(signedUrl) &&
+    document?.file_type === "application/pdf" &&
+    !useNativePdfViewer &&
+    !effectiveLoadingDocument &&
+    !effectiveViewerError &&
+    !previewError;
+  const handlePdfFitWidth = useCallback(() => {
+    setPdfFitWidth(true);
+  }, []);
+  const handlePdfZoomChange = useCallback((nextZoom: number) => {
+    setPdfFitWidth(false);
+    setPdfZoom(nextZoom);
+  }, []);
+  const handlePdfFitWidthChange = useCallback((nextFitWidth: boolean) => {
+    setPdfFitWidth(nextFitWidth);
+  }, []);
+  const pdfFrameControls: DocumentFrameControls | undefined = canvasPdfReady
+    ? {
+        fitWidth: pdfFitWidth,
+        onFitWidth: handlePdfFitWidth,
+        zoom: pdfZoom,
+        onZoomChange: handlePdfZoomChange,
+        viewingAid: pdfViewingAid,
+        onViewingAidChange: setPdfViewingAid,
+        minZoom: VIEWER_MIN_ZOOM,
+        maxZoom: VIEWER_MAX_ZOOM,
+        zoomStep: VIEWER_ZOOM_STEP,
+      }
+    : undefined;
   const headerTitle = readyDocument
     ? documentDisplayTitle(readyDocument)
     : viewerState === "auth-required"
@@ -1263,6 +1312,7 @@ export function DocumentViewer({
               <DocumentFrame
                 alt={`${document ? documentDisplayTitle(document) : "Source document"} preview`}
                 src={previewFrameSource}
+                controls={pdfFrameControls}
                 {...(effectiveLoadingDocument
                   ? { state: "loading" as const, loadingLabel: "Preparing PDF preview" }
                   : effectiveViewerError || previewError
@@ -1341,6 +1391,10 @@ export function DocumentViewer({
                         onUrlExpired={handleSignedUrlExpired}
                         onLoadSuccess={handlePdfLoadSuccess}
                         onPageChange={navigateToPage}
+                        fitWidth={pdfFitWidth}
+                        zoom={pdfZoom}
+                        onFitWidthChange={handlePdfFitWidthChange}
+                        onZoomChange={handlePdfZoomChange}
                       />
                     )}
                   </>
@@ -1407,6 +1461,8 @@ export function DocumentViewer({
           reviewingTableFactId={reviewingTableFactId}
           onReviewTableFact={reviewTableFact}
           indexHealth={indexHealth}
+          activePage={activePage}
+          onSelectPage={navigateToPage}
         />
       </section>
       {readyDocument ? (

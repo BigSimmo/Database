@@ -115,7 +115,7 @@ export const panelSubtle =
 export const sourceCard = `${panelSubtle} transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
 export const answerSurface = "rounded-lg bg-transparent";
 export const panel =
-  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--border-strong)]/20 dark:ring-[color:var(--border-strong)]/10";
+  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--ring-highlight)]";
 // Disabled is ENCODED, not faded. `opacity-50` dims the label and the fill
 // together, so a disabled primary stayed a large saturated block that still read
 // as available, and a disabled secondary's label dropped below 4.5:1. Instead:

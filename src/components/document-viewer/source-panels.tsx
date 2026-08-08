@@ -235,8 +235,20 @@ function tableQualityWarnings(image: ImageRow, hasStructuredTable: boolean) {
   return warnings;
 }
 
-export function DocumentImage({ image }: { image: ImageRow }) {
+export function DocumentImage({
+  image,
+  activePage,
+  onSelectPage,
+}: {
+  image: ImageRow;
+  /** When set, highlights figures that belong to the active PDF page. */
+  activePage?: number;
+  /** Jump the PDF reader to this figure's page without remounting the viewer. */
+  onSelectPage?: (page: number) => void;
+}) {
   const endpoint = `/api/images/${image.id}/signed-url`;
+  const pageNumber = typeof image.page_number === "number" && image.page_number >= 1 ? image.page_number : null;
+  const isActivePage = pageNumber !== null && pageNumber === activePage;
 
   const tableHeading = sourceTextForCompactDisplay([image.tableLabel, image.tableTitle].filter(Boolean).join(": "));
   const cleanCaption = image.caption ? sourceTextForCompactDisplay(image.caption) : "";
@@ -314,15 +326,50 @@ export function DocumentImage({ image }: { image: ImageRow }) {
     </figcaption>
   );
   return (
-    <figure className={cn(sourceCard, "overflow-hidden p-3")}>
-      <p className={cn("text-xs font-semibold uppercase tracking-eyebrow", textMuted)}>
-        page {image.page_number ?? "n/a"}
-        {image.image_type ? ` · ${image.image_type.replaceAll("_", " ")}` : ""}
-        {image.tableRole ? ` · ${image.tableRole}` : ""}
-        {image.clinicalUseClass && image.clinicalUseClass !== "clinical_evidence"
-          ? ` · ${image.clinicalUseClass.replaceAll("_", " ")}`
-          : ""}
-      </p>
+    <figure
+      data-testid="document-image"
+      data-page={pageNumber ?? undefined}
+      data-active-page={isActivePage ? "true" : undefined}
+      className={cn(
+        sourceCard,
+        "overflow-hidden p-3",
+        isActivePage && "border-[color:var(--clinical-accent)]/35 ring-1 ring-[color:var(--clinical-accent)]/25",
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        {onSelectPage && pageNumber !== null ? (
+          <button
+            type="button"
+            onClick={() => onSelectPage(pageNumber)}
+            aria-label={`Show PDF page ${pageNumber}`}
+            aria-current={isActivePage ? "page" : undefined}
+            className={cn(
+              "inline-flex min-h-tap items-center rounded-md border px-2.5 text-xs font-semibold uppercase tracking-eyebrow transition",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              isActivePage
+                ? "border-[color:var(--clinical-accent)]/40 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+            )}
+          >
+            page {pageNumber}
+          </button>
+        ) : (
+          <p className={cn("text-xs font-semibold uppercase tracking-eyebrow", textMuted)}>
+            page {image.page_number ?? "n/a"}
+          </p>
+        )}
+        <p className={cn("text-xs font-semibold uppercase tracking-eyebrow", textMuted)}>
+          {[
+            image.image_type ? image.image_type.replaceAll("_", " ") : null,
+            image.tableRole || null,
+            image.clinicalUseClass && image.clinicalUseClass !== "clinical_evidence"
+              ? image.clinicalUseClass.replaceAll("_", " ")
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
       {warnings.length ? (
         <div className="mt-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-2 text-xs leading-5 text-[color:var(--warning)]">
           <p className="font-semibold">Verify table formatting against the source.</p>
