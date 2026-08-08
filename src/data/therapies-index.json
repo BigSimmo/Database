@@ -24,7 +24,9 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": ["ACT"]
+    "aliases": [
+      "ACT"
+    ]
   },
   {
     "slug": "adherence-focused-brief-work-adherence-therapy",
@@ -117,7 +119,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Psychosis", "Eating/body image", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Trauma",
+      "Psychosis",
+      "Eating/body image",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -185,7 +194,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Personality/interpersonal", "Eating/body image", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Personality/interpersonal",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -240,7 +256,9 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": ["BA"]
+    "aliases": [
+      "BA"
+    ]
   },
   {
     "slug": "behavioural-couples-therapy-bct",
@@ -254,8 +272,17 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Substance use", "Crisis/risk", "ACT", "Micro skill"],
-    "aliases": ["BCT"]
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Substance use",
+      "Crisis/risk",
+      "ACT",
+      "Micro skill"
+    ],
+    "aliases": [
+      "BCT"
+    ]
   },
   {
     "slug": "behavioural-couples-therapy-for-substance-use-disorders-bct-sud",
@@ -269,8 +296,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Substance use", "Crisis/risk", "CBT", "Group programme"],
-    "aliases": ["BCT-SUD"]
+    "tags": [
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
+    "aliases": [
+      "BCT-SUD"
+    ]
   },
   {
     "slug": "behavioural-parent-training",
@@ -284,7 +318,16 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Sleep", "Substance use", "Neurodevelopmental", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Sleep",
+      "Substance use",
+      "Neurodevelopmental",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -376,7 +419,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Eating/body image", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Eating/body image",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -391,7 +440,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Eating/body image", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -406,7 +462,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Personality/interpersonal", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Personality/interpersonal",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -524,7 +586,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Neurodevelopmental", "Eating/body image", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Neurodevelopmental",
+      "Eating/body image",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -550,7 +619,9 @@
       "CBT",
       "Single session"
     ],
-    "aliases": ["CAT"]
+    "aliases": [
+      "CAT"
+    ]
   },
   {
     "slug": "cognitive-behavioural-therapy-cbt",
@@ -578,7 +649,9 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": ["CBT"]
+    "aliases": [
+      "CBT"
+    ]
   },
   {
     "slug": "cognitive-behavioural-therapy-for-bipolar-depression-bipolar-relapse-prevention",
@@ -592,7 +665,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Sleep", "Substance use", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Sleep",
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -646,7 +727,9 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": ["CBT-I"]
+    "aliases": [
+      "CBT-I"
+    ]
   },
   {
     "slug": "cognitive-behavioural-therapy-for-psychosis-cbtp",
@@ -673,7 +756,9 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": ["CBTp"]
+    "aliases": [
+      "CBTp"
+    ]
   },
   {
     "slug": "cognitive-processing-therapy-cpt",
@@ -687,8 +772,18 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Psychosis", "Eating/body image", "Crisis/risk", "Emotional regulation", "CBT", "Micro skill"],
-    "aliases": ["CPT"]
+    "tags": [
+      "Trauma",
+      "Psychosis",
+      "Eating/body image",
+      "Crisis/risk",
+      "Emotional regulation",
+      "CBT",
+      "Micro skill"
+    ],
+    "aliases": [
+      "CPT"
+    ]
   },
   {
     "slug": "cognitive-remediation-therapy-crt",
@@ -713,7 +808,9 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": ["CRT"]
+    "aliases": [
+      "CRT"
+    ]
   },
   {
     "slug": "cognitive-stimulation-therapy",
@@ -727,7 +824,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Eating/body image", "Crisis/risk", "ACT", "5-minute intervention"],
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Eating/body image",
+      "Crisis/risk",
+      "ACT",
+      "5-minute intervention"
+    ],
     "aliases": []
   },
   {
@@ -779,7 +883,9 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": ["CT-PTSD"]
+    "aliases": [
+      "CT-PTSD"
+    ]
   },
   {
     "slug": "community-reinforcement-and-family-training-craft",
@@ -793,8 +899,16 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Substance use", "Crisis/risk", "ACT", "Group programme"],
-    "aliases": ["CRAFT"]
+    "tags": [
+      "Mood",
+      "Substance use",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
+    "aliases": [
+      "CRAFT"
+    ]
   },
   {
     "slug": "community-reinforcement-approach",
@@ -835,7 +949,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Psychosis", "Substance use", "Eating/body image", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Trauma",
+      "Psychosis",
+      "Substance use",
+      "Eating/body image",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -901,8 +1023,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Substance use", "CBT", "Multi-session"],
-    "aliases": ["CM"]
+    "tags": [
+      "Substance use",
+      "CBT",
+      "Multi-session"
+    ],
+    "aliases": [
+      "CM"
+    ]
   },
   {
     "slug": "coping-skills-interventions",
@@ -943,7 +1071,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Substance use", "Eating/body image", "Crisis/risk", "ACT", "Micro skill"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Substance use",
+      "Eating/body image",
+      "Crisis/risk",
+      "ACT",
+      "Micro skill"
+    ],
     "aliases": []
   },
   {
@@ -1014,8 +1150,16 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Substance use", "Eating/body image", "Crisis/risk", "CBT", "Micro skill"],
-    "aliases": ["CET"]
+    "tags": [
+      "Substance use",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Micro skill"
+    ],
+    "aliases": [
+      "CET"
+    ]
   },
   {
     "slug": "dbt-skills-groups",
@@ -1174,7 +1318,9 @@
       "DBT",
       "Group programme"
     ],
-    "aliases": ["DBT"]
+    "aliases": [
+      "DBT"
+    ]
   },
   {
     "slug": "dignity-therapy",
@@ -1188,7 +1334,16 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Eating/body image", "Crisis/risk", "Grief/loss", "ACT", "Single session"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Eating/body image",
+      "Crisis/risk",
+      "Grief/loss",
+      "ACT",
+      "Single session"
+    ],
     "aliases": []
   },
   {
@@ -1203,7 +1358,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Eating/body image", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Eating/body image",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -1256,7 +1418,9 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": ["CBT-ED / CBT-E"]
+    "aliases": [
+      "CBT-ED / CBT-E"
+    ]
   },
   {
     "slug": "eating-disorder-focused-focal-psychodynamic-therapy-fpt-for-adult-anorexia-nervosa",
@@ -1278,7 +1442,9 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": ["FPT"]
+    "aliases": [
+      "FPT"
+    ]
   },
   {
     "slug": "ect",
@@ -1292,7 +1458,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Crisis/risk", "Grief/loss", "ACT", "Multi-session"],
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Crisis/risk",
+      "Grief/loss",
+      "ACT",
+      "Multi-session"
+    ],
     "aliases": []
   },
   {
@@ -1334,7 +1507,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Crisis/risk", "Grief/loss", "ACT", "Micro skill"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Crisis/risk",
+      "Grief/loss",
+      "ACT",
+      "Micro skill"
+    ],
     "aliases": []
   },
   {
@@ -1402,8 +1583,18 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Substance use", "Crisis/risk", "CBT", "Group programme"],
-    "aliases": ["ERP"]
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
+    "aliases": [
+      "ERP"
+    ]
   },
   {
     "slug": "exposure-and-response-prevention-for-tics-erp-for-tics",
@@ -1417,8 +1608,16 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Eating/body image", "Pain/somatic", "Crisis/risk", "CBT", "Group programme"],
-    "aliases": ["ERP for Tics"]
+    "tags": [
+      "Eating/body image",
+      "Pain/somatic",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
+    "aliases": [
+      "ERP for Tics"
+    ]
   },
   {
     "slug": "exposure-therapy",
@@ -1491,7 +1690,9 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": ["EMDR"]
+    "aliases": [
+      "EMDR"
+    ]
   },
   {
     "slug": "family-intervention-for-psychosis",
@@ -1505,7 +1706,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Substance use", "Crisis/risk", "Emotional regulation", "CBT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "Emotional regulation",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -1544,7 +1752,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Eating/body image", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -1559,7 +1773,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Eating/body image", "Crisis/risk", "Emotional regulation", "ACT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Eating/body image",
+      "Crisis/risk",
+      "Emotional regulation",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -1574,8 +1796,16 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Eating/body image", "Crisis/risk", "Grief/loss", "CBT", "Group programme"],
-    "aliases": ["FT-AN"]
+    "tags": [
+      "Eating/body image",
+      "Crisis/risk",
+      "Grief/loss",
+      "CBT",
+      "Group programme"
+    ],
+    "aliases": [
+      "FT-AN"
+    ]
   },
   {
     "slug": "family-based-treatment-for-bulimia-nervosa-ft-bn",
@@ -1589,8 +1819,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Eating/body image", "Crisis/risk", "CBT", "Group programme"],
-    "aliases": ["FT-BN"]
+    "tags": [
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
+    "aliases": [
+      "FT-BN"
+    ]
   },
   {
     "slug": "family-focused-psychoeducation-for-bipolar-disorder",
@@ -1628,8 +1865,17 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Substance use", "Crisis/risk", "CBT", "Micro skill"],
-    "aliases": ["FFT-BD"]
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Micro skill"
+    ],
+    "aliases": [
+      "FFT-BD"
+    ]
   },
   {
     "slug": "functional-family-therapy-fft",
@@ -1643,8 +1889,17 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Substance use", "Crisis/risk", "ACT", "Multi-session"],
-    "aliases": ["FFT"]
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "ACT",
+      "Multi-session"
+    ],
+    "aliases": [
+      "FFT"
+    ]
   },
   {
     "slug": "gestalt-therapy",
@@ -1712,7 +1967,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Anxiety", "Trauma", "Neurodevelopmental", "Eating/body image", "Crisis/risk", "CBT", "Micro skill"],
+    "tags": [
+      "Anxiety",
+      "Trauma",
+      "Neurodevelopmental",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Micro skill"
+    ],
     "aliases": []
   },
   {
@@ -1778,7 +2041,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Sleep", "Substance use", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Sleep",
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -1793,7 +2064,16 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Sleep", "Substance use", "Eating/body image", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Sleep",
+      "Substance use",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -1859,7 +2139,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Eating/body image", "Crisis/risk", "Grief/loss", "CBT", "Group programme"],
+    "tags": [
+      "Eating/body image",
+      "Crisis/risk",
+      "Grief/loss",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -1874,7 +2160,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Substance use", "Eating/body image", "Crisis/risk", "CBT", "Multi-session"],
+    "tags": [
+      "Substance use",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Multi-session"
+    ],
     "aliases": []
   },
   {
@@ -1916,7 +2208,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Anxiety", "Eating/body image", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Anxiety",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -1983,7 +2282,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Personality/interpersonal", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Personality/interpersonal",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -1998,8 +2305,17 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Substance use", "Neurodevelopmental", "Crisis/risk", "CBT", "Group programme"],
-    "aliases": ["IMR-Style Interventions"]
+    "tags": [
+      "Psychosis",
+      "Substance use",
+      "Neurodevelopmental",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
+    "aliases": [
+      "IMR-Style Interventions"
+    ]
   },
   {
     "slug": "imagery-rehearsal-therapy-irt-for-nightmare-disorder",
@@ -2013,8 +2329,17 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Psychosis", "Sleep", "Crisis/risk", "CBT", "Group programme"],
-    "aliases": ["IRT"]
+    "tags": [
+      "Trauma",
+      "Psychosis",
+      "Sleep",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
+    "aliases": [
+      "IRT"
+    ]
   },
   {
     "slug": "imagery-rescripting",
@@ -2083,7 +2408,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Psychosis", "Substance use", "Crisis/risk", "CBT", "Multi-session"],
+    "tags": [
+      "Trauma",
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Multi-session"
+    ],
     "aliases": []
   },
   {
@@ -2173,7 +2505,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Anxiety", "Trauma", "Substance use", "Eating/body image", "Pain/somatic", "CBT", "Micro skill"],
+    "tags": [
+      "Anxiety",
+      "Trauma",
+      "Substance use",
+      "Eating/body image",
+      "Pain/somatic",
+      "CBT",
+      "Micro skill"
+    ],
     "aliases": []
   },
   {
@@ -2201,7 +2541,9 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": ["IPSRT"]
+    "aliases": [
+      "IPSRT"
+    ]
   },
   {
     "slug": "interpersonal-psychotherapy-ipt",
@@ -2228,7 +2570,9 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": ["IPT"]
+    "aliases": [
+      "IPT"
+    ]
   },
   {
     "slug": "life-review-therapy-reminiscence-therapy",
@@ -2242,7 +2586,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Crisis/risk", "Grief/loss", "ACT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Crisis/risk",
+      "Grief/loss",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2257,7 +2609,16 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Sleep", "Substance use", "Crisis/risk", "Grief/loss", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Sleep",
+      "Substance use",
+      "Crisis/risk",
+      "Grief/loss",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2272,7 +2633,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Substance use", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2287,8 +2654,17 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Personality/interpersonal", "Substance use", "Eating/body image", "Crisis/risk", "CBT", "Multi-session"],
-    "aliases": ["MANTRA"]
+    "tags": [
+      "Personality/interpersonal",
+      "Substance use",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Multi-session"
+    ],
+    "aliases": [
+      "MANTRA"
+    ]
   },
   {
     "slug": "meaning-centred-psychotherapy",
@@ -2339,7 +2715,9 @@
       "DBT",
       "Group programme"
     ],
-    "aliases": ["MBT"]
+    "aliases": [
+      "MBT"
+    ]
   },
   {
     "slug": "metacognitive-therapy-mct",
@@ -2365,7 +2743,9 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": ["MCT"]
+    "aliases": [
+      "MCT"
+    ]
   },
   {
     "slug": "mindfulness-based-cognitive-therapy-mbct",
@@ -2390,7 +2770,9 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": ["MBCT"]
+    "aliases": [
+      "MBCT"
+    ]
   },
   {
     "slug": "mindfulness-based-relapse-prevention-mbrp",
@@ -2415,7 +2797,9 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": ["MBRP"]
+    "aliases": [
+      "MBRP"
+    ]
   },
   {
     "slug": "mindfulness-based-stress-reduction",
@@ -2480,8 +2864,18 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Anxiety", "Sleep", "Substance use", "Crisis/risk", "CBT", "Group programme"],
-    "aliases": ["MBTI"]
+    "tags": [
+      "Mood",
+      "Anxiety",
+      "Sleep",
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
+    "aliases": [
+      "MBTI"
+    ]
   },
   {
     "slug": "mother-infant-therapy-mother-infant-psychotherapy",
@@ -2520,8 +2914,18 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Psychosis", "Substance use", "Neurodevelopmental", "Crisis/risk", "CBT", "Single session"],
-    "aliases": ["MET"]
+    "tags": [
+      "Trauma",
+      "Psychosis",
+      "Substance use",
+      "Neurodevelopmental",
+      "Crisis/risk",
+      "CBT",
+      "Single session"
+    ],
+    "aliases": [
+      "MET"
+    ]
   },
   {
     "slug": "motivational-interviewing",
@@ -2559,8 +2963,17 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Anxiety", "Psychosis", "Substance use", "Crisis/risk", "CBT", "Multi-session"],
-    "aliases": ["MI"]
+    "tags": [
+      "Anxiety",
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Multi-session"
+    ],
+    "aliases": [
+      "MI"
+    ]
   },
   {
     "slug": "multi-family-interventions",
@@ -2574,7 +2987,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Personality/interpersonal", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Personality/interpersonal",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2613,8 +3032,16 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Substance use", "Eating/body image", "Crisis/risk", "CBT", "Group programme"],
-    "aliases": ["MST"]
+    "tags": [
+      "Substance use",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
+    "aliases": [
+      "MST"
+    ]
   },
   {
     "slug": "narrative-exposure-therapy-net",
@@ -2638,7 +3065,9 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": ["NET"]
+    "aliases": [
+      "NET"
+    ]
   },
   {
     "slug": "narrative-therapy",
@@ -2652,7 +3081,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Personality/interpersonal", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Personality/interpersonal",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2667,7 +3104,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Psychosis", "Substance use", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Trauma",
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2737,8 +3181,17 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Neurodevelopmental", "Crisis/risk", "ACT", "Group programme"],
-    "aliases": ["PMT"]
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Neurodevelopmental",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
+    "aliases": [
+      "PMT"
+    ]
   },
   {
     "slug": "parent-training",
@@ -2752,7 +3205,12 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Neurodevelopmental", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Neurodevelopmental",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2767,7 +3225,12 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Neurodevelopmental", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Neurodevelopmental",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2782,7 +3245,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Neurodevelopmental", "Eating/body image", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Trauma",
+      "Neurodevelopmental",
+      "Eating/body image",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2797,8 +3267,17 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Neurodevelopmental", "Crisis/risk", "ACT", "Multi-session"],
-    "aliases": ["PCIT"]
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Neurodevelopmental",
+      "Crisis/risk",
+      "ACT",
+      "Multi-session"
+    ],
+    "aliases": [
+      "PCIT"
+    ]
   },
   {
     "slug": "peer-recovery-interventions",
@@ -2812,7 +3291,12 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Substance use", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Substance use",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2827,7 +3311,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Eating/body image", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -2978,7 +3468,9 @@
       "CBT",
       "Single session"
     ],
-    "aliases": ["PST"]
+    "aliases": [
+      "PST"
+    ]
   },
   {
     "slug": "process-groups",
@@ -3018,8 +3510,18 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Substance use", "Crisis/risk", "CBT", "Micro skill"],
-    "aliases": ["PE"]
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "CBT",
+      "Micro skill"
+    ],
+    "aliases": [
+      "PE"
+    ]
   },
   {
     "slug": "psychoanalysis",
@@ -3109,7 +3611,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Eating/body image", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -3124,7 +3632,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Personality/interpersonal", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Personality/interpersonal",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -3163,7 +3679,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Psychosis", "Substance use", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Trauma",
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -3178,7 +3701,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Substance use", "Eating/body image", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Substance use",
+      "Eating/body image",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -3220,7 +3750,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Psychosis", "Substance use", "Crisis/risk", "ACT", "Group programme"],
+    "tags": [
+      "Trauma",
+      "Psychosis",
+      "Substance use",
+      "Crisis/risk",
+      "ACT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -3235,7 +3772,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Substance use", "Neurodevelopmental", "Crisis/risk", "Grief/loss", "CBT", "Group programme"],
+    "tags": [
+      "Psychosis",
+      "Substance use",
+      "Neurodevelopmental",
+      "Crisis/risk",
+      "Grief/loss",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -3379,7 +3924,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Trauma", "Psychosis", "Crisis/risk", "Grief/loss", "ACT", "Multi-session"],
+    "tags": [
+      "Trauma",
+      "Psychosis",
+      "Crisis/risk",
+      "Grief/loss",
+      "ACT",
+      "Multi-session"
+    ],
     "aliases": []
   },
   {
@@ -3394,7 +3946,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Crisis/risk", "ACT", "Micro skill"],
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Crisis/risk",
+      "ACT",
+      "Micro skill"
+    ],
     "aliases": []
   },
   {
@@ -3488,7 +4046,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Neurodevelopmental", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Neurodevelopmental",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -3514,7 +4080,9 @@
       "CBT",
       "Single session"
     ],
-    "aliases": ["STPP"]
+    "aliases": [
+      "STPP"
+    ]
   },
   {
     "slug": "short-term-psychodynamic-psychotherapy-for-depression-stpp",
@@ -3540,7 +4108,9 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": ["STPP"]
+    "aliases": [
+      "STPP"
+    ]
   },
   {
     "slug": "skills-training-groups",
@@ -3579,7 +4149,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Anxiety", "Sleep", "Eating/body image", "Crisis/risk", "CBT", "Multi-session"],
+    "tags": [
+      "Mood",
+      "Anxiety",
+      "Sleep",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Multi-session"
+    ],
     "aliases": []
   },
   {
@@ -3627,7 +4205,9 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": ["SST"]
+    "aliases": [
+      "SST"
+    ]
   },
   {
     "slug": "social-anxiety-focused-cbt",
@@ -3668,7 +4248,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Anxiety", "Sleep", "Neurodevelopmental", "Eating/body image", "ACT", "Multi-session"],
+    "tags": [
+      "Anxiety",
+      "Sleep",
+      "Neurodevelopmental",
+      "Eating/body image",
+      "ACT",
+      "Multi-session"
+    ],
     "aliases": []
   },
   {
@@ -3731,8 +4318,15 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Eating/body image", "Crisis/risk", "CBT", "Multi-session"],
-    "aliases": ["SSCM"]
+    "tags": [
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Multi-session"
+    ],
+    "aliases": [
+      "SSCM"
+    ]
   },
   {
     "slug": "stabilisation-focused-trauma-preparation",
@@ -3788,7 +4382,9 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": ["Skills Training in Affective and Interpersonal Regulation"]
+    "aliases": [
+      "Skills Training in Affective and Interpersonal Regulation"
+    ]
   },
   {
     "slug": "strengths-based-case-management",
@@ -3802,7 +4398,12 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Substance use", "Crisis/risk", "ACT", "Single session"],
+    "tags": [
+      "Substance use",
+      "Crisis/risk",
+      "ACT",
+      "Single session"
+    ],
     "aliases": []
   },
   {
@@ -3817,7 +4418,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Crisis/risk", "ACT", "Multi-session"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Crisis/risk",
+      "ACT",
+      "Multi-session"
+    ],
     "aliases": []
   },
   {
@@ -3946,7 +4554,9 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": ["Supported digital trauma-focused CBT"]
+    "aliases": [
+      "Supported digital trauma-focused CBT"
+    ]
   },
   {
     "slug": "supported-education",
@@ -3986,8 +4596,17 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Substance use", "Eating/body image", "Emotional regulation", "CBT", "Multi-session"],
-    "aliases": ["IPS"]
+    "tags": [
+      "Psychosis",
+      "Substance use",
+      "Eating/body image",
+      "Emotional regulation",
+      "CBT",
+      "Multi-session"
+    ],
+    "aliases": [
+      "IPS"
+    ]
   },
   {
     "slug": "supportive-psychotherapy",
@@ -4052,7 +4671,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Psychosis", "Eating/body image", "ACT", "Single session"],
+    "tags": [
+      "Mood",
+      "Psychosis",
+      "Eating/body image",
+      "ACT",
+      "Single session"
+    ],
     "aliases": []
   },
   {
@@ -4158,7 +4783,9 @@
       "DBT",
       "Multi-session"
     ],
-    "aliases": ["TFP"]
+    "aliases": [
+      "TFP"
+    ]
   },
   {
     "slug": "trauma-focused-cognitive-behavioural-therapy-tf-cbt",
@@ -4183,7 +4810,9 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": ["TF-CBT"]
+    "aliases": [
+      "TF-CBT"
+    ]
   },
   {
     "slug": "trauma-informed-skills-work",
@@ -4222,8 +4851,16 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Substance use", "Eating/body image", "Crisis/risk", "CBT", "Group programme"],
-    "aliases": ["TSF"]
+    "tags": [
+      "Substance use",
+      "Eating/body image",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
+    "aliases": [
+      "TSF"
+    ]
   },
   {
     "slug": "values-based-therapies",
@@ -4237,7 +4874,14 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Mood", "Trauma", "Psychosis", "Crisis/risk", "CBT", "Group programme"],
+    "tags": [
+      "Mood",
+      "Trauma",
+      "Psychosis",
+      "Crisis/risk",
+      "CBT",
+      "Group programme"
+    ],
     "aliases": []
   },
   {
@@ -4252,7 +4896,13 @@
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "tags": ["Psychosis", "Substance use", "Grief/loss", "CBT", "Micro skill"],
+    "tags": [
+      "Psychosis",
+      "Substance use",
+      "Grief/loss",
+      "CBT",
+      "Micro skill"
+    ],
     "aliases": []
   },
   {
