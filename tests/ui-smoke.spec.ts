@@ -1623,7 +1623,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("phone mode menu opens as a scrollable bottom sheet with the full mode list", async ({ page }) => {
+  test("phone mode menu opens tall enough to show the full mode list without scrolling", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/");
@@ -1641,16 +1641,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeTrigger).toHaveAttribute("aria-expanded", "true");
     await expect(appModeTrigger).toHaveAttribute("aria-controls", "app-mode-menu");
 
-    // Full list must be present (not clipped out of the DOM by the old max-height panel).
+    // Full list must be present and visible without sheet-body scrolling on this viewport.
     const modeOptions = appModeMenu.getByRole("menuitemradio");
-    expect(await modeOptions.count()).toBeGreaterThanOrEqual(10);
+    const modeCount = await modeOptions.count();
+    expect(modeCount).toBeGreaterThanOrEqual(10);
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
+    await expect(modeOptions.first()).toBeInViewport();
+    await expect(modeOptions.nth(modeCount - 1)).toBeInViewport();
 
-    // Scroll the sheet body so a lower mode is interactable, then select it.
+    const sheetBodyNeedsScroll = await modeSheet.evaluate((panel) => {
+      const body = [...panel.querySelectorAll("div")].find((element) => {
+        const { overflowY } = getComputedStyle(element);
+        return overflowY === "auto" || overflowY === "scroll";
+      });
+      if (!body) return true;
+      return body.scrollHeight > body.clientHeight + 1;
+    });
+    expect(sheetBodyNeedsScroll).toBe(false);
+
     // Tools is canonical at /tools (PT-11); selecting it navigates off the dashboard.
     const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
-    await toolsMode.scrollIntoViewIfNeeded();
     await expect(toolsMode).toBeVisible();
     await toolsMode.click();
 
