@@ -70,6 +70,21 @@ describe("DocumentFrame contract", () => {
     expect(frameSource).toContain('from "@/components/document-viewer/viewer-zoom"');
   });
 
+  it("keeps pinch live in the default fit mode and rasters inside the canvas budget", () => {
+    // Pinch must not be re-gated on `!fitWidth`: fit is the viewer's default, so
+    // that gate made the default state ungesturable, against the blocking phone
+    // clause in docs/design-system/COMPONENTS.md.
+    expect(pdfOwnerSource).toContain("pinchZoom: pagesReady,");
+    expect(pdfOwnerSource).not.toContain("pinchZoom: pagesReady && !fitWidth");
+    // Drag-to-pan stays gated — fit mode needs native momentum scrolling.
+    expect(pdfOwnerSource).toContain("pan: pagesReady && !fitWidth");
+
+    // WebKit paints nothing above ~2^24 canvas pixels; a flat device-density
+    // output scale asked for three times that at maximum zoom on an iPhone.
+    expect(pdfOwnerSource).toContain("resolveCanvasRasterPlan");
+    expect(pdfOwnerSource).not.toMatch(/Math\.min\(MAX_RENDER_SCALE, window\.devicePixelRatio/);
+  });
+
   it("announces canvas-level PDF preview failures after the frame is already ready", () => {
     // Visible fallback stays non-live; LiveAnnouncer owns the assertive SR path (#219).
     expect(pdfOwnerSource).not.toContain('role="alert"');

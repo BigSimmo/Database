@@ -13,6 +13,7 @@ import { ExternalLink, FileText, Loader2, RefreshCw } from "lucide-react";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 
 import { cn, floatingControl } from "@/components/ui-primitives";
+import { resolveCanvasRasterPlan } from "@/components/document-viewer/canvas-raster-budget";
 import { announce } from "@/components/ui/live-announcer";
 import { useViewerGestures } from "@/components/document-viewer/use-viewer-gestures";
 import {
@@ -26,7 +27,6 @@ import {
 const secondaryButton = floatingControl;
 
 const MAX_FIT_SCALE = 2.8;
-const MAX_RENDER_SCALE = 2.5;
 
 // A signed URL that has passed its (10-min) TTL fails pdf.js with an auth/HTTP
 // error rather than a parse error. Detect those so the parent can re-issue a
@@ -249,7 +249,15 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
           ? Math.min(MAX_FIT_SCALE, Math.max(VIEWER_MIN_ZOOM, availableWidth / baseViewport.width))
           : renderZoom;
         const viewportScale = Math.min(VIEWER_MAX_ZOOM, Math.max(VIEWER_MIN_ZOOM, requestedScale));
-        const outputScale = Math.min(MAX_RENDER_SCALE, window.devicePixelRatio || 1);
+        // WebKit paints nothing at all above ~2^24 canvas pixels, and this page
+        // at full device density can ask for three times that. Give up raster
+        // density before layout size — a soft page reads, a blank one does not.
+        const { outputScale } = resolveCanvasRasterPlan({
+          baseWidth: baseViewport.width,
+          baseHeight: baseViewport.height,
+          viewportScale,
+          devicePixelRatio: window.devicePixelRatio,
+        });
         const viewport = pdfPage.getViewport({ scale: viewportScale * outputScale, rotation });
         const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
@@ -328,12 +336,23 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     holder.scrollTop -= dy;
   }, []);
 
-  // Wheel/pinch zoom and drag-to-pan. Pointer gestures (pinch + drag) only take
-  // over when zoomed; in fit mode the holder keeps native momentum scrolling.
+  // Pinch is live in fit mode too, which is the viewer's default state. It used
+  // to be gated on `!fitWidth`, so a two-finger pinch on a freshly opened
+  // document did nothing at all: the holder's `touch-action: pan-y` suppressed
+  // the browser's own pinch-zoom, and this hook declined to handle it. That left
+  // no way to magnify a page by gesture without first finding a zoom button, and
+  // it contradicted the blocking phone clause in docs/design-system/COMPONENTS.md.
+  //
+  // The first pinch delta drops fit mode (see `handleZoomByFactor`), which
+  // switches the holder to `touch-action: none` — so the browser can only
+  // contend for the opening moment of the gesture, never the rest of it.
+  //
+  // Drag-to-pan stays gated on `!fitWidth`: in fit mode the holder is a scroll
+  // container and must keep native momentum scrolling.
   const { handlers: gestureHandlers } = useViewerGestures({
     targetRef: holderRef,
     wheelZoom: pagesReady,
-    pinchZoom: pagesReady && !fitWidth,
+    pinchZoom: pagesReady,
     pan: pagesReady && !fitWidth,
     touchPan: true,
     onZoomBy: handleZoomByFactor,
