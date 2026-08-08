@@ -88,7 +88,7 @@ describe("SearchResultsHeaderBand", () => {
   });
 
   // Initial loading is the same untrue-zero risk: forms forces matches to [] until
-  // the registry is ready, so ResultTabs would assert "Forms 0" under Searching….
+  // the registry is ready, so a count-bearing page control would assert "0" under Searching….
   it("drops count-bearing page controls while loading", () => {
     render(
       <SearchResultsHeaderBand

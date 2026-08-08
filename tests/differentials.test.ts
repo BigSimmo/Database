@@ -9,6 +9,7 @@ import {
 import { staleSeededPresentations } from "@/lib/differential-seed";
 import { isDifferentialMetadataArtifactTitle } from "@/lib/differential-snapshot";
 import {
+  buildAdHocPresentationWorkflow,
   composeDifferentialSearchResults,
   differentialDiagnosesCards,
   differentialPresentations,
@@ -37,13 +38,55 @@ describe("presentation workflow routing", () => {
     expect(getPresentationWorkflowForDiagnosisIds([])).toBeNull();
   });
 
-  it("forwards only diagnoses supported by the selected workflow", () => {
+  it("keeps every valid diagnosis when selections span presentations", () => {
     const selection = getPresentationWorkflowSelectionForDiagnosisIds([
       "wernicke-encephalopathy",
       "major-depressive-disorder",
     ]);
-    expect(selection?.workflow.id).toBe("acute-confusion-encephalopathy");
-    expect(selection?.diagnosisIds).toEqual(["wernicke-encephalopathy"]);
+    expect(selection?.kind).toBe("ad-hoc");
+    expect(selection?.workflow.id).toBe("selected-differentials");
+    expect(selection?.diagnosisIds).toEqual(["wernicke-encephalopathy", "major-depressive-disorder"]);
+    expect(selection?.workflow.candidates.every((candidate) => candidate.selected)).toBe(true);
+  });
+
+  it("preserves the Pain search cross-presentation pair into an ad-hoc compare", () => {
+    const selection = getPresentationWorkflowSelectionForDiagnosisIds([
+      "medical-gi-endocrine-painful-organic-cause",
+      "bpsd-as-unmet-need-delirium-pain-mimic",
+    ]);
+    expect(selection?.kind).toBe("ad-hoc");
+    expect(selection?.diagnosisIds).toEqual([
+      "medical-gi-endocrine-painful-organic-cause",
+      "bpsd-as-unmet-need-delirium-pain-mimic",
+    ]);
+    expect(selection?.workflow.candidates.map((candidate) => candidate.slug)).toEqual([
+      "medical-gi-endocrine-painful-organic-cause",
+      "bpsd-as-unmet-need-delirium-pain-mimic",
+    ]);
+  });
+
+  it("routes same-presentation selections to the hosting catalogue workflow", () => {
+    const selection = getPresentationWorkflowSelectionForDiagnosisIds([
+      "anorexia-nervosa",
+      "bulimia-nervosa-binge-purge-pattern",
+    ]);
+    expect(selection?.kind).toBe("presentation");
+    expect(selection?.workflow.id).toBe("food-refusal-not-eating-eating-disorder-spectrum");
+    expect(selection?.diagnosisIds).toEqual(["anorexia-nervosa", "bulimia-nervosa-binge-purge-pattern"]);
+  });
+
+  it("omits unsupported ad-hoc compare criteria so cross-presentation rows are not placeholders", () => {
+    const workflow = buildAdHocPresentationWorkflow([
+      "medical-gi-endocrine-painful-organic-cause",
+      "bpsd-as-unmet-need-delirium-pain-mimic",
+    ]);
+    expect(workflow).not.toBeNull();
+    expect(workflow?.criteria.map((criterion) => criterion.id)).not.toContain("what-argues-against");
+    for (const candidate of workflow?.candidates ?? []) {
+      expect(candidate.comparison["what-argues-against"]).toBeUndefined();
+      const nonPlaceholder = Object.values(candidate.comparison).filter((cell) => cell !== "Review locally.");
+      expect(nonPlaceholder.length).toBeGreaterThan(0);
+    }
   });
 });
 
