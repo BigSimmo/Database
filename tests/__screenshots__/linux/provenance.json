@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 2,
+  "platform": "linux",
+  "runnerImage": "ubuntu-24.04",
+  "candidateSourceHead": "bc33d414e915472d7591d08d085696c4384b23b1",
+  "source": {
+    "kind": "hosted-ci-artifact",
+    "runId": "31251091603",
+    "artifactName": "visual-baseline-31251091603",
+    "candidateSourceHead": "bc33d414e915472d7591d08d085696c4384b23b1"
+  },
+  "review": {
+    "status": "approved",
+    "reviewerType": "human",
+    "reviewedBy": "BigSimmo",
+    "reviewedAt": "2026-08-08T11:07:51Z",
+    "candidateSourceHead": "bc33d414e915472d7591d08d085696c4384b23b1"
+  },
+  "candidates": [
+    {
+      "id": "dashboard-shell",
+      "path": "tests/__screenshots__/linux/dashboard-shell.png",
+      "sha256": "dc59e0104e4c752f418db88a46acc9f54f07e22e2c6006eaa85af828031e411d",
+      "width": 1196,
+      "height": 900
+    },
+    {
+      "id": "dashboard-shell-phone",
+      "path": "tests/__screenshots__/linux/dashboard-shell-phone.png",
+      "sha256": "1bcac08d3be07a81ebf155f2502e986983a62efd24e8a3ef1f06a6d897407da7",
+      "width": 390,
+      "height": 820
+    },
+    {
+      "id": "search-results-band",
+      "path": "tests/__screenshots__/linux/search-results-band.png",
+      "sha256": "46d41e15c3b622501df9c65f67abdfbb069bb292ebb3f4ddd1a09d0ee823ae4a",
+      "width": 1148,
+      "height": 115
+    },
+    {
+      "id": "search-results-band-phone",
+      "path": "tests/__screenshots__/linux/search-results-band-phone.png",
+      "sha256": "b703eecae02a69f58bf127386653a37f06d2b7e131d2b22bb749a7f059b457ad",
+      "width": 366,
+      "height": 89
+    },
+    {
+      "id": "document-viewer",
+      "path": "tests/__screenshots__/linux/document-viewer.png",
+      "sha256": "ea3050b274c3bf81f7e6c787b79fa2803ef83c844abea409203275390451b8af",
+      "width": 1196,
+      "height": 2903
+    },
+    {
+      "id": "therapy-compass-home",
+      "path": "tests/__screenshots__/linux/therapy-compass-home.png",
+      "sha256": "e3030324162bcba8051299281475497c67a5d732c5a3f28fd7728283e1b3bf83",
+      "width": 1196,
+      "height": 868
+    }
+  ]
+}

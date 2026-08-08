@@ -153,13 +153,8 @@ async function settle(page: Page, target: BaselineTarget): Promise<Locator> {
  * Adopting a baseline means deleting its name from this list in the same commit
  * that adds the PNG. `declares no baseline it already has` below fails if the two
  * ever disagree, so the list cannot rot into a permanent exemption.
- *
- * Empty since the `linux/` baselines were adopted from CI run 31251091603. Every
- * target now compares, and a missing golden is once again unambiguously a fault.
- * Add a name back only when introducing a NEW target, and delete it again in the
- * commit that adopts that target's PNG.
  */
-const AWAITING_BASELINE: ReadonlySet<string> = new Set<string>();
+const AWAITING_BASELINE: ReadonlySet<string> = new Set([]);
 
 /**
  * Where a candidate PNG is written when no baseline exists.

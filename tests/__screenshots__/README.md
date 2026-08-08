@@ -56,32 +56,3 @@ absorbs antialiasing, not layout that has not settled.
 
 Comparison is advisory until the jobs are flipped off `continue-on-error`. Until
 then a real regression shows as a red _artifact_, not a red _check_.
-
-## Adopted baselines
-
-All six `linux/` baselines were adopted from CI run **31251091603** — a `push` on
-`main` at `bc33d414e`, artifact `visual-baseline-31251091603`. `AWAITING_BASELINE`
-in `tests/ui-visual-baseline.spec.ts` is now empty, so every target compares and a
-missing golden is unambiguously a fault again.
-
-Stability was measured rather than assumed: five of the six candidates are
-**byte-identical** (SHA-256) to those from the earlier independent run
-`31249978408` at `2069b1f5c`. Only `document-viewer` differs, and that pair of runs
-straddles #1705, which changed `DocumentViewer.tsx`. So the suite reproduces its
-own output across runs — the "record, then re-run" check above, satisfied by two
-real CI runs rather than a local repeat.
-
-**Known limitation of the `document-viewer` golden.** That target clips
-`#main-content`, which is roughly 2900px tall against a 900px viewport, and it
-contains viewport-pinned chrome: the `sm:sticky sm:top-0` document header and the
-`sm:fixed` search composer. Both are composited into the stitched capture partway
-down the image, overlapping the content behind them, and their position tracks the
-total content height. The capture is deterministic, so the comparison is still
-meaningful, but a content-height change anywhere above them moves the pinned chrome
-and inflates the diff. This predates #1705 — the earlier run shows the same
-overlap. Narrowing that target's clip, or masking the pinned chrome, would make it
-a quieter gate.
-
-Promotion to a required check is deliberately NOT part of this adoption: the
-workflow comment asks for a soak first, and adding `visual-baseline` to
-`pr-required` and dropping `continue-on-error` happen together in a later edit.
