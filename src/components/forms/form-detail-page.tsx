@@ -341,7 +341,7 @@ function ActSectionsCard({
             onClick={() => onOpenSection(entry.section)}
             className={cn(
               "inline-flex min-h-12 min-w-12 items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-semibold text-[color:var(--text-heading)]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--surface-lux)]",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             )}
             aria-label={`Section ${entry.section}: ${entry.title}. Open detail.`}
           >
