@@ -208,6 +208,22 @@ export function buildDocumentClinicalSummaryModel(document: ClinicalDocument): D
   };
 }
 
+/**
+ * Whether a built model has anything worth a card.
+ *
+ * A `document_summaries` row is not the same thing as usable content: the model
+ * discards placeholder text (see `usefulSummaryText`), so a stored row can still
+ * yield nothing to render.
+ *
+ * This deliberately does not feed `buildDocumentSectionIndex`. The section index's
+ * `source-summary` entry anchors the rail's document-profile panel, which renders
+ * its label badges whether or not a summary was indexed — so gating the nav entry
+ * on summary text would hide a section that is genuinely on the page.
+ */
+export function documentClinicalSummaryHasContent(model: DocumentClinicalSummaryModel): boolean {
+  return Boolean(model.summary) || model.priorities.length > 0;
+}
+
 function supportLabel(support: DocumentSummarySupportLevel | null) {
   if (support === "direct") return "Direct support";
   if (support === "partial") return "Partial support";
@@ -354,6 +370,7 @@ export function DocumentClinicalSummary({
   compact?: boolean;
 }) {
   const model = buildDocumentClinicalSummaryModel(document);
+  const hasContent = documentClinicalSummaryHasContent(model);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [prioritiesExpanded, setPrioritiesExpanded] = useState(!compact);
   const [prevCompact, setPrevCompact] = useState(compact);
@@ -373,6 +390,11 @@ export function DocumentClinicalSummary({
     setMobilePrioritiesOpen(false);
     onPageChange(page);
   }
+
+  // Render nothing rather than a gradient header, an icon and a heading wrapped
+  // around "not been indexed for this document yet". On a phone that shell cost
+  // most of the first viewport to say the document has no summary.
+  if (!hasContent) return null;
 
   return (
     <>

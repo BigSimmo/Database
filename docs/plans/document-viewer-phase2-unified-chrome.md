@@ -52,8 +52,8 @@ Independent slices keep each failure class attributable and revertible.
 
 ```
 DocumentViewer
-  └─ DocumentFrame (state + optional controls)
-       ├─ PdfCanvasViewer | NativePdfEmbed   // PDF pixels + page/rotate/fullscreen owner
+  └─ DocumentFrame (state + the viewer's one toolbar + fullscreen)
+       ├─ PdfCanvasViewer                    // PDF pixels only; no chrome
        └─ NonPdfSourcePreview                // image/text/download
             └─ ImageLightbox (URL or endpoint)
 

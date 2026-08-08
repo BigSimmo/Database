@@ -54,6 +54,11 @@ describe("PWA manifest and public bootstrap resources", () => {
         expect(url.searchParams.has(forbiddenKey)).toBe(false);
       }
     }
+
+    // Medication owns `/medications` now; bare `/?mode=prescribing` is the shared
+    // home with Medication preselected, not the Medication Start-here surface.
+    const medicationShortcut = appManifest.shortcuts?.find((shortcut) => shortcut.short_name === "Medication");
+    expect(medicationShortcut?.url).toBe("/medications?focus=1");
   });
 
   it("declares conservative launch and display fallbacks", () => {

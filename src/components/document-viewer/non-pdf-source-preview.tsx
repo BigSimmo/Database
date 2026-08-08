@@ -17,7 +17,7 @@ const placeholderSurface =
 /**
  * Inline preview for non-PDF source documents.
  *
- * PDFs render in PdfCanvasViewer/NativePdfEmbed; everything else lands here:
+ * PDFs render in PdfCanvasViewer; everything else lands here:
  * - image/* → inline stage + shared ImageLightbox (same gestures as rail crops),
  * - text/* → a pointer to the already-extracted indexed text below,
  * - other (DOCX/XLSX/…) → an honest "download to view" affordance,
@@ -157,11 +157,16 @@ function InlineImagePreview({
   return (
     <div className="flex flex-col items-center gap-3 bg-[color:var(--surface-inset)] p-2 sm:p-3">
       <div className="relative w-full min-h-64 overflow-hidden bg-[color:var(--surface-inset)] sm:min-h-72">
+        {/* Eager, not lazy: for an image-source document this *is* the document,
+            and it sits above the fold. Lazy-loading it puts the largest element
+            on the page behind the browser's own lazy threshold and delays LCP
+            (performance-image-cwv-audit-2026-08-02, LCP-1/LL-1). `fetchPriority`
+            says the same thing to the preload scanner. */}
         <img
           src={signedUrl}
           alt={title}
-          loading="lazy"
           decoding="async"
+          fetchPriority="high"
           onError={() => setFailed(true)}
           className="mx-auto max-h-[min(70vh,36rem)] w-full object-contain"
         />

@@ -154,6 +154,38 @@ describe("useViewerGestures pointer pan/pinch (jsdom)", () => {
   });
 });
 
+// The PDF surface opens in fit-width mode and used to pass `pinchZoom: !fitWidth`,
+// so a two-finger pinch on a freshly opened document reached neither the viewer
+// (the hook declined it) nor the browser (the holder's `touch-action: pan-y`
+// suppressed native pinch-zoom). Fit mode is the default, so that was the
+// default. These pin the enabled/disabled contract the PDF surface relies on.
+describe("useViewerGestures pinch gating", () => {
+  function pinch(element: HTMLElement) {
+    fireEvent.pointerDown(element, { pointerId: 1, clientX: 100, clientY: 100, isPrimary: true });
+    fireEvent.pointerDown(element, { pointerId: 2, clientX: 200, clientY: 100 });
+    fireEvent.pointerMove(element, { pointerId: 2, clientX: 260, clientY: 100 });
+  }
+
+  it("reports a spreading two-finger pinch as a zoom-in when enabled", () => {
+    const onZoomBy = vi.fn();
+    render(<GestureHarness onZoomBy={onZoomBy} pinchZoom pan={false} touchPan />);
+
+    pinch(stage());
+
+    expect(onZoomBy).toHaveBeenCalledTimes(1);
+    expect(onZoomBy.mock.calls[0][0]).toBeGreaterThan(1);
+  });
+
+  it("stays silent when pinch is disabled", () => {
+    const onZoomBy = vi.fn();
+    render(<GestureHarness onZoomBy={onZoomBy} pinchZoom={false} pan={false} touchPan />);
+
+    pinch(stage());
+
+    expect(onZoomBy).not.toHaveBeenCalled();
+  });
+});
+
 describe("useViewerGestures double tap (jsdom)", () => {
   /**
    * Double tap is opt-in. The PDF canvas is the hook's other consumer and has
