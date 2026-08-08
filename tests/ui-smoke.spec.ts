@@ -3881,8 +3881,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(requestCounts.batches).toBe(0);
     expect(requestCounts.quality).toBe(0);
     await page.keyboard.press("Escape");
+    await expect(page.getByTestId("scope-command-popover")).toHaveCount(0);
+    // Scope restore can land on the composer + trigger; the command listbox must
+    // stay closed so it cannot cover Start-here actions (Browse library).
+    await expect(page.getByRole("listbox", { name: /search suggestions/i })).toHaveCount(0);
 
     await switchToDocumentSearchMode(page);
+    await expect(page.getByRole("listbox", { name: /search suggestions/i })).toHaveCount(0);
     await page
       .getByRole("button", { name: /Browse library/i })
       .first()
