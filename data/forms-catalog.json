@@ -81,18 +81,18 @@
       },
       "priorityFacts": {
         "clock": {
-          "title": "Usually 72 hours",
-          "detail": "From referral",
+          "title": "Usually 72 hours from referral",
+          "detail": "Within assessment window · 48h cue",
           "body": "Usually 72 hours from referral. The referral is made within the required assessment window. Clock cues on the form pathway include within 48 hours and 72 hours — record the start time, expiry or review point, and next owner."
         },
         "authority": {
-          "title": "MP or AMHP",
-          "detail": "Where the Act permits",
+          "title": "MP or AMHP (where Act permits)",
+          "detail": "Psychiatrist examination only",
           "body": "Medical practitioner or authorised mental health practitioner where the Act permits. Authorises referral for examination by a psychiatrist. Does not by itself authorise treatment, detention, transport, restraint, seclusion or force."
         },
         "criteria": {
-          "title": "Reasonable suspicion of ITO criteria",
-          "detail": "Illness, risk, capacity, least restrictive",
+          "title": "Reasonable suspicion ITO criteria may be met",
+          "detail": "Document illness · risk · capacity · least restrictive",
           "body": "Reasonable suspicion that involuntary treatment order criteria may be met, with illness features, risk, capacity and least restrictive reasoning documented."
         }
       },

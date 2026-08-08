@@ -238,7 +238,7 @@ function summaryCardsForDetails(details: FormCatalogDetails, availabilityLabel: 
     cards.push({
       id: "act-sections",
       label: "Act sections",
-      title: "MHA 2014",
+      title: "MHA 2014 referral pathway",
       detail: details.actSections.map((entry) => entry.section).join(" · "),
     });
     return cards;

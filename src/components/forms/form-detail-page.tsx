@@ -327,10 +327,13 @@ function ActSectionsCard({
   const groupLabelId = useId();
   return (
     <DetailCardShell card={card}>
-      <h3 id={groupLabelId} className="sr-only">
-        Mental Health Act 2014 sections
+      <h3
+        id={groupLabelId}
+        className="text-xs font-semibold leading-tight text-[color:var(--text-heading)] sm:text-sm sm:leading-5"
+      >
+        {displayText(card.title, "MHA 2014 referral pathway")}
       </h3>
-      <div className="flex flex-wrap gap-1" role="group" aria-labelledby={groupLabelId}>
+      <div className="mt-1 flex flex-wrap gap-1" role="group" aria-labelledby={groupLabelId}>
         {sections.map((entry) => (
           <button
             key={entry.section}
@@ -346,7 +349,9 @@ function ActSectionsCard({
           </button>
         ))}
       </div>
-      <p className={cn("mt-auto pt-1 text-2xs font-medium leading-4 sm:pt-1.5", textMuted)}>Tap a section</p>
+      <p className={cn("mt-auto pt-1 text-2xs font-medium leading-4 sm:pt-1.5", textMuted)}>
+        Tap a section for authority detail
+      </p>
     </DetailCardShell>
   );
 }

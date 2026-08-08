@@ -21,9 +21,12 @@ describe("Form 1A priority facts", () => {
     render(<FormDetailPage form={form} />);
 
     const priorityFacts = screen.getByLabelText("Priority facts");
-    expect(within(priorityFacts).getByText("Usually 72 hours")).toBeInTheDocument();
+    expect(within(priorityFacts).getByText("Usually 72 hours from referral")).toBeInTheDocument();
+    expect(within(priorityFacts).getByText(/Within assessment window/i)).toBeInTheDocument();
+    expect(within(priorityFacts).getByText(/Psychiatrist examination only/i)).toBeInTheDocument();
     expect(within(priorityFacts).queryByText("Source status")).not.toBeInTheDocument();
     expect(within(priorityFacts).getByText("Act sections")).toBeInTheDocument();
+    expect(within(priorityFacts).getByText(/MHA 2014 referral pathway/i)).toBeInTheDocument();
 
     await user.click(within(priorityFacts).getByRole("button", { name: /Clock \/ review.*Open detail/i }));
     const factSheet = await screen.findByTestId("form-priority-fact-sheet");
