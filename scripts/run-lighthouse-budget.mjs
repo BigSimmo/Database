@@ -209,10 +209,6 @@ const strategies = budget.strategies ?? ["mobile", "desktop"];
  * The env override exists for a deliberate one-off comparison, not for CI.
  */
 const LIGHTHOUSE_VERSION = process.env.LIGHTHOUSE_VERSION ?? budget.lighthouseVersion ?? "12.8.2";
-const rawLhAttempts = Number.parseInt(process.env.LH_MAX_ATTEMPTS ?? "1", 10);
-const rawLhRetryDelayMs = Number.parseInt(process.env.LH_RETRY_DELAY_MS ?? "750", 10);
-const LH_MAX_ATTEMPTS = Number.isFinite(rawLhAttempts) ? Math.max(1, rawLhAttempts) : 1;
-const LH_RETRY_DELAY_MS = Number.isFinite(rawLhRetryDelayMs) ? rawLhRetryDelayMs : 750;
 
 function resolveNpxInvocation() {
   const npmExecPath = process.env.npm_execpath;
@@ -315,52 +311,7 @@ try {
   await waitForServer(baseUrl, server);
 
   const chromePath = process.env.CHROME_PATH ?? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ?? "";
-
-  function resolveLighthouseLauncher() {
-    if (process.platform !== "win32") {
-      return { command: "npx", argsPrefix: [] };
-    }
-
-    const npmCliPath = path.join(
-      process.env.APPDATA ?? "",
-      "npm",
-      "node_modules",
-      "npm",
-      "bin",
-      "npx-cli.js",
-    );
-    if (!existsSync(npmCliPath)) {
-      throw new Error(
-        "Windows Lighthouse launcher resolution failed: APPDATA/npm/node_modules/npm/bin/npx-cli.js is missing.",
-      );
-    }
-    return {
-      command: process.execPath,
-      argsPrefix: [npmCliPath],
-    };
-  }
-
-  function hasUsableLighthouseReport(reportPath) {
-    try {
-      const report = JSON.parse(readFileSync(reportPath, "utf8"));
-      const lcp = report?.audits?.["largest-contentful-paint"]?.numericValue;
-      const cls = report?.audits?.["cumulative-layout-shift"]?.numericValue;
-      return Number.isFinite(lcp) && Number.isFinite(cls);
-    } catch {
-      return false;
-    }
-  }
-
-  function sleepMs(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   const failures = [];
-  const launcher = resolveLighthouseLauncher();
-  const lighthouseTempRoot = path.join(absoluteRunRoot, "lighthouse-temp");
-  const lighthouseUserDataRoot = path.join(absoluteRunRoot, "lighthouse-user-data");
-  mkdirSync(lighthouseTempRoot, { recursive: true });
-  mkdirSync(lighthouseUserDataRoot, { recursive: true });
 
   for (const strategy of strategies) {
     for (const route of routes) {
@@ -377,39 +328,16 @@ try {
           `--output-path=${output}`,
           `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
           "--only-categories=performance",
-          `--chrome-flags=${chromeFlags}`,
+          "--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage",
           "--max-wait-for-load=60000",
           "--quiet",
-        ];
-
-        const result = spawnSync(
-          launcher.command,
-          [...launcher.argsPrefix, ...lighthouseArgs],
-          {
-            cwd: projectRoot,
-            env: {
-              ...offlineEnv,
-              ...(chromePath ? { CHROME_PATH: chromePath } : {}),
-              TMP: attemptTempRoot,
-              TEMP: attemptTempRoot,
-              TMPDIR: attemptTempRoot,
-            },
-            stdio: "inherit",
-          },
-        );
-        routeFailure = `${childProcessFailureSummary(result)}`;
-
-        if (hasUsableLighthouseReport(output)) {
-          routeSuccess = true;
-          break;
-        }
-
-        if (attempt < LH_MAX_ATTEMPTS) {
-          console.log(`Retrying ${strategy} ${route} after failed attempt ${attempt}.`);
-          if (LH_RETRY_DELAY_MS > 0) await sleepMs(LH_RETRY_DELAY_MS);
-        }
-      }
-
+        ],
+        {
+          cwd: projectRoot,
+          env: { ...offlineEnv, ...(chromePath ? { CHROME_PATH: chromePath } : {}) },
+          stdio: "inherit",
+        },
+      );
       // Not downgraded to a warning: the grader treats a missing report as
       // incomplete evidence and fails, which is the behaviour we want locally too.
       if (childProcessExitCode(result) !== 0) {
