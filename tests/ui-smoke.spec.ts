@@ -3846,7 +3846,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // pill no longer changes the page, and a mid-test navigation would reset the
     // request counts this test exists to measure.
     await gotoApp(page, "/documents");
-    await waitForDemoDashboardReady(page);
+    // waitForDemoDashboardReady looks for "Open answer options"; the actions
+    // trigger is named for the active mode, which is Documents on this route.
+    await expect(visibleQuestionInput(page)).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Open documents options" })).toBeVisible({ timeout: 30_000 });
     expect(requestCounts).toEqual({ documents: 0, jobs: 0, batches: 0, quality: 0 });
 
     await openScopeControl(page);
