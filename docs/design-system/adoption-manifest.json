@@ -544,8 +544,8 @@
       "source": "src/components/ui/disclosure.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/forms/form-detail-page.tsx"],
+      "productImportFiles": ["src/components/forms/form-detail-page.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -561,8 +561,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -3283,7 +3283,7 @@
   "summary": {
     "registeredComponentCount": 53,
     "previewCount": 53,
-    "productImportedComponentCount": 30,
+    "productImportedComponentCount": 31,
     "rootCount": 57,
     "productionRouteCount": 49,
     "nextUiEntryCount": 101
