@@ -21,11 +21,20 @@
  * live workflow, which is grading a flaky public network): a route that produced no
  * report is incomplete evidence, and the grader fails closed on it.
  *
+ * A cell that produced no measurement AT ALL — a non-zero exit, no report file, or a
+ * report carrying only a `runtimeError` such as Lighthouse's own `NO_NAVSTART` — gets
+ * exactly ONE announced retry first (`lighthouse-measurement-outcome.mjs` draws that
+ * line). That is not a softening: a run that never started measured nothing about this
+ * diff, and if the retry also produces nothing the grader still fails closed. Every
+ * retry is reported to the run summary and written to `retries.txt` whether or not it
+ * recovered, so a chronically flaky route cannot hide behind a green run. A cell that
+ * DID measure and produced bad numbers is never retried.
+ *
  * Flags: --dry-run (print the plan and exit), --update (refresh the baseline),
  *        --keep (leave reports in place), --dir <path>.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -35,6 +44,7 @@ import { childProcessExitCode, childProcessFailureSummary } from "./child-proces
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 import { loadBudget } from "./check-lighthouse-budget.mjs";
+import { measurementFailureReason } from "./lighthouse-measurement-outcome.mjs";
 import {
   appName,
   circularProjectPortRange,
@@ -312,40 +322,81 @@ try {
 
   const chromePath = process.env.CHROME_PATH ?? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ?? "";
   const failures = [];
+  const retried = [];
+
+  const measure = (strategy, route, output) =>
+    spawnSync(
+      npxInvocation.command,
+      [
+        ...npxInvocation.prefixArgs,
+        "--yes",
+        `lighthouse@${LIGHTHOUSE_VERSION}`,
+        `${baseUrl}${route}`,
+        "--output=json",
+        `--output-path=${output}`,
+        `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
+        "--only-categories=performance",
+        "--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage",
+        "--max-wait-for-load=60000",
+        "--quiet",
+      ],
+      {
+        cwd: projectRoot,
+        env: { ...offlineEnv, ...(chromePath ? { CHROME_PATH: chromePath } : {}) },
+        stdio: "inherit",
+      },
+    );
+
+  const readIfPresent = (file) => (existsSync(file) ? readFileSync(file, "utf8") : null);
 
   for (const strategy of strategies) {
     for (const route of routes) {
+      const cell = `${strategy} ${route}`;
       const output = path.join(reportDirectory, `${strategy}-${slugFor(route)}.json`);
-      console.log(`Measuring ${strategy} ${route}`);
-      const result = spawnSync(
-        npxInvocation.command,
-        [
-          ...npxInvocation.prefixArgs,
-          "--yes",
-          `lighthouse@${LIGHTHOUSE_VERSION}`,
-          `${baseUrl}${route}`,
-          "--output=json",
-          `--output-path=${output}`,
-          `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
-          "--only-categories=performance",
-          "--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage",
-          "--max-wait-for-load=60000",
-          "--quiet",
-        ],
-        {
-          cwd: projectRoot,
-          env: { ...offlineEnv, ...(chromePath ? { CHROME_PATH: chromePath } : {}) },
-          stdio: "inherit",
-        },
-      );
-      // Not downgraded to a warning: the grader treats a missing report as
-      // incomplete evidence and fails, which is the behaviour we want locally too.
-      if (childProcessExitCode(result) !== 0) {
-        const failure = `${strategy} ${route}`;
-        failures.push(failure);
-        console.log(`::warning::lighthouse ${failure} failed (${childProcessFailureSummary(result)})`);
+      console.log(`Measuring ${cell}`);
+      let result = measure(strategy, route, output);
+      let reason = measurementFailureReason(childProcessExitCode(result), readIfPresent(output));
+
+      if (reason) {
+        // ONE retry, and it is announced. A cell that never started measured nothing
+        // about this diff, so treating it as a regression is wrong — but so is
+        // treating it as a pass, which is why nothing below is downgraded. If the
+        // retry also produces no measurement the report stays missing or errored and
+        // the grader's incompleteBudgetEvidence still fails closed regardless of
+        // `enforce`. The retry is reported either way, so a chronically flaky route
+        // cannot hide behind a green run.
+        console.log(`::warning::lighthouse ${cell} produced no measurement (${reason}); retrying once`);
+        // Never leave the first attempt's file behind: a runtimeError report would
+        // otherwise be graded, or baked into a refreshed baseline, if the retry fails
+        // before writing.
+        rmSync(output, { force: true });
+        result = measure(strategy, route, output);
+        const after = measurementFailureReason(childProcessExitCode(result), readIfPresent(output));
+        retried.push(`${cell} (${reason}${after ? ` -> still ${after}` : " -> recovered"})`);
+        reason = after;
+      }
+
+      if (reason) {
+        failures.push(cell);
+        console.log(
+          `::warning::lighthouse ${cell} failed after one retry (${reason}; ${childProcessFailureSummary(result)})`,
+        );
       }
     }
+  }
+
+  // Emitted whether or not the retry recovered: a retry is a fact about the evidence
+  // and belongs in the run summary and the artifact, not only in the scrollback.
+  if (retried.length > 0) {
+    const line = `lighthouse retried ${retried.length} cell(s): ${retried.join("; ")}`;
+    console.log(`::warning::${line}`);
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n> Lighthouse ${line}\n`);
+    }
+    // Deliberately .txt, not .json: `readReports` in check-lighthouse-budget.mjs
+    // globs *.json and skips only summary.json, so a JSON sidecar here would be
+    // parsed as a Lighthouse report and become a phantom row named `retries`.
+    writeFileSync(path.join(reportDirectory, "retries.txt"), `${retried.join("\n")}\n`, "utf8");
   }
 
   if (failures.length > 0) console.log(`::warning::lighthouse failed for ${failures.join(", ")}`);

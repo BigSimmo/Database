@@ -75,7 +75,7 @@ describe("DocumentSectionIndexCard", () => {
     expect(screen.getAllByRole("button")).toHaveLength(sections.length + 1);
     expect(screen.getByText("312 chunks")).toBeTruthy();
 
-    const active = screen.getByRole("button", { name: /Pinned evidence/ });
+    const active = screen.getByRole("button", { name: /Cited excerpt/ });
     expect(active.getAttribute("aria-current")).toBe("true");
   });
 

@@ -97,7 +97,7 @@ export function buildDocumentSectionIndex(input: DocumentSectionIndexInput): Doc
     },
     {
       id: "source-evidence",
-      label: "Pinned evidence",
+      label: "Cited excerpt",
       icon: Quote,
       detail: input.pinnedPage ? `Page ${input.pinnedPage}` : "No passage pinned",
       collapsible: false,

@@ -49,8 +49,8 @@ describe("DocumentSectionSummary", () => {
   });
 });
 
-describe("IndexedTextPanel condensed reveal", () => {
-  it("keeps deep-linked chunks revealed after exclusive-accordion close events", async () => {
+describe("IndexedTextPanel citation landing", () => {
+  it("keeps citation deep-links collapsed so the PDF stays the first reading surface", () => {
     render(
       <IndexedTextPanel
         loading={false}
@@ -69,9 +69,32 @@ describe("IndexedTextPanel condensed reveal", () => {
     );
 
     const panel = screen.getByTestId("source-chunk-indexed-text-panel") as HTMLDetailsElement;
+    expect(panel.open).toBe(false);
+    expect(panel.querySelector("summary")).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("opens on an explicit inspect request and keeps the cited chunk revealed", async () => {
+    render(
+      <IndexedTextPanel
+        loading={false}
+        selectedPage={basePage}
+        chunks={[baseChunk]}
+        search=""
+        documentSearchResults={[]}
+        searchingDocument={false}
+        documentSearchError={null}
+        idPrefix="source-chunk"
+        sectionId="source-text"
+        selectedChunkId="chunk-1"
+        onSearchChange={vi.fn()}
+        compact
+        revealRequest
+      />,
+    );
+
+    const panel = screen.getByTestId("source-chunk-indexed-text-panel") as HTMLDetailsElement;
     expect(panel.open).toBe(true);
     const highlighted = screen.getByTestId("highlighted-indexed-source-chunk") as HTMLDetailsElement;
-    expect(highlighted).toBeVisible();
     await waitFor(() => expect(highlighted.open).toBe(true));
     expect(panel.querySelector("summary")).toHaveAttribute("aria-disabled", "true");
 
@@ -131,7 +154,7 @@ describe("IndexedTextPanel condensed reveal", () => {
     expect(screen.getByText("Hit 1 of 1")).toBeVisible();
   });
 
-  it("keeps the deep-linked nested chunk disclosure open under condensed view", async () => {
+  it("keeps the deep-linked nested chunk disclosure open under an inspect reveal", async () => {
     const props = {
       loading: false,
       selectedPage: basePage,
@@ -153,6 +176,7 @@ describe("IndexedTextPanel condensed reveal", () => {
       selectedChunkId: "chunk-1",
       onSearchChange: vi.fn(),
       compact: true,
+      revealRequest: true,
     };
     const { rerender } = render(<IndexedTextPanel {...props} />);
 
@@ -191,5 +215,60 @@ describe("IndexedTextPanel condensed reveal", () => {
 
     fireEvent.click(panel.querySelector("summary")!);
     await waitFor(() => expect(panel.open).toBe(false));
+  });
+
+  it("closes after inspect reveal clears on the same citation", () => {
+    const props = {
+      loading: false,
+      selectedPage: basePage,
+      chunks: [baseChunk],
+      search: "",
+      documentSearchResults: [] as [],
+      searchingDocument: false,
+      documentSearchError: null,
+      idPrefix: "source-chunk",
+      sectionId: "source-text" as const,
+      selectedChunkId: "chunk-1",
+      onSearchChange: vi.fn(),
+      compact: true,
+      revealRequest: true,
+    };
+    const { rerender } = render(<IndexedTextPanel {...props} />);
+    const panel = screen.getByTestId("source-chunk-indexed-text-panel") as HTMLDetailsElement;
+    expect(panel.open).toBe(true);
+
+    rerender(<IndexedTextPanel {...props} revealRequest={false} />);
+    expect(panel.open).toBe(false);
+  });
+
+  it("resets compact open when the citation changes without a reveal request", () => {
+    const props = {
+      loading: false,
+      selectedPage: basePage,
+      chunks: [
+        baseChunk,
+        {
+          ...baseChunk,
+          id: "chunk-2",
+          chunk_index: 1,
+          content: "Lithium levels are checked 5 to 7 days after initiation",
+        },
+      ],
+      search: "",
+      documentSearchResults: [] as [],
+      searchingDocument: false,
+      documentSearchError: null,
+      idPrefix: "source-chunk",
+      sectionId: "source-text" as const,
+      selectedChunkId: "chunk-1",
+      onSearchChange: vi.fn(),
+      compact: true,
+      revealRequest: true,
+    };
+    const { rerender } = render(<IndexedTextPanel {...props} />);
+    expect((screen.getByTestId("source-chunk-indexed-text-panel") as HTMLDetailsElement).open).toBe(true);
+
+    rerender(<IndexedTextPanel {...props} selectedChunkId="chunk-2" revealRequest={false} />);
+    expect((screen.getByTestId("source-chunk-indexed-text-panel") as HTMLDetailsElement).open).toBe(false);
   });
 });
