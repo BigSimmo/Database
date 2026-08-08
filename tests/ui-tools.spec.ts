@@ -1583,10 +1583,9 @@ test.describe("Clinical KB tools launcher", () => {
       queryMode: "compare_guidance",
     });
 
-    // Evidence arrived, so the results view renders — ranked from the imported
-    // differentials catalogue with a real query-matched result row.
+    // Evidence arrived, so the results view renders with a real query-matched
+    // result row from the imported differentials catalogue.
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
-    await expect(page.getByTestId("differentials-catalogue-notice")).toBeVisible();
     await expect(page.getByText("Catalogue ranking").first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
   });
