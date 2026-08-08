@@ -32,11 +32,6 @@ import { SourcePreviewPopover } from "@/components/clinical-dashboard/source-pre
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
-import {
-  frontendSourceGovernanceWarnings,
-  groupSourceGovernanceWarnings,
-  type SourceGovernanceWarning,
-} from "@/lib/source-governance";
 import { type SourceLink } from "@/lib/answer-render-policy";
 import type {
   AnswerSection,
@@ -44,7 +39,6 @@ import type {
   BestSourceRecommendation,
   RagAnswer,
   SearchResult,
-  SearchScopeSummary,
   VisualEvidenceCard,
 } from "@/lib/types";
 
@@ -67,63 +61,6 @@ export const SourceImage = memo(function SourceImage({
     />
   );
 });
-
-/**
- * Displays the active search scope and source governance warnings.
- *
- * @param scope - The current search scope summary, or `null` when unavailable
- * @param warnings - Source governance warnings to display
- */
-export function ScopeAndGovernanceNotice({
-  scope,
-  warnings,
-}: {
-  scope: SearchScopeSummary | null;
-  warnings: SourceGovernanceWarning[];
-}) {
-  const groupedWarnings = groupSourceGovernanceWarnings(frontendSourceGovernanceWarnings(warnings)).slice(0, 4);
-  const showScope =
-    Boolean(scope && scope.activeFilterCount > 0) ||
-    Boolean(scope?.warnings?.length) ||
-    scope?.matchedDocumentCount === 0;
-  if (!showScope && groupedWarnings.length === 0) return null;
-  return (
-    <div className="space-y-1.5 rounded-lg border border-[color:var(--warning)]/15 border-l-2 border-l-[color:var(--warning)]/75 bg-[color:var(--warning-soft)]/20 px-3 py-2.5 text-xs text-[color:var(--text-muted)]">
-      {showScope && scope ? (
-        <p className="font-medium leading-5 text-[color:var(--text)]">
-          Scope: {scope.summary}
-          {scope.queryMode && scope.queryMode !== "auto" ? ` · ${scope.queryMode.replaceAll("_", " ")}` : ""}
-        </p>
-      ) : null}
-      {scope?.warnings?.length ? (
-        <ul className="grid gap-1 text-2xs font-medium leading-4 text-[color:var(--warning)]">
-          {scope.warnings.slice(0, 3).map((warning) => (
-            <li key={warning}>{warning}</li>
-          ))}
-        </ul>
-      ) : null}
-      {groupedWarnings.length ? (
-        <ul className="grid gap-1 text-2xs font-normal leading-4 text-[color:var(--text-muted)]">
-          {groupedWarnings.map((warning) => (
-            <li key={warning.code}>
-              {warning.message}
-              {warning.titles.length ? (
-                <details className="mt-0.5 text-[color:var(--text-muted)]">
-                  <summary className="cursor-pointer font-medium hover:text-[color:var(--text-muted)]">
-                    Sources affected
-                  </summary>
-                  <span className="mt-1 block leading-4 text-[color:var(--text-muted)]">
-                    {warning.titles.slice(0, 5).join(", ")}
-                  </span>
-                </details>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
 
 export type AnswerDisplayTextOptions = {
   // Server-`preformatted` answers are display-ready by construction; skip the

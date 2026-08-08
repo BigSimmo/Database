@@ -2134,7 +2134,7 @@ test.describe("Clinical KB tools launcher", () => {
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
     const workflow = acuteConfusionPresentationWorkflow;
-    await gotoLauncher(page, "/differentials/presentations");
+    await gotoLauncher(page, "/differentials/compare");
     await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
 
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
@@ -2170,7 +2170,7 @@ test.describe("Clinical KB tools launcher", () => {
     expect(desktopTableBox?.width ?? 0).toBeGreaterThan(900);
     await expectNoPageHorizontalOverflow(page);
 
-    await gotoLauncher(page, "/differentials/presentations?ids=wernicke-encephalopathy");
+    await gotoLauncher(page, "/differentials/compare?ids=wernicke-encephalopathy");
     await expect(page).toHaveURL(/ids=wernicke-encephalopathy/);
     await expect(
       page.getByRole("heading", { name: `Selected differentials (1 of ${workflow.totalCount})` }).first(),
@@ -2180,7 +2180,7 @@ test.describe("Clinical KB tools launcher", () => {
     ).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await gotoLauncher(page, "/differentials/presentations");
+    await gotoLauncher(page, "/differentials/compare");
     await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
 
     // Scope to the live shell scrollport: Next may briefly retain a hidden

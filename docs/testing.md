@@ -139,6 +139,10 @@ following the same shape as `check:bundle-budget`.
   written to `retries.txt` whether or not it recovered. A run that never started measured nothing
   about the diff; it is not a pass either, so if the retry also produces nothing the grader still
   fails closed. A cell that _did_ measure and produced bad numbers is never retried.
+- The 45-minute advisory CI job reserves 10 minutes for the isolated build, 2 minutes for server
+  readiness, and 28 minutes for the complete measurement suite. Each Lighthouse process receives
+  the lesser of its 120-second cap and the suite time remaining. If time runs out, unmeasured cells
+  remain missing and the grader fails closed, while the artifact still uploads for diagnosis.
 
 ### Baseline browser pinning, and how to refresh
 
@@ -193,7 +197,11 @@ immediate run.
 This is distinct from `.github/workflows/live-web-vitals.yml`, which measures the deployed origin for
 ledger #017 and is dispatch-only — by the time it runs, `main` has already auto-deployed. Both pin
 the same Lighthouse version, and `tests/check-lighthouse-budget.test.ts` fails if they drift apart.
-Neither uses secrets or providers.
+Neither uses secrets or providers. The live workflow validates canonical root-relative, collision-free
+route paths before it contacts the origin; it requires at least three samples and caps the complete
+matrix at 30 Lighthouse calls. Its 45-minute job gives each live child 80 seconds, sends `TERM`, then
+allows a 10-second kill grace. A failed cell remains a warning so the summary can retain its existing
+evidence-based verdict rather than disguising a public-network failure as a local gate result.
 
 ## Flake policy
 
