@@ -307,6 +307,10 @@ export type ChunkImage = {
   caption: string;
   bbox?: [number, number, number, number] | null;
   image_type?: ImageEvidenceCategory | string;
+  /** Intrinsic pixels. The viewer frames a crop at its own ratio rather than a
+   *  generic 4:3 box, so an image without these renders letterboxed. */
+  width?: number | null;
+  height?: number | null;
   searchable?: boolean;
   clinical_relevance_score?: number;
   source_kind?: string | null;

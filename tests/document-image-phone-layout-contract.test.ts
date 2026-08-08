@@ -66,7 +66,10 @@ describe("document viewer phone layout", () => {
     // ratio, so the floor buys nothing and costs the layout.
     const imageBlock = sourcePanelsSource.match(/<SignedImage[\s\S]*?\/>/)?.[0];
     expect(imageBlock, "DocumentImage SignedImage call not found — update this contract").toBeTruthy();
-    expect(imageBlock).toContain("aspectRatio={imageAspectRatio(image)}");
+    // The crop's own ratio still drives the frame...
+    expect(imageBlock).toMatch(/aspectRatio=\{ratio\}/);
+    expect(sourcePanelsSource).toMatch(/const ratio = imageAspectRatio\(image\);/);
+    // ...but no min-height may accompany it.
     expect(imageBlock).not.toMatch(/\bmin-h-\d/);
     expect(imageBlock).toMatch(/className="max-h-\[70dvh\] w-full"/);
   });

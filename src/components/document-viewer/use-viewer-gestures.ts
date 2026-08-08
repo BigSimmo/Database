@@ -11,6 +11,10 @@ import {
 
 type Point = { x: number; y: number };
 
+/** Double-tap window and slop, matched to the platform conventions users expect. */
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_SLOP_PX = 24;
+
 /**
  * Shared pointer/wheel gesture handling for zoomable viewer surfaces.
  *
@@ -26,6 +30,9 @@ type Point = { x: number; y: number };
  *   rather than `document` (#214 amended — fully-passive double-zooms).
  * - Two-pointer pinch → `onZoomBy` with the live distance ratio.
  * - One-pointer drag → `onPanBy` with frame deltas.
+ * - Two taps in quick succession → `onDoubleTap` with the tap point. Opt-in: a
+ *   scroll-backed surface (the PDF canvas) has its own fit controls and should
+ *   not repurpose a double tap.
  *
  * Touch panning is opt-in (`touchPan`) because a scroll-backed surface (the PDF
  * canvas in fit mode) wants native momentum scrolling instead.
@@ -39,6 +46,7 @@ export function useViewerGestures({
   touchPan = false,
   onZoomBy,
   onPanBy,
+  onDoubleTap,
 }: {
   targetRef: RefObject<HTMLElement | null>;
   wheelZoom?: boolean;
@@ -50,20 +58,25 @@ export function useViewerGestures({
   touchPan?: boolean;
   onZoomBy: (factor: number) => void;
   onPanBy?: (dx: number, dy: number) => void;
+  /** Two taps within DOUBLE_TAP_MS and DOUBLE_TAP_SLOP_PX of each other. */
+  onDoubleTap?: (point: Point) => void;
 }) {
   const pointers = useRef(new Map<number, Point>());
   const pinchDistance = useRef(0);
   const panLast = useRef<Point | null>(null);
+  const lastTap = useRef<(Point & { at: number }) | null>(null);
   const [pinching, setPinching] = useState(false);
 
   // Keep the latest callbacks in refs so the native wheel listener doesn't have
   // to detach/reattach when the consumer re-renders with new closures.
   const onZoomByRef = useRef(onZoomBy);
   const onPanByRef = useRef(onPanBy);
+  const onDoubleTapRef = useRef(onDoubleTap);
   useEffect(() => {
     onZoomByRef.current = onZoomBy;
     onPanByRef.current = onPanBy;
-  }, [onZoomBy, onPanBy]);
+    onDoubleTapRef.current = onDoubleTap;
+  }, [onZoomBy, onPanBy, onDoubleTap]);
 
   useEffect(() => {
     const element = targetRef.current;
@@ -91,6 +104,25 @@ export function useViewerGestures({
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent) => {
+      // Detect the double tap before pointer bookkeeping: a second tap must not
+      // be swallowed by pan/pinch setup, and a real two-finger gesture (size 2)
+      // is never a double tap.
+      if (onDoubleTapRef.current && pointers.current.size === 0 && event.isPrimary) {
+        // performance.now() rather than event.timeStamp: both share the time
+        // origin and a pointerdown handler runs microseconds after the event, so
+        // they are equivalent here — but timeStamp is read-only and cannot be
+        // driven from a test, which would leave the 300ms window unexercised.
+        const now = performance.now();
+        const previous = lastTap.current;
+        const point = { x: event.clientX, y: event.clientY };
+        if (previous && now - previous.at < DOUBLE_TAP_MS && distance(previous, point) < DOUBLE_TAP_SLOP_PX) {
+          lastTap.current = null;
+          onDoubleTapRef.current(point);
+        } else {
+          lastTap.current = { ...point, at: now };
+        }
+      }
+
       pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
       try {
         (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
