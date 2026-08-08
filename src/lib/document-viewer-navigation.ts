@@ -46,3 +46,37 @@ export function nextLoadedDocumentKey(
 ): string | null {
   return detailLoaded ? loadKey : previousKey;
 }
+
+/** The page window a loaded detail payload covers, and the request it came from. */
+export type LoadedDetailWindow = {
+  /** Every request-shaping input except the page, joined. */
+  signature: string;
+  from: number;
+  to: number;
+};
+
+/**
+ * Whether a detail request can be skipped entirely.
+ *
+ * `/api/documents/:id` returns a window of pages centred on the requested one
+ * (`defaultPageWindow`, nine at the time of writing), so flipping to a
+ * neighbouring page asks the server for rows the client already holds. The route
+ * sets no `Cache-Control` and the service worker never caches a query-string
+ * request, so every one of those flips was a real round trip — on a phone, on
+ * cellular, once per tap.
+ *
+ * A skip is only safe when nothing else about the request has moved, which is
+ * what `signature` carries: a different document, chunk, retry, or auth identity
+ * produces a different signature and refetches. A chunk route never records a
+ * window, because its window is centred on the selected chunk rather than on the
+ * page, so page arithmetic does not describe what was loaded.
+ */
+export function canSkipDetailRequest(
+  loadedWindow: LoadedDetailWindow | null,
+  currentSignature: string,
+  requestedPage: number,
+): boolean {
+  if (!loadedWindow) return false;
+  if (loadedWindow.signature !== currentSignature) return false;
+  return requestedPage >= loadedWindow.from && requestedPage <= loadedWindow.to;
+}
