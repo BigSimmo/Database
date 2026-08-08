@@ -46,6 +46,15 @@ import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 import { loadBudget } from "./check-lighthouse-budget.mjs";
 import { measurementFailureReason } from "./lighthouse-measurement-outcome.mjs";
 import {
+  deadlineAfter,
+  LIGHTHOUSE_BUILD_TIMEOUT_MS,
+  LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS,
+  LIGHTHOUSE_PROCESS_TIMEOUT_MS,
+  LIGHTHOUSE_SERVER_READY_TIMEOUT_MS,
+  processTimeoutMs,
+  remainingMs,
+} from "./lighthouse-time-budget.mjs";
+import {
   appName,
   circularProjectPortRange,
   isReservedDevPort,
@@ -131,9 +140,9 @@ async function findFreePort(startPort) {
   throw new Error("No free Lighthouse server port found in the configured project range.");
 }
 
-function get(url) {
+function get(url, timeoutMs) {
   return new Promise((resolve) => {
-    const request = http.get(url, { timeout: 5_000 }, (response) => {
+    const request = http.get(url, { timeout: timeoutMs }, (response) => {
       let body = "";
       response.setEncoding("utf8");
       response.on("data", (chunk) => {
@@ -160,20 +169,26 @@ function isThisProject(body) {
   }
 }
 
-async function waitForServer(baseUrl, server) {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+async function waitForServer(baseUrl, server, timeoutMs) {
+  const deadline = deadlineAfter(timeoutMs);
+  while (remainingMs(deadline) > 0) {
     if (server.exitCode !== null || server.signalCode) {
       throw new Error("Lighthouse-owned Next server exited before it became ready.");
     }
     // Same identity check the rest of the repo's tooling uses, so this can never
     // attach to another project's server on a shared machine.
-    const body = await get(`${baseUrl}/api/local-project-id`);
+    const requestTimeout = Math.min(5_000, remainingMs(deadline));
+    // Node treats a zero HTTP timeout as "disabled". The deadline can elapse
+    // between the loop condition and this request, so never pass zero through.
+    if (requestTimeout === 0) break;
+    const body = await get(`${baseUrl}/api/local-project-id`, requestTimeout);
     // A 200 with any body is not proof this is our app: another service could have
     // taken the port between the availability probe and Next binding it, and
     // Lighthouse would then measure the wrong application. Verify identity the way
     // scripts/playwright-base-url.ts does before accepting readiness.
     if (body && isThisProject(body)) return;
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    const delayMs = Math.min(1_000, remainingMs(deadline));
+    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
   throw new Error(`Timed out waiting for the Lighthouse-owned server at ${baseUrl}.`);
 }
@@ -181,6 +196,23 @@ async function waitForServer(baseUrl, server) {
 let server = null;
 let released = false;
 let lock = null;
+
+function stopOwnedProcessTree(child) {
+  if (!child?.pid || child.exitCode !== null) return;
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    return;
+  }
+  try {
+    process.kill(-child.pid, "SIGTERM");
+  } catch {
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      /* already gone */
+    }
+  }
+}
 
 function cleanup() {
   if (released) return;
@@ -305,6 +337,7 @@ try {
     cwd: projectRoot,
     env: offlineEnv,
     stdio: "inherit",
+    timeout: LIGHTHOUSE_BUILD_TIMEOUT_MS,
   });
   if (childProcessExitCode(build) !== 0) {
     throw new Error(`Lighthouse production build failed (${childProcessFailureSummary(build)}).`);
@@ -318,34 +351,57 @@ try {
     stdio: ["ignore", "inherit", "inherit"],
     windowsHide: true,
   });
-  await waitForServer(baseUrl, server);
+  await waitForServer(baseUrl, server, LIGHTHOUSE_SERVER_READY_TIMEOUT_MS);
 
   const chromePath = process.env.CHROME_PATH ?? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ?? "";
   const failures = [];
   const retried = [];
 
-  const measure = (strategy, route, output) =>
-    spawnSync(
-      npxInvocation.command,
-      [
-        ...npxInvocation.prefixArgs,
-        "--yes",
-        `lighthouse@${LIGHTHOUSE_VERSION}`,
-        `${baseUrl}${route}`,
-        "--output=json",
-        `--output-path=${output}`,
-        `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
-        "--only-categories=performance",
-        "--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage",
-        "--max-wait-for-load=60000",
-        "--quiet",
-      ],
-      {
-        cwd: projectRoot,
-        env: { ...offlineEnv, ...(chromePath ? { CHROME_PATH: chromePath } : {}) },
-        stdio: "inherit",
-      },
-    );
+  const suiteDeadline = deadlineAfter(LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS);
+  console.log(`Lighthouse measurement suite has ${LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS / 60_000} minutes.`);
+
+  const measure = (strategy, route, output, timeoutMs) =>
+    new Promise((resolve) => {
+      const child = spawn(
+        npxInvocation.command,
+        [
+          ...npxInvocation.prefixArgs,
+          "--yes",
+          `lighthouse@${LIGHTHOUSE_VERSION}`,
+          `${baseUrl}${route}`,
+          "--output=json",
+          `--output-path=${output}`,
+          `--preset=${strategy === "desktop" ? "desktop" : "perf"}`,
+          "--only-categories=performance",
+          "--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage",
+          "--max-wait-for-load=60000",
+          "--quiet",
+        ],
+        {
+          cwd: projectRoot,
+          env: { ...offlineEnv, ...(chromePath ? { CHROME_PATH: chromePath } : {}) },
+          stdio: "inherit",
+          // Own the npx/Lighthouse/Chrome tree so a per-cell timeout can SIGTERM
+          // the whole group. spawnSync's timeout only stops the npx wrapper.
+          detached: process.platform !== "win32",
+        },
+      );
+
+      let settled = false;
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      };
+
+      child.on("error", (error) => finish({ status: 1, error }));
+      child.on("close", (code, signal) => finish({ status: code, signal }));
+
+      const timer = setTimeout(() => {
+        stopOwnedProcessTree(child);
+      }, timeoutMs);
+    });
 
   const readIfPresent = (file) => (existsSync(file) ? readFileSync(file, "utf8") : null);
 
@@ -353,8 +409,14 @@ try {
     for (const route of routes) {
       const cell = `${strategy} ${route}`;
       const output = path.join(reportDirectory, `${strategy}-${slugFor(route)}.json`);
+      const firstAttemptTimeout = processTimeoutMs(suiteDeadline, LIGHTHOUSE_PROCESS_TIMEOUT_MS);
+      if (firstAttemptTimeout === 0) {
+        failures.push(cell);
+        console.log(`::warning::lighthouse ${cell} was not measured: the 28-minute suite deadline expired`);
+        continue;
+      }
       console.log(`Measuring ${cell}`);
-      let result = measure(strategy, route, output);
+      let result = await measure(strategy, route, output, firstAttemptTimeout);
       let reason = measurementFailureReason(childProcessExitCode(result), readIfPresent(output));
 
       if (reason) {
@@ -365,12 +427,20 @@ try {
         // the grader's incompleteBudgetEvidence still fails closed regardless of
         // `enforce`. The retry is reported either way, so a chronically flaky route
         // cannot hide behind a green run.
+        const retryTimeout = processTimeoutMs(suiteDeadline, LIGHTHOUSE_PROCESS_TIMEOUT_MS);
+        if (retryTimeout === 0) {
+          failures.push(cell);
+          console.log(
+            `::warning::lighthouse ${cell} produced no measurement (${reason}); the suite deadline expired before retry`,
+          );
+          continue;
+        }
         console.log(`::warning::lighthouse ${cell} produced no measurement (${reason}); retrying once`);
         // Never leave the first attempt's file behind: a runtimeError report would
         // otherwise be graded, or baked into a refreshed baseline, if the retry fails
         // before writing.
         rmSync(output, { force: true });
-        result = measure(strategy, route, output);
+        result = await measure(strategy, route, output, retryTimeout);
         const after = measurementFailureReason(childProcessExitCode(result), readIfPresent(output));
         retried.push(`${cell} (${reason}${after ? ` -> still ${after}` : " -> recovered"})`);
         reason = after;

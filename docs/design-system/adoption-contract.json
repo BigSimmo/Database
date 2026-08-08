@@ -168,10 +168,12 @@
       "id": "differentials",
       "disposition": "owned",
       "routes": [
+        "src/app/(search-app)/differentials/compare/page.tsx",
         "src/app/(search-app)/differentials/diagnoses/[slug]/page.tsx",
         "src/app/(search-app)/differentials/diagnoses/page.tsx",
         "src/app/(search-app)/differentials/page.tsx",
-        "src/app/(search-app)/differentials/presentations/[slug]/page.tsx"
+        "src/app/(search-app)/differentials/presentations/[slug]/page.tsx",
+        "src/app/(search-app)/differentials/presentations/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
