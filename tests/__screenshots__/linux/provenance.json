@@ -2,19 +2,23 @@
   "schemaVersion": 2,
   "platform": "linux",
   "runnerImage": "ubuntu-24.04",
-  "candidateSourceHead": "07ada91b7c29410a0c34cc43934d1a12c686b2cf",
+  "candidateSourceHead": "ac1d0ddbe6d2b58fe94ed6dec35d59723c5acfbf",
+  "capture": {
+    "kind": "refresh",
+    "replacedCandidateIds": ["document-viewer"]
+  },
   "source": {
     "kind": "hosted-ci-artifact",
-    "runId": "31251091603",
-    "artifactName": "visual-baseline-31251091603",
-    "candidateSourceHead": "07ada91b7c29410a0c34cc43934d1a12c686b2cf"
+    "runId": "31267928439",
+    "artifactName": "visual-baseline-31267928439",
+    "candidateSourceHead": "ac1d0ddbe6d2b58fe94ed6dec35d59723c5acfbf"
   },
   "review": {
     "status": "approved",
     "reviewerType": "human",
     "reviewedBy": "BigSimmo",
-    "reviewedAt": "2026-08-08T11:07:51Z",
-    "candidateSourceHead": "07ada91b7c29410a0c34cc43934d1a12c686b2cf"
+    "reviewedAt": "2026-08-08T17:00:37Z",
+    "candidateSourceHead": "ac1d0ddbe6d2b58fe94ed6dec35d59723c5acfbf"
   },
   "candidates": [
     {
@@ -48,7 +52,7 @@
     {
       "id": "document-viewer",
       "path": "tests/__screenshots__/linux/document-viewer.png",
-      "sha256": "ea3050b274c3bf81f7e6c787b79fa2803ef83c844abea409203275390451b8af",
+      "sha256": "9df2549adc69326ce3cdd3c8f2937572275f3e7122d9bfbc44fa7b73b0ee2235",
       "width": 1196,
       "height": 2903
     },
