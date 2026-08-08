@@ -166,7 +166,7 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
         Object.defineProperty(navigator, "clipboard", clipboardDescriptor);
       } else {
         // `navigator.clipboard` is usually inherited; delete the shadowing test override.
-        delete (navigator as any).clipboard;
+        delete (navigator as { clipboard?: Clipboard }).clipboard;
       }
       setTimeoutSpy.mockRestore();
     }
