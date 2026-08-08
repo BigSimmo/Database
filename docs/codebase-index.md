@@ -72,7 +72,7 @@ Smaller top-level directories that are easy to miss:
 | Shared mode-home route group (`/(search-app)`)                                                            | `src/app/(search-app)/`                     |
 | Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                       | `src/app/(search-app)/` shared shell group  |
 | `/applications`                                                                                           | `src/app/applications/route.ts`             |
-| `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/(search-app)/differentials/`       |
+| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                              | `src/app/(search-app)/differentials/`       |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/(search-app)/dsm/`                 |
 | `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/(search-app)/documents/`           |
 | `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/(search-app)/factsheets/`          |
