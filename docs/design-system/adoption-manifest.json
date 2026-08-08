@@ -3303,7 +3303,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 57,
+    "inheritedCkbV2RootCount": 58,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -3312,8 +3312,8 @@
     "registeredComponentCount": 53,
     "previewCount": 53,
     "productImportedComponentCount": 31,
-    "rootCount": 58,
-    "productionRouteCount": 50,
-    "nextUiEntryCount": 102
+    "rootCount": 59,
+    "productionRouteCount": 51,
+    "nextUiEntryCount": 103
   }
 }

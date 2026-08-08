@@ -38,11 +38,10 @@ type SiteMapData = {
   nonRoutedMockupArtifacts: string[];
 };
 
-const productRouteHandlerPaths = new Set(["/applications", "/differentials/compare"]);
+const productRouteHandlerPaths = new Set(["/applications"]);
 
 const documentedRedirectTargets: Record<string, string> = {
   "/applications": "/tools",
-  "/differentials/compare": "/differentials/presentations/[workflow-slug]",
   // The source page redirects a valid id to the canonical `/documents/[id]` viewer
   // (page.tsx line 20) and only falls back to `/documents/search` for an invalid id
   // (line 14). Pin the canonical target here so the generated map does not report the
@@ -54,7 +53,8 @@ const routeDescriptions: Record<string, string> = {
   "/": "Main Clinical KB shell.",
   "/applications": "Legacy application launcher redirect to Tools.",
   "/differentials": "Differentials home and search surface.",
-  "/differentials/compare": "Compare entry redirect into a presentation workflow or ad-hoc diagnosis comparison.",
+  "/differentials/compare":
+    "Compare entry: same-presentation selections redirect into a catalogue workflow; cross-presentation selections render an ad-hoc comparison.",
   "/differentials/diagnoses": "Diagnosis stream.",
   "/differentials/diagnoses/[slug]": "Differential diagnosis detail.",
   "/differentials/presentations": "Presentation catalogue stream.",

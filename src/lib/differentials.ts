@@ -267,6 +267,54 @@ export function getPresentationWorkflowSelectionForDiagnosisIds(
   return { kind: "ad-hoc", workflow, diagnosisIds };
 }
 
+function differentialCompareHref(path: string, query: string, selectedIds: readonly string[]) {
+  const params = new URLSearchParams();
+  const trimmedQuery = query.trim();
+  if (trimmedQuery) params.set("q", trimmedQuery);
+  if (selectedIds.length > 0) params.set("ids", selectedIds.join(","));
+  const suffix = params.toString();
+  return suffix ? `${path}?${suffix}` : path;
+}
+
+export type DifferentialCompareHandoff =
+  | {
+      kind: "ad-hoc";
+      href: string;
+      selection: DifferentialCompareSelection;
+    }
+  | {
+      kind: "presentation";
+      href: string;
+      selection: DifferentialCompareSelection | null;
+    };
+
+/**
+ * Resolve `/differentials/compare` handoff without a competing route handler.
+ * Same-presentation (or empty/unknown) selections redirect into a catalogue
+ * presentation; cross-presentation selections stay on the compare page.
+ */
+export function resolveDifferentialCompareHandoff(ids: Iterable<string>, query = ""): DifferentialCompareHandoff {
+  const selection = getPresentationWorkflowSelectionForDiagnosisIds(ids);
+  if (selection?.kind === "ad-hoc") {
+    return {
+      kind: "ad-hoc",
+      href: differentialCompareHref("/differentials/compare", query, selection.diagnosisIds),
+      selection,
+    };
+  }
+
+  const workflowId =
+    selection?.kind === "presentation" && selection.workflow.id !== AD_HOC_DIFFERENTIAL_COMPARE_ID
+      ? selection.workflow.id
+      : "acute-confusion-encephalopathy";
+  const diagnosisIds = selection?.diagnosisIds ?? [];
+  return {
+    kind: "presentation",
+    href: differentialCompareHref(`/differentials/presentations/${workflowId}`, query, diagnosisIds),
+    selection,
+  };
+}
+
 export const acuteConfusionPresentationWorkflow: DifferentialPresentationWorkflow =
   getPresentationWorkflow("acute-confusion-encephalopathy") ?? differentialPresentations()[0]!;
 

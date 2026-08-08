@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { NextRequest } from "next/server";
 
-import { GET as redirectCompare } from "@/app/(search-app)/differentials/compare/route";
+import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
 import {
   differentialIdsFromSearchParams,
   differentialRouteWithQuery,
@@ -35,30 +34,26 @@ describe("differentials navigation", () => {
   });
 
   it("redirects same-presentation compare selection to the hosting workflow", () => {
-    const response = redirectCompare(
-      new NextRequest(
-        "http://0.0.0.0:4461/differentials/compare?q=Pain&ids=anorexia-nervosa,bulimia-nervosa-binge-purge-pattern",
-      ),
+    const handoff = resolveDifferentialCompareHandoff(
+      ["anorexia-nervosa", "bulimia-nervosa-binge-purge-pattern"],
+      "Pain",
     );
 
-    expect(response.status).toBe(307);
-    const location = response.headers.get("location");
-    expect(location).toMatch(/^\/differentials\/presentations\/[^/?]+/);
-    expect(location).toContain("q=Pain");
-    expect(location).toContain("ids=");
-    expect(location).not.toContain("0.0.0.0");
+    expect(handoff.kind).toBe("presentation");
+    expect(handoff.href).toMatch(/^\/differentials\/presentations\/[^/?]+/);
+    expect(handoff.href).toContain("q=Pain");
+    expect(handoff.href).toContain("ids=");
+    expect(handoff.href).not.toContain("0.0.0.0");
   });
 
-  it("redirects cross-presentation compare selection to the ad-hoc compare route with every id", () => {
-    const response = redirectCompare(
-      new NextRequest(
-        "http://0.0.0.0:4461/differentials/compare?q=Pain&ids=medical-gi-endocrine-painful-organic-cause,bpsd-as-unmet-need-delirium-pain-mimic",
-      ),
+  it("keeps cross-presentation compare selection on the ad-hoc compare page with every id", () => {
+    const handoff = resolveDifferentialCompareHandoff(
+      ["medical-gi-endocrine-painful-organic-cause", "bpsd-as-unmet-need-delirium-pain-mimic"],
+      "Pain",
     );
 
-    expect(response.status).toBe(307);
-    const location = response.headers.get("location");
-    expect(location).toBe(
+    expect(handoff.kind).toBe("ad-hoc");
+    expect(handoff.href).toBe(
       "/differentials/compare?q=Pain&ids=medical-gi-endocrine-painful-organic-cause%2Cbpsd-as-unmet-need-delirium-pain-mimic",
     );
   });

@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
-import {
-  acuteConfusionPresentationWorkflow,
-  getPresentationWorkflowSelectionForDiagnosisIds,
-} from "@/lib/differentials";
+import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
 
 export const metadata: Metadata = {
   title: "Compare differentials | Clinical KB",
@@ -19,6 +17,14 @@ function firstSearchParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+/**
+ * Compare entry page.
+ *
+ * Same-presentation selections (and bare/unknown ids) redirect into a catalogue
+ * presentation workflow. Cross-presentation selections render an ad-hoc compare
+ * view here so every valid id is preserved. A competing `route.ts` at this path
+ * is invalid in the App Router — handoff lives in the page instead.
+ */
 export default async function DifferentialCompareRoute({ searchParams }: DifferentialCompareRouteProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const query = firstSearchParam(resolvedSearchParams.query ?? resolvedSearchParams.q)?.trim() ?? "";
@@ -27,16 +33,17 @@ export default async function DifferentialCompareRoute({ searchParams }: Differe
     .map((value) => value.trim())
     .filter(Boolean);
 
-  const selection = getPresentationWorkflowSelectionForDiagnosisIds(selectedIds);
-  const workflow = selection?.workflow ?? acuteConfusionPresentationWorkflow;
-  const resolvedIds = selection?.diagnosisIds ?? [];
+  const handoff = resolveDifferentialCompareHandoff(selectedIds, query);
+  if (handoff.kind === "presentation") {
+    redirect(handoff.href);
+  }
 
   return (
     <DifferentialPresentationWorkflowPage
       query={query}
-      presentationSlug={workflow.id}
-      selectedIds={resolvedIds}
-      workflow={selection ? workflow : undefined}
+      presentationSlug={handoff.selection.workflow.id}
+      selectedIds={handoff.selection.diagnosisIds}
+      workflow={handoff.selection.workflow}
     />
   );
 }

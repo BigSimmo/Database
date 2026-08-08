@@ -16,7 +16,7 @@ export function differentialRouteWithQuery(path: string, query: string, selected
 
 /**
  * Compare-selected CTA href. The compare page resolves presentation vs ad-hoc
- * workflows on the server (see compare/route.ts) so the client never loads the
+ * workflows on the server (see compare/page.tsx) so the client never loads the
  * differentials snapshot just to build a link. Legacy `/differentials/presentations?ids=`
  * still redirects when hit directly.
  */
