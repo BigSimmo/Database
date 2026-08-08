@@ -60,9 +60,22 @@ export function Citation({ index, label, locator, status, onActivate, interactiv
     .join(", ");
 
   if (!interactive) {
+    // `aria-label` on a plain <span> is silently dropped: the span has the
+    // implicit `generic` role, and ARIA prohibits a name on it. The static
+    // citation therefore announced its raw visible text — "14 NICE CG90 p. 22"
+    // — with no "Source" framing and, worse, no currency phrase at all, because
+    // `StatusMark` is `aria-hidden`. On a print/export citation, the one place
+    // the reader cannot click through to check, the staleness of the source
+    // simply vanished.
+    //
+    // The face is hidden from the tree and the composed phrase supplied as real
+    // text, so the static and interactive branches announce identically.
     return (
-      <span data-testid="citation" aria-label={accessibleName} className="inline-flex w-fit items-center">
-        {face}
+      <span data-testid="citation" className="inline-flex w-fit items-center">
+        <span aria-hidden="true" className="contents">
+          {face}
+        </span>
+        <span className="sr-only">{accessibleName}</span>
       </span>
     );
   }

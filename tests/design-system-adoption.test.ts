@@ -1143,18 +1143,20 @@ describe("design-system adoption manifest", () => {
       );
     }
     // `Quantity` and `AnswerCard` left this list on 6 Aug 2026 when the live answer
-    // surface adopted the card (`answer-result-surface.tsx`). The remaining two are
-    // still genuinely reference-only; the assertion is a snapshot of adoption state,
-    // so moving a component out of it is the expected shape of an adoption change,
-    // not a weakened guard.
-    for (const name of ["Button", "ConfirmDialog"]) {
+    // surface adopted the card (`answer-result-surface.tsx`); `Button` left it on
+    // 8 Aug 2026 when `AccessibleTable`'s expand control stopped being a hand-rolled
+    // recipe (COMPONENTS §0.4, ledger #263). What remains is still genuinely
+    // reference-only; the assertion is a snapshot of adoption state, so moving a
+    // component out of it is the expected shape of an adoption change, not a
+    // weakened guard.
+    for (const name of ["ConfirmDialog"]) {
       const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
       expect(component.productImportFiles, `${name} should remain reference-only`).toEqual([]);
       expect(component.v2ShellMounted, `${name} should not claim a production v2 mount`).toBe(false);
     }
     // The other half of the same guard: an adopted component must actually be mounted,
     // so "adopted" can never mean an import with no production shell behind it.
-    for (const name of ["AnswerCard", "Quantity"]) {
+    for (const name of ["AnswerCard", "Quantity", "Button"]) {
       const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
       expect(component.productImportFiles.length, `${name} should be product-adopted`).toBeGreaterThan(0);
       expect(component.v2ShellMounted, `${name} should carry a production v2 mount`).toBe(true);
