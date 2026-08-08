@@ -11,6 +11,10 @@ import {
 
 type Point = { x: number; y: number };
 
+/** Double-tap window and slop, matched to the platform conventions users expect. */
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_SLOP_PX = 24;
+
 /**
  * Shared pointer/wheel gesture handling for zoomable viewer surfaces.
  *
@@ -26,6 +30,11 @@ type Point = { x: number; y: number };
  *   rather than `document` (#214 amended — fully-passive double-zooms).
  * - Two-pointer pinch → `onZoomBy` with the live distance ratio.
  * - One-pointer drag → `onPanBy` with frame deltas.
+ * - Two completed taps in quick succession → `onDoubleTap` with the tap point.
+ *   A tap is only recorded on pointer-up when that pointer stayed within the
+ *   movement slop — otherwise two quick pan strokes would toggle zoom. Opt-in:
+ *   a scroll-backed surface (the PDF canvas) has its own fit controls and should
+ *   not repurpose a double tap.
  *
  * Touch panning is opt-in (`touchPan`) because a scroll-backed surface (the PDF
  * canvas in fit mode) wants native momentum scrolling instead.
@@ -39,6 +48,7 @@ export function useViewerGestures({
   touchPan = false,
   onZoomBy,
   onPanBy,
+  onDoubleTap,
 }: {
   targetRef: RefObject<HTMLElement | null>;
   wheelZoom?: boolean;
@@ -50,20 +60,29 @@ export function useViewerGestures({
   touchPan?: boolean;
   onZoomBy: (factor: number) => void;
   onPanBy?: (dx: number, dy: number) => void;
+  /** Two taps within DOUBLE_TAP_MS and DOUBLE_TAP_SLOP_PX of each other. */
+  onDoubleTap?: (point: Point) => void;
 }) {
   const pointers = useRef(new Map<number, Point>());
   const pinchDistance = useRef(0);
   const panLast = useRef<Point | null>(null);
+  const lastTap = useRef<(Point & { at: number }) | null>(null);
+  // Pending primary pointer that may become a tap on pointer-up if it never
+  // wandered past the slop. Keyed by pointerId so a cancelled/second finger
+  // cannot complete someone else's tap.
+  const pendingTap = useRef<(Point & { pointerId: number }) | null>(null);
   const [pinching, setPinching] = useState(false);
 
   // Keep the latest callbacks in refs so the native wheel listener doesn't have
   // to detach/reattach when the consumer re-renders with new closures.
   const onZoomByRef = useRef(onZoomBy);
   const onPanByRef = useRef(onPanBy);
+  const onDoubleTapRef = useRef(onDoubleTap);
   useEffect(() => {
     onZoomByRef.current = onZoomBy;
     onPanByRef.current = onPanBy;
-  }, [onZoomBy, onPanBy]);
+    onDoubleTapRef.current = onDoubleTap;
+  }, [onZoomBy, onPanBy, onDoubleTap]);
 
   useEffect(() => {
     const element = targetRef.current;
@@ -91,6 +110,20 @@ export function useViewerGestures({
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent) => {
+      // Seed a candidate tap before pointer bookkeeping. Completion happens on
+      // pointer-up only when this pointer stays inside the slop — that keeps two
+      // quick pan strokes from toggling zoom. A real two-finger gesture (size 2)
+      // is never a double tap.
+      if (onDoubleTapRef.current && pointers.current.size === 0 && event.isPrimary) {
+        pendingTap.current = {
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+        };
+      } else {
+        pendingTap.current = null;
+      }
+
       pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
       try {
         (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
@@ -102,6 +135,7 @@ export function useViewerGestures({
         const [a, b] = [...pointers.current.values()];
         pinchDistance.current = distance(a, b);
         panLast.current = null;
+        pendingTap.current = null;
         setPinching(true);
         return;
       }
@@ -119,6 +153,15 @@ export function useViewerGestures({
     (event: ReactPointerEvent) => {
       if (!pointers.current.has(event.pointerId)) return;
       pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      // A pointer that wanders past the tap slop is a drag, not a tap.
+      if (
+        pendingTap.current &&
+        pendingTap.current.pointerId === event.pointerId &&
+        distance(pendingTap.current, { x: event.clientX, y: event.clientY }) >= DOUBLE_TAP_SLOP_PX
+      ) {
+        pendingTap.current = null;
+      }
 
       if (pinchZoom && pointers.current.size >= 2) {
         const [a, b] = [...pointers.current.values()];
@@ -144,6 +187,22 @@ export function useViewerGestures({
   );
 
   const endPointer = useCallback((event: ReactPointerEvent) => {
+    const isCancel = event.type === "pointercancel";
+    const candidate = pendingTap.current;
+    const completedTap =
+      !isCancel &&
+      onDoubleTapRef.current &&
+      candidate &&
+      candidate.pointerId === event.pointerId &&
+      // Still within slop at release (covers the no-move path and small jitter).
+      distance(candidate, { x: event.clientX, y: event.clientY }) < DOUBLE_TAP_SLOP_PX
+        ? { x: event.clientX, y: event.clientY }
+        : null;
+
+    if (candidate?.pointerId === event.pointerId) {
+      pendingTap.current = null;
+    }
+
     pointers.current.delete(event.pointerId);
     if (pointers.current.size < 2) {
       pinchDistance.current = 0;
@@ -151,6 +210,21 @@ export function useViewerGestures({
     }
     if (pointers.current.size === 0) {
       panLast.current = null;
+    }
+
+    if (!completedTap || !onDoubleTapRef.current) return;
+
+    // performance.now() rather than event.timeStamp: both share the time origin
+    // and a pointerup handler runs microseconds after the event, so they are
+    // equivalent here — but timeStamp is read-only and cannot be driven from a
+    // test, which would leave the 300ms window unexercised.
+    const now = performance.now();
+    const previous = lastTap.current;
+    if (previous && now - previous.at < DOUBLE_TAP_MS && distance(previous, completedTap) < DOUBLE_TAP_SLOP_PX) {
+      lastTap.current = null;
+      onDoubleTapRef.current(completedTap);
+    } else {
+      lastTap.current = { ...completedTap, at: now };
     }
   }, []);
 

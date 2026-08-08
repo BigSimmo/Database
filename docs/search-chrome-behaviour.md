@@ -20,10 +20,20 @@ When adding or suggesting **in-page navigation** on any mode page, use the Docum
 header as the canonical visual and behaviour template. Do not invent a new phone header shape
 or a second scroll-hide owner.
 
-**Reference implementation:** `src/components/DocumentViewer.tsx` (sticky header row) and
-`src/components/document-viewer/section-nav.tsx` (`DocumentSectionTrack`, section sheet / list).
-Ownership and reserves for that chrome are the “Document section navigation” row above;
-detailed DocumentViewer rules remain invariant 22.
+**Reference implementation:** `src/components/in-page-nav/in-page-nav-header.tsx`
+(`InPageNavHeader`) is the shared component to mount — it owns the header row, the section
+sheet, the actions sheet and the `PhoneHeaderCollapsePortal` wrapper, composing
+`DocumentSectionTrack` / `DocumentSectionList` from
+`src/components/document-viewer/section-nav.tsx`. Declare sections as `PageSection`
+(`src/components/in-page-nav/page-section-index.ts`); omit `weight` and the header measures
+the rendered heights, or pass explicit weights when the sections are discrete tab panels
+with no on-screen height to measure. Ownership and reserves for that chrome are the
+“Document section navigation” row above.
+
+`src/components/DocumentViewer.tsx` still carries its own copy of the header rather than the
+shared one: it owns the page `<h1>`, uses the `edge-glass-header` treatment, and is pinned by
+visual baselines, so converging it is a separate change. It remains the visual reference, and
+detailed DocumentViewer rules remain invariant 22 — but new work mounts `InPageNavHeader`.
 
 **Visual slots (adapt labels, back href, sections, and actions to the mode):**
 
