@@ -158,6 +158,37 @@ describe("DocumentFrame", () => {
     expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
   });
 
+  it("resynchronizes the page draft when pageCount rises without a page change", () => {
+    const onPageChange = vi.fn();
+    const { rerender } = render(
+      <DocumentFrame
+        alt="Clinical guideline page"
+        src={{ kind: "pdf-page", url: "https://example.test/guideline.pdf", page: 8, pageCount: 5 }}
+        state="ready"
+        controls={readyControls({ page: 8, pageCount: 5, onPageChange })}
+      >
+        <canvas aria-label="Clinical guideline page" />
+      </DocumentFrame>,
+    );
+
+    expect(screen.getByLabelText("Page number")).toHaveValue("5");
+
+    rerender(
+      <DocumentFrame
+        alt="Clinical guideline page"
+        src={{ kind: "pdf-page", url: "https://example.test/guideline.pdf", page: 8, pageCount: 20 }}
+        state="ready"
+        controls={readyControls({ page: 8, pageCount: 20, onPageChange })}
+      >
+        <canvas aria-label="Clinical guideline page" />
+      </DocumentFrame>,
+    );
+
+    expect(screen.getByLabelText("Page number")).toHaveValue("8");
+    fireEvent.blur(screen.getByLabelText("Page number"));
+    expect(onPageChange).not.toHaveBeenCalled();
+  });
+
   // A 320px row cannot hold page navigation plus six tap targets, so the
   // narrowest phones reach zoom, fit, rotate, viewing aid and fullscreen through
   // one overflow. Every one of them keeps the production tap target.

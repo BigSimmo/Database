@@ -132,6 +132,19 @@ function useFrameFullscreen(controls: DocumentFrameControls | undefined) {
     return () => document.removeEventListener("fullscreenchange", syncFromDocument);
   }, [onFullscreenChange]);
 
+  // Parent can clear the controlled flag on document switch without going
+  // through exit(). Leave native fullscreen too, or the chrome thinks it is
+  // not fullscreen while the browser still is.
+  if (!active && nativeFallback) {
+    setNativeFallback(false);
+  }
+  useEffect(() => {
+    if (active) return;
+    if (document.fullscreenElement === rootRef.current && document.exitFullscreen) {
+      void document.exitFullscreen();
+    }
+  }, [active]);
+
   // Escape leaves the in-app fallback, which the browser does not own.
   useEffect(() => {
     if (!active || !nativeFallback) return;
@@ -188,14 +201,17 @@ function PageControls({
   // Previous from 999/10 lands on 9, not 998.
   const currentPage = finalPage ? Math.min(Math.max(page, 1), finalPage) : Math.max(page, 1);
 
-  // Re-sync the input only when the route's page actually changes — React's
+  // Re-sync the input when the route page or the known bounds change — React's
   // supported adjust-state-during-render pattern. Keying off a boolean "editing"
   // flag instead would clobber a half-typed page number on any unrelated
-  // re-render of the parent.
+  // re-render of the parent. Bounds matter too: a stale low page_count can clamp
+  // the draft until pdf.js reports a higher real count while `page` stays put.
   const [draft, setDraft] = useState(String(currentPage));
   const [syncedPage, setSyncedPage] = useState(page);
-  if (syncedPage !== page) {
+  const [syncedPageCount, setSyncedPageCount] = useState(finalPage);
+  if (syncedPage !== page || syncedPageCount !== finalPage) {
     setSyncedPage(page);
+    setSyncedPageCount(finalPage);
     setDraft(String(currentPage));
   }
 

@@ -248,6 +248,8 @@ describe("auth lifecycle clears signed URL cache", () => {
   // Codex P1 on PR #1741: in-flight dedupe wrote the endpoint-only LRU inside the
   // shared fetch, so user A's late response after an account switch could
   // repopulate the cache AuthProvider had just cleared and hand B A's URL.
+  // AuthProvider emits lowercase `authorization` — the key and this probe must
+  // use that casing or the test is false-green while identities still collide.
   it("late in-flight response after account switch does not repopulate the endpoint cache", async () => {
     let resolveUserA!: (value: { ok: boolean; status: number; json: () => Promise<{ url: string }> }) => void;
     const userAFetch = new Promise<{ ok: boolean; status: number; json: () => Promise<{ url: string }> }>((resolve) => {
@@ -256,7 +258,7 @@ describe("auth lifecycle clears signed URL cache", () => {
     const userBUrl = "https://example.supabase.co/storage/v1/object/sign/private.png?token=user-b";
 
     const fetchMock = vi.fn().mockImplementation((_url: string, init?: { headers?: Record<string, string> }) => {
-      const auth = init?.headers?.Authorization ?? "";
+      const auth = init?.headers?.authorization ?? init?.headers?.Authorization ?? "";
       if (auth.includes("user-a-token")) return userAFetch;
       return Promise.resolve({
         ok: true,
@@ -287,6 +289,15 @@ describe("auth lifecycle clears signed URL cache", () => {
 
     await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(userBUrl));
     expect(getCachedSignedUrl(ENDPOINT)?.url).toBe(userBUrl);
+    // Distinct identity keys mean B started its own fetch instead of attaching
+    // to A's still-pending promise. AuthProvider emits lowercase `authorization`.
+    expect(
+      fetchMock.mock.calls.some((call) => {
+        const headers = call[1]?.headers ?? {};
+        const auth = headers.authorization ?? headers.Authorization ?? "";
+        return auth.includes("user-b-token");
+      }),
+    ).toBe(true);
 
     resolveUserA({
       ok: true,

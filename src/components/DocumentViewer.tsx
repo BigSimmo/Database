@@ -520,7 +520,8 @@ export function DocumentViewer({
     String(canUsePrivateApis),
     String(isConfigured),
     String(initialDetailIdentityStale),
-    authorizationHeader.Authorization ?? "",
+    // AuthProvider emits lowercase `authorization`; do not read Authorization.
+    authorizationHeader.authorization ?? authorizationHeader.Authorization ?? "",
   ].join("|");
 
   useEffect(() => {
