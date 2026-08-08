@@ -20,6 +20,34 @@ Start with the cheapest check that can fail for the changed behavior. Add anothe
 
 `npm run verify:pr-local -- --dry-run --files <comma-separated paths>` shows the local plan. Recognised documentation and workflow/policy-only scopes stay focused. Product code, tests, executable configuration, dependencies, database/container surfaces, mixed scope, and unknown non-document paths fail closed to the heavy plan. Provider, physical-device, and release-only acceptance remain separate and require their normal approval or task context.
 
+## Testing speed playbook
+
+Production Chromium is ~85% of UI-scoped PR wall clock; cancelled mid-UI runs waste more than missing parallelism. Prefer selection and build reuse over raising Playwright workers (`workers: 1`, `fullyParallel: false`, `retries: 0` stay required — see `#093` and [process-hardening.md](process-hardening.md)).
+
+| Change type                           | Run this                                                         | Avoid                                                     |
+| ------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------- |
+| Lib/helper, no UI                     | `npm run test:focused -- --files <paths>` or one Vitest file     | `verify:ui`                                               |
+| Component interaction                 | `.dom.test.tsx` + focused Vitest                                 | full Chromium                                             |
+| Phone chrome / scroll / composer      | `npm run verify:phone-chrome -- --dry-run`, then without dry-run | immediate `verify:ui`                                     |
+| Shared shell / header / `globals.css` | phone-chrome, then `verify:ui` once at handoff                   | stacking `verify:cheap` + `verify:pr-local` + `verify:ui` |
+| Docs / ledger only                    | `npm run verify:pr-local -- --dry-run` (confirm docs route)      | full unit + UI                                            |
+| PR ready                              | `npm run format` (commit it) + `verify:pr-local` once            | mid-CI pushes that cancel Production UI                   |
+
+**Local Playwright keep-root (iterative UI work).** Each `run-playwright.mjs` invocation otherwise builds a unique `.next-playwright/<id>/` and deletes it. For a focused session, reuse one root the same way CI does:
+
+```bash
+export PLAYWRIGHT_BUILD_ROOT_ID=local-ui
+export PLAYWRIGHT_KEEP_BUILD_ROOT=true
+# then: focused greps / verify:phone-chrome / single-spec runs
+# rebuild after product source changes; unset both vars (or delete `.next-playwright/local-ui`) when done
+```
+
+`verify:phone-chrome` sets a session keep-root automatically when it runs two or more browser stages, then cleans that root on exit.
+
+**Refuted levers (do not revive):** persistent Actions cache for the Next webpack tree (~804 MB, evicts browser cache); splitting `ui-phone-scroll*` to rebalance `--shard` (siblings still co-land); renaming specs to game alphabetical shard order; Playwright `workers > 1` or blocking retries; dropping Production UI from ordinary UI PRs; Firefox/WebKit on every PR (main/weekly matrix only).
+
+**Remote / Cloud browser drift.** When `check:installed-lock-parity` fails on `playwright`, or `check:playwright-browser-revision` reports `/opt/pw-browsers` revision drift, do **not** point `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` at a mismatched shell. Delegate browser proof to CI Production UI (or refresh the image/install matching browsers). See `#255` and [codex-cloud.md](codex-cloud.md).
+
 Codex Cloud agents remain provider-free. Run authenticated Supabase tests through the
 manual `.github/workflows/authenticated-live-tests.yml` workflow, which requires the
 explicit `run-authenticated-live-tests` dispatch confirmation, records the run against the
@@ -203,7 +231,7 @@ Neither uses secrets or providers.
 
 PR CI uses the same fail-closed classifier as `verify:pr-local`. `static-pr` always proves runtime/install parity, the classifier and verification-plan invariants, and changed-file formatting. Recognised documentation changes add documentation integrity checks; recognised workflow/policy-only changes add action/policy self-tests and `test:ci-workflows`. Executable, test, build/config, dependency, database/container, mixed, or unknown non-document paths set `static_heavy_changed`, retaining lint, typecheck, safety/config/RAG, and the full unit coverage job. Build, migration, Docker, and browser jobs remain separately scoped. A dependency audit blocks on lockfile/npm-config changes and the scheduled full-run sentinel, instead of making a low-value registry request on every PR.
 
-UI scope runs a fail-fast `@critical` Chromium job on pull requests, then one required full production Chromium invocation (`test:e2e:pr`) for non-quarantined journeys, plus one advisory invocation for quarantined and mockup journeys. `src/app/api/**` does not set `ui_changed` or `db_changed` — API handlers stay on unit/coverage (and offline RAG when retrieval-scoped). The `PR required` aggregate keeps `if: always()` and distinguishes `cancelled` from `failure` in its messages (stays red; a skipped required check would count as passing). Secret Scan pins Gitleaks to the workflow event base/head SHAs and the checked-out commit, and verifies the linux_x64 release tarball against a pinned SHA-256 before install. The weekly `release-browser-matrix` depends on static/build/UI success, not on the full aggregate. Container scope calls the reusable Docker workflow and requires both app and worker image builds through the aggregate.
+UI scope runs a fail-fast `@critical` Chromium job on pull requests, then required production Chromium journeys (`test:e2e:pr:shard`) across three **duration-aware explicit file groups** (`scripts/playwright-pr-shards.mjs`), plus one advisory invocation for quarantined and mockup journeys. Playwright `--shard=i/N` is not used for the PR gate — count-balanced sharding packed the slow phone-scroll family into one runner. `src/app/api/**` does not set `ui_changed` or `db_changed` — API handlers stay on unit/coverage (and offline RAG when retrieval-scoped). The `PR required` aggregate keeps `if: always()` and distinguishes `cancelled` from `failure` in its messages (stays red; a skipped required check would count as passing). Secret Scan pins Gitleaks to the workflow event base/head SHAs and the checked-out commit, and verifies the linux_x64 release tarball against a pinned SHA-256 before install. The weekly `release-browser-matrix` depends on static/build/UI success, not on the full aggregate. Container scope calls the reusable Docker workflow and requires both app and worker image builds through the aggregate.
 
 PR body synchronization is skipped unless the checked-out head actually contains `PR_POLICY_BODY.md`. The eval-canary liveness API probe runs once with the daily Ops Digest cadence rather than on every PR. These remove repeated provider-side work without weakening a required result.
 

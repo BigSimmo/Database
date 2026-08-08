@@ -20,9 +20,10 @@ import { serviceRecords } from "../src/lib/services";
 import { recentQueryStorageKey } from "../src/lib/recent-query-storage";
 
 const dashboardViewports = [
+  // Representative owners only: one phone (<640), tablet (≤768), laptop, and
+  // landscape. Extra phone widths (375/414) duplicated the same overflow + Ask
+  // asserts without a distinct layout branch.
   { name: "small-mobile", width: 320, height: 720 },
-  { name: "standard-mobile", width: 375, height: 760 },
-  { name: "large-mobile", width: 414, height: 820 },
   { name: "tablet", width: 768, height: 900 },
   { name: "laptop", width: 1280, height: 900 },
   { name: "mobile-landscape", width: 667, height: 375 },
