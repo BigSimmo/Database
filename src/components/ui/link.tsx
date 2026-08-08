@@ -40,7 +40,15 @@ export type DownloadLinkProps = BaseProps & { href: string; format?: string; siz
     "href" | "children" | "className" | "download"
   >;
 
-export type LinkActionProps = BaseProps & { href: string };
+/**
+ * `tone` is deliberately omitted rather than inherited from `BaseProps`. A
+ * forward action is the accent by design — that is what makes it read as the
+ * card's next step rather than as prose — so there is no `inherit` variant to
+ * select. Accepting the prop and ignoring it was worse than refusing it: three
+ * sibling links honour `tone`, so `tone="inherit"` here looked like it worked
+ * and silently did nothing. Omitting it makes the compiler say so.
+ */
+export type LinkActionProps = Omit<BaseProps, "tone"> & { href: string };
 
 /**
  * Internal navigation. Wraps `next/link` so a call site never reaches for a raw
