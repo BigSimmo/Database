@@ -161,8 +161,62 @@ following the same shape as `check:bundle-budget`.
   route counted as a pass is the failure mode `summarise-web-vitals.mjs` documents at length.
 - CLS is graded on absolute movement; LCP and TBT need to clear both a percentage and an absolute
   floor, so 12 ms → 16 ms is not reported as a 33% regression.
+- A cell that produced **no measurement at all** — a non-zero exit, no report file, or a report
+  carrying only a `runtimeError` such as Lighthouse's own `NO_NAVSTART` (ledger #147 recorded
+  `/forms` doing this) — is retried **once**, and the retry is always logged to the run summary and
+  written to `retries.txt` whether or not it recovered. A run that never started measured nothing
+  about the diff; it is not a pass either, so if the retry also produces nothing the grader still
+  fails closed. A cell that _did_ measure and produced bad numbers is never retried.
 
-Refresh the baseline deliberately after a known-good run: `npm run check:lighthouse-budget -- --update`.
+### Baseline browser pinning, and how to refresh
+
+The baseline is a **browser-specific** artefact. `check-lighthouse-budget.mjs` fails closed when a
+baseline row's `chromeVersion` differs from the measuring run's, because a browser bump is otherwise
+indistinguishable from an application regression. Both Lighthouse jobs therefore pin Playwright's
+managed Chromium through the shared `./.github/actions/setup-lighthouse-chromium` composite action —
+never the ambient runner-image Chrome, which is not pinned per commit (the fleet was observed serving
+HeadlessChrome/150 and /151 to jobs minutes apart on 2026-08-07). Drift is reported as one collapsed
+instruction rather than one sentence per route, but the verdict is unchanged: incomplete evidence
+still fails, independently of `enforce`.
+
+Because the numbers must come from that pinned browser, refresh the baseline **from a CI runner**,
+never a developer machine:
+
+1. Actions → CI → **Run workflow** → pick the branch → tick **refresh_lighthouse_baseline** → Run.
+2. Check the run's diff step prints exactly **one** distinct `chromeVersion`, and that it is the
+   pinned `HeadlessChrome/<major>`. More than one line means the refresh is not usable.
+3. Download the `lighthouse-baseline-refresh-<run_id>` artifact, review the per-route deltas, and
+   commit **only** `lighthouse-budget.json`.
+
+The refresh job is dispatch-only, is not `continue-on-error` (a refresh that measured nothing must go
+red), and deliberately cannot push — a workflow that can rewrite a gate's own baseline is a gate that
+can green itself. `npm run check:lighthouse-budget -- --update` exists for local experiments; its
+output must not be committed.
+
+### When the budget runs
+
+Keyed off `perf_changed` (`scripts/ci-change-scope.mjs`), which is deliberately narrower than the
+`ui_changed || build_changed` union it replaced — that union put every dependabot lockfile bump and
+every `worker/**` ingestion change through a ~7 minute isolated production build plus ten Lighthouse
+runs. In scope: `src/**`, `data/**`, `public/**`, `next.config.ts`, `postcss.config.mjs`,
+`tsconfig.json`, the Chromium pin composite action, and the budget's own inputs. Excluded:
+`worker/**` and container surfaces, dependency manifests and the lockfile, Playwright/test surfaces
+including committed screenshots, most of `src/app/api/**` (except the initial-load handlers
+`/api/setup-status` and `/api/local-project-id` that `/` always fetches), `src/app/mockups/**`, and
+server/edge runtime entry points other than `src/proxy.ts` (which runs before every budgeted
+navigation). An unrecognised path under a listed root stays **in** scope, so a future refactor
+over-triggers by one job rather than silently dropping a render surface.
+
+Event matrix: pull requests on perf scope when not a draft; `merge_group` skipped while the job is
+advisory (it could only add merge latency without changing the outcome — promoting it to
+`pr-required` must restore `merge_group` in the same edit, which `tests/ci-cache-safety.test.ts`
+enforces); `push` to `main`/`release/**` on perf scope **or** when `lockfile_changed` is true (the
+lockfile arm is the backstop for a runtime dependency bump the PR arm deliberately excludes from
+`perf_changed`); the weekly `schedule`; and `workflow_dispatch`. The `lighthouse-budget` label
+forces a run and `skip-lighthouse-budget` opts out, with skip winning. Caveat:
+`on.pull_request.types` has no `labeled` (adding it would re-run all of CI on every label change),
+so the opt-in label takes effect on the next push or re-run — use `workflow_dispatch` for an
+immediate run.
 
 This is distinct from `.github/workflows/live-web-vitals.yml`, which measures the deployed origin for
 ledger #017 and is dispatch-only — by the time it runs, `main` has already auto-deployed. Both pin
@@ -181,7 +235,7 @@ UI scope runs a fail-fast `@critical` Chromium job on pull requests, then requir
 
 PR body synchronization is skipped unless the checked-out head actually contains `PR_POLICY_BODY.md`. The eval-canary liveness API probe runs once with the daily Ops Digest cadence rather than on every PR. These remove repeated provider-side work without weakening a required result.
 
-Two further jobs are advisory (`continue-on-error`, deliberately outside `pr-required`): `visual-baseline` on UI scope and `lighthouse-budget` on UI-or-build scope. Both upload their evidence on every run, pass or fail, because the artifact is the whole point on a first run — the baselines to adopt and the reports to grade. Promote either to required by adding it to `pr-required` and removing `continue-on-error` in the same edit.
+Two further jobs are advisory (`continue-on-error`, deliberately outside `pr-required`): `visual-baseline` on UI scope and `lighthouse-budget` on the narrower perf scope (see "When the budget runs" above — `worker/**` and container surfaces, dependency manifests and the lockfile, Playwright/test surfaces, most of `src/app/api/**` other than initial-load handlers, and `src/app/mockups/**` are excluded; `src/proxy.ts` stays in). Both upload their evidence on every run, pass or fail, because the artifact is the whole point on a first run — the baselines to adopt and the reports to grade. Promote either to required by adding it to `pr-required` and removing `continue-on-error` in the same edit; for `lighthouse-budget` that edit must also restore `merge_group` to its `if:`.
 
 ## Contribution checklist (UI changes)
 

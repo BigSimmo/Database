@@ -26,8 +26,10 @@ import {
 } from "lucide-react";
 
 import type { DifferentialRecordGovernance } from "@/components/clinical-dashboard/use-differential-catalog";
+import { buildDifferentialSectionIndex } from "@/components/differentials/detail-section-index";
 import { DiagnosisMapPanel } from "@/components/differentials/diagnosis-map-panel";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
+import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { cn, pageContainer, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -48,7 +50,6 @@ import {
 } from "@/lib/differential-detail";
 import type { DifferentialRecord, DifferentialSection } from "@/lib/differentials";
 import { useAccountData } from "@/components/account-data-provider";
-import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 
 const sectionIcons: Record<DifferentialSection["tone"], LucideIcon> = {
   fit: CircleCheck,
@@ -811,35 +812,54 @@ function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
   );
 }
 
-function HeaderChrome() {
+const actionRowClass =
+  "focus-ring-tab flex min-h-tap w-full items-center gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-left text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-raised)]";
+
+/**
+ * Body of the header's ellipsis sheet. This is where the page actions live now
+ * that the header's right slot is a single actions control — including "New
+ * differentials search", which used to be a bare `+` in the old header row.
+ */
+function DiagnosisActions({
+  record,
+  saved,
+  onToggleSaved,
+  onCompare,
+  onNavigate,
+}: {
+  record: DifferentialRecord;
+  saved: boolean;
+  onToggleSaved: () => void;
+  onCompare: () => void;
+  onNavigate: () => void;
+}) {
   return (
-    <PhoneHeaderCollapsePortal>
-      <header
-        data-testid="differential-detail-header"
-        className="z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 max-sm:static sm:sticky sm:top-0 sm:px-6 lg:px-8"
-      >
-        <div className={cn(pageContainer, "flex items-center justify-between gap-3")}>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/differentials"
-              aria-label="Back to differentials"
-              className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
-            >
-              <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
-            </Link>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href={appModeHomeHref("differentials", { focus: true })}
-              aria-label="New differentials search"
-              className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
-            >
-              <Plus className="h-5 w-5" aria-hidden />
-            </Link>
-          </div>
-        </div>
-      </header>
-    </PhoneHeaderCollapsePortal>
+    <div className="grid gap-2">
+      <button type="button" onClick={onCompare} className={actionRowClass}>
+        <GitCompareArrows className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        Compare ({record.related.length + 1})
+      </button>
+      <CopyAfterReviewButton
+        label="Copy after review"
+        text={formatDifferentialCopyText(record)}
+        className={cn(
+          actionRowClass,
+          "justify-start !bg-[color:var(--surface-subtle)] !text-[color:var(--text-heading)]",
+        )}
+      />
+      <button type="button" onClick={onToggleSaved} aria-pressed={saved} className={actionRowClass}>
+        {saved ? (
+          <BookmarkCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        ) : (
+          <Bookmark className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        )}
+        {saved ? "Remove saved diagnosis" : "Save diagnosis"}
+      </button>
+      <Link href={appModeHomeHref("differentials", { focus: true })} onClick={onNavigate} className={actionRowClass}>
+        <Plus className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        New differentials search
+      </Link>
+    </div>
   );
 }
 
@@ -890,7 +910,9 @@ function Tabs({
     <nav
       role="tablist"
       onKeyDown={handleKeyDown}
-      className="flex border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)]"
+      // Phones navigate from the header disclosure and its sheet instead — one
+      // affordance per breakpoint, and no strip to clip at 320px.
+      className="hidden border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)] sm:flex"
       aria-label="Diagnosis sections"
     >
       {detailTabs.map((tab) => {
@@ -938,6 +960,12 @@ export function DifferentialDetailPage({
   const accountData = useAccountData();
   const saved = accountData.isSaved("differential", record.slug);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+
+  const sections = useMemo(
+    () => buildDifferentialSectionIndex(record, detailContext, liveGovernance?.sourceStatus ?? null),
+    [detailContext, liveGovernance?.sourceStatus, record],
+  );
+  const activeSection = sections.find((section) => section.id === activeTab) ?? sections[0];
 
   const expandableSectionIds = useMemo(
     () =>
@@ -1010,7 +1038,33 @@ export function DifferentialDetailPage({
       data-testid="differential-detail-page"
       className="min-h-dvh bg-[color:var(--background)] pb-24 text-[color:var(--text)] lg:pb-6"
     >
-      <HeaderChrome />
+      <InPageNavHeader
+        back={{ href: "/differentials", label: "Differentials" }}
+        title={record.title}
+        sections={sections}
+        activeId={activeTab}
+        onSelectSection={(id) => {
+          if (isDetailTabId(id)) changeTab(id);
+        }}
+        actionsNoun="diagnosis"
+        actionsDescription="Choose how to use this differential."
+        testIdPrefix="differential"
+        actions={(close) => (
+          <DiagnosisActions
+            record={record}
+            saved={saved}
+            onToggleSaved={() => {
+              close();
+              void toggleSaved();
+            }}
+            onCompare={() => {
+              close();
+              openCompareTab();
+            }}
+            onNavigate={close}
+          />
+        )}
+      />
       <div className={cn(pageContainer, "grid gap-4 px-3 py-3 sm:px-6 sm:py-4 lg:gap-5 lg:px-8")}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -1056,10 +1110,13 @@ export function DifferentialDetailPage({
 
         <Tabs active={activeTab} onChange={changeTab} />
 
+        {/* Named by its own label rather than by the tab button: below `sm` the
+            strip is `display:none`, and assistive tech ignores a hidden
+            `aria-labelledby` target, which would leave the panel unnamed. */}
         <div
           role="tabpanel"
           id={`differential-panel-${activeTab}`}
-          aria-labelledby={`differential-tab-${activeTab}`}
+          aria-label={activeSection?.label ?? "Diagnosis section"}
           className="grid gap-4"
         >
           {activeTab === "overview" ? (

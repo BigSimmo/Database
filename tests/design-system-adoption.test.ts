@@ -87,7 +87,19 @@ function setCurrentAwaitingValues(fixtureRoot: string, values: string) {
   );
 }
 
-function initialiseCandidateRepository(fixtureRoot: string, awaitingValues?: string) {
+/**
+ * Seeds a fixture repository whose candidate-source commit declares the canonical
+ * six as awaiting a baseline — the state a capture run is taken from.
+ *
+ * The default is the explicit canonical list rather than whatever
+ * `tests/ui-visual-baseline.spec.ts` happens to say right now. Inheriting the live
+ * file made every fixture depend on the repository not having adopted its baselines
+ * yet, so the commit that finally empties `AWAITING_BASELINE` — the outcome this
+ * contract exists to permit — turned the fixture's own candidate head into "must
+ * contain exactly the canonical six ids" and failed the two `toEqual([])` cases.
+ * A fixture states its precondition; it does not borrow it from the tree under test.
+ */
+function initialiseCandidateRepository(fixtureRoot: string, awaitingValues: string = canonicalAwaitingValues) {
   git(fixtureRoot, ["init", "-q"]);
   git(fixtureRoot, ["config", "user.email", "fixture@example.invalid"]);
   git(fixtureRoot, ["config", "user.name", "Fixture"]);
@@ -95,9 +107,7 @@ function initialiseCandidateRepository(fixtureRoot: string, awaitingValues?: str
   writeFixtureFile(
     fixtureRoot,
     "tests/ui-visual-baseline.spec.ts",
-    awaitingValues === undefined
-      ? read("tests/ui-visual-baseline.spec.ts")
-      : withAwaitingValues(read("tests/ui-visual-baseline.spec.ts"), awaitingValues),
+    withAwaitingValues(read("tests/ui-visual-baseline.spec.ts"), awaitingValues),
   );
   return commitFixture(fixtureRoot, "candidate source");
 }
@@ -821,21 +831,43 @@ describe("design-system adoption manifest", () => {
     }
   });
 
-  it("requires the exact static AWAITING_BASELINE transition from canonical six to empty", { timeout: 90_000 }, () => {
+  it("accepts a first adoption or a refresh, and nothing else", { timeout: 90_000 }, () => {
     const exactRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-exact-"));
+    const refreshRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-refresh-"));
     const retainedRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-retained-"));
     const missingRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-missing-"));
     const extraRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-extra-"));
     const dynamicRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-dynamic-"));
     const spreadRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-spread-"));
     const duplicateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-duplicate-"));
-    const fixtureRoots = [exactRoot, retainedRoot, missingRoot, extraRoot, dynamicRoot, spreadRoot, duplicateRoot];
+    const fixtureRoots = [
+      exactRoot,
+      refreshRoot,
+      retainedRoot,
+      missingRoot,
+      extraRoot,
+      dynamicRoot,
+      spreadRoot,
+      duplicateRoot,
+    ];
     try {
       initialiseCandidateRepository(exactRoot, canonicalAwaitingValues);
       setCurrentAwaitingValues(exactRoot, "");
       const exact = writeBaselineSet(exactRoot);
       expect(
         validateLinuxVisualBaselineSet(exact.paths, { root: exactRoot, trackedFiles: exact.trackedFiles }),
+      ).toEqual([]);
+
+      // A REFRESH binds too: empty at both ends, suite byte-identical. This is the
+      // ordinary case once baselines exist — a surface is deliberately re-shot and
+      // its goldens replaced. Without it the six-to-empty transition was satisfiable
+      // exactly once, so the first intentional design change would have left the
+      // goldens red with no supported way to re-adopt them.
+      initialiseCandidateRepository(refreshRoot, "");
+      setCurrentAwaitingValues(refreshRoot, "");
+      const refresh = writeBaselineSet(refreshRoot);
+      expect(
+        validateLinuxVisualBaselineSet(refresh.paths, { root: refreshRoot, trackedFiles: refresh.trackedFiles }),
       ).toEqual([]);
 
       initialiseCandidateRepository(retainedRoot, canonicalAwaitingValues);
@@ -862,14 +894,18 @@ describe("design-system adoption manifest", () => {
           root: missingRoot,
           trackedFiles: missing.trackedFiles,
         }),
-      ).toContain("candidateSourceHead AWAITING_BASELINE must contain exactly the canonical six ids");
+      ).toContain(
+        "candidateSourceHead AWAITING_BASELINE must be either the canonical six ids (first adoption) or empty (refresh)",
+      );
 
       initialiseCandidateRepository(extraRoot, `${canonicalAwaitingValues}, "extra-target"`);
       setCurrentAwaitingValues(extraRoot, "");
       const extra = writeBaselineSet(extraRoot);
       expect(
         validateLinuxVisualBaselineSet(extra.paths, { root: extraRoot, trackedFiles: extra.trackedFiles }),
-      ).toContain("candidateSourceHead AWAITING_BASELINE must contain exactly the canonical six ids");
+      ).toContain(
+        "candidateSourceHead AWAITING_BASELINE must be either the canonical six ids (first adoption) or empty (refresh)",
+      );
 
       initialiseCandidateRepository(dynamicRoot, "BASELINE_IDS");
       setCurrentAwaitingValues(dynamicRoot, "");

@@ -146,6 +146,13 @@ export const demoImages: Array<ChunkImage & { document_id: string; mime_type: st
     signed_url: "/demo-documents/clozapine-table.png",
     mime_type: "image/png",
     image_type: "clinical_table",
+    // Real intrinsic size of public/demo-documents/clozapine-table.png (2.11:1).
+    // Production rows carry width/height, so demo mode has to as well: without
+    // them `imageAspectRatio()` returns null, every demo crop renders at the 4:3
+    // fallback, and the wide-crop layout path this corpus is meant to exercise
+    // is unreachable from any browser gate.
+    width: 1520,
+    height: 720,
     searchable: true,
     clinical_relevance_score: 0.9,
     source_kind: "embedded",
@@ -176,6 +183,9 @@ export const demoImages: Array<ChunkImage & { document_id: string; mime_type: st
     signed_url: "/demo-documents/risk-flow.png",
     mime_type: "image/png",
     image_type: "flowchart_algorithm",
+    // Real intrinsic size of public/demo-documents/risk-flow.png (1.81:1).
+    width: 1520,
+    height: 840,
     searchable: true,
     clinical_relevance_score: 0.88,
     source_kind: "embedded",

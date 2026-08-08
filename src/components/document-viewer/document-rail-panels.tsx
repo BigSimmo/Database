@@ -11,11 +11,10 @@ import {
   DocumentImage,
   DocumentSectionSummary,
   FormattedHighYieldSummary,
-  PinnedSourceEvidence,
   TableReviewPanel,
 } from "@/components/document-viewer/source-panels";
 import { DocumentImageFilmstrip } from "@/components/document-viewer/document-image-filmstrip";
-import type { ChunkRow, DocumentIndexHealth, ImageRow, TableFactRow } from "@/components/document-viewer/types";
+import type { DocumentIndexHealth, ImageRow, TableFactRow } from "@/components/document-viewer/types";
 import type { DocumentSection } from "@/components/document-viewer/section-index";
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import {
@@ -43,7 +42,6 @@ export function DocumentViewerRail({
   onCompactChange,
   indexWarnings,
   effectiveLoadingDocument,
-  selectedChunk,
   document,
   summaryBadges,
   formattedStoredSummary,
@@ -70,7 +68,6 @@ export function DocumentViewerRail({
   onCompactChange: (compact: boolean) => void;
   indexWarnings: string[];
   effectiveLoadingDocument: boolean;
-  selectedChunk: ChunkRow | undefined;
   document: ClinicalDocument | null;
   summaryBadges: DocumentSummaryBadge[];
   formattedStoredSummary: FormattedDocumentSummary;
@@ -92,7 +89,15 @@ export function DocumentViewerRail({
   return (
     <aside
       className={cn(
-        "min-w-0 grid content-start gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:sticky lg:grid-cols-1 lg:self-start lg:pr-1",
+        // `grid-cols-1` at the base breakpoint is load-bearing, not decoration.
+        // Without it the phone rail falls back to an implicit `grid-auto-columns:
+        // auto` track whose minimum is the min-content of its items, so one wide
+        // descendant (a wide table crop's aspect-ratio frame) stretched the single
+        // track and EVERY card inherited the blown-out width — measured 560px
+        // inside a 393px viewport, with `html { overflow-x: clip }` amputating the
+        // remainder instead of making it scrollable. `md:`/`lg:` never showed it
+        // because Tailwind emits `repeat(n, minmax(0,1fr))` for those.
+        "min-w-0 grid grid-cols-1 content-start gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:sticky lg:grid-cols-1 lg:self-start lg:pr-1",
         // The rail clears the top bar while it is there, and reclaims that
         // space the moment it hides — otherwise a dead band the height of the
         // bar sits above the rail for as long as chrome stays away. When the
@@ -107,11 +112,11 @@ export function DocumentViewerRail({
         onSelect={onSelectSection}
         compact={compact}
         onCompactChange={onCompactChange}
-        className="hidden md:col-span-2 lg:col-span-1 lg:block"
+        className="hidden min-w-0 md:col-span-2 lg:col-span-1 lg:block"
       />
 
       {indexWarnings.length ? (
-        <InlineNotice tone="warning" className="text-xs md:col-span-2 lg:col-span-1">
+        <InlineNotice tone="warning" className="min-w-0 text-xs md:col-span-2 lg:col-span-1">
           <span className="font-bold">Extraction warnings</span>
           {indexWarnings.slice(0, 4).map((warning) => (
             <span key={warning} className="mt-1 block font-semibold">
@@ -121,15 +126,6 @@ export function DocumentViewerRail({
         </InlineNotice>
       ) : null}
 
-      <div className="hidden lg:block">
-        <PinnedSourceEvidence
-          loading={effectiveLoadingDocument}
-          chunk={selectedChunk}
-          compact
-          sectionId="source-evidence-rail"
-        />
-      </div>
-
       {document ? (
         <details
           id="source-summary"
@@ -137,7 +133,7 @@ export function DocumentViewerRail({
           data-testid="high-yield-summary"
           className={cn(
             panel,
-            "group scroll-mt-[var(--document-anchor-offset,6rem)] source-print md:col-span-2 lg:col-span-1",
+            "group min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] source-print md:col-span-2 lg:col-span-1",
           )}
         >
           <DocumentSectionSummary
@@ -221,7 +217,10 @@ export function DocumentViewerRail({
       <details
         id="source-images"
         name="document-viewer-section"
-        className={cn(panel, "group scroll-mt-[var(--document-anchor-offset,6rem)] md:col-span-2 lg:col-span-1")}
+        className={cn(
+          panel,
+          "group min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] md:col-span-2 lg:col-span-1",
+        )}
       >
         <DocumentSectionSummary
           icon={FileImage}
@@ -285,7 +284,10 @@ export function DocumentViewerRail({
           id={documentIndexingSectionId}
           name="document-viewer-section"
           data-testid="indexing-details"
-          className={cn(panel, "group scroll-mt-[var(--document-anchor-offset,6rem)] md:col-span-2 lg:col-span-1")}
+          className={cn(
+            panel,
+            "group min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] md:col-span-2 lg:col-span-1",
+          )}
         >
           <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
             <span className={eyebrowText}>Indexing details</span>

@@ -2056,9 +2056,30 @@ test.describe("Clinical KB tools launcher", () => {
     // icon action does not get crushed below the 44px tap standard.
     await expectMinTouchTarget(detailPage.getByRole("button", { name: "Save diagnosis" }));
 
-    // Tabs: no page overflow and single-line labels at the narrowest width.
+    // Phones navigate from the header disclosure, not the labelled strip: the
+    // strip is `sm+` only, so at 320px there is nothing left to clip. Assert the
+    // template's phone affordance instead — active section on line two of the
+    // title control, and the section sheet behind it.
     await page.setViewportSize({ width: 320, height: 700 });
     await expect(detailPage).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    await expect(detailPage.getByRole("tab", { name: "Overview" })).toBeHidden();
+    // The header is portaled into the universal collapse row on phones, so it
+    // lives outside the page root that `detailPage` scopes to.
+    const sectionTrigger = page.getByTestId("differential-section-trigger");
+    await expect(sectionTrigger).toBeVisible();
+    await expect(sectionTrigger).toContainText("Overview");
+    await expectMinTouchTarget(sectionTrigger);
+    await sectionTrigger.click();
+    const sectionSheet = page.getByTestId("differential-section-sheet");
+    await expect(sectionSheet).toBeVisible();
+    await sectionSheet.getByRole("button", { name: /^Map/ }).click();
+    await expect(sectionSheet).toBeHidden();
+    await expect(sectionTrigger).toContainText("Map");
+    await expect(page).toHaveURL(/[?&]tab=map/);
+
+    // Single-line labels at the narrowest width the strip actually renders at.
+    await page.setViewportSize({ width: 768, height: 900 });
     await expectNoPageHorizontalOverflow(page);
     const overviewTab = detailPage.getByRole("tab", { name: "Overview" });
     await expect(overviewTab).toBeVisible();
