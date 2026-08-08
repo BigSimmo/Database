@@ -86,6 +86,22 @@ const targets: readonly BaselineTarget[] = [
     route: documentPath,
     selector: "#main-content",
     viewport: desktop,
+    /**
+     * The document header and the search composer are viewport-pinned
+     * (`sm:sticky sm:top-0` and `sm:fixed` in `DocumentViewer.tsx`), and this
+     * target clips a ~2900px region against a 900px viewport. Playwright stitches
+     * an oversized element capture, so both land partway DOWN the image, overlap
+     * whatever content sits behind them at that offset, and move whenever the
+     * content above them changes height. That made an unrelated edit anywhere on
+     * the page redraw two bands of the golden and inflated every diff (#278).
+     *
+     * Masked rather than clipped away: both are real chrome that belongs in the
+     * frame, and narrowing the selector would drop the rail panels this target
+     * exists to watch. A mask is a hole in the gate, so it is limited to the two
+     * pinned elements — their own geometry is covered by the phone chrome
+     * contracts in `docs/search-chrome-behaviour.md`, not by this pixel gate.
+     */
+    mask: [".edge-glass-header", ".document-viewer-composer"],
     prepare: async (page) => {
       const sectionIndex = page.getByTestId("document-section-index");
       const sourceText = sectionIndex.getByRole("button", { name: /Indexed source text/ });
@@ -116,6 +132,20 @@ const targets: readonly BaselineTarget[] = [
   },
 ];
 
+async function assertMaskSelectors(page: Page, target: BaselineTarget): Promise<void> {
+  // A mask selector that matches nothing masks nothing, silently — the golden
+  // simply keeps comparing the region the mask was meant to exclude, and the
+  // declaration reads as protection that is not there. Renaming a class is
+  // enough to cause it, so each declared mask must resolve to at least one
+  // element before capture or comparison is trusted.
+  for (const selector of target.mask ?? []) {
+    await expect(
+      page.locator(selector),
+      `mask selector "${selector}" on target "${target.name}" matched no element`,
+    ).not.toHaveCount(0);
+  }
+}
+
 async function settle(page: Page, target: BaselineTarget): Promise<Locator> {
   await page.setViewportSize({ ...target.viewport });
   await page.goto(target.route, { waitUntil: "domcontentloaded" });
@@ -132,6 +162,7 @@ async function settle(page: Page, target: BaselineTarget): Promise<Locator> {
   // Playwright cannot serialise back out of the page.
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await target.prepare?.(page);
+  await assertMaskSelectors(page, target);
   return region;
 }
 
@@ -210,6 +241,7 @@ test.describe("visual baselines", () => {
       }
 
       const region = await settle(page, target);
+
       await expect(region).toHaveScreenshot(`${target.name}.png`, {
         animations: "disabled",
         caret: "hide",
