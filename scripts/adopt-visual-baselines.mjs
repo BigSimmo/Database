@@ -30,8 +30,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
+import { visualBaselineAwaitingIds } from "./generate-design-system-adoption.mjs";
+
 const ROOT = process.cwd();
 const BASELINE_DIR = "tests/__screenshots__/linux";
+const VISUAL_SUITE_FILE = "tests/ui-visual-baseline.spec.ts";
 const PROVENANCE = `${BASELINE_DIR}/provenance.json`;
 const CANONICAL = [
   "dashboard-shell",
@@ -53,6 +56,23 @@ function fail(message) {
   process.exit(1);
 }
 
+function gitSucceeds(args) {
+  try {
+    execFileSync("git", args, { cwd: ROOT, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function gitOutput(args) {
+  try {
+    return execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
+}
+
 const from = arg("from");
 const runId = arg("run-id");
 const head = arg("head");
@@ -67,34 +87,80 @@ if (!reviewedBy || !reviewedBy.trim()) {
 
 // The capture commit must be real and reachable, or the provenance describes a
 // tree nobody can check the images against.
-try {
-  execFileSync("git", ["cat-file", "-e", `${head}^{commit}`], { cwd: ROOT, stdio: "ignore" });
-} catch {
+if (!gitSucceeds(["cat-file", "-e", `${head}^{commit}`])) {
   fail(`--head ${head} is not a commit in this repository`);
 }
 
+const candidateSuite = gitOutput(["show", `${head}:${VISUAL_SUITE_FILE}`]);
+if (!candidateSuite) fail(`--head ${head} does not contain ${VISUAL_SUITE_FILE}`);
+const candidateAwaiting = visualBaselineAwaitingIds(candidateSuite, VISUAL_SUITE_FILE);
+if (!candidateAwaiting.valid) {
+  fail(`--head ${head} ${VISUAL_SUITE_FILE} AWAITING_BASELINE is invalid: ${candidateAwaiting.failure ?? "unknown"}`);
+}
+const canonicalAwaiting = [...CANONICAL].sort();
+const candidateAwaitingIds = [...candidateAwaiting.ids].sort();
+const captureKind =
+  JSON.stringify(candidateAwaitingIds) === JSON.stringify(canonicalAwaiting)
+    ? "first-adoption"
+    : candidateAwaitingIds.length === 0
+      ? "refresh"
+      : null;
+if (!captureKind) {
+  fail(
+    `--head ${head} AWAITING_BASELINE must be either the canonical six ids (first adoption) or empty (refresh); ` +
+      `found ${candidateAwaitingIds.join(", ") || "(none)"}`,
+  );
+}
+
+const currentSuite = fs.existsSync(path.join(ROOT, VISUAL_SUITE_FILE))
+  ? fs.readFileSync(path.join(ROOT, VISUAL_SUITE_FILE), "utf8")
+  : null;
+const currentAwaiting = currentSuite ? visualBaselineAwaitingIds(currentSuite, VISUAL_SUITE_FILE) : null;
+if (!currentAwaiting?.valid) {
+  fail(`current ${VISUAL_SUITE_FILE} AWAITING_BASELINE is invalid: ${currentAwaiting?.failure ?? "missing suite"}`);
+}
+if (captureKind === "first-adoption" && currentAwaiting.ids.length !== 0) {
+  fail(
+    "first adoption requires the current tree to empty AWAITING_BASELINE in the same commit as the adopted baselines",
+  );
+}
+if (captureKind === "refresh" && currentAwaiting.ids.length !== 0) {
+  fail("refresh adoption requires AWAITING_BASELINE to already be empty in the current tree");
+}
+
 /**
- * Candidates land in one of two places depending on whether the target had a
- * baseline at capture time: `visual-candidates/` when it was skipped for want of
- * one, and the Playwright output directory when it was compared and differed.
- * A refresh is the second case, which is why looking only at the first made the
- * script useless for exactly the workflow it exists to serve.
+ * Candidates land in one of several places depending on capture outcome:
+ *
+ *   - `visual-candidates/` when the target had no baseline at capture time
+ *   - Playwright output (`*-actual.png`) when it compared and differed
+ *   - `tests/__screenshots__/linux/` inside the artifact when it compared and passed
+ *   - the committed baseline in this repository when a partial refresh left the
+ *     target unchanged and the artifact carried no replacement image
  */
-function findCandidate(id) {
-  const direct = path.join(from, "test-results", "visual-candidates", "linux", `${id}.png`);
-  if (fs.existsSync(direct)) return direct;
+function findCandidateSource(id) {
+  const candidate = path.join(from, "test-results", "visual-candidates", "linux", `${id}.png`);
+  if (fs.existsSync(candidate)) return { source: candidate, origin: "candidate" };
+
   const results = path.join(from, "test-results");
-  if (!fs.existsSync(results)) return null;
-  const wanted = [`${id}-actual.png`, `${id}.png`];
-  const stack = [results];
-  while (stack.length > 0) {
-    const dir = stack.pop();
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) stack.push(full);
-      else if (wanted.includes(entry.name)) return full;
+  if (fs.existsSync(results)) {
+    const wanted = new Set([`${id}-actual.png`, `${id}.png`]);
+    const stack = [results];
+    while (stack.length > 0) {
+      const dir = stack.pop();
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) stack.push(full);
+        else if (wanted.has(entry.name)) return { source: full, origin: "diff" };
+      }
     }
   }
+
+  const artifactBaseline = path.join(from, BASELINE_DIR, `${id}.png`);
+  if (fs.existsSync(artifactBaseline)) return { source: artifactBaseline, origin: "artifact-baseline" };
+
+  const committedBaseline = path.join(ROOT, BASELINE_DIR, `${id}.png`);
+  if (fs.existsSync(committedBaseline)) return { source: committedBaseline, origin: "committed" };
+
   return null;
 }
 
@@ -108,34 +174,61 @@ function pngSize(buffer) {
 const resolved = [];
 const missing = [];
 for (const id of CANONICAL) {
-  const source = findCandidate(id);
-  if (!source) {
+  const located = findCandidateSource(id);
+  if (!located) {
     missing.push(id);
     continue;
   }
-  const image = fs.readFileSync(source);
+  if (captureKind === "first-adoption" && located.origin === "committed") {
+    missing.push(id);
+    continue;
+  }
+  const image = fs.readFileSync(located.source);
   const size = pngSize(image);
-  if (!size) fail(`${source} is not a PNG`);
+  if (!size) fail(`${located.source} is not a PNG`);
   const target = path.join(ROOT, BASELINE_DIR, `${id}.png`);
   const previous = fs.existsSync(target) ? createHash("sha256").update(fs.readFileSync(target)).digest("hex") : null;
   const sha256 = createHash("sha256").update(image).digest("hex");
-  resolved.push({ id, source, image, sha256, previous, ...size });
+  resolved.push({
+    id,
+    source: located.source,
+    origin: located.origin,
+    image,
+    sha256,
+    previous,
+    ...size,
+  });
 }
 
 if (missing.length > 0) {
   fail(
     `no candidate image found for: ${missing.join(", ")}. The artifact must contain either ` +
-      `test-results/visual-candidates/linux/<id>.png (target was awaiting a baseline) or ` +
-      `<id>-actual.png under test-results/ (target compared and differed).`,
+      `test-results/visual-candidates/linux/<id>.png (target was awaiting a baseline), ` +
+      `<id>-actual.png under test-results/ (target compared and differed), ` +
+      `${BASELINE_DIR}/<id>.png inside the artifact (target compared and passed), or an existing ` +
+      `committed baseline when refreshing unchanged targets.`,
   );
 }
+
+const replacedCandidateIds = resolved
+  .filter((entry) => entry.origin === "candidate" || entry.origin === "diff")
+  .map((entry) => entry.id)
+  .sort();
 
 const changed = resolved.filter((entry) => entry.sha256 !== entry.previous);
 for (const entry of resolved) {
   const state = entry.previous === null ? "NEW" : entry.sha256 === entry.previous ? "unchanged" : "CHANGED";
-  console.log(`${state.padEnd(9)} ${entry.id}  ${entry.width}x${entry.height}  ${entry.sha256.slice(0, 12)}`);
+  const origin = entry.origin === "committed" || entry.origin === "artifact-baseline" ? "retained" : "replaced";
+  console.log(
+    `${state.padEnd(9)} ${entry.id}  ${entry.width}x${entry.height}  ${entry.sha256.slice(0, 12)}  (${origin})`,
+  );
 }
 console.log(`\n${changed.length} of ${resolved.length} baselines would change.`);
+if (captureKind === "refresh") {
+  console.log(`Capture kind: refresh (${replacedCandidateIds.length} replaced from artifact).`);
+} else {
+  console.log("Capture kind: first-adoption.");
+}
 
 if (!WRITE) {
   console.log("Dry run. Re-run with --write to update the baselines and provenance.");
@@ -150,6 +243,10 @@ const provenance = {
   platform: "linux",
   runnerImage: "ubuntu-24.04",
   candidateSourceHead: head,
+  capture: {
+    kind: captureKind,
+    ...(captureKind === "refresh" ? { replacedCandidateIds } : {}),
+  },
   source: { kind: "hosted-ci-artifact", runId, artifactName: `visual-baseline-${runId}`, candidateSourceHead: head },
   review: {
     status: "approved",

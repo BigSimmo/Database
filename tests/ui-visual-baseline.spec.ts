@@ -132,6 +132,20 @@ const targets: readonly BaselineTarget[] = [
   },
 ];
 
+async function assertMaskSelectors(page: Page, target: BaselineTarget): Promise<void> {
+  // A mask selector that matches nothing masks nothing, silently — the golden
+  // simply keeps comparing the region the mask was meant to exclude, and the
+  // declaration reads as protection that is not there. Renaming a class is
+  // enough to cause it, so each declared mask must resolve to at least one
+  // element before capture or comparison is trusted.
+  for (const selector of target.mask ?? []) {
+    await expect(
+      page.locator(selector),
+      `mask selector "${selector}" on target "${target.name}" matched no element`,
+    ).not.toHaveCount(0);
+  }
+}
+
 async function settle(page: Page, target: BaselineTarget): Promise<Locator> {
   await page.setViewportSize({ ...target.viewport });
   await page.goto(target.route, { waitUntil: "domcontentloaded" });
@@ -148,6 +162,7 @@ async function settle(page: Page, target: BaselineTarget): Promise<Locator> {
   // Playwright cannot serialise back out of the page.
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await target.prepare?.(page);
+  await assertMaskSelectors(page, target);
   return region;
 }
 
@@ -226,18 +241,6 @@ test.describe("visual baselines", () => {
       }
 
       const region = await settle(page, target);
-
-      // A mask selector that matches nothing masks nothing, silently — the golden
-      // simply keeps comparing the region the mask was meant to exclude, and the
-      // declaration reads as protection that is not there. Renaming a class is
-      // enough to cause it, so each declared mask must resolve to at least one
-      // element before the comparison is trusted.
-      for (const selector of target.mask ?? []) {
-        await expect(
-          page.locator(selector),
-          `mask selector "${selector}" on target "${target.name}" matched no element`,
-        ).not.toHaveCount(0);
-      }
 
       await expect(region).toHaveScreenshot(`${target.name}.png`, {
         animations: "disabled",
