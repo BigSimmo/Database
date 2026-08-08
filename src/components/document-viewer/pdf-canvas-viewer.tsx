@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import { ExternalLink, FileText, Loader2, RefreshCw } from "lucide-react";
-import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
+import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, RenderTask } from "pdfjs-dist";
 
 import { cn, floatingControl } from "@/components/ui-primitives";
 import { resolveCanvasRasterPlan } from "@/components/document-viewer/canvas-raster-budget";
@@ -83,6 +83,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
 }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderedPageRef = useRef<PDFPageProxy | null>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(0);
@@ -170,7 +171,19 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
           "pdfjs-dist/build/pdf.worker.min.mjs",
           import.meta.url,
         ).toString();
-        loadTask = pdfjs.getDocument({ url });
+        // Range-fetch on demand instead of pulling the whole file down. pdf.js
+        // otherwise keeps fetching the rest of the document in the background
+        // even when the reader only ever looks at one page — the wrong default
+        // for a long guideline opened on a phone, on cellular. `disableAutoFetch`
+        // does not take effect without `disableStream`; the installed types say
+        // so explicitly.
+        //
+        // The trade is that later bytes are requested later, so a signed URL can
+        // expire mid-read. That path already exists and recovers: a range failure
+        // is an auth/HTTP error, `isLikelyExpiredUrl` catches it, and the parent
+        // re-issues the URL. Its refresh budget resets on every successful load,
+        // so a long reading session is not capped at two recoveries.
+        loadTask = pdfjs.getDocument({ url, disableAutoFetch: true, disableStream: true });
         const loadedPdf = await loadTask.promise;
         if (!active) return;
         setPdf(loadedPdf);
@@ -240,6 +253,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       setRendering(true);
       try {
         const pdfPage = await activePdf.getPage(page);
+        renderedPageRef.current = pdfPage;
         if (cancelled || !canvasRef.current || !holderRef.current) return;
         // Rotation is applied in the viewport so width/height already reflect the
         // 90°/270° swap — the fit calculation and canvas sizing follow for free.
@@ -293,8 +307,24 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     return () => {
       cancelled = true;
       renderTask?.cancel();
+      // Release the page's decoded resources when leaving it. pdf.js declines
+      // while a render is still live, so this cannot cut one short.
+      renderedPageRef.current?.cleanup();
     };
   }, [fitWidth, holderWidth, page, pdf, renderZoom, reportUrlExpired, rotation]);
+
+  // A canvas keeps its backing store until the element is collected, which on a
+  // phone is memory held for a document the reader has already left. Zeroing the
+  // dimensions releases it at unmount instead.
+  useEffect(
+    () => () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      canvas.width = 0;
+      canvas.height = 0;
+    },
+    [],
+  );
 
   const jumpToPage = useCallback(
     (nextPage: number) => {
