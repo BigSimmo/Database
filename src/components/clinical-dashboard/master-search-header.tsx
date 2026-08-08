@@ -29,7 +29,6 @@ import {
   Search,
   Send,
   ShieldCheck,
-  ArrowLeft,
   X,
 } from "lucide-react";
 
@@ -197,8 +196,6 @@ export function MasterSearchHeader({
   desktopPageComposerSlotId,
   heroComposerBreakpoint = "all",
   mobileBottomSearchAddonSlotId,
-  mobileLeadingAction = "menu",
-  onMobileBack,
   hideOnScroll,
   onBottomComposerHiddenChange,
   showDesktopNewChat = true,
@@ -263,8 +260,6 @@ export function MasterSearchHeader({
   heroComposerBreakpoint?: "all" | "sm-up";
   /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
-  mobileLeadingAction?: "menu" | "back";
-  onMobileBack?: () => void;
   /** Phone-only hide-on-scroll for the universal header and bottom search dock.
    *  "overlay" translates the sticky header away (host scrolls the document,
    *  content already flows beneath); "collapse" also releases the header's
@@ -604,7 +599,6 @@ export function MasterSearchHeader({
                           : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
-  const useMobileBackControl = mobileLeadingAction === "back";
 
   function currentUsesScopeSheet() {
     return window.matchMedia(scopeSheetMediaQuery).matches;
@@ -2031,20 +2025,16 @@ export function MasterSearchHeader({
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             type="button"
-            onClick={useMobileBackControl ? onMobileBack : onOpenMobileSidebar}
+            onClick={onOpenMobileSidebar}
             className={cn(
               "universal-header-icon-control h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               // From md the desktop icon rail owns navigation, so the drawer
               // trigger is phone-only outside workflow headers.
-              isWorkflowHeader || useMobileBackControl ? "grid" : "grid md:hidden",
+              isWorkflowHeader ? "grid" : "grid md:hidden",
             )}
-            aria-label={useMobileBackControl ? "Go back" : "Open Clinical Guide menu"}
+            aria-label="Open Clinical Guide menu"
           >
-            {useMobileBackControl ? (
-              <ArrowLeft aria-hidden="true" className="h-5 w-5" />
-            ) : (
-              <Menu aria-hidden="true" className="h-5 w-5" />
-            )}
+            <Menu aria-hidden="true" className="h-5 w-5" />
           </button>
           {isServicesMode ? (
             <div className="hidden min-w-0 items-center gap-3 lg:flex">
