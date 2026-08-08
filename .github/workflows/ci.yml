@@ -716,10 +716,43 @@ jobs:
         with:
           persist-credentials: false
 
-      # Lighthouse drives the Chrome that ships in the ubuntu-24.04 runner image, so
-      # no browser install is needed here (matching live-web-vitals.yml).
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
+
+      # This job used to drive whatever Chrome ships in the ubuntu-24.04 runner image
+      # (matching live-web-vitals.yml, which measures a live domain and isn't graded
+      # against a committed baseline). That ambient browser is NOT pinned per commit —
+      # the runner fleet was observed serving HeadlessChrome/150 and /151 to jobs
+      # minutes apart on 2026-08-07 — so every grading run this job's baseline
+      # comparator treats a version drift as "evidence incomplete" and fails closed
+      # (by design: a browser bump is otherwise indistinguishable from a real
+      # regression). Refreshing the baseline for whichever version showed up bought a
+      # few hours before the next mismatched runner failed it again (#1690).
+      #
+      # Pin Playwright's own managed Chromium instead, the same binary the Production
+      # UI / Visual baselines jobs already use, cached by lockfile hash so it is
+      # identical across every runner for a given commit. run-lighthouse-budget.mjs
+      # already honours CHROME_PATH/PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.
+      - name: Restore Chromium browser cache
+        id: pw-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-chromium-${{ runner.os }}-
+
+      - name: Install Chromium
+        run: |
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright install-deps chromium
+            npx playwright install chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
+
+      - name: Pin the Chromium executable path
+        run: echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
 
       - name: Measure routes and grade against the baseline
         run: npm run verify:lighthouse -- --keep --dir lighthouse

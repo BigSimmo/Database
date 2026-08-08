@@ -146,4 +146,22 @@ describe("document viewer latency guards", () => {
     expect(panels).toContain("const searchEligible = normalizedSearch.length >= 2;");
     expect(panels).toContain("const displayChunks = useMemo(");
   });
+
+  it("wires rail filmstrip page jumps through navigateToPage without remounting the PDF viewer", () => {
+    const viewer = source("src/components/DocumentViewer.tsx");
+    const rail = source("src/components/document-viewer/document-rail-panels.tsx");
+    const filmstrip = source("src/components/document-viewer/document-image-filmstrip.tsx");
+    const routeHook = source("src/components/document-viewer/use-document-viewer-route.ts");
+
+    expect(viewer).toContain("onSelectPage={navigateToPage}");
+    expect(viewer).toContain("activePage={activePage}");
+    expect(rail).toContain("DocumentImageFilmstrip");
+    expect(rail).toContain("onSelectPage={onSelectPage}");
+    expect(filmstrip).toContain('data-testid="document-image-filmstrip"');
+    expect(routeHook).toContain("window.history.pushState");
+    expect(viewer).not.toContain("router.push(documentPageHref");
+    // Page must not be part of the canvas key — that remounts pdf.js on every flip.
+    expect(viewer).toContain('key={`${documentId}-${useNativePdfViewer ? "native" : "canvas"}`}');
+    expect(viewer).not.toMatch(/key=\{`\$\{documentId\}.*\$\{activePage\}/);
+  });
 });
