@@ -108,7 +108,7 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
           // Only an active consumer for this identity may populate the shared
           // endpoint-keyed cache — otherwise a late response after sign-out /
           // account switch can hand the next user the prior bearer URL.
-          setCachedSignedUrl(endpoint, data);
+          setCachedSignedUrl(endpoint, { ...data, url: data.url });
           setUrl(data.url);
           setFailed(false);
         } else {
