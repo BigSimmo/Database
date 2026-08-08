@@ -6,9 +6,15 @@ committed tests → `.design-sync/conventions.md` → this set. Where this set c
 higher source, the higher source wins and the contradiction is a defect here.
 
 **Picking the work up cold?** Start at
-[HANDOVER-2026-08-07.md](HANDOVER-2026-08-07.md) — measured state, the ordered plan, and the
-six places the older design-system backlog is provably wrong. It exists so a fresh session
-does not re-derive what a previous one already measured.
+[`docs/outstanding-issues.md`](../outstanding-issues.md) — the ledger rows are the current
+source of truth for what is open, in what order, and what has already been measured.
+
+[HANDOVER-2026-08-07.md](HANDOVER-2026-08-07.md) is **superseded and must not be used to
+scope work** (`#277`). Nine open rows cite it as their Source, but four of its figures have
+since been disproved and the corrections live in those rows rather than in the document,
+which still asserts the originals. It is kept for provenance — the citations, the PR and
+commit record, and its verification and gotcha sections — and carries a banner listing what
+is known wrong.
 
 Reading order:
 
