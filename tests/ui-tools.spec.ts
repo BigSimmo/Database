@@ -530,7 +530,9 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("tools mode embeds the launcher content inside the dashboard", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page, "/?mode=tools&q=medication&focus=1");
+    // `/?mode=tools&q=…` (no run=1) now prefills the shared home's composer
+    // rather than rendering Tools content there. /tools is the canonical surface.
+    await gotoLauncher(page, "/tools?q=medication&focus=1");
 
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
     await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medication");
