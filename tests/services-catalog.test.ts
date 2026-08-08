@@ -121,6 +121,39 @@ describe("services catalogue", () => {
     ).toBe(true);
   });
 
+  it("prefers concrete referral routes over vague intake placeholders for ICLS (S079)", () => {
+    const snapshot = loadServicesSnapshot();
+    const icls = snapshot.services.find((service) => service.id === "S079");
+    expect(icls).toBeTruthy();
+
+    const record = catalogToServiceRecord(icls!);
+    expect(record.route).toBe("Referral must come from public or private mental health service");
+    expect(record.route?.toLowerCase()).not.toContain("does not specify");
+    expect(record.route?.toLowerCase()).not.toContain("through program pathways");
+  });
+
+  it("preserves multi-clause eligibility and exclusion criteria for Mother Baby Unit (S115)", () => {
+    const snapshot = loadServicesSnapshot();
+    const mbu = snapshot.services.find((service) => service.id === "S115");
+    expect(mbu).toBeTruthy();
+
+    const record = catalogToServiceRecord(mbu!);
+    const meetLabels =
+      record.criteria?.filter((criterion) => criterion.tone === "meet").map((criterion) => criterion.label) ?? [];
+    expect(meetLabels.some((label) => /28 weeks/i.test(label))).toBe(true);
+    expect(meetLabels.some((label) => /non-toddling/i.test(label))).toBe(true);
+
+    const rejectLabels =
+      record.criteria?.filter((criterion) => criterion.tone === "reject").map((criterion) => criterion.label) ?? [];
+    expect(rejectLabels.some((label) => /withdrawal\/detox/i.test(label))).toBe(true);
+    expect(rejectLabels.some((label) => /not publicly stated/i.test(label))).toBe(false);
+
+    const exclusionsRow = record.referralInfo?.find((row) => row.label === "Exclusions");
+    expect(exclusionsRow?.value).toContain("Not emergency/crisis service");
+    expect(exclusionsRow?.value).toContain("withdrawal/detox");
+    expect(exclusionsRow?.value).toMatch(/highly secure\/intensive nursing/i);
+  });
+
   it("compacts raw best-use fallbacks for stale seeded summary cards", () => {
     const snapshot = loadServicesSnapshot();
     const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");

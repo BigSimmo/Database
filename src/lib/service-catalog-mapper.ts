@@ -1,6 +1,11 @@
 import type { CatalogService } from "@/lib/service-catalog";
 import { catalogServiceSlug, extractEmails, extractPhones } from "@/lib/service-catalog";
-import { compactBestUseTitle, compactCatalogField, parseLabeledReferralDetails } from "@/lib/compact-best-use-title";
+import {
+  compactBestUseTitle,
+  compactCatalogField,
+  parseLabeledReferralDetails,
+  splitCatalogClauses,
+} from "@/lib/compact-best-use-title";
 import type {
   ServiceChipTone,
   ServiceContact,
@@ -12,7 +17,7 @@ import type {
   ServiceSummaryCard,
 } from "@/lib/services";
 
-export { compactBestUseTitle, compactCatalogField, parseLabeledReferralDetails };
+export { compactBestUseTitle, compactCatalogField, parseLabeledReferralDetails, splitCatalogClauses };
 
 const UNKNOWN_VALUES = /^(?:not publicly stated|not applicable|none|n\/a|unknown)$/i;
 
@@ -218,7 +223,10 @@ function buildReferralInfo(service: CatalogService): ServiceInfoRow[] {
   add("Patient group", cleanField(service.patient_group) ?? labeled.patientGroup);
   add("Hours", cleanField(service.hours) ?? labeled.hours);
   add("Cost / funding", cleanField(service.cost_funding) ?? labeled.cost);
-  add("Exclusions", service.exclusion_rejection_criteria);
+  const exclusions = splitCatalogClauses(service.exclusion_rejection_criteria, ROW_MAX);
+  if (exclusions.length > 0) {
+    rows.push({ label: "Exclusions", value: exclusions.join(" | ") });
+  }
   add("Discharge planning", service.discharge_planning_usefulness);
 
   return rows;
@@ -238,13 +246,18 @@ function buildCriteria(service: CatalogService): ServiceCriterion[] {
     criteria.push({ label, tone: "meet" });
   };
 
-  addMeet(service.eligibility_referral_criteria);
   addMeet(service.best_use_indication);
   addMeet(service.referral_pathway, "Referral: ");
 
-  const exclusion = displayField(service.exclusion_rejection_criteria, CARD_MAX);
-  if (exclusion) {
-    criteria.push({ label: exclusion, tone: "reject" });
+  for (const clause of splitCatalogClauses(service.eligibility_referral_criteria, CARD_MAX)) {
+    addMeet(clause);
+  }
+
+  for (const clause of splitCatalogClauses(service.exclusion_rejection_criteria, CARD_MAX)) {
+    const key = clause.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    criteria.push({ label: clause, tone: "reject" });
   }
 
   if (service.tags.acuity_flags.includes("crisis_high")) {
