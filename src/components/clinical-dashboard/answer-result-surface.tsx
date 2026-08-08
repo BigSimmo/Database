@@ -30,7 +30,6 @@ import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/componen
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { type AppModeId } from "@/lib/app-modes";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
-import { type SourceGovernanceWarning } from "@/lib/source-governance";
 import type {
   AnswerSection,
   BestSourceRecommendation,
@@ -50,7 +49,6 @@ function StagedAnswerResultSurfaceImpl({
   answer,
   query,
   bestSource,
-  sourceGovernanceWarnings,
   sourceSummary,
   renderModel,
   weakEvidence,
@@ -76,7 +74,6 @@ function StagedAnswerResultSurfaceImpl({
   answer: RagAnswer;
   query: string;
   bestSource: BestSourceRecommendation | null;
-  sourceGovernanceWarnings: SourceGovernanceWarning[];
   sourceSummary?: EvidenceSummary;
   renderModel: AnswerRenderModel;
   weakEvidence: boolean;
@@ -415,7 +412,6 @@ function StagedAnswerResultSurfaceImpl({
               renderModel={renderModel}
               visualEvidence={renderModel.visualEvidence}
               answerEvidenceMapRows={answerEvidenceMapRows}
-              sourceGovernanceWarnings={sourceGovernanceWarnings}
               demoMode={demoMode}
               initialTab={evidenceInitialTab}
               pendingFeedback={pendingFeedback}
