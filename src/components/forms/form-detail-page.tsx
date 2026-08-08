@@ -211,6 +211,24 @@ function criterionToneClass(tone: ServiceCriterion["tone"]) {
   return toneWarning;
 }
 
+/** Soft cue + body for Confirm callouts — medium prefix only, never full-row bold. */
+function ConfirmCalloutText({ cue, body }: { cue?: string; body: string }) {
+  if (!cue) return <>{body}</>;
+  return (
+    <span>
+      <span className="font-medium">{cue}</span>
+      {body ? <> {body}</> : null}
+    </span>
+  );
+}
+
+function confirmCheckParts(check: string): { cue?: string; body: string } {
+  const normalized = check.replace(/^Before use:\s*/i, "Before use: ");
+  const match = normalized.match(/^(Before use:)\s*(.*)$/i);
+  if (!match) return { body: normalized };
+  return { cue: "Before use:", body: match[2] ?? "" };
+}
+
 function DetailCard({ card }: { card: ServiceSummaryCard }) {
   return (
     <article className="min-h-[5.75rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-1.5 shadow-[var(--shadow-inset)] sm:min-h-[7rem] sm:p-3">
@@ -426,19 +444,22 @@ function PathwayContextCard({
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
             <p className="text-2xs font-bold uppercase text-[color:var(--text-muted)]">Confirm</p>
-            <div className="mt-2 grid gap-1.5">
-              {confirmChecks.slice(0, 4).map((check) => (
-                <span
-                  key={check}
-                  className={cn(
-                    "inline-flex min-h-7 items-center rounded-md border px-2 text-xs font-semibold",
-                    toneWarning,
-                  )}
-                >
-                  <CircleCheck className="mr-1.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                  {check.replace(/^Before use:\s*/i, "Before use: ")}
-                </span>
-              ))}
+            <div className="mt-2 grid gap-2.5">
+              {confirmChecks.slice(0, 4).map((check) => {
+                const { cue, body } = confirmCheckParts(check);
+                return (
+                  <span
+                    key={check}
+                    className={cn(
+                      "flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-xs font-normal leading-5",
+                      toneWarning,
+                    )}
+                  >
+                    <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    <ConfirmCalloutText cue={cue} body={body} />
+                  </span>
+                );
+              })}
               {criteria
                 .filter((criterion) => criterion.tone === "reject")
                 .slice(0, 1)
@@ -446,12 +467,12 @@ function PathwayContextCard({
                   <span
                     key={criterion.label}
                     className={cn(
-                      "inline-flex min-h-7 items-center rounded-md border px-2 text-xs font-semibold",
+                      "flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-xs font-normal leading-5",
                       criterionToneClass(criterion.tone),
                     )}
                   >
-                    <CircleX className="mr-1.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                    Avoid: {criterion.label}
+                    <CircleX className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    <ConfirmCalloutText cue="Avoid:" body={criterion.label} />
                   </span>
                 ))}
             </div>
