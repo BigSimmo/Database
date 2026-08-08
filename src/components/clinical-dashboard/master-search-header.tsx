@@ -964,6 +964,8 @@ export function MasterSearchHeader({
   }
 
   function renderModeMenuOptions() {
+    // Title-only rows: descriptions stay in aria-label so the phone sheet can
+    // show nearly the full catalogue at a glance (no subtitle / section chrome).
     return visibleAppModeOptions.map((mode, index) => {
       const Icon = appModeIcons[mode.id];
       const active = mode.id === searchMode;
@@ -976,6 +978,7 @@ export function MasterSearchHeader({
           type="button"
           role="menuitemradio"
           aria-checked={active}
+          aria-label={`${mode.label}. ${mode.description}`}
           tabIndex={active ? 0 : -1}
           data-sheet-autofocus={usesPhoneSearchLayout && index === modeMenuFocusIndex ? "true" : undefined}
           onFocus={() => prefetchModeHome(mode.id)}
@@ -986,30 +989,44 @@ export function MasterSearchHeader({
             window.requestAnimationFrame(() => modeButtonRef.current?.focus());
           }}
           className={cn(
-            "grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            "relative grid w-full items-center gap-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            usesPhoneSearchLayout
+              ? "grid-cols-[2rem_minmax(0,1fr)_1.25rem] rounded-lg px-2 py-1"
+              : "grid-cols-[2rem_minmax(0,1fr)_auto] rounded-md px-2.5 py-2",
             usesPhoneSearchLayout ? "min-h-12" : "min-h-[3.25rem]",
             active
-              ? "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)]"
-              : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+              ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)]"
+              : "text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
           )}
         >
+          {active ? (
+            <span
+              aria-hidden="true"
+              className="absolute inset-y-1 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
+            />
+          ) : null}
           <span
             className={cn(
               "grid h-8 w-8 place-items-center rounded-lg border",
               active
-                ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
+                ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
             )}
           >
             <Icon aria-hidden="true" className="h-4 w-4" />
           </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold">{mode.label}</span>
-            <span className="block truncate text-2xs font-medium text-[color:var(--text-muted)]">
-              {mode.description}
-            </span>
+          <span className="min-w-0 truncate text-sm font-semibold tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
+            {mode.label}
           </span>
-          {active ? <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
+          {active ? (
+            <Check
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]"
+              strokeWidth={2.5}
+            />
+          ) : (
+            <span aria-hidden="true" className="h-4 w-4" />
+          )}
         </button>
       );
     });
@@ -2178,7 +2195,7 @@ export function MasterSearchHeader({
           open={modeMenuOpen}
           onClose={dismissModeMenu}
           title="Choose mode"
-          description="Switch the clinical workspace mode."
+          description={`Currently · ${selectedAppMode.label}`}
           closeLabel="Close mode menu"
           returnFocusRef={modeButtonRef}
           portal
@@ -2186,10 +2203,10 @@ export function MasterSearchHeader({
           mobileSize="content"
           testId="app-mode-menu-sheet"
           contentClassName="max-h-[calc(100dvh-0.5rem)] sm:max-w-md"
-          bodyClassName="p-2"
+          bodyClassName="px-1.5 py-1"
           headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
         >
-          <div id="app-mode-menu" role="menu" aria-label="Choose app mode" className="grid gap-0.5">
+          <div id="app-mode-menu" role="menu" aria-label="Choose app mode" className="grid gap-0">
             {renderModeMenuOptions()}
           </div>
         </Sheet>
