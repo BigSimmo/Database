@@ -1080,7 +1080,10 @@ export function DifferentialDetailPage({
   const sectionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
 
-  const sections = useMemo(() => buildDifferentialSectionIndex(record, detailContext), [record, detailContext]);
+  const sections = useMemo(
+    () => buildDifferentialSectionIndex(record, detailContext, liveGovernance?.sourceStatus ?? null),
+    [detailContext, liveGovernance?.sourceStatus, record],
+  );
   const activeSection = sections.find((section) => section.id === activeTab) ?? sections[0];
 
   const expandableSectionIds = useMemo(
