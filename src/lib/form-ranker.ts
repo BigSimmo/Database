@@ -6,6 +6,19 @@ export type FormSearchMatch = ServiceSearchMatch;
 
 export type FormAvailability = "downloadable" | "unavailable" | "contact_ocp";
 
+export type FormPriorityFactCard = {
+  title: string;
+  detail?: string;
+  /** Longer wording shown when the condensed priority-fact card is opened. */
+  body?: string;
+};
+
+export type FormActSection = {
+  section: string;
+  title: string;
+  summary: string;
+};
+
 export type FormCatalogDetails = {
   id: string;
   form: string;
@@ -35,6 +48,20 @@ export type FormCatalogDetails = {
   legalNote: string;
   practicePearls: string[];
   preUseChecks: string[];
+  /**
+   * Optional condensed Priority facts copy. When present, summary cards use these
+   * titles/details; `body` (or the canonical field) opens in a detail sheet.
+   */
+  priorityFacts?: {
+    clock?: FormPriorityFactCard;
+    authority?: FormPriorityFactCard;
+    criteria?: FormPriorityFactCard;
+  };
+  /**
+   * When present, replaces the Source status priority-fact card with Act sections
+   * that open per-section detail on tap. Source status remains on the form rail.
+   */
+  actSections?: FormActSection[];
   sourceFacts?: {
     documentTitle?: string;
     fileName?: string;
@@ -100,6 +127,7 @@ export function formRecordSearchText(form: FormRecord) {
     ...(details?.aliases ?? []),
     ...(details?.searchTerms ?? []),
     ...(details?.indexedTerms ?? []),
+    ...(details?.actSections ?? []).flatMap((entry) => [`section ${entry.section}`, entry.title, entry.summary]),
     "form",
     "forms",
     "checklist",

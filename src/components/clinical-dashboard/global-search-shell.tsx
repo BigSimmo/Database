@@ -414,7 +414,8 @@ function GlobalStandaloneSearchShellBody({
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
   const differentialsCompareAddonActive =
-    pathname === "/differentials" && searchMode === "differentials" && hasSubmittedModeSearch;
+    searchMode === "differentials" &&
+    (pathname === "/differentials/diagnoses" || (pathname === "/differentials" && hasSubmittedModeSearch));
   // Registry and local decision-support modes own their submitted-search views on their
   // standalone routes; the shell must not swap them to the dashboard. On the
   // home route the dashboard always renders, so these exclusions only apply
@@ -428,7 +429,7 @@ function GlobalStandaloneSearchShellBody({
   // searchMode before router.push landed, which made isStandaloneModeHome false
   // for one frame (dock reserve + 200ms padding transition = choppy resize).
   const isStandaloneModeHome = !hasSubmittedModeSearch && !rendersDashboardSearch && isStandaloneModeHomePath(pathname);
-  const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
+  const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations/");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";

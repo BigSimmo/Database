@@ -1,7 +1,8 @@
 name: Setup pinned Chromium for Lighthouse
 description: >
-  Install Playwright's managed Chromium and export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, so every
-  Lighthouse job in this repository measures with the same browser build for a given commit.
+  Install Playwright's managed Chromium and export CHROME_PATH plus
+  PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, so every Lighthouse job in this repository measures with the
+  same browser build for a given commit.
 
 # The Lighthouse budget used to drive whatever Chrome ships in the ubuntu-24.04 runner image
 # (matching live-web-vitals.yml, which measures a live domain and isn't graded against a
@@ -46,4 +47,9 @@ runs:
 
     - name: Pin the Chromium executable path
       shell: bash
-      run: echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
+      run: |
+        chromium_path="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+        {
+          echo "CHROME_PATH=$chromium_path"
+          echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$chromium_path"
+        } >> "$GITHUB_ENV"
