@@ -93,7 +93,10 @@ export function mergeRegistryRecordWithDefault(kind: RegistryRecordKind, row: Re
   apply("cost", ownerRecord.cost, row.cost);
   apply("referral", ownerRecord.referral, row.referral);
   apply("location", ownerRecord.location, row.location);
-  apply("summaryCards", ownerRecord.summaryCards, row.summary_cards);
+  // summaryCards are catalogue-derived for forms (generated from catalog data, not owner-editable).
+  // Always use the baseline's cards so that catalogue updates (e.g. new condensed priority-fact
+  // cards) are visible to pre-seeded owners whose stored rows carry the old full-length layout.
+  if (kind !== "form") apply("summaryCards", ownerRecord.summaryCards, row.summary_cards);
   apply("referralInfo", ownerRecord.referralInfo, row.referral_info);
   apply("bestUse", ownerRecord.bestUse, row.best_use);
   apply("criteria", ownerRecord.criteria, row.criteria);
