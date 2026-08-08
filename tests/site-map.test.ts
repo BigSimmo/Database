@@ -75,7 +75,9 @@ describe("tracked sitemap", () => {
         "src/app/(search-app)/differentials/presentations/route.ts",
         "/differentials/presentations/[workflow-slug]",
       ],
-      ["/medications", "src/app/(search-app)/medications/route.ts", "/?mode=prescribing"],
+      // `/medications` is deliberately absent: it became a real Medication mode
+      // home when `/` turned into the single shared home for every mode, so it is
+      // a page route now rather than a redirect handler.
     ] as const;
     const redirectSection = siteMap.slice(siteMap.indexOf("## Redirects"));
 
