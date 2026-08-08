@@ -3857,7 +3857,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(requestCounts.jobs).toBe(0);
     expect(requestCounts.batches).toBe(0);
     expect(requestCounts.quality).toBe(0);
+    // Escape closes the scope popover but leaves the composer's command dropdown
+    // open, and that dropdown overlays the home actions below it — so dismiss the
+    // composer the way a user does, by clicking away from it. Previously this test
+    // switched mode after scoping and the re-render reset the composer for free;
+    // the Documents home is now its own route, so the blur has to be explicit.
     await page.keyboard.press("Escape");
+    await expect(page.getByTestId("scope-command-popover")).toHaveCount(0);
+    await page
+      .getByRole("main")
+      .getByRole("heading", { name: "Documents" })
+      .first()
+      .click({ position: { x: 2, y: 2 } });
 
     await page
       .getByRole("button", { name: /Browse library/i })
