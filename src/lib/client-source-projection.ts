@@ -59,7 +59,9 @@ function projectMatchReasonForClient(reason: string | null | undefined, labels: 
 }
 
 export function projectRelatedDocumentForClient(document: RelatedDocument): RelatedDocument {
-  const labels = projectDocumentLabelsForClient(document.labels);
+  // Cap labels before match_reason projection so a "Matched label: …" reason
+  // cannot refer to a label the client never receives (search payload ships ≤6).
+  const labels = projectDocumentLabelsForClient(document.labels).slice(0, 6);
   return {
     document_id: document.document_id,
     title: document.title,

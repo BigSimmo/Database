@@ -82,4 +82,22 @@ describe("projectRelatedDocumentForClient", () => {
     expect(projected.cover_image_id).toBe("image-1");
     expect(projected.table_count).toBe(3);
   });
+
+  it("caps labels before match_reason projection so a dropped label cannot be named", () => {
+    const labels = Array.from({ length: 7 }, (_, index) =>
+      label({
+        id: `label-${index + 1}`,
+        label: `topic-${index + 1}`,
+      }),
+    );
+    const projected = projectRelatedDocumentForClient(
+      relatedDocument({
+        labels,
+        match_reason: "Matched label: topic-7",
+      }),
+    );
+    expect(projected.labels).toHaveLength(6);
+    expect(projected.labels.map((entry) => entry.label)).not.toContain("topic-7");
+    expect(projected.match_reason).toBe("Matched indexed passages");
+  });
 });

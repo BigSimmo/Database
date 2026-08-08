@@ -878,12 +878,13 @@ async function buildScopedSearchPayload(
   // owner_id and arbitrary metadata fields. Never spread the raw array into a
   // client-facing payload — project each document (and its labels) through
   // projectRelatedDocumentForClient first.
+  // Labels are capped inside projectRelatedDocumentForClient (before
+  // match_reason projection) so the reason cannot name a dropped label.
   const clientRelatedDocuments = relatedDocuments.map(projectRelatedDocumentForClient).map((document) => ({
     ...document,
     summary: document.summary ? compactText(document.summary, 360) : null,
     table_count: document.table_count ?? 0,
     cover_image_id: document.cover_image_id ?? null,
-    labels: document.labels.slice(0, 6),
   }));
 
   const payload = {
