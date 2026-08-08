@@ -9,7 +9,6 @@ import {
   GET as redirectPresentations,
   HEAD as headPresentations,
 } from "@/app/(search-app)/differentials/presentations/route";
-import { GET as redirectMedications, HEAD as headMedications } from "@/app/(search-app)/medications/route";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 
 function source(relativePath: string) {
@@ -47,42 +46,39 @@ describe("audit navigation and auth regressions", () => {
       "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
 
-    const medications = redirectMedications(new NextRequest("https://clinical-kb.test/medications"));
-    expect(medications.status).toBe(307);
-    expect(medications.headers.get("location")).toBe("/?mode=prescribing");
-
-    // Search context survives the legacy redirect with the same sanitized
-    // allowlist as the root legacy-mode redirect: trimmed q plus focus/run=1.
-    const medicationsWithQuery = redirectMedications(
-      new NextRequest("https://clinical-kb.test/medications?q=+lithium+&focus=1&run=0&mode=ignored&extra=drop"),
-    );
-    expect(medicationsWithQuery.status).toBe(307);
-    expect(medicationsWithQuery.headers.get("location")).toBe("/?mode=prescribing&q=lithium&focus=1");
-
-    expect([headApplications, headPresentations, headMedications]).toEqual([
-      redirectApplications,
-      redirectPresentations,
-      redirectMedications,
-    ]);
+    // `/medications` is a real Medication mode home (no blanket 307). Submitted
+    // deep links (`q` + `run=1`) still redirect to the dashboard prescribing
+    // results surface so old bookmarks keep working.
+    const medicationsPage = source("src/app/(search-app)/medications/page.tsx");
+    expect(medicationsPage).toContain('redirect(appModeHomeHref("prescribing", { query, run: true }))');
+    expect(medicationsPage).not.toContain('redirect("/?mode=prescribing")');
+    expect([headApplications, headPresentations]).toEqual([redirectApplications, redirectPresentations]);
   });
 
-  it("sanitizes root legacy mode aliases before request-time redirects", () => {
-    const favourites = legacyHomeRedirectUrl(
-      new URL("https://clinical-kb.test/?mode=favourites&q=+lithium+&focus=1&run=0&extra=drop"),
-      "GET",
-    );
+  it("only redirects submitted root legacy mode aliases, leaving bare /?mode= on the shared home", () => {
+    // Selection-only (no q+run=1) must stay on `/` so the shared-home contract
+    // covers favourites/differentials/specifiers the same as every other mode.
+    expect(
+      legacyHomeRedirectUrl(
+        new URL("https://clinical-kb.test/?mode=favourites&q=+lithium+&focus=1&run=0&extra=drop"),
+        "GET",
+      ),
+    ).toBeNull();
+    expect(
+      legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=specifiers&focus=1&unexpected=drop"), "GET"),
+    ).toBeNull();
+    expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=favourites"), "GET")).toBeNull();
+
     const differentials = legacyHomeRedirectUrl(
-      new URL("https://clinical-kb.test/?mode=differentials&q=acute+confusion&run=1&run=0"),
+      new URL("https://clinical-kb.test/?mode=differentials&q=acute+confusion&run=1&run=0&extra=drop"),
       "HEAD",
     );
-    const specifiers = legacyHomeRedirectUrl(
-      new URL("https://clinical-kb.test/?mode=specifiers&focus=1&unexpected=drop"),
+    const favouritesSubmitted = legacyHomeRedirectUrl(
+      new URL("https://clinical-kb.test/?mode=favourites&q=+lithium+&focus=1&run=1&extra=drop"),
       "GET",
     );
-
-    expect(favourites?.toString()).toBe("https://clinical-kb.test/favourites?q=lithium&focus=1");
     expect(differentials?.toString()).toBe("https://clinical-kb.test/differentials?q=acute+confusion&run=1");
-    expect(specifiers?.toString()).toBe("https://clinical-kb.test/specifiers?focus=1");
+    expect(favouritesSubmitted?.toString()).toBe("https://clinical-kb.test/favourites?q=lithium&focus=1&run=1");
     expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=favourites"), "POST")).toBeNull();
     expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=answer"), "GET")).toBeNull();
     expect(source("src/proxy.ts")).toContain("legacyHomeRedirectUrl(request.nextUrl, request.method)");
@@ -135,15 +131,15 @@ describe("audit navigation and auth regressions", () => {
       "function handleModeTriggerKeyDown(",
     );
 
-    expect(masterSearchHeaderSource).toContain("function prefetchModeHome(modeId: AppModeId)");
+    expect(masterSearchHeaderSource).toContain("function prefetchModeDestination(modeId: AppModeId)");
     expect(masterSearchHeaderSource).toContain("router.prefetch(href,");
     expect(masterSearchHeaderSource).toContain("onInvalidate:");
-    expect(modeOptions).toContain("onFocus={() => prefetchModeHome(mode.id)}");
-    expect(modeOptions).toContain("onPointerEnter={() => prefetchModeHome(mode.id)}");
+    expect(modeOptions).toContain("onFocus={() => prefetchModeDestination(mode.id)}");
+    expect(modeOptions).toContain("onPointerEnter={() => prefetchModeDestination(mode.id)}");
     // Menu-open paths warm only the highlighted option — never every visible home.
-    expect(openModeMenuWithFocus).toContain("prefetchModeHome(highlighted.id)");
-    expect(toggleModeMenu).toContain("prefetchModeHome(highlighted.id)");
-    expect(masterSearchHeaderSource).not.toContain("function prefetchModeHomes(");
+    expect(openModeMenuWithFocus).toContain("prefetchModeDestination(highlighted.id)");
+    expect(toggleModeMenu).toContain("prefetchModeDestination(highlighted.id)");
+    expect(masterSearchHeaderSource).not.toContain("function prefetchModeDestinations(");
     expect(masterSearchHeaderSource).not.toContain("visibleAppModeOptions.forEach((mode) => router.prefetch");
     expect(masterSearchHeaderSource).not.toContain(
       "new Set(visibleAppModeOptions.map((mode) => appModeHomeHref(mode.id)))",
@@ -268,7 +264,8 @@ describe("audit navigation and auth regressions", () => {
     const universalMatchesContract = sourceSegment(
       clinicalDashboardSource,
       '{showUniversalAlsoMatches && activeModeResultKind === "tools"',
-      '{activeModeResultKind === "differentials"',
+      // The shared home now opens the mode-content chain, ahead of differentials.
+      "{showSharedHome ?",
     );
 
     expect(universalMatchesContract).toContain("<UniversalSearchAlsoMatches modeId={searchMode}");

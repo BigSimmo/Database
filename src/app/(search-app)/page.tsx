@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { HomePageClient } from "./home-page-client";
 import { appModeHomeHref, isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
+import { isDashboardModeHref } from "@/lib/search-route-ownership";
 
 type HomeProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -23,69 +24,24 @@ export default async function Home({ searchParams }: HomeProps) {
   const initialSearchMode: AppModeId =
     isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
 
-  // /favourites is the canonical favourites surface; deep links via the
-  // dashboard mode param would otherwise open a divergent hub view.
-  if (initialSearchMode === "favourites") {
-    const favouriteParams = new URLSearchParams();
-    const query = firstSearchParam(params.q)?.trim();
-    if (query) favouriteParams.set("q", query);
-    if (firstSearchParam(params.focus) === "1") favouriteParams.set("focus", "1");
-    if (firstSearchParam(params.run) === "1") favouriteParams.set("run", "1");
-    const suffix = favouriteParams.toString();
-    redirect(suffix ? `/favourites?${suffix}` : "/favourites");
-  }
+  // `/` is the single home page for every mode: the mode pill retargets the
+  // composer rather than navigating, so a bare `/?mode=<id>` must RENDER home
+  // with that mode preselected. Only a *submitted* deep link (a query plus
+  // `run=1`) still resolves to the mode's own search surface — that is the half
+  // of the old redirect behaviour worth keeping, since such a URL names results
+  // rather than a starting point.
+  const query = firstSearchParam(params.q)?.trim();
+  const focus = firstSearchParam(params.focus) === "1";
+  const run = firstSearchParam(params.run) === "1";
+  const submitted = Boolean(query) && run;
 
-  if (initialSearchMode === "differentials") {
-    const differentialParams = new URLSearchParams();
-    const query = firstSearchParam(params.q)?.trim();
-    if (query) differentialParams.set("q", query);
-    if (firstSearchParam(params.focus) === "1") differentialParams.set("focus", "1");
-    if (firstSearchParam(params.run) === "1") differentialParams.set("run", "1");
-    const suffix = differentialParams.toString();
-    redirect(suffix ? `/differentials?${suffix}` : "/differentials");
-  }
-
-  if (initialSearchMode === "dsm") {
-    const query = firstSearchParam(params.q)?.trim();
-    redirect(
-      appModeHomeHref("dsm", {
-        query,
-        focus: firstSearchParam(params.focus) === "1",
-        run: firstSearchParam(params.run) === "1",
-      }),
-    );
-  }
-
-  if (initialSearchMode === "specifiers") {
-    const specifierParams = new URLSearchParams();
-    const query = firstSearchParam(params.q)?.trim();
-    if (query) specifierParams.set("q", query);
-    if (firstSearchParam(params.focus) === "1") specifierParams.set("focus", "1");
-    if (firstSearchParam(params.run) === "1") specifierParams.set("run", "1");
-    const suffix = specifierParams.toString();
-    redirect(suffix ? `/specifiers?${suffix}` : "/specifiers");
-  }
-
-  if (initialSearchMode === "formulation") {
-    const formulationParams = new URLSearchParams();
-    const query = firstSearchParam(params.q)?.trim();
-    if (query) formulationParams.set("q", query);
-    if (firstSearchParam(params.focus) === "1") formulationParams.set("focus", "1");
-    if (firstSearchParam(params.run) === "1") formulationParams.set("run", "1");
-    const suffix = formulationParams.toString();
-    redirect(suffix ? `/formulation?${suffix}` : "/formulation");
-  }
-
-  // Services/forms are namespaced mode homes; keep /?mode=* from mounting the
-  // full ClinicalDashboard + registry path for those surfaces.
-  if (initialSearchMode === "services" || initialSearchMode === "forms") {
-    redirect(
-      appModeHomeHref(initialSearchMode, {
-        query: firstSearchParam(params.q)?.trim(),
-        focus: firstSearchParam(params.focus) === "1",
-        run: firstSearchParam(params.run) === "1",
-      }),
-    );
+  if (submitted) {
+    const destination = appModeHomeHref(initialSearchMode, { query, focus, run });
+    // Answer and prescribing resolve back to `/?mode=…`; redirecting there would
+    // loop. Everything else names a route the dashboard does not own.
+    if (!isDashboardModeHref(destination)) {
+      redirect(destination);
+    }
   }
 
   return <HomePageClient initialMode={initialSearchMode} />;

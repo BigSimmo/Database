@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   appModeDefinitions,
+  appModeIds,
   appModeCanUseSourceLibraryShortcut,
   appModeHomeHref,
+  appModeSelectionHref,
   appModeQueryMode,
   appModeSearchConfig,
   appModeSourceLibrarySearchMode,
@@ -359,5 +361,47 @@ describe("app mode search contract", () => {
         demoMode: false,
       }),
     ).toEqual(["documents", "favourites", "forms"]);
+  });
+
+  // `/` is the single home page: the mode pill retargets the composer instead of
+  // navigating, so submitting is the only thing that leaves home. This table is the
+  // contract for where each mode lands — the whole feature in one assertion.
+  it("routes a submitted shared-composer search to each mode's own search surface", () => {
+    const submitted = Object.fromEntries(
+      appModeIds.map((mode) => [mode, appModeHomeHref(mode, { query: "clozapine", run: true })]),
+    );
+
+    expect(submitted).toEqual({
+      // Dashboard-owned: these stay on `/` and render results in place.
+      answer: "/?mode=answer&q=clozapine&run=1",
+      prescribing: "/?mode=prescribing&q=clozapine&run=1",
+      // Dedicated search routes.
+      documents: "/documents/search?mode=documents&q=clozapine&run=1",
+      dsm: "/dsm/search?q=clozapine&run=1",
+      factsheets: "/factsheets/search?q=clozapine&run=1",
+      // Same route, submitted branch.
+      services: "/services?q=clozapine&run=1",
+      forms: "/forms?q=clozapine&run=1",
+      favourites: "/favourites?q=clozapine&run=1",
+      differentials: "/differentials?q=clozapine&run=1",
+      specifiers: "/specifiers?q=clozapine&run=1",
+      formulation: "/formulation?q=clozapine&run=1",
+      // Therapy resolves to its home, which server-redirects to /therapy-compass/search.
+      "therapy-compass": "/therapy-compass?q=clozapine&run=1",
+      // Tools has no search route by design: it filters its launcher in place.
+      tools: "/tools?q=clozapine&run=1",
+    });
+  });
+
+  it("keeps mode selection on the shared home instead of opening a mode home", () => {
+    // Selecting a mode rewrites this in place (replaceState) — it never pushes a
+    // route, so every mode's selection href must stay on `/`.
+    for (const mode of appModeIds) {
+      expect(appModeSelectionHref(mode)).toBe(`/?mode=${encodeURIComponent(mode)}`);
+    }
+    // Search context still rides along so a pick does not silently drop filters.
+    expect(appModeSelectionHref("dsm", { queryMode: "compare_guidance" })).toBe(
+      "/?mode=dsm&queryMode=compare_guidance",
+    );
   });
 });
