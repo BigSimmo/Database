@@ -44,7 +44,6 @@ import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
-import { ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
 import { Sheet } from "@/components/ui/sheet";
 import {
   SearchResultsEmptyState,
@@ -81,7 +80,6 @@ import {
   type SmartDocumentTagFacet,
   type SmartDocumentTagGroup,
 } from "@/lib/document-tags";
-import type { SourceGovernanceWarning } from "@/lib/source-governance";
 import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
 import type { SearchScopeFilters } from "@/lib/search-scope";
@@ -119,7 +117,6 @@ export type SearchFacets = {
 type SearchRecordMode = "services" | "forms";
 type SearchRecordMatch = ServiceSearchMatch | FormSearchMatch;
 
-const EMPTY_SOURCE_GOVERNANCE_WARNINGS: SourceGovernanceWarning[] = [];
 const EMPTY_APPLIED_FILTERS: AppliedFilterChip[] = [];
 
 const searchRecordConfig: Record<
@@ -1359,7 +1356,6 @@ function DocumentSearchResultsPanelImpl({
   setupWarning,
   facets: _facets,
   searchScope = null,
-  sourceGovernanceWarnings = EMPTY_SOURCE_GOVERNANCE_WARNINGS,
   onScopeDocument,
   onAnswerFromDocument,
   onOpenRecentDocuments,
@@ -1386,7 +1382,6 @@ function DocumentSearchResultsPanelImpl({
   setupWarning: string | null;
   facets?: SearchFacets | null;
   searchScope?: SearchScopeSummary | null;
-  sourceGovernanceWarnings?: SourceGovernanceWarning[];
   onScopeDocument: (documentId: string) => void;
   onAnswerFromDocument: (documentId: string) => void;
   onOpenRecentDocuments: () => void;
@@ -1686,10 +1681,6 @@ function DocumentSearchResultsPanelImpl({
         >
           {unavailableMessage}
         </div>
-      ) : null}
-
-      {!showRecordMatches && trimmedQuery && !shouldShowHome ? (
-        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
       ) : null}
 
       {showRecordMatches ? (
