@@ -168,6 +168,13 @@ export function DocumentViewer({
   // reveal from a prior deep-link must not survive into the next landing.
   const citationLandingKey = `${documentId}::${activeChunkId ?? ""}`;
   const [inspectRevealKey, setInspectRevealKey] = useState<string | null>(null);
+  const [prevCitationLandingKey, setPrevCitationLandingKey] = useState(citationLandingKey);
+  if (citationLandingKey !== prevCitationLandingKey) {
+    setPrevCitationLandingKey(citationLandingKey);
+    // Chunk/document identity changed: drop any prior inspect latch so a
+    // revisit to the same citation does not auto-reopen the indexed dump.
+    if (inspectRevealKey !== null) setInspectRevealKey(null);
+  }
   const inspectIndexedText = inspectRevealKey === citationLandingKey;
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);

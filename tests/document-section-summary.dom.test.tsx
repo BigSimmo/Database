@@ -216,4 +216,59 @@ describe("IndexedTextPanel citation landing", () => {
     fireEvent.click(panel.querySelector("summary")!);
     await waitFor(() => expect(panel.open).toBe(false));
   });
+
+  it("closes after inspect reveal clears on the same citation", () => {
+    const props = {
+      loading: false,
+      selectedPage: basePage,
+      chunks: [baseChunk],
+      search: "",
+      documentSearchResults: [] as [],
+      searchingDocument: false,
+      documentSearchError: null,
+      idPrefix: "source-chunk",
+      sectionId: "source-text" as const,
+      selectedChunkId: "chunk-1",
+      onSearchChange: vi.fn(),
+      compact: true,
+      revealRequest: true,
+    };
+    const { rerender } = render(<IndexedTextPanel {...props} />);
+    const panel = screen.getByTestId("source-chunk-indexed-text-panel") as HTMLDetailsElement;
+    expect(panel.open).toBe(true);
+
+    rerender(<IndexedTextPanel {...props} revealRequest={false} />);
+    expect(panel.open).toBe(false);
+  });
+
+  it("resets compact open when the citation changes without a reveal request", () => {
+    const props = {
+      loading: false,
+      selectedPage: basePage,
+      chunks: [
+        baseChunk,
+        {
+          ...baseChunk,
+          id: "chunk-2",
+          chunk_index: 1,
+          content: "Lithium levels are checked 5 to 7 days after initiation",
+        },
+      ],
+      search: "",
+      documentSearchResults: [] as [],
+      searchingDocument: false,
+      documentSearchError: null,
+      idPrefix: "source-chunk",
+      sectionId: "source-text" as const,
+      selectedChunkId: "chunk-1",
+      onSearchChange: vi.fn(),
+      compact: true,
+      revealRequest: true,
+    };
+    const { rerender } = render(<IndexedTextPanel {...props} />);
+    expect((screen.getByTestId("source-chunk-indexed-text-panel") as HTMLDetailsElement).open).toBe(true);
+
+    rerender(<IndexedTextPanel {...props} selectedChunkId="chunk-2" revealRequest={false} />);
+    expect((screen.getByTestId("source-chunk-indexed-text-panel") as HTMLDetailsElement).open).toBe(false);
+  });
 });

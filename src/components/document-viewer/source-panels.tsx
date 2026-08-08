@@ -886,7 +886,11 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   const [prevForceReveal, setPrevForceReveal] = useState(forceReveal);
   if (forceReveal !== prevForceReveal) {
     setPrevForceReveal(forceReveal);
-    if (forceReveal) setCompactOpen(true);
+    // Rising edge: latch open so exclusive-accordion closes cannot collapse an
+    // active inspect/search reveal. Falling edge: drop the latch so jumping to
+    // PDF/overview (or clearing revealRequest on the same citation) restores
+    // PDF-first instead of leaving the dump controlled-open.
+    setCompactOpen(forceReveal);
   }
   if (previousAutoOpenDriverRef.current !== autoOpenDriver) {
     previousAutoOpenDriverRef.current = autoOpenDriver;
