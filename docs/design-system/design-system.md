@@ -18,11 +18,7 @@ Design direction is **settled**. Work on the UI is convergence — closing the g
 contract and the code — not reinvention. If a change genuinely needs a new direction, update
 `permanent-colour-direction.md` first, then the code.
 
-<<<<<<< HEAD:docs/design-system/design-system.md
 Comparison surfaces also follow [`comparison-behaviour.md`](../rag-behaviour/comparison-behaviour.md). That contract
-=======
-Comparison surfaces also follow [`comparison-behaviour.md`](comparison-behaviour.md). That contract
->>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit:docs/design-system.md
 standardises selection and interaction states while leaving clinical fields and meaning with each
 mode.
 

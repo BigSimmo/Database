@@ -13,14 +13,8 @@ Staging is two independent tiers: a **staging Supabase project** (data) and a
 > **Revalidated 2026-07-30:** the staging project and app are still healthy, correctly identify as
 > staging, run with `RAG_PROVIDER_MODE=offline`, and have no OpenAI key. Linked migration history
 > has **24** local-only versions: ten holes before/at `20260719053533` (four are historical
-<<<<<<< HEAD:docs/operations/staging-setup.md
 > placeholders) and fourteen versions after `20260719055623`. `supabase db push --linked
---include-all --dry-run` prints that exact 24-version chain. Do not run a normal or partial push:
-=======
-> placeholders) and fourteen versions after `20260719055623`.
-> `supabase db push --linked --include-all --dry-run` prints that exact 24-version chain. Do not run
-> a normal or partial push:
->>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit:docs/staging-setup.md
+> --include-all --dry-run` prints that exact 24-version chain. Do not run a normal or partial push:
 > history is divergent, and the full chain currently ends in the separately governed BMJ
 > attestation migration `20260727010000`. Reconcile the entire reviewed chain only in an approved
 > scope, then repeat the identity, indexing, health, and empty-data-boundary proof.
@@ -46,7 +40,10 @@ those vars are unset.
 
    ```bash
    supabase link --project-ref <staging-ref>
-<<<<<<< HEAD:docs/operations/staging-setup.md
+   ```
+
+   ```bash
+   supabase link --project-ref <staging-ref>
    # Unavailable until the divergent history is reconciled in an approved window:
    # do not run a normal `supabase db push`. Preview the full reviewed chain first:
    supabase db push --linked --include-all --dry-run
@@ -58,20 +55,6 @@ those vars are unset.
    the current divergent history, and do not replay the missing chain through a helper that records
    new timestamps. If the staging database credential is unavailable, stop and retain the migration
    gap as operator debt instead of substituting a different apply mechanism.
-=======
-   supabase migration list --linked
-   supabase db push --linked --include-all --dry-run
-   # Only after explicit approval of that exact 24-version plan:
-   supabase db push --linked --include-all
-   ```
-
-   A normal or partial `supabase db push` is unavailable while history is divergent. Preserve the
-   repository migration versions exactly, and do not replay the missing chain through a helper that
-   records new timestamps, because that would make staging history diverge while appearing current.
-   If the dry-run differs from the reviewed 24-version chain or the staging database credential is
-   unavailable, stop and retain the migration gap as operator debt instead of substituting a
-   different apply mechanism.
->>>>>>> origin/codex/chat-pr1485-final-audit-pr1485-final-audit:docs/staging-setup.md
 
    Then confirm health: `npm run check:indexing` (runs `search_schema_health()`
    over the hybrid RPCs) should report ok.
