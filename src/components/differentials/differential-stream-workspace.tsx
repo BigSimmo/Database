@@ -212,7 +212,7 @@ function StreamCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-bold text-[color:var(--text-heading)]">{item.title}</h3>
             <span
-              className={`inline-flex rounded-md border px-2 py-0.5 text-[0.65rem] font-extrabold ${statusTone(item.status)}`}
+              className={`inline-flex rounded-md border px-2 py-0.5 text-3xs font-extrabold ${statusTone(item.status)}`}
             >
               {statusLabel(item.status)}
             </span>
@@ -239,7 +239,7 @@ function StreamCard({
           {item.matchReasons.map((reason) => (
             <li
               key={`${item.id}:${reason}`}
-              className="rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2 py-0.5 text-[0.65rem] font-bold text-[color:var(--clinical-accent)]"
+              className="rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2 py-0.5 text-3xs font-bold text-[color:var(--clinical-accent)]"
             >
               {reason}
             </li>
@@ -268,7 +268,7 @@ function StreamCard({
           {item.related.slice(0, 4).map((node) => (
             <span
               key={`${item.id}:${node.slug}`}
-              className={`inline-flex rounded-md border px-2 py-0.5 text-[0.65rem] font-bold ${likelihoodTone(node.likelihood)}`}
+              className={`inline-flex rounded-md border px-2 py-0.5 text-3xs font-bold ${likelihoodTone(node.likelihood)}`}
             >
               {node.label}
             </span>
