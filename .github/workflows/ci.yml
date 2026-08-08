@@ -379,6 +379,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Full history: design-system-adoption validates provenance.candidateSourceHead
+          # with `git cat-file` / `git show` against an ancestor commit. Default depth-1
+          # checkouts only have HEAD, so the binding fails with "must identify an existing
+          # commit" even when the SHA is on the branch (Unit coverage on PR #1729).
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node and dependencies
