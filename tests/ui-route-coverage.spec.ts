@@ -9,6 +9,7 @@ import {
   getDifferentialRecord,
 } from "../src/lib/differentials";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import { visibleByTestId } from "./playwright-settlement";
 
 const routeViewports = [
   { name: "desktop", width: 1280, height: 900 },
@@ -247,7 +248,7 @@ test.describe("previously uncovered production routes", () => {
         await expect(
           currentPage.getByRole("heading", { name: "Anxiety in outpatient care", level: 1, exact: true }),
         ).toBeVisible();
-        await expect(currentPage.getByTestId("search-query-ribbon")).toBeVisible();
+        await expect(visibleByTestId(currentPage, "search-query-ribbon")).toBeVisible();
         // The common-search pill lands on `/therapy-compass/search`, which is the
         // shared `ModeNav`. It portals into the header collapse host (outside
         // [data-therapy-root]), so read the canvas colour from the workspace root
@@ -279,11 +280,14 @@ test.describe("previously uncovered production routes", () => {
       page,
       "/dsm",
       async (currentPage) => {
-        await expect(currentPage.getByTestId("dsm-home-main")).toBeVisible();
+        // Scope to the visible owner: Next streaming can leave a hidden duplicate
+        // page root (#093), and bare getByTestId then fails Playwright strict mode
+        // (Production UI shard 2 on PR #1729).
+        await expect(visibleByTestId(currentPage, "dsm-home-main")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "DSM-5 Diagnosis", level: 1 })).toBeVisible();
       },
       async (currentPage) => {
-        const compare = currentPage.getByTestId("dsm-home-compare");
+        const compare = visibleByTestId(currentPage, "dsm-home-compare");
         await expect(compare).toBeEnabled();
         await compare.click();
         await expect(currentPage).toHaveURL(/\/dsm\/compare$/);
@@ -297,16 +301,24 @@ test.describe("previously uncovered production routes", () => {
       page,
       "/dsm/compare?ids=major-depressive-disorder,bipolar-ii-disorder",
       async (currentPage) => {
-        await expect(currentPage.getByTestId("dsm-comparison-page")).toBeVisible();
+        await expect(visibleByTestId(currentPage, "dsm-comparison-page")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();
       },
       async (currentPage) => {
-        const remove = currentPage.getByRole("link", {
+        // Scope to the visible comparison owner (#093): under Production UI load,
+        // Next streaming can leave a hidden duplicate root, and same-route
+        // search-param `<Link>` soft-nav has been observed to click without
+        // updating the URL. Pin the visible tree and wait for navigation with
+        // the click (DsmCompareRemoveLink uses router.push for this hop).
+        const pageRoot = visibleByTestId(currentPage, "dsm-comparison-page");
+        const remove = pageRoot.getByRole("link", {
           name: "Remove Major depressive disorder from comparison",
         });
         await expect(remove).toBeEnabled();
-        await remove.click();
-        await expect(currentPage).toHaveURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/);
+        await Promise.all([
+          currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, { timeout: 15_000 }),
+          remove.click(),
+        ]);
         await expect(currentPage.getByRole("heading", { name: "Choose at least two diagnoses" })).toBeVisible();
       },
     );
@@ -317,7 +329,7 @@ test.describe("previously uncovered production routes", () => {
       page,
       "/dsm/diagnoses/major-depressive-disorder/differentials",
       async (currentPage) => {
-        await expect(currentPage.getByTestId("dsm-differential-considerations-page")).toBeVisible();
+        await expect(visibleByTestId(currentPage, "dsm-differential-considerations-page")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Major depressive disorder", level: 1 })).toBeVisible();
       },
       async (currentPage) => {

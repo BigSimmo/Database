@@ -286,6 +286,14 @@ export function DocumentImage({
   // raw 4:3 table image collapses behind a "Show original" toggle, so the same
   // content is not shown twice at full height. Without a structured table the
   // image is the only representation, so it stays inline and prominent.
+  // A crop this much wider than it is tall cannot be read inside a phone card at
+  // any faithful size, so it gets a labelled route to the full-screen viewer
+  // rather than only the corner chip. 2.1 includes the real clozapine demo crop
+  // (1520×720 ≈ 2.11:1) and matches the ~2:1 legibility-floor intent; 2.2 left
+  // that fixture (and similar clinical tables) without any labelled route.
+  const ratio = imageAspectRatio(image);
+  const isWideCrop = typeof ratio === "number" && ratio >= 2.1;
+
   const imageBlock = (
     <div className="rounded-lg bg-[color:var(--surface-inset)] p-3">
       <SignedImage
@@ -294,10 +302,19 @@ export function DocumentImage({
         caption={tableHeading || cleanCaption || undefined}
         failureLabel="Image preview failed."
         retryLabel="Retry"
-        className="max-h-[70dvh] min-h-40 w-full"
-        aspectRatio={imageAspectRatio(image)}
+        expandLabel={isWideCrop ? "Open full screen" : undefined}
+        // No `min-h-*` here. `aspect-ratio` transfers size constraints across
+        // axes, so a min-height of 10rem on a 3:1 table crop became a *minimum
+        // width* of 480px and blew the phone card past the viewport. The frame
+        // already has a definite height from the ratio (or the 4:3 fallback), so
+        // the floor was only ever redundant.
+        className="max-h-[70dvh] w-full"
+        aspectRatio={ratio}
         zoomable
       />
+      {isWideCrop ? (
+        <p className={cn("mt-2 text-xs leading-5", textMuted)}>Wide table — open full screen to read it.</p>
+      ) : null}
     </div>
   );
 
