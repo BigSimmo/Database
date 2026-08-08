@@ -10,6 +10,7 @@ import {
   SpecifierFamilyBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
+  SpecifierWordingPathway,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
@@ -34,27 +35,7 @@ export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
         </p>
       </header>
 
-      <section
-        aria-label="Specifier wording pathway"
-        className="grid gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] p-3 sm:grid-cols-[minmax(9rem,0.8fr)_auto_minmax(9rem,1fr)_auto_minmax(9rem,1fr)_auto_minmax(9rem,1fr)] sm:items-center"
-      >
-        {["Base diagnosis", "Episode features", "Course and onset", "Severity or remission"].map((label, index) => (
-          <div key={label} className="contents">
-            <div className="flex min-h-12 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-              <span className="nums grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs text-[color:var(--clinical-accent-contrast)]">
-                {index + 1}
-              </span>
-              {label}
-            </div>
-            {index < 3 ? (
-              <ArrowRight
-                className="hidden h-4 w-4 justify-self-center text-[color:var(--clinical-accent)] sm:block"
-                aria-hidden
-              />
-            ) : null}
-          </div>
-        ))}
-      </section>
+      <SpecifierWordingPathway />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="grid min-w-0 gap-4 lg:grid-cols-3" aria-label="Specifier families">
