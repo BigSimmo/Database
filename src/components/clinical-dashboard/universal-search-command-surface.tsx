@@ -1000,7 +1000,15 @@ export function UniversalSearchCommandSurface({
             handleComposerKeyDown(event as unknown as ReactKeyboardEvent<HTMLInputElement>);
           }
         }}
-        onFocusCapture={() => {
+        onFocusCapture={(event) => {
+          // Only the search input opens the command panel. Focus restore onto the
+          // integrated + / pins trigger (e.g. after Escape closes Scope) must not
+          // reopen the listbox — that overlay covers mode-home actions such as
+          // Browse library and breaks the deferred-request critical journey.
+          const target = event.target;
+          if (!(target instanceof HTMLElement) || target.dataset.testid !== "global-search-input") {
+            return;
+          }
           // Focus can arrive before the post-hydration effect has synchronized
           // the conservative false initial state. Re-evaluate synchronously so
           // desktop input never loses its first command-panel interaction.

@@ -52,7 +52,7 @@ export default function manifest(): MetadataRoute.Manifest {
         name: "Medication guidance",
         short_name: "Medication",
         description: "Open medication dosing and monitoring guidance",
-        url: "/?mode=prescribing&focus=1",
+        url: "/medications?focus=1",
         icons: [{ src: "/icons/icon-192", type: "image/png", sizes: "192x192" }],
       },
       {
