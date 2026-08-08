@@ -19,7 +19,12 @@ export function readExpectedChromiumRevision(projectRoot = process.cwd()) {
   if (!existsSync(browsersJsonPath)) {
     return { ok: false, reason: `playwright-core browsers.json missing at ${browsersJsonPath}` };
   }
-  const payload = JSON.parse(readFileSync(browsersJsonPath, "utf8"));
+  let payload;
+  try {
+    payload = JSON.parse(readFileSync(browsersJsonPath, "utf8"));
+  } catch {
+    return { ok: false, reason: `playwright-core browsers.json is malformed at ${browsersJsonPath}` };
+  }
   const chromium = (payload.browsers ?? []).find((entry) => entry.name === "chromium");
   if (!chromium?.revision) {
     return { ok: false, reason: "playwright-core browsers.json has no chromium.revision" };
