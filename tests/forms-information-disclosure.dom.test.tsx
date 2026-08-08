@@ -20,8 +20,9 @@ describe("Form information disclosures", () => {
     if (!form) return;
 
     const doesNotAuthorise = form.referralInfo?.find((row) => row.label === "Does not authorise");
-    expect(doesNotAuthorise?.value).toBeTruthy();
-    const fullText = doesNotAuthorise!.value;
+    const fullText = doesNotAuthorise?.value;
+    expect(fullText).toEqual(expect.any(String));
+    if (!fullText) return;
 
     render(<FormDetailPage form={form} />);
 
@@ -30,15 +31,17 @@ describe("Form information disclosures", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 
     const panelId = trigger.getAttribute("aria-controls");
-    expect(panelId).toBeTruthy();
-    const panel = document.getElementById(panelId!);
+    expect(panelId).toEqual(expect.any(String));
+    if (!panelId) return;
+    const panel = document.getElementById(panelId);
     expect(panel).toBeTruthy();
+    if (!panel) return;
     expect(panel).toHaveAttribute("hidden");
 
     await user.click(trigger);
 
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(panel).not.toHaveAttribute("hidden");
-    expect(within(panel!).getByText(fullText)).toBeVisible();
+    expect(within(panel).getByText(fullText)).toBeVisible();
   });
 });

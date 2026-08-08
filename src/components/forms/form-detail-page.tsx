@@ -613,7 +613,7 @@ function formInformationIcon(label: string): LucideIcon {
   return CircleCheck;
 }
 
-function formInformationItems(rows: Array<{ label: string; value: string | null | undefined }>) {
+function formInformationItems(rows: Array<{ label: string; value?: string | null }>) {
   return rows.map((row) => {
     const Icon = formInformationIcon(row.label);
     const value = displayText(row.value);
