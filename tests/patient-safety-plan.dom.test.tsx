@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -116,5 +116,35 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     expect(writeText).toHaveBeenCalled();
     const copied = String(writeText.mock.calls[0]?.[0] ?? "");
     expect(copied).toMatch(/\*\*\* DRAFT — INCOMPLETE SAFETY PLAN, NOT FOR PATIENT HANDOVER \*\*\*/);
+  });
+
+  it("does not schedule copy feedback when clipboard settles after unmount", async () => {
+    const user = userEvent.setup();
+    let resolveWrite!: () => void;
+    const writeText = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveWrite = () => resolve();
+        }),
+    );
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const setTimeoutSpy = vi.spyOn(window, "setTimeout");
+
+    const { unmount } = render(<PatientSafetyPlan />);
+    await user.click(screen.getByRole("button", { name: /^Copy$/ }));
+    expect(writeText).toHaveBeenCalledTimes(1);
+
+    const callsBeforeUnmount = setTimeoutSpy.mock.calls.length;
+    unmount();
+    await act(async () => {
+      resolveWrite();
+    });
+
+    const feedbackTimers = setTimeoutSpy.mock.calls.slice(callsBeforeUnmount).filter((call) => call[1] === 1600);
+    expect(feedbackTimers).toHaveLength(0);
+    setTimeoutSpy.mockRestore();
   });
 });
