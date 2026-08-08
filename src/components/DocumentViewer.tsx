@@ -53,9 +53,11 @@ import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import {
+  canSkipDetailRequest,
   documentLoadKey,
   documentPageHref,
   isFullDocumentReload,
+  type LoadedDetailWindow,
   nextLoadedDocumentKey,
 } from "@/lib/document-viewer-navigation";
 import { partitionViewerImages } from "@/lib/image-filtering";
@@ -499,12 +501,39 @@ export function DocumentViewer({
   const localProjectIdentityPromiseRef = useRef<ReturnType<typeof readLocalProjectIdentity> | null>(null);
   const initialRouteRef = useRef({ documentId, initialPage, chunkId });
   const navigatedFromInitialRouteRef = useRef(false);
+  // The page window already in hand, and the request identity it was loaded
+  // under. A page flip inside this window needs no network at all: the server
+  // returns a window of pages centred on the requested one, so the neighbours
+  // arrived with it.
+  const loadedWindowRef = useRef<LoadedDetailWindow | null>(null);
+
+  // Everything the detail request depends on except the page. Callback identity
+  // is deliberately excluded — a new function reference does not change what
+  // would be fetched, and letting it force a refetch is what made page flips
+  // look like network work.
+  const detailRequestSignature = [
+    documentId,
+    previewAttempt,
+    activeChunkId ?? "",
+    authStatus,
+    String(clientDemoMode),
+    String(canUsePrivateApis),
+    String(isConfigured),
+    String(initialDetailIdentityStale),
+    authorizationHeader.Authorization ?? "",
+  ].join("|");
 
   useEffect(() => {
     if (!canViewSourceDocuments && authStatus === "loading") {
       return () => undefined;
     }
     if (!canViewSourceDocuments) {
+      return () => undefined;
+    }
+
+    // Skip the round trip when the only thing that moved is the page and the new
+    // page is already inside the loaded window.
+    if (canSkipDetailRequest(loadedWindowRef.current, detailRequestSignature, activePage)) {
       return () => undefined;
     }
 
@@ -621,6 +650,13 @@ export function DocumentViewer({
 
         if (detailLoaded) {
           const detail = detailResult.value;
+          // Remember the window this payload covers so a flip inside it can skip
+          // the network entirely. A chunk route is excluded: its window is centred
+          // on the selected chunk, so page arithmetic does not describe it.
+          loadedWindowRef.current =
+            !activeChunkId && detail.pageWindow
+              ? { signature: detailRequestSignature, from: detail.pageWindow.from, to: detail.pageWindow.to }
+              : null;
           setDocument(detail.document ?? null);
           // Keep the previous window visible while loading, then atomically
           // replace it so client memory and mounted DOM stay bounded.
@@ -634,6 +670,7 @@ export function DocumentViewer({
         } else {
           // Never retain evidence from the previous page under a newly selected
           // route. A navigation failure becomes an explicit retryable error.
+          loadedWindowRef.current = null;
           setDocument(null);
           setPages([]);
           setImages([]);
@@ -665,6 +702,7 @@ export function DocumentViewer({
           !isAuthEpochCurrent(authRequest.epoch)
         )
           return;
+        loadedWindowRef.current = null;
         setDocument(null);
         setPages([]);
         setImages([]);
@@ -692,6 +730,9 @@ export function DocumentViewer({
     canUsePrivateApis,
     canViewSourceDocuments,
     clientDemoMode,
+    // Every primitive input above is already a dependency; this is their joined
+    // form, used to decide whether an in-window page flip needs the network.
+    detailRequestSignature,
     documentId,
     activeChunkId,
     activePage,
