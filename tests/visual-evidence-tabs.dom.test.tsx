@@ -50,7 +50,6 @@ function evidenceSheetProps() {
     renderModel,
     visualEvidence: [],
     answerEvidenceMapRows: [missingSourceRow],
-    sourceGovernanceWarnings: [],
     demoMode: false,
     pendingFeedback: null,
     copiedQuotes: false,

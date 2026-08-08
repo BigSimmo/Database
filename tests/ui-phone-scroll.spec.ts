@@ -171,7 +171,7 @@ test("phone portaled addon focus pins the universal collapse owner during scroll
 
   const collapse = page.getByTestId("universal-header-collapse");
   const addon = page.getByTestId("header-collapse-addon");
-  const backLink = addon.getByRole("link", { name: "Back to differentials" });
+  const backLink = addon.getByRole("link", { name: "Back to diagnoses" });
   await expect(backLink).toBeVisible({ timeout: 20_000 });
   await addPhoneScrollRunway(page);
 
@@ -198,14 +198,16 @@ test("phone portaled addon focus clears when its focused control navigates away"
   await gotoPhoneSurface(page, "/differentials/diagnoses/delirium");
 
   const addon = page.getByTestId("header-collapse-addon");
-  const backLink = addon.getByRole("link", { name: "Back to differentials" });
+  const backLink = addon.getByRole("link", { name: "Back to diagnoses" });
   await expect(backLink).toBeVisible({ timeout: 20_000 });
   await backLink.focus();
   await expect(backLink).toBeFocused();
 
   await backLink.press("Enter");
-  await expect(page).toHaveURL(/\/differentials(?:$|\?)/, { timeout: 20_000 });
-  await expect(page.getByTestId("differentials-home")).toBeVisible({ timeout: 20_000 });
+  await expect(page).toHaveURL(/\/differentials\/diagnoses(?:$|\?)/, { timeout: 20_000 });
+  await expect(
+    page.getByRole("heading", { name: "Compare likely causes side-by-side and check exclusion clues." }),
+  ).toBeVisible({ timeout: 20_000 });
   await addPhoneScrollRunway(page);
 
   await dragScrollBy(page, 720, 24);
