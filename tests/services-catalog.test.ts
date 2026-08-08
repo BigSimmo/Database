@@ -90,6 +90,37 @@ describe("services catalogue", () => {
     );
   });
 
+  it("ranks actionable clauses above qualified placeholders for S018 and S081", () => {
+    const snapshot = loadServicesSnapshot();
+    const cci = snapshot.services.find((service) => service.id === "S018");
+    const karaMaar = snapshot.services.find((service) => service.id === "S081");
+    expect(cci).toBeTruthy();
+    expect(karaMaar).toBeTruthy();
+
+    const cciRecord = catalogToServiceRecord(cci!);
+    expect(cciRecord.route).toBe("Contact service; external referral forms and inclusion/exclusion criteria");
+    expect(cciRecord.route?.toLowerCase()).not.toContain("not publicly stated");
+    expect(cciRecord.criteria?.some((criterion) => /not publicly stated/i.test(criterion.label))).toBe(false);
+    expect(
+      cciRecord.criteria?.some(
+        (criterion) =>
+          criterion.tone === "meet" &&
+          criterion.label.includes("Contact service; external referral forms and inclusion/exclusion criteria"),
+      ),
+    ).toBe(true);
+
+    const karaRecord = catalogToServiceRecord(karaMaar!);
+    expect(karaRecord.criteria?.some((criterion) => criterion.label === "Not publicly stated in public summary")).toBe(
+      false,
+    );
+    expect(
+      karaRecord.criteria?.some(
+        (criterion) =>
+          criterion.tone === "reject" && /Must fit specialist community ED service model/i.test(criterion.label),
+      ),
+    ).toBe(true);
+  });
+
   it("compacts raw best-use fallbacks for stale seeded summary cards", () => {
     const snapshot = loadServicesSnapshot();
     const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");

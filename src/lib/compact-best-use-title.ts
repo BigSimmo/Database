@@ -6,6 +6,10 @@ const UNKNOWN_FIELD =
 const LABELED_PREFIX =
   /^(?:contact|referral pathway|hours|cost\s*\/\s*funding|cost|eligibility|patient group|provider|region|exclusions?|discharge planning)\s*:\s*/i;
 
+/** Qualified placeholders that are longer than exact UNKNOWN_FIELD tokens. */
+const PLACEHOLDER_PHRASE =
+  /\b(?:not publicly stated|not (?:fully )?public(?:ly)?(?: available|ly stated)?|details? not (?:available|provided|listed)|not stated in (?:the )?public)\b/i;
+
 export type CompactCatalogFieldOptions = {
   /** Max characters for the returned phrase (ellipsis when truncated). */
   maxLength?: number;
@@ -24,9 +28,41 @@ function isUnknownToken(value: string) {
 }
 
 /**
+ * True when a clause mainly asserts missing public info (or is a vague
+ * meta-pathway) rather than giving an actionable referral/exclusion detail.
+ */
+export function isQualifiedPlaceholder(value: string): boolean {
+  const key = normalizeKey(value);
+  if (!key || isUnknownToken(key)) return true;
+
+  if (/^service[- ]specific(?:\s+referral)?(?:\s+pathway)?$/i.test(key)) return true;
+  if (/^see (?:the )?(?:service|provider|website|page)\b/i.test(key)) return true;
+  if (/^refer to (?:the )?(?:service|provider|website)\b/i.test(key)) return true;
+
+  const placeholderHit = PLACEHOLDER_PHRASE.exec(key);
+  if (!placeholderHit) return false;
+
+  const before = key
+    .slice(0, placeholderHit.index)
+    .trim()
+    .replace(/[;:,.-]+$/g, "")
+    .trim();
+  if (!before || before.length < 8) return true;
+  // Meta lead-ins like "referral details not publicly stated on …"
+  if (
+    /^(?:referral|contact|hours|cost|exclusion|details?|information|pathway|summary|public)\b/i.test(before) &&
+    before.length < 40
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Compact pipe/newline-joined catalogue paraphrases into one short display phrase.
- * Splits, strips labeled prefixes, drops unknowns, dedupes exact and near-duplicates,
- * keeps the first remaining clause, and truncates to maxLength.
+ * Splits, strips labeled prefixes, drops unknowns, ranks actionable clauses above
+ * qualified placeholders, dedupes near-duplicates, keeps the first remaining clause,
+ * and truncates to maxLength.
  */
 export function compactCatalogField(
   text: string | null | undefined,
@@ -49,10 +85,17 @@ export function compactCatalogField(
     unique.push(part);
   }
 
+  const actionable = unique.filter((part) => !isQualifiedPlaceholder(part));
+  // Prefer actionable clauses; if the blob is only qualified placeholders, omit rather
+  // than promoting "not publicly stated…" as a route/criterion.
+  if (actionable.length === 0) {
+    return "";
+  }
+
   // Collapse near-duplicates by containment, keeping the longer/more informative
   // clause so short tokens like "Phone" or "Free" do not eclipse fuller phrases.
   const kept: { raw: string; key: string }[] = [];
-  for (const part of unique) {
+  for (const part of actionable) {
     const key = normalizeKey(part);
     if (kept.some((entry) => entry.key.includes(key) && entry.key.length >= key.length)) {
       continue;
@@ -66,8 +109,8 @@ export function compactCatalogField(
     kept.push({ raw: part, key });
   }
 
-  const primary = kept[0]?.raw ?? stripLabeledPrefix(raw);
-  if (!primary || isUnknownToken(primary)) return "";
+  const primary = kept[0]?.raw ?? "";
+  if (!primary || isUnknownToken(primary) || isQualifiedPlaceholder(primary)) return "";
   if (primary.length <= maxLength) return primary;
   const truncated = primary.slice(0, Math.max(0, maxLength - 1)).trimEnd();
   return truncated ? `${truncated}…` : primary.slice(0, maxLength);
