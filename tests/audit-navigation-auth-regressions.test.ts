@@ -5,10 +5,7 @@ import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
 import { GET as redirectApplications, HEAD as headApplications } from "@/app/applications/route";
-import {
-  GET as redirectPresentations,
-  HEAD as headPresentations,
-} from "@/app/(search-app)/differentials/presentations/route";
+import { GET as redirectCompare, HEAD as headCompare } from "@/app/(search-app)/differentials/compare/route";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 
 function source(relativePath: string) {
@@ -36,13 +33,13 @@ describe("audit navigation and auth regressions", () => {
     expect(applications.status).toBe(307);
     expect(applications.headers.get("location")).toBe("/tools?q=acute+care&tag=one&tag=two");
 
-    const presentations = redirectPresentations(
+    const compare = redirectCompare(
       new NextRequest(
-        "https://clinical-kb.test/differentials/presentations?query=+acute+confusion+&q=ignored&ids=DELIRIUM,unknown,delirium",
+        "https://clinical-kb.test/differentials/compare?query=+acute+confusion+&q=ignored&ids=DELIRIUM,unknown,delirium",
       ),
     );
-    expect(presentations.status).toBe(307);
-    expect(presentations.headers.get("location")).toBe(
+    expect(compare.status).toBe(307);
+    expect(compare.headers.get("location")).toBe(
       "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
 
@@ -55,7 +52,7 @@ describe("audit navigation and auth regressions", () => {
     expect(medicationsPage).toContain("readSearchNavigationContext");
     expect(medicationsPage).toContain("redirect(");
     expect(medicationsPage).not.toContain('redirect("/?mode=prescribing")');
-    expect([headApplications, headPresentations]).toEqual([redirectApplications, redirectPresentations]);
+    expect([headApplications, headCompare]).toEqual([redirectApplications, redirectCompare]);
   });
 
   it("only redirects submitted root legacy mode aliases, leaving bare /?mode= on the shared home", () => {
