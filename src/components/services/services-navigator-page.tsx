@@ -37,6 +37,7 @@ import {
 import { appModeHomeHref } from "@/lib/app-modes";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
 import { canCompareServices, serviceNavigatorMetrics } from "@/lib/service-navigator-metrics";
 import { useRegistryRecords } from "@/lib/use-registry-records";
@@ -45,6 +46,8 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { useResultSort } from "@/components/use-result-sort";
 
 const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
+const SERVICE_CARD_SUBTITLE_MAX = 120;
+const SERVICE_CARD_METRIC_MAX = 80;
 const serviceQuickFilters = [
   { label: "Best fit", query: defaultQuery },
   { label: "Crisis", query: "crisis" },
@@ -56,6 +59,13 @@ const serviceQuickFilters = [
 
 function text(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
+}
+
+/** Compact pipe-joined catalog blobs for search-card display without mutating ranking fields. */
+function compactCardText(value: string | null | undefined, maxLength: number, fallback: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) return fallback;
+  return compactBestUseTitle(trimmed, maxLength);
 }
 
 function chipTone(tone: ServiceStatusChip["tone"] | undefined | null): ChipStatusTone {
@@ -194,7 +204,11 @@ function ServiceCard({
             ))}
           </div>
           <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            {text(service.subtitle ?? service.bestUse, "Open the record for referral details.")}
+            {compactCardText(
+              service.subtitle ?? service.bestUse,
+              SERVICE_CARD_SUBTITLE_MAX,
+              "Open the record for referral details.",
+            )}
           </p>
         </div>
         <button
@@ -224,7 +238,7 @@ function ServiceCard({
         <Metric
           icon={Users}
           label="Eligibility"
-          value={text(service.eligibility, "Eligibility pending")}
+          value={compactCardText(service.eligibility, SERVICE_CARD_METRIC_MAX, "Eligibility pending")}
           detail="See details"
           className="border-t-0"
         />
@@ -238,7 +252,7 @@ function ServiceCard({
         <Metric
           icon={DollarSign}
           label="Cost"
-          value={text(service.cost, "Cost pending")}
+          value={compactCardText(service.cost, SERVICE_CARD_METRIC_MAX, "Cost pending")}
           detail={(service.cost ?? "").toLowerCase().includes("free") ? "No cost" : "Confirm fees"}
           className="md:border-t-0"
         />
