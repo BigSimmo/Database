@@ -4141,7 +4141,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const openOverflow = async () => {
       await overflow.getByRole("button", { name: "More viewing options" }).click();
     };
-    await expect(page.getByRole("button", { name: "Zoom in" })).toBeEnabled({ timeout: 30000 });
+    // At 320px Zoom in lives only inside the overflow menu (inline from 380px).
+    await openOverflow();
+    await expect(overflow.getByRole("button", { name: "Zoom in" })).toBeEnabled({ timeout: 30000 });
+    // Toggle the summary closed so later openOverflow() calls start from closed.
+    await overflow.getByRole("button", { name: "More viewing options" }).click();
     await expect(pdfScroller.locator("canvas")).toBeVisible();
 
     await expectDomIntegrity(page);
@@ -4368,6 +4372,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     for (const disclosure of [pageText, passages.nth(0), passages.nth(1)]) {
       await expect(disclosure).toHaveJSProperty("open", false);
     }
+    await revealPhoneHeaderControl(page, sectionTrigger);
     await sectionTrigger.click();
     const densitySheet = page.getByTestId("document-section-sheet");
     const densityToggle = densitySheet.getByTestId("document-view-density-toggle");

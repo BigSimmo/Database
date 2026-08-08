@@ -1015,12 +1015,21 @@ export function DocumentViewer({
   // A successful reload means the refreshed URL was accepted, so the recovery
   // worked — restore the budget for the next (unrelated) TTL expiry. A broken
   // URL never loads, so it never resets, and the cap still stops its loop.
-  const handlePdfLoadSuccess = useCallback((pageCount: number) => {
-    signedUrlRefreshCountRef.current = 0;
-    // pdf.js has opened the file, so its page count now outranks the indexed
-    // metadata the toolbar fell back to.
-    setPdfPageCount(pageCount > 0 ? pageCount : null);
-  }, []);
+  const handlePdfLoadSuccess = useCallback(
+    (pageCount: number) => {
+      signedUrlRefreshCountRef.current = 0;
+      // pdf.js has opened the file, so its page count now outranks the indexed
+      // metadata the toolbar fell back to.
+      setPdfPageCount(pageCount > 0 ? pageCount : null);
+      // Deep links / stale page_count can leave the route past the real end.
+      // PdfCanvasViewer also reconciles via onPageChange; clamp here so the
+      // authoritative count cannot leave the toolbar on a non-existent page.
+      if (pageCount > 0 && activePage > pageCount) {
+        navigateToPage(pageCount);
+      }
+    },
+    [activePage, navigateToPage],
+  );
   const handleDocumentRenamed = (updatedDocument: ClinicalDocument) => {
     setDocument((current) => (current?.id === updatedDocument.id ? { ...current, ...updatedDocument } : current));
   };
