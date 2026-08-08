@@ -99,9 +99,19 @@ describe("header addon slot ownership", () => {
 
   it("names every component that claims the slot", () => {
     // The only evidence a route claims the slot is that its component renders
-    // `PhoneHeaderCollapsePortal`, so the predicate cannot be derived from
-    // routes alone. Enumerate the claimants instead: a new one fails here until
+    // into it, so the predicate cannot be derived from routes alone. Enumerate
+    // the claimants instead: a new one fails here until
     // `isHeaderAddonSlotOwnedRoute` is given its route.
+    //
+    // There are two forms of that evidence, and both must be scanned. A page can
+    // render `PhoneHeaderCollapsePortal` itself (DocumentViewer still does), or
+    // it can render `InPageNavHeader`, which portals on its behalf. Scanning only
+    // for the portal would have gone quiet the moment the shared header was
+    // extracted — every future adopter would claim the slot invisibly to this
+    // guard, which is the exact failure it exists to prevent.
+    const claimsSlot = /<(PhoneHeaderCollapsePortal|InPageNavHeader)\b/;
+    // The shared header is the mechanism, not a claimant: it has no route.
+    const sharedHeader = "src/components/in-page-nav/in-page-nav-header.tsx";
     const claimants: string[] = [];
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -113,8 +123,10 @@ describe("header addon slot ownership", () => {
         if (!entry.name.endsWith(".tsx")) continue;
         // Design-scratch routes 404 in production and own no header.
         if (entry.name.includes("-mockups")) continue;
-        if (/<PhoneHeaderCollapsePortal\b/.test(readFileSync(path, "utf8"))) {
-          claimants.push(path.replace(`${process.cwd()}/`, ""));
+        const relative = path.replace(`${process.cwd()}/`, "");
+        if (relative === sharedHeader) continue;
+        if (claimsSlot.test(readFileSync(path, "utf8"))) {
+          claimants.push(relative);
         }
       }
     };

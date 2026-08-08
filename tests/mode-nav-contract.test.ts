@@ -159,7 +159,10 @@ describe("ModeNav header anchoring", () => {
     // third destination. The two-item floor stays (a one-item bar is not a
     // choice), but ownership is now stated by route and proved at render.
     expect(read("src/components/DocumentViewer.tsx")).toContain("PhoneHeaderCollapsePortal");
-    expect(read("src/components/differentials/differential-detail-page.tsx")).toContain("PhoneHeaderCollapsePortal");
+    // The differentials page claims the slot through the shared in-page header,
+    // which portals on its behalf; the portal is no longer named in the page.
+    expect(read("src/components/differentials/differential-detail-page.tsx")).toContain("InPageNavHeader");
+    expect(read("src/components/in-page-nav/in-page-nav-header.tsx")).toContain("PhoneHeaderCollapsePortal");
     expect(modeNavSource).toMatch(/items\.length < MODE_NAV_MIN_ITEMS\) return null/);
 
     // What replaced it: every claimant route is `hasLocalInformationPageNavigation`,
