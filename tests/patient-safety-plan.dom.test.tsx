@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -146,5 +146,49 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     const feedbackTimers = setTimeoutSpy.mock.calls.slice(callsBeforeUnmount).filter((call) => call[1] === 1600);
     expect(feedbackTimers).toHaveLength(0);
     setTimeoutSpy.mockRestore();
+  });
+
+  it("clears the scheduled copy-feedback timer on unmount", async () => {
+    vi.useFakeTimers();
+    try {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");
+      const setTimeoutSpy = vi.spyOn(window, "setTimeout");
+
+      const { unmount } = render(<PatientSafetyPlan />);
+      // fireEvent avoids userEvent's real-timer waits under fake timers.
+      fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
+
+      // Flush the resolved clipboard promise so the 1600ms reset is scheduled.
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.getByRole("button", { name: /^Copied$/ })).toBeTruthy();
+      const feedbackTimers = setTimeoutSpy.mock.calls.filter((call) => call[1] === 1600);
+      expect(feedbackTimers).toHaveLength(1);
+      const timerHandle = setTimeoutSpy.mock.results.find(
+        (result, index) => setTimeoutSpy.mock.calls[index]?.[1] === 1600,
+      )?.value;
+
+      const clearsBeforeUnmount = clearTimeoutSpy.mock.calls.length;
+      unmount();
+      expect(clearTimeoutSpy.mock.calls.slice(clearsBeforeUnmount).some((call) => call[0] === timerHandle)).toBe(true);
+
+      // Advancing past the reset window must not throw after teardown
+      // (original jsdom `window is not defined` / setState-after-unmount failure).
+      expect(() => {
+        act(() => {
+          vi.advanceTimersByTime(2000);
+        });
+      }).not.toThrow();
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    }
   });
 });
