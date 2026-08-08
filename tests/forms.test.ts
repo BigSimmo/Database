@@ -56,6 +56,21 @@ describe("psychiatry form records", () => {
     expect(catalogueText).not.toContain("medicare mental health");
   });
 
+  it("condenses Form 1A priority facts and replaces source status with Act sections", () => {
+    const form = getFormRecord("form-1a");
+    expect(form).toBeTruthy();
+    const details = formCatalogDetails(form!);
+    expect(details?.priorityFacts?.clock?.title).toBe("Usually 72 hours");
+    expect(details?.actSections?.map((entry) => entry.section)).toEqual(["26", "31", "36", "37", "41", "42"]);
+    expect(form?.summaryCards?.map((card) => card.id)).toEqual(["clock", "authority", "criteria", "act-sections"]);
+    expect(form?.summaryCards?.find((card) => card.id === "act-sections")?.detail).toBe("26 · 31 · 36 · 37 · 41 · 42");
+    expect(form?.summaryCards?.some((card) => card.id === "source")).toBe(false);
+    // Source status remains on the rail / overview, not in the priority-fact grid.
+    expect(form?.source?.status).toBe("Source checked");
+    // Other forms keep the Source status card until they opt into actSections.
+    expect(getFormRecord("form-1b")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
+  });
+
   it("normalizes form lookup and static params", () => {
     expect(defaultFormSlug()).toBe("form-1a");
     expect(getFormRecord(" FORM-1A ")?.title).toBe("Referral for examination by a psychiatrist");

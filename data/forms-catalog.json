@@ -78,7 +78,56 @@
         "timings": ["within 48 hours", "72 hours"],
         "sectionCue": "sections 26, 31, 36, 37, 41, 42",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "priorityFacts": {
+        "clock": {
+          "title": "Usually 72 hours",
+          "detail": "From referral",
+          "body": "Usually 72 hours from referral. The referral is made within the required assessment window. Clock cues on the form pathway include within 48 hours and 72 hours — record the start time, expiry or review point, and next owner."
+        },
+        "authority": {
+          "title": "MP or AMHP",
+          "detail": "Where the Act permits",
+          "body": "Medical practitioner or authorised mental health practitioner where the Act permits. Authorises referral for examination by a psychiatrist. Does not by itself authorise treatment, detention, transport, restraint, seclusion or force."
+        },
+        "criteria": {
+          "title": "Reasonable suspicion of ITO criteria",
+          "detail": "Illness, risk, capacity, least restrictive",
+          "body": "Reasonable suspicion that involuntary treatment order criteria may be met, with illness features, risk, capacity and least restrictive reasoning documented."
+        }
+      },
+      "actSections": [
+        {
+          "section": "26",
+          "title": "Referral for examination at authorised hospital or other place",
+          "summary": "A medical practitioner or authorised mental health practitioner may refer a person for examination by a psychiatrist if, having regard to the section 25 criteria, they reasonably suspect the person needs an involuntary treatment order — or, if already under a community treatment order, an inpatient treatment order. Examination may be at an authorised hospital or another appropriate place, with necessary arrangements made for that place."
+        },
+        {
+          "section": "31",
+          "title": "Revoking referral",
+          "summary": "An MP or AMHP may revoke a section 26 referral if satisfied the person no longer needs an involuntary treatment order. Revoking another practitioner’s referral requires consultation, or documented reasonable efforts to contact them. The person cannot continue to be detained once the referral is revoked."
+        },
+        {
+          "section": "36",
+          "title": "Referral for examination at authorised hospital",
+          "summary": "For a voluntary inpatient at an authorised hospital, an MP or AMHP may refer them for psychiatrist examination at that hospital if, having regard to the section 25 criteria, they reasonably suspect the inpatient needs an involuntary treatment order."
+        },
+        {
+          "section": "37",
+          "title": "Revoking referral",
+          "summary": "An MP or AMHP may revoke a section 36 referral if satisfied the voluntary inpatient no longer needs an involuntary treatment order. The same consultation rules apply when revoking another practitioner’s referral. Detention under that referral cannot continue once revoked."
+        },
+        {
+          "section": "41",
+          "title": "Form of referral",
+          "summary": "A referral must be in the approved form and include the particulars required by the Act. Use only the current approved Form 1A or PSOLIS pathway; do not invent wording or rely on an outdated PDF."
+        },
+        {
+          "section": "42",
+          "title": "Providing information contained in referral to person referred",
+          "summary": "The practitioner must give the referred person the required referral information (section 41(a) and (b), and usually section 41(c)) in the approved form, subject to the Act’s exception for information supplied by someone else on condition it not be disclosed to the person."
+        }
+      ]
     },
     {
       "id": "form-1b",
