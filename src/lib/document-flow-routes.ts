@@ -4,7 +4,8 @@ import {
   type SearchNavigationOptions,
 } from "@/lib/search-navigation-context";
 
-export const DOCUMENTS_MODE_HOME_ROUTE = "/?mode=documents";
+/** Real Documents mode home. Bare `/?mode=documents` is the shared home with Documents preselected. */
+export const DOCUMENTS_MODE_HOME_ROUTE = "/documents";
 export const DOCUMENT_SEARCH_ROUTE = "/documents/search";
 export const DOCUMENT_READER_ROUTE = "/documents/source";
 export const DOCUMENT_EVIDENCE_ROUTE = "/documents/source/evidence";
