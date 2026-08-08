@@ -126,9 +126,11 @@ export function applyPreferenceSideEffects(preferences: AppPreferences) {
 }
 
 /**
- * Maps the saved default-landing preference onto the dashboard mode a bare "/"
- * load should open in. "ask" is the built-in default (no override needed), so
- * it — and any unset/invalid value — returns null.
+ * Maps the saved default-landing preference onto the mode home a bare "/" load
+ * should open. "ask" is the built-in default (no override needed), so it — and
+ * any unset/invalid value — returns null. Callers must navigate to the mode's
+ * real home (`/documents`, `/tools`): bare `/?mode=documents` is the shared home
+ * with Documents preselected, not the Documents Start-here surface.
  */
 export function landingModeForPreference(landing: LandingPreference): "documents" | "tools" | null {
   if (landing === "search") return "documents";

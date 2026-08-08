@@ -100,9 +100,9 @@ describe("favourites auth gate DOM", () => {
       navigation.getAllByRole("link").map((link) => ({ name: link.textContent, href: link.getAttribute("href") })),
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
-      { name: "Documents", href: "/?mode=documents" },
+      { name: "Documents", href: "/documents" },
       { name: "Services", href: "/services" },
-      { name: "Medication", href: "/?mode=prescribing" },
+      { name: "Medication", href: "/medications" },
       { name: "Factsheets", href: "/factsheets" },
       { name: "Tools", href: "/tools" },
     ]);

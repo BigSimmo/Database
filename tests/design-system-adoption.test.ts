@@ -1235,7 +1235,9 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    expect(manifest.routeCoverage.discovered).toHaveLength(47);
+    // 49 since Documents and Medication gained real mode homes (/documents,
+    // /medications) when `/` became the single shared home for every mode.
+    expect(manifest.routeCoverage.discovered).toHaveLength(49);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
