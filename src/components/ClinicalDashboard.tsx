@@ -70,7 +70,7 @@ import { LibraryHealthStrip } from "@/components/clinical-dashboard/library-heal
 import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
-import { isPreformattedGroundedAnswer, ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
+import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerEmptyState,
   AnswerProgressStepper,
@@ -3735,9 +3735,6 @@ export function ClinicalDashboard({
                     />
                   ) : (
                     <>
-                      {searchMode === "documents" ? null : (
-                        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                      )}
                       <DocumentSearchResultsPanel
                         matches={documentMatches}
                         recordMatches={recordSearchMatches}
@@ -3754,7 +3751,6 @@ export function ClinicalDashboard({
                         setupWarning={setupWarning}
                         facets={searchFacets}
                         searchScope={searchMode === "documents" ? searchScope : null}
-                        sourceGovernanceWarnings={searchMode === "documents" ? sourceGovernanceWarnings : undefined}
                         onScopeDocument={handleScopeDocument}
                         onAnswerFromDocument={handleAnswerFromDocument}
                         onOpenRecentDocuments={handleOpenRecentDocuments}
@@ -3797,7 +3793,6 @@ export function ClinicalDashboard({
                         answer={answer}
                         query={latestAnswerQuery ?? query}
                         bestSource={bestSource}
-                        sourceGovernanceWarnings={sourceGovernanceWarnings}
                         sourceSummary={sourceSummary}
                         renderModel={answerRenderModel}
                         weakEvidence={weakEvidence}
