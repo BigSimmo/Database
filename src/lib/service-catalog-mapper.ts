@@ -1,6 +1,11 @@
 import type { CatalogService } from "@/lib/service-catalog";
-import { catalogServiceSlug, extractEmails, extractPhones, splitReferralLines } from "@/lib/service-catalog";
-import { compactBestUseTitle } from "@/lib/compact-best-use-title";
+import { catalogServiceSlug, extractEmails, extractPhones } from "@/lib/service-catalog";
+import {
+  compactBestUseTitle,
+  compactCatalogField,
+  parseLabeledReferralDetails,
+  splitCatalogClauses,
+} from "@/lib/compact-best-use-title";
 import type {
   ServiceChipTone,
   ServiceContact,
@@ -12,9 +17,12 @@ import type {
   ServiceSummaryCard,
 } from "@/lib/services";
 
-export { compactBestUseTitle };
+export { compactBestUseTitle, compactCatalogField, parseLabeledReferralDetails, splitCatalogClauses };
 
 const UNKNOWN_VALUES = /^(?:not publicly stated|not applicable|none|n\/a|unknown)$/i;
+
+const CARD_MAX = 120;
+const ROW_MAX = 160;
 
 function isUnknown(value: string | undefined | null) {
   if (!value?.trim()) return true;
@@ -24,6 +32,14 @@ function isUnknown(value: string | undefined | null) {
 function cleanField(value: string | undefined | null) {
   if (isUnknown(value)) return undefined;
   return value?.trim() || undefined;
+}
+
+/** Clean + compact a catalogue field for UI; returns undefined when empty/unknown. */
+function displayField(value: string | undefined | null, maxLength = CARD_MAX): string | undefined {
+  const cleaned = cleanField(value);
+  if (!cleaned) return undefined;
+  const compacted = compactCatalogField(cleaned, maxLength);
+  return compacted || undefined;
 }
 
 function confidenceTone(confidence: string): ServiceChipTone {
@@ -57,17 +73,23 @@ function sourceStatusForService(service: CatalogService): string {
   return "Review required";
 }
 
+function resolvePathway(service: CatalogService): string | undefined {
+  const labeled = parseLabeledReferralDetails(service.referral_details);
+  return displayField(service.referral_pathway) ?? displayField(labeled.pathway) ?? undefined;
+}
+
 function buildContacts(service: CatalogService): ServiceContact[] {
   const contacts: ServiceContact[] = [];
   const contactBlob = [service.contact_details, service.referral_details].filter(Boolean).join(" ");
   const phones = extractPhones(contactBlob);
   const emails = extractEmails(contactBlob);
+  const hours = displayField(service.hours, ROW_MAX);
 
   for (const phone of phones) {
     contacts.push({
       label: phones.length > 1 ? `Phone ${contacts.filter((entry) => entry.kind === "phone").length + 1}` : "Phone",
       value: phone,
-      detail: cleanField(service.hours),
+      detail: hours,
       kind: "phone",
     });
   }
@@ -89,12 +111,15 @@ function buildContacts(service: CatalogService): ServiceContact[] {
     });
   }
 
-  if (contacts.length === 0 && !isUnknown(service.contact_details)) {
-    contacts.push({
-      label: "Contact",
-      value: service.contact_details,
-      kind: "unknown",
-    });
+  if (contacts.length === 0) {
+    const contactValue = displayField(service.contact_details, ROW_MAX);
+    if (contactValue) {
+      contacts.push({
+        label: "Contact",
+        value: contactValue,
+        kind: "unknown",
+      });
+    }
   }
 
   return contacts;
@@ -122,74 +147,52 @@ function buildStatusChips(service: CatalogService): ServiceStatusChip[] {
   return chips;
 }
 
-function compactSummaryField(value: string | undefined, maxLength = 140) {
-  const cleaned = cleanField(value);
-  return cleaned ? compactBestUseTitle(cleaned, maxLength) : undefined;
-}
-
 function buildSummaryCards(service: CatalogService): ServiceSummaryCard[] {
   const cards: ServiceSummaryCard[] = [];
+  const pathway = resolvePathway(service);
 
-  if (cleanField(service.referral_pathway)) {
+  if (pathway) {
     cards.push({
       id: "route",
       label: "Route",
-      title: compactBestUseTitle(service.referral_pathway),
-      detail: compactSummaryField(splitReferralLines(service.referral_details)[0]),
-    });
-  } else if (cleanField(service.referral_details)) {
-    cards.push({
-      id: "route",
-      label: "Route",
-      title: compactSummaryField(splitReferralLines(service.referral_details)[0]) ?? "See referral details",
-      detail: compactSummaryField(service.contact_details),
-    });
-  } else {
-    cards.push({
-      id: "route",
-      label: "Route",
-      title: "Contact service directly",
-      detail: compactSummaryField(service.contact_details) ?? "Confirm referral pathway locally",
+      title: pathway,
+      detail: displayField(service.patient_group) ?? displayField(service.region_catchment),
     });
   }
 
-  if (cleanField(service.eligibility_referral_criteria)) {
+  const eligibility = displayField(service.eligibility_referral_criteria);
+  if (eligibility) {
     cards.push({
       id: "eligibility",
       label: "Eligibility",
-      title: compactBestUseTitle(service.eligibility_referral_criteria),
-      detail: compactSummaryField(service.patient_group),
+      title: eligibility,
+      detail: displayField(service.patient_group),
     });
   }
 
-  if (cleanField(service.cost_funding)) {
+  const cost = displayField(service.cost_funding);
+  if (cost) {
     cards.push({
       id: "cost",
       label: "Cost",
-      title: compactBestUseTitle(service.cost_funding),
-      detail: compactSummaryField(service.hours) ?? "Confirm hours locally",
-    });
-  } else {
-    cards.push({
-      id: "cost",
-      label: "Cost",
-      title: "Confirm locally",
-      detail: compactSummaryField(service.hours) ?? "Cost not publicly stated",
+      title: cost,
+      detail: undefined,
     });
   }
 
-  const bestUse = cleanField(service.best_use_indication) ?? cleanField(service.discharge_planning_usefulness);
-  if (bestUse) {
-    const title = compactBestUseTitle(bestUse);
-    const patientGroup = cleanField(service.patient_group);
-    const sectionDetail = cleanField(service.sections[0]);
-    const detailSource = patientGroup ?? sectionDetail ?? (title === bestUse ? undefined : bestUse);
-    cards.push({
-      id: "best-use",
-      label: "Best use",
-      title,
-      detail: detailSource ? compactBestUseTitle(detailSource) : "Clinical fit and referral priority",
-    });
+  const bestUseRaw = cleanField(service.best_use_indication) ?? cleanField(service.discharge_planning_usefulness);
+  if (bestUseRaw) {
+    const title = compactCatalogField(bestUseRaw, CARD_MAX);
+    if (title) {
+      const patientGroup = displayField(service.patient_group);
+      const sectionDetail = displayField(service.sections[0]);
+      cards.push({
+        id: "best-use",
+        label: "Best use",
+        title,
+        detail: patientGroup ?? sectionDetail,
+      });
+    }
   }
 
   return cards;
@@ -197,13 +200,16 @@ function buildSummaryCards(service: CatalogService): ServiceSummaryCard[] {
 
 function buildReferralInfo(service: CatalogService): ServiceInfoRow[] {
   const rows: ServiceInfoRow[] = [];
+  const labeled = parseLabeledReferralDetails(service.referral_details);
 
-  const add = (label: string, value: string | undefined) => {
-    if (cleanField(value)) rows.push({ label, value: value!.trim() });
+  const add = (label: string, value: string | undefined, maxLength = ROW_MAX) => {
+    const compacted = displayField(value, maxLength);
+    if (compacted) rows.push({ label, value: compacted });
   };
 
-  if (cleanField(service.referral_details)) {
-    rows.push({ label: "Primary route", value: service.referral_details });
+  const pathway = displayField(service.referral_pathway, ROW_MAX) ?? displayField(labeled.pathway, ROW_MAX);
+  if (pathway) {
+    rows.push({ label: "Primary route", value: pathway });
   }
 
   const phones = extractPhones([service.contact_details, service.referral_details].join(" "));
@@ -212,12 +218,15 @@ function buildReferralInfo(service: CatalogService): ServiceInfoRow[] {
   const emails = extractEmails([service.contact_details, service.referral_details].join(" "));
   emails.forEach((email) => add("Email", email));
 
-  add("Provider", service.provider);
-  add("Region", service.region_catchment);
-  add("Patient group", service.patient_group);
-  add("Hours", service.hours);
-  add("Cost / funding", service.cost_funding);
-  add("Exclusions", service.exclusion_rejection_criteria);
+  add("Provider", cleanField(service.provider) ?? labeled.provider);
+  add("Region", cleanField(service.region_catchment) ?? labeled.region);
+  add("Patient group", cleanField(service.patient_group) ?? labeled.patientGroup);
+  add("Hours", cleanField(service.hours) ?? labeled.hours);
+  add("Cost / funding", cleanField(service.cost_funding) ?? labeled.cost);
+  const exclusions = splitCatalogClauses(service.exclusion_rejection_criteria, ROW_MAX);
+  if (exclusions.length > 0) {
+    rows.push({ label: "Exclusions", value: exclusions.join(" | ") });
+  }
   add("Discharge planning", service.discharge_planning_usefulness);
 
   return rows;
@@ -225,21 +234,30 @@ function buildReferralInfo(service: CatalogService): ServiceInfoRow[] {
 
 function buildCriteria(service: CatalogService): ServiceCriterion[] {
   const criteria: ServiceCriterion[] = [];
+  const seen = new Set<string>();
 
-  if (cleanField(service.eligibility_referral_criteria)) {
-    criteria.push({ label: service.eligibility_referral_criteria, tone: "meet" });
+  const addMeet = (value: string | undefined, prefix?: string) => {
+    const compacted = displayField(value, CARD_MAX);
+    if (!compacted) return;
+    const label = prefix ? `${prefix}${compacted}` : compacted;
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    criteria.push({ label, tone: "meet" });
+  };
+
+  addMeet(service.best_use_indication);
+  addMeet(service.referral_pathway, "Referral: ");
+
+  for (const clause of splitCatalogClauses(service.eligibility_referral_criteria, CARD_MAX)) {
+    addMeet(clause);
   }
 
-  if (cleanField(service.best_use_indication)) {
-    criteria.push({ label: service.best_use_indication, tone: "meet" });
-  }
-
-  if (cleanField(service.referral_pathway)) {
-    criteria.push({ label: `Referral: ${service.referral_pathway}`, tone: "meet" });
-  }
-
-  if (cleanField(service.exclusion_rejection_criteria)) {
-    criteria.push({ label: service.exclusion_rejection_criteria, tone: "reject" });
+  for (const clause of splitCatalogClauses(service.exclusion_rejection_criteria, CARD_MAX)) {
+    const key = clause.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    criteria.push({ label: clause, tone: "reject" });
   }
 
   if (service.tags.acuity_flags.includes("crisis_high")) {
@@ -247,7 +265,8 @@ function buildCriteria(service: CatalogService): ServiceCriterion[] {
   }
 
   for (const flag of service.verification_flags) {
-    criteria.push({ label: flag, tone: "caution" });
+    const note = displayField(flag, CARD_MAX);
+    if (note) criteria.push({ label: note, tone: "caution" });
   }
 
   if (isUnknown(service.hours)) {
@@ -272,8 +291,9 @@ function flattenTags(service: CatalogService): string[] {
 
 function buildCatchments(service: CatalogService): string[] {
   const catchments = [...service.tags.catchments];
-  if (cleanField(service.region_catchment) && !catchments.includes(service.region_catchment)) {
-    catchments.unshift(service.region_catchment);
+  const region = displayField(service.region_catchment, ROW_MAX);
+  if (region && !catchments.some((entry) => entry.toLowerCase() === region.toLowerCase())) {
+    catchments.unshift(region);
   }
   return catchments;
 }
@@ -298,30 +318,27 @@ function buildSource(service: CatalogService): ServiceSource {
 export function catalogToServiceRecord(service: CatalogService): ServiceRecord {
   const contacts = buildContacts(service);
   const primaryContact = contacts[0];
+  const pathway = resolvePathway(service);
+  const bestUse = displayField(service.best_use_indication) ?? displayField(service.discharge_planning_usefulness);
+  const eligibility = displayField(service.eligibility_referral_criteria) ?? displayField(service.inclusion_criteria);
+  const cost = displayField(service.cost_funding);
+  const referral = pathway ?? displayField(service.referral_details, ROW_MAX);
 
   return {
     slug: catalogServiceSlug(service),
     title: service.name,
-    subtitle:
-      cleanField(service.best_use_indication) ??
-      cleanField(service.sections[0]) ??
-      cleanField(service.discharge_planning_usefulness),
+    subtitle: bestUse ?? displayField(service.sections[0]) ?? undefined,
     statusChips: buildStatusChips(service),
     primaryContact,
     contacts,
-    route:
-      cleanField(service.referral_pathway) ??
-      splitReferralLines(service.referral_details)[0] ??
-      "Contact service directly",
-    eligibility: cleanField(service.eligibility_referral_criteria) ?? cleanField(service.inclusion_criteria),
-    cost: cleanField(service.cost_funding) ?? "Confirm locally",
-    referral:
-      cleanField(service.referral_details) ??
-      [cleanField(service.referral_pathway), cleanField(service.contact_details)].filter(Boolean).join(" | "),
-    location: cleanField(service.region_catchment),
+    route: pathway,
+    eligibility,
+    cost,
+    referral,
+    location: displayField(service.region_catchment, ROW_MAX),
     summaryCards: buildSummaryCards(service),
     referralInfo: buildReferralInfo(service),
-    bestUse: cleanField(service.best_use_indication) ?? cleanField(service.discharge_planning_usefulness),
+    bestUse,
     criteria: buildCriteria(service),
     verification: {
       locallyVerified: false,
