@@ -3000,10 +3000,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Production hydration can briefly overlap the outgoing server tree and the
     // settled client tree on this redirect; wait for one owner before strict
     // locators (same guard as the mode-home loop in ui-tools).
-    await expectSingleSettledOwner(page.getByTestId("differentials-home"), {
-      message: "differentials redirect home owner",
+    await expectSingleSettledOwner(page.getByTestId("differentials-search-results"), {
+      message: "differentials redirect search results owner",
     });
-    await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
+    await expect(page.getByTestId("search-query-ribbon")).toBeVisible();
   });
 
   test("DSM diagnosis mode redirects into the local catalogue and opens a diagnosis", async ({ page }) => {
