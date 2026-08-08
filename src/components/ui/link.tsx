@@ -33,7 +33,11 @@ export type ExternalTextLinkProps = BaseProps & { href: string } & Omit<
 
 export type DownloadLinkProps = BaseProps & { href: string; format?: string; size?: string } & Omit<
     AnchorHTMLAttributes<HTMLAnchorElement>,
-    "href" | "children" | "className"
+    // `download` is the component. A caller that could pass `download={false}`
+    // would get a link that navigates away from the app to a raw asset URL while
+    // still rendering the download glyph and the "(PDF, 40 MB)" detail — the
+    // affordance says one thing and the anchor does another.
+    "href" | "children" | "className" | "download"
   >;
 
 export type LinkActionProps = BaseProps & { href: string };
@@ -66,11 +70,11 @@ export function TextLink({ href, children, tone = "accent", className, ...props 
 export function ExternalTextLink({ href, children, tone = "accent", className, ...props }: ExternalTextLinkProps) {
   return (
     <a
+      {...props}
       href={href}
       target="_blank"
       rel="noopener noreferrer"
       className={cn(base, toneClass[tone], className)}
-      {...props}
     >
       {children}
       <ExternalLink aria-hidden="true" className="size-icon-xs shrink-0 self-center" />
@@ -95,7 +99,9 @@ export function DownloadLink({
 }: DownloadLinkProps) {
   const detail = [format, size].filter(Boolean).join(", ");
   return (
-    <a href={href} download className={cn(base, toneClass[tone], className)} {...props}>
+    // Spread first, then the invariants. The reverse order let a spread win, so
+    // the type is the first guard and the ordering is the second.
+    <a {...props} href={href} download className={cn(base, toneClass[tone], className)}>
       <Download aria-hidden="true" className="size-icon-xs shrink-0 self-center" />
       {children}
       {detail ? (
@@ -116,13 +122,21 @@ export function LinkAction({ href, children, className }: LinkActionProps) {
       href={href}
       className={cn(
         "group inline-flex min-h-tap items-center gap-1.5 rounded-md text-sm font-semibold text-[color:var(--clinical-accent)] transition",
-        "hover:gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-        "motion-reduce:hover:gap-1.5",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         className,
       )}
     >
       {children}
-      <ArrowRight aria-hidden="true" className="size-icon-sm shrink-0" />
+      {/* The nudge is a transform, not `hover:gap-2`.
+          `gap` is not in Tailwind's `transition` property list, so the old pair
+          never eased — it jumped, reflowing the arrow and everything laid out
+          after this link on hover, and its `motion-reduce:hover:gap-1.5` guard
+          was reducing a transition that did not exist. `translate-x` composites,
+          costs no layout, and honours reduced motion for real. */}
+      <ArrowRight
+        aria-hidden="true"
+        className="size-icon-sm shrink-0 transition-transform duration-[var(--duration-fast)] group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+      />
     </NextLink>
   );
 }
