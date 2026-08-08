@@ -73,7 +73,9 @@
           "docs/design-system/adoption-contract.json",
           "docs/design-system/adoption-manifest.json",
           "lighthouse-budget.json",
-          "tests/__screenshots__/linux/provenance.json"
+          "scripts/generate-design-system-adoption.mjs",
+          "tests/__screenshots__/linux/provenance.json",
+          "tests/design-system-adoption.test.ts"
         ]
       }
     }
