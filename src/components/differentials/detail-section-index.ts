@@ -8,6 +8,7 @@ import {
   type DifferentialDetailContext,
   type DifferentialDetailTabId,
 } from "@/lib/differential-detail";
+import type { DifferentialSourceStatus } from "@/lib/differential-records";
 import type { DifferentialRecord } from "@/lib/differential-snapshot";
 
 /**
@@ -66,10 +67,15 @@ const sectionMeta: Record<DifferentialDetailTabId, { label: string; icon: Docume
  * Builds the weighted section index for one diagnosis. Pure and deterministic:
  * the same record always produces the same weights, so the track never shifts
  * between renders of the same page.
+ *
+ * `liveSourceStatus` mirrors `FooterStatus`: when the API returns owner-scoped
+ * governance that differs from the bundled snapshot, the Source row must show
+ * that live status rather than a stale "Current" label.
  */
 export function buildDifferentialSectionIndex(
   record: DifferentialRecord,
   detailContext: DifferentialDetailContext,
+  liveSourceStatus: DifferentialSourceStatus | null = null,
 ): DifferentialDetailSection[] {
   const counts = {
     // The same predicate the page uses to decide which section rows can expand,
@@ -79,12 +85,14 @@ export function buildDifferentialSectionIndex(
     overlaps: Object.keys(detailContext.overlapLinks).length,
   };
 
+  const sourceStatus = liveSourceStatus ?? detailContext.source.sourceStatus;
+
   const detail: Record<DifferentialDetailTabId, string> = {
     overview: plural(counts.reviewSections, "section"),
     compare: plural(counts.related + 1, "diagnosis", "diagnoses"),
     map: plural(counts.related, "link"),
     related: plural(counts.related + counts.overlaps, "item"),
-    source: differentialSourceStatusLabel(detailContext.source.sourceStatus),
+    source: differentialSourceStatusLabel(sourceStatus),
   };
 
   const weights = DETAIL_TAB_IDS.map((id) => rawWeight(id, counts));

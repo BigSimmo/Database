@@ -28,10 +28,14 @@ function buildRecord(overrides: Partial<DifferentialRecord> = {}): DifferentialR
 }
 
 function buildContext(overrides: Partial<DifferentialDetailContext> = {}): DifferentialDetailContext {
+  // Spread non-source overrides first, then rebuild `source` so a partial
+  // `source` override cannot wipe version/exportedAt/review fields.
+  const { source: sourceOverride, ...rest } = overrides;
   return {
     knownRelatedSlugs: [],
     overlapLinks: {},
     comparePresentation: null,
+    ...rest,
     source: {
       version: "1.0.0",
       exportedAt: "2026-08-01T00:00:00.000Z",
@@ -39,9 +43,8 @@ function buildContext(overrides: Partial<DifferentialDetailContext> = {}): Diffe
       sourceTitle: "Test source",
       sourceStatus: "current",
       validationStatus: "approved",
-      ...overrides.source,
+      ...sourceOverride,
     },
-    ...overrides,
   };
 }
 
@@ -115,9 +118,30 @@ describe("buildDifferentialSectionIndex", () => {
   it("reports the source governance status as the source row's detail", () => {
     const sections = buildDifferentialSectionIndex(
       buildRecord(),
-      buildContext({ source: { ...buildContext().source, sourceStatus: "review_due" } }),
+      buildContext({ source: { sourceStatus: "review_due" } }),
     );
     expect(sections.find((section) => section.id === "source")!.detail).toBe("Review due");
+  });
+
+  it("prefers live governance source status over the bundled snapshot", () => {
+    const sections = buildDifferentialSectionIndex(
+      buildRecord(),
+      buildContext({ source: { sourceStatus: "current" } }),
+      "outdated",
+    );
+    expect(sections.find((section) => section.id === "source")!.detail).toBe("Outdated");
+  });
+
+  it("keeps complete source metadata when buildContext receives a partial source override", () => {
+    const context = buildContext({ source: { sourceStatus: "outdated" } });
+    expect(context.source).toMatchObject({
+      version: "1.0.0",
+      exportedAt: "2026-08-01T00:00:00.000Z",
+      reviewStatus: "reviewed",
+      sourceTitle: "Test source",
+      sourceStatus: "outdated",
+      validationStatus: "approved",
+    });
   });
 
   it("never claims a tab opens an accordion", () => {
