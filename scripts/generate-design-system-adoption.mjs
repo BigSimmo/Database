@@ -54,7 +54,12 @@ const CANONICAL_VISUAL_BASELINE_POLICY = Object.freeze({
       "docs/design-system/adoption-contract.json",
       "docs/design-system/adoption-manifest.json",
       "lighthouse-budget.json",
+      "scripts/generate-design-system-adoption.mjs",
       "tests/__screenshots__/linux/provenance.json",
+      // First adoption also ships the fixture fix that makes emptying AWAITING_BASELINE
+      // testable; keep it allowlisted so candidateSourceHead can stay on an existing
+      // main commit (required for shallow CI checkouts and squash-merge survival).
+      "tests/design-system-adoption.test.ts",
     ],
   },
 });
