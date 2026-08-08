@@ -98,7 +98,9 @@ export function DocumentViewerRail({
         // bar sits above the rail for as long as chrome stays away. When the
         // universal bar is hidden, the page-owned sticky document header still
         // owns the top edge on sm+.
-        headerHidden ? "lg:top-[var(--document-sticky-header-height,0px)]" : "lg:top-[69px]",
+        headerHidden
+          ? "lg:top-[var(--document-sticky-header-height,0px)]"
+          : "lg:top-[var(--document-collapse-height,69px)]",
       )}
     >
       <DocumentSectionIndexCard

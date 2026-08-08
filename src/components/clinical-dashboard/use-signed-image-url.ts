@@ -5,6 +5,45 @@ import { useCallback, useEffect, useState } from "react";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { useAuthSession } from "@/lib/supabase/client";
 
+type SignedUrlResponse = { status: number; data: { url?: string } | null };
+
+/**
+ * One in-flight request per endpoint *and identity*, shared by every consumer
+ * that asks while it is running. The module LRU only helps once a response has
+ * landed, so without this the first paint of a page holding several views of the
+ * same image issued a signed-URL request for each of them.
+ *
+ * The bearer token is part of the key on purpose: a request started under one
+ * identity must never be handed to another, which is the same rule the auth
+ * reset below enforces for painted URLs.
+ */
+const inFlightSignedUrlRequests = new Map<string, Promise<SignedUrlResponse>>();
+
+function signedUrlRequestKey(endpoint: string, headers: Record<string, string>) {
+  return `${endpoint}\u0000${headers.Authorization ?? ""}`;
+}
+
+function beginSignedUrlRequest(key: string, endpoint: string, headers: Record<string, string>) {
+  const request = fetch(endpoint, { headers })
+    .then(async (response): Promise<SignedUrlResponse> => {
+      const data = response.ok ? await response.json() : null;
+      if (data?.url) setCachedSignedUrl(endpoint, data);
+      return { status: response.status, data };
+    })
+    .finally(() => {
+      inFlightSignedUrlRequests.delete(key);
+    });
+  inFlightSignedUrlRequests.set(key, request);
+  return request;
+}
+
+/** Drop any shared request for this endpoint so a retry genuinely refetches. */
+function dropInFlightSignedUrlRequests(endpoint: string) {
+  for (const key of inFlightSignedUrlRequests.keys()) {
+    if (key.startsWith(`${endpoint}\u0000`)) inFlightSignedUrlRequests.delete(key);
+  }
+}
+
 /**
  * Resolve a private image's signed URL through its `/signed-url` endpoint, with
  * the client LRU cache in front and the auth-session authorization header.
@@ -52,17 +91,20 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
     }
 
     let active = true;
-    fetch(endpoint, { headers: authorizationHeader })
-      .then((response) => {
-        if (response.status === 401) markSessionExpired();
-        return response.ok ? response.json() : null;
-      })
-      .then((data) => {
-        if (active && data?.url) {
-          setCachedSignedUrl(endpoint, data);
+    // Share one request per endpoint. A document page can mount several
+    // consumers of the same image at once — a figure and its lightbox, a rail
+    // panel and a filmstrip — and on a cold cache each was minting its own
+    // signed URL, so N components meant N round trips for one asset.
+    const key = signedUrlRequestKey(endpoint, authorizationHeader);
+    const request = inFlightSignedUrlRequests.get(key) ?? beginSignedUrlRequest(key, endpoint, authorizationHeader);
+    request
+      .then(({ status, data }) => {
+        if (status === 401) markSessionExpired();
+        if (!active) return;
+        if (data?.url) {
           setUrl(data.url);
           setFailed(false);
-        } else if (active) {
+        } else {
           setFailed(true);
         }
       })
@@ -77,6 +119,7 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
   // Drop the cached URL and refetch (e.g. after a 403 on an expired URL).
   const retry = useCallback(() => {
     clearCachedSignedUrl(endpoint);
+    dropInFlightSignedUrlRequests(endpoint);
     setUrl(null);
     setFailed(false);
     setAttempt((current) => current + 1);
@@ -85,6 +128,7 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
   // Mark the current URL dead (e.g. <img> onError) so the frame shows its failure state.
   const markFailed = useCallback(() => {
     clearCachedSignedUrl(endpoint);
+    dropInFlightSignedUrlRequests(endpoint);
     setUrl(null);
     setFailed(true);
   }, [endpoint]);
