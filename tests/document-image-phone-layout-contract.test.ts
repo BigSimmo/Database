@@ -82,4 +82,11 @@ describe("document viewer phone layout", () => {
     expect(demoDataSource).toMatch(/width: 1520,\n\s*height: 720,/);
     expect(demoDataSource).toMatch(/width: 1520,\n\s*height: 840,/);
   });
+
+  it("labels the full-screen route for the real clozapine demo crop ratio", () => {
+    // Production UI failed when the threshold was 2.2 and the demo was 2.11:1 —
+    // the expand control never rendered, so the phone journey timed out.
+    expect(sourcePanelsSource).toMatch(/ratio >= 2\.1/);
+    expect(sourcePanelsSource).not.toMatch(/ratio >= 2\.2/);
+  });
 });

@@ -30,8 +30,10 @@ const DOUBLE_TAP_SLOP_PX = 24;
  *   rather than `document` (#214 amended — fully-passive double-zooms).
  * - Two-pointer pinch → `onZoomBy` with the live distance ratio.
  * - One-pointer drag → `onPanBy` with frame deltas.
- * - Two taps in quick succession → `onDoubleTap` with the tap point. Opt-in: a
- *   scroll-backed surface (the PDF canvas) has its own fit controls and should
+ * - Two completed taps in quick succession → `onDoubleTap` with the tap point.
+ *   A tap is only recorded on pointer-up when that pointer stayed within the
+ *   movement slop — otherwise two quick pan strokes would toggle zoom. Opt-in:
+ *   a scroll-backed surface (the PDF canvas) has its own fit controls and should
  *   not repurpose a double tap.
  *
  * Touch panning is opt-in (`touchPan`) because a scroll-backed surface (the PDF
@@ -65,6 +67,10 @@ export function useViewerGestures({
   const pinchDistance = useRef(0);
   const panLast = useRef<Point | null>(null);
   const lastTap = useRef<(Point & { at: number }) | null>(null);
+  // Pending primary pointer that may become a tap on pointer-up if it never
+  // wandered past the slop. Keyed by pointerId so a cancelled/second finger
+  // cannot complete someone else's tap.
+  const pendingTap = useRef<(Point & { pointerId: number }) | null>(null);
   const [pinching, setPinching] = useState(false);
 
   // Keep the latest callbacks in refs so the native wheel listener doesn't have
@@ -104,23 +110,18 @@ export function useViewerGestures({
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent) => {
-      // Detect the double tap before pointer bookkeeping: a second tap must not
-      // be swallowed by pan/pinch setup, and a real two-finger gesture (size 2)
+      // Seed a candidate tap before pointer bookkeeping. Completion happens on
+      // pointer-up only when this pointer stays inside the slop — that keeps two
+      // quick pan strokes from toggling zoom. A real two-finger gesture (size 2)
       // is never a double tap.
       if (onDoubleTapRef.current && pointers.current.size === 0 && event.isPrimary) {
-        // performance.now() rather than event.timeStamp: both share the time
-        // origin and a pointerdown handler runs microseconds after the event, so
-        // they are equivalent here — but timeStamp is read-only and cannot be
-        // driven from a test, which would leave the 300ms window unexercised.
-        const now = performance.now();
-        const previous = lastTap.current;
-        const point = { x: event.clientX, y: event.clientY };
-        if (previous && now - previous.at < DOUBLE_TAP_MS && distance(previous, point) < DOUBLE_TAP_SLOP_PX) {
-          lastTap.current = null;
-          onDoubleTapRef.current(point);
-        } else {
-          lastTap.current = { ...point, at: now };
-        }
+        pendingTap.current = {
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+        };
+      } else {
+        pendingTap.current = null;
       }
 
       pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -134,6 +135,7 @@ export function useViewerGestures({
         const [a, b] = [...pointers.current.values()];
         pinchDistance.current = distance(a, b);
         panLast.current = null;
+        pendingTap.current = null;
         setPinching(true);
         return;
       }
@@ -151,6 +153,15 @@ export function useViewerGestures({
     (event: ReactPointerEvent) => {
       if (!pointers.current.has(event.pointerId)) return;
       pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+      // A pointer that wanders past the tap slop is a drag, not a tap.
+      if (
+        pendingTap.current &&
+        pendingTap.current.pointerId === event.pointerId &&
+        distance(pendingTap.current, { x: event.clientX, y: event.clientY }) >= DOUBLE_TAP_SLOP_PX
+      ) {
+        pendingTap.current = null;
+      }
 
       if (pinchZoom && pointers.current.size >= 2) {
         const [a, b] = [...pointers.current.values()];
@@ -176,6 +187,22 @@ export function useViewerGestures({
   );
 
   const endPointer = useCallback((event: ReactPointerEvent) => {
+    const isCancel = event.type === "pointercancel";
+    const candidate = pendingTap.current;
+    const completedTap =
+      !isCancel &&
+      onDoubleTapRef.current &&
+      candidate &&
+      candidate.pointerId === event.pointerId &&
+      // Still within slop at release (covers the no-move path and small jitter).
+      distance(candidate, { x: event.clientX, y: event.clientY }) < DOUBLE_TAP_SLOP_PX
+        ? { x: event.clientX, y: event.clientY }
+        : null;
+
+    if (candidate?.pointerId === event.pointerId) {
+      pendingTap.current = null;
+    }
+
     pointers.current.delete(event.pointerId);
     if (pointers.current.size < 2) {
       pinchDistance.current = 0;
@@ -183,6 +210,21 @@ export function useViewerGestures({
     }
     if (pointers.current.size === 0) {
       panLast.current = null;
+    }
+
+    if (!completedTap || !onDoubleTapRef.current) return;
+
+    // performance.now() rather than event.timeStamp: both share the time origin
+    // and a pointerup handler runs microseconds after the event, so they are
+    // equivalent here — but timeStamp is read-only and cannot be driven from a
+    // test, which would leave the 300ms window unexercised.
+    const now = performance.now();
+    const previous = lastTap.current;
+    if (previous && now - previous.at < DOUBLE_TAP_MS && distance(previous, completedTap) < DOUBLE_TAP_SLOP_PX) {
+      lastTap.current = null;
+      onDoubleTapRef.current(completedTap);
+    } else {
+      lastTap.current = { ...completedTap, at: now };
     }
   }, []);
 

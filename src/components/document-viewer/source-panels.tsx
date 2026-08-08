@@ -288,9 +288,11 @@ export function DocumentImage({
   // image is the only representation, so it stays inline and prominent.
   // A crop this much wider than it is tall cannot be read inside a phone card at
   // any faithful size, so it gets a labelled route to the full-screen viewer
-  // rather than only the corner chip.
+  // rather than only the corner chip. 2.1 includes the real clozapine demo crop
+  // (1520×720 ≈ 2.11:1) and matches the ~2:1 legibility-floor intent; 2.2 left
+  // that fixture (and similar clinical tables) without any labelled route.
   const ratio = imageAspectRatio(image);
-  const isWideCrop = typeof ratio === "number" && ratio >= 2.2;
+  const isWideCrop = typeof ratio === "number" && ratio >= 2.1;
 
   const imageBlock = (
     <div className="rounded-lg bg-[color:var(--surface-inset)] p-3">

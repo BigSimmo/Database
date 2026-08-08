@@ -188,7 +188,15 @@ describe("useViewerGestures double tap (jsdom)", () => {
       clientX: point.x,
       clientY: point.y,
     });
-    fireEvent.pointerUp(stage(), { pointerId, pointerType: "touch", isPrimary: true });
+    // clientX/clientY must be present on pointerup: the hook only completes a
+    // tap when the release stays inside the movement slop of the press.
+    fireEvent.pointerUp(stage(), {
+      pointerId,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: point.x,
+      clientY: point.y,
+    });
   };
 
   it("does nothing when the consumer has not opted in", () => {
@@ -265,6 +273,91 @@ describe("useViewerGestures double tap (jsdom)", () => {
     });
     at(1050);
     fireEvent.pointerDown(stage(), { pointerId: 2, pointerType: "touch", clientX: 55, clientY: 55 });
+    fireEvent.pointerUp(stage(), { pointerId: 1, pointerType: "touch", isPrimary: true });
+    fireEvent.pointerUp(stage(), { pointerId: 2, pointerType: "touch" });
     expect(onDoubleTap).not.toHaveBeenCalled();
+  });
+
+  it("does not treat two quick pan strokes as a double tap", () => {
+    // Recording a completed tap on pointerdown made any two nearby drag starts
+    // toggle zoom while the reader was trying to move the table.
+    const onDoubleTap = vi.fn();
+    const onPanBy = vi.fn();
+    render(<GestureHarness onZoomBy={vi.fn()} onPanBy={onPanBy} onDoubleTap={onDoubleTap} touchPan />);
+
+    at(1000);
+    fireEvent.pointerDown(stage(), {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 40,
+      clientY: 40,
+    });
+    fireEvent.pointerMove(stage(), { pointerId: 1, pointerType: "touch", clientX: 80, clientY: 40 });
+    fireEvent.pointerUp(stage(), {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 80,
+      clientY: 40,
+    });
+
+    at(1100);
+    fireEvent.pointerDown(stage(), {
+      pointerId: 2,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 42,
+      clientY: 42,
+    });
+    fireEvent.pointerMove(stage(), { pointerId: 2, pointerType: "touch", clientX: 90, clientY: 42 });
+    fireEvent.pointerUp(stage(), {
+      pointerId: 2,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 90,
+      clientY: 42,
+    });
+
+    expect(onPanBy).toHaveBeenCalled();
+    expect(onDoubleTap).not.toHaveBeenCalled();
+  });
+
+  it("does not complete a double tap on pointerdown alone", () => {
+    const onDoubleTap = vi.fn();
+    render(<GestureHarness onZoomBy={vi.fn()} onDoubleTap={onDoubleTap} />);
+
+    at(1000);
+    fireEvent.pointerDown(stage(), {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 50,
+      clientY: 50,
+    });
+    fireEvent.pointerUp(stage(), {
+      pointerId: 1,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 50,
+      clientY: 50,
+    });
+    at(1100);
+    fireEvent.pointerDown(stage(), {
+      pointerId: 2,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 50,
+      clientY: 50,
+    });
+    expect(onDoubleTap).not.toHaveBeenCalled();
+    fireEvent.pointerUp(stage(), {
+      pointerId: 2,
+      pointerType: "touch",
+      isPrimary: true,
+      clientX: 50,
+      clientY: 50,
+    });
+    expect(onDoubleTap).toHaveBeenCalledTimes(1);
   });
 });

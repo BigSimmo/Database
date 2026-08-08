@@ -109,10 +109,15 @@ export function ImageLightbox(props: ImageLightboxProps) {
       // offsetWidth/Height ignore CSS transforms, so they report the untransformed
       // object-contain box even while the reader is zoomed.
       if (!image.naturalWidth || !image.naturalHeight) return;
-      setGeometry({
+      const nextGeometry: LightboxGeometry = {
         stage: { width: rect.width, height: rect.height },
         natural: { width: image.naturalWidth, height: image.naturalHeight },
-      });
+      };
+      setGeometry(nextGeometry);
+      // Re-clamp against the new stage so a landscape→portrait resize (or Safari
+      // collapsing the chrome) cannot leave a prior pan past the new bounds with
+      // a blank edge until the next drag happens to snap it back.
+      setTranslate((current) => clampTranslate(nextGeometry, rotationRef.current, scaleRef.current, current));
     });
     observer.observe(element);
     return () => observer.disconnect();
@@ -187,7 +192,14 @@ export function ImageLightbox(props: ImageLightboxProps) {
       // Toggle against the legible scale, falling back to a plain 2x when the
       // crop is well matched to the stage and has no "legible" state to reach.
       const target = scaleRef.current > 1 ? 1 : Math.max(legible, 2);
-      zoomTo(target, target > 1 ? point : null);
+      // Gesture points are viewport-relative (clientX/clientY). zoomAboutPoint
+      // interprets the anchor relative to the stage's top-left, so subtract the
+      // stage origin — otherwise a stage below the sheet header (or inside the
+      // centered desktop dialog) anchors tens/hundreds of pixels away from the
+      // touched content and the image jumps while zooming.
+      const stageRect = stageRef.current?.getBoundingClientRect();
+      const stagePoint = stageRect ? { x: point.x - stageRect.left, y: point.y - stageRect.top } : point;
+      zoomTo(target, target > 1 ? stagePoint : null);
     },
     [zoomTo],
   );

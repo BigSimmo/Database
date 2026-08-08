@@ -141,4 +141,90 @@ describe("ImageLightbox view controls", () => {
     for (let i = 0; i < 6; i += 1) fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
     expect(screen.getByRole("button", { name: "Reset zoom" })).toHaveTextContent("100%");
   });
+
+  it("converts double-tap client coordinates into stage-local anchors", async () => {
+    // performance.now drives the double-tap window (Event.timeStamp is read-only 0).
+    let clock = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
+
+    openLightbox();
+    const stage = await screen.findByTestId("image-lightbox-stage");
+    const image = await screen.findByRole("img", { name: "Wide table" });
+
+    Object.defineProperty(image, "naturalWidth", { configurable: true, value: 1520 });
+    Object.defineProperty(image, "naturalHeight", { configurable: true, value: 720 });
+    const stageRect = {
+      x: 80,
+      y: 160,
+      left: 80,
+      top: 160,
+      width: 400,
+      height: 700,
+      right: 480,
+      bottom: 860,
+      toJSON() {
+        return {};
+      },
+    } as DOMRect;
+    vi.spyOn(stage, "getBoundingClientRect").mockReturnValue(stageRect);
+
+    fireEvent.load(image);
+    // Opening scale for this wide crop is >1; reset to fit so double-tap zooms in.
+    fireEvent.click(screen.getByRole("button", { name: "Reset zoom" }));
+    expect(screen.getByRole("button", { name: "Reset zoom" })).toHaveTextContent("100%");
+
+    const tap = (clientX: number, clientY: number, pointerId: number) => {
+      fireEvent.pointerDown(stage, {
+        pointerId,
+        pointerType: "touch",
+        isPrimary: true,
+        clientX,
+        clientY,
+      });
+      fireEvent.pointerUp(stage, {
+        pointerId,
+        pointerType: "touch",
+        isPrimary: true,
+        clientX,
+        clientY,
+      });
+    };
+
+    // Viewport point (280, 360) → stage-local (200, 200). If client coords were
+    // passed through unchanged, zoomAboutPoint would treat (280,360) as stage
+    // and the translate would differ.
+    clock = 1000;
+    tap(280, 360, 1);
+    clock = 1150;
+    tap(280, 360, 2);
+
+    const { zoomAboutPoint, legibleOpenScale } =
+      await import("@/components/clinical-dashboard/image-lightbox-geometry");
+    const geometry = {
+      stage: { width: 400, height: 700 },
+      natural: { width: 1520, height: 720 },
+    };
+    const targetScale = Math.max(legibleOpenScale(geometry, 0), 2);
+    const expected = zoomAboutPoint({
+      geometry,
+      rotation: 0,
+      scale: 1,
+      translate: { x: 0, y: 0 },
+      nextScale: targetScale,
+      point: { x: 200, y: 200 },
+    });
+    const wrong = zoomAboutPoint({
+      geometry,
+      rotation: 0,
+      scale: 1,
+      translate: { x: 0, y: 0 },
+      nextScale: targetScale,
+      point: { x: 280, y: 360 },
+    });
+    expect(expected.translate).not.toEqual(wrong.translate);
+
+    const transform = image.style.transform;
+    expect(transform).toContain(`translate(${expected.translate.x}px, ${expected.translate.y}px)`);
+    expect(transform).not.toContain(`translate(${wrong.translate.x}px, ${wrong.translate.y}px)`);
+  });
 });

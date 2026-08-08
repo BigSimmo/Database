@@ -88,11 +88,24 @@ test("wide table crops offer a visible full-screen route on touch", async ({ pag
   await images.locator("summary").first().click();
   await expect(images).toHaveJSProperty("open", true);
 
+  // Structured table extraction leads; the source image (and its expand control)
+  // lives behind "Show original table image". Open that disclosure before the
+  // labelled full-screen route can be found.
+  const originalDetails = page.locator("#source-images details").filter({
+    hasText: "Show original table image",
+  });
+  await expect(originalDetails).toHaveCount(1, { timeout: 20_000 });
+  await originalDetails.locator("summary").click();
+  await expect(originalDetails).toHaveJSProperty("open", true);
+
   // The inline card cannot render a wide table legibly at any faithful size, so
   // the labelled route to the viewer is the affordance that matters — and it must
-  // not depend on a hover that a phone cannot produce.
+  // not depend on a hover that a phone cannot produce. Threshold is ≥2.1 so the
+  // real clozapine demo crop (1520×720 ≈ 2.11:1) qualifies.
   const expand = page.getByTestId("signed-image-expand").first();
   await expect(expand).toBeVisible({ timeout: 20_000 });
+  // The labelled control stays disabled until the deferred signed image loads.
+  await expect(expand).toBeEnabled({ timeout: 20_000 });
 
   const box = await expand.boundingBox();
   expect(box, "expand control must be laid out").not.toBeNull();
