@@ -68,4 +68,15 @@ describe("differentials navigation", () => {
       ),
     ).toBe("?q=Pain&run=1&ids=medical-gi-endocrine-painful-organic-cause%2Cbpsd-as-unmet-need-delirium-pain-mimic");
   });
+
+  it("preserves every selected diagnosis id across the presentations redirect", () => {
+    const handoff = resolveDifferentialCompareHandoff(
+      ["anorexia-nervosa", "bulimia-nervosa-binge-purge-pattern"],
+      "pain",
+    );
+
+    expect(handoff.kind).toBe("presentation");
+    expect(handoff.href).toContain("anorexia-nervosa");
+    expect(handoff.href).toContain("bulimia-nervosa-binge-purge-pattern");
+  });
 });
