@@ -1223,10 +1223,11 @@ describe("Checkbox / RadioGroup — dimensions on the spacing scale", () => {
   it("sizes the checkbox box and its mixed-state dash without arbitrary literals", () => {
     const { container } = render(<Checkbox label="Include outdated sources" indeterminate />);
 
-    const box = container.querySelector(".grid.size-4\\.5");
+    const box = container.querySelector(".grid.size-5");
     expect(box).not.toBeNull();
     expect(container.innerHTML).not.toContain("size-[1.125rem]");
     expect(container.innerHTML).not.toContain("h-[2px]");
+    expect(container.innerHTML).not.toContain("size-4.5");
   });
 
   it("keeps the radio control on the same box recipe", () => {
@@ -1239,7 +1240,7 @@ describe("Checkbox / RadioGroup — dimensions on the spacing scale", () => {
       />,
     );
 
-    expect(container.querySelector(".size-4\\.5")).not.toBeNull();
+    expect(container.querySelector(".size-5")).not.toBeNull();
     expect(container.innerHTML).not.toContain("size-[1.125rem]");
   });
 });
