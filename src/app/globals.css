@@ -3365,11 +3365,12 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     display: none !important;
   }
 
-  /* Transitional element-name chrome hide — do not extend this list. */
+  /* Transitional element-name chrome hide — do not extend this list. The viewer
+     toolbar left it when DocumentFrame took ownership: that band carries
+     `data-print-hide`, so the attribute rule above already covers it. */
   header,
   nav,
-  button,
-  [data-testid="pdf-toolbar"] {
+  button {
     display: none !important;
   }
 

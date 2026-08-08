@@ -34,6 +34,7 @@ import type { FormattedDocumentSummary } from "@/lib/document-summary-formatting
 import type { DocumentSummaryBadge } from "@/lib/document-summary-badges";
 
 export function DocumentViewerRail({
+  className,
   headerHidden,
   documentSections,
   activeSectionId,
@@ -60,6 +61,7 @@ export function DocumentViewerRail({
   activePage,
   onSelectPage,
 }: {
+  className?: string;
   headerHidden: boolean;
   documentSections: DocumentSection[];
   activeSectionId: string | null;
@@ -98,12 +100,15 @@ export function DocumentViewerRail({
         // remainder instead of making it scrollable. `md:`/`lg:` never showed it
         // because Tailwind emits `repeat(n, minmax(0,1fr))` for those.
         "min-w-0 grid grid-cols-1 content-start gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:sticky lg:grid-cols-1 lg:self-start lg:pr-1",
+        className,
         // The rail clears the top bar while it is there, and reclaims that
         // space the moment it hides — otherwise a dead band the height of the
         // bar sits above the rail for as long as chrome stays away. When the
         // universal bar is hidden, the page-owned sticky document header still
         // owns the top edge on sm+.
-        headerHidden ? "lg:top-[var(--document-sticky-header-height,0px)]" : "lg:top-[69px]",
+        headerHidden
+          ? "lg:top-[var(--document-sticky-header-height,0px)]"
+          : "lg:top-[var(--document-collapse-height,69px)]",
       )}
     >
       <DocumentSectionIndexCard
