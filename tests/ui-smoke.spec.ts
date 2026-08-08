@@ -4204,7 +4204,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const mobilePdfStyles = await toolbar.evaluate((element) => ({
       position: window.getComputedStyle(element).position,
     }));
-    expect(mobilePdfStyles.position).toBe("static");
+    // DocumentFrame's toolbar uses `relative` so the phone overflow menu can
+    // absolutely position under it. Guard against sticky/fixed chrome that
+    // would cover the PDF, not against relative positioning itself.
+    expect(["static", "relative"]).toContain(mobilePdfStyles.position);
 
     await expect(pdfScroller).toBeVisible();
     await openOverflow();
