@@ -27,7 +27,7 @@ import {
 } from "@/components/ui-primitives";
 
 import { Sheet } from "@/components/ui/sheet";
-import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
+import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 
 export type SidebarIdentity = {
   displayName: string;
@@ -56,9 +56,10 @@ function accountProfileLabel(identity: SidebarIdentity) {
 
 const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
-  { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
+  // Documents and Medication now have real homes, like every other mode.
+  { id: "documents", label: "Documents", icon: FileText, href: "/documents" },
   { id: "services", label: "Services", icon: appModeIcons.services, href: "/services" },
-  { id: "prescribing", label: appModeDefinition("prescribing").label, icon: Pill, href: "/?mode=prescribing" },
+  { id: "prescribing", label: appModeDefinition("prescribing").label, icon: Pill, href: "/medications" },
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/factsheets" },
   // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a dashboard-mode alias.
   { id: "tools", label: "Tools", icon: Wrench, href: "/tools" },
@@ -67,6 +68,29 @@ const sidebarToolItems = [
 const sidebarAccountLibraryItems = [
   { id: "favourites" as const, label: "Favourites", icon: Heart, href: "/favourites" },
 ] as const;
+
+/**
+ * The modes with no primary sidebar entry. The mode pill no longer navigates to a
+ * mode home (it retargets the shared composer), so without these the homes at
+ * /forms, /differentials, /dsm, /specifiers, /formulation and /therapy-compass
+ * would have no direct way in. Grouped below the primary list so the sidebar stays
+ * scannable. Labels and icons come from the registry so a rename lands in one place.
+ */
+const sidebarMoreModeIds = [
+  "forms",
+  "differentials",
+  "dsm",
+  "specifiers",
+  "formulation",
+  "therapy-compass",
+] as const satisfies readonly AppModeId[];
+
+const sidebarMoreModeItems = sidebarMoreModeIds.map((id) => ({
+  id,
+  label: appModeDefinition(id).label,
+  icon: appModeIcons[id],
+  href: appModeHomeHref(id),
+}));
 
 const visibleSidebarToolItems = sidebarToolItems;
 
@@ -224,6 +248,40 @@ export function ClinicalSidebarContent({
                   prefetch={item.id === "tools" ? true : undefined}
                   onFocus={item.id === "tools" ? onPrefetchApplications : undefined}
                   onPointerEnter={item.id === "tools" ? onPrefetchApplications : undefined}
+                  onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    sidebarItem,
+                    "border-l-2 border-transparent",
+                    active &&
+                      "border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
+                    )}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </section>
+
+        <section className="min-w-0 shrink-0">
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">More modes</p>
+          </div>
+          <nav aria-label="More modes" className="grid gap-0.5">
+            {sidebarMoreModeItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeMode === item.id;
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
                   className={cn(
@@ -421,6 +479,25 @@ function ClinicalCollapsedRail({
                 prefetch={item.id === "tools" ? true : undefined}
                 onFocus={item.id === "tools" ? onPrefetchApplications : undefined}
                 onPointerEnter={item.id === "tools" ? onPrefetchApplications : undefined}
+                className={cn(collapsedSidebarButton, active && collapsedSidebarActiveButton)}
+                aria-label={item.label}
+                title={item.label}
+                aria-current={active ? "page" : undefined}
+              >
+                <Icon className="h-4 w-4" />
+              </Link>
+            );
+          })}
+        </nav>
+        <span className="my-1 h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
+        <nav aria-label="More modes" className="grid justify-items-center gap-1.5">
+          {sidebarMoreModeItems.map((item) => {
+            const Icon = item.icon;
+            const active = activeMode === item.id;
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
                 className={cn(collapsedSidebarButton, active && collapsedSidebarActiveButton)}
                 aria-label={item.label}
                 title={item.label}

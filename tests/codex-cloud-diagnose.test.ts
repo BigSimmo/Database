@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+
 import { describe, expect, it } from "vitest";
 
 import { diagnoseCodexCloud } from "../scripts/diagnose-codex-cloud.mjs";
@@ -34,5 +36,21 @@ describe("Codex Cloud diagnostics", () => {
     expect(issues.map((issue) => issue.code)).toEqual(["CLOUD_PYTHON_RUNTIME"]);
     expect(issues[0]?.issue).toContain("could not be executed");
     expect(issues[0]?.fix).toContain("Python 3.12");
+  });
+
+  it("does not mistake a desktop Python version for Cloud runtime drift", () => {
+    const environment = { ...process.env };
+    delete environment.CODEX_CLOUD;
+    delete environment.CODEX_CLOUD_OCR_PYTHON;
+    const result = spawnSync(process.execPath, ["scripts/diagnose-codex-cloud.mjs"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env: environment,
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("status=NOT_APPLICABLE issues=0");
+    expect(result.stdout).toContain("local Python versions are not Cloud runtime evidence");
+    expect(result.stdout).not.toContain("CLOUD_PYTHON_RUNTIME");
   });
 });

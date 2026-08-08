@@ -201,40 +201,6 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
   return questionInput;
 }
 
-async function switchToDocumentSearchMode(page: Page) {
-  const legacyDocumentsMode = page.getByRole("button", { name: "Switch to document search mode" });
-  if (await isVisibleWithoutThrow(legacyDocumentsMode)) {
-    await expect(legacyDocumentsMode).toBeEnabled();
-    await waitForReactEventHandler(legacyDocumentsMode, "onClick");
-    await legacyDocumentsMode.click();
-    await expect(legacyDocumentsMode).toHaveAttribute("aria-pressed", "true", { timeout: uiAssertionTimeoutMs });
-    return;
-  }
-
-  const appModeMenu = page.getByRole("button", { name: /^Mode / });
-  if (!(await isVisibleWithoutThrow(appModeMenu))) {
-    throw new Error(
-      "Could not switch to document search mode: neither the legacy mode toggle nor the app mode menu is visible.",
-    );
-  }
-  await expect(appModeMenu).toBeEnabled();
-  await waitForReactEventHandler(appModeMenu, "onClick");
-  // Scope/Escape deferred focus restore can race a mode-menu open; if the scope
-  // surface is open, wait for it to dismiss before opening the mode menu.
-  const scopePopover = page.getByTestId("scope-command-popover");
-  if (await isVisibleWithoutThrow(scopePopover)) {
-    await scopePopover.waitFor({ state: "hidden", timeout: uiAssertionTimeoutMs });
-  }
-  await appModeMenu.click({ force: true });
-  const appModeGroup = page.getByRole("menu", { name: "Choose app mode" });
-  await expect(appModeGroup).toBeVisible({ timeout: uiAssertionTimeoutMs });
-  const documentsMode = appModeGroup.getByRole("menuitemradio", { name: /^Documents\b/ });
-  await expect(documentsMode).toBeVisible({ timeout: uiAssertionTimeoutMs });
-  await waitForReactEventHandler(documentsMode, "onClick");
-  await documentsMode.click({ force: true });
-  await expect(appModeMenu).toHaveAccessibleName("Mode Documents", { timeout: uiAssertionTimeoutMs });
-}
-
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
   { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
@@ -819,9 +785,9 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
     { name: "Answer", href: "/?mode=answer" },
-    { name: "Documents", href: "/?mode=documents" },
+    { name: "Documents", href: "/documents" },
     { name: "Services", href: "/services" },
-    { name: "Medication", href: "/?mode=prescribing" },
+    { name: "Medication", href: "/medications" },
     { name: "Factsheets", href: "/factsheets" },
     { name: "Tools", href: "/tools" },
   ]);
@@ -1260,9 +1226,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
         ),
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
-      { name: "Documents", href: "/?mode=documents" },
+      { name: "Documents", href: "/documents" },
       { name: "Services", href: "/services" },
-      { name: "Medication", href: "/?mode=prescribing" },
+      { name: "Medication", href: "/medications" },
       { name: "Factsheets", href: "/factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
@@ -1273,11 +1239,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
           links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
         ),
     ).toEqual([{ name: "Favourites", href: "/favourites" }]);
-    // Medication is a canonical rail mode; the remaining specialist catalogues
-    // stay in the MODE picker / Tools hub rather than duplicating the rail.
-    await expect(page.getByRole("link", { name: "Differentials", exact: true })).toHaveCount(0);
+    // The rail now carries a "More modes" group as well: the mode pill retargets
+    // the composer instead of opening mode homes, so the sidebar is the way in and
+    // the specialist catalogues can no longer live only in the MODE picker.
+    await expect(page.getByRole("navigation", { name: "More modes" })).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "Differentials", exact: true })).toHaveCount(1);
     await expect(page.getByRole("link", { name: "Medication", exact: true })).toHaveCount(1);
-    await expect(page.getByRole("link", { name: "Therapy", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Therapy", exact: true })).toHaveCount(1);
 
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1288,10 +1256,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     for (const route of [
       { path: "/?mode=answer", label: "Answer" },
-      { path: "/?mode=documents", label: "Documents" },
+      { path: "/documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
-      { path: "/?mode=prescribing", label: "Medication" },
-      { path: "/?mode=tools", label: "Tools" },
+      { path: "/medications", label: "Medication" },
+      { path: "/tools", label: "Tools" },
     ] as const) {
       await gotoApp(page, route.path);
       if (route.path.includes("mode=answer")) {
@@ -1333,7 +1301,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=documents");
+    await gotoApp(page, "/documents");
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
     await expect(page.getByTestId("document-search-workspace")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
@@ -1660,15 +1628,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     expect(sheetBodyNeedsScroll).toBe(false);
 
-    // Tools is canonical at /tools (PT-11); selecting it navigates off the dashboard.
+    // Scroll the sheet body so a lower mode is interactable, then select it.
+    // Selecting a mode closes the sheet and retargets the composer; it stays on
+    // the shared home rather than navigating to /tools.
     const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
     await expect(toolsMode).toBeVisible();
     await toolsMode.click();
 
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeMenu).toHaveCount(0);
-    await expect(page).toHaveURL(/\/tools(?:\?|$)/);
-    await expect(page.getByRole("heading", { name: /tools/i }).first()).toBeVisible();
+    await expect(page).toHaveURL(/\/\?mode=tools\b/);
+    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
+    await expect(visibleByTestId(page, "answer-empty-state")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -2993,34 +2964,49 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-  test("dashboard favourites mode param redirects to the standalone favourites route", async ({ page }) => {
+  test("dashboard favourites selection stays on the shared home; submitted links open Favourites", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     const redirectMeasureErrors: string[] = [];
     page.on("pageerror", (error) => {
       if (error.message.includes("cannot have a negative time stamp")) redirectMeasureErrors.push(error.message);
     });
-    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
 
-    await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1$/);
+    // Bare /?mode= favourites is the shared home with Favourites preselected —
+    // not a redirect to /favourites (legacy proxy used to hop early).
+    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
+    await expect(page).toHaveURL(/\/\?mode=favourites&q=lithium(\+|%20)set&focus=1$/);
+    await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
+    expect(redirectMeasureErrors).toEqual([]);
+
+    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1&run=1");
+    await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1&run=1$/);
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
-    expect(redirectMeasureErrors).toEqual([]);
   });
 
-  test("dashboard differentials mode param redirects to the standalone differentials route", async ({ page }) => {
+  test("dashboard differentials selection stays on the shared home; submitted links open Differentials", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
 
-    await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1$/);
-    // Production hydration can briefly overlap the outgoing server tree and the
-    // settled client tree on this redirect; wait for one owner before strict
-    // locators (same guard as the mode-home loop in ui-tools).
-    await expectSingleSettledOwner(page.getByTestId("differentials-home"), {
-      message: "differentials redirect home owner",
+    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
+    await expect(page).toHaveURL(/\/\?mode=differentials&q=acute(\+|%20)confusion&focus=1$/);
+    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
+
+    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1&run=1");
+    await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1&run=1$/);
+    // Submitted differentials deep links resolve to the standalone results
+    // surface (`autoRunSearch`), not the mode-home template. Production
+    // hydration can briefly overlap the outgoing server tree and the settled
+    // client tree on this redirect; wait for one owner before strict locators.
+    await expectSingleSettledOwner(page.getByTestId("differentials-search-results"), {
+      message: "differentials redirect search results owner",
     });
-    await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
+    await expect(page.getByTestId("differentials-home")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 2, name: "acute confusion" })).toBeVisible();
   });
 
   test("DSM diagnosis mode redirects into the local catalogue and opens a diagnosis", async ({ page }) => {
@@ -3447,13 +3433,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(backLink).toBeVisible();
     await expectMinTouchTarget(backLink);
     await backLink.click();
-    await expect(page).toHaveURL(/[?&]mode=prescribing/);
+    await expect(page).toHaveURL(/\/medications$/);
   });
 
   test("tablet document chrome keeps one new-chat action and readable Sources rows", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=documents");
+    await gotoApp(page, "/documents");
     await expect(page.getByTestId("document-search-empty-state")).toBeVisible({ timeout: 30_000 });
 
     const visibleNewChatCount = await page.getByRole("button", { name: /new chat/i }).evaluateAll(
@@ -3502,10 +3488,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("document search mode lists matching documents and result actions @critical", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
+    // `/` is the shared home for every mode now, so the Documents home lives at
+    // its own route — reached from the sidebar, like every other mode home.
+    await gotoApp(page, "/documents");
 
-    await switchToDocumentSearchMode(page);
+    await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
     await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
     await expect(page.getByRole("main").getByRole("heading", { name: "Documents" })).toBeVisible();
@@ -3882,8 +3869,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
       if (pathname === "/api/ingestion/quality") requestCounts.quality += 1;
     });
 
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
+    // Start on the Documents home rather than switching mode from `/`: the mode
+    // pill no longer changes the page, and a mid-test navigation would reset the
+    // request counts this test exists to measure.
+    await gotoApp(page, "/documents");
+    // waitForDemoDashboardReady looks for "Open answer options"; the actions
+    // trigger is named for the active mode, which is Documents on this route.
+    await expect(visibleQuestionInput(page)).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Open documents options" })).toBeVisible({ timeout: 30_000 });
     expect(requestCounts).toEqual({ documents: 0, jobs: 0, batches: 0, quality: 0 });
 
     await openScopeControl(page);
@@ -3891,14 +3884,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(requestCounts.jobs).toBe(0);
     expect(requestCounts.batches).toBe(0);
     expect(requestCounts.quality).toBe(0);
+    // Escape closes the scope popover but leaves the composer's command dropdown
+    // open, and that dropdown overlays the home actions below it — so dismiss the
+    // composer the way a user does, by clicking away from it. Previously this test
+    // switched mode after scoping and the re-render reset the composer for free;
+    // the Documents home is now its own route, so the blur has to be explicit.
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("scope-command-popover")).toHaveCount(0);
+    await page
+      .getByRole("main")
+      .getByRole("heading", { name: "Documents" })
+      .first()
+      .click({ position: { x: 2, y: 2 } });
     // Scope restore can land on the composer + trigger; the command listbox must
     // stay closed so it cannot cover Start-here actions (Browse library).
     await expect(page.getByRole("listbox", { name: /search suggestions/i })).toHaveCount(0);
 
-    await switchToDocumentSearchMode(page);
-    await expect(page.getByRole("listbox", { name: /search suggestions/i })).toHaveCount(0);
     await page
       .getByRole("button", { name: /Browse library/i })
       .first()
@@ -3930,7 +3931,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
     await detailsButton.click();
     await expect(
-      page.getByRole("dialog", { name: "Medication Prescribing" }).locator('a[href="/?mode=prescribing"]').first(),
+      page.getByRole("dialog", { name: "Medication Prescribing" }).locator('a[href="/medications"]').first(),
     ).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
@@ -4540,7 +4541,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=documents&scopeRef=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    await gotoApp(page, "/documents?scopeRef=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
 
     const alert = page.getByTestId("private-scope-unavailable");
     await expect(alert).toBeVisible({ timeout: 15000 });
@@ -4610,7 +4611,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("non-answer phone header keeps the in-flow collapse hide", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=documents");
+    await gotoApp(page, "/documents");
 
     const header = page.locator("header.universal-header");
     const collapseHost = page.getByTestId("universal-header-collapse");
