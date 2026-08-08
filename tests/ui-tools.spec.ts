@@ -280,7 +280,7 @@ async function commandSurfaceOpensAbovePill(page: Page) {
   expect(geometry?.dropdownBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual((geometry?.pillTop ?? 0) + 2);
 }
 
-async function gotoLauncher(page: Page, path = "/?mode=tools") {
+async function gotoLauncher(page: Page, path = "/tools") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 }
@@ -427,9 +427,9 @@ test.describe("Clinical KB tools launcher", () => {
         const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });
         await expect(selectedSheet).toBeVisible();
         await expect(selectedSheet.getByRole("heading", { name: "Medication Prescribing" })).toBeVisible();
-        const mobileLaunchLink = selectedSheet.locator('a[href="/?mode=prescribing"]').first();
+        const mobileLaunchLink = selectedSheet.locator('a[href="/medications"]').first();
         await expect(mobileLaunchLink).toBeVisible();
-        await expect(mobileLaunchLink).toHaveAttribute("href", "/?mode=prescribing");
+        await expect(mobileLaunchLink).toHaveAttribute("href", "/medications");
         await expect(mobileLaunchLink).not.toHaveAttribute("target", "_blank");
         await page.getByRole("button", { name: "Close Medication Prescribing" }).click();
         await expect(selectedSheet).toBeHidden();
@@ -499,8 +499,8 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page);
 
     for (const [title, href] of [
-      ["Medication Prescribing", "/?mode=prescribing"],
-      ["Documents", "/?mode=documents"],
+      ["Medication Prescribing", "/medications"],
+      ["Documents", "/documents"],
       ["Services", "/services"],
       ["Forms", "/forms"],
       ["Saved workflows", "/favourites"],
@@ -530,7 +530,9 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("tools mode embeds the launcher content inside the dashboard", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page, "/?mode=tools&q=medication&focus=1");
+    // `/?mode=tools&q=…` (no run=1) now prefills the shared home's composer
+    // rather than rendering Tools content there. /tools is the canonical surface.
+    await gotoLauncher(page, "/tools?q=medication&focus=1");
 
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
     await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medication");
@@ -551,13 +553,13 @@ test.describe("Clinical KB tools launcher", () => {
     await medicationDetails.click();
     const medicationDialog = page.getByRole("dialog", { name: "Medication Prescribing" });
     await expect(medicationDialog).toBeVisible();
-    const medicationLaunch = medicationDialog.locator('a[href="/?mode=prescribing"]').first();
+    const medicationLaunch = medicationDialog.locator('a[href="/medications"]').first();
     await expect(medicationLaunch).toBeVisible();
-    await expect(medicationLaunch).toHaveAttribute("href", "/?mode=prescribing");
+    await expect(medicationLaunch).toHaveAttribute("href", "/medications");
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("mode toggle stays global on the services home route", async ({ page }) => {
+  test("mode toggle retargets the shared home instead of opening a mode home", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     // Asserts the collapsed rail affordance below; explicit for clarity even
     // though collapsed is now the default for new users too.
@@ -568,24 +570,20 @@ test.describe("Clinical KB tools launcher", () => {
     const servicesMode = answerMenu.getByRole("menuitemradio", { name: /^Services\b/ });
     await waitForReactEventHandler(servicesMode);
     await servicesMode.click();
-    await expect(page).toHaveURL(/\/services$/, { timeout: 20_000 });
 
-    await expect(page).toHaveURL(/\/services$/);
+    // `/` is the single home page: picking a mode stays put and only retargets
+    // the composer. It must NOT navigate to /services.
+    await expect(page).toHaveURL(/\/\?mode=services\b/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
-    await expect(page.getByTestId("services-home")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Services" })).toBeVisible();
+    await expect(visibleByTestId(page, "answer-empty-state")).toBeVisible();
+    await expect(page.getByTestId("services-home")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     await expect(page.getByTestId("collapsed-account-settings")).toBeVisible();
+
+    // One composer, and the placeholder is the only thing that tracks the mode.
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
-    const servicesHomeSearch = page.getByTestId("services-home").getByTestId("global-search-input");
-    await expect(servicesHomeSearch).toBeVisible();
-    const servicesSearchBox = await servicesHomeSearch.boundingBox();
-    const servicesHeadingBox = await page.getByRole("heading", { level: 1, name: "Services" }).boundingBox();
-    expect(servicesSearchBox).not.toBeNull();
-    expect(servicesHeadingBox).not.toBeNull();
-    expect((servicesHeadingBox?.y ?? 0) + (servicesHeadingBox?.height ?? 0)).toBeLessThan(servicesSearchBox?.y ?? 0);
-    expect((servicesSearchBox?.y ?? 0) + (servicesSearchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.62);
-    await expect(visibleGlobalSearchInput(page)).toHaveValue("");
+    await expect(visibleGlobalSearchInput(page)).toHaveAttribute("placeholder", "Search services...");
+
     const servicesMenu = await openAppModeMenu(page, "Services");
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Answer\b/ })).toBeVisible();
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeVisible();
@@ -597,15 +595,33 @@ test.describe("Clinical KB tools launcher", () => {
     const formsMode = servicesMenu.getByRole("menuitemradio", { name: /^Forms\b/ });
     await waitForReactEventHandler(formsMode);
     await formsMode.click();
-    await expect(page).toHaveURL(/\/forms$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/\?mode=forms\b/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
-    await expect(page.getByTestId("form-search-results")).toHaveCount(0);
-    await expect(visibleGlobalSearchInput(page)).toHaveValue("");
+    await expect(visibleByTestId(page, "answer-empty-state")).toBeVisible();
+    await expect(page.getByTestId("forms-home")).toHaveCount(0);
+    await expect(visibleGlobalSearchInput(page)).toHaveAttribute("placeholder", "Search forms...");
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("header mode switches open clean services and forms home pages", async ({ page }) => {
+  test("submitting from the shared home opens the selected mode's search page", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoLauncher(page, "/?mode=answer");
+
+    const answerMenu = await openAppModeMenu(page, "Answer");
+    const dsmMode = answerMenu.getByRole("menuitemradio", { name: /^DSM/ });
+    await waitForReactEventHandler(dsmMode);
+    await dsmMode.click();
+    await expect(page).toHaveURL(/\/\?mode=dsm\b/, { timeout: 20_000 });
+
+    // Submitting is the only thing that leaves home.
+    await visibleGlobalSearchInput(page).fill("bipolar");
+    await visibleGlobalSearchInput(page).press("Enter");
+    await expect(page).toHaveURL(/\/dsm\/search\?.*q=bipolar/, { timeout: 20_000 });
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("header mode switches carry a submitted query into the new mode", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
 
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
@@ -619,13 +635,14 @@ test.describe("Clinical KB tools launcher", () => {
     await waitForReactEventHandler(formsMode);
     await formsMode.click();
 
-    await expect(page).toHaveURL(/\/forms$/);
+    // Results are on screen, so the pick re-runs that query in the new mode
+    // rather than dropping it and returning to a blank home.
+    await expect(page).toHaveURL(/\/forms\?.*q=13YARN/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
-    await expect(page.getByTestId("form-search-results")).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
-    await expect(visibleGlobalSearchInput(page)).toHaveValue("");
 
+    // From a mode home with nothing submitted there is no query to carry, so the
+    // pick returns to the shared home with the new mode preselected.
     await gotoLauncher(page, "/forms");
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(visibleByTestId(page, "forms-home")).toBeVisible();
@@ -636,10 +653,10 @@ test.describe("Clinical KB tools launcher", () => {
     await waitForReactEventHandler(servicesMode);
     await servicesMode.click();
 
-    await expect(page).toHaveURL(/\/services$/);
+    await expect(page).toHaveURL(/\/\?mode=services\b/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
-    await expect(page.getByTestId("services-home")).toBeVisible();
-    await expect(page.getByTestId("service-search-results")).toHaveCount(0);
+    await expect(visibleByTestId(page, "answer-empty-state")).toBeVisible();
+    await expect(page.getByTestId("services-home")).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("");
     await expectNoPageHorizontalOverflow(page);
@@ -792,9 +809,9 @@ test.describe("Clinical KB tools launcher", () => {
 
   for (const home of [
     { path: "/?mode=answer", testId: "answer-empty-state", heroTestId: "answer-empty-state" },
-    { path: "/?mode=documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
-    { path: "/?mode=prescribing", testId: "medication-home", heroTestId: "medication-home" },
-    { path: "/?mode=tools", testId: "tools-home", heroTestId: "tools-home" },
+    { path: "/documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
+    { path: "/medications", testId: "medication-home", heroTestId: "medication-home" },
+    { path: "/tools", testId: "tools-home", heroTestId: "tools-home" },
     { path: "/services", testId: "services-home", heroTestId: "services-home-template" },
     { path: "/forms", testId: "forms-home", heroTestId: "forms-home-template" },
     { path: "/differentials", testId: "differentials-home", heroTestId: "differentials-home-template" },
@@ -912,9 +929,9 @@ test.describe("Clinical KB tools launcher", () => {
   ] as const) {
     for (const home of [
       { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
-      { path: "/?mode=documents", testId: "document-search-empty-state", heading: "Documents", headingLevel: 2 },
+      { path: "/documents", testId: "document-search-empty-state", heading: "Documents", headingLevel: 2 },
       {
-        path: "/?mode=prescribing",
+        path: "/medications",
         testId: "medication-home",
         heading: "Medication",
         headingLevel: 2,
@@ -1439,7 +1456,7 @@ test.describe("Clinical KB tools launcher", () => {
     }
   });
 
-  test("mode toggle keeps forms separate from services", async ({ page }) => {
+  test("mode toggle keeps the shared home hero geometry when the mode changes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/?mode=answer");
 
@@ -1447,29 +1464,32 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(menu.getByRole("menuitemradio", { name: /^Services\b/ })).toBeVisible();
     await menu.getByRole("menuitemradio", { name: /^Forms\b/ }).click();
 
-    await expect(page).toHaveURL(/\/forms$/);
+    // Picking a mode must not move the page or the composer: the hero stays put
+    // and only the placeholder changes. A geometry shift here is the reserve flip
+    // the pathname-gated hero rule exists to prevent.
+    await expect(page).toHaveURL(/\/\?mode=forms\b/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Forms" })).toBeVisible();
+    await expect(visibleByTestId(page, "answer-empty-state")).toBeVisible();
+    await expect(page.getByTestId("forms-home")).toHaveCount(0);
     await expect(page.getByTestId("services-home")).toHaveCount(0);
-    await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toHaveCount(1);
-    const formsHomeSearch = visibleByTestId(page, "forms-home").getByTestId("global-search-input");
-    await expect(formsHomeSearch).toBeVisible();
-    const formsSearchBox = await formsHomeSearch.boundingBox();
-    const formsHeadingBox = await page.getByRole("heading", { level: 1, name: "Forms" }).boundingBox();
-    expect(formsSearchBox).not.toBeNull();
-    expect(formsHeadingBox).not.toBeNull();
-    expect((formsHeadingBox?.y ?? 0) + (formsHeadingBox?.height ?? 0)).toBeLessThan(formsSearchBox?.y ?? 0);
-    expect((formsSearchBox?.y ?? 0) + (formsSearchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.62);
+
+    const heroSearch = visibleByTestId(page, "answer-empty-state").getByTestId("global-search-input");
+    await expect(heroSearch).toBeVisible();
+    await expect(heroSearch).toHaveAttribute("placeholder", "Search forms...");
+    const searchBox = await heroSearch.boundingBox();
+    const headingBox = await page.getByRole("heading", { level: 2, name: "How can I help?" }).boundingBox();
+    expect(searchBox).not.toBeNull();
+    expect(headingBox).not.toBeNull();
+    expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
+    expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.62);
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("mode toggle opens the differentials home inside the dashboard", async ({ page }) => {
+  // The mode pill no longer opens mode homes, so reach /differentials the way a
+  // user now does: the sidebar's "More modes" group, or a direct link.
+  test("the differentials home renders inside the dashboard when opened directly", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page, "/?mode=answer");
-
-    const menu = await openAppModeMenu(page, "Answer");
-    await menu.getByRole("menuitemradio", { name: /^Differentials\b/ }).click();
+    await gotoLauncher(page, "/differentials");
 
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differentials-home")).toBeVisible();
@@ -2193,7 +2213,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("tools mode opens tool details before navigation on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
-    await gotoLauncher(page, "/?mode=tools");
+    await gotoLauncher(page, "/tools");
 
     const toolsHub = page.getByTestId("tools-hub");
     await expect(toolsHub.getByText("Selected tool")).toHaveCount(0);
@@ -2357,8 +2377,8 @@ test.describe("Responsive layout guards", () => {
   }
 
   const modeHomeRoutes = [
-    { name: "prescribing", path: "/?mode=prescribing" },
-    { name: "differentials", path: "/?mode=differentials" },
+    { name: "prescribing", path: "/medications" },
+    { name: "differentials", path: "/differentials" },
     { name: "services", path: "/?mode=services" },
     { name: "forms", path: "/?mode=forms" },
   ] as const;
@@ -2381,7 +2401,7 @@ test.describe("Responsive layout guards", () => {
     async function verticalWeighting(width: number) {
       // Tall viewport exaggerates the free space so the anchor is unambiguous.
       await page.setViewportSize({ width, height: 900 });
-      await gotoLauncher(page, "/?mode=prescribing");
+      await gotoLauncher(page, "/medications");
       const home = page.getByTestId("medication-home");
       await expect(home).toBeVisible();
       await settleLayout(page);
@@ -2423,7 +2443,7 @@ test.describe("Responsive layout guards", () => {
   test("prescribing mobile shortcuts and checks are distinct, actionable, and scrollable", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 760 });
     await mockAnswerDashboardApi(page);
-    await gotoLauncher(page, "/?mode=prescribing");
+    await gotoLauncher(page, "/medications");
 
     const home = page.getByTestId("medication-home");
     await expect(home).toBeVisible();
@@ -2455,7 +2475,7 @@ test.describe("Responsive layout guards", () => {
     ] as const;
 
     for (const [label, query] of capabilitySearches) {
-      await gotoLauncher(page, "/?mode=prescribing");
+      await gotoLauncher(page, "/medications");
       await page.getByTestId("medication-home").getByRole("button", { name: label, exact: true }).click();
       await expect(visibleGlobalSearchInput(page).first()).toHaveValue(query);
       await expect(page.getByTestId("medication-home")).toHaveCount(0);
@@ -2545,7 +2565,9 @@ test.describe("Responsive layout guards", () => {
   test("differentials recent work remains touch-sized inside its mobile scroll row", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 760 });
     await mockAnswerDashboardApi(page);
-    await gotoLauncher(page, "/?mode=differentials");
+    // Differentials home content lives on /differentials. Bare /?mode=differentials
+    // is the shared home with the mode preselected, not this template.
+    await gotoLauncher(page, "/differentials");
 
     const recentWork = page.getByTestId("differentials-home-template").getByRole("region", { name: "Recent work" });
     await expect(recentWork).toBeVisible();
