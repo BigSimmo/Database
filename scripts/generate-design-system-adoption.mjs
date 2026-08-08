@@ -54,7 +54,12 @@ const CANONICAL_VISUAL_BASELINE_POLICY = Object.freeze({
       "docs/design-system/adoption-contract.json",
       "docs/design-system/adoption-manifest.json",
       "lighthouse-budget.json",
+      "scripts/generate-design-system-adoption.mjs",
       "tests/__screenshots__/linux/provenance.json",
+      // First adoption also ships the fixture fix that makes emptying AWAITING_BASELINE
+      // testable; keep it allowlisted so candidateSourceHead can stay on an existing
+      // main commit (required for shallow CI checkouts and squash-merge survival).
+      "tests/design-system-adoption.test.ts",
     ],
   },
 });
@@ -413,15 +418,33 @@ function validateCandidateSourceBinding(candidateSourceHead, { root, policy }) {
 
   const candidateAwaiting = candidateSuite === null ? null : visualBaselineAwaitingIds(candidateSuite, visualSuiteFile);
   const currentAwaiting = currentSuite === null ? null : visualBaselineAwaitingIds(currentSuite, visualSuiteFile);
+  // Two legitimate shapes, and the second is what makes updating the design possible.
+  //
+  //   FIRST ADOPTION — the capture head still declares the canonical six as awaiting,
+  //   and the adopting commit empties that list.
+  //   REFRESH — the list is already empty at both ends. Deliberately re-shooting a
+  //   surface produces exactly this, and it is the ORDINARY case once baselines
+  //   exist: the pixels move, the goldens are replaced, and the suite itself does
+  //   not change at all.
+  //
+  // Requiring the six-to-empty transition alone made this binding satisfiable
+  // exactly once. After the first adoption no commit declares the six again, so no
+  // capture head could ever qualify and every later refresh was unprovable — the
+  // goldens would go red on the first intentional design change with no supported
+  // way to re-adopt them.
   const candidateAwaitingCanonical =
     candidateAwaiting?.valid && JSON.stringify(candidateAwaiting.ids) === JSON.stringify(canonicalIds);
+  const candidateAwaitingEmpty = candidateAwaiting?.valid && candidateAwaiting.ids.length === 0;
+  const candidateAwaitingAdoptable = candidateAwaitingCanonical || candidateAwaitingEmpty;
   const currentAwaitingEmpty = currentAwaiting?.valid && currentAwaiting.ids.length === 0;
   if (!candidateAwaiting?.valid) {
     failures.push(
       `candidateSourceHead AWAITING_BASELINE must be a static literal Set: ${candidateAwaiting?.failure ?? "missing suite"}`,
     );
-  } else if (!candidateAwaitingCanonical) {
-    failures.push("candidateSourceHead AWAITING_BASELINE must contain exactly the canonical six ids");
+  } else if (!candidateAwaitingAdoptable) {
+    failures.push(
+      "candidateSourceHead AWAITING_BASELINE must be either the canonical six ids (first adoption) or empty (refresh)",
+    );
   }
   if (!currentAwaiting?.valid) {
     failures.push(
@@ -439,8 +462,11 @@ function validateCandidateSourceBinding(candidateSourceHead, { root, policy }) {
     currentSuite === null || currentAwaiting === null
       ? null
       : normalizeVisualSuiteAwaitingValues(currentSuite, currentAwaiting);
+  // Normalisation blanks the AWAITING_BASELINE values on both sides, so this stays
+  // exact for a refresh (where the suite is byte-identical) as well as for the
+  // first adoption (where only those values moved).
   const visualSuiteOnlyChangedAwaiting =
-    candidateAwaitingCanonical &&
+    candidateAwaitingAdoptable &&
     currentAwaitingEmpty &&
     normalizedCandidateSuite !== null &&
     normalizedCandidateSuite === normalizedCurrentSuite;

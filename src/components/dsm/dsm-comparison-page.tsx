@@ -10,17 +10,20 @@ import {
   X,
 } from "lucide-react";
 
+import { DsmCompareRemoveLink } from "@/components/dsm/dsm-compare-remove-link";
 import { DsmPageHeader } from "@/components/dsm/dsm-page-header";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 import { dsmCriteria, type DsmDiagnosis } from "@/lib/dsm";
 
 function compareHref(diagnoses: DsmDiagnosis[]) {
-  return `/dsm/compare?ids=${encodeURIComponent(diagnoses.map((diagnosis) => diagnosis.slug).join(","))}`;
+  const params = new URLSearchParams({ ids: diagnoses.map((diagnosis) => diagnosis.slug).join(",") });
+  return `/dsm/compare?${params.toString()}`;
 }
 
 function chooseDiagnosesHref(diagnoses: DsmDiagnosis[]) {
   if (!diagnoses.length) return "/dsm/search";
-  return `/dsm/search?ids=${encodeURIComponent(diagnoses.map((diagnosis) => diagnosis.slug).join(","))}`;
+  const params = new URLSearchParams({ ids: diagnoses.map((diagnosis) => diagnosis.slug).join(",") });
+  return `/dsm/search?${params.toString()}`;
 }
 
 function removeDiagnosisHref(diagnoses: DsmDiagnosis[], slug: string) {
@@ -123,13 +126,13 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
                   <span className={cn("mt-2 inline-flex", metadataPill, codeText)}>{diagnosis.icd_code}</span>
                 </div>
               </div>
-              <Link
+              <DsmCompareRemoveLink
                 href={removeDiagnosisHref(diagnoses, diagnosis.slug)}
                 aria-label={`Remove ${diagnosis.title} from comparison`}
                 className="absolute right-2 top-2 grid h-tap w-tap place-items-center rounded-lg text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--danger)]"
               >
                 <X className="h-4 w-4" aria-hidden />
-              </Link>
+              </DsmCompareRemoveLink>
             </article>
           ))}
           {diagnoses.length < 3 ? (

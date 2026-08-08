@@ -3,6 +3,7 @@
 import { Maximize2, TriangleAlert } from "lucide-react";
 import { type ReactNode, useCallback, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { MissingValue } from "@/components/ui/missing-value";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
@@ -220,6 +221,13 @@ function AccessibleTableMarkup({
                 <th
                   key={`${cell}:${index}`}
                   scope="col"
+                  // The dense preview ellipsises headers, and a column header is
+                  // the only thing that says what its cells mean — "Recommended
+                  // starting…" over a column of numbers is not a readable table.
+                  // The full string stays reachable on hover and long-press; the
+                  // expanded view (which wraps rather than clips) is the real fix
+                  // and is one tap away.
+                  title={renderDensePreview ? cell : undefined}
                   className={cn(
                     "nums border-b border-[color:var(--border)] align-top font-semibold leading-5 text-[color:var(--text)]",
                     // Sticky only in the expanded/full-screen view, where the table
@@ -245,6 +253,7 @@ function AccessibleTableMarkup({
               {hasActions ? (
                 <th
                   scope="col"
+                  title={renderDensePreview ? actionsHeader : undefined}
                   className={cn(
                     "nums border-b border-l border-[color:var(--border)]/70 align-top font-semibold leading-5 text-[color:var(--text)]",
                     expanded && "sticky top-0 z-10 bg-[color:var(--surface-subtle)]",
@@ -542,9 +551,18 @@ export function AccessibleTable({
           {table}
         </div>
         {canExpand ? (
-          <button
-            type="button"
-            data-testid="table-expand-button"
+          // The registered `Button`, not a fourteenth hand-rolled copy of one.
+          // The class string this replaces had drifted off the system in three
+          // ways at once: `focus-visible:ring-4 …/25` instead of the sanctioned
+          // 2px `--focus` outline every other control uses, a raw `h-4 w-4`
+          // glyph instead of the icon scale, and its own `min-h-tap`/border/
+          // shadow recipe that would not have followed a change to `Button`.
+          <Button
+            variant="secondary"
+            size="sm"
+            block
+            trailingIcon={Maximize2}
+            testId="table-expand-button"
             aria-label={`Open ${title} full screen`}
             aria-haspopup="dialog"
             aria-expanded={dialogOpen}
@@ -556,11 +574,10 @@ export function AccessibleTable({
               event.stopPropagation();
               openDialog(event.currentTarget);
             }}
-            className="relative z-[60] mt-2 inline-flex min-h-tap w-full items-center justify-center gap-2 scroll-mb-[calc(18rem+env(safe-area-inset-bottom))] rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
+            className="relative z-[60] mt-2 scroll-mb-[calc(18rem+env(safe-area-inset-bottom))]"
           >
-            <span>Expand table</span>
-            <Maximize2 className="h-4 w-4" aria-hidden />
-          </button>
+            Expand table
+          </Button>
         ) : null}
       </div>
       <Sheet

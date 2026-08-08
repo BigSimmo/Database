@@ -235,8 +235,20 @@ function tableQualityWarnings(image: ImageRow, hasStructuredTable: boolean) {
   return warnings;
 }
 
-export function DocumentImage({ image }: { image: ImageRow }) {
+export function DocumentImage({
+  image,
+  activePage,
+  onSelectPage,
+}: {
+  image: ImageRow;
+  /** When set, highlights figures that belong to the active PDF page. */
+  activePage?: number;
+  /** Jump the PDF reader to this figure's page without remounting the viewer. */
+  onSelectPage?: (page: number) => void;
+}) {
   const endpoint = `/api/images/${image.id}/signed-url`;
+  const pageNumber = typeof image.page_number === "number" && image.page_number >= 1 ? image.page_number : null;
+  const isActivePage = pageNumber !== null && pageNumber === activePage;
 
   const tableHeading = sourceTextForCompactDisplay([image.tableLabel, image.tableTitle].filter(Boolean).join(": "));
   const cleanCaption = image.caption ? sourceTextForCompactDisplay(image.caption) : "";
@@ -274,6 +286,14 @@ export function DocumentImage({ image }: { image: ImageRow }) {
   // raw 4:3 table image collapses behind a "Show original" toggle, so the same
   // content is not shown twice at full height. Without a structured table the
   // image is the only representation, so it stays inline and prominent.
+  // A crop this much wider than it is tall cannot be read inside a phone card at
+  // any faithful size, so it gets a labelled route to the full-screen viewer
+  // rather than only the corner chip. 2.1 includes the real clozapine demo crop
+  // (1520×720 ≈ 2.11:1) and matches the ~2:1 legibility-floor intent; 2.2 left
+  // that fixture (and similar clinical tables) without any labelled route.
+  const ratio = imageAspectRatio(image);
+  const isWideCrop = typeof ratio === "number" && ratio >= 2.1;
+
   const imageBlock = (
     <div className="rounded-lg bg-[color:var(--surface-inset)] p-3">
       <SignedImage
@@ -282,10 +302,19 @@ export function DocumentImage({ image }: { image: ImageRow }) {
         caption={tableHeading || cleanCaption || undefined}
         failureLabel="Image preview failed."
         retryLabel="Retry"
-        className="max-h-[70dvh] min-h-40 w-full"
-        aspectRatio={imageAspectRatio(image)}
+        expandLabel={isWideCrop ? "Open full screen" : undefined}
+        // No `min-h-*` here. `aspect-ratio` transfers size constraints across
+        // axes, so a min-height of 10rem on a 3:1 table crop became a *minimum
+        // width* of 480px and blew the phone card past the viewport. The frame
+        // already has a definite height from the ratio (or the 4:3 fallback), so
+        // the floor was only ever redundant.
+        className="max-h-[70dvh] w-full"
+        aspectRatio={ratio}
         zoomable
       />
+      {isWideCrop ? (
+        <p className={cn("mt-2 text-xs leading-5", textMuted)}>Wide table — open full screen to read it.</p>
+      ) : null}
     </div>
   );
 
@@ -314,15 +343,50 @@ export function DocumentImage({ image }: { image: ImageRow }) {
     </figcaption>
   );
   return (
-    <figure className={cn(sourceCard, "overflow-hidden p-3")}>
-      <p className={cn("text-xs font-semibold uppercase tracking-eyebrow", textMuted)}>
-        page {image.page_number ?? "n/a"}
-        {image.image_type ? ` · ${image.image_type.replaceAll("_", " ")}` : ""}
-        {image.tableRole ? ` · ${image.tableRole}` : ""}
-        {image.clinicalUseClass && image.clinicalUseClass !== "clinical_evidence"
-          ? ` · ${image.clinicalUseClass.replaceAll("_", " ")}`
-          : ""}
-      </p>
+    <figure
+      data-testid="document-image"
+      data-page={pageNumber ?? undefined}
+      data-active-page={isActivePage ? "true" : undefined}
+      className={cn(
+        sourceCard,
+        "overflow-hidden p-3",
+        isActivePage && "border-[color:var(--clinical-accent)]/35 ring-1 ring-[color:var(--clinical-accent)]/25",
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        {onSelectPage && pageNumber !== null ? (
+          <button
+            type="button"
+            onClick={() => onSelectPage(pageNumber)}
+            aria-label={`Show PDF page ${pageNumber}`}
+            aria-current={isActivePage ? "page" : undefined}
+            className={cn(
+              "inline-flex min-h-tap items-center rounded-md border px-2.5 text-xs font-semibold uppercase tracking-eyebrow transition",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              isActivePage
+                ? "border-[color:var(--clinical-accent)]/40 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+            )}
+          >
+            page {pageNumber}
+          </button>
+        ) : (
+          <p className={cn("text-xs font-semibold uppercase tracking-eyebrow", textMuted)}>
+            page {image.page_number ?? "n/a"}
+          </p>
+        )}
+        <p className={cn("text-xs font-semibold uppercase tracking-eyebrow", textMuted)}>
+          {[
+            image.image_type ? image.image_type.replaceAll("_", " ") : null,
+            image.tableRole || null,
+            image.clinicalUseClass && image.clinicalUseClass !== "clinical_evidence"
+              ? image.clinicalUseClass.replaceAll("_", " ")
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      </div>
       {warnings.length ? (
         <div className="mt-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-2 text-xs leading-5 text-[color:var(--warning)]">
           <p className="font-semibold">Verify table formatting against the source.</p>
@@ -500,21 +564,26 @@ export function DocumentSectionSummary({
 export function PinnedSourceEvidence({
   loading,
   chunk,
-  compact = false,
+  compact = true,
   sectionId = "source-evidence",
+  onInspectIndexedText,
 }: {
   loading: boolean;
   chunk: ChunkRow | undefined;
   compact?: boolean;
   sectionId?: "source-evidence" | "source-evidence-rail";
+  /** Opens the collapsed indexed-text panel without auto-dumping the viewport there. */
+  onInspectIndexedText?: () => void;
 }) {
+  // Citation landing stays a short chip by default. Full extraction dump lives
+  // behind "Inspect indexed text" so PDF remains the primary reading surface.
   const displayContent = chunk ? flowIndexedText(sourceTextForDocumentViewer(chunk.content)) : "";
-  const previewLimit = compact ? 220 : 300;
+  const previewLimit = compact ? 160 : 300;
   const [expandedChunkId, setExpandedChunkId] = useState<string | null>(null);
   const isLong = displayContent.length > previewLimit;
   const expanded = !compact || (chunk?.id ? expandedChunkId === chunk.id : false);
   const showingPreview = compact && isLong && !expanded;
-  const visibleContent = showingPreview ? `${displayContent.slice(0, previewLimit).trim()}...` : displayContent;
+  const visibleContent = showingPreview ? `${displayContent.slice(0, previewLimit).trimEnd()}…` : displayContent;
   const chunkMeta = chunk
     ? [`Page ${chunk.page_number ?? "n/a"}`, `chunk ${chunk.chunk_index}`].filter(Boolean).join(" · ")
     : "";
@@ -526,7 +595,10 @@ export function PinnedSourceEvidence({
       <p
         id={sectionId}
         data-testid="pinned-source-evidence"
-        className={cn("scroll-mt-24 flex items-center gap-2 text-xs leading-5", textMuted)}
+        className={cn(
+          "scroll-mt-[var(--document-anchor-offset,6rem)] flex items-center gap-2 text-xs leading-5",
+          textMuted,
+        )}
       >
         <Quote aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-70" />
         Open a cited answer passage to pin its exact excerpt here.
@@ -538,15 +610,15 @@ export function PinnedSourceEvidence({
     <section
       id={sectionId}
       data-testid="pinned-source-evidence"
-      className={cn(panel, "scroll-mt-24", compact ? "p-3" : "p-4")}
+      className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)]", compact ? "p-3" : "p-4")}
     >
-      <PanelHeading icon={Quote} title="Pinned source evidence" />
+      <PanelHeading icon={Quote} title="Cited excerpt" />
       {loading ? (
-        <LoadingPanel label="Loading pinned source evidence" />
+        <LoadingPanel label="Loading cited excerpt" />
       ) : chunk ? (
         <div
           data-testid="highlighted-source-passage"
-          className={cn("mt-3", compact ? "text-sm leading-6" : "text-base-minus leading-7")}
+          className={cn("mt-2.5", compact ? "text-sm leading-6" : "text-base-minus leading-7")}
         >
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
             <p className="inline-flex min-h-6 items-center gap-1.5 rounded-md bg-[color:var(--clinical-accent-soft)] px-2 text-xs font-semibold text-[color:var(--clinical-accent)]">
@@ -558,13 +630,18 @@ export function PinnedSourceEvidence({
           {chunk.section_heading && (
             <p className="mt-2 text-sm font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
           )}
-          <blockquote className="mt-2 whitespace-pre-line rounded-lg bg-[color:var(--surface-inset)] px-3 py-2.5 text-[color:var(--text)]">
+          <blockquote
+            className={cn(
+              "mt-2 rounded-lg bg-[color:var(--surface-inset)] px-3 py-2.5 text-[color:var(--text)]",
+              showingPreview ? "line-clamp-3 whitespace-normal" : "whitespace-pre-line",
+            )}
+          >
             {visibleContent || "No displayable clinical text was available for this indexed passage."}
           </blockquote>
           <div className="mt-3 flex flex-wrap gap-2">
             <a href="#pdf-preview-section" className={cn(primaryButton, "sm:min-h-9 px-3 text-xs")}>
               <ExternalLink aria-hidden="true" className="h-4 w-4" />
-              Open source
+              View in PDF
             </a>
             {compact && isLong ? (
               <button
@@ -576,12 +653,17 @@ export function PinnedSourceEvidence({
                 {expanded ? "Show passage preview" : "Show full passage"}
               </button>
             ) : null}
+            {onInspectIndexedText ? (
+              <button
+                type="button"
+                onClick={onInspectIndexedText}
+                className={cn(secondaryButton, "sm:min-h-9 px-3 text-xs")}
+                data-testid="inspect-indexed-text"
+              >
+                Inspect indexed text
+              </button>
+            ) : null}
           </div>
-          {compact ? (
-            <p className={cn("mt-2 text-xs leading-5", textMuted)}>
-              Full indexed page text remains available in the source text section.
-            </p>
-          ) : null}
         </div>
       ) : (
         <p className={cn("mt-3 text-base-minus leading-6", textMuted)}>
@@ -736,6 +818,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   selectedChunkId,
   onSearchChange,
   compact = false,
+  revealRequest = false,
 }: {
   loading: boolean;
   selectedPage: PageRow | undefined;
@@ -749,6 +832,11 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   selectedChunkId?: string;
   onSearchChange: (value: string) => void;
   compact?: boolean;
+  /**
+   * Explicit user intent to open the panel (e.g. "Inspect indexed text").
+   * Citation deep-links alone must not force-open this dump over the PDF.
+   */
+  revealRequest?: boolean;
 }) {
   const normalizedSearch = search.trim().toLowerCase();
   const searchEligible = normalizedSearch.length >= 2;
@@ -807,19 +895,24 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   // disclosures can stay React-controlled — imperative `.open = true` alone was
   // lost across re-renders and left deep-linked hits collapsed in Production UI.
   const [manualClosedDriver, setManualClosedDriver] = useState<string | null>(null);
-  const [compactOpen, setCompactOpen] = useState(Boolean(selectedChunkId));
-  // Deep-linked chunks and in-document search must keep the panel revealed even
-  // when the exclusive accordion briefly closes it (section jumps / sibling
-  // opens). Derive force-open from props so compactOpen cannot latch closed.
-  const forceReveal = Boolean(selectedChunkId) || Boolean(normalizedSearch);
+  const [compactOpen, setCompactOpen] = useState(false);
+  // In-document search and an explicit "Inspect indexed text" action keep the
+  // panel revealed through exclusive-accordion closes. Citation deep-links alone
+  // must not force-open — that stole the first viewport from the PDF.
+  const forceReveal = Boolean(normalizedSearch) || revealRequest;
   const [prevForceReveal, setPrevForceReveal] = useState(forceReveal);
   if (forceReveal !== prevForceReveal) {
     setPrevForceReveal(forceReveal);
-    if (forceReveal) setCompactOpen(true);
+    // Rising edge: latch open so exclusive-accordion closes cannot collapse an
+    // active inspect/search reveal. Falling edge: drop the latch so jumping to
+    // PDF/overview (or clearing revealRequest on the same citation) restores
+    // PDF-first instead of leaving the dump controlled-open.
+    setCompactOpen(forceReveal);
   }
   if (previousAutoOpenDriverRef.current !== autoOpenDriver) {
     previousAutoOpenDriverRef.current = autoOpenDriver;
     if (manualClosedDriver !== null) setManualClosedDriver(null);
+    if (!forceReveal) setCompactOpen(false);
   }
   const autoOpenSuppressed = Boolean(autoOpenDriver) && manualClosedDriver === autoOpenDriver;
 
@@ -827,11 +920,15 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     if (!autoOpenDriver || !autoOpenTargetId || autoOpenSuppressed) return;
     const targetDisclosure = document.getElementById(`${idPrefix}-${autoOpenTargetId}`);
     if (!(targetDisclosure instanceof HTMLDetailsElement)) return;
-    if (topLevelDisclosureRef.current) topLevelDisclosureRef.current.open = true;
+    const top = topLevelDisclosureRef.current;
+    // Citation-only: leave the nested disclosure marked for when the user opens
+    // the panel, but do not open/scroll the dump over the PDF.
+    if (!forceReveal && !(top?.open || compactOpen)) return;
+    if (top) top.open = true;
     const wasOpen = targetDisclosure.open;
-    openNestedSourceDisclosure(topLevelDisclosureRef.current, targetDisclosure);
+    openNestedSourceDisclosure(top, targetDisclosure);
     if (!wasOpen) targetDisclosure.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
-  }, [autoOpenDriver, autoOpenTargetId, autoOpenSuppressed, idPrefix, targetAvailability]);
+  }, [autoOpenDriver, autoOpenTargetId, autoOpenSuppressed, compactOpen, forceReveal, idPrefix, targetAvailability]);
 
   function moveHit(delta: number) {
     if (visibleChunks.length === 0) return;
@@ -885,8 +982,8 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
       <DocumentSectionSummary
         icon={FileText}
         title="Indexed source text"
-        // While a deep-link/search forces the panel open, do not advertise a
-        // collapse control that the exclusive accordion would immediately undo.
+        // Search / explicit inspect force the panel open; citation deep-links do
+        // not — keep the summary interactive so readers can still open it.
         interactive={compact && !forceReveal}
         description={
           loading

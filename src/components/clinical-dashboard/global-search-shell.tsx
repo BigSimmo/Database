@@ -260,30 +260,6 @@ function readInitialBrowserSubmittedSearchParamString(): string {
   return params.get("run") === "1" && query ? search : "";
 }
 
-export function infoPageBackHref(pathname: string): string | null {
-  if (pathname.startsWith("/services/")) return appModeHomeHref("services");
-  if (pathname.startsWith("/forms/")) return appModeHomeHref("forms");
-  if (pathname.startsWith("/medications/")) return appModeHomeHref("prescribing");
-  if (pathname.startsWith("/differentials/")) return appModeHomeHref("differentials");
-  if (pathname.startsWith("/dsm/")) return appModeHomeHref("dsm");
-  if (pathname.startsWith("/specifiers/")) return appModeHomeHref("specifiers");
-  if (pathname.startsWith("/formulation/")) return appModeHomeHref("formulation");
-  if (pathname.startsWith("/therapy-compass/")) return appModeHomeHref("therapy-compass");
-  if (pathname.startsWith("/factsheets/")) return appModeHomeHref("factsheets");
-  if (pathname.startsWith("/documents/")) return documentsSearchHref();
-  return null;
-}
-
-/** Stable in-app back target for non-info mobile back (e.g. submitted differential search). */
-export function mobileBackHref(pathname: string, searchMode: string, hasQuery: boolean): string | null {
-  const infoHref = infoPageBackHref(pathname);
-  if (infoHref) return infoHref;
-  if (pathname === "/differentials" && searchMode === "differentials" && hasQuery) {
-    return appModeHomeHref("differentials", { focus: true });
-  }
-  return null;
-}
-
 function isToolDetailWithFooterSearch(pathname: string): boolean {
   return (
     (pathname.startsWith("/services/") && pathname !== "/services") ||
@@ -864,27 +840,6 @@ function GlobalStandaloneSearchShellBody({
             onNewChat={startNewAnswerChat}
             showDesktopNewChat={!shouldShowDesktopSidebar}
             onOpenMobileSidebar={() => setMobileMenuOpen(true)}
-            mobileLeadingAction={
-              isInfoPage
-                ? "back"
-                : pathname === "/differentials" && searchMode === "differentials" && requestedQuery
-                  ? "back"
-                  : "menu"
-            }
-            onMobileBack={() => {
-              const fallbackHref = mobileBackHref(pathname, searchMode, Boolean(requestedQuery));
-              if (fallbackHref) {
-                if (!isInfoPage) setQuery("");
-                router.push(fallbackHref);
-                return;
-              }
-              if (!isInfoPage) {
-                setQuery("");
-                navigateToMode(searchMode, { focus: true });
-                return;
-              }
-              router.back();
-            }}
             queryModeOptions={mockupQueryModeOptions}
             queryInputRef={inputRef}
             recentQueries={recentQueries}

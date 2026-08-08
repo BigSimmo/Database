@@ -104,7 +104,7 @@ const secondaryButton = floatingControl;
  *
  * @param documentId - The identifier of the document to load.
  * @param initialPage - The page to display initially in the source preview.
- * @param chunkId - An optional indexed passage to pin and scroll into view.
+ * @param chunkId - An optional indexed passage to pin as a cited excerpt above the PDF.
  * @returns The document viewer interface.
  */
 export function DocumentViewer({
@@ -164,6 +164,18 @@ export function DocumentViewer({
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [sectionSheetOpen, setSectionSheetOpen] = useState(false);
   const [compactView, setCompactView] = useDocumentViewDensity();
+  // Explicit inspect intent keyed to the current document+citation. A stale
+  // reveal from a prior deep-link must not survive into the next landing.
+  const citationLandingKey = `${documentId}::${activeChunkId ?? ""}`;
+  const [inspectRevealKey, setInspectRevealKey] = useState<string | null>(null);
+  const [prevCitationLandingKey, setPrevCitationLandingKey] = useState(citationLandingKey);
+  if (citationLandingKey !== prevCitationLandingKey) {
+    setPrevCitationLandingKey(citationLandingKey);
+    // Chunk/document identity changed: drop any prior inspect latch so a
+    // revisit to the same citation does not auto-reopen the indexed dump.
+    if (inspectRevealKey !== null) setInspectRevealKey(null);
+  }
+  const inspectIndexedText = inspectRevealKey === citationLandingKey;
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -871,10 +883,18 @@ export function DocumentViewer({
   }, []);
   const jumpToSection = useCallback(
     (id: string) => {
+      // Condensed view keeps IndexedTextPanel React-controlled. A raw
+      // `details.open = true` from the section jump would lose on the next
+      // render unless we also raise the inspect reveal for this citation.
+      // Jumping anywhere else must lower it again — otherwise IndexedTextPanel's
+      // controlled `open` stays true and the exclusive accordion group (native
+      // `name="document-viewer-section"`) closes the section this jump targets
+      // right back on the next render.
+      setInspectRevealKey(id === "source-text" ? `${documentId}::${activeChunkId ?? ""}` : null);
       selectSection(id);
       jumpToDocumentSection(id);
     },
-    [selectSection],
+    [activeChunkId, documentId, selectSection],
   );
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
   const generatedAnswerIsSummary = summaryQuery === documentSummaryQuestion;
@@ -892,10 +912,19 @@ export function DocumentViewer({
       : [];
   useEffect(() => {
     if (!activeChunkId || loadingDocument) return;
-    window.document
-      .querySelector<HTMLElement>(`[data-source-chunk-id="${CSS.escape(activeChunkId)}"]`)
-      ?.scrollIntoView({ block: "center", behavior: resolveScrollBehavior() });
-  }, [activeChunkId, loadingDocument, chunks.length]);
+    // Citation landing: keep the PDF as the first reading surface. Do not dump
+    // the viewport into the indexed source-passages list.
+    globalThis.document.getElementById("pdf-preview-section")?.scrollIntoView({
+      block: "start",
+      behavior: resolveScrollBehavior(),
+    });
+  }, [activeChunkId, loadingDocument]);
+  const inspectIndexedTextSection = useCallback(() => {
+    setInspectRevealKey(`${documentId}::${activeChunkId ?? ""}`);
+    window.requestAnimationFrame(() => {
+      jumpToDocumentSection("source-text");
+    });
+  }, [activeChunkId, documentId]);
   const retryPreview = () => {
     setViewerError(null);
     setPreviewError(null);
@@ -944,6 +973,7 @@ export function DocumentViewer({
   };
   const submitSourceSearch = () => {
     if (normalizedSourceSearch.length < 2) return;
+    setInspectRevealKey(`${documentId}::${activeChunkId ?? ""}`);
     globalThis.document.getElementById("source-text")?.scrollIntoView({
       block: "start",
       behavior: resolveScrollBehavior(),
@@ -1218,7 +1248,11 @@ export function DocumentViewer({
         data-phone-chrome-transition={reserveTransitioning ? "active" : "idle"}
         data-document-view={compactView ? "condensed" : "full"}
         className={cn(
-          "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
+          // Base `grid-cols-1` for the same reason as the rail grid: without an
+          // explicit track this is an implicit `auto` column sized by its items'
+          // min-content, so a single child that forgets `min-w-0` can widen the
+          // whole page past the viewport and get clipped by `overflow-x: clip`.
+          "mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
           // remove all artificial clearance so Safari can paint document content
           // beneath its translucent toolbar instead of showing a blank band.
@@ -1410,15 +1444,14 @@ export function DocumentViewer({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:block">
-            <div className="lg:hidden">
-              <PinnedSourceEvidence
-                loading={effectiveLoadingDocument}
-                chunk={selectedChunk}
-                compact
-                sectionId="source-evidence"
-              />
-            </div>
+          <div className="grid gap-4 sm:gap-5">
+            <PinnedSourceEvidence
+              loading={effectiveLoadingDocument}
+              chunk={selectedChunk}
+              compact
+              sectionId="source-evidence"
+              onInspectIndexedText={inspectIndexedTextSection}
+            />
             <IndexedTextPanel
               loading={effectiveLoadingDocument}
               selectedPage={selectedPage}
@@ -1432,6 +1465,7 @@ export function DocumentViewer({
               selectedChunkId={activeChunkId}
               onSearchChange={setSourceSearch}
               compact={compactView}
+              revealRequest={inspectIndexedText || normalizedSourceSearch.length >= 2}
             />
           </div>
         </div>
@@ -1445,7 +1479,6 @@ export function DocumentViewer({
           onCompactChange={setCompactView}
           indexWarnings={indexWarnings}
           effectiveLoadingDocument={effectiveLoadingDocument}
-          selectedChunk={selectedChunk}
           document={document}
           summaryBadges={summaryBadges}
           formattedStoredSummary={formattedStoredSummary}
@@ -1461,6 +1494,8 @@ export function DocumentViewer({
           reviewingTableFactId={reviewingTableFactId}
           onReviewTableFact={reviewTableFact}
           indexHealth={indexHealth}
+          activePage={activePage}
+          onSelectPage={navigateToPage}
         />
       </section>
       {readyDocument ? (

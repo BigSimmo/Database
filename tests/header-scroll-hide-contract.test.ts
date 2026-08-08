@@ -39,6 +39,12 @@ const documentViewerSource = read("src/components/DocumentViewer.tsx");
 const calculatorSearchSource = read("src/components/calculators/search-page.tsx");
 const documentViewerChromeHookSource = read("src/components/clinical-dashboard/use-document-viewer-chrome-scroll.ts");
 const differentialDetailSource = read("src/components/differentials/differential-detail-page.tsx");
+/**
+ * The default in-page navigation template, extracted from the differentials
+ * detail page so every information page can adopt it. Structural assertions
+ * about the header shape belong here now; the pages are checked for adopting it.
+ */
+const inPageNavHeaderSource = read("src/components/in-page-nav/in-page-nav-header.tsx");
 const differentialPresentationSource = read("src/components/differentials/differential-presentation-workflow-page.tsx");
 const behaviourDocSource = read("docs/search-chrome-behaviour.md");
 
@@ -347,9 +353,62 @@ describe("shared header hide/reveal wiring", () => {
     expect(documentViewerSource).toContain("data-document-sticky-header");
     expect(documentViewerSource).toContain("edge-glass-header");
     expect(documentViewerSource).toContain("max-sm:pt-2");
-    expect(differentialDetailSource).toContain("<PhoneHeaderCollapsePortal>");
-    expect(differentialDetailSource).toContain('data-testid="differential-detail-header"');
-    expect(differentialDetailSource).toContain("max-sm:static sm:sticky sm:top-0");
+    // The differentials page reaches the slot through the shared header rather
+    // than naming the portal itself, so the assertion follows that hop — the
+    // same shape as the Therapy -> ModeNav delegation checked above. Asserting
+    // only that the page no longer names the portal would pass for a page that
+    // had dropped its navigation entirely.
+    expect(differentialDetailSource).toContain("<InPageNavHeader");
+    expect(differentialDetailSource).toContain('testIdPrefix="differential"');
+    expect(inPageNavHeaderSource).toContain("<PhoneHeaderCollapsePortal>");
+    expect(inPageNavHeaderSource).toContain("`${testIdPrefix}-detail-header`");
+    // `relative`, not the older `max-sm:static`: the weighted segment track is
+    // absolutely positioned against this header, so a static phone header would
+    // let it escape to whichever ancestor happens to be positioned. `sm:sticky`
+    // stays scoped to `sm+` because below that the portal hands the subtree to
+    // the universal collapse row, which owns the motion.
+    expect(inPageNavHeaderSource).toContain("relative z-30 border-b");
+    expect(inPageNavHeaderSource).toContain("sm:sticky sm:top-0");
+    expect(inPageNavHeaderSource).not.toContain("max-sm:static sm:sticky sm:top-0");
+    // One collapse owner: the shared header must never grow a scroll listener of
+    // its own now that many pages mount it.
+    expect(inPageNavHeaderSource).not.toContain('addEventListener("scroll"');
+  });
+
+  it("builds differential detail navigation from the default in-page template", () => {
+    // docs/search-chrome-behaviour.md, "Default in-page navigation template":
+    // back control, title + active-section subtitle behind a chevron disclosure,
+    // ellipsis actions, and a weighted segment track on the header's bottom edge.
+    // The slots live in the shared header; the page supplies the data for them.
+    expect(inPageNavHeaderSource).toContain("`${testIdPrefix}-section-trigger`");
+    expect(inPageNavHeaderSource).toContain("`${testIdPrefix}-actions-trigger`");
+    expect(inPageNavHeaderSource).toContain("<DocumentSectionTrack sections={documentSections}");
+    expect(inPageNavHeaderSource).toContain("<DocumentSectionList");
+    expect(inPageNavHeaderSource).toContain("<ArrowLeft");
+    expect(inPageNavHeaderSource).toContain("<ChevronDown");
+    expect(inPageNavHeaderSource).toContain("<Ellipsis");
+    // Discrete tab panels, so the page drives the active section itself rather
+    // than scrolling into it.
+    expect(differentialDetailSource).toContain("activeId={activeTab}");
+
+    // Both sheets must be siblings of the portal, never inside it — a sheet
+    // portaled into the collapse row is carried away when the chrome hides.
+    const portalBlock = inPageNavHeaderSource.slice(
+      inPageNavHeaderSource.indexOf("<PhoneHeaderCollapsePortal>"),
+      inPageNavHeaderSource.indexOf("</PhoneHeaderCollapsePortal>"),
+    );
+    expect(portalBlock).not.toContain("<Sheet");
+    expect(portalBlock).not.toContain("DocumentSectionList");
+
+    // The labelled strip is the `sm+` affordance only; phones navigate from the
+    // header disclosure and its sheet, so there is no strip to clip at 320px.
+    expect(differentialDetailSource).toContain(
+      'className="hidden border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)] sm:flex"',
+    );
+
+    // The page must not grow a second scroll-hide owner for this chrome.
+    expect(differentialDetailSource).not.toContain("useHideOnScroll");
+    expect(differentialDetailSource).not.toContain("useDocumentSectionSpy");
   });
 
   it("gives the sticky chrome stack real travel against the viewport", () => {

@@ -24,6 +24,11 @@
  * Refresh the baseline from an intentional, known-good run:
  *   npm run check:lighthouse-budget -- --update
  *
+ * `--update` deliberately ignores baseline-relative mismatches (a different Chrome
+ * user-agent, or a newly added route with no prior row). Those are exactly why the
+ * baseline is being refreshed; treating them as incomplete evidence made the
+ * documented remediation unreachable after a runner-image Chrome bump.
+ *
  * Flags: --update, --json, --dir <path>, --require-reports (an empty directory is a
  * failure, not a no-op — used by run-lighthouse-budget.mjs, which owns the reports).
  */
@@ -67,8 +72,12 @@ export function expectedBudgetRuns(budget) {
  *
  * Fails closed and is never downgraded by `enforce` — an ungraded route silently
  * counted as a pass is exactly how unmeasured latency claims got acted on before.
+ *
+ * Pass `{ ignoreBaseline: true }` for `--update`: baseline-relative problems (missing
+ * prior row, Chrome user-agent drift) are the reason to refresh, not a reason to
+ * refuse the refresh. Measurement gaps still block.
  */
-export function incompleteBudgetEvidence(rows, budget) {
+export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false } = {}) {
   const tolerance = { ...DEFAULT_TOLERANCE, ...(budget?.tolerance ?? {}) };
   const baseline = budget?.baseline ?? null;
   const hasBaseline = Boolean(baseline) && Object.keys(baseline).length > 0;
@@ -78,6 +87,10 @@ export function incompleteBudgetEvidence(rows, budget) {
   // before anything is measured rather than a per-run problem.
   const problems = new Set(collidingRouteSlugs(budget?.routes ?? []).map((slug) => `route slug collision: ${slug}`));
   const byRun = new Map(rows.map((row) => [row.run, row]));
+  // Browser drift is collected separately from the other problems because it is ONE
+  // fact about the baseline, not N independent per-route defects — see the collapse
+  // below. The verdict is identical either way; only the message changes.
+  const drift = new Map();
 
   for (const run of expectedBudgetRuns(budget)) {
     const row = byRun.get(run);
@@ -100,7 +113,7 @@ export function incompleteBudgetEvidence(rows, budget) {
     for (const metric of Object.keys(tolerance)) {
       if (typeof row[metric] !== "number") problems.add(`${run}: report has no ${metric} number`);
     }
-    if (!hasBaseline) continue;
+    if (ignoreBaseline || !hasBaseline) continue;
     const before = baseline[run];
     // A route or strategy added after the baseline was recorded has nothing to
     // compare against, and gradeRun returns no breaches for a missing row — so an
@@ -114,10 +127,27 @@ export function incompleteBudgetEvidence(rows, budget) {
     // version, so a browser bump is otherwise indistinguishable from an application
     // regression. summarise-web-vitals.mjs makes the same point about its baselines.
     if (before.chromeVersion && row.chromeVersion && before.chromeVersion !== row.chromeVersion) {
-      problems.add(
-        `${run}: baseline measured by a different browser (${before.chromeVersion} vs ${row.chromeVersion}) — refresh with --update`,
-      );
+      drift.set(run, { before: before.chromeVersion, after: row.chromeVersion });
     }
+  }
+
+  // One browser bump reds every run in the budget, and printing ten near-identical
+  // sentences buried the single actionable instruction. Collapse to one line ONLY
+  // when drift is the whole story and every run drifted the same way — any
+  // measurement gap, or a mixed set of browsers, still lists per run because those
+  // are genuinely different facts. This changes the message, never the verdict:
+  // `compareToLighthouseBudget` still returns `fail` on a non-empty result,
+  // independently of `enforce`.
+  const driftPairs = new Set([...drift.values()].map(({ before, after }) => JSON.stringify([before, after])));
+  if (drift.size > 0 && problems.size === 0 && driftPairs.size === 1) {
+    const [{ before, after }] = drift.values();
+    return [
+      `browser drift on ${drift.size} run(s): the baseline was measured by ${before}, this run used ${after} — ` +
+        'refresh it with the CI "Refresh Lighthouse baseline" dispatch (workflow_dispatch, refresh_lighthouse_baseline)',
+    ];
+  }
+  for (const [run, { before, after }] of drift) {
+    problems.add(`${run}: baseline measured by a different browser (${before} vs ${after}) — refresh with --update`);
   }
   return [...problems].sort();
 }
@@ -320,10 +350,11 @@ function main() {
   const result = compareToLighthouseBudget(rows, budget);
 
   if (update) {
-    if (result.incomplete.length > 0) {
-      console.error(
-        `::error::refusing to update the baseline from incomplete evidence: ${result.incomplete.join("; ")}`,
-      );
+    // Only measurement gaps block a refresh. Browser drift / missing prior rows are
+    // why `--update` exists — see incompleteBudgetEvidence({ ignoreBaseline: true }).
+    const measurementGaps = incompleteBudgetEvidence(rows, budget, { ignoreBaseline: true });
+    if (measurementGaps.length > 0) {
+      console.error(`::error::refusing to update the baseline from incomplete evidence: ${measurementGaps.join("; ")}`);
       process.exit(1);
     }
     const next = {

@@ -15,7 +15,6 @@ import {
 import {
   CategoryTag,
   ReviewStatusBadge,
-  SpecifierBreadcrumbs,
   SpecifierDiagnosisFilter,
   SpecifierFamilyFilterChips,
   SpecifierMatchCard,
@@ -215,8 +214,6 @@ function SpecifierResults({ query }: { query: string }) {
 
   return (
     <SpecifierPageShell>
-      <SpecifierBreadcrumbs />
-
       <SearchResultsHeaderBand
         modeId="specifiers"
         query={query}
