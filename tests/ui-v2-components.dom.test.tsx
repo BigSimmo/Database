@@ -293,10 +293,12 @@ describe("Disclosure / Progress", () => {
       </Disclosure>,
     );
 
+    const description = "Treatment, detention, transport, restraint, seclusion or force by itself.";
+
     const trigger = screen.getByRole("button", { name: "Does not authorise" });
     expect(trigger).toHaveAccessibleName("Does not authorise");
+    expect(within(trigger).getByText(description)).toBeVisible();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
-
     await user.click(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     const panelId = trigger.getAttribute("aria-controls");
