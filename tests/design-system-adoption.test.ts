@@ -1235,9 +1235,9 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 50 since Differentials gained a Presentations catalogue page at
-    // /differentials/presentations (Compare entry moved to /differentials/compare).
-    expect(manifest.routeCoverage.discovered).toHaveLength(50);
+    // 51: Presentations catalogue page plus a real Compare page (no longer a
+    // route-handler redirect) on top of Documents/Medication mode homes.
+    expect(manifest.routeCoverage.discovered).toHaveLength(51);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
