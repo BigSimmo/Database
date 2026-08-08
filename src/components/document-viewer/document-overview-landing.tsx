@@ -1,9 +1,12 @@
-// Overview landing for the document viewer: the compact header, quick actions,
-// and high-yield clinical summary. Extracted from DocumentViewer.tsx (maturity
-// X3) as a pure move.
+// Overview landing for the document viewer: the compact header and quick
+// actions. Extracted from DocumentViewer.tsx (maturity X3) as a pure move.
+//
+// The high-yield clinical summary used to live here too, which put it above the
+// PDF on phones — most of the first viewport spent before any of the source.
+// DocumentViewer now places it after the source, matching the order
+// `buildDocumentSectionIndex` has always described.
 import { Download, Loader2, MoreHorizontal, Sparkles, Target } from "lucide-react";
 import { documentDisplayTitle, documentOrganizationProfile } from "@/components/DocumentOrganizationBadges";
-import { DocumentClinicalSummary } from "@/components/document-viewer/document-clinical-summary";
 import { formatDocumentLabelDisplay } from "@/lib/document-tags";
 import {
   DocumentActionAnchor,
@@ -44,32 +47,26 @@ export function DocumentOverviewLanding({
   document,
   signedUrl,
   pages,
-  pageHref,
-  onPageChange,
   onAskFromDocument,
   onAddToScope,
   onDownload,
   downloading,
   canSummarizeDocument,
-  compact,
 }: {
   document: ClinicalDocument;
   signedUrl: string | null;
   pages: PageRow[];
-  pageHref: (page: number) => string;
-  onPageChange: (page: number) => void;
   onAskFromDocument: () => void;
   onAddToScope: () => void;
   onDownload: () => void;
   downloading: boolean;
   canSummarizeDocument: boolean;
-  compact: boolean;
 }) {
   const documentType = compactDocumentType(document);
 
   return (
-    <section className="grid gap-4 lg:grid-cols-3 lg:items-start">
-      <article className={cn(panel, "p-3 sm:p-5 lg:col-span-3")}>
+    <section className="grid gap-4">
+      <article className={cn(panel, "p-3 sm:p-5")}>
         <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
           <DocumentFileTile
             kind={documentType}
@@ -190,7 +187,6 @@ export function DocumentOverviewLanding({
           </DocumentActionButton>
         </div>
       </article>
-      <DocumentClinicalSummary document={document} pageHref={pageHref} onPageChange={onPageChange} compact={compact} />
     </section>
   );
 }

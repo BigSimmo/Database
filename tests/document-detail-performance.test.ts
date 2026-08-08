@@ -161,7 +161,7 @@ describe("document viewer latency guards", () => {
     expect(routeHook).toContain("window.history.pushState");
     expect(viewer).not.toContain("router.push(documentPageHref");
     // Page must not be part of the canvas key — that remounts pdf.js on every flip.
-    expect(viewer).toContain('key={`${documentId}-${useNativePdfViewer ? "native" : "canvas"}`}');
+    expect(viewer).toContain("key={documentId}");
     expect(viewer).not.toMatch(/key=\{`\$\{documentId\}.*\$\{activePage\}/);
   });
 });
