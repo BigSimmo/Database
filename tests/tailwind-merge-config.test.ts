@@ -106,15 +106,25 @@ describe("custom @theme scales are not misclassified", () => {
   });
 });
 
-describe("--spacing-tap is deliberately NOT merged", () => {
-  // Tailwind emits `.min-h-tap` after every numeric `.min-h-*`, so the tap token
-  // wins today at the 22 call sites that pair them. Declaring `tap` in the merge
-  // config would hand the win to the numeric class and drop 18 production targets
-  // below 48px. If someone adds `tap` to `theme.spacing`, this fails.
-  it("passes min-h-tap through beside a smaller numeric min-h", () => {
-    expect(cn("min-h-tap", "min-h-9")).toBe("min-h-tap min-h-9");
-    expect(cn("min-h-tap", "min-h-8")).toBe("min-h-tap min-h-8");
-    expect(cn("h-tap", "h-10.5")).toBe("h-tap h-10.5");
+describe("--spacing-tap merges, and only within a variant", () => {
+  // `tap` was pinned out of the merge config on the premise that declaring it
+  // would drop 18 production targets below 48px across 22 call sites. That did
+  // not survive re-measurement (#270): a composition-aware sweep resolving
+  // constant recipe identifiers at all 1418 `cn()` call sites finds ZERO
+  // same-variant tap/numeric pairs, so there is nothing for the merge to lower.
+  it("merges a same-variant pair, last class winning", () => {
+    expect(cn("min-h-9", "min-h-tap")).toBe("min-h-tap");
+    expect(cn("h-10.5", "h-tap")).toBe("h-tap");
+  });
+
+  // The load-bearing half. The 84 surviving pairs in production are all
+  // cross-variant responsive step-downs, and tailwind-merge groups by variant,
+  // so they must pass through untouched. If this ever merges, a control loses
+  // its breakpoint step and the sweep's zero stops meaning anything.
+  it("leaves cross-variant responsive step-downs alone", () => {
+    expect(cn("min-h-tap", "sm:min-h-9")).toBe("min-h-tap sm:min-h-9");
+    expect(cn("h-10.5", "sm:h-tap")).toBe("h-10.5 sm:h-tap");
+    expect(cn("min-h-tap", "lg:min-h-9")).toBe("min-h-tap lg:min-h-9");
   });
 });
 
@@ -148,13 +158,13 @@ describe("the config tracks globals.css", () => {
     },
   );
 
-  it("declares every --spacing-* token except the deliberately-held tap knob", () => {
+  it("declares every --spacing-* token, including the tap knob", () => {
     const fromCss = declared("spacing");
     expect(fromCss).toContain("tap");
     expect([...CLINICAL_TWMERGE_THEME.spacing].sort()).toEqual(
       // `safe` / `safe-2` come from @utility rules, not @theme, so they are
       // config-only and are added to the CSS-derived list for the comparison.
-      [...fromCss.filter((name) => name !== "tap"), "safe", "safe-2"].sort(),
+      [...fromCss, "safe", "safe-2"].sort(),
     );
   });
 
