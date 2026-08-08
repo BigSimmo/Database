@@ -136,6 +136,36 @@ describe("document search record path fault reporting", () => {
   });
 });
 
+describe("forms record subtitle compaction", () => {
+  const longPurpose =
+    "Use the current approved Form 12C attachment to record record of confirmation, amendment or revocation of restriction of freedom of communication when the statutory and local requirements are met.";
+
+  it("preserves full form purpose text without services-mode compaction", () => {
+    render(
+      <DocumentSearchResultsPanel
+        {...baseProps}
+        recordMode="forms"
+        recordMatches={[
+          {
+            service: {
+              slug: "form-12c-attachment",
+              title: "Form 12C attachment",
+              subtitle: longPurpose,
+            },
+            score: 0.9,
+            reasons: ["Matched purpose"],
+          },
+        ]}
+      />,
+    );
+
+    const card = screen.getByTestId("form-search-result-form-12c-attachment");
+    expect(within(card).getByText(longPurpose)).toBeInTheDocument();
+    expect(longPurpose.length).toBeGreaterThan(120);
+    expect(within(card).getByText(/statutory and local requirements are met\./)).toBeInTheDocument();
+  });
+});
+
 describe("library reachability on the record-match path", () => {
   // A services search that matched records but no documents. This render used to
   // return `null` outright, so once Library moved off the utility rail its three

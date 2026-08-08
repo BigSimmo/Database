@@ -32,6 +32,21 @@ describe("services catalogue", () => {
     expect(record.verification?.confidence).toBe("Medium");
   });
 
+  it("skips placeholder-first referral segments for CCI route cards", () => {
+    const snapshot = loadServicesSnapshot();
+    const cci = snapshot.services.find(
+      (service) => service.canonical_name_key === "centre-for-clinical-interventions-cci",
+    );
+    expect(cci?.referral_pathway?.includes("|")).toBe(true);
+    expect(cci!.referral_pathway).toMatch(/not publicly stated/i);
+
+    const record = catalogToServiceRecord(cci!);
+    const routeCard = record.summaryCards?.find((card) => card.id === "route");
+    expect(routeCard?.title).toBe("Contact service; external referral forms and inclusion/exclusion criteria");
+    expect(routeCard?.title).not.toMatch(/not publicly stated/i);
+    expect(routeCard?.title).not.toContain("|");
+  });
+
   it("compacts pipe-joined best-use blobs on summary cards", () => {
     const snapshot = loadServicesSnapshot();
     const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");
@@ -55,6 +70,49 @@ describe("services catalogue", () => {
     expect(compacted).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
     expect(compacted.includes("|")).toBe(false);
     expect(compacted.length).toBeLessThanOrEqual(140);
+  });
+
+  it("compacts CADS pipe-joined blobs for search-card display lengths", () => {
+    const snapshot = loadServicesSnapshot();
+    const cads = snapshot.services.find(
+      (service) => service.canonical_name_key === "community-alcohol-and-drug-services-cads-network",
+    );
+    expect(cads?.best_use_indication?.includes("|")).toBe(true);
+    expect(cads?.eligibility_referral_criteria?.includes("|")).toBe(true);
+    expect(cads?.cost_funding?.includes("|")).toBe(true);
+
+    const record = catalogToServiceRecord(cads!);
+    // Ranking fields stay raw so multi-source keywords remain searchable.
+    expect(record.subtitle?.includes("|")).toBe(true);
+    expect(record.eligibility?.includes("|")).toBe(true);
+    expect(record.cost?.includes("|")).toBe(true);
+
+    const subtitle = compactBestUseTitle(record.subtitle!, 120);
+    const eligibility = compactBestUseTitle(record.eligibility!, 80);
+    const cost = compactBestUseTitle(record.cost!, 80);
+
+    expect(subtitle).toBe("Core community AOD counselling, case management, diversion, opioid pharmacotherapy access");
+    expect(subtitle).not.toContain("|");
+    expect(subtitle.length).toBeLessThanOrEqual(120);
+
+    expect(eligibility).toBe("Age 12+ or family/carer; nearest CADS by region");
+    expect(eligibility).not.toContain("|");
+    expect(eligibility.length).toBeLessThanOrEqual(80);
+
+    expect(cost).toBe("Free/confidential");
+    expect(cost).not.toContain("|");
+    expect(cost.length).toBeLessThanOrEqual(80);
+
+    const routeCard = record.summaryCards?.find((card) => card.id === "route");
+    const eligibilityCard = record.summaryCards?.find((card) => card.id === "eligibility");
+    const costCard = record.summaryCards?.find((card) => card.id === "cost");
+    expect(routeCard?.title).toBe("Self-referral accepted; clinician referral form available");
+    expect(routeCard?.title).not.toContain("|");
+    expect(eligibilityCard?.title).toBe("Age 12+ or family/carer; nearest CADS by region");
+    expect(eligibilityCard?.title).not.toContain("|");
+    expect(costCard?.title).toBe("Free/confidential");
+    expect(costCard?.title).not.toContain("|");
+    expect(costCard?.detail).not.toContain("|");
   });
 
   it("compacts pipe-joined patient-group blobs in best-use card detail", () => {
