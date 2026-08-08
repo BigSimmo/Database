@@ -122,6 +122,11 @@ function buildStatusChips(service: CatalogService): ServiceStatusChip[] {
   return chips;
 }
 
+function compactSummaryField(value: string | undefined, maxLength = 140) {
+  const cleaned = cleanField(value);
+  return cleaned ? compactBestUseTitle(cleaned, maxLength) : undefined;
+}
+
 function buildSummaryCards(service: CatalogService): ServiceSummaryCard[] {
   const cards: ServiceSummaryCard[] = [];
 
@@ -129,22 +134,22 @@ function buildSummaryCards(service: CatalogService): ServiceSummaryCard[] {
     cards.push({
       id: "route",
       label: "Route",
-      title: service.referral_pathway,
-      detail: splitReferralLines(service.referral_details)[0],
+      title: compactBestUseTitle(service.referral_pathway),
+      detail: compactSummaryField(splitReferralLines(service.referral_details)[0]),
     });
   } else if (cleanField(service.referral_details)) {
     cards.push({
       id: "route",
       label: "Route",
-      title: splitReferralLines(service.referral_details)[0] ?? "See referral details",
-      detail: cleanField(service.contact_details),
+      title: compactSummaryField(splitReferralLines(service.referral_details)[0]) ?? "See referral details",
+      detail: compactSummaryField(service.contact_details),
     });
   } else {
     cards.push({
       id: "route",
       label: "Route",
       title: "Contact service directly",
-      detail: cleanField(service.contact_details) ?? "Confirm referral pathway locally",
+      detail: compactSummaryField(service.contact_details) ?? "Confirm referral pathway locally",
     });
   }
 
@@ -152,8 +157,8 @@ function buildSummaryCards(service: CatalogService): ServiceSummaryCard[] {
     cards.push({
       id: "eligibility",
       label: "Eligibility",
-      title: service.eligibility_referral_criteria,
-      detail: cleanField(service.patient_group),
+      title: compactBestUseTitle(service.eligibility_referral_criteria),
+      detail: compactSummaryField(service.patient_group),
     });
   }
 
@@ -161,15 +166,15 @@ function buildSummaryCards(service: CatalogService): ServiceSummaryCard[] {
     cards.push({
       id: "cost",
       label: "Cost",
-      title: service.cost_funding,
-      detail: cleanField(service.hours) ?? "Confirm hours locally",
+      title: compactBestUseTitle(service.cost_funding),
+      detail: compactSummaryField(service.hours) ?? "Confirm hours locally",
     });
   } else {
     cards.push({
       id: "cost",
       label: "Cost",
       title: "Confirm locally",
-      detail: cleanField(service.hours) ?? "Cost not publicly stated",
+      detail: compactSummaryField(service.hours) ?? "Cost not publicly stated",
     });
   }
 
