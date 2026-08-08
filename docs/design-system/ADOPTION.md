@@ -133,9 +133,11 @@ src/components/DocumentViewer.tsx
 ```
 
 `DocumentFrame` is **built** (`src/components/ui/document-frame.tsx`) and used by
-`DocumentViewer` as a shell-only surround (no `controls` toolbar — PDF chrome stays on
-`PdfCanvasViewer`). It is not yet design-sync registered among the 53 published visual
-exports. Do not invent a second frame or add inversion/filters; route document renders through
+`DocumentViewer` as the single owner of viewing chrome: the `controls` toolbar carries page
+navigation, zoom, fit, rotation, the viewing aid and fullscreen, and `PdfCanvasViewer` renders
+source pixels only. There is exactly one toolbar and one page readout in the viewer, and the
+contract test `tests/document-frame-contract.test.ts` holds that. It is not yet design-sync
+registered among the 53 published visual exports. Do not invent a second frame or add inversion/filters; route document renders through
 the existing viewer + frame. Keep every `role="alert"` semantic; route announcements through
 the announcer policy rather than deleting roles, because many `role="status"` sites are
 implicit polite live regions with no `aria-live` attribute and removing the role without an

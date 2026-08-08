@@ -4065,7 +4065,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect.poll(() => signedUrlRequests.filter((kind) => kind === "download").length).toBe(1);
   });
 
-  test("document frame stretches canvas and native owners at phone and desktop", async ({ page }) => {
+  test("document frame stretches the canvas owner at phone and desktop", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
     await mockDemoApi(page);
     await gotoApp(
@@ -4073,27 +4073,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
     );
 
-    const canvasOwner = page.getByTestId("pdf-fullscreen-root");
+    const canvasOwner = page.getByTestId("pdf-canvas-owner");
     await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
     await expectDocumentOwnerFillsFrame(page, canvasOwner);
 
-    await page.evaluate(() => {
-      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "native");
-    });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
-    const nativeOwner = page.getByTestId("native-pdf-embed");
-    await expectDocumentOwnerFillsFrame(page, nativeOwner);
+    // There is one reader. The browser-engine iframe was removed because the
+    // production CSP (`default-src 'self'`, no frame-src) refuses a cross-origin
+    // frame; it only ever rendered against this same-origin demo corpus.
+    await expect(page.locator("iframe")).toHaveCount(0);
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await expectDocumentOwnerFillsFrame(page, nativeOwner);
-
-    await page.evaluate(() => {
-      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "canvas");
-    });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
     await expectDocumentOwnerFillsFrame(page, canvasOwner);
     await expectNoPageHorizontalOverflow(page);
   });
@@ -4108,7 +4097,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const evidence = page.locator('[data-testid="pinned-source-evidence"]:visible').first();
     const preview = page.getByTestId("pdf-preview");
-    const toolbar = page.getByTestId("pdf-toolbar");
+    const toolbar = page.getByTestId("document-frame-controls");
     const pdfScroller = page.getByTestId("pdf-canvas-scroll");
     // Phone owns section navigation via the title disclosure + sheet, not the
     // retired in-flow "Document viewer sections" link row.
@@ -4143,16 +4132,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(sectionSheet).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
     await expect(preview).toBeVisible();
-    const switchToCanvasMode = page.getByRole("button", { name: "Switch to canvas zoom mode" });
-    if ((await switchToCanvasMode.count()) > 0) {
-      await switchToCanvasMode.click();
-    }
     await expect(toolbar).toBeVisible({ timeout: 30000 });
-    const enterFullscreen = page.getByRole("button", { name: "Enter fullscreen document view" });
-    // The toolbar is mounted before pdf.js finishes painting. Wait for its
-    // existing pagesReady signal so late canvas height changes cannot move a
-    // target between Firefox's actionability check and pointer dispatch.
-    await expect(enterFullscreen).toBeEnabled({ timeout: 30000 });
+    // Phones reach the lower-frequency view actions through the toolbar overflow;
+    // sm+ shows them inline. The toolbar is mounted before pdf.js finishes
+    // painting, so wait for a control to enable before dispatching a pointer.
+    const overflow = page.getByTestId("document-frame-overflow");
+    // Prefer the accessible name over role: a bare <summary> under role="toolbar"
+    // was exposed as generic in Chromium (CI tip 23dfb955), so button queries hung.
+    const overflowToggle = overflow.getByLabel("More viewing options");
+    const openOverflow = async () => {
+      await overflowToggle.click();
+    };
+    // At 320px Zoom in lives only inside the overflow menu (inline from 380px).
+    await openOverflow();
+    await expect(overflow.getByRole("button", { name: "Zoom in" })).toBeEnabled({ timeout: 30000 });
+    // Toggle the summary closed so later openOverflow() calls start from closed.
+    await overflowToggle.click();
     await expect(pdfScroller.locator("canvas")).toBeVisible();
 
     await expectDomIntegrity(page);
@@ -4197,12 +4192,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const mobilePdfStyles = await toolbar.evaluate((element) => ({
       position: window.getComputedStyle(element).position,
     }));
+    // Overflow dropdown anchors on the relative <details> wrapper; the toolbar
+    // itself stays in normal flow (static) so mobile PDF chrome does not create
+    // a sticky/fixed positioning context over the document.
     expect(mobilePdfStyles.position).toBe("static");
 
     await expect(pdfScroller).toBeVisible();
-    await enterFullscreen.click();
-    await expect(page.getByRole("button", { name: "Exit fullscreen document view" })).toBeVisible();
-    const fullscreenRootStyles = await page.getByTestId("pdf-fullscreen-root").evaluate((element) => {
+    await openOverflow();
+    await overflow.getByRole("button", { name: "Fullscreen" }).click();
+    await openOverflow();
+    await expect(overflow.getByRole("button", { name: "Exit fullscreen" })).toBeVisible();
+    const fullscreenRootStyles = await page.getByTestId("document-frame").evaluate((element) => {
       const style = window.getComputedStyle(element);
       return {
         position: style.position,
@@ -4210,7 +4210,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       };
     });
     expect(fullscreenRootStyles.position).toBe("fixed");
-    await page.getByRole("button", { name: "Exit fullscreen document view" }).click();
+    await overflow.getByRole("button", { name: "Exit fullscreen" }).click();
 
     const fitWidthScrollStyles = await pdfScroller.evaluate((element) => {
       const style = window.getComputedStyle(element);
@@ -4377,6 +4377,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     for (const disclosure of [pageText, passages.nth(0), passages.nth(1)]) {
       await expect(disclosure).toHaveJSProperty("open", false);
     }
+    await revealPhoneHeaderControl(page, sectionTrigger);
     await sectionTrigger.click();
     const densitySheet = page.getByTestId("document-section-sheet");
     const densityToggle = densitySheet.getByTestId("document-view-density-toggle");
