@@ -1,6 +1,8 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { VIEWER_MAX_ZOOM } from "@/components/document-viewer/viewer-zoom";
+
 /**
  * Page virtualization behaviour for the PDF reader, in a real React tree.
  *
@@ -255,6 +257,33 @@ describe("PDF reader page virtualization", () => {
     // Never the whole document, and never a page two away.
     expect(getPageCalls).not.toContain(1);
     expect(getPageCalls).not.toContain(6);
+  });
+
+  it("collapses render-ahead to the reader's page alone when one canvas costs the whole budget", async () => {
+    // The other half of the curve the test above measures.
+    //
+    // `resolveCanvasRasterPlan` bounds ONE canvas against WebKit's ~2^24 ceiling
+    // and says nothing about how many exist, so the document-wide budget is what
+    // stops three individually-legal canvases exhausting device memory. At this
+    // page size, zoom and density a single canvas costs ~16.8M backing pixels
+    // against a 24M budget, so `resolveLiveCanvasWindow` returns 1 and
+    // render-ahead is vetoed by memory rather than by the idle gate — which is
+    // why this asserts AFTER `flushIdle()`, not before.
+    vi.stubGlobal("devicePixelRatio", 3);
+
+    await renderViewer({ initialPage: 4, fitWidth: false, zoom: VIEWER_MAX_ZOOM });
+
+    // `renderZoom` is a debounced mirror of `zoom`; the raster runs at the
+    // default zoom until it settles. Reading before that measures a cheap canvas
+    // and proves nothing about the budget.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
+    await flushIdle();
+
+    await waitFor(() => expect(renderedPages()).toEqual([4]));
+    expect(getPageCalls).not.toContain(3);
+    expect(getPageCalls).not.toContain(5);
   });
 
   it("releases the backing store of a page that leaves the render window", async () => {
