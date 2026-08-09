@@ -259,13 +259,20 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
         ).map(rowToMedicationRecord)
       : defaultMedicationRecords();
   // Catalog-local typo/brand understanding (not clinical-search / RAG analysis).
+  // Prefer catalog corrections when they change the query; otherwise keep the
+  // shared clinical-search correction (e.g. monitring → monitoring) and its
+  // expansions so the medications domain does not ignore the federated base.
   const catalogAnalysis = analyzeMedicationCatalogQuery(args.query, records);
-  return rankMedicationRecords(
-    records,
-    catalogAnalysis.correctedQuery || args.baseQuery,
-    args.limitPerDomain,
-    catalogAnalysis.expansions,
-  ).map((match) => medicationItem(match.medication, match.score));
+  const catalogCorrected =
+    catalogAnalysis.corrections.length > 0 &&
+    catalogAnalysis.correctedQuery.trim().toLowerCase() !== catalogAnalysis.originalQuery.trim().toLowerCase()
+      ? catalogAnalysis.correctedQuery
+      : "";
+  const rankingQuery = catalogCorrected || args.baseQuery;
+  const rankingExpansions = Array.from(new Set([...catalogAnalysis.expansions, ...args.expansions]));
+  return rankMedicationRecords(records, rankingQuery, args.limitPerDomain, rankingExpansions).map((match) =>
+    medicationItem(match.medication, match.score),
+  );
 }
 
 async function searchServicesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {

@@ -9,6 +9,7 @@ import {
   medicationHeroMetrics,
   medicationIndication,
   medicationToSearchResult,
+  parseMedicationBrandNameList,
   rankMedicationRecords,
   shortValue,
   type MedicationRecord,
@@ -121,6 +122,50 @@ describe("medication catalog query understanding", () => {
     const { matches } = searchMedicationCatalog(records, "renal dose", 10);
     const adrenaline = matches.find((match) => match.medication.slug.includes("adrenaline"));
     expect(adrenaline?.reasons ?? []).not.toContain("name");
+  });
+
+  it("does not expand sibling brands into the content lane for brand queries", () => {
+    const records = loadMedicationSnapshot();
+    const analysis = analyzeMedicationCatalogQuery("zoloft", records);
+    // Canonical identity (sertraline) is fine; other brands on that row (e.g. Eleva)
+    // must not become expansion tokens — "eleva" ⊆ "elevated" polluted recall.
+    expect(analysis.expansions.some((term) => term.includes("sertraline"))).toBe(true);
+    expect(analysis.expansions).not.toContain("eleva");
+
+    const { matches } = searchMedicationCatalog(records, "zoloft", 50);
+    expect(matches[0]?.medication.slug).toBe("sertraline");
+    expect(matches[0]?.reasons).toContain("brand");
+    // Before the fix eleva⊂elevated content hits pulled amiodarone/atorvastatin/iron
+    // into an ~18-record result set. Canonical "sertraline" content mentions on
+    // other SSRIs may still appear at low score — that is intentional.
+    expect(matches.some((match) => /amiodarone|atorvastatin|^iron/.test(match.medication.slug))).toBe(false);
+    expect(matches.filter((match) => match.reasons.includes("brand")).map((m) => m.medication.slug)).toEqual([
+      "sertraline",
+    ]);
+  });
+
+  it("parses brand lists without annotation fragments or trailing prose", () => {
+    expect(parseMedicationBrandNameList("Benadryl (Sleep/Allergy formulations), Snuza")).toEqual(["Benadryl", "Snuza"]);
+    expect(parseMedicationBrandNameList("Bactrim, Resprim. Available as Single Strength tablet")).toEqual([
+      "Bactrim",
+      "Resprim",
+    ]);
+    // Annotation tokens must not enter the fuzzy vocabulary as brands.
+    const allergyVocabHit = buildRecord({
+      slug: "diphenhydramine",
+      name: "Diphenhydramine",
+      sections: [
+        {
+          title: "Formulation & Access",
+          type: "form",
+          rows: [{ key: "Brand Names", val: "Benadryl (Sleep/Allergy formulations), Snuza" }],
+        },
+      ],
+    });
+    const brands = medicationBrandNames(allergyVocabHit).map((brand) => brand.toLowerCase());
+    expect(brands).toEqual(["benadryl", "snuza"]);
+    expect(brands).not.toContain("allergy");
+    expect(brands).not.toContain("sleep");
   });
 });
 

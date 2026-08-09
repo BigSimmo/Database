@@ -170,9 +170,11 @@ function brandOrNameExpansions(token: string, records: MedicationRecord[]): stri
     const hitsName = name === needle || name.split(/\s+/).includes(needle) || slug.split(/\s+/).includes(needle);
     const hitsBrand = brands.some((brand) => brand === needle || brand.split(/\s+/).includes(needle));
     if (!hitsName && !hitsBrand) continue;
+    // Expand to the canonical identity only. Sibling brands must not enter the
+    // expanded content lane — substring includes() would let "eleva" match
+    // "elevated" and pull unrelated records into brand queries like "zoloft".
     push(record.name);
     push(record.slug.replace(/-/g, " "));
-    for (const brand of medicationBrandNames(record)) push(brand);
     for (const alias of medicationAliasesForEntity(record.name)) push(alias);
   }
 

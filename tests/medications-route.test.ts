@@ -258,6 +258,38 @@ describe("medications API", () => {
     expect(typoPayload.interpretation?.corrections).toContainEqual({ from: "sertaline", to: "sertraline" });
   });
 
+  it("projects matched medications to the index shape when fields=index&q is set", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const response = await GET(request("/api/medications?fields=index&q=campral&limit=5"));
+    const payload = (await response.json()) as {
+      matches?: Array<{
+        medication: {
+          slug: string;
+          stats: unknown[];
+          quick: unknown[];
+          sections: Array<{ type: string; rows: Array<{ key: string }> }>;
+        };
+      }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.matches?.length).toBeGreaterThan(0);
+    expect(
+      payload.matches?.every(
+        (match) =>
+          match.medication.stats.length === 0 &&
+          match.medication.quick.length === 0 &&
+          match.medication.sections.every(
+            (section) => section.type === "form" && section.rows.every((row) => /brand\s*names?/i.test(row.key)),
+          ),
+      ),
+    ).toBe(true);
+    expect(payload.matches?.[0]?.medication.slug).toBe("acamprosate");
+  });
+
   it("serves curated public records for unauthenticated list requests outside demo mode", async () => {
     const client = createSupabaseMock();
     mockRuntime(client);

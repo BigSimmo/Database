@@ -75,10 +75,18 @@ function toIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
   }));
 }
 
-function rankCatalogMatches(records: MedicationRecord[], q: string, limit: number) {
+function rankCatalogMatches(records: MedicationRecord[], q: string, limit: number, projectIndex = false) {
   const { matches, analysis } = searchMedicationCatalog(records, q, limit);
+  // Rank on full records for vocabulary, but serialize the slim identity shape
+  // when fields=index so matches do not reintroduce stats/sections/quick.
+  const serialized = projectIndex
+    ? matches.map((match) => ({
+        ...match,
+        medication: toIndexRecords([match.medication])[0]!,
+      }))
+    : matches;
   return {
-    matches: matchesPayload(matches),
+    matches: matchesPayload(serialized),
     interpretation: medicationCatalogInterpretation(analysis),
   };
 }
@@ -134,7 +142,7 @@ function publicMedicationPayload(q: string | undefined, limit: number, fields?: 
   const fullRecords = defaultMedicationRecords();
   const records = fields === "index" ? publicIndexRecords() : fullRecords;
   const governance = publicGovernance(fullRecords);
-  const ranked = q ? rankCatalogMatches(fullRecords, q, limit) : undefined;
+  const ranked = q ? rankCatalogMatches(fullRecords, q, limit, fields === "index") : undefined;
   return {
     records,
     matches: ranked?.matches,
@@ -188,7 +196,7 @@ export async function GET(request: Request) {
     const fullRecords = rows.map(rowToMedicationRecord);
     const records = fields === "index" ? toIndexRecords(fullRecords) : fullRecords;
     const governanceBySlug = Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)]));
-    const ranked = q ? rankCatalogMatches(fullRecords, q, limit) : undefined;
+    const ranked = q ? rankCatalogMatches(fullRecords, q, limit, fields === "index") : undefined;
 
     return medicationResponse({
       records,

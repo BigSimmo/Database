@@ -118,6 +118,36 @@ function quickValue(record: MedicationRecord, labelIncludes: string) {
   return row?.value?.trim() ?? "";
 }
 
+/**
+ * Parse a Brand Names cell into identity tokens only.
+ * Strip parenthetical annotations before splitting so internal "/" or ","
+ * (e.g. "Benadryl (Sleep/Allergy formulations)") cannot fabricate brands, and
+ * drop sentence-level prose after the brand list ("Bactrim, Resprim. Available…").
+ */
+export function parseMedicationBrandNameList(value: string): string[] {
+  const withoutMarkup = value.replace(/\*\*/g, "").trim();
+  if (!withoutMarkup) return [];
+
+  // Annotations first — then list separators — so slash/comma inside "(…)" never tokenize.
+  const withoutAnnotations = withoutMarkup.replace(/\([^)]*\)/g, " ");
+  // Brand lists are comma/semicolon separated; truncate trailing prose after a sentence end.
+  const brandListHead = withoutAnnotations.split(/\.\s+(?=[A-Z])/)[0] ?? withoutAnnotations;
+
+  const brands: string[] = [];
+  const seen = new Set<string>();
+  for (const part of brandListHead.split(/[,;/]/g)) {
+    const brand = part.replace(/\s+/g, " ").trim();
+    if (brand.length < 2) continue;
+    // Reject leftover narrative fragments that are not brand-like (too many words).
+    if (brand.split(/\s+/).length > 4) continue;
+    const key = brand.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    brands.push(brand);
+  }
+  return brands;
+}
+
 /** Brand names from the Formulation & Access "Brand Names" row (prescription names). */
 export function medicationBrandNames(record: MedicationRecord): string[] {
   const values = record.sections
@@ -130,12 +160,7 @@ export function medicationBrandNames(record: MedicationRecord): string[] {
   const brands: string[] = [];
   const seen = new Set<string>();
   for (const value of values) {
-    for (const part of value.split(/[,;/]/g)) {
-      const brand = part
-        .replace(/\([^)]*\)/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (brand.length < 2) continue;
+    for (const brand of parseMedicationBrandNameList(value)) {
       const key = brand.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
