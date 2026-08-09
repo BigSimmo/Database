@@ -1,7 +1,15 @@
 {
-  "$comment": "Client JS bundle-size budget captured from a known-good production build. CI fails when total gzip size grows beyond tolerancePct; refresh intentionally with `npm run check:bundle-budget -- --update`.",
+  "$comment": "Client JS bundle-size budgets captured from a known-good production build. Two numbers, two questions (see scripts/check-bundle-budget.mjs): `production` is what users actually download and is the real regression guard; `mockups` is design scratch that 404s in production and is a repo-hygiene ceiling for unbounded accumulation, not a per-mockup gate. CI fails when either grows beyond its tolerancePct; refresh intentionally with `npm run check:bundle-budget -- --update`.",
   "enforce": true,
+  "production": {
+    "gzipBytes": 1309772,
+    "tolerancePct": 10
+  },
+  "mockups": {
+    "gzipBytes": 273873,
+    "tolerancePct": 25
+  },
+  "totalGzipBytes": 1583645,
   "tolerancePct": 10,
-  "totalGzipBytes": 1440201,
-  "updatedAt": "2026-08-04T09:21:11.952Z"
+  "updatedAt": "2026-08-09T07:31:53.000Z"
 }

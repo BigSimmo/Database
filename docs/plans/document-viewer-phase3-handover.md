@@ -137,8 +137,10 @@ npm run verify:pr-local
 
 Two gates will move and must not be silenced:
 
-- **`check:bundle-budget`** totals _every_ built chunk against 1,440,201 gzip bytes at 10% tolerance
-  (`bundle-budget.json`). A virtualization dependency would land straight on it — prefer none.
+- **`check:bundle-budget`** weighs production chunks against 1,309,772 gzip bytes at 10% tolerance,
+  and `/mockups/**`-only chunks against a separate 273,873-byte scratch baseline at 25%
+  (`bundle-budget.json`; split from the old single 1,440,201-byte total on 2026-08-09). A
+  virtualization dependency would land straight on the production budget — prefer none.
 - **The `document-viewer` visual golden will shift.** Per ledger `#278` that target composites
   viewport-pinned chrome over content, and its position tracks total content height, so any
   content-height change inflates the diff. Expect it; fix it by narrowing the clip or masking the
