@@ -47,7 +47,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
     <article className="relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
       <button
         type="button"
-        className={`${therapyBtn} absolute top-3 right-3 z-1 inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--disabled)] opacity-65 sm:top-3.5 sm:right-4`}
+        className={`${therapyBtn} absolute top-3 right-3 z-[10] inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--disabled)] opacity-65 sm:top-3.5 sm:right-4`}
         disabled
         title="Favourite saving is not available yet"
         aria-label="Favourite saving is not available yet"
