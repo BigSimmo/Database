@@ -164,8 +164,9 @@ describe("Therapy Compass responsive contract", () => {
     expect(therapyCardSource).toContain("prioritiseTherapyTags");
     expect(therapyCardSource).toContain("cardPreviewText");
     expect(therapyCardSource).toContain("line-clamp-2");
-    expect(therapyCardSource).toContain("sm:grid-cols-3");
-    // Heart lives beside the title, not a third desktop column.
+    expect(therapyCardSource).toContain("grid-cols-3");
+    // Favourite is pinned to the card corner; no heart-only desktop column.
+    expect(therapyCardSource).toContain("absolute top-3 right-3");
     expect(therapyCardSource).not.toMatch(/sm:grid-cols-\[minmax\([^)]+\),1fr\)_minmax\([^)]+\),1\.35fr\)_auto\]/);
   });
 

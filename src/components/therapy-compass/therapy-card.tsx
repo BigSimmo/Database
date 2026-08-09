@@ -40,26 +40,27 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       exclude: therapy.name,
     }) || "See record for population fit.";
 
+  const sheetLabel = therapy.patientSheetAvailable ? "Patient sheet" : "Sheet unavailable";
+  const sheetShort = therapy.patientSheetAvailable ? "Sheet" : "No sheet";
+
   return (
-    <article className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
-      <div className="grid grid-cols-1 items-start gap-3.5 px-4 py-3.5 sm:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] sm:gap-4 sm:px-5 sm:py-4">
+    <article className="relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+      <button
+        type="button"
+        className={`${therapyBtn} absolute top-3 right-3 z-1 inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--disabled)] opacity-65 sm:top-3.5 sm:right-4`}
+        disabled
+        title="Favourite saving is not available yet"
+        aria-label="Favourite saving is not available yet"
+      >
+        <HeartIcon size={17} />
+      </button>
+      <div className="grid grid-cols-1 items-start gap-3 px-4 py-3.5 pr-[calc(0.75rem+var(--spacing-tap)+0.5rem)] sm:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] sm:gap-4 sm:px-5 sm:py-4 sm:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
         <div className="flex min-w-0 gap-3">
           <IconTile icon={ScaleIcon} size={38} />
           <div className="min-w-0 flex-1">
-            <div className="flex items-start gap-2">
-              <h3 className="m-0 min-w-0 flex-1 text-[color:var(--text-heading)] tracking-display text-base font-semibold leading-snug">
-                {therapy.name}
-              </h3>
-              <button
-                type="button"
-                className={`${therapyBtn} inline-flex h-tap w-tap shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--disabled)] opacity-65`}
-                disabled
-                title="Favourite saving is not available yet"
-                aria-label="Favourite saving is not available yet"
-              >
-                <HeartIcon size={17} />
-              </button>
-            </div>
+            <h3 className="m-0 text-[color:var(--text-heading)] tracking-display text-base font-semibold leading-snug">
+              {therapy.name}
+            </h3>
             {subtitle ? (
               <p className="m-0 mt-1 mb-2 line-clamp-2 text-sm-minus leading-snug text-[color:var(--text-muted)]">
                 {subtitle}
@@ -77,29 +78,39 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           <CardCell icon={ClockIcon} eyebrow="BEST FIT" tone="muted" text={bestFit} />
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-2 px-4 pb-3.5 sm:grid-cols-3 sm:px-5 sm:pb-4">
-        <button type="button" className={`${therapyBtn} ${accentControl} w-full`} onClick={() => b.open(therapy.slug)}>
+      <div className="grid grid-cols-3 gap-2 px-4 pb-3.5 sm:px-5 sm:pb-4">
+        <button
+          type="button"
+          className={`${therapyBtn} ${accentControl} w-full px-2 text-xs sm:px-[18px] sm:text-sm-minus`}
+          onClick={() => b.open(therapy.slug)}
+          aria-label="Open record"
+        >
           <ExternalLinkIcon size={16} strokeWidth={1.8} />
-          Open record
+          <span className="max-sm:hidden">Open record</span>
+          <span className="sm:hidden">Open</span>
         </button>
         <button
           type="button"
-          className={`${therapyBtn} ${outlineControl} w-full`}
+          className={`${therapyBtn} ${outlineControl} w-full px-2 text-xs sm:px-4 sm:text-sm-minus`}
           onClick={() => b.toggleCompare(therapy.slug)}
           aria-pressed={inCompare}
+          aria-label={inCompare ? "In compare" : "Compare"}
         >
           <ScaleIcon size={16} />
-          {inCompare ? "In compare" : "Compare"}
+          <span className="max-sm:hidden">{inCompare ? "In compare" : "Compare"}</span>
+          <span className="sm:hidden">{inCompare ? "Added" : "Compare"}</span>
         </button>
         <button
           type="button"
-          className={`${therapyBtn} ${outlineControl} w-full`}
+          className={`${therapyBtn} ${outlineControl} w-full px-2 text-xs sm:px-4 sm:text-sm-minus`}
           onClick={() => b.openSheet(therapy.slug)}
           disabled={!therapy.patientSheetAvailable}
           title={therapy.patientSheetAvailable ? undefined : "This record has no patient sheet"}
+          aria-label={sheetLabel}
         >
           <FileTextIcon size={16} />
-          {therapy.patientSheetAvailable ? "Patient sheet" : "Sheet unavailable"}
+          <span className="max-sm:hidden">{sheetLabel}</span>
+          <span className="sm:hidden">{sheetShort}</span>
         </button>
       </div>
     </article>
