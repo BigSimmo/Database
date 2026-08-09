@@ -27,7 +27,8 @@ import {
   type Factsheet,
 } from "@/components/factsheets/factsheets-data";
 import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
-import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
+import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
+import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, toneDanger, toneWarning } from "@/components/ui-primitives";
 import {
   readSavedRegistrySlugs,
@@ -39,6 +40,11 @@ import {
 function accentBorder(accent: string) {
   return `color-mix(in srgb, ${accent} 35%, var(--surface))`;
 }
+
+const readingLevelOptions = [
+  { value: "easy", label: "Easy read" },
+  { value: "standard", label: "Standard" },
+];
 
 function Heading({ children }: { children: ReactNode }) {
   return <h2 className="text-xl font-bold tracking-tight text-[color:var(--text-heading)]">{children}</h2>;
@@ -106,69 +112,55 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
   return (
     <>
       <InformationPageShell testId="factsheet-detail-page" width="bleed" className="factsheet-screen">
-        {/* action bar */}
-        <div className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
-          <div className="mx-auto flex max-w-[64rem] flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-            <InformationPageBreadcrumbs
-              home={{ label: "All factsheets", href: "/factsheets/search" }}
-              current={factsheet.title}
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              {factsheet.kind === "medRich" ? (
-                <div
-                  role="group"
-                  aria-label="Reading level"
-                  className="inline-flex gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1"
-                >
-                  {(["easy", "standard"] as const).map((level) => {
-                    const isActive = readingLevel === level;
-                    return (
-                      <button
-                        key={level}
-                        type="button"
-                        onClick={() => setReadingLevel(level)}
-                        aria-pressed={isActive}
-                        className={cn(
-                          "inline-flex min-h-8 items-center rounded-md px-2.5 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                          isActive
-                            ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--shadow-tight)]"
-                            : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-                        )}
-                      >
-                        {level === "easy" ? "Easy read" : "Standard"}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-              <button
-                type="button"
-                onClick={toggleSaved}
-                aria-pressed={saved}
-                className={cn(
-                  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                  saved
-                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--border-strong)]",
-                )}
-              >
-                <Bookmark className="h-4 w-4" aria-hidden="true" fill={saved ? "currentColor" : "none"} />
-                {saved ? "Saved" : "Save"}
-              </button>
-              <span aria-live="polite" className="sr-only">
-                {saveNotice}
-              </span>
-              <button
-                type="button"
-                onClick={downloadPdf}
-                className="inline-flex min-h-tap items-center gap-1.5 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-              >
-                <Download className="h-4 w-4" aria-hidden="true" />
-                Download PDF
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* The breadcrumb shape of the shared in-page header: no section index,
+            so no disclosure and no segment track. Reading level is a page-level
+            view mode rather than an action, so it rides the `mode` slot and
+            stays out of the row reserved for verbs. */}
+        <InPageNavHeader
+          back={{ href: "/factsheets/search", label: "All factsheets" }}
+          showBackLabel={false}
+          title={factsheet.title}
+          primaryAction={{ label: "Download PDF", icon: Download, onClick: downloadPdf }}
+          mode={
+            // Only `medRich` sheets carry both reading levels; the other seven
+            // must not reserve the band.
+            factsheet.kind === "medRich"
+              ? {
+                  label: "Reading level",
+                  value: readingLevel,
+                  options: readingLevelOptions,
+                  onChange: (value) => setReadingLevel(value === "standard" ? "standard" : "easy"),
+                }
+              : undefined
+          }
+          actionsTitle="This factsheet"
+          actionsDescription={`${factsheet.title} · updated ${factsheet.reviewedOn}`}
+          actionsNoun="factsheet"
+          testIdPrefix="factsheet"
+          actions={() => (
+            // Deliberately does not close the sheet: saving is a state change
+            // you want to see reflected on the control you just pressed.
+            <button
+              type="button"
+              onClick={toggleSaved}
+              aria-pressed={saved}
+              className={cn(
+                "flex min-h-tap w-full items-center gap-2.5 rounded-lg border px-3 text-left text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                saved
+                  ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--border-strong)]",
+              )}
+            >
+              <Bookmark className="h-4 w-4 shrink-0" aria-hidden="true" fill={saved ? "currentColor" : "none"} />
+              {saved ? "Saved" : "Save"}
+            </button>
+          )}
+        />
+        {/* The only surfacing of the save-failure path, so it moves with Save
+            rather than being dropped with the toolbar that used to host it. */}
+        <span aria-live="polite" className="sr-only">
+          {saveNotice}
+        </span>
 
         <div className="mx-auto grid max-w-[64rem] gap-8 px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_16.5rem] lg:items-start lg:px-8">
           <article className="min-w-0">
@@ -349,7 +341,12 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           </article>
 
           {/* sidebar */}
-          <aside className="grid gap-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] lg:sticky lg:top-4">
+          {/* Clears the shell header and the page's own sticky header. `lg:top-4`
+              alone pinned it under both, and the header out-paints it at `z-30`
+              regardless of DOM order. Sized for the revealed state (measured:
+              the header's own row plus the mode band ends at 147px at `lg`), so
+              it stays clear once the top bar collapses too. */}
+          <aside className="grid gap-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] lg:sticky lg:top-[calc(var(--shell-header-h)+6rem)]">
             <div className="p-4">
               <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">For</p>
               <p className="mt-1 text-sm font-bold text-[color:var(--text-heading)]">{factsheet.audience}</p>

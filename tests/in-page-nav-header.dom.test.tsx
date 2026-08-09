@@ -196,6 +196,68 @@ describe("InPageNavHeader", () => {
     await waitFor(() => expect(screen.queryByTestId("service-actions-sheet")).toBeNull());
   });
 
+  it("drops the section machinery when the page has no sections", () => {
+    // A one-item sheet and a single full-width segment are what the section
+    // shape degrades to on a breadcrumb page, so neither is rendered at all.
+    renderHeader({ sections: [], activeId: null });
+
+    expect(screen.queryByTestId("service-section-trigger")).toBeNull();
+    expect(screen.queryByTestId("service-section-sheet")).toBeNull();
+    expect(screen.getByText("Community Alcohol and Drug Services (CADS) network")).toBeInTheDocument();
+  });
+
+  it("keeps the back destination named when its label is hidden", () => {
+    // Hiding the text must not cost the accessible name — it is the only thing
+    // that says where the arrow goes.
+    renderHeader({ sections: [], showBackLabel: false });
+
+    const back = screen.getByRole("link", { name: "Back to services" });
+    expect(back).toHaveAttribute("href", "/services");
+    expect(within(back).queryByText("Services")).toBeNull();
+  });
+
+  it("promotes one action and keeps its name across breakpoints", async () => {
+    const user = userEvent.setup();
+    const pressed: string[] = [];
+    renderHeader({
+      sections: [],
+      primaryAction: { label: "Download PDF", icon: Compass, onClick: () => pressed.push("download") },
+    });
+
+    // The label is `sr-only` below `sm` rather than removed, so this name holds
+    // at every width.
+    await user.click(screen.getByRole("button", { name: "Download PDF" }));
+    expect(pressed).toEqual(["download"]);
+  });
+
+  it("renders a view mode as a radiogroup and reports the chosen value", async () => {
+    const user = userEvent.setup();
+    const chosen: string[] = [];
+    renderHeader({
+      sections: [],
+      mode: {
+        label: "Reading level",
+        value: "easy",
+        options: [
+          { value: "easy", label: "Easy read" },
+          { value: "standard", label: "Standard" },
+        ],
+        onChange: (value) => chosen.push(value),
+      },
+    });
+
+    const group = screen.getByRole("radiogroup", { name: "Reading level" });
+    expect(within(group).getByRole("radio", { name: "Easy read" })).toBeChecked();
+
+    await user.click(within(group).getByRole("radio", { name: "Standard" }));
+    expect(chosen).toEqual(["standard"]);
+  });
+
+  it("renders no view mode when the page has none", () => {
+    renderHeader({ sections: [] });
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+  });
+
   it("portals into the universal collapse slot on phones rather than owning a second scroll-hide header", async () => {
     // The contract is one collapse owner per phone header: below `sm` this
     // subtree belongs to the universal header's collapse row.

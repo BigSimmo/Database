@@ -28,5 +28,8 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // differentials/differential-detail-page.tsx (diagnoses detail only — the
   // presentations workflow page renders no portal).
   if (pathname.startsWith("/differentials/diagnoses/")) return true;
+  // factsheets/factsheet-detail-page.tsx (the breadcrumb shape of the shared
+  // header). `/factsheets/search` is the mode's search page and owns no header.
+  if (pathname.startsWith("/factsheets/") && pathname !== "/factsheets/search") return true;
   return false;
 }

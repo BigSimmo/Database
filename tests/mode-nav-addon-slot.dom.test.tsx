@@ -135,6 +135,7 @@ describe("header addon slot ownership", () => {
     expect(claimants.sort()).toEqual([
       "src/components/DocumentViewer.tsx",
       "src/components/differentials/differential-detail-page.tsx",
+      "src/components/factsheets/factsheet-detail-page.tsx",
     ]);
   });
 

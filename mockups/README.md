@@ -73,4 +73,6 @@ Runnable study at [`/mockups/breadcrumb-header`](../src/app/mockups/breadcrumb-h
 | 02 Action rail       | One promoted primary action pill      | Factsheets, services, medications       |
 | 03 Crumb rail + mode | Segmented view mode in the track slot | Factsheet reading level, medication age |
 
-Shared mockup chrome is suppressed because each frame draws its own universal phone header. These are design scratch — no component was extracted from them yet.
+Shared mockup chrome is suppressed because each frame draws its own universal phone header.
+
+**Outcome: direction 02 shipped**, as the breadcrumb shape of the existing `InPageNavHeader` rather than a new component — omitting `sections` drops the disclosure and the track, and `primaryAction` / `mode` / `showBackLabel` shape the row. Adopted first on `/factsheets/<slug>`, where the reading level rides the `mode` slot. Contract: `docs/search-chrome-behaviour.md` ("The breadcrumb shape"). The study stays as the record of the alternatives.

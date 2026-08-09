@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ChevronDown, Ellipsis } from "lucide-react";
+import { ArrowLeft, ChevronDown, Ellipsis, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState, type ReactNode } from "react";
 
@@ -8,12 +8,22 @@ import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone
 import { DocumentSectionList, DocumentSectionTrack } from "@/components/document-viewer/section-nav";
 import { toDocumentSections, type PageSection } from "@/components/in-page-nav/page-section-index";
 import { usePageSectionWeights } from "@/components/in-page-nav/use-page-section-weights";
+import { Button } from "@/components/ui/button";
+import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, pageContainer } from "@/components/ui-primitives";
 
 export type InPageNavHeaderProps = {
   /** `label` is the mode home's name: shown from `sm`, and the aria-label at every width. */
   back: { href: string; label: string };
+  /**
+   * `false` keeps the arrow alone at every width so the title owns the row.
+   * `back.label` is still required — it is the accessible name either way, and
+   * becomes the desktop tooltip. Breadcrumb pages that also carry a primary
+   * action and a view mode need that space; a page whose row holds only a title
+   * does not, which is why the label stays by default.
+   */
+  showBackLabel?: boolean;
   title: string;
   /**
    * Information pages keep their large record title in the body, so the header
@@ -21,9 +31,35 @@ export type InPageNavHeaderProps = {
    * header *is* the only title (the document viewer shape) pass `"h1"`.
    */
   titleAs?: "span" | "h1";
-  sections: readonly PageSection[];
-  activeId: string | null;
-  onSelectSection: (id: string) => void;
+  /**
+   * Omit on a page with no section index. The header then drops the title
+   * disclosure, the section sheet and the segment track and renders the
+   * breadcrumb shape: back, title, optional primary action, optional view mode,
+   * ellipsis. `usePageSectionWeights` observes nothing for an empty list, so
+   * those pages pay none of the measurement cost.
+   */
+  sections?: readonly PageSection[];
+  activeId?: string | null;
+  onSelectSection?: (id: string) => void;
+  /**
+   * The one page action worth reaching at any scroll position. It is
+   * deliberately singular: a second promoted control is what turns a header row
+   * back into the wrapping toolbar this template replaced. Everything else
+   * belongs in `actions`.
+   */
+  primaryAction?: { label: string; icon: LucideIcon; onClick: () => void };
+  /**
+   * A page-level view mode — how the page renders, not where you are in it.
+   * Below `sm` it wraps to its own full-width band under the row; from `sm` it
+   * sits inline and costs no extra height at all.
+   */
+  mode?: {
+    /** Group label, e.g. "Reading level". */
+    label: string;
+    value: string;
+    options: ReadonlyArray<SegmentedControlOption<string>>;
+    onChange: (value: string) => void;
+  };
   /** Section-sheet heading. Defaults to `title`. */
   sectionSheetTitle?: string;
   /**
@@ -51,6 +87,14 @@ export type InPageNavHeaderProps = {
  * disclosure, ellipsis page actions, and a weighted segment track pinned to the
  * header's bottom edge.
  *
+ * It has two shapes, and the section list decides which. With `sections`, the
+ * above. Without them — the eight record pages behind `InformationPageBreadcrumbs`
+ * have no section index — the disclosure and the track would be a sheet listing
+ * one item and a single full-width segment, so both are dropped and the row
+ * becomes the breadcrumb shape: back, title, an optional `primaryAction`, an
+ * optional view `mode`, ellipsis. Same row grammar, same single collapse owner,
+ * none of the section machinery.
+ *
  * Extracted from the differentials detail page, which built the template by hand
  * first. `DocumentViewer` still carries its own copy — it owns the `<h1>`, uses
  * the `edge-glass-header` treatment, and is pinned by visual baselines, so
@@ -65,11 +109,14 @@ export type InPageNavHeaderProps = {
  */
 export function InPageNavHeader({
   back,
+  showBackLabel = true,
   title,
   titleAs = "span",
-  sections,
-  activeId,
+  sections = [],
+  activeId = null,
   onSelectSection,
+  primaryAction,
+  mode,
   sectionSheetTitle,
   actions,
   actionsTitle,
@@ -96,19 +143,30 @@ export function InPageNavHeader({
       <PhoneHeaderCollapsePortal>
         <header
           data-testid={`${testIdPrefix}-detail-header`}
+          data-print-hide
           className={cn(
             "relative z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 sm:sticky sm:top-0 sm:px-6 lg:px-8",
             className,
           )}
         >
-          <div className={cn(containerClassName ?? pageContainer, "flex min-h-12 min-w-0 items-center gap-2")}>
+          {/* `flex-wrap` exists for the mode control alone: it is the only child
+              that can claim a full row, and it does so only below `sm`. The
+              title is `min-w-0 flex-1`, so every other child shrinks rather than
+              wrapping. */}
+          <div
+            className={cn(containerClassName ?? pageContainer, "flex min-h-12 min-w-0 flex-wrap items-center gap-2")}
+          >
             <Link
               href={back.href}
               aria-label={`Back to ${back.label.toLowerCase()}`}
-              className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]"
+              title={showBackLabel ? undefined : back.label}
+              className={cn(
+                "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
+                showBackLabel ? "pr-3" : "pr-1.5",
+              )}
             >
               <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
-              <span className="hidden sm:inline">{back.label}</span>
+              {showBackLabel ? <span className="hidden sm:inline">{back.label}</span> : null}
             </Link>
             {documentSections.length > 0 ? (
               // The title is the section-list disclosure. Line two names where
@@ -146,6 +204,42 @@ export function InPageNavHeader({
                 {title}
               </TitleTag>
             )}
+            {mode ? (
+              // `max-sm:order-last` plus the primitive's own `w-full` puts this
+              // on its own full-width band below `sm`; `sm:w-auto` brings it back
+              // inline, so tablets and desktops pay no extra header height.
+              <SegmentedControl
+                label={mode.label}
+                value={mode.value}
+                options={mode.options}
+                onChange={mode.onChange}
+                // `fit`, not `equal`. `equal` gives each segment a `min-w-8rem`
+                // floor sized for a full-width group, but `sm:w-auto` makes the
+                // group shrink-to-fit and its intrinsic width is computed from
+                // the labels — 171px measured against 268px of segments, which
+                // overflowed under the primary action at 700–834px. `fit` sizes
+                // the segments to their labels, and the phone band gets its even
+                // split from the child override instead of from the floor.
+                layout="fit"
+                className="max-sm:order-last max-sm:[&>button]:flex-1 sm:w-auto sm:shrink-0 sm:flex-nowrap"
+              />
+            ) : null}
+            {primaryAction ? (
+              // Bordered rather than the filled `--command` slab: a header that
+              // is pinned to every scroll position should not carry the page's
+              // heaviest control. The label is `sr-only` below `sm` so the
+              // accessible name never changes with the breakpoint.
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={primaryAction.icon}
+                onClick={primaryAction.onClick}
+                testId={`${testIdPrefix}-primary-action`}
+                className="ml-auto shrink-0 max-sm:w-tap max-sm:gap-0 max-sm:px-0"
+              >
+                <span className="max-sm:sr-only">{primaryAction.label}</span>
+              </Button>
+            ) : null}
             {actions ? (
               <button
                 type="button"
@@ -156,40 +250,52 @@ export function InPageNavHeader({
                 aria-expanded={actionsOpen}
                 title={`${actionsNoun.charAt(0).toUpperCase()}${actionsNoun.slice(1)} actions`}
                 data-testid={`${testIdPrefix}-actions-trigger`}
-                className="focus-ring-tab ml-auto grid h-tap w-tap shrink-0 place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]"
+                className={cn(
+                  "focus-ring-tab grid h-tap w-tap shrink-0 place-items-center rounded-xl text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
+                  // Beside a promoted action the bordered face would be its
+                  // visual twin and the row would read as two equal buttons.
+                  // Alone, it is the row's only control and keeps its own face.
+                  primaryAction
+                    ? "bg-transparent"
+                    : "ml-auto border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)]",
+                )}
               >
                 <Ellipsis className="h-5 w-5" strokeWidth={2.25} aria-hidden />
               </button>
             ) : null}
           </div>
-          <DocumentSectionTrack sections={documentSections} activeId={activeSection?.id ?? null} />
+          {documentSections.length > 0 ? (
+            <DocumentSectionTrack sections={documentSections} activeId={activeSection?.id ?? null} />
+          ) : null}
         </header>
       </PhoneHeaderCollapsePortal>
       {/* Both sheets are siblings of the portal, never children of it: a sheet
           inside the collapse row would be carried away with the header when the
           shared chrome scroll-hides. */}
-      <Sheet
-        open={sectionSheetOpen}
-        onClose={() => setSectionSheetOpen(false)}
-        title={sectionSheetTitle ?? title}
-        description={
-          activeSection
-            ? `${activeSection.label} · ${Math.max(activeIndex + 1, 1)} of ${documentSections.length}`
-            : undefined
-        }
-        closeLabel="Close section list"
-        returnFocusRef={sectionTriggerRef}
-        testId={`${testIdPrefix}-section-sheet`}
-      >
-        <DocumentSectionList
-          sections={documentSections}
-          activeId={activeSection?.id ?? null}
-          onSelect={(id) => {
-            onSelectSection(id);
-            setSectionSheetOpen(false);
-          }}
-        />
-      </Sheet>
+      {documentSections.length > 0 ? (
+        <Sheet
+          open={sectionSheetOpen}
+          onClose={() => setSectionSheetOpen(false)}
+          title={sectionSheetTitle ?? title}
+          description={
+            activeSection
+              ? `${activeSection.label} · ${Math.max(activeIndex + 1, 1)} of ${documentSections.length}`
+              : undefined
+          }
+          closeLabel="Close section list"
+          returnFocusRef={sectionTriggerRef}
+          testId={`${testIdPrefix}-section-sheet`}
+        >
+          <DocumentSectionList
+            sections={documentSections}
+            activeId={activeSection?.id ?? null}
+            onSelect={(id) => {
+              onSelectSection?.(id);
+              setSectionSheetOpen(false);
+            }}
+          />
+        </Sheet>
+      ) : null}
       {actions ? (
         <Sheet
           open={actionsOpen}
