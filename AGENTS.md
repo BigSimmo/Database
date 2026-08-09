@@ -269,11 +269,14 @@ action must perform one; a page that ships must be reachable.
 
 - **Buttons.** Every interactive `<button>` must do something: an `onClick`, a `type="submit"`
   inside a `<form onSubmit>`, or navigation (wrap it in a `<Link>` / call `router.push`). A control
-  whose feature is not yet built uses the explicit disabled-placeholder pattern — `disabled` or
-  `aria-disabled="true"` + `title="… — coming soon"` + an `sr-only` note wired via
-  `aria-describedby` (see `favourites-hub.tsx`). **Never** ship a styled, `aria-label`led button
-  with no handler and no disabled state — that was the "Language and region" defect fixed
-  2026-07-21.
+  that is unavailable for a **stated reason** — feature not built, or this record lacks the data —
+  uses `aria-disabled="true"` + `onClick={ignoreUnavailableActivation}` + `title="… — coming soon"`
+  - an `sr-only` note wired via `aria-describedby` (see `favourites-hub.tsx`). Native `disabled`
+    would remove the tab stop and the reason would never be reached. Keep native `disabled` for
+    **transient** inertness (request in flight, pager at its last page, form action awaiting
+    validity). Never both attributes on one button — lint fails on the pair. **Never** ship a styled,
+    `aria-label`led button with no handler and no disabled state — that was the "Language and region"
+    defect fixed 2026-07-21.
 - **Navigation.** Internal navigation uses `<Link>`, `router.push`, or server `redirect()` — never
   a raw `<a href="/…">` to an internal route. Build hrefs from the existing sources
   (`src/lib/app-modes.ts`, `src/lib/tools-catalog.ts`, `src/lib/universal-search.ts`), not
@@ -289,11 +292,38 @@ action must perform one; a page that ships must be reachable.
   allowlist (redirect targets / legacy-compat routes). Both run in `verify:cheap` and CI. Mockups
   (`src/app/mockups/**`, `*-mockups.tsx`) are design-scratch and exempt from both — **and from
   nothing else**. Mockups are compiled like any other source: they are typechecked, and their client
-  chunks count toward `check:bundle-budget`'s repo-wide total, so a mockup-only PR can still fail
-  `Build` (PR #1580, `+10.1%` against a 10% tolerance). Do not read "exempt" as "free".
+  chunks are still weighed by `check:bundle-budget` — against the separate `mockups` scratch budget,
+  not the `production` one (reconciled 2026-08-09; see "Bundle budget" below). Do not read "exempt"
+  as "free".
 - **Never** add a production page route without either an inbound link or a documented
   reachability allowlist entry plus an `/issues` note, and never silence the button-wiring rule
   with a blanket disable — wire the control or make it an explicit placeholder.
+
+# Bundle budget
+
+`check:bundle-budget` enforces **two** baselines in `bundle-budget.json`, because one number could
+not honestly answer both questions (`#013` vs `#252`, reconciled 2026-08-09):
+
+- **`production`** — every chunk a non-mockup route reaches, plus chunks no route manifest claims
+  (framework, polyfills, runtime). This is user-facing weight and the real regression guard.
+  Tolerance 10%. A failure here means find the regression; do not refresh the baseline to clear it.
+- **`mockups`** — chunks reachable **only** from `/mockups/**`. Nobody downloads these, so this is a
+  repo-hygiene ceiling for unbounded accumulation, not a per-mockup gate. Tolerance 25%.
+
+A chunk shared by a mockup and a production route counts as production — it would be built either
+way. Attribution comes from the per-route `*_client-reference-manifest.js` files under
+`.next/server/app`; if that tree is missing or resolves no routes the check **fails closed** rather
+than collapsing the two buckets.
+
+Why the split rather than a raised ceiling: measured on `main` at `af85cbc`, the repo-wide total was
++9.96% of the old single baseline — 576 bytes from failing `Build` — while production-only was
+**9.06% below** it. Every byte of the apparent regression was design scratch; production had
+actually shrunk since the baseline was captured. Raising the ceiling would have hidden that.
+
+**Measuring:** `npm run build` reuses a cached `.next`, and the check then reads stale output and
+reports byte-identical numbers — it will tell you the budget passes when it does not. Always
+`rm -rf .next` before measuring, and sanity-check `.next/BUILD_ID`'s mtime against the current
+commit before trusting a number.
 
 <!-- END:page-and-button-wiring -->
 

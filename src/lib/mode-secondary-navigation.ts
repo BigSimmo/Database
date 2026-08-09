@@ -142,11 +142,9 @@ export function routedModeSecondaryNavigationCount(modeId: AppModeId): number {
 export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: string): string | null {
   if (modeId === "differentials") {
     if (pathname.startsWith("/differentials/diagnoses")) return "diagnoses";
-    // Catalogue owns the exact presentations path; workflow slugs are the Compare surface.
-    if (pathname === "/differentials/presentations" || pathname.startsWith("/differentials/presentations?")) {
-      return "presentations";
-    }
-    if (pathname.startsWith("/differentials/presentations/") || pathname.startsWith("/differentials/compare")) {
+    // Browse + presentation detail are one Presentations family (symmetric with Diagnoses).
+    if (pathname.startsWith("/differentials/presentations")) return "presentations";
+    if (pathname === "/differentials/compare" || pathname.startsWith("/differentials/compare/")) {
       return "compare";
     }
     if (pathname === "/differentials" || pathname.startsWith("/differentials?")) return "search";
@@ -199,7 +197,9 @@ export function isModeSecondaryNavigationRoute(params: {
     return (
       pathname === "/differentials/diagnoses" ||
       pathname === "/differentials/presentations" ||
-      pathname === "/differentials/compare"
+      pathname.startsWith("/differentials/presentations/") ||
+      pathname === "/differentials/compare" ||
+      pathname.startsWith("/differentials/compare/")
     );
   }
   if (modeId === "dsm") return pathname === "/dsm/search" || pathname === "/dsm/compare";
@@ -252,7 +252,10 @@ export function modeSecondaryNavigationHref(params: {
 
   if (modeId === "differentials") {
     const entries: Array<readonly [string, string]> = query ? [["q", query]] : [];
-    if (itemId === "search" && currentSearchParams.get("run") === "1") entries.push(["run", "1"]);
+    // Returning to Search with a carried query must reopen the results view
+    // (`run=1`), not the empty mode home — even when the previous tab lacked run.
+    if (itemId === "search" && query) entries.push(["run", "1"]);
+    else if (itemId === "search" && currentSearchParams.get("run") === "1") entries.push(["run", "1"]);
     // Compare (and other in-mode tabs) reuse URL-backed selection so ticks on
     // search survive ModeNav handoff without a second client store.
     if (currentSearchParams.get("ids")) {

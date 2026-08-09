@@ -169,8 +169,9 @@ applies; unknown non-document paths fail closed to heavy scope.
 These fail builds, so they are worth knowing before you write code:
 
 - **Button wiring.** Every `<button>` does something — handler, submit inside a form, or
-  navigation. Not-yet-built features use the explicit disabled-placeholder pattern
-  (`disabled`/`aria-disabled` + `title="… — coming soon"` + `sr-only` note). Enforced by
+  navigation. A control unavailable for a stated reason uses `aria-disabled="true"` + an inert
+  handler + `title="… — coming soon"` + `sr-only` note; native `disabled` is for transient
+  inertness only, and the two attributes together fail lint. Enforced by
   `eslint-rules/require-button-wiring.mjs`. Never blanket-disable the rule.
 - **No orphan routes.** A new production page route needs an inbound link from real nav,
   then `npm run sitemap:update`, a `docs/codebase-index.md` entry, and a reachability
@@ -191,11 +192,12 @@ These fail builds, so they are worth knowing before you write code:
 - **Mockups are exempt from two gates, not all of them.** `src/app/mockups/**` and `*-mockups.tsx`
   are design scratch and 404 in production, so they sit outside the **wiring** and **reachability**
   gates — and nothing else. They are still compiled: they are typechecked like any source, and their
-  client chunks still count toward `check:bundle-budget`, which totals **every** built chunk rather
-  than the initial production bundle. A mockup-only PR can therefore fail `Build` on bundle budget
-  (PR #1580: `+10.1% vs baseline`, tolerance 10%) even though the routes never serve a user. Budget
-  scope vs. the "not an initial production bundle" position in `/issues` `#013` is unreconciled —
-  see `#252` before assuming either number governs.
+  client chunks are still weighed by `check:bundle-budget` — but since 2026-08-09 against a separate
+  `mockups` scratch baseline (tolerance 25%), not the `production` one (tolerance 10%). That split
+  reconciled `/issues` `#013` and `#252`: the old single total charged design scratch against a
+  ceiling named as though it were production weight, which is how PR #1580 blocked at `+10.1%` for
+  chunks no user can load. See the "Bundle budget" section in `AGENTS.md`; a mockup-only PR can still
+  fail `Build`, just only on genuine runaway growth.
 
 ## Repo-specific tooling
 
