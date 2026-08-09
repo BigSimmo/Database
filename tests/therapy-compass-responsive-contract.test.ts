@@ -163,6 +163,34 @@ describe("Therapy Compass responsive contract", () => {
     expect(favouriteButton).toContain("cursor-not-allowed");
   });
 
+  it("keeps search result cards dense: single-row tags, top favourite, clamped match cells", () => {
+    expect(therapyCardSource).toContain("wrap={false}");
+    expect(therapyCardSource).toContain("max={3}");
+    expect(therapyCardSource).toContain("prioritiseTherapyTags");
+    expect(therapyCardSource).toContain("cardPreviewText");
+    expect(therapyCardSource).toContain("line-clamp-2");
+    expect(therapyCardSource).toContain("grid-cols-3");
+    // Favourite is pinned to the card corner; no heart-only desktop column.
+    expect(therapyCardSource).toContain("absolute top-3 right-3");
+    // Two-column card body waits for `md` so 640–700px viewports do not overflow.
+    expect(therapyCardSource).toContain("md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)]");
+    expect(therapyCardSource).not.toMatch(/sm:grid-cols-\[minmax\([^)]+\),1fr\)_minmax\([^)]+\),1\.35fr\)/);
+    expect(therapyCardSource).not.toMatch(/sm:grid-cols-\[minmax\([^)]+\),1fr\)_minmax\([^)]+\),1\.35fr\)_auto\]/);
+    // Fallbacks run after preview filtering so a title-only first field can yield.
+    expect(therapyCardSource).toMatch(
+      /cardPreviewText\(therapy\.bestUsedFor,\s*\{\s*exclude:\s*therapy\.name\s*\}\)\s*\|\|/,
+    );
+    expect(therapyCardSource).toMatch(/cardPreviewText\(therapy\.indications,\s*\{\s*exclude:\s*therapy\.name\s*\}\)/);
+  });
+
+  it("keeps the single-row TagRow overflow indicator unclipped", () => {
+    const uiSource = read(`${therapyPath}/ui.tsx`);
+    expect(uiSource).toContain("flex-nowrap gap-2 overflow-hidden");
+    expect(uiSource).toContain("+{extra}");
+    // `+N` is a shrink-0 sibling outside the clipping flex row.
+    expect(uiSource).toMatch(/overflow-hidden[\s\S]*?\{pills\}[\s\S]*?shrink-0[\s\S]*?\{overflow\}/);
+  });
+
   it("uses complete toggle semantics and preserves full-size control hit targets", () => {
     const briefGroupTag = openingTagWith(briefSource, "div", [
       'role="group"',
