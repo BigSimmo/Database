@@ -107,6 +107,16 @@ describe("PDF reader keyboard bindings", () => {
     expect(handlers.onPageChange).toHaveBeenLastCalledWith(5);
   });
 
+  it("advances through key-repeat before React re-renders the page prop", async () => {
+    const { holder, handlers } = await renderReader();
+
+    fireEvent.keyDown(holder, { key: "PageDown" });
+    fireEvent.keyDown(holder, { key: "PageDown" });
+    fireEvent.keyDown(holder, { key: "PageDown" });
+
+    expect(handlers.onPageChange.mock.calls.map((call) => call[0])).toEqual([6, 7, 8]);
+  });
+
   it("jumps to the first and last page with Home and End", async () => {
     const { holder, handlers } = await renderReader();
 
