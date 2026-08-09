@@ -85,6 +85,24 @@ describe("fixture-free client performance boundaries", () => {
     expect(pdfViewer).not.toContain("renderedPageRef.current?.cleanup()");
   });
 
+  it("bounds retained page canvases by a document-wide budget, not only the per-canvas one", () => {
+    const pdfViewer = source("src/components/document-viewer/pdf-canvas-viewer.tsx");
+
+    // `resolveCanvasRasterPlan` bounds ONE canvas against WebKit's ~2^24 ceiling.
+    // Once several pages are live at once, N individually legal canvases can still
+    // exhaust device memory, so the render window must come from the document-wide
+    // budget rather than a hardcoded page count. The DOM test cannot catch a
+    // regression here: its fixture canvases are small enough that the budget never
+    // binds, so a viewer that dropped it would still window correctly there.
+    expect(pdfViewer).toContain("resolveLiveCanvasWindow");
+    expect(pdfViewer).toContain("resolveRenderAheadPages");
+    expect(pdfViewer).toMatch(/liveCanvasLimit/);
+
+    // Render-ahead must stay deferred. Rendering neighbours eagerly re-introduces
+    // exactly the background fetching `disableAutoFetch` above exists to prevent.
+    expect(pdfViewer).toContain("requestIdleCallback");
+  });
+
   it("revalidates cached document download URLs on every viewer action", () => {
     const viewer = source("src/components/DocumentViewer.tsx");
 

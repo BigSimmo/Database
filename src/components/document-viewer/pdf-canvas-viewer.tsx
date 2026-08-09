@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -13,7 +14,11 @@ import { ExternalLink, FileText, Loader2, RefreshCw } from "lucide-react";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, PDFPageProxy, RenderTask } from "pdfjs-dist";
 
 import { cn, floatingControl } from "@/components/ui-primitives";
-import { resolveCanvasRasterPlan } from "@/components/document-viewer/canvas-raster-budget";
+import {
+  resolveCanvasRasterPlan,
+  resolveLiveCanvasWindow,
+  resolveRenderAheadPages,
+} from "@/components/document-viewer/canvas-raster-budget";
 import { announce } from "@/components/ui/live-announcer";
 import { useViewerGestures } from "@/components/document-viewer/use-viewer-gestures";
 import {
@@ -27,6 +32,9 @@ import {
 const secondaryButton = floatingControl;
 
 const MAX_FIT_SCALE = 2.8;
+
+/** Page geometry at pdf.js scale 1, after rotation. */
+type PageGeometry = { width: number; height: number };
 
 // A signed URL that has passed its (10-min) TTL fails pdf.js with an auth/HTTP
 // error rather than a parse error. Detect those so the parent can re-issue a
@@ -42,10 +50,270 @@ function isLikelyExpiredUrl(error: unknown): boolean {
   );
 }
 
+/**
+ * The layout scale one page is drawn at — fit-to-width, or the reader's zoom.
+ *
+ * Three things must agree on this number or the column jitters: the raster
+ * itself, the memory budget that decides how many pages may be retained, and the
+ * box each slot reserves for a page it has not rendered yet. A slot that
+ * reserves a different height than its page renders at moves every page below it
+ * the moment that page paints.
+ *
+ * `contentWidth` is the holder's content box — its padding already removed. The
+ * previous single-page viewer subtracted a fixed 16px from `clientWidth`, which
+ * is right at `p-2` and 16px short at `sm:p-4`, so the fit scale ran slightly
+ * wide and `max-width: 100%` clamped the canvas back. That was invisible with
+ * one canvas and an explicit height; with reserved boxes it is a layout shift.
+ */
+function resolveViewportScale({
+  fitWidth,
+  contentWidth,
+  baseWidth,
+  renderZoom,
+}: {
+  fitWidth: boolean;
+  contentWidth: number;
+  baseWidth: number;
+  renderZoom: number;
+}): number {
+  const availableWidth = Math.max(220, contentWidth);
+  const requested = fitWidth
+    ? Math.min(MAX_FIT_SCALE, Math.max(VIEWER_MIN_ZOOM, availableWidth / Math.max(baseWidth, 1)))
+    : renderZoom;
+  return Math.min(VIEWER_MAX_ZOOM, Math.max(VIEWER_MIN_ZOOM, requested));
+}
+
+/** Save-Data / effective connection type, when the browser reports them. */
+function readConnectionHints(): { saveData: boolean; effectiveType?: string } {
+  if (typeof navigator === "undefined") return { saveData: false };
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
+    .connection;
+  return { saveData: Boolean(connection?.saveData), effectiveType: connection?.effectiveType };
+}
+
+/**
+ * One page of the reading column.
+ *
+ * The slot always occupies its page's box, whether or not a canvas is currently
+ * rendered into it, so the scroll geometry a reader navigates by does not change
+ * when a far page is disposed. Pages outside the render window keep their box
+ * and drop their backing store — that is the whole trade virtualization makes.
+ *
+ * Memoised because the owner re-renders on every scroll-derived page change: a
+ * slot whose inputs did not change must not re-rasterise just because the reader
+ * moved somewhere else in the document.
+ */
+const PdfPageSlot = memo(function PdfPageSlot({
+  pdf,
+  pageNumber,
+  title,
+  render,
+  fitWidth,
+  renderZoom,
+  rotation,
+  contentWidth,
+  fallbackGeometry,
+  registerSlot,
+  onGeometry,
+  onRenderStateChange,
+  onRenderError,
+}: {
+  pdf: PDFDocumentProxy | null;
+  pageNumber: number;
+  title: string;
+  /** True when this page is inside the current render window. */
+  render: boolean;
+  fitWidth: boolean;
+  renderZoom: number;
+  rotation: number;
+  /** The holder's content-box width, padding already removed. */
+  contentWidth: number;
+  /** The first measured page's geometry, reserving a box for pages not yet loaded. */
+  fallbackGeometry: PageGeometry | null;
+  registerSlot: (pageNumber: number, element: HTMLDivElement | null) => void;
+  onGeometry: (pageNumber: number, geometry: PageGeometry) => void;
+  onRenderStateChange: (pageNumber: number, rendering: boolean) => void;
+  onRenderError: (pageNumber: number, error: Error) => void;
+}) {
+  const slotRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [geometry, setGeometry] = useState<PageGeometry | null>(null);
+  const [painted, setPainted] = useState(false);
+
+  useEffect(() => {
+    registerSlot(pageNumber, slotRef.current);
+    return () => registerSlot(pageNumber, null);
+  }, [pageNumber, registerSlot]);
+
+  useEffect(() => {
+    if (!render || !pdf) return () => undefined;
+    const activePdf = pdf;
+    let cancelled = false;
+    let renderTask: RenderTask | null = null;
+    // Local to this effect run so a rapid page change cannot clean up the next
+    // page via a shared ref (Sentry 15801413).
+    let pageToCleanup: PDFPageProxy | null = null;
+
+    async function renderPage() {
+      onRenderStateChange(pageNumber, true);
+      try {
+        const pdfPage = await activePdf.getPage(pageNumber);
+        if (cancelled) {
+          // getPage resolved after we left this page — release it here so the
+          // next effect's page is never touched by this run's cleanup.
+          pdfPage.cleanup();
+          return;
+        }
+        pageToCleanup = pdfPage;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        // Rotation is applied in the viewport so width/height already reflect the
+        // 90°/270° swap — the fit calculation and canvas sizing follow for free.
+        const baseViewport = pdfPage.getViewport({ scale: 1, rotation });
+        const measured = { width: baseViewport.width, height: baseViewport.height };
+        setGeometry(measured);
+        onGeometry(pageNumber, measured);
+
+        const viewportScale = resolveViewportScale({
+          fitWidth,
+          contentWidth,
+          baseWidth: baseViewport.width,
+          renderZoom,
+        });
+        // WebKit paints nothing at all above ~2^24 canvas pixels, and this page
+        // at full device density can ask for three times that. Give up raster
+        // density before layout size — a soft page reads, a blank one does not.
+        const { outputScale } = resolveCanvasRasterPlan({
+          baseWidth: baseViewport.width,
+          baseHeight: baseViewport.height,
+          viewportScale,
+          devicePixelRatio: window.devicePixelRatio,
+        });
+        const viewport = pdfPage.getViewport({ scale: viewportScale * outputScale, rotation });
+        const context = canvas.getContext("2d");
+        if (!context) {
+          onRenderError(pageNumber, new Error("Could not initialize the PDF canvas."));
+          return;
+        }
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.imageSmoothingEnabled = true;
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        canvas.style.width = `${Math.floor(baseViewport.width * viewportScale)}px`;
+        canvas.style.height = `${Math.floor(baseViewport.height * viewportScale)}px`;
+        canvas.style.maxWidth = fitWidth ? "100%" : "none";
+
+        renderTask = pdfPage.render({
+          canvasContext: context,
+          canvas,
+          viewport,
+        });
+        await renderTask.promise;
+        if (!cancelled) setPainted(true);
+      } catch (renderError) {
+        if (!cancelled && renderError instanceof Error && renderError.name !== "RenderingCancelledException") {
+          onRenderError(pageNumber, renderError);
+        }
+      } finally {
+        if (!cancelled) onRenderStateChange(pageNumber, false);
+      }
+    }
+
+    renderPage();
+    return () => {
+      cancelled = true;
+      onRenderStateChange(pageNumber, false);
+      renderTask?.cancel();
+      // Release this run's page only. pdf.js declines while a render is still
+      // live, so cancel above cannot be cut short by cleanup.
+      pageToCleanup?.cleanup();
+    };
+  }, [
+    contentWidth,
+    fitWidth,
+    onGeometry,
+    onRenderError,
+    onRenderStateChange,
+    pageNumber,
+    pdf,
+    render,
+    renderZoom,
+    rotation,
+  ]);
+
+  // A canvas keeps its backing store until the element is collected, which on a
+  // phone is memory held for a page the reader has already scrolled past — and
+  // in a virtualized column, for every page they have ever visited. Zeroing the
+  // dimensions releases it when the page leaves the window, not at some later
+  // collection.
+  useEffect(
+    () => () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      canvas.width = 0;
+      canvas.height = 0;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!render) setPainted(false);
+  }, [render]);
+
+  const reservedGeometry = geometry ?? fallbackGeometry;
+  const reservedScale = reservedGeometry
+    ? resolveViewportScale({ fitWidth, contentWidth, baseWidth: reservedGeometry.width, renderZoom })
+    : 1;
+
+  return (
+    <div
+      ref={slotRef}
+      data-page={pageNumber}
+      data-testid="pdf-page-slot"
+      data-rendered={render ? "true" : "false"}
+      className="relative flex w-full shrink-0 justify-center"
+      style={
+        // Reserve the page's box up front. Without this the column collapses to
+        // nothing for unrendered pages, every slot lands on the same scroll
+        // offset, and the observer that derives the reader's page has nothing to
+        // measure.
+        reservedGeometry
+          ? {
+              height: `${Math.floor(reservedGeometry.height * reservedScale)}px`,
+              minHeight: `${Math.floor(reservedGeometry.height * reservedScale)}px`,
+            }
+          : undefined
+      }
+    >
+      {render ? (
+        <canvas
+          ref={canvasRef}
+          aria-label={`${title} page ${pageNumber}`}
+          className={cn(
+            "mx-auto max-w-full self-start rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)] transition-opacity duration-[var(--duration-quick)] motion-reduce:transition-none",
+            painted ? "opacity-100" : "opacity-0",
+          )}
+        />
+      ) : (
+        <div
+          aria-hidden="true"
+          className="h-full w-full max-w-full rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
+          style={reservedGeometry ? { width: `${Math.floor(reservedGeometry.width * reservedScale)}px` } : undefined}
+        />
+      )}
+    </div>
+  );
+});
+
 // Memoised: this is the heaviest subtree in the document view (it holds the
 // pdf.js document and re-rasters the canvas). With stable props from the parent
 // it skips re-render when unrelated parent state (search, composer, connectivity)
 // changes, so a keystroke elsewhere never re-rasterises the page.
+//
+// Every piece of per-page state below — the render window, the scroll-derived
+// page, the retained canvases — stays inside this component on purpose. Lifting
+// any of it into the parent would defeat that boundary, because the parent
+// re-renders for reasons that have nothing to do with the document.
 //
 // This component renders source pixels and nothing else. Every viewing control —
 // page navigation, zoom, fit, rotation, viewing aid, fullscreen — belongs to
@@ -82,7 +350,6 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   onZoomChange: (zoom: number) => void;
 }) {
   const holderRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(0);
@@ -115,11 +382,12 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     },
     [onZoomChange],
   );
-  const [holderWidth, setHolderWidth] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [rendering, setRendering] = useState(false);
+  const [renderingPages, setRenderingPages] = useState<ReadonlySet<number>>(() => new Set<number>());
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [referenceGeometry, setReferenceGeometry] = useState<PageGeometry | null>(null);
 
   const onUrlExpiredRef = useRef(onUrlExpired);
   const onLoadSuccessRef = useRef(onLoadSuccess);
@@ -168,6 +436,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       setError(null);
       setPdf(null);
       setTotalPages(0);
+      setReferenceGeometry(null);
       try {
         const pdfjs = await import("pdfjs-dist");
         pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -180,6 +449,12 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
         // for a long guideline opened on a phone, on cellular. `disableAutoFetch`
         // does not take effect without `disableStream`; the installed types say
         // so explicitly.
+        //
+        // Virtualization renders ahead, which pulls bytes this flag exists to
+        // hold back — so the render-ahead policy is bounded to ±1 page, deferred
+        // to idle, and switched off entirely under Save-Data or a 2g connection
+        // (`resolveRenderAheadPages`). Resident pages top out at three; the
+        // document is still never fetched whole.
         //
         // The trade is that later bytes are requested later, so a signed URL can
         // expire mid-read. That path already exists and recovers: a range failure
@@ -213,28 +488,198 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     };
   }, [loadAttempt, reportUrlExpired, url]);
 
+  // ---------------------------------------------------------------------------
+  // Page ↔ scroll ↔ route synchronisation
+  //
+  // Three things can move the reader: the route (deep link, toolbar, rail
+  // filmstrip), the keyboard, and their own scrolling. Flow is deliberately
+  // one-way to stop those fighting each other: intent scrolls the column, the
+  // column's scroll position derives the displayed page, and the derived page
+  // only writes back to the route when it did NOT come from a programmatic
+  // scroll. Without that gate a route-driven jump derives its own page, writes
+  // it back to the route, and re-enters this loop on every frame of the scroll.
+  // ---------------------------------------------------------------------------
+  const slotElementsRef = useRef(new Map<number, HTMLDivElement>());
+  const intersectionRef = useRef(new Map<number, number>());
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const pendingScrollTargetRef = useRef<number | null>(null);
+  const pendingScrollTimerRef = useRef<number | null>(null);
+  const lastRoutePageRef = useRef(initialPage);
+  const pageRef = useRef(page);
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
+  const registerSlot = useCallback((pageNumber: number, element: HTMLDivElement | null) => {
+    const previous = slotElementsRef.current.get(pageNumber);
+    if (previous && observerRef.current) observerRef.current.unobserve(previous);
+    if (element) {
+      slotElementsRef.current.set(pageNumber, element);
+      observerRef.current?.observe(element);
+      return;
+    }
+    slotElementsRef.current.delete(pageNumber);
+    intersectionRef.current.delete(pageNumber);
+  }, []);
+
+  const clearPendingScroll = useCallback(() => {
+    pendingScrollTargetRef.current = null;
+    if (pendingScrollTimerRef.current !== null) {
+      window.clearTimeout(pendingScrollTimerRef.current);
+      pendingScrollTimerRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Declare that a programmatic move to `target` is in flight.
+   *
+   * Armed the moment the intent is known rather than when the scroll executes.
+   * The scroll itself has to wait a frame for the target slot to exist, and any
+   * intersection that lands in that gap would otherwise be read as the reader
+   * choosing a page — writing it to the route and cancelling the jump they
+   * actually asked for.
+   */
+  const armPendingScroll = useCallback((target: number) => {
+    pendingScrollTargetRef.current = target;
+    if (pendingScrollTimerRef.current !== null) window.clearTimeout(pendingScrollTimerRef.current);
+    // The observer releases this the moment the scroll settles on the target;
+    // the timer is only the backstop for a scroll that never gets there.
+    pendingScrollTimerRef.current = window.setTimeout(() => {
+      pendingScrollTargetRef.current = null;
+      pendingScrollTimerRef.current = null;
+    }, 600);
+  }, []);
+
+  /** Move the column to a page without letting the move write back to the route. */
+  const scrollToPage = useCallback(
+    (target: number) => {
+      const holder = holderRef.current;
+      const slot = slotElementsRef.current.get(target);
+      // Scroll the holder itself rather than `scrollIntoView`, which would also
+      // scroll every ancestor and drag the whole document route with it.
+      const delta = holder && slot ? slot.getBoundingClientRect().top - holder.getBoundingClientRect().top : 0;
+
+      // Nothing moved, so there is no echo to swallow — and holding the gate open
+      // anyway would deafen the viewer to the reader's own scrolling for as long
+      // as the timeout lasts, which is exactly the page-tracking bug it exists to
+      // prevent in the other direction.
+      if (!holder || !slot || Math.abs(delta) < 1) {
+        clearPendingScroll();
+        return;
+      }
+
+      armPendingScroll(target);
+      holder.scrollTop += delta;
+    },
+    [armPendingScroll, clearPendingScroll],
+  );
+
+  useEffect(() => {
+    const holder = holderRef.current;
+    if (!holder || typeof IntersectionObserver === "undefined") return () => undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const slotPage = Number(entry.target.getAttribute("data-page"));
+          if (!Number.isFinite(slotPage) || slotPage < 1) continue;
+          intersectionRef.current.set(slotPage, entry.intersectionRatio);
+        }
+
+        let best = 0;
+        let bestRatio = -1;
+        for (const [slotPage, ratio] of intersectionRef.current) {
+          if (ratio > bestRatio || (ratio === bestRatio && best !== 0 && slotPage < best)) {
+            best = slotPage;
+            bestRatio = ratio;
+          }
+        }
+        if (best < 1 || bestRatio <= 0) return;
+
+        // A programmatic jump is still settling: adopt its target and stay quiet
+        // until the reader's own scrolling takes over again.
+        if (pendingScrollTargetRef.current !== null) {
+          if (best === pendingScrollTargetRef.current) clearPendingScroll();
+          return;
+        }
+        if (best === pageRef.current) return;
+        pageRef.current = best;
+        setPage(best);
+        // Only a reader-driven change writes the route.
+        if (best !== lastRoutePageRef.current) {
+          lastRoutePageRef.current = best;
+          onPageChangeRef.current?.(best);
+        }
+      },
+      { root: holder, threshold: [0, 0.15, 0.35, 0.6, 0.85, 1] },
+    );
+
+    observerRef.current = observer;
+    for (const element of slotElementsRef.current.values()) observer.observe(element);
+    return () => {
+      observer.disconnect();
+      observerRef.current = null;
+    };
+  }, [clearPendingScroll, totalPages]);
+
+  useEffect(() => clearPendingScroll, [clearPendingScroll]);
+
+  // Route-driven page changes (deep link, toolbar, rail filmstrip, keyboard).
+  //
+  // This effect re-runs whenever the page count lands, which is always AFTER the
+  // reader can have started scrolling. It must therefore act only when the route
+  // is asking for somewhere the reader is not — an unconditional "go to
+  // initialPage" would drag them back to page 1 every time pdf.js reported its
+  // page count, and again on every later correction to it.
   useEffect(() => {
     const nextPage = Math.max(1, initialPage || 1);
     const boundedPage = totalPages > 0 ? Math.min(nextPage, totalPages) : nextPage;
-    const frame = window.requestAnimationFrame(() => {
-      setPage((current) => (current === boundedPage ? current : boundedPage));
-      // pdf.js is authoritative for page count. A deep link or stale indexed
-      // page_count can leave the frame toolbar on an out-of-range route value
-      // while the canvas shows the clamped page — reconcile the parent route.
-      if (totalPages > 0 && boundedPage !== nextPage) {
-        onPageChangeRef.current?.(boundedPage);
-      }
-    });
+    lastRoutePageRef.current = boundedPage;
+
+    // pdf.js is authoritative for page count. A deep link or stale indexed
+    // page_count can leave the frame toolbar on an out-of-range route value
+    // while the canvas shows the clamped page — reconcile the parent route. This
+    // is independent of where the reader is, so it happens either way.
+    if (totalPages > 0 && boundedPage !== nextPage) {
+      onPageChangeRef.current?.(boundedPage);
+    }
+
+    if (boundedPage === pageRef.current) return () => undefined;
+    pageRef.current = boundedPage;
+    setPage(boundedPage);
+    armPendingScroll(boundedPage);
+    // Scroll on the next frame so the slot for the target page exists to measure.
+    // If it still does not (a deep link that lands before the first raster), the
+    // re-anchor effect below picks it up when the geometry arrives.
+    const frame = window.requestAnimationFrame(() => scrollToPage(boundedPage));
     return () => window.cancelAnimationFrame(frame);
-  }, [initialPage, totalPages]);
+  }, [armPendingScroll, initialPage, scrollToPage, totalPages]);
+
+  // Re-anchor the column on its current page whenever every slot's box changes
+  // size underneath the reader.
+  //
+  // Reserved boxes are computed from a scale, so a zoom step, a fit toggle, a
+  // rotation, a resize, or the arrival of the first measured geometry all resize
+  // every slot at once — and a scroll offset that meant "page 12" before means
+  // some arbitrary point in the document afterwards. Re-anchoring is what makes
+  // those actions feel like they operate on the page the reader is looking at.
+  // It cannot fight the reader's own scrolling because none of these inputs
+  // change while they scroll.
+  useEffect(() => {
+    if (!pdf || totalPages < 1) return () => undefined;
+    const frame = window.requestAnimationFrame(() => scrollToPage(pageRef.current));
+    return () => window.cancelAnimationFrame(frame);
+  }, [contentWidth, fitWidth, pdf, referenceGeometry, renderZoom, rotation, scrollToPage, totalPages]);
 
   useEffect(() => {
     if (!holderRef.current) return;
     let timeout: number | undefined;
     const observer = new ResizeObserver((entries) => {
+      // The content box, so the fit scale and the reserved slot boxes are both
+      // computed from the width a page can actually occupy.
       const width = Math.round(entries[0]?.contentRect.width ?? 0);
       window.clearTimeout(timeout);
-      timeout = window.setTimeout(() => setHolderWidth(width), 120);
+      timeout = window.setTimeout(() => setContentWidth(width), 120);
     });
 
     observer.observe(holderRef.current);
@@ -245,113 +690,119 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   }, []);
 
   // Settle rapid zoom deltas into a single raster. The interim CSS transform on
-  // the canvas keeps the view visually correct during this window.
+  // the column keeps the view visually correct during this window.
   useEffect(() => {
     if (renderZoom === zoom) return () => undefined;
     const timeout = window.setTimeout(() => setRenderZoom(zoom), 140);
     return () => window.clearTimeout(timeout);
   }, [renderZoom, zoom]);
 
+  // ---------------------------------------------------------------------------
+  // Render window
+  // ---------------------------------------------------------------------------
+  const perCanvasPixels = useMemo(() => {
+    if (!referenceGeometry) return 0;
+    const viewportScale = resolveViewportScale({
+      fitWidth,
+      contentWidth,
+      baseWidth: referenceGeometry.width,
+      renderZoom,
+    });
+    const plan = resolveCanvasRasterPlan({
+      baseWidth: referenceGeometry.width,
+      baseHeight: referenceGeometry.height,
+      viewportScale,
+      devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio,
+    });
+    return plan.width * plan.height;
+  }, [contentWidth, fitWidth, referenceGeometry, renderZoom]);
+
+  const liveCanvasLimit = useMemo(() => resolveLiveCanvasWindow({ perCanvasPixels }), [perCanvasPixels]);
+
+  // Neighbour pages wait for idle. A reader flipping quickly through a document
+  // never reaches idle, so they never pay for the pages they are passing.
+  const [renderAheadReady, setRenderAheadReady] = useState(false);
   useEffect(() => {
-    if (!pdf || !canvasRef.current || !holderRef.current) return;
-    const activePdf = pdf;
-    let cancelled = false;
-    let renderTask: RenderTask | null = null;
-    // Local to this effect run so a rapid page change cannot clean up the next
-    // page via a shared ref (Sentry 15801413).
-    let pageToCleanup: PDFPageProxy | null = null;
+    setRenderAheadReady(false);
+    if (!pdf || totalPages <= 1 || liveCanvasLimit <= 1) return () => undefined;
 
-    async function renderPage() {
-      setRendering(true);
-      try {
-        const pdfPage = await activePdf.getPage(page);
-        if (cancelled) {
-          // getPage resolved after we left this page — release it here so the
-          // next effect's page is never touched by this run's cleanup.
-          pdfPage.cleanup();
-          return;
-        }
-        pageToCleanup = pdfPage;
-        if (!canvasRef.current || !holderRef.current) return;
-        // Rotation is applied in the viewport so width/height already reflect the
-        // 90°/270° swap — the fit calculation and canvas sizing follow for free.
-        const baseViewport = pdfPage.getViewport({ scale: 1, rotation });
-        const availableWidth = Math.max(220, holderRef.current.clientWidth - 16);
-        const requestedScale = fitWidth
-          ? Math.min(MAX_FIT_SCALE, Math.max(VIEWER_MIN_ZOOM, availableWidth / baseViewport.width))
-          : renderZoom;
-        const viewportScale = Math.min(VIEWER_MAX_ZOOM, Math.max(VIEWER_MIN_ZOOM, requestedScale));
-        // WebKit paints nothing at all above ~2^24 canvas pixels, and this page
-        // at full device density can ask for three times that. Give up raster
-        // density before layout size — a soft page reads, a blank one does not.
-        const { outputScale } = resolveCanvasRasterPlan({
-          baseWidth: baseViewport.width,
-          baseHeight: baseViewport.height,
-          viewportScale,
-          devicePixelRatio: window.devicePixelRatio,
-        });
-        const viewport = pdfPage.getViewport({ scale: viewportScale * outputScale, rotation });
-        const canvas = canvasRef.current;
-        const context = canvas.getContext("2d");
-        if (!context) {
-          setError("Could not initialize the PDF canvas.");
-          return;
-        }
-        context.setTransform(1, 0, 0, 1, 0, 0);
-        context.imageSmoothingEnabled = true;
-        canvas.width = Math.floor(viewport.width);
-        canvas.height = Math.floor(viewport.height);
-        canvas.style.width = `${Math.floor(baseViewport.width * viewportScale)}px`;
-        canvas.style.height = `${Math.floor(baseViewport.height * viewportScale)}px`;
-        canvas.style.maxWidth = fitWidth ? "100%" : "none";
-
-        renderTask = pdfPage.render({
-          canvasContext: context,
-          canvas,
-          viewport,
-        });
-        await renderTask.promise;
-      } catch (renderError) {
-        if (!cancelled && renderError instanceof Error && renderError.name !== "RenderingCancelledException") {
-          if (isLikelyExpiredUrl(renderError)) reportUrlExpired();
-          setError(renderError.message);
-        }
-      } finally {
-        if (!cancelled) setRendering(false);
-      }
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(() => setRenderAheadReady(true), { timeout: 1500 });
+      return () => window.cancelIdleCallback(handle);
     }
+    const timer = window.setTimeout(() => setRenderAheadReady(true), 400);
+    return () => window.clearTimeout(timer);
+  }, [fitWidth, liveCanvasLimit, page, pdf, renderZoom, rotation, totalPages]);
 
-    renderPage();
-    return () => {
-      cancelled = true;
-      renderTask?.cancel();
-      // Release this run's page only. pdf.js declines while a render is still
-      // live, so cancel above cannot be cut short by cleanup.
-      pageToCleanup?.cleanup();
-    };
-  }, [fitWidth, holderWidth, page, pdf, renderZoom, reportUrlExpired, rotation]);
+  const renderPages = useMemo(() => {
+    const { saveData, effectiveType } = readConnectionHints();
+    return new Set(
+      resolveRenderAheadPages({
+        activePage: page,
+        totalPages,
+        liveCanvasLimit,
+        renderAhead: renderAheadReady,
+        saveData,
+        effectiveType,
+      }),
+    );
+  }, [liveCanvasLimit, page, renderAheadReady, totalPages]);
 
-  // A canvas keeps its backing store until the element is collected, which on a
-  // phone is memory held for a document the reader has already left. Zeroing the
-  // dimensions releases it at unmount instead.
-  useEffect(
-    () => () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      canvas.width = 0;
-      canvas.height = 0;
+  // The first page that renders seeds the reserved box for every page that has
+  // not loaded yet — deliberately the first to render rather than page 1, so a
+  // deep link straight to page 50 still gets a sized column. Measuring every page
+  // up front would mean fetching every page, which is the cost virtualization
+  // exists to avoid; mixed-size documents correct each slot as it renders.
+  const handleGeometry = useCallback((_pageNumber: number, geometry: PageGeometry) => {
+    setReferenceGeometry((current) => current ?? geometry);
+  }, []);
+
+  const handleRenderStateChange = useCallback((pageNumber: number, rendering: boolean) => {
+    setRenderingPages((current) => {
+      if (rendering === current.has(pageNumber)) return current;
+      const next = new Set(current);
+      if (rendering) next.add(pageNumber);
+      else next.delete(pageNumber);
+      return next;
+    });
+  }, []);
+
+  const handleRenderError = useCallback(
+    (pageNumber: number, renderError: Error) => {
+      // A range request for ANY page can 403 once the signed URL expires, so a
+      // neighbour's failure is just as much an expiry signal as the reader's own
+      // page — report it either way, or a background prefetch failure would sit
+      // there un-recovered until the reader flipped into it.
+      if (isLikelyExpiredUrl(renderError)) reportUrlExpired();
+      // Only the page the reader is actually looking at may take over the frame.
+      // A neighbour rendered ahead is invisible; blanking a perfectly good page
+      // because a prefetch failed would be a worse outcome than the prefetch
+      // simply not arriving.
+      if (pageNumber === pageRef.current) setError(renderError.message);
     },
-    [],
+    [reportUrlExpired],
   );
 
-  const jumpToPage = useCallback(
+  const pagesReady = Boolean(pdf && totalPages > 0 && !loading);
+  const rendering = renderingPages.has(page);
+  const multiPage = pagesReady && totalPages > 1;
+  const pageNumbers = useMemo(
+    () => Array.from({ length: Math.max(totalPages, 0) }, (_, index) => index + 1),
+    [totalPages],
+  );
+
+  const goToPage = useCallback(
     (nextPage: number) => {
       const bounded = Math.min(Math.max(nextPage, 1), totalPages || nextPage);
-      if (bounded === page) return;
+      if (bounded === pageRef.current) return;
+      pageRef.current = bounded;
       setPage(bounded);
-      onPageChange?.(bounded);
+      lastRoutePageRef.current = bounded;
+      armPendingScroll(bounded);
+      scrollToPage(bounded);
+      onPageChangeRef.current?.(bounded);
     },
-    [onPageChange, page, totalPages],
+    [armPendingScroll, scrollToPage, totalPages],
   );
 
   const zoomBy = useCallback(
@@ -362,7 +813,6 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     [setFitWidth, setZoom],
   );
 
-  const pagesReady = Boolean(pdf && totalPages > 0 && !loading);
   // While a zoom step waits for its debounced raster, scale the last raster with
   // a CSS transform so the view tracks the target zoom instantly. It resets to 1
   // the moment `renderZoom` catches up and the crisp raster paints. Fit mode is
@@ -416,11 +866,11 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     switch (event.key) {
       case "ArrowLeft":
         event.preventDefault();
-        jumpToPage(page - 1);
+        goToPage(page - 1);
         break;
       case "ArrowRight":
         event.preventDefault();
-        jumpToPage(page + 1);
+        goToPage(page + 1);
         break;
       case "+":
       case "=":
@@ -447,6 +897,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     >
       <div
         data-testid="pdf-canvas-scroll"
+        data-multi-page={multiPage ? "true" : undefined}
         ref={holderRef}
         tabIndex={0}
         role="group"
@@ -454,11 +905,20 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
         onKeyDown={handleHolderKeyDown}
         {...gestureHandlers}
         className={cn(
-          "polished-scroll relative flex w-full min-w-0 max-w-full justify-center overscroll-contain p-2 [-webkit-overflow-scrolling:touch] focus-visible:outline-2 focus-visible:outline-[color:var(--focus)] sm:p-4",
+          "polished-scroll relative flex w-full min-w-0 max-w-full justify-center p-2 [-webkit-overflow-scrolling:touch] focus-visible:outline-2 focus-visible:outline-[color:var(--focus)] sm:p-4",
           // Reserve height only before a page has rendered; once it paints, the
           // holder fits the page so short pages don't float in a tall void.
           !pagesReady && !fullscreen && "min-h-[46vh] sm:min-h-[62vh]",
           fullscreen && "min-h-0 flex-1 sm:min-h-0",
+          // A multi-page document reads as one continuous column, so the holder
+          // needs a bounded height to be the thing that scrolls. Single-page
+          // documents keep exactly the geometry they had: the holder wraps the
+          // page and the document route scrolls, as before.
+          multiPage && !fullscreen && "max-h-[72vh] sm:max-h-[80vh]",
+          // Chain out of the reading pane at its ends rather than trapping the
+          // reader inside it — the horizontal axis stays contained so a zoomed
+          // pan never turns into a browser back-swipe.
+          multiPage && !fullscreen ? "overscroll-x-contain" : "overscroll-contain",
           fitWidth
             ? "overflow-x-hidden overflow-y-auto [touch-action:pan-y]"
             : // Zoomed: we own touch, so pinch-zoom and single-finger drag-pan work.
@@ -507,16 +967,37 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
             </div>
           </div>
         ) : (
-          <canvas
-            ref={canvasRef}
-            aria-label={`${title} page ${page}`}
-            className="mx-auto max-w-full rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
+          <div
+            data-testid="pdf-page-column"
+            // `min-w-full w-fit` so a zoomed page wider than the holder extends the
+            // column's own box: the holder can then scroll to reach it, instead of
+            // the page overflowing a full-width column and clipping on the left.
+            className="mx-auto flex w-fit min-w-full flex-col items-center gap-3"
             style={
               interimZoomScale === 1
                 ? undefined
                 : { transform: `scale(${interimZoomScale})`, transformOrigin: "top center" }
             }
-          />
+          >
+            {pageNumbers.map((pageNumber) => (
+              <PdfPageSlot
+                key={pageNumber}
+                pdf={pdf}
+                pageNumber={pageNumber}
+                title={title}
+                render={renderPages.has(pageNumber)}
+                fitWidth={fitWidth}
+                renderZoom={renderZoom}
+                rotation={rotation}
+                contentWidth={contentWidth}
+                fallbackGeometry={referenceGeometry}
+                registerSlot={registerSlot}
+                onGeometry={handleGeometry}
+                onRenderStateChange={handleRenderStateChange}
+                onRenderError={handleRenderError}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>
