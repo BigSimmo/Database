@@ -22,43 +22,56 @@ export const productionSpecFilePattern =
   /^(?:answer-progress-ui-smoke|ui-(?:smoke|stress|accessibility|document-canvas|tools|overlap|universal-search|specifiers|formulation|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
- * Explicit shard membership. Ordered to mix the measured slow phone-scroll
- * family away from chrome-scroll/accessibility while keeping mega-specs apart.
+ * One source of truth for shard membership and its latest hosted timing sample.
+ * Durations are summed from the list reporter in CI run 31285952061 (2026-08-09).
+ * `criticalSeconds` is removed on PR/merge-queue runs because the preceding
+ * fail-fast job already proved those exact tests. Re-measure after suite growth.
  */
-export const prUiShardGroups = {
-  1: [
-    "tests/ui-phone-scroll.spec.ts",
-    "tests/ui-phone-scroll-page-owned.spec.ts",
-    "tests/ui-phone-scroll-document-rail.spec.ts",
-    "tests/ui-phone-scroll-routes.spec.ts",
-    "tests/ui-route-coverage.spec.ts",
-    "tests/ui-specifiers.spec.ts",
-    "tests/ui-forms-section-nav.spec.ts",
-    "tests/ui-pwa.spec.ts",
-    "tests/ui-hydration.spec.ts",
-    "tests/ui-style-contract.spec.ts",
-    "tests/ui-visual-artifacts.spec.ts",
-    "tests/ui-mode-nav-density.spec.ts",
-  ],
-  2: [
-    "tests/ui-smoke.spec.ts",
-    "tests/ui-chrome-scroll.spec.ts",
-    "tests/answer-progress-ui-smoke.spec.ts",
-    "tests/ui-formulation.spec.ts",
-  ],
-  3: [
-    "tests/ui-tools.spec.ts",
-    "tests/ui-accessibility.spec.ts",
-    // Small (three document-route navigations) and placed here rather than in
-    // the mega-spec group; it skips entirely on a browser that cannot raster
-    // pdf.js 6, so its cost is near zero outside the pinned Chromium build.
-    "tests/ui-document-canvas.spec.ts",
-    "tests/ui-overlap.spec.ts",
-    "tests/ui-universal-search.spec.ts",
-    "tests/ui-stress.spec.ts",
-    "tests/ui-therapy-nav-scroll.spec.ts",
-  ],
-};
+export const prUiSpecProfiles = Object.freeze([
+  { file: "tests/ui-smoke.spec.ts", shard: 1, fullSeconds: 149.0, criticalSeconds: 21.7 },
+  { file: "tests/ui-mode-nav-density.spec.ts", shard: 1, fullSeconds: 47.1, criticalSeconds: 0 },
+  { file: "tests/ui-accessibility.spec.ts", shard: 1, fullSeconds: 17.7, criticalSeconds: 0 },
+  { file: "tests/ui-route-coverage.spec.ts", shard: 1, fullSeconds: 12.6, criticalSeconds: 0 },
+  { file: "tests/ui-formulation.spec.ts", shard: 1, fullSeconds: 12.9, criticalSeconds: 0 },
+
+  { file: "tests/ui-phone-scroll-routes.spec.ts", shard: 2, fullSeconds: 129.2, criticalSeconds: 0 },
+  { file: "tests/ui-phone-scroll.spec.ts", shard: 2, fullSeconds: 63.7, criticalSeconds: 0 },
+  { file: "tests/ui-universal-search.spec.ts", shard: 2, fullSeconds: 19.7, criticalSeconds: 0 },
+  { file: "tests/answer-progress-ui-smoke.spec.ts", shard: 2, fullSeconds: 10.8, criticalSeconds: 0 },
+
+  { file: "tests/ui-tools.spec.ts", shard: 3, fullSeconds: 83.9, criticalSeconds: 3.1 },
+  { file: "tests/ui-chrome-scroll.spec.ts", shard: 3, fullSeconds: 44.9, criticalSeconds: 0 },
+  { file: "tests/ui-phone-scroll-page-owned.spec.ts", shard: 3, fullSeconds: 42.7, criticalSeconds: 0 },
+  { file: "tests/ui-overlap.spec.ts", shard: 3, fullSeconds: 7.6, criticalSeconds: 0 },
+  { file: "tests/ui-stress.spec.ts", shard: 3, fullSeconds: 7.6, criticalSeconds: 0 },
+  { file: "tests/ui-specifiers.spec.ts", shard: 3, fullSeconds: 7.3, criticalSeconds: 0 },
+  { file: "tests/ui-style-contract.spec.ts", shard: 3, fullSeconds: 6.3, criticalSeconds: 0 },
+  { file: "tests/ui-hydration.spec.ts", shard: 3, fullSeconds: 4.5, criticalSeconds: 0 },
+  { file: "tests/ui-pwa.spec.ts", shard: 3, fullSeconds: 3.8, criticalSeconds: 0 },
+  { file: "tests/ui-phone-scroll-document-rail.spec.ts", shard: 3, fullSeconds: 3.7, criticalSeconds: 0 },
+  { file: "tests/ui-visual-artifacts.spec.ts", shard: 3, fullSeconds: 2.7, criticalSeconds: 0 },
+  { file: "tests/ui-forms-section-nav.spec.ts", shard: 3, fullSeconds: 2.5, criticalSeconds: 0 },
+  { file: "tests/ui-therapy-nav-scroll.spec.ts", shard: 3, fullSeconds: 1.9, criticalSeconds: 0 },
+  // Skipped in the sampled runner because pdf.js could not raster there.
+  { file: "tests/ui-document-canvas.spec.ts", shard: 3, fullSeconds: 0, criticalSeconds: 0 },
+]);
+
+export const prUiShardGroups = Object.freeze(
+  Object.fromEntries(
+    [1, 2, 3].map((shard) => [
+      shard,
+      prUiSpecProfiles.filter((profile) => profile.shard === shard).map((profile) => profile.file),
+    ]),
+  ),
+);
+
+export function estimatedPrUiShardSeconds({ excludeCritical = false, profiles = prUiSpecProfiles } = {}) {
+  const totals = { 1: 0, 2: 0, 3: 0 };
+  for (const profile of profiles) {
+    totals[profile.shard] += profile.fullSeconds - (excludeCritical ? profile.criticalSeconds : 0);
+  }
+  return totals;
+}
 
 export function listProductionSpecFiles(testsDir = path.join(process.cwd(), "tests")) {
   return readdirSync(testsDir)
@@ -104,8 +117,13 @@ export function filesForPrUiShard(shard, groups = prUiShardGroups) {
   return files;
 }
 
+export function playwrightArgsForPrUiShard(shard, { excludeCritical = false } = {}) {
+  const grepInvert = excludeCritical ? "@critical|@quarantine|@mockup" : "@quarantine|@mockup";
+  return ["scripts/run-playwright.mjs", ...filesForPrUiShard(shard), "--project=chromium", "--grep-invert", grepInvert];
+}
+
 function parseArgs(args) {
-  const options = { shard: undefined, list: false, validate: false };
+  const options = { shard: undefined, list: false, validate: false, excludeCritical: false };
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
     if (token === "--list") {
@@ -114,6 +132,10 @@ function parseArgs(args) {
     }
     if (token === "--validate") {
       options.validate = true;
+      continue;
+    }
+    if (token === "--exclude-critical") {
+      options.excludeCritical = true;
       continue;
     }
     if (token === "--shard") {
@@ -125,10 +147,11 @@ function parseArgs(args) {
     }
     if (token === "--help" || token === "-h") {
       console.log(
-        "Usage: node scripts/playwright-pr-shards.mjs --validate | --list | --shard N\n" +
+        "Usage: node scripts/playwright-pr-shards.mjs --validate | --list | --shard N [--exclude-critical]\n" +
           "  --validate  Assert every production e2e:pr spec is in exactly one group.\n" +
           "  --list      Print shard membership.\n" +
-          "  --shard N   Run test:e2e:pr for that explicit file group.",
+          "  --shard N   Run test:e2e:pr for that explicit file group.\n" +
+          "  --exclude-critical  Exclude @critical tests already proved by the fail-fast job.",
       );
       process.exit(0);
     }
@@ -173,13 +196,11 @@ if (isDirectRun()) {
     process.exit(2);
   }
 
-  const files = filesForPrUiShard(options.shard);
-  const result = spawnSync(
-    process.execPath,
-    ["scripts/run-playwright.mjs", ...files, "--project=chromium", "--grep-invert", "@quarantine|@mockup"],
-    { stdio: "inherit", env: process.env },
-  );
+  const result = spawnSync(process.execPath, playwrightArgsForPrUiShard(options.shard, options), {
+    stdio: "inherit",
+    env: process.env,
+  });
   process.exit(childProcessExitCode(result));
 }
 
-export const playwrightPrShardsInternals = { productionSpecFilePattern, prUiShardGroups };
+export const playwrightPrShardsInternals = { productionSpecFilePattern, prUiSpecProfiles, prUiShardGroups };

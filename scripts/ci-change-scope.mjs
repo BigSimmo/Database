@@ -139,6 +139,9 @@ const codexAutofixPatterns = [
 
 const uiPatterns = [
   "data",
+  // A browser-environment action change must exercise the lane it controls,
+  // while remaining light enough to avoid unrelated unit coverage.
+  ".github/actions/setup-ui-e2e",
   "src/app",
   "src/components",
   "src/styles",
@@ -718,6 +721,7 @@ function selfTest() {
   });
   assertScope("composite-action-only-uses-focused-contracts", [".github/actions/setup-ui-e2e/action.yml"], {
     coverage_changed: false,
+    ui_changed: true,
     workflow_changed: true,
     workflow_only: true,
     static_heavy_changed: false,

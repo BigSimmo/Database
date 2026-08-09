@@ -30,6 +30,14 @@ const workflowScripts = [
 ];
 const staticHeavyScripts = ["lint", "typecheck", "test"];
 
+function dependencyManifestChanged(scope) {
+  if (scope.lockfile_changed) return true;
+  return (scope.files ?? []).some((file) => {
+    const normalized = String(file).replaceAll("\\", "/");
+    return /(^|\/)package(?:-lock)?\.json$/.test(normalized);
+  });
+}
+
 function parseArgs(args) {
   const options = { dryRun: false, extended: false, files: undefined };
 
@@ -95,6 +103,8 @@ export function selectedScripts(scope, extended) {
   };
 
   add(...commonScripts);
+  // #204: fail locally in seconds instead of reddening every install-owning CI job.
+  if (dependencyManifestChanged(scope)) add("check:npm-ci-dry-run");
   if (scope.docs_changed) add(...docsScripts);
   if (scope.workflow_changed) add(...workflowScripts);
   if (scope.codex_autofix_changed) add("check:codex-autofix-workflow");
@@ -188,6 +198,16 @@ function selfTest() {
     { static_heavy_changed: true, ui_changed: true },
     [...commonScripts, ...staticHeavyScripts, "check:rag:fixtures", "verify:ui"],
     true,
+  );
+  assertPlan(
+    "lockfile-change-adds-npm-ci-dry-run",
+    { lockfile_changed: true, static_heavy_changed: true, build_changed: true },
+    [...commonScripts, "check:npm-ci-dry-run", ...staticHeavyScripts, "build", "check:rag:fixtures"],
+  );
+  assertPlan(
+    "package-json-change-adds-npm-ci-dry-run",
+    { files: ["package.json"], static_heavy_changed: true, build_changed: true },
+    [...commonScripts, "check:npm-ci-dry-run", ...staticHeavyScripts, "build", "check:rag:fixtures"],
   );
   console.log("PR-local verification plan self-test passed.");
 }
