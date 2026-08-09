@@ -197,7 +197,9 @@ export function isModeSecondaryNavigationRoute(params: {
     return (
       pathname === "/differentials/diagnoses" ||
       pathname === "/differentials/presentations" ||
-      pathname === "/differentials/compare"
+      pathname.startsWith("/differentials/presentations/") ||
+      pathname === "/differentials/compare" ||
+      pathname.startsWith("/differentials/compare/")
     );
   }
   if (modeId === "dsm") return pathname === "/dsm/search" || pathname === "/dsm/compare";

@@ -4,6 +4,23 @@
  * clinical-dashboard client bundle stays fixture-free.
  */
 
+import { appModeHomeHref } from "@/lib/app-modes";
+
+/** Search home/results href that preserves compare-queue diagnosis ids. */
+export function differentialCompareSearchHref(query: string, selectedIds: Iterable<string> = []) {
+  const trimmedQuery = query.trim();
+  const base = appModeHomeHref("differentials", {
+    query: trimmedQuery || undefined,
+    run: Boolean(trimmedQuery),
+    focus: true,
+  });
+  const ids = Array.from(selectedIds, (id) => id.trim()).filter(Boolean);
+  if (!ids.length) return base;
+  const url = new URL(base, "http://differential-compare.local");
+  url.searchParams.set("ids", ids.join(","));
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 export function differentialRouteWithQuery(
   path: string,
   query: string,

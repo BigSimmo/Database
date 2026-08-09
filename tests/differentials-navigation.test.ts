@@ -6,6 +6,7 @@ import {
   resolveDifferentialCompareLaunchHref,
 } from "@/lib/differentials";
 import {
+  differentialCompareSearchHref,
   differentialIdsFromSearchParams,
   differentialRouteWithQuery,
   differentialSelectedCompareHref,
@@ -112,5 +113,13 @@ describe("differentials navigation", () => {
     expect(items.map((item) => item.slug)).toEqual(["delirium", "dementia-neurocognitive-disorder"]);
     expect(items[0]).toEqual({ slug: "delirium", title: "Delirium" });
     expect(items[1]?.title.toLowerCase()).toContain("dementia");
+  });
+
+  it("preserves compare-queue ids when returning to Search", () => {
+    const href = differentialCompareSearchHref("Pain", ["wernicke-encephalopathy", "delirium"]);
+    expect(href).toContain("/differentials?");
+    expect(href).toContain("q=Pain");
+    expect(href).toContain("run=1");
+    expect(href).toMatch(/ids=wernicke-encephalopathy%2Cdelirium|ids=wernicke-encephalopathy,delirium/);
   });
 });

@@ -343,7 +343,7 @@ describe("differentials mode secondary navigation active destinations", () => {
     expect(activeModeSecondaryNavigationId("differentials", "/differentials/diagnoses")).toBe("diagnoses");
   });
 
-  it("opens the mode bar on the presentations catalogue and compare entry", () => {
+  it("opens the mode bar on the presentations catalogue, presentation detail, and compare entry", () => {
     expect(
       isModeSecondaryNavigationRoute({
         modeId: "differentials",
@@ -364,6 +364,6 @@ describe("differentials mode secondary navigation active destinations", () => {
         pathname: "/differentials/presentations/acute-confusion-encephalopathy",
         hasSubmittedSearch: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 });
