@@ -302,7 +302,7 @@ const PdfPageSlot = memo(function PdfPageSlot({
       ) : (
         <div
           aria-hidden="true"
-          className="h-full w-full max-w-full rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
+          className="h-full w-full max-w-full rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
           style={reservedGeometry ? { width: `${Math.floor(reservedGeometry.width * reservedScale)}px` } : undefined}
         />
       )}
