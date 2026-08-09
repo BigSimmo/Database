@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
-import { checkNodeRuntime, checkNpmRuntime } from "../scripts/check-runtime";
+import packageJson from "../package.json";
+import { NODE_MINIMUM_VERSION, checkNodeRuntime, checkNpmRuntime } from "../scripts/check-runtime";
 
 describe("runtime release gate", () => {
   it("accepts the Node 24 release target", () => {
@@ -13,6 +16,58 @@ describe("runtime release gate", () => {
   it("rejects older and newer major runtimes", () => {
     expect(checkNodeRuntime("23.7.0")).toMatchObject({ ok: false });
     expect(checkNodeRuntime("25.0.0")).toMatchObject({ ok: false });
+  });
+
+  // A matching major used to be sufficient, so 24.13.0 passed every gate and
+  // then failed `npm ci` with an opaque EBADENGINE for jsdom.
+  it("rejects a matching major that is below the dependency floor", () => {
+    const result = checkNodeRuntime("24.13.0");
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain(NODE_MINIMUM_VERSION);
+  });
+
+  it("accepts runtimes at or above the floor", () => {
+    expect(checkNodeRuntime(NODE_MINIMUM_VERSION)).toMatchObject({ ok: true });
+    expect(checkNodeRuntime("24.19.0")).toMatchObject({ ok: true });
+  });
+
+  it("keeps the floor equal to the package.json engines.node declaration", () => {
+    const declared = packageJson.engines.node.match(/>=\s*(\d+\.\d+\.\d+)/)?.[1];
+    expect(declared).toBe(NODE_MINIMUM_VERSION);
+  });
+
+  // The preinstall hook is COPYed into the Docker image on its own, so it
+  // cannot import package.json and restates the range as a literal instead.
+  it("keeps the preinstall hook's declared range equal to package.json engines.node", () => {
+    const source = readFileSync(new URL("../scripts/check-node-engine.cjs", import.meta.url), "utf8");
+    const declared = source.match(/const nodeRange = "([^"]+)"/)?.[1];
+    expect(declared).toBe(packageJson.engines.node);
+  });
+
+  // The SessionStart hook provisions Node before npm exists, so it restates the
+  // bounds in shell. Checking only the floor let a Node 25 container skip
+  // provisioning and then fail npm ci against the "<25" half of the range.
+  describe("SessionStart hook runtime bounds", () => {
+    const hook = readFileSync(new URL("../.claude/hooks/session-start.sh", import.meta.url), "utf8");
+    const engineFloor = packageJson.engines.node.match(/>=\s*(\d+\.\d+\.\d+)/)?.[1];
+    const engineCeiling = packageJson.engines.node.match(/<\s*(\d+)/)?.[1];
+
+    it("declares the same floor and exclusive ceiling as package.json engines.node", () => {
+      expect(hook.match(/^NODE_MINIMUM="([^"]+)"/m)?.[1]).toBe(engineFloor);
+      expect(hook.match(/^NODE_MAJOR_CEILING="([^"]+)"/m)?.[1]).toBe(engineCeiling);
+    });
+
+    it("pins an install version that is itself inside the supported range", () => {
+      const pinned = hook.match(/^NODE_VERSION="([^"]+)"/m)?.[1];
+      expect(pinned).toBeDefined();
+      expect(checkNodeRuntime(pinned!)).toMatchObject({ ok: true });
+      expect(Number(pinned!.split(".")[0])).toBeLessThan(Number(engineCeiling));
+    });
+
+    it("uses a Bash-native comparison without GNU sort", () => {
+      expect(hook).not.toContain("sort -V");
+      expect(hook).toContain("(( actual_patch >= minimum_patch ))");
+    });
   });
 
   it("reports unparsable runtime versions as failures", () => {

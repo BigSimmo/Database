@@ -108,6 +108,17 @@ export const pageOwnedHeaderRoutes = [
     selector: '[data-testid="differential-detail-header"]',
     phoneMotion: "overlay" as const,
   },
+  {
+    // The breadcrumb shape of the same shared header: no section track, and on
+    // this route a second band for the reading-level segments. That band is the
+    // reason it is here — it is the tallest addon the collapse row carries, so
+    // it is the strongest test that `--phone-overlay-chrome-h` is measured from
+    // the live stack rather than assumed.
+    name: "factsheet detail navigation",
+    route: "/factsheets/sertraline",
+    selector: '[data-testid="factsheet-detail-header"]',
+    phoneMotion: "overlay" as const,
+  },
 ];
 
 export const standalonePageOwnedFooterRoutes = [

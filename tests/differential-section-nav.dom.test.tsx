@@ -43,6 +43,7 @@ function buildContext(overrides: DifferentialDetailContextOverrides = {}): Diffe
   const { source: sourceOverride, ...rest } = overrides;
   return {
     knownRelatedSlugs: [],
+    termLinks: {},
     overlapLinks: {},
     comparePresentation: null,
     ...rest,
