@@ -292,7 +292,11 @@ assert(
 assert(globalsForTherapy.includes("body:has([data-therapy-root])"), "Therapy print isolation must stay in globals.css");
 assert(globalsForTherapy.includes("[data-therapy-no-print]"), "Therapy no-print hooks must stay in globals.css");
 const controlsSource = textAt("src/components/therapy-compass/controls.ts");
-assert(controlsSource.includes("hover:enabled:"), "Therapy buttons need a hover state");
+// Unavailable placeholders now use aria-disabled (keyboard-reachable reason), so
+// hover must stay quiet under both encodings: `hover:not-aria-disabled:enabled:`.
+// The older `hover:enabled:` form still passes — it is what native-disabled-only
+// recipes used before the dual-encoding contract.
+assert(/hover:(?:not-aria-disabled:)?enabled:/.test(controlsSource), "Therapy buttons need a hover state");
 assert(controlsSource.includes("disabled:"), "Therapy buttons need a disabled state");
 assert(controlsSource.includes("export const therapyBtn"), "Therapy shared button recipe is missing");
 

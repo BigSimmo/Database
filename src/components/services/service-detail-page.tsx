@@ -30,6 +30,7 @@ import { useState, type ReactNode } from "react";
 
 import {
   cn,
+  ignoreUnavailableActivation,
   metadataPillDensity,
   textMuted,
   toneDanger,
@@ -608,10 +609,11 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
             ) : (
               <button
                 type="button"
-                disabled
+                aria-disabled="true"
+                onClick={ignoreUnavailableActivation}
                 title="Call — no contact number listed for this service"
                 aria-describedby="service-call-unavailable"
-                className={cn(inPageActionRowClass, "opacity-60")}
+                className={inPageActionRowClass}
               >
                 <Phone className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
                 Call
