@@ -94,10 +94,11 @@ detailed DocumentViewer rules remain invariant 22 — but new work mounts `InPag
 
 **Adopted so far:** `/differentials/diagnoses/[slug]`, `/services/[slug]`, `/forms/[slug]`,
 `/specifiers/[slug]` (record and catalogue reference), `/formulation/[slug]`,
-`/dsm/diagnoses/[slug]` and its `/differentials` child. Each is also listed in
+`/dsm/diagnoses/[slug]` and its `/differentials` child, and factsheet detail pages
+(`/factsheets/[slug]`). Each is also listed in
 `isHeaderAddonSlotOwnedRoute` (`src/components/mode-nav/header-addon-slot.ts`), which is how
 the one-header-per-slot rule stays checkable. Still on their own patterns: medications
-(`SectionTabs`), factsheets, and differentials presentations.
+(`SectionTabs`) and differentials presentations.
 
 **Visual slots (adapt labels, back href, sections, and actions to the mode):**
 

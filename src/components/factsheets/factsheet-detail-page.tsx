@@ -139,28 +139,31 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           testIdPrefix="factsheet"
           actions={() => (
             // Deliberately does not close the sheet: saving is a state change
-            // you want to see reflected on the control you just pressed.
-            <button
-              type="button"
-              onClick={toggleSaved}
-              aria-pressed={saved}
-              className={cn(
-                "flex min-h-tap w-full items-center gap-2.5 rounded-lg border px-3 text-left text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                saved
-                  ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--border-strong)]",
-              )}
-            >
-              <Bookmark className="h-4 w-4 shrink-0" aria-hidden="true" fill={saved ? "currentColor" : "none"} />
-              {saved ? "Saved" : "Save"}
-            </button>
+            // you want to see reflected on the control you just pressed. The
+            // live region lives here too — `Sheet` makes the page subtree inert,
+            // so a background status would never reach assistive technology while
+            // the modal is open (including the denied-storage failure path).
+            <>
+              <button
+                type="button"
+                onClick={toggleSaved}
+                aria-pressed={saved}
+                className={cn(
+                  "flex min-h-tap w-full items-center gap-2.5 rounded-lg border px-3 text-left text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  saved
+                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--border-strong)]",
+                )}
+              >
+                <Bookmark className="h-4 w-4 shrink-0" aria-hidden="true" fill={saved ? "currentColor" : "none"} />
+                {saved ? "Saved" : "Save"}
+              </button>
+              <span aria-live="polite" className="sr-only">
+                {saveNotice}
+              </span>
+            </>
           )}
         />
-        {/* The only surfacing of the save-failure path, so it moves with Save
-            rather than being dropped with the toolbar that used to host it. */}
-        <span aria-live="polite" className="sr-only">
-          {saveNotice}
-        </span>
 
         <div className="mx-auto grid max-w-[64rem] gap-8 px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_16.5rem] lg:items-start lg:px-8">
           <article className="min-w-0">

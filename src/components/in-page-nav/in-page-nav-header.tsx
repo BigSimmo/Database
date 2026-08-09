@@ -15,7 +15,7 @@ import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/s
 import { Sheet } from "@/components/ui/sheet";
 import { cn, pageContainer } from "@/components/ui-primitives";
 
-export type InPageNavHeaderProps = {
+type InPageNavHeaderSharedProps = {
   /** `label` is the mode home's name: shown from `sm`, and the aria-label at every width. */
   back: { href: string; label: string };
   /**
@@ -33,16 +33,6 @@ export type InPageNavHeaderProps = {
    * header *is* the only title (the document viewer shape) pass `"h1"`.
    */
   titleAs?: "span" | "h1";
-  /**
-   * Omit on a page with no section index. The header then drops the title
-   * disclosure, the section sheet and the segment track and renders the
-   * breadcrumb shape: back, title, optional primary action, optional view mode,
-   * ellipsis. `usePageSectionWeights` observes nothing for an empty list, so
-   * those pages pay none of the measurement cost.
-   */
-  sections?: readonly PageSection[];
-  activeId?: string | null;
-  onSelectSection?: (id: string) => void;
   /**
    * The one page action worth reaching at any scroll position. It is
    * deliberately singular: a second promoted control is what turns a header row
@@ -89,6 +79,30 @@ export type InPageNavHeaderProps = {
 };
 
 /**
+ * Section navigation is all-or-nothing: a non-empty `sections` list renders the
+ * disclosure, sheet, and track, so `onSelectSection` must be present or those
+ * controls would click with no effect. Omit `sections` for the breadcrumb shape.
+ */
+export type InPageNavHeaderProps =
+  | (InPageNavHeaderSharedProps & {
+      /**
+       * Omit on a page with no section index. The header then drops the title
+       * disclosure, the section sheet and the segment track and renders the
+       * breadcrumb shape: back, title, optional primary action, optional view mode,
+       * ellipsis. `usePageSectionWeights` observes nothing for an empty list, so
+       * those pages pay none of the measurement cost.
+       */
+      sections?: undefined;
+      activeId?: undefined | null;
+      onSelectSection?: undefined;
+    })
+  | (InPageNavHeaderSharedProps & {
+      sections: readonly PageSection[];
+      activeId?: string | null;
+      onSelectSection: (id: string) => void;
+    });
+
+/**
  * The repository's default in-page navigation, codified in
  * `docs/search-chrome-behaviour.md` ("Default in-page navigation template"):
  * back control, title carrying the active section on line two behind a chevron
@@ -115,25 +129,28 @@ export type InPageNavHeaderProps = {
  * header's collapse row, which owns the scroll motion — this must never grow a
  * scroll-hide hook of its own.
  */
-export function InPageNavHeader({
-  back,
-  showBackLabel = true,
-  title,
-  titleAs = "span",
-  sections = [],
-  activeId = null,
-  onSelectSection,
-  primaryAction,
-  mode,
-  sectionSheetTitle,
-  actions,
-  actionsTitle,
-  actionsDescription,
-  actionsNoun = "page",
-  testIdPrefix,
-  className,
-  containerClassName,
-}: InPageNavHeaderProps) {
+export function InPageNavHeader(props: InPageNavHeaderProps) {
+  const {
+    back,
+    showBackLabel = true,
+    title,
+    titleAs = "span",
+    primaryAction,
+    mode,
+    sectionSheetTitle,
+    actions,
+    actionsTitle,
+    actionsDescription,
+    actionsNoun = "page",
+    testIdPrefix,
+    className,
+    containerClassName,
+  } = props;
+  // Discriminated: present `sections` always carries `onSelectSection`. Default
+  // the list to empty for the breadcrumb shape so measurement sees nothing.
+  const sections = props.sections ?? [];
+  const activeId = props.activeId ?? null;
+  const onSelectSection = props.sections ? props.onSelectSection : undefined;
   // Both sheets record the route they were opened on rather than a bare
   // boolean, so navigating closes them without an effect that resets state.
   // This is load-bearing, not tidiness: most page actions are `<Link>`s, and
@@ -230,38 +247,21 @@ export function InPageNavHeader({
                 {title}
               </TitleTag>
             )}
-            {mode ? (
-              // `max-sm:order-last` plus the primitive's own `w-full` puts this
-              // on its own full-width band below `sm`; `sm:w-auto` brings it back
-              // inline, so tablets and desktops pay no extra header height.
-              <SegmentedControl
-                label={mode.label}
-                value={mode.value}
-                options={mode.options}
-                onChange={mode.onChange}
-                // `fit`, not `equal`. `equal` gives each segment a `min-w-8rem`
-                // floor sized for a full-width group, but `sm:w-auto` makes the
-                // group shrink-to-fit and its intrinsic width is computed from
-                // the labels — 171px measured against 268px of segments, which
-                // overflowed under the primary action at 700–834px. `fit` sizes
-                // the segments to their labels, and the phone band gets its even
-                // split from the child override instead of from the floor.
-                layout="fit"
-                className="max-sm:order-last max-sm:[&>button]:flex-1 sm:w-auto sm:shrink-0 sm:flex-nowrap"
-              />
-            ) : null}
             {primaryAction ? (
               // Bordered rather than the filled `--command` slab: a header that
               // is pinned to every scroll position should not carry the page's
               // heaviest control. The label is `sr-only` below `sm` so the
               // accessible name never changes with the breakpoint.
+              // `sm:order-2` pairs with the mode control's `sm:order-1` so the
+              // phone DOM order (actions before mode) stays the keyboard order
+              // while desktop still paints mode between the title and the verbs.
               <Button
                 variant="secondary"
                 size="sm"
                 icon={primaryAction.icon}
                 onClick={primaryAction.onClick}
                 testId={`${testIdPrefix}-primary-action`}
-                className="ml-auto shrink-0 max-sm:w-tap max-sm:gap-0 max-sm:px-0"
+                className="ml-auto shrink-0 max-sm:w-tap max-sm:gap-0 max-sm:px-0 sm:order-2"
               >
                 <span className="max-sm:sr-only">{primaryAction.label}</span>
               </Button>
@@ -277,7 +277,7 @@ export function InPageNavHeader({
                 title={`${actionsNoun.charAt(0).toUpperCase()}${actionsNoun.slice(1)} actions`}
                 data-testid={`${testIdPrefix}-actions-trigger`}
                 className={cn(
-                  "focus-ring-tab grid h-tap w-tap shrink-0 place-items-center rounded-xl text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
+                  "focus-ring-tab grid h-tap w-tap shrink-0 place-items-center rounded-xl text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] sm:order-3",
                   // Beside a promoted action the bordered face would be its
                   // visual twin and the row would read as two equal buttons.
                   // Alone, it is the row's only control and keeps its own face.
@@ -288,6 +288,28 @@ export function InPageNavHeader({
               >
                 <Ellipsis className="h-5 w-5" strokeWidth={2.25} aria-hidden />
               </button>
+            ) : null}
+            {mode ? (
+              // DOM order places this after the verbs so phone keyboard order
+              // matches the painted rows (mode is the lower full-width band).
+              // From `sm`, `order-1` pulls it back beside the title; the
+              // primitive's own `w-full` plus `sm:w-auto` is what drops the
+              // extra phone band without costing desktop height.
+              <SegmentedControl
+                label={mode.label}
+                value={mode.value}
+                options={mode.options}
+                onChange={mode.onChange}
+                // `fit`, not `equal`. `equal` gives each segment a `min-w-8rem`
+                // floor sized for a full-width group, but `sm:w-auto` makes the
+                // group shrink-to-fit and its intrinsic width is computed from
+                // the labels — 171px measured against 268px of segments, which
+                // overflowed under the primary action at 700–834px. `fit` sizes
+                // the segments to their labels, and the phone band gets its even
+                // split from the child override instead of from the floor.
+                layout="fit"
+                className="max-sm:[&>button]:flex-1 sm:order-1 sm:w-auto sm:shrink-0 sm:flex-nowrap"
+              />
             ) : null}
           </div>
           {documentSections.length > 0 ? (
@@ -316,6 +338,7 @@ export function InPageNavHeader({
             sections={documentSections}
             activeId={activeSection?.id ?? null}
             onSelect={(id) => {
+              // Present only when `sections` was provided (discriminated props).
               onSelectSection?.(id);
               setSectionSheetOpen(false);
             }}
