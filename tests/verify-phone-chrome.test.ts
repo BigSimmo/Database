@@ -141,4 +141,60 @@ describe("runPhoneChromeStages", () => {
     expect(exit).toHaveBeenCalledWith(1);
     expect(runCommand).toHaveBeenCalledTimes(2);
   });
+
+  it("reuses one Playwright build root across multiple browser stages and cleans it", () => {
+    const exit = vi.fn() as unknown as typeof process.exit;
+    const runCommand = vi.fn().mockReturnValue(0);
+    const cleanupBuildRoot = vi.fn();
+    const stages = [
+      {
+        id: "focused-browser",
+        label: "browser",
+        command: { executable: "node", args: ["scripts/run-playwright.mjs", "tests/ui-smoke.spec.ts"] },
+      },
+      { id: "full-ui", label: "full", command: { executable: "npm", args: ["run", "verify:ui"] } },
+    ];
+
+    const code = runPhoneChromeStages(stages, {
+      runCommand,
+      exit,
+      log: () => undefined,
+      env: { NODE_ENV: "test" },
+      cleanupBuildRoot,
+    });
+
+    expect(code).toBe(0);
+    expect(exit).not.toHaveBeenCalled();
+    expect(runCommand).toHaveBeenCalledTimes(2);
+    const firstEnv = runCommand.mock.calls[0]?.[1]?.env as Record<string, string>;
+    const secondEnv = runCommand.mock.calls[1]?.[1]?.env as Record<string, string>;
+    expect(firstEnv.PLAYWRIGHT_KEEP_BUILD_ROOT).toBe("true");
+    expect(firstEnv.PLAYWRIGHT_BUILD_ROOT_ID).toMatch(/^phone-chrome-/);
+    expect(secondEnv.PLAYWRIGHT_BUILD_ROOT_ID).toBe(firstEnv.PLAYWRIGHT_BUILD_ROOT_ID);
+    expect(cleanupBuildRoot).toHaveBeenCalledWith(firstEnv.PLAYWRIGHT_BUILD_ROOT_ID, expect.any(Object));
+  });
+
+  it("does not invent a shared root for a single browser stage", () => {
+    const runCommand = vi.fn().mockReturnValue(0);
+    const cleanupBuildRoot = vi.fn();
+    const stages = [
+      {
+        id: "focused-browser",
+        label: "browser",
+        command: { executable: "node", args: ["scripts/run-playwright.mjs"] },
+      },
+    ];
+
+    runPhoneChromeStages(stages, {
+      runCommand,
+      exit: vi.fn() as unknown as typeof process.exit,
+      log: () => undefined,
+      env: { NODE_ENV: "test" },
+      cleanupBuildRoot,
+    });
+
+    const passedEnv = runCommand.mock.calls[0]?.[1]?.env as Record<string, string>;
+    expect(passedEnv.PLAYWRIGHT_KEEP_BUILD_ROOT).toBeUndefined();
+    expect(cleanupBuildRoot).not.toHaveBeenCalled();
+  });
 });

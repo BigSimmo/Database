@@ -986,7 +986,8 @@ test.describe("Clinical KB tools launcher", () => {
 
   for (const viewport of [
     { name: "mobile", width: 390, height: 820 },
-    { name: "tablet", width: 768, height: 1024 },
+    // Tablet (≥640) shares the desktop-page composer path with desktop; keep one
+    // representative width above the phone breakpoint.
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
     for (const route of [

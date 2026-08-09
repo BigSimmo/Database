@@ -36,6 +36,9 @@ export function formatLowRamBuildMessage(totalRamBytes = os.totalmem()) {
   ].join("\n");
 }
 
+/** Distinct from generic failures so verify:pr-local can name a refused build (#167). */
+export const DEV_SERVER_BUILD_REFUSED_EXIT_CODE = 76;
+
 function requestJson(port) {
   return new Promise((resolve) => {
     let settled = false;
@@ -115,9 +118,10 @@ async function main() {
       [
         `Refusing to run next build while ${appName} dev server is running at http://localhost:${runningPort}.`,
         "Stop the dev server first, or set ALLOW_BUILD_WITH_DEV_SERVER=1 if this cache churn is intentional.",
+        `BUILD_REFUSED_DEV_SERVER exit=${DEV_SERVER_BUILD_REFUSED_EXIT_CODE}`,
       ].join("\n"),
     );
-    process.exit(1);
+    process.exit(DEV_SERVER_BUILD_REFUSED_EXIT_CODE);
   }
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluateNextBuildRamGuard } from "../scripts/guard-next-build.mjs";
+import { DEV_SERVER_BUILD_REFUSED_EXIT_CODE, evaluateNextBuildRamGuard } from "../scripts/guard-next-build.mjs";
 
 const eightGiB = 8 * 1024 * 1024 * 1024;
 const twelveGiB = 12 * 1024 * 1024 * 1024;
@@ -23,5 +23,11 @@ describe("evaluateNextBuildRamGuard", () => {
     expect(evaluateNextBuildRamGuard({ totalRamBytes: eightGiB, env: { CI: "true" } })).toBe("warn");
     expect(evaluateNextBuildRamGuard({ totalRamBytes: eightGiB, env: { GITHUB_ACTIONS: "true" } })).toBe("warn");
     expect(evaluateNextBuildRamGuard({ totalRamBytes: eightGiB, env: { ALLOW_LOW_RAM_BUILD: "1" } })).toBe("warn");
+  });
+});
+
+describe("DEV_SERVER_BUILD_REFUSED_EXIT_CODE", () => {
+  it("uses a dedicated non-zero code so refused builds cannot look green (#167)", () => {
+    expect(DEV_SERVER_BUILD_REFUSED_EXIT_CODE).toBe(76);
   });
 });
