@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import Link from "next/link";
 import userEvent from "@testing-library/user-event";
 import { Compass, ShieldCheck, Stethoscope } from "lucide-react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { toDocumentSections, type PageSection } from "@/components/in-page-nav/page-section-index";
@@ -11,6 +11,12 @@ import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
 /** Reassigned per case so a rerender can simulate a route change. */
 let pathname: string | null = null;
 vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+
+// Module state, so a case that navigates would otherwise hand its final
+// pathname to whichever case runs next.
+beforeEach(() => {
+  pathname = null;
+});
 
 /** `PhoneHeaderCollapsePortal` resolves its host only below this breakpoint. */
 function stubPhoneBreakpoint(isPhone: boolean) {
