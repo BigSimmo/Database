@@ -123,6 +123,7 @@ const metrics = {
   arbitraryTracking: 0,
   rawPaddingLiterals: 0,
   rawRadiusLiterals: 0,
+  rawGapLiterals: 0,
   rawLineHeightLiterals: 0,
   layoutTransitionExceptions: 0,
   textSoftConsumers: 0,
@@ -196,6 +197,7 @@ for (const file of files) {
   recordDebt("arbitraryTracking", file.relativePath, classAnalysis.arbitraryTracking.length);
   recordDebt("rawPaddingLiterals", file.relativePath, classAnalysis.rawPaddingLiterals.length);
   recordDebt("rawRadiusLiterals", file.relativePath, classAnalysis.rawRadiusLiterals.length);
+  recordDebt("rawGapLiterals", file.relativePath, classAnalysis.rawGapLiterals.length);
   recordDebt("rawLineHeightLiterals", file.relativePath, classAnalysis.rawLineHeightLiterals.length);
   for (const step of classAnalysis.typeStepUsages) typeStepUsage.add(step);
   for (const step of findTypeStepCssUsagesInSource(source, file.relativePath)) typeStepCssUsage.add(step);
@@ -211,6 +213,7 @@ for (const file of files) {
     recordDebt("legacyShadowAliases", file.relativePath, cssAnalysis.legacyShadowAliases.length);
     recordDebt("rawPaddingLiterals", file.relativePath, cssAnalysis.rawPaddingLiterals.length);
     recordDebt("rawRadiusLiterals", file.relativePath, cssAnalysis.rawRadiusLiterals.length);
+    recordDebt("rawGapLiterals", file.relativePath, cssAnalysis.rawGapLiterals.length);
     recordDebt("rawLineHeightLiterals", file.relativePath, cssAnalysis.rawLineHeightLiterals.length);
     imageInversionFindings.push(...cssAnalysis.imageInversions);
     layoutTransitionFindings.push(...cssAnalysis.layoutTransitions);
@@ -476,7 +479,7 @@ console.log(
   `Status-colour boundary: colour-only status indicators ${metrics.colourOnlyStatusIndicators}; status-coloured numerals ${metrics.statusColouredNumerals}; image inversions ${imageInversionFindings.length}.`,
 );
 console.log(
-  `Scale ratchets: raw padding literals ${metrics.rawPaddingLiterals}; raw radius literals ${metrics.rawRadiusLiterals}; raw line-height literals ${metrics.rawLineHeightLiterals}.`,
+  `Scale ratchets: raw padding literals ${metrics.rawPaddingLiterals}; raw radius literals ${metrics.rawRadiusLiterals}; raw gap literals ${metrics.rawGapLiterals}; raw line-height literals ${metrics.rawLineHeightLiterals}.`,
 );
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);
