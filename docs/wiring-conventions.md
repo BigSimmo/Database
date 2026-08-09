@@ -22,13 +22,28 @@ Every interactive `<button>` must resolve to a behaviour:
 - **Busy / async** — route through the shared busy-state contract in `src/components/ui-primitives.tsx`
   (spinner + `disabled` + live-region announcement), not an ad-hoc disabled flag.
 
-For a feature that is **not yet built**, use the explicit disabled-placeholder pattern — never a fake
-or empty handler. The reference markup is `favourites-hub.tsx`:
+### Unavailable controls: which disabled encoding, and why it is a real decision
+
+Two kinds of control look identical on screen and are not the same thing:
+
+- **Unavailable for a stated reason** — the feature is not built yet, or the action needs data this
+  record does not have ("no official source URL is recorded for this form"). The reason is written
+  down, in a `title` and usually an `sr-only` span wired by `aria-describedby`.
+- **Transiently inert** — a submit button while a request is in flight, a pager at its first or last
+  page, a form action that is off until the form is valid. There is nothing to explain; the state
+  resolves itself as the user works.
+
+**Stated reason → `aria-disabled="true"` plus an inert handler.** Never the native attribute:
+`disabled` removes the tab stop, so a keyboard user — and a screen-reader user who moves by Tab
+rather than by virtual cursor — can never land on the control, and the reason we went to the trouble
+of writing is never announced. The explanation existed and was unreachable; the control simply
+vanished. Reference markup is `favourites-hub.tsx`:
 
 ```tsx
 <button
   type="button"
-  disabled
+  aria-disabled="true"
+  onClick={ignoreUnavailableActivation}
   aria-describedby="thing-unavailable"
   className="… cursor-not-allowed opacity-60 …"
   title="Thing — coming soon"
@@ -40,28 +55,48 @@ or empty handler. The reference markup is `favourites-hub.tsx`:
 </span>
 ```
 
-**Native `disabled`, not `aria-disabled`, is the default here** — and the reason is worth stating,
-because `disabled` looks like it should suppress the `aria-describedby` reason and does not. A
-disabled button stays in the accessibility tree with its accessible description intact, so a screen
-reader reaching it by virtual cursor or swipe still announces why it is unavailable. That is asserted,
-not assumed: `tests/favourites-hub-unavailable-controls.dom.test.tsx` pins `toBeDisabled()`,
-`not.toHaveAttribute("aria-disabled")` **and** `toHaveAccessibleDescription(...)` together on all three
-hub placeholders. What `disabled` does remove is the tab stop, which is why the `title` matters for
-pointer users and why WCAG permits it (a disabled control is exempt from focus-order requirements).
+`ignoreUnavailableActivation` (`ui-primitives.tsx`) is the shared handler. It calls
+`preventDefault()` **and** `stopPropagation()`, because that is what the native attribute did: a
+disabled button fires no click at all, so nothing bubbled to a clickable ancestor.
 
-Reach for `aria-disabled="true"` plus a no-op handler only when the control genuinely must stay
-tabbable — a roving-tabindex group where skipping a dead end would strand arrow navigation, as in
-`ResultFilterSheet`. `AGENTS.md` accepts either form, and `require-button-wiring` treats both as
-wired.
+**Transient → keep native `disabled`.** It is correct there: the control is genuinely inert and
+momentary, the browser's own semantics are right, and making it focusable would be a regression, not
+a fix. Sites deliberately left native include the compare action in `differential-stream-workspace.tsx`
+(needs two diagnoses selected — and the same sentence is already rendered as visible text above it),
+the pin editor's save button in `search-pins-menu.tsx` (form validity), the services compare and
+clear actions in `services-navigator-page.tsx`, and the composer send in `master-search-header.tsx`.
 
-**Both attributes together is a third shape, and the repo currently pins it two different ways.**
-`tests/mobile-interaction-regressions.test.ts` asserts the density placeholders in
-`differential-presentation-workflow-page.tsx` are native-only (`not.toContain("aria-disabled")`),
-and in the same file asserts `disabled aria-disabled="true"` together for the Add placeholders in
-`visual-evidence.tsx` and `evidence-panels.tsx`. Those two positions have not been reconciled — the
-pairing is redundant (native `disabled` already conveys the state, and the two attributes disagree
-about focusability), but it is pinned, so do not "tidy" either shape without settling which one wins.
-Tracked as `#291`.
+A third case keeps `aria-disabled` for a different reason: a **roving-tabindex group** where skipping
+a dead end would strand arrow navigation, as in `ResultFilterSheet` (`result-filter-control.tsx`) and
+the facet chips in `document-search-results.tsx`. Same encoding, same guarded click.
+
+**The two attributes together is not belt and braces — it is the bug wearing a disguise.** The native
+attribute wins on focus, so `disabled aria-disabled="true"` behaves exactly like `disabled` alone
+while looking like it was thought about. `require-button-wiring` now fails on that pair
+(`redundantDisabledPair`), on any `<button>` regardless of `type`; a pair where either side is
+statically off (`disabled={false}` beside `aria-disabled="true"`) still passes, since that is a real
+way to spell a conditional placeholder. This settles ledger `#291`, which tracked the repo pinning
+the pairing two contradictory ways.
+
+**Styling does not follow for free.** With the native attribute gone, `disabled:` variant classes
+stop applying and the control becomes hoverable. Convert the variants alongside the attribute:
+`disabled:` → `aria-disabled:`, and suppress hover with `hover:not-aria-disabled:` (the therapy
+recipes in `therapy-compass/controls.ts` do this; `controlDisabled` in `ui-primitives.tsx` carries
+both halves so anything built on `controlBase` / `floatingControl` / `toolbarButton` is already
+covered). A converted control that quietly lights up on hover reads as available again.
+
+What holds this in place: `tests/require-button-wiring.test.ts` pins that the lint rule actually
+fires in both directions, and `tests/favourites-hub-unavailable-controls.dom.test.tsx` tabs onto a
+converted placeholder, asserts it takes focus, asserts the accessible description is what the reader
+gets, and asserts activating it by keyboard and by pointer does nothing.
+
+**Not yet converted**, and deliberately so — the four "not available in this comparison view"
+placeholders and the Compact/Detailed density pair in
+`differentials/differential-presentation-workflow-page.tsx`. That page is scheduled for a rewrite, and
+`tests/mobile-interaction-regressions.test.ts` still pins the density pair as native-only. Convert
+them with that rewrite, not before. `document-viewer/document-image-filmstrip.tsx` and the
+`DocumentViewer.tsx` summarize action are also still native (the latter mixes an auth reason with a
+loading state, so it needs splitting before it can be classified).
 
 **Read-only indicators are not controls.** The shared `ToggleSwitch` (`ui-primitives.tsx`) renders an
 operable `role="switch"` only when an `onToggle` is passed; without it, it is a presentational
@@ -133,12 +168,12 @@ both wiring gates skip them.
 
 ## The gates
 
-| Gate                                       | Catches                                                   | Runs in                             |
-| ------------------------------------------ | --------------------------------------------------------- | ----------------------------------- |
-| `eslint-rules/require-button-wiring.mjs`   | `<button type="button">` with no handler / disabled state | `npm run lint` → `verify:cheap`, CI |
-| `tests/route-reachability.test.ts`         | static production page routes with no inbound nav link    | `npm run test` → `verify:cheap`, CI |
-| `tests/site-map.test.ts` / `sitemap:check` | routes / nav hrefs missing from `docs/site-map.md`        | `npm run test`, `verify:cheap`, CI  |
-| `npm run check:knip`                       | dead exports / orphan modules (e.g. unused href builders) | `verify:cheap`, CI                  |
+| Gate                                       | Catches                                                                                          | Runs in                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| `eslint-rules/require-button-wiring.mjs`   | `<button type="button">` with no handler / disabled state; `disabled` + `aria-disabled` together | `npm run lint` → `verify:cheap`, CI |
+| `tests/route-reachability.test.ts`         | static production page routes with no inbound nav link                                           | `npm run test` → `verify:cheap`, CI |
+| `tests/site-map.test.ts` / `sitemap:check` | routes / nav hrefs missing from `docs/site-map.md`                                               | `npm run test`, `verify:cheap`, CI  |
+| `npm run check:knip`                       | dead exports / orphan modules (e.g. unused href builders)                                        | `verify:cheap`, CI                  |
 
 Intentional exceptions are documented, not silenced:
 
@@ -161,6 +196,6 @@ builders remain open. `#007` (`/tools` vs `/?mode=tools`) is resolved: `/tools` 
   without updating API contract tests and docs together.
 - **Coming-soon placeholders (`#010`)** — audited forms refine/reset + Forms tab, favourites hub
   sort/add/new-set, favourites command-library move/remove, and presentation Compact/Detailed density.
-  All use `disabled` or the `aria-disabled` + `title` + `sr-only` / `aria-describedby` pattern (or
-  presentational `ToggleSwitch` without `onToggle`). No fake-interactive controls found; leave
-  unwired until the underlying features land. Reference markup remains `favourites-hub.tsx`.
+  No fake-interactive controls found; leave unwired until the underlying features land. Reference
+  markup remains `favourites-hub.tsx` — which now carries `aria-disabled` + an inert handler rather
+  than the native attribute, per the section above.

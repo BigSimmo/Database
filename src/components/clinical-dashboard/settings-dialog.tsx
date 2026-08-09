@@ -45,7 +45,14 @@ import {
 } from "@/components/clinical-dashboard/use-app-preferences";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { clearRecentQueries, countRecentQueries } from "@/lib/recent-query-storage";
-import { cn, floatingControl, InlineNotice, primaryControl, toggleThumbSurface } from "@/components/ui-primitives";
+import {
+  cn,
+  floatingControl,
+  ignoreUnavailableActivation,
+  InlineNotice,
+  primaryControl,
+  toggleThumbSurface,
+} from "@/components/ui-primitives";
 import { ProviderBrandMark } from "@/components/clinical-dashboard/provider-brand-icons";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
@@ -1365,12 +1372,15 @@ function SettingsProviderRow({
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={Boolean(disabledReason)}
+      onClick={disabledReason ? ignoreUnavailableActivation : onClick}
+      aria-disabled={disabledReason ? true : undefined}
       title={disabledReason ? `${disabledReason.replace(/\.$/, "")} — coming soon` : undefined}
       aria-label={label}
       aria-describedby={descriptionId}
-      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none"
+      // `aria-disabled` rather than `disabled` so the row keeps its tab stop and
+      // the `disabledReason` below is actually reachable by keyboard; the click
+      // is inert instead. Styling and hover follow the attribute.
+      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:not-aria-disabled:border-[color:var(--border-strong)] hover:not-aria-disabled:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] aria-disabled:cursor-not-allowed aria-disabled:bg-[color:var(--surface-inset)] aria-disabled:text-[color:var(--disabled)] aria-disabled:opacity-75 aria-disabled:shadow-none"
     >
       {provider === "email" ? (
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">

@@ -169,8 +169,9 @@ applies; unknown non-document paths fail closed to heavy scope.
 These fail builds, so they are worth knowing before you write code:
 
 - **Button wiring.** Every `<button>` does something — handler, submit inside a form, or
-  navigation. Not-yet-built features use the explicit disabled-placeholder pattern
-  (`disabled`/`aria-disabled` + `title="… — coming soon"` + `sr-only` note). Enforced by
+  navigation. A control unavailable for a stated reason uses `aria-disabled="true"` + an inert
+  handler + `title="… — coming soon"` + `sr-only` note; native `disabled` is for transient
+  inertness only, and the two attributes together fail lint. Enforced by
   `eslint-rules/require-button-wiring.mjs`. Never blanket-disable the rule.
 - **No orphan routes.** A new production page route needs an inbound link from real nav,
   then `npm run sitemap:update`, a `docs/codebase-index.md` entry, and a reachability

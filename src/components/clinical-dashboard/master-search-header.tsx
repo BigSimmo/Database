@@ -55,6 +55,7 @@ import {
   chatSendButton,
   floatingControl,
   glassOverlaySurface,
+  ignoreUnavailableActivation,
   shellChip,
   eyebrowText,
 } from "@/components/ui-primitives";
@@ -2156,8 +2157,9 @@ export function MasterSearchHeader({
               <button
                 type="button"
                 aria-disabled="true"
+                onClick={ignoreUnavailableActivation}
                 aria-describedby="workflow-language-region-unavailable"
-                className="universal-header-icon-control grid h-tap w-tap shrink-0 cursor-not-allowed place-items-center rounded-full text-[color:var(--text-muted)] opacity-60 transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="universal-header-icon-control grid h-tap w-tap shrink-0 cursor-not-allowed place-items-center rounded-full text-[color:var(--text-muted)] opacity-60 transition hover:not-aria-disabled:bg-[color:var(--surface-subtle)] hover:not-aria-disabled:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 aria-label="Language and region settings (coming soon)"
                 title="Language and region — coming soon"
               >
