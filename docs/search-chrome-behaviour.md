@@ -53,6 +53,40 @@ the hooks, and receives `actions` as a `ReactNode` slot — server-rendered JSX 
 Both sheets close on `pathname` change, because action JSX passed in from a server page has no
 way to call `close()`.
 
+**The section table lives in the nav-header sibling — always.** A page's `PageSection[]` is
+owned and exported by a colocated `"use client"` nav-header sibling named for the route
+(`src/components/specifiers/specifier-nav-header.tsx`). It is **not** declared inline in the
+page component, and **not** put in a separate per-route section-index module. This holds
+whether the page is a Server Component or a Client Component.
+
+The four Server Component pages — `specifier-record-page`, `specifier-reference-page`,
+`formulation-mechanism-page`, `dsm-diagnosis-page` — have no choice: as the paragraph above
+explains, neither `onSelectSection` nor a `LucideIcon` crosses the RSC boundary, so those
+routes need the sibling regardless of where the table would otherwise prefer to live.
+Extending the same shape to Client Component pages buys two things a per-page judgement call
+does not: one answer to "where does the section table live", and one import path for
+`tests/in-page-nav-route-sections.dom.test.tsx`, which imports every route's sections to
+assert its anchors against rendered DOM. PR #1766 shipped both shapes at once, and the closed
+PR #1767 proposed a third (a standalone section-index module); pinning the rule here is what
+stops that from becoming a per-route coin flip.
+
+**Existing pages are not being migrated to match — this rule binds new conversions only.**
+The inconsistency below is grandfathered, not a defect, and not a cleanup task looking for an
+owner:
+
+- Inline in a `"use client"` page: `serviceNavSections`
+  (`services/service-detail-page.tsx`), `formNavSections` (`forms/form-detail-page.tsx`),
+  `dsmDifferentialNavSections` (`dsm/dsm-differential-considerations-page.tsx`).
+- Separate module: `differentials/detail-section-index.ts`, which is the precedent #1767
+  generalised. It is also the one genuine exception on the merits rather than on history —
+  its sections are built per record by `buildDifferentialSectionIndex` and typed
+  `DocumentSection`, so there is no static `PageSection[]` table for the rule to place. A
+  route whose sections are genuinely data-derived may keep a builder; a route with a fixed
+  list may not.
+
+Touch one of those files for an unrelated reason and leave its section table where it is.
+Converting a route onto `InPageNavHeader` for the first time is the moment the rule applies.
+
 `src/components/DocumentViewer.tsx` still carries its own copy of the header rather than the
 shared one: it owns the page `<h1>`, uses the `edge-glass-header` treatment, and is pinned by
 visual baselines, so converging it is a separate change. It remains the visual reference, and
