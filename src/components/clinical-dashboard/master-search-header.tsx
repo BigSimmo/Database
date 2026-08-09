@@ -515,6 +515,10 @@ export function MasterSearchHeader({
     const frame = window.requestAnimationFrame(() => {
       settledFrame = window.requestAnimationFrame(() => {
         if (pendingModeSelectionFocusRef.current !== searchMode) return;
+        // Phone Sheet may still mount #app-mode-menu during exit animation.
+        // Leave pending armed so a later searchMode tick (or same-mode retry)
+        // can finish restore instead of giving up on a no-op.
+        if (document.getElementById("app-mode-menu")) return;
         restoreFocusUnlessMoved(modeButtonRef.current);
         pendingModeSelectionFocusRef.current = null;
       });
@@ -849,6 +853,29 @@ export function MasterSearchHeader({
       // Wait until the URL-owned mode prop settles before returning focus. The
       // trigger's accessible name changes with that prop; focusing in the click
       // frame races the shared-home URL sync and can fall through to <body>.
+      //
+      // Same-mode reselect is different: shared-home replaceState keeps an
+      // identical URL, so searchMode never changes and the pending-focus effect
+      // gets only the menu-close tick — which can race phone Sheet teardown.
+      if (mode.id === searchMode) {
+        pendingModeSelectionFocusRef.current = mode.id;
+        onSearchModeChange(mode.id);
+        const restoreSameModeFocus = () => {
+          if (pendingModeSelectionFocusRef.current !== mode.id) return;
+          if (document.getElementById("app-mode-menu")) {
+            window.setTimeout(restoreSameModeFocus, 50);
+            return;
+          }
+          if (!restoreFocusUnlessMoved(modeButtonRef.current)) {
+            modeButtonRef.current?.focus({ preventScroll: true });
+          }
+          pendingModeSelectionFocusRef.current = null;
+        };
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(restoreSameModeFocus);
+        });
+        return;
+      }
       pendingModeSelectionFocusRef.current = mode.id;
       onSearchModeChange(mode.id);
       return;
