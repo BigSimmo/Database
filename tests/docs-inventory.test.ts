@@ -54,6 +54,9 @@ describe("scripts documentation inventory", () => {
     expect(hook).toContain('git cat-file -e "HEAD:scripts/update-docs-inventory.mjs"');
     expect(hook).toContain("was removed or renamed by the pending commit; refusing to skip");
     expect(hook).toContain("npm run docs:check-index");
+    expect(hook).toContain("npm run design-system:adoption:update");
+    expect(hook).toContain("sync_design_system_adoption=0");
+    expect(hook).toContain("docs/design-system/adoption-manifest.json");
     expect(hook).toContain("sync_sitemap=0");
     expect(hook).toContain("--diff-filter=ACMRD");
     expect(hook).toContain("git ls-files --others --exclude-standard");

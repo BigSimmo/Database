@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // DocumentViewer resolves a four-way shell state (loading / ready / auth-required
@@ -65,7 +65,7 @@ vi.mock("@/components/document-viewer/pdf-canvas-viewer", () => ({
 import { DocumentViewer } from "@/components/DocumentViewer";
 import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
 
-function detailPayload() {
+function detailPayload(): DocumentDetailPayload {
   return {
     document: {
       id: "doc-1",
@@ -101,7 +101,7 @@ function detailPayload() {
     },
     pageWindow: { from: 1, to: 4, limit: 4, total: 4, hasBefore: false, hasAfter: false },
     chunkWindow: { offset: 0, limit: 8, total: 8, hasBefore: false, hasAfter: false, selectedChunkId: null },
-  } satisfies DocumentDetailPayload;
+  };
 }
 
 // In demo / local-no-auth mode every document is public, so the private-access
@@ -171,6 +171,45 @@ describe("DocumentViewer — shell states", () => {
     // A supplied payload must resolve to the ready shell — neither failure shell.
     expect(screen.queryByText("Source unavailable")).toBeNull();
     expect(screen.queryByText("Sign in required")).toBeNull();
+  });
+
+  // Search/answer opens always attach ?chunk=…. Citation landing used to
+  // scrollIntoView(#pdf-preview-section) whenever a chunk was present, which
+  // skipped the phone overview at the top. Open at the top; the PDF still
+  // targets the cited page inside its own canvas.
+  it("does not auto-scroll the page to the PDF when opening with a chunk deep-link", async () => {
+    const scrolledIds: string[] = [];
+    vi.mocked(Element.prototype.scrollIntoView).mockImplementation(function scrollIntoView(this: Element) {
+      if (this.id) scrolledIds.push(this.id);
+    });
+
+    const detail = detailPayload();
+    detail.chunks = [
+      {
+        id: "chunk-1",
+        page_number: 1,
+        chunk_index: 0,
+        section_heading: "Scope",
+        content: "Cited passage",
+        image_ids: [],
+        metadata: {},
+      },
+    ];
+    detail.window.selectedChunkId = "chunk-1";
+    detail.window.chunks.selectedChunkId = "chunk-1";
+    detail.chunkWindow.selectedChunkId = "chunk-1";
+
+    render(<DocumentViewer documentId="doc-1" initialPage={1} chunkId="chunk-1" initialDetail={detail} />);
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
+    expect(document.getElementById("pdf-preview-section")).not.toBeNull();
+
+    // Flush mount effects before the negative assertion. A waitFor that can
+    // pass while scrolledIds is still empty would miss a late scrollIntoView.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(scrolledIds).not.toContain("pdf-preview-section");
   });
 
   it("requires two characters and ignores an aborted search response after the query changes", async () => {
