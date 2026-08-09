@@ -194,7 +194,9 @@ test("moves a selected mechanism through framework, quality review, and an edita
   await continueStep.click();
   await expect(page.getByTestId("formulation-builder-structure")).toBeVisible();
   const cbtCycle = page.getByRole("radio", { name: /CBT cycle/ });
-  await page.getByText("CBT cycle", { exact: true }).click();
+  // Prefer the radio control over nearby text — the peer is sr-only and a bare
+  // getByText click can miss the associated label under shard contention (#257).
+  await cbtCycle.check();
   await expect(cbtCycle).toBeChecked();
   await page
     .getByRole("textbox", { name: "Presenting problem" })
