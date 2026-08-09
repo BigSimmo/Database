@@ -6,6 +6,9 @@ import type { ServiceRecord } from "@/lib/service-ranker";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  // InPageNavHeader derives its sheet state from the pathname; without this the
+  // mock throws before the page renders.
+  usePathname: () => "/services/test-service",
 }));
 
 vi.mock("@/components/account-data-provider", () => ({

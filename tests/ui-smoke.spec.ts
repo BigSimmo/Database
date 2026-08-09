@@ -3038,7 +3038,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/dsm\/diagnoses\/major-depressive-disorder$/, { timeout: 30_000 });
     await expect(page.getByTestId("dsm-diagnosis-page")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "DSM-5 Diagnosis home" })).toHaveAttribute("href", "/dsm");
+    // The breadcrumb row went with the in-page header: its back control is the
+    // one route out to the mode home, and a breadcrumb under it is a second.
+    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm");
     await expectNoPageHorizontalOverflow(page);
   });
 

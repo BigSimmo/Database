@@ -169,7 +169,7 @@ Execution brief: [`document-viewer-phase3-handover.md`](./document-viewer-phase3
 | Rail virtualization                      | **Done** — `DocumentImageList` windows `#source-images` and the audit list                             |
 | Smarter signed-URL / decode priority     | **Done** — explicit `fetchPriority`, tighter rail root margin; batch route still deferred (`#283`)     |
 | Toolbar density                          | ~~Phase 3~~ — already shipped in Phase 2 (`document-frame.tsx`, `hidden sm:inline` + overflow menu)    |
-| Optional OffscreenCanvas / worker raster | **Not implemented, by design** — the measurement it is conditioned on is now captured in CI (`#290`)   |
+| Optional OffscreenCanvas / worker raster | **Not implemented, by design** — the measurement it is conditioned on is now captured in CI (`#294`)   |
 
 Phase 3 also closed `#279`: `tests/ui-document-canvas.spec.ts` is the first browser gate over the
 viewer's raster, reading pixels back rather than trusting canvas dimensions.
