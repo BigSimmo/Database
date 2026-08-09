@@ -81,14 +81,16 @@ test("searches patient language, opens a mechanism guide, and carries it into th
   await page.getByRole("link", { name: "Open Rumination" }).click();
   await expect(page).toHaveURL(/\/formulation\/rumination$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Rumination", exact: true })).toBeVisible();
-  // The record's own section label, addressed by id rather than by text. Since
-  // the declared section anchors were wired up, `/formulation/<slug>` also
-  // renders an "On this page" nav whose link carries the same words, and a bare
-  // text locator matches both under Playwright strict mode.
+  // The record's own section label, addressed by id rather than by text: the
+  // in-page section sheet carries the same words, and a bare text locator
+  // matches both under Playwright strict mode.
   await expect(page.locator("#formulation-what-matters-now-label")).toBeVisible();
+  await page.getByTestId("formulation-section-trigger").click();
   await expect(
-    page.getByRole("navigation", { name: "On this page" }).getByRole("link", { name: "What matters now", exact: true }),
+    page.getByTestId("formulation-section-sheet").getByRole("button", { name: "What matters now", exact: true }),
   ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("formulation-section-sheet")).toBeHidden();
 
   await page.getByRole("link", { name: "Use in formulation", exact: true }).first().click();
   await expect(page.getByRole("heading", { name: "Build a formulation that can be tested" })).toBeVisible();
@@ -128,8 +130,13 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
     await expect(page).toHaveURL(/\/formulation\/worry$/);
   }).toPass({ timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Worry", exact: true })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("link", { name: "Compare", exact: true }).last()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Use in formulation", exact: true }).first()).toBeVisible();
+  // The record's actions moved into the in-page header's ellipsis sheet.
+  await page.getByTestId("formulation-actions-trigger").click();
+  const mechanismActions = page.getByTestId("formulation-actions-sheet");
+  await expect(mechanismActions.getByRole("link", { name: "Compare", exact: true })).toBeVisible();
+  await expect(mechanismActions.getByRole("link", { name: "Use in formulation", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(mechanismActions).toBeHidden();
   await expectNoHorizontalOverflow(page);
   await expectNoBlockingAxeViolations(page, testInfo);
 });

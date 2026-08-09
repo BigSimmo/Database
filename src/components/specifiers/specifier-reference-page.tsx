@@ -19,12 +19,13 @@ import {
   QuickTile,
   ReviewStatusBadge,
   SectionHeading,
-  SpecifierBreadcrumbs,
   SpecifierPageShell,
   SpecifierSafetyNote,
   categoryShortName,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
+import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
+import { SpecifierNavHeader } from "@/components/specifiers/specifier-nav-header";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import {
   curatedEnrichmentFor,
@@ -132,179 +133,180 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
     : `“${item.label}” is recorded for ${item.disorderName} without a separate definition — read it against the current ${sourceManual} text.`;
 
   return (
-    <SpecifierPageShell>
-      <SpecifierBreadcrumbs current={item.label} />
-
-      {/* Hero */}
-      <section
-        id="specifier-overview"
-        className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
-      >
-        <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
-          <span className="grid h-14 w-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-            <Tags className="h-7 w-7" aria-hidden />
-          </span>
-          <div className="grid gap-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <DsmBadge label={sourceManual} />
-              <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 text-2xs font-bold text-[color:var(--text-muted)]">
-                {item.groupLabel}
-              </span>
-              <ReviewStatusBadge status={item.review.sourceVerificationStatus} />
+    <>
+      <SpecifierNavHeader
+        title={item.label}
+        actions={
+          // Both actions depend on curated enrichment. With none, no `actions`
+          // is passed at all and the header renders no ellipsis control rather
+          // than a button that opens an empty sheet.
+          enrichment ? (
+            <div className="grid gap-2">
+              <Link href={`/specifiers/${enrichment.slug}`} className={inPageActionRowClass}>
+                <BookOpenCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+                Deep guide
+              </Link>
+              <Link href={`/specifiers/builder?specifier=${enrichment.slug}`} className={inPageActionRowClass}>
+                <ListChecks className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+                Build wording
+              </Link>
             </div>
-            <div>
-              <p className={eyebrowText}>{categoryShortName(item.categoryName)} specifier</p>
-              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-                {item.label}
-              </h1>
-            </div>
-            <p className="max-w-3xl text-base font-medium leading-7 text-[color:var(--text-muted)]">{description}</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <CategoryTag categoryId={item.categoryId} name={item.categoryName} />
-              <DiagnosisChips values={[item.disorderName]} />
-            </div>
-          </div>
-        </div>
-
-        {enrichment ? (
-          <div className="grid grid-cols-2 gap-2 sm:flex">
-            <Link
-              href={`/specifiers/${enrichment.slug}`}
-              className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            >
-              <BookOpenCheck className="h-4 w-4" aria-hidden />
-              Deep guide
-            </Link>
-            <Link
-              href={`/specifiers/builder?specifier=${enrichment.slug}`}
-              className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            >
-              <ListChecks className="h-4 w-4" aria-hidden />
-              Build wording
-            </Link>
-          </div>
-        ) : null}
-      </section>
-
-      {/* Quick tiles */}
-      <section aria-label="At a glance" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <QuickTile icon={Stethoscope} label="Applies to" body={item.disorderName} tone="accent" />
-        <QuickTile icon={Layers} label="Specifier group" body={item.groupLabel} />
-        <QuickTile
-          icon={FileCheck2}
-          label="Definition"
-          body={definitionStatusLabel[item.definitionStatus]}
-          tone="info"
-        />
-        <QuickTile
-          icon={item.review.sourceVerificationStatus === "source-verified" ? Check : ShieldAlert}
-          label="Source status"
-          body={sourceStatusLabel[item.review.sourceVerificationStatus]}
-          tone={item.review.sourceVerificationStatus === "source-verified" ? "success" : "default"}
-        />
-      </section>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
-        <div className="grid min-w-0 gap-5">
-          <SectionHeading
-            eyebrow="Reference"
-            title="What this specifier records"
-            body="Aide-memoire content for the specifier and how it sits within its diagnosis. Confirm against current DSM-5-TR / ICD-11 materials before documenting."
-          />
-
-          {hasWithheldDefinition ? (
-            <InfoCard icon={ShieldAlert} eyebrow="At a glance" title="Definition pending verification">
-              <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                The generated definition for this specifier is withheld pending qualified clinician review. Confirm the
-                specifier against current DSM-5-TR / ICD-11 materials before documenting.
-              </p>
-            </InfoCard>
-          ) : null}
-
-          {enrichment ? (
-            <section id="specifier-fit" className={cn(specifierCard, "grid gap-4 p-4 sm:p-5")}>
-              <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <Check className="h-5 w-5" aria-hidden />
+          ) : null
+        }
+      />
+      <SpecifierPageShell>
+        {/* Hero */}
+        <section
+          id="specifier-overview"
+          className={cn(inPageAnchor, "grid gap-5 border-b border-[color:var(--border)] pb-5")}
+        >
+          <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
+            <span className="grid h-14 w-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
+              <Tags className="h-7 w-7" aria-hidden />
+            </span>
+            <div className="grid gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <DsmBadge label={sourceManual} />
+                <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 text-2xs font-bold text-[color:var(--text-muted)]">
+                  {item.groupLabel}
                 </span>
-                <div className="min-w-0">
-                  <p className={eyebrowText}>Curated clinical reasoning</p>
-                  <h2 className="mt-1 text-lg font-extrabold text-[color:var(--text-heading)]">Fit and exclusions</h2>
-                </div>
+                <ReviewStatusBadge status={item.review.sourceVerificationStatus} />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <ReasoningList title="When this fits" items={enrichment.fit} tone="success" />
-                <ReasoningList title="When this may not fit" items={enrichment.notFit} tone="warning" />
+              <div>
+                <p className={eyebrowText}>{categoryShortName(item.categoryName)} specifier</p>
+                <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
+                  {item.label}
+                </h1>
               </div>
-              {enrichment.checks.length ? (
-                <ReasoningList title="Focused checks" items={enrichment.checks} tone="default" />
-              ) : null}
-            </section>
-          ) : null}
-
-          {item.icd11Context ? (
-            <InfoCard icon={BookOpenCheck} eyebrow="Coding context" title="ICD-11 context">
-              <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">{item.icd11Context}</p>
-            </InfoCard>
-          ) : null}
-        </div>
-
-        <aside className="grid content-start gap-4 xl:sticky xl:top-20">
-          <section className={cn(specifierCard, "overflow-hidden")}>
-            <div className="border-b border-[color:var(--border)] px-4 py-3">
-              <p className={eyebrowText}>Review status</p>
+              <p className="max-w-3xl text-base font-medium leading-7 text-[color:var(--text-muted)]">{description}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <CategoryTag categoryId={item.categoryId} name={item.categoryName} />
+                <DiagnosisChips values={[item.disorderName]} />
+              </div>
             </div>
-            <dl className="divide-y divide-[color:var(--border)]">
-              {[
-                ["Source", sourceStatusLabel[item.review.sourceVerificationStatus]],
-                ["Clinician review", "Pending qualified review"],
-                ["Source family", item.definition?.sourceFamily ?? item.review.sourceFamily ?? "—"],
-                ["Content hash", item.review.contentHash],
-              ].map(([label, body]) => (
-                <div key={label} className="px-4 py-3">
-                  <dt className="text-xs font-extrabold text-[color:var(--text-heading)]">{label}</dt>
-                  <dd className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{body}</dd>
+          </div>
+        </section>
+
+        {/* Quick tiles */}
+        <section aria-label="At a glance" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <QuickTile icon={Stethoscope} label="Applies to" body={item.disorderName} tone="accent" />
+          <QuickTile icon={Layers} label="Specifier group" body={item.groupLabel} />
+          <QuickTile
+            icon={FileCheck2}
+            label="Definition"
+            body={definitionStatusLabel[item.definitionStatus]}
+            tone="info"
+          />
+          <QuickTile
+            icon={item.review.sourceVerificationStatus === "source-verified" ? Check : ShieldAlert}
+            label="Source status"
+            body={sourceStatusLabel[item.review.sourceVerificationStatus]}
+            tone={item.review.sourceVerificationStatus === "source-verified" ? "success" : "default"}
+          />
+        </section>
+
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
+          <div className="grid min-w-0 gap-5">
+            <SectionHeading
+              eyebrow="Reference"
+              title="What this specifier records"
+              body="Aide-memoire content for the specifier and how it sits within its diagnosis. Confirm against current DSM-5-TR / ICD-11 materials before documenting."
+            />
+
+            {hasWithheldDefinition ? (
+              <InfoCard icon={ShieldAlert} eyebrow="At a glance" title="Definition pending verification">
+                <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                  The generated definition for this specifier is withheld pending qualified clinician review. Confirm
+                  the specifier against current DSM-5-TR / ICD-11 materials before documenting.
+                </p>
+              </InfoCard>
+            ) : null}
+
+            {enrichment ? (
+              <section id="specifier-fit" className={cn(specifierCard, inPageAnchor, "grid gap-4 p-4 sm:p-5")}>
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                    <Check className="h-5 w-5" aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <p className={eyebrowText}>Curated clinical reasoning</p>
+                    <h2 className="mt-1 text-lg font-extrabold text-[color:var(--text-heading)]">Fit and exclusions</h2>
+                  </div>
                 </div>
-              ))}
-            </dl>
-          </section>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ReasoningList title="When this fits" items={enrichment.fit} tone="success" />
+                  <ReasoningList title="When this may not fit" items={enrichment.notFit} tone="warning" />
+                </div>
+                {enrichment.checks.length ? (
+                  <ReasoningList title="Focused checks" items={enrichment.checks} tone="default" />
+                ) : null}
+              </section>
+            ) : null}
 
-          <section id="specifier-wording" className={cn(specifierCard, "p-4")}>
-            <p className={eyebrowText}>Diagnosis</p>
-            <p className="mt-2 text-sm font-bold leading-6 text-[color:var(--text-heading)]">{item.disorderName}</p>
-            <div className="mt-2">
-              <CategoryTag categoryId={item.categoryId} name={item.categoryName} />
-            </div>
-          </section>
+            {item.icd11Context ? (
+              <InfoCard icon={BookOpenCheck} eyebrow="Coding context" title="ICD-11 context">
+                <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">{item.icd11Context}</p>
+              </InfoCard>
+            ) : null}
+          </div>
 
-          {related.length ? (
+          <aside className="grid content-start gap-4 xl:sticky xl:top-20">
             <section className={cn(specifierCard, "overflow-hidden")}>
               <div className="border-b border-[color:var(--border)] px-4 py-3">
-                <p className={eyebrowText}>More in this diagnosis</p>
+                <p className={eyebrowText}>Review status</p>
               </div>
-              <div className="divide-y divide-[color:var(--border)]">
-                {related.map((entry) => (
-                  <Link
-                    key={entry.slug}
-                    href={`/specifiers/${entry.slug}`}
-                    className="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate">{entry.label}</span>
-                      <span className="block text-2xs font-semibold text-[color:var(--text-muted)]">
-                        {entry.groupLabel}
-                      </span>
-                    </span>
-                    <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
-                  </Link>
+              <dl className="divide-y divide-[color:var(--border)]">
+                {[
+                  ["Source", sourceStatusLabel[item.review.sourceVerificationStatus]],
+                  ["Clinician review", "Pending qualified review"],
+                  ["Source family", item.definition?.sourceFamily ?? item.review.sourceFamily ?? "—"],
+                  ["Content hash", item.review.contentHash],
+                ].map(([label, body]) => (
+                  <div key={label} className="px-4 py-3">
+                    <dt className="text-xs font-extrabold text-[color:var(--text-heading)]">{label}</dt>
+                    <dd className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{body}</dd>
+                  </div>
                 ))}
+              </dl>
+            </section>
+
+            <section id="specifier-wording" className={cn(specifierCard, inPageAnchor, "p-4")}>
+              <p className={eyebrowText}>Diagnosis</p>
+              <p className="mt-2 text-sm font-bold leading-6 text-[color:var(--text-heading)]">{item.disorderName}</p>
+              <div className="mt-2">
+                <CategoryTag categoryId={item.categoryId} name={item.categoryName} />
               </div>
             </section>
-          ) : null}
-        </aside>
-      </div>
 
-      <SpecifierSafetyNote id="specifier-evidence" />
-    </SpecifierPageShell>
+            {related.length ? (
+              <section className={cn(specifierCard, "overflow-hidden")}>
+                <div className="border-b border-[color:var(--border)] px-4 py-3">
+                  <p className={eyebrowText}>More in this diagnosis</p>
+                </div>
+                <div className="divide-y divide-[color:var(--border)]">
+                  {related.map((entry) => (
+                    <Link
+                      key={entry.slug}
+                      href={`/specifiers/${entry.slug}`}
+                      className="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate">{entry.label}</span>
+                        <span className="block text-2xs font-semibold text-[color:var(--text-muted)]">
+                          {entry.groupLabel}
+                        </span>
+                      </span>
+                      <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </aside>
+        </div>
+
+        <SpecifierSafetyNote id="specifier-evidence" className={inPageAnchor} />
+      </SpecifierPageShell>
+    </>
   );
 }

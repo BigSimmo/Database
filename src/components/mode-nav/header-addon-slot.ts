@@ -28,5 +28,25 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // differentials/differential-detail-page.tsx (diagnoses detail only — the
   // presentations workflow page renders no portal).
   if (pathname.startsWith("/differentials/diagnoses/")) return true;
+  // The six information routes converted onto the shared `InPageNavHeader`,
+  // which portals through `PhoneHeaderCollapsePortal` exactly as the two above
+  // do. Each is a slug detail page, never the mode home or a
+  // builder/compare/map/search surface.
+  if (isSlugDetailRoute(pathname, "/services")) return true;
+  if (isSlugDetailRoute(pathname, "/forms")) return true;
+  if (isSlugDetailRoute(pathname, "/specifiers")) return true;
+  if (isSlugDetailRoute(pathname, "/formulation")) return true;
+  // dsm/dsm-diagnosis-page.tsx and dsm/dsm-differential-considerations-page.tsx
+  // — the record and its `/differentials` child, but not /dsm/search or
+  // /dsm/compare.
+  if (pathname.startsWith("/dsm/diagnoses/")) return true;
   return false;
+}
+
+/** `/services/some-slug`, but not `/services`, `/services/compare` or a deeper path. */
+function isSlugDetailRoute(pathname: string, home: string): boolean {
+  if (!pathname.startsWith(`${home}/`)) return false;
+  const rest = pathname.slice(home.length + 1);
+  if (!rest || rest.includes("/")) return false;
+  return !["builder", "compare", "map", "search"].includes(rest);
 }

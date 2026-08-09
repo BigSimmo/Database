@@ -193,13 +193,22 @@ export function DiagnosisChips({ values }: { values: string[] }) {
   );
 }
 
-export function SpecifierSafetyNote({ compact = false, id }: { compact?: boolean; id?: string }) {
+export function SpecifierSafetyNote({
+  compact = false,
+  id,
+  className,
+}: {
+  compact?: boolean;
+  id?: string;
+  className?: string;
+}) {
   return (
     <aside
       id={id}
       className={cn(
         "flex items-start gap-2.5 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-sm leading-5 text-[color:var(--text-muted)]",
         compact ? "px-3 py-2.5" : "p-4",
+        className,
       )}
     >
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden />

@@ -90,9 +90,9 @@ test("searches clinical language without provenance fields and carries a result 
   await page.getByRole("link", { name: "Open With mixed features" }).click();
   await expect(page).toHaveURL(/\/specifiers\/with-mixed-features$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "With mixed features", exact: true })).toBeVisible();
-  // Address the record label by id. Specifier "On this page" labels do not
+  // Address the record label by id. The in-page section sheet's labels do not
   // currently include these words, but the formulation sibling failed CI under
-  // Playwright strict mode once a nav link shared the same text — pin the
+  // Playwright strict mode once a nav control shared the same text — pin the
   // unique target rather than relying on that coincidence.
   await expect(page.locator("#what-matters-now")).toBeVisible();
 
@@ -137,8 +137,13 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
 
   await page.getByRole("link", { name: "Open With seasonal pattern" }).click();
   await expect(page.getByRole("heading", { name: "With seasonal pattern", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Compare", exact: true }).last()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Build wording", exact: true }).last()).toBeVisible();
+  // The record's actions moved into the in-page header's ellipsis sheet.
+  await page.getByTestId("specifier-actions-trigger").click();
+  const recordActions = page.getByTestId("specifier-actions-sheet");
+  await expect(recordActions.getByRole("link", { name: "Compare", exact: true })).toBeVisible();
+  await expect(recordActions.getByRole("link", { name: "Build wording", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(recordActions).toBeHidden();
   await expectNoHorizontalOverflow(page);
   await expectNoBlockingAxeViolations(page, testInfo);
 });

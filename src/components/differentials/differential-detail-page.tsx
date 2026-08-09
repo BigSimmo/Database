@@ -29,6 +29,7 @@ import type { DifferentialRecordGovernance } from "@/components/clinical-dashboa
 import { buildDifferentialSectionIndex } from "@/components/differentials/detail-section-index";
 import { DiagnosisMapPanel } from "@/components/differentials/diagnosis-map-panel";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
+import { inPageActionRowClass as actionRowClass } from "@/components/in-page-nav/in-page-nav-classes";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { cn, pageContainer, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
@@ -811,9 +812,6 @@ function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
     </span>
   );
 }
-
-const actionRowClass =
-  "focus-ring-tab flex min-h-tap w-full items-center gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-left text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-raised)]";
 
 /**
  * Body of the header's ellipsis sheet. This is where the page actions live now

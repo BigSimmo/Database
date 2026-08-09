@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import {
   TriangleAlert,
+  BadgeCheck,
   BadgeDollarSign,
   Bookmark,
   BookmarkCheck,
@@ -13,6 +14,7 @@ import {
   DollarSign,
   Globe2,
   Info,
+  LayoutGrid,
   Mail,
   MapPin,
   Navigation,
@@ -28,9 +30,7 @@ import { useState, type ReactNode } from "react";
 
 import {
   cn,
-  floatingControl,
   metadataPillDensity,
-  primaryControl,
   textMuted,
   toneDanger,
   toneInfo,
@@ -38,7 +38,11 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
+import { InformationPageShell } from "@/components/information-page-shell";
+import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
+import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
+import type { PageSection } from "@/components/in-page-nav/page-section-index";
+import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { compactBestUseTitle } from "@/lib/compact-best-use-title";
@@ -190,30 +194,18 @@ function dedupeTagItems(items: string[]) {
     });
 }
 
-function ActionIconButton({
-  label,
-  onClick,
-  pressed,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  pressed?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-pressed={pressed}
-      title={label}
-      className="grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-    >
-      {children}
-    </button>
-  );
-}
+/**
+ * Ids and labels carried over verbatim from `serviceSections` in the pill rail
+ * this page's header replaces. Exported so the per-route section contract test
+ * can assert every one of them against the rendered DOM.
+ */
+export const serviceNavSections: readonly PageSection[] = [
+  { id: "service-overview", label: "Overview", icon: Info },
+  { id: "service-quick-facts", label: "Quick facts", icon: LayoutGrid },
+  { id: "service-referral", label: "Referral", icon: Clipboard },
+  { id: "service-criteria", label: "Criteria", icon: ShieldCheck },
+  { id: "service-verification", label: "Verification", icon: BadgeCheck },
+];
 
 function Section({
   id,
@@ -233,7 +225,10 @@ function Section({
   return (
     <section
       id={id}
-      className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]"
+      className={cn(
+        inPageAnchor,
+        "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]",
+      )}
     >
       <div className="border-b border-[color:var(--border)] px-3 py-3 sm:px-4">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
@@ -434,6 +429,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   const accountData = useAccountData();
   const saved = accountData.isSaved("service", service.slug);
   const [notice, setNotice] = useState<string | null>(null);
+  const { sections, activeId, selectSection } = useInPageSectionNav(serviceNavSections);
   const primaryContact = hasText(service.primaryContact?.value)
     ? service.primaryContact
     : (service.contacts?.find((contact) => hasText(contact.value)) ?? null);
@@ -475,10 +471,6 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     service.verification?.notes?.find((note) => /local|confirm/i.test(note)) ??
     "Hours not public";
 
-  function goBack() {
-    router.push(appModeHomeHref("services", { focus: true }));
-  }
-
   async function copyValue(value: string | null | undefined, label: string) {
     if (!hasText(value)) {
       setNotice("Nothing available to copy");
@@ -508,222 +500,53 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     }
   }
 
-  function useInNavigator() {
+  function openInNavigator() {
     router.push(appModeHomeHref("services", { query: serviceNavigatorQuery(service), run: true, focus: true }));
   }
 
+  // The mode home the back control returns to is the destination the removed
+  // "Close service" icon button used, `focus: true` included, so the header
+  // replaces that control rather than adding a second way out.
   const servicesHomeHref = appModeHomeHref("services", { focus: true });
 
   return (
-    <InformationPageShell testId="service-detail-page" gap={false}>
-      {notice ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className={cn(
-            "mb-3 flex min-h-tap items-center justify-between gap-3 rounded-lg border p-3 text-sm font-semibold shadow-[var(--shadow-inset)]",
-            notice.includes("failed") || notice.includes("Nothing") ? toneWarning : toneSuccess,
-          )}
-        >
-          <span>{notice}</span>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            aria-label="Dismiss service notification"
-            className="grid size-tap place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          >
-            <X className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
-      ) : null}
-
-      <InformationPageBreadcrumbs home={{ label: "Services", href: servicesHomeHref }} current={service.title} />
-
-      <div className="mt-3 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
-        <div className="min-w-0 space-y-4">
-          <section id="service-overview" className="rounded-lg bg-[color:var(--surface-lux)]">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:gap-4">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-                  <h1 className="max-w-4xl text-3xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
-                    {service.title}
-                  </h1>
-                </div>
-                {service.statusChips?.length ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {service.statusChips.map((chip, index) => (
-                      <span
-                        key={chip.label ?? `status-chip-${index}`}
-                        className={cn(
-                          "inline-flex min-h-6 items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-2xs font-bold",
-                          chipToneClass(chip.tone),
-                        )}
-                      >
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden />
-                        {displayText(chip.label, "Status")}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                <p className="mt-3 max-w-4xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                  {displayText(service.subtitle, "Service details and referral pathway.")}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 justify-self-end">
-                <ActionIconButton
-                  label={saved ? "Remove saved service" : "Save service"}
-                  onClick={toggleSaved}
-                  pressed={saved}
-                >
-                  {saved ? (
-                    <BookmarkCheck className="h-5 w-5" aria-hidden />
-                  ) : (
-                    <Bookmark className="h-5 w-5" aria-hidden />
-                  )}
-                </ActionIconButton>
-                <ActionIconButton label="Close service" onClick={goBack}>
-                  <X className="h-5 w-5" aria-hidden />
-                </ActionIconButton>
-              </div>
-            </div>
-          </section>
-
-          <section className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.85fr)]">
-            <div className="flex min-w-0 gap-3">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-                <Phone className="h-5 w-5" aria-hidden />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-[color:var(--text-muted)]">Contact</p>
-                <h2 className="mt-1 break-words text-xl font-semibold text-[color:var(--text-heading)]">
-                  Contact: {displayText(primaryContact?.value)}
-                </h2>
-                <p className={cn("mt-1 text-sm leading-5", textMuted)}>
-                  {displayText(primaryContact?.detail ?? service.route)}
-                </p>
-              </div>
-            </div>
-            <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-              <div className="flex gap-3">
-                <TriangleAlert className="mt-1 h-5 w-5 shrink-0 text-[color:var(--warning)]" aria-hidden />
-                <div>
-                  <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-                    {verified ? "Verified for local use" : "Verify locally before use"}
-                  </p>
-                  <p className={cn("mt-1 text-xs leading-5", textMuted)}>{localConfirmationDetail}</p>
-                </div>
-              </div>
-            </div>
-            <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-              <p className="text-xs font-semibold text-[color:var(--text-muted)]">Confidence</p>
-              <span className={cn(metadataPillDensity.standard, "mt-2 inline-flex rounded-full", toneWarning)}>
-                {service.verification?.confidence ?? "Unknown"}
-              </span>
-            </div>
-            <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-              <div className="flex min-h-10 items-center gap-2 text-sm font-medium text-[color:var(--text-heading)]">
-                <Bookmark className="h-5 w-5 shrink-0 text-[color:var(--text-heading)]" aria-hidden />
-                <span>{service.catalogueLabel ?? "Catalogue service"}</span>
-              </div>
-            </div>
-          </section>
-
-          <section
-            id="service-quick-facts"
-            aria-label="Service quick facts"
-            className="grid gap-3 pt-3 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4"
-          >
-            {compactSummaryCards.map((card) => (
-              <SummaryCard key={card.id} card={card} />
-            ))}
-          </section>
-
-          <div className="grid gap-4 xl:grid-cols-[minmax(28rem,0.86fr)_minmax(0,1fr)]">
-            <Section id="service-referral" icon={Clipboard} title="Referral information">
-              <ReferralTable rows={referralRows} onCopy={copyValue} />
-            </Section>
-
-            <div className="min-w-0 space-y-3">
-              <Section
-                id="service-criteria"
-                icon={ShieldCheck}
-                title="Referral criteria"
-                action={
-                  <div className="flex flex-wrap gap-2">
-                    <span className={cn(metadataPillDensity.roomy, "rounded-full", toneSuccess)}>{meetCount} meet</span>
-                    <span className={cn(metadataPillDensity.roomy, "rounded-full", toneWarning)}>
-                      {cautionCount} caution
-                    </span>
-                  </div>
-                }
-              >
-                {service.bestUse ? (
-                  <p className="mb-3 border-b border-[color:var(--border)] pb-3 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                    <span className="font-semibold text-[color:var(--text-heading)]">Best use:</span> {service.bestUse}
-                  </p>
-                ) : null}
-                <CriteriaBoard criteria={service.criteria ?? []} />
-              </Section>
-
-              <section
-                id="service-verification"
-                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
-              >
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                    <ShieldCheck className="h-5 w-5" aria-hidden />
-                  </span>
-                  <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Verification</h2>
-                  <span
-                    className="hidden h-1 w-1 rounded-full bg-[color:var(--decoration-soft)] sm:block"
-                    aria-hidden
-                  />
-                  <span className="text-sm font-medium text-[color:var(--text-muted)]">
-                    {verified ? "Locally verified" : "Verify locally before use"}
-                  </span>
-                  <span
-                    className="hidden h-1 w-1 rounded-full bg-[color:var(--decoration-soft)] sm:block"
-                    aria-hidden
-                  />
-                  <span className="text-sm font-medium text-[color:var(--text-muted)]">
-                    {service.verification?.confidence ?? "Unknown"} confidence
-                  </span>
-                  {service.source?.status ? (
-                    <>
-                      <span
-                        className="hidden h-1 w-1 rounded-full bg-[color:var(--decoration-soft)] sm:block"
-                        aria-hidden
-                      />
-                      <span className="text-sm font-medium text-[color:var(--text-muted)]">
-                        {service.source.status}
-                      </span>
-                    </>
-                  ) : null}
-                </div>
-              </section>
-
-              <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                    <Tag className="h-5 w-5" aria-hidden />
-                  </span>
-                  <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Tags & catchments</h2>
-                  <TagList
-                    items={[...(service.catchments ?? []), ...(service.tags ?? [])]}
-                    emptyLabel="No tags listed."
-                  />
-                </div>
-              </section>
-            </div>
-          </div>
-
-          <div className="grid gap-3 border-t border-[color:var(--border)] pt-4 sm:grid-cols-3">
+    <>
+      <InPageNavHeader
+        back={{ href: servicesHomeHref, label: "Services" }}
+        title={service.title}
+        sections={sections}
+        activeId={activeId}
+        onSelectSection={selectSection}
+        actionsNoun="service"
+        actionsDescription="Choose how to use this service."
+        testIdPrefix="service"
+        actions={(close) => (
+          <div className="grid gap-2">
             <button
               type="button"
-              onClick={() => copyValue(primaryContact?.value, "Contact copied")}
-              className={cn(primaryControl, "min-h-12 w-full px-4")}
+              onClick={() => {
+                close();
+                void toggleSaved();
+              }}
+              aria-pressed={saved}
+              className={inPageActionRowClass}
             >
-              <Clipboard className="h-5 w-5" aria-hidden />
+              {saved ? (
+                <BookmarkCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+              ) : (
+                <Bookmark className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+              )}
+              {saved ? "Remove saved service" : "Save service"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                void copyValue(primaryContact?.value, "Contact copied");
+              }}
+              className={inPageActionRowClass}
+            >
+              <Clipboard className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
               Copy contact
             </button>
             {callHref ? (
@@ -731,32 +554,241 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                 href={callHref}
                 target={hrefIsExternal(callHref) ? "_blank" : undefined}
                 rel={hrefIsExternal(callHref) ? "noopener noreferrer" : undefined}
-                className={cn(floatingControl, "min-h-12 w-full px-4")}
+                onClick={close}
+                className={inPageActionRowClass}
               >
-                <Phone className="h-5 w-5" aria-hidden />
+                <Phone className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
                 Call
               </a>
             ) : (
-              <button type="button" disabled className={cn(floatingControl, "min-h-12 w-full px-4")}>
-                <Phone className="h-5 w-5" aria-hidden />
+              <button
+                type="button"
+                disabled
+                title="Call — no contact number listed for this service"
+                aria-describedby="service-call-unavailable"
+                className={cn(inPageActionRowClass, "opacity-60")}
+              >
+                <Phone className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
                 Call
+                <span id="service-call-unavailable" className="sr-only">
+                  No contact number is listed for this service.
+                </span>
               </button>
             )}
-            <button type="button" onClick={useInNavigator} className={cn(floatingControl, "min-h-12 w-full px-4")}>
-              <Navigation className="h-5 w-5" aria-hidden />
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                openInNavigator();
+              }}
+              className={inPageActionRowClass}
+            >
+              <Navigation className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
               Use in navigator
             </button>
           </div>
+        )}
+      />
+      <InformationPageShell testId="service-detail-page" gap={false}>
+        {notice ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className={cn(
+              "mb-3 flex min-h-tap items-center justify-between gap-3 rounded-lg border p-3 text-sm font-semibold shadow-[var(--shadow-inset)]",
+              notice.includes("failed") || notice.includes("Nothing") ? toneWarning : toneSuccess,
+            )}
+          >
+            <span>{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              aria-label="Dismiss service notification"
+              className="grid size-tap place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        ) : null}
 
-          <p className="flex flex-wrap items-center justify-center gap-3 text-center text-xs font-medium text-[color:var(--text-muted)]">
-            <Info className="h-4 w-4" aria-hidden />
-            Information accuracy may vary. Confirm locally before use.
-            <span aria-hidden>·</span>
-            <Bookmark className="h-4 w-4" aria-hidden />
-            {service.catalogueLabel ?? "Catalogue service"}
-          </p>
+        <div className="mt-3 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
+          <div className="min-w-0 space-y-4">
+            <section id="service-overview" className={cn(inPageAnchor, "rounded-lg bg-[color:var(--surface-lux)]")}>
+              <div className="grid items-start gap-3 sm:gap-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+                    <h1 className="max-w-4xl text-3xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
+                      {service.title}
+                    </h1>
+                  </div>
+                  {service.statusChips?.length ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {service.statusChips.map((chip, index) => (
+                        <span
+                          key={chip.label ?? `status-chip-${index}`}
+                          className={cn(
+                            "inline-flex min-h-6 items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-2xs font-bold",
+                            chipToneClass(chip.tone),
+                          )}
+                        >
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden />
+                          {displayText(chip.label, "Status")}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <p className="mt-3 max-w-4xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                    {displayText(service.subtitle, "Service details and referral pathway.")}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.85fr)]">
+              <div className="flex min-w-0 gap-3">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+                  <Phone className="h-5 w-5" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[color:var(--text-muted)]">Contact</p>
+                  <h2 className="mt-1 break-words text-xl font-semibold text-[color:var(--text-heading)]">
+                    Contact: {displayText(primaryContact?.value)}
+                  </h2>
+                  <p className={cn("mt-1 text-sm leading-5", textMuted)}>
+                    {displayText(primaryContact?.detail ?? service.route)}
+                  </p>
+                </div>
+              </div>
+              <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                <div className="flex gap-3">
+                  <TriangleAlert className="mt-1 h-5 w-5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                  <div>
+                    <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                      {verified ? "Verified for local use" : "Verify locally before use"}
+                    </p>
+                    <p className={cn("mt-1 text-xs leading-5", textMuted)}>{localConfirmationDetail}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                <p className="text-xs font-semibold text-[color:var(--text-muted)]">Confidence</p>
+                <span className={cn(metadataPillDensity.standard, "mt-2 inline-flex rounded-full", toneWarning)}>
+                  {service.verification?.confidence ?? "Unknown"}
+                </span>
+              </div>
+              <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                <div className="flex min-h-10 items-center gap-2 text-sm font-medium text-[color:var(--text-heading)]">
+                  <Bookmark className="h-5 w-5 shrink-0 text-[color:var(--text-heading)]" aria-hidden />
+                  <span>{service.catalogueLabel ?? "Catalogue service"}</span>
+                </div>
+              </div>
+            </section>
+
+            <section
+              id="service-quick-facts"
+              aria-label="Service quick facts"
+              className={cn(inPageAnchor, "grid gap-3 pt-3 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4")}
+            >
+              {compactSummaryCards.map((card) => (
+                <SummaryCard key={card.id} card={card} />
+              ))}
+            </section>
+
+            <div className="grid gap-4 xl:grid-cols-[minmax(28rem,0.86fr)_minmax(0,1fr)]">
+              <Section id="service-referral" icon={Clipboard} title="Referral information">
+                <ReferralTable rows={referralRows} onCopy={copyValue} />
+              </Section>
+
+              <div className="min-w-0 space-y-3">
+                <Section
+                  id="service-criteria"
+                  icon={ShieldCheck}
+                  title="Referral criteria"
+                  action={
+                    <div className="flex flex-wrap gap-2">
+                      <span className={cn(metadataPillDensity.roomy, "rounded-full", toneSuccess)}>
+                        {meetCount} meet
+                      </span>
+                      <span className={cn(metadataPillDensity.roomy, "rounded-full", toneWarning)}>
+                        {cautionCount} caution
+                      </span>
+                    </div>
+                  }
+                >
+                  {service.bestUse ? (
+                    <p className="mb-3 border-b border-[color:var(--border)] pb-3 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                      <span className="font-semibold text-[color:var(--text-heading)]">Best use:</span>{" "}
+                      {service.bestUse}
+                    </p>
+                  ) : null}
+                  <CriteriaBoard criteria={service.criteria ?? []} />
+                </Section>
+
+                <section
+                  id="service-verification"
+                  className={cn(
+                    inPageAnchor,
+                    "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
+                  )}
+                >
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                      <ShieldCheck className="h-5 w-5" aria-hidden />
+                    </span>
+                    <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Verification</h2>
+                    <span
+                      className="hidden h-1 w-1 rounded-full bg-[color:var(--decoration-soft)] sm:block"
+                      aria-hidden
+                    />
+                    <span className="text-sm font-medium text-[color:var(--text-muted)]">
+                      {verified ? "Locally verified" : "Verify locally before use"}
+                    </span>
+                    <span
+                      className="hidden h-1 w-1 rounded-full bg-[color:var(--decoration-soft)] sm:block"
+                      aria-hidden
+                    />
+                    <span className="text-sm font-medium text-[color:var(--text-muted)]">
+                      {service.verification?.confidence ?? "Unknown"} confidence
+                    </span>
+                    {service.source?.status ? (
+                      <>
+                        <span
+                          className="hidden h-1 w-1 rounded-full bg-[color:var(--decoration-soft)] sm:block"
+                          aria-hidden
+                        />
+                        <span className="text-sm font-medium text-[color:var(--text-muted)]">
+                          {service.source.status}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                </section>
+
+                <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                      <Tag className="h-5 w-5" aria-hidden />
+                    </span>
+                    <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Tags & catchments</h2>
+                    <TagList
+                      items={[...(service.catchments ?? []), ...(service.tags ?? [])]}
+                      emptyLabel="No tags listed."
+                    />
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            <p className="flex flex-wrap items-center justify-center gap-3 border-t border-[color:var(--border)] pt-4 text-center text-xs font-medium text-[color:var(--text-muted)]">
+              <Info className="h-4 w-4" aria-hidden />
+              Information accuracy may vary. Confirm locally before use.
+              <span aria-hidden>·</span>
+              <Bookmark className="h-4 w-4" aria-hidden />
+              {service.catalogueLabel ?? "Catalogue service"}
+            </p>
+          </div>
         </div>
-      </div>
-    </InformationPageShell>
+      </InformationPageShell>
+    </>
   );
 }
