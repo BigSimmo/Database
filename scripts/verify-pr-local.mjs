@@ -26,8 +26,8 @@ const workflowScripts = [
   "check:gate-manifest",
   "check:pr-mergeability",
   "check:verification-plan",
-  "test:ci-workflows",
 ];
+const focusedWorkflowTestScript = "test:ci-workflows";
 const staticHeavyScripts = ["lint", "typecheck", "test"];
 
 function dependencyManifestChanged(scope) {
@@ -106,7 +106,12 @@ export function selectedScripts(scope, extended) {
   // #204: fail locally in seconds instead of reddening every install-owning CI job.
   if (dependencyManifestChanged(scope)) add("check:npm-ci-dry-run");
   if (scope.docs_changed) add(...docsScripts);
-  if (scope.workflow_changed) add(...workflowScripts);
+  if (scope.workflow_changed) {
+    add(...workflowScripts);
+    // The full unit suite already contains every workflow-reading contract.
+    // Keep the focused invocation only for recognised lightweight workflow scope.
+    if (!scope.static_heavy_changed) add(focusedWorkflowTestScript);
+  }
   if (scope.codex_autofix_changed) add("check:codex-autofix-workflow");
   if (scope.static_heavy_changed) add(...staticHeavyScripts);
   if (scope.build_changed) scripts.push("build");
@@ -182,7 +187,19 @@ function assertPlan(name, scope, expected, extended = false) {
 
 function selfTest() {
   assertPlan("docs-only", { docs_changed: true }, [...commonScripts, ...docsScripts]);
-  assertPlan("workflow-only", { workflow_changed: true }, [...commonScripts, ...workflowScripts]);
+  assertPlan("workflow-only", { workflow_changed: true }, [
+    ...commonScripts,
+    ...workflowScripts,
+    focusedWorkflowTestScript,
+  ]);
+  assertPlan(
+    "mixed-workflow-heavy-does-not-repeat-workflow-tests",
+    {
+      workflow_changed: true,
+      static_heavy_changed: true,
+    },
+    [...commonScripts, ...workflowScripts, ...staticHeavyScripts, "check:rag:fixtures"],
+  );
   assertPlan("unknown-or-product-change-fails-heavy", { static_heavy_changed: true }, [
     ...commonScripts,
     ...staticHeavyScripts,

@@ -62,6 +62,12 @@ describe("verify-pr-local CLI", () => {
     }
   });
 
+  it("does not repeat focused workflow contracts inside the full unit suite", () => {
+    const output = dryRun(".github/workflows/ci.yml,package.json");
+    expect(output).toContain("- npm run test");
+    expect(output).not.toContain("- npm run test:ci-workflows");
+  });
+
   it("requires explicit approval before executing the extended plan", () => {
     const result = spawnSync(process.execPath, [script, "--extended", "--files", "docs/frontend-architecture.md"], {
       encoding: "utf8",
