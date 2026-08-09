@@ -115,6 +115,52 @@ describe("SignedImage failure/retry (jsdom)", () => {
     expect(fetchMock).toHaveBeenCalled();
     const src = img.getAttribute("src") ?? "";
     expect(src.endsWith("/demo/hero.png")).toBe(true);
+    // Above-the-fold evidence competes with the page it is part of, so it says
+    // so — the deferred case below says the opposite.
+    expect(img).toHaveAttribute("fetchpriority", "high");
+  });
+
+  it("tells the browser a deferred figure may decode last", async () => {
+    // `decoding="async"` (next/image's default) governs when the decode blocks;
+    // fetch priority governs whether this image contends with the page's own
+    // above-the-fold work at all. A long secondary figure rail should not.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ url: "/demo/rail.png" }) }),
+    );
+
+    render(<SignedImage endpoint={ENDPOINT} alt="Rail crop" />);
+
+    const img = await screen.findByRole("img", { name: "Rail crop" });
+    expect(img).toHaveAttribute("fetchpriority", "low");
+    expect(img).toHaveAttribute("decoding", "async");
+  });
+
+  it("defers on the root margin its caller asked for, not only the shared default", async () => {
+    // The rail passes a tighter margin than the default. With no cross-surface
+    // request scheduler, that differential is what decides which surface's
+    // signed URLs resolve first, so a dropped prop is a real regression rather
+    // than a cosmetic one.
+    const observed: IntersectionObserverInit[] = [];
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(_callback: IntersectionObserverCallback, options: IntersectionObserverInit) {
+          observed.push(options);
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+        takeRecords() {
+          return [];
+        }
+      },
+    );
+    vi.stubGlobal("fetch", vi.fn());
+
+    render(<SignedImage endpoint={ENDPOINT} alt="Rail crop" rootMargin="240px 0px" />);
+
+    expect(observed.at(0)?.rootMargin).toBe("240px 0px");
   });
 
   it("uses a provided source aspect ratio instead of forcing every document crop into 4:3", async () => {

@@ -94,6 +94,36 @@ and is exactly what the ESLint gate below now catches.
 4. Document the route in `docs/codebase-index.md` (the product-pages table).
 5. The reachability gate then enforces step 2 automatically (see below).
 
+## Keyboard wiring: the PDF reader
+
+The document viewer's page holder (`src/components/document-viewer/pdf-canvas-viewer.tsx`,
+`data-testid="pdf-canvas-scroll"`) is focusable and carries the reading-mode bindings. Every one of
+them is a keyboard route to a control that also exists in the `DocumentFrame` toolbar — the keyboard
+is a second way to reach the same actions, never a hidden feature with no visible equivalent.
+
+| Key                 | Action               |
+| ------------------- | -------------------- |
+| Left / Right arrow  | Previous / next page |
+| Page Up / Page Down | Previous / next page |
+| Home / End          | First / last page    |
+| `+` / `=` and `-`   | Zoom in / out        |
+| `0` or `F`          | Fit to width         |
+| `R`                 | Rotate 90 degrees    |
+
+Three rules hold this together and are covered by `tests/document-viewer-keyboard.dom.test.tsx`:
+
+- **Only keystrokes aimed at the holder itself are handled** (`event.target !== event.currentTarget`
+  returns early), so Enter or typing inside a child control — the retry button, the source links — is
+  never hijacked.
+- **Modified keystrokes are never intercepted.** Ctrl/Cmd+`0` is the browser's own zoom reset and
+  Cmd+Left is history back on macOS; a viewer that ate those would be worse than one with no bindings.
+- **Rotation is asked for, not owned.** `rotation` reaches the viewer as a controlled prop, so `R`
+  calls the `onRotate` callback that `DocumentFrame`'s rotate button already calls. Do not give the
+  viewer its own rotation state — that would be a second source of truth for one toolbar control.
+
+The holder's `aria-label` names the bindings, so a screen-reader user hears them on focus rather than
+having to discover them.
+
 ## Mockups are exempt
 
 Design-scratch mockups — `src/app/mockups/**` (404 in production), the `*-mockups/` component
