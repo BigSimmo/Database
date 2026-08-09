@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { resolveVisibleElement } from "@/components/document-viewer/use-section-spy";
 import { sectionTargetIds, type PageSection } from "@/components/in-page-nav/page-section-index";
 
 /**
@@ -10,29 +11,6 @@ import { sectionTargetIds, type PageSection } from "@/components/in-page-nav/pag
  * the reader cannot see, let alone read as position.
  */
 const shortestSegmentShareOfTallest = 0.12;
-
-/**
- * The section's element as currently rendered, or null when it is on the page
- * but not displayed at this breakpoint.
- *
- * Mirrors `resolveSectionElement` in `use-section-spy.ts`, including why size is
- * the test: a `display: none` element still resolves by id and reports a zero
- * rect. It is separate rather than shared because that one carries the document
- * viewer's hardcoded alias map, while page sections declare their own breakpoint
- * copies through `targetIds`.
- */
-function resolveElement(ids: readonly string[]): HTMLElement | null {
-  if (typeof window === "undefined") return null;
-
-  for (const id of ids) {
-    const element = window.document.getElementById(id);
-    if (!element) continue;
-    const rect = element.getBoundingClientRect();
-    if (rect.width > 0 || rect.height > 0) return element;
-  }
-
-  return null;
-}
 
 /**
  * `id>target,target` per section, joined by `|`. Sections are rebuilt on most
@@ -103,7 +81,7 @@ export function usePageSectionWeights(sections: readonly PageSection[]): Readonl
     const measure = () => {
       frame = 0;
       const heights = plan.map(({ id, targets }) => {
-        const element = resolveElement(targets.length ? targets : [id]);
+        const element = resolveVisibleElement(targets.length ? targets : [id]);
         // Sections mount after the effect (record data arriving) and swap copies
         // across breakpoints, so the observer's targets are picked up here rather
         // than once at setup. Otherwise a late section's own resizes — an image
