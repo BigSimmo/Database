@@ -30,6 +30,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // them would read as a third, real band competing with the two on offer.
   const isSearchBandDirectionsMockup = pathname === "/mockups/search-band-directions";
   const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
+  // Draws its own universal phone header above every header under study; the
+  // shared chrome would read as a second, real header over the comparison.
+  const isBreadcrumbHeaderMockup = pathname === "/mockups/breadcrumb-header";
   // Draws its own composer in every frame, and the notice under study is the one
   // the shared composer renders — showing both would put two different privacy
   // lines on screen at once.
@@ -83,6 +86,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
         !isPhoneInPageNavigationMockup &&
+        !isBreadcrumbHeaderMockup &&
         !isSearchBandDirectionsMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
@@ -100,6 +104,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSearchRefineAdaptiveMockup &&
         !isSearchBandDirectionsMockup &&
         !isPhoneInPageNavigationMockup &&
+        !isBreadcrumbHeaderMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&

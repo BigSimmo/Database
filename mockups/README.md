@@ -60,3 +60,17 @@ Static desktop/phone comps for the pages that need redesign (not ModeHome mockup
 These are PNGs for design review only. Runnable `/mockups/*` routes are a separate implementation step.
 
 **Perfected combined comps** (desktop + phone in one image, recommended directions only) live in [`public/mockups/mode-page-redesign-2026-07/perfected-combined/`](../public/mockups/mode-page-redesign-2026-07/perfected-combined/README.md).
+
+## Breadcrumb header study (2026-08-09)
+
+Runnable study at [`/mockups/breadcrumb-header`](../src/app/mockups/breadcrumb-header/page.tsx): three sticky header directions for record pages that use `InformationPageBreadcrumbs` and have **no in-page section index** — factsheets, services, forms, DSM, specifiers, formulation, medications.
+
+`InPageNavHeader` stays the default for in-page navigation per [`docs/search-chrome-behaviour.md`](../docs/search-chrome-behaviour.md); it is the wrong shape here because a page with no sections gets a disclosure that opens a one-item sheet and a weighted track that renders one full-width segment. The directions keep that header's row grammar (back, title, ellipsis, one scroll owner) and drop the section machinery:
+
+| Direction            | Adds                                  | Fits                                    |
+| -------------------- | ------------------------------------- | --------------------------------------- |
+| 01 Crumb rail        | Nothing — identity and return only    | Forms, DSM, specifiers, formulation     |
+| 02 Action rail       | One promoted primary action pill      | Factsheets, services, medications       |
+| 03 Crumb rail + mode | Segmented view mode in the track slot | Factsheet reading level, medication age |
+
+Shared mockup chrome is suppressed because each frame draws its own universal phone header. These are design scratch — no component was extracted from them yet.
