@@ -181,6 +181,17 @@ describe("mode secondary navigation registry", () => {
       }),
     ).toBe("/differentials/presentations?q=confusion&ids=delirium%2Cdementia");
 
+    // Search restores the last query and re-opens results even when the prior
+    // tab URL did not carry run=1 (e.g. Diagnoses / Presentations browse).
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "differentials",
+        itemId: "search",
+        href: "/differentials?focus=1",
+        currentSearchParams: new URLSearchParams("q=confusion&ids=delirium"),
+      }),
+    ).toBe("/differentials?focus=1&q=confusion&run=1&ids=delirium");
+
     // Search is the CURRENT tab on /factsheets/search, so its own link must not
     // reset what you are looking at. `run` is carried with the query because
     // dropping it flips hasSubmittedModeSearch and re-places the composer.
@@ -278,7 +289,7 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("differentials", "/differentials/compare")).toBe("compare");
     expect(
       activeModeSecondaryNavigationId("differentials", "/differentials/presentations/acute-confusion-encephalopathy"),
-    ).toBe("compare");
+    ).toBe("presentations");
   });
 });
 
@@ -327,12 +338,12 @@ describe("differentials mode secondary navigation active destinations", () => {
     );
     expect(
       activeModeSecondaryNavigationId("differentials", "/differentials/presentations/acute-confusion-encephalopathy"),
-    ).toBe("compare");
+    ).toBe("presentations");
     expect(activeModeSecondaryNavigationId("differentials", "/differentials/compare")).toBe("compare");
     expect(activeModeSecondaryNavigationId("differentials", "/differentials/diagnoses")).toBe("diagnoses");
   });
 
-  it("opens the mode bar on the presentations catalogue and compare entry", () => {
+  it("opens the mode bar on the presentations catalogue, presentation detail, and compare entry", () => {
     expect(
       isModeSecondaryNavigationRoute({
         modeId: "differentials",
@@ -353,6 +364,6 @@ describe("differentials mode secondary navigation active destinations", () => {
         pathname: "/differentials/presentations/acute-confusion-encephalopathy",
         hasSubmittedSearch: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

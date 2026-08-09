@@ -164,7 +164,10 @@ describe("favourites auth gate DOM", () => {
 
     for (const provider of ["Apple", "Google", "Microsoft"]) {
       const button = screen.getByRole("button", { name: `${provider} sign-in unavailable` });
-      expect(button).toBeDisabled();
+      // `aria-disabled`, not the native attribute: these carry a description the
+      // reader has to be able to reach, which a lost tab stop would prevent.
+      expect(button).toHaveAttribute("aria-disabled", "true");
+      expect(button).not.toBeDisabled();
       expect(button).toHaveAttribute("title", `${provider} sign-in is unavailable — coming soon`);
       expect(button).toHaveAccessibleDescription(`${provider} sign-in is unavailable. Continue with email.`);
     }
