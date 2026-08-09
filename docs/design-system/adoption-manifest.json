@@ -273,13 +273,11 @@
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
-        "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
-        "src/components/clinical-dashboard/signed-image.tsx",
-        "src/components/in-page-nav/in-page-nav-header.tsx"
+        "src/components/clinical-dashboard/signed-image.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1458,6 +1456,7 @@
         "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
+        "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/mode-action-popup.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
@@ -1484,6 +1483,7 @@
         "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
+        "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/mode-action-popup.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
