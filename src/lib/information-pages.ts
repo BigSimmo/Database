@@ -22,7 +22,14 @@ export type InformationPageMode =
 
 const TOOL_SUFFIXES = new Set(["builder", "compare", "map"]);
 
-function isSlugDetail(pathname: string, home: string, extraExcluded: string[] = []): boolean {
+/**
+ * `/services/some-slug`, but not `/services`, a tool suffix, or a deeper path.
+ *
+ * Exported so `isHeaderAddonSlotOwnedRoute` can share the one implementation:
+ * every claimant route it names must also be `isInformationPage`, and a second
+ * hand-copied slug test is how that agreement would silently diverge.
+ */
+export function isSlugDetail(pathname: string, home: string, extraExcluded: string[] = []): boolean {
   if (!pathname.startsWith(`${home}/`) || pathname === home) return false;
   const rest = pathname.slice(home.length + 1);
   if (!rest || rest.includes("/")) return false;

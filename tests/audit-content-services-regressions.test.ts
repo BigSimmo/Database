@@ -201,7 +201,13 @@ describe("content and services audit regressions", () => {
   });
 
   it("claims and renders a form source link only when the record has a URL", () => {
-    expect(normalizedFormDetailSource).toContain("sourceHref={form.source?.url ?? null}");
+    // The duplicated `ActionPanel` that used to carry this moved into the
+    // in-page header's actions sheet, so the URL is resolved once, up front —
+    // and the sheet still renders an explicit disabled placeholder rather than
+    // an "Open official source" control that goes nowhere.
+    expect(normalizedFormDetailSource).toContain("const sourceHref = form.source?.url ?? null;");
+    expect(normalizedFormDetailSource).toContain("{sourceHref ? (");
+    expect(normalizedFormDetailSource).toContain("No official source URL is recorded for this form.");
     expect(normalizedFormDetailSource).toContain("href={form.source.url}");
     expect(normalizedFormDetailSource).toContain('target="_blank"');
     expect(normalizedFormDetailSource).toContain('rel="noopener noreferrer"');

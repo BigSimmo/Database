@@ -1,11 +1,22 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
+import Link from "next/link";
 import userEvent from "@testing-library/user-event";
 import { Compass, ShieldCheck, Stethoscope } from "lucide-react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { toDocumentSections, type PageSection } from "@/components/in-page-nav/page-section-index";
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
+
+/** Reassigned per case so a rerender can simulate a route change. */
+let pathname: string | null = null;
+vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+
+// Module state, so a case that navigates would otherwise hand its final
+// pathname to whichever case runs next.
+beforeEach(() => {
+  pathname = null;
+});
 
 /** `PhoneHeaderCollapsePortal` resolves its host only below this breakpoint. */
 function stubPhoneBreakpoint(isPhone: boolean) {
@@ -256,6 +267,49 @@ describe("InPageNavHeader", () => {
   it("renders no view mode when the page has none", () => {
     renderHeader({ sections: [] });
     expect(screen.queryByRole("radiogroup")).toBeNull();
+  });
+
+  it("accepts plain node actions from a Server Component page", async () => {
+    // Four of the seven converted pages are Server Components. React cannot pass
+    // a function across that boundary, so the render-prop form alone would fail
+    // to build there; server-rendered JSX passed as a slot is fine.
+    const user = userEvent.setup();
+    renderHeader({
+      actionsNoun: "specifier",
+      actions: <Link href="/specifiers/compare">Compare</Link>,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Open specifier actions" }));
+    const sheet = await screen.findByTestId("service-actions-sheet");
+    expect(within(sheet).getByRole("link", { name: "Compare" })).toHaveAttribute("href", "/specifiers/compare");
+  });
+
+  it("closes both sheets when the route changes under them", async () => {
+    // Server-passed action JSX is mostly `<Link>`s and has no way to call
+    // `close()`, so navigation has to close the sheet generically. Both sheets
+    // record the route they were opened on rather than a bare boolean.
+    const user = userEvent.setup();
+    pathname = "/specifiers/with-anxious-distress";
+    const view = renderHeader({ actionsNoun: "specifier", actions: <Link href="/specifiers/compare">Compare</Link> });
+
+    await user.click(screen.getByRole("button", { name: "Open specifier actions" }));
+    expect(await screen.findByTestId("service-actions-sheet")).toBeInTheDocument();
+
+    pathname = "/specifiers/compare";
+    view.rerender(
+      <InPageNavHeader
+        back={{ href: "/services", label: "Services" }}
+        title="Community Alcohol and Drug Services (CADS) network"
+        sections={sections}
+        activeId="service-referral"
+        onSelectSection={() => undefined}
+        testIdPrefix="service"
+        actionsNoun="specifier"
+        actions={<Link href="/specifiers/compare">Compare</Link>}
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByTestId("service-actions-sheet")).toBeNull());
   });
 
   it("portals into the universal collapse slot on phones rather than owning a second scroll-hide header", async () => {

@@ -2238,14 +2238,20 @@ test.describe("Clinical KB service detail page", () => {
       await gotoLauncher(page, "/services/13yarn");
 
       const servicePage = page.locator('[data-testid="service-detail-page"]:visible').last();
-      const copyContactButton = servicePage.getByRole("button", { name: "Copy contact" }).last();
       await expect(servicePage).toBeVisible();
       await expect(servicePage.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
-      await expect(servicePage.getByRole("link", { name: "Services" })).toBeVisible();
-      await expect(servicePage.getByRole("button", { name: "Save service" })).toBeVisible();
-      await expect(copyContactButton).toBeVisible();
-      await expect(servicePage.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:139276");
-      await expect(servicePage.getByRole("button", { name: "Use in navigator" })).toBeVisible();
+      // The record's controls live in the in-page header's actions sheet, and
+      // the header is a sibling of the shell rather than inside it — one page
+      // header per route, portaled into the phone collapse row below `sm`.
+      await expect(page.getByRole("link", { name: "Back to services" })).toBeVisible();
+      await page.getByTestId("service-actions-trigger").click();
+      const actions = page.getByTestId("service-actions-sheet");
+      await expect(actions.getByRole("button", { name: "Save service" })).toBeVisible();
+      await expect(actions.getByRole("button", { name: "Copy contact" })).toBeVisible();
+      await expect(actions.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:139276");
+      await expect(actions.getByRole("button", { name: "Use in navigator" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(actions).toBeHidden();
       await expect(page.getByTestId("global-search-input")).toHaveCount(1);
       await expect(page.getByTestId("global-search-input")).toBeVisible();
       await expect(servicePage.locator('[data-testid="global-search-input"]')).toHaveCount(0);
@@ -2321,7 +2327,8 @@ test.describe("Clinical KB service detail page", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
-    await page.getByTestId("service-detail-page").getByRole("button", { name: "Use in navigator" }).click();
+    await page.getByTestId("service-actions-trigger").click();
+    await page.getByTestId("service-actions-sheet").getByRole("button", { name: "Use in navigator" }).click();
     await expect(page).toHaveURL(/\/services\?/);
     await expect(page).toHaveURL(/run=1/);
     await expect(page).toHaveURL(/focus=1/);
@@ -2332,15 +2339,22 @@ test.describe("Clinical KB service detail page", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
-    const servicePage = page.getByTestId("service-detail-page");
-    await servicePage.getByRole("button", { name: "Save service" }).click();
-    await expect(page.getByRole("status")).toContainText("Service saved");
-    await expect(servicePage.getByRole("button", { name: "Remove saved service" })).toBeVisible();
+    const actionsTrigger = page.getByTestId("service-actions-trigger");
+    const actions = page.getByTestId("service-actions-sheet");
 
-    await servicePage.getByRole("button", { name: "Copy contact" }).last().click();
+    // Each action closes the sheet, so the feedback banner it writes has to stay
+    // mounted on the page behind it — that banner is the only confirmation a
+    // save or a copy ever gets.
+    await actionsTrigger.click();
+    await actions.getByRole("button", { name: "Save service" }).click();
+    await expect(page.getByRole("status")).toContainText("Service saved");
+
+    await actionsTrigger.click();
+    await expect(actions.getByRole("button", { name: "Remove saved service" })).toBeVisible();
+    await actions.getByRole("button", { name: "Copy contact" }).click();
     await expect(page.getByRole("status")).toContainText("Contact copied");
 
-    await servicePage.getByRole("link", { name: "Services" }).click();
+    await page.getByRole("link", { name: "Back to services" }).click();
     await expect(page).toHaveURL(/\/services(?:\?|$)/);
   });
 });

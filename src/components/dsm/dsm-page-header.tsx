@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { BookOpenCheck, GitCompareArrows, Search } from "lucide-react";
+import { BookOpenCheck } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { InformationPageBreadcrumbs } from "@/components/information-page-shell";
@@ -14,6 +13,7 @@ export function DsmPageHeader({
   category,
   actions,
   className,
+  breadcrumb = true,
 }: {
   eyebrow?: string;
   title: string;
@@ -22,6 +22,13 @@ export function DsmPageHeader({
   category?: string;
   actions?: ReactNode;
   className?: string;
+  /**
+   * Opt out on a page that owns an `InPageNavHeader`: that header's back
+   * control is already the route out to the mode home, and a breadcrumb row
+   * under it is a second one. The `<h1>` below stays either way — the shared
+   * header's title is a `<span>`.
+   */
+  breadcrumb?: boolean;
 }) {
   return (
     <div className={cn("border-b border-[color:var(--border)] bg-[color:var(--surface)]", className)}>
@@ -29,7 +36,9 @@ export function DsmPageHeader({
         {/* One breadcrumb nav per page: the mode-home back-link stays with
             `InformationPageBreadcrumbs` (now itself a `Breadcrumb`), so the
             `PageHeader` below is not given a second `breadcrumb` of its own. */}
-        <InformationPageBreadcrumbs home={{ label: "DSM-5 Diagnosis home", href: "/dsm" }} className="mb-3" />
+        {breadcrumb ? (
+          <InformationPageBreadcrumbs home={{ label: "DSM-5 Diagnosis home", href: "/dsm" }} className="mb-3" />
+        ) : null}
         <PageHeader
           eyebrow={eyebrow}
           title={title}
@@ -48,26 +57,5 @@ export function DsmPageHeader({
         />
       </div>
     </div>
-  );
-}
-
-export function DsmHeaderActions({ compareHref = "/dsm/compare" }: { compareHref?: string }) {
-  return (
-    <>
-      <Link
-        href="/dsm/search"
-        className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-xs font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)]"
-      >
-        <Search className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
-        Search
-      </Link>
-      <Link
-        href={compareHref}
-        className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
-      >
-        <GitCompareArrows className="h-4 w-4" aria-hidden />
-        Compare
-      </Link>
-    </>
   );
 }

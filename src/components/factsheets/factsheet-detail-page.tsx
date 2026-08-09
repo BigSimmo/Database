@@ -343,10 +343,11 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           {/* sidebar */}
           {/* Clears the shell header and the page's own sticky header. `lg:top-4`
               alone pinned it under both, and the header out-paints it at `z-30`
-              regardless of DOM order. Sized for the revealed state (measured:
-              the header's own row plus the mode band ends at 147px at `lg`), so
-              it stays clear once the top bar collapses too. */}
-          <aside className="grid gap-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] lg:sticky lg:top-[calc(var(--shell-header-h)+6rem)]">
+              regardless of DOM order. `--inpage-sticky-header-height` is the
+              header's live measured height, published by `useInPageChromeMetrics`,
+              so this self-corrects for the ~10px the reading-level control adds
+              on `medRich` sheets instead of hard-coding either case. */}
+          <aside className="grid gap-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] lg:sticky lg:top-[calc(var(--shell-header-h)+var(--inpage-sticky-header-height,4.75rem)+1rem)]">
             <div className="p-4">
               <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">For</p>
               <p className="mt-1 text-sm font-bold text-[color:var(--text-heading)]">{factsheet.audience}</p>
