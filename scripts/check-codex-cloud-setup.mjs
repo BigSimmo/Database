@@ -761,8 +761,18 @@ export function validateCodexCloudSetup() {
   const mcp = read(".mcp.json");
   const codexProjectConfig = read(".codex/config.toml");
 
-  if (packageJson.engines?.node !== `${nodeVersion}.x`) {
-    errors.push(`package.json engines.node must match .node-version (${nodeVersion}.x).`);
+  // engines.node declares a minor-level floor (">=24.15.0 <25") rather than a
+  // bare major, because dev dependencies carry a floor a "24.x" range cannot
+  // express. Validate the shape and that its major still tracks .node-version.
+  const engineRange = String(packageJson.engines?.node ?? "");
+  const engineFloor = engineRange.match(/>=\s*(\d+)\.(\d+)\.(\d+)/);
+  const engineCeiling = engineRange.match(/<\s*(\d+)/);
+  if (!engineFloor || !engineCeiling) {
+    errors.push(
+      `package.json engines.node must declare a floor and an exclusive major ceiling, e.g. ">=${nodeVersion}.15.0 <${Number(nodeVersion) + 1}". Found "${engineRange}".`,
+    );
+  } else if (engineFloor[1] !== nodeVersion || Number(engineCeiling[1]) !== Number(nodeVersion) + 1) {
+    errors.push(`package.json engines.node major must match .node-version (${nodeVersion}).`);
   }
   if (packageJson.engines?.npm !== "11.x") errors.push("package.json must require npm 11.x.");
   if (!String(packageJson.packageManager ?? "").startsWith("npm@11.")) {
@@ -772,6 +782,12 @@ export function validateCodexCloudSetup() {
   requireMatch(errors, gitignore, /^\/error\.log$/m, "Codex Cloud diagnostic error.log must stay ignored.");
 
   for (const [pattern, message] of [
+    [/expected_node_range=/, "Cloud setup must read the complete Node engine range."],
+    [/node_version_supported/, "Cloud setup must validate the complete Node engine range."],
+    [
+      /node_version_supported "\$actual_node_version" \|\| fail/,
+      "Cloud setup must fail closed if provisioning does not satisfy the Node engine range.",
+    ],
     [/npm ci --include=dev/, "Cloud setup must install the exact lockfile with dev dependencies."],
     [/deno@2/, "Cloud setup must install Deno 2.x."],
     [/worker\/python\/requirements-cloud\.txt/, "Cloud setup must install the Python 3.12 Cloud worker lock."],
