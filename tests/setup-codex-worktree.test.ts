@@ -8,6 +8,7 @@ import {
   installationIsComplete,
   installedMetadataMatches,
   lockDigest,
+  nodeVersionSatisfiesRange,
   parseWorktreeList,
   resolveNpmCli,
 } from "../scripts/setup-codex-worktree.mjs";
@@ -47,6 +48,17 @@ afterEach(() => {
 });
 
 describe("Codex Desktop worktree setup", () => {
+  it("enforces the complete declared Node range before dependency handling", () => {
+    const range = ">=24.15.0 <25";
+
+    expect(nodeVersionSatisfiesRange("24.13.0", range)).toBe(false);
+    expect(nodeVersionSatisfiesRange("24.14.9", range)).toBe(false);
+    expect(nodeVersionSatisfiesRange("24.15.0", range)).toBe(true);
+    expect(nodeVersionSatisfiesRange("24.19.0", range)).toBe(true);
+    expect(nodeVersionSatisfiesRange("25.0.0", range)).toBe(false);
+    expect(nodeVersionSatisfiesRange("not-a-version", range)).toBe(false);
+  });
+
   it("parses worktree paths without treating metadata as paths", () => {
     expect(parseWorktreeList("worktree C:/repo/main\nHEAD abc\n\nworktree C:/repo/feature\ndetached\n")).toEqual([
       path.resolve("C:/repo/main"),

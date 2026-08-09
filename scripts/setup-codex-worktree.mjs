@@ -121,16 +121,42 @@ function runNpm(args, options = {}) {
   return run("npm", args, options);
 }
 
+export function nodeVersionSatisfiesRange(version, range) {
+  const actualMatch = String(version).match(/^(\d+)\.(\d+)\.(\d+)$/u);
+  const rangeMatch = String(range)
+    .trim()
+    .match(/^>=\s*(\d+)\.(\d+)\.(\d+)\s+<\s*(\d+)$/u);
+  if (!actualMatch || !rangeMatch) return false;
+
+  const actual = actualMatch.slice(1).map(Number);
+  const minimum = rangeMatch.slice(1, 4).map(Number);
+  const exclusiveMajor = Number(rangeMatch[4]);
+  const belowMinimum = actual.some((part, index) => {
+    if (part === minimum[index]) return false;
+    return (
+      actual.slice(0, index).every((value, prefixIndex) => value === minimum[prefixIndex]) && part < minimum[index]
+    );
+  });
+
+  return !belowMinimum && actual[0] < exclusiveMajor;
+}
+
 function assertRuntime(projectRoot) {
   const expectedNodeMajor = readFileSync(path.join(projectRoot, ".node-version"), "utf8").trim();
   const packageJson = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8"));
+  const expectedNodeRange = String(packageJson.engines?.node ?? "");
   const expectedNpm = String(packageJson.packageManager ?? "").replace(/^npm@/u, "");
-  const actualNodeMajor = process.versions.node.split(".")[0];
   const npmResult = runNpm(["--version"], { cwd: projectRoot, capture: true });
   const actualNpm = npmResult.stdout?.trim();
 
-  if (actualNodeMajor !== expectedNodeMajor) {
-    fail(`Node ${expectedNodeMajor}.x is required; detected ${process.versions.node}.`);
+  const declaredFloorMajor = expectedNodeRange.match(/^>=\s*(\d+)\./u)?.[1];
+  if (declaredFloorMajor !== expectedNodeMajor) {
+    fail(
+      `package.json engines.node (${expectedNodeRange || "missing"}) must track .node-version (${expectedNodeMajor}).`,
+    );
+  }
+  if (!nodeVersionSatisfiesRange(process.versions.node, expectedNodeRange)) {
+    fail(`Node ${expectedNodeRange} is required; detected ${process.versions.node}.`);
   }
   if (npmResult.status !== 0 || actualNpm !== expectedNpm) {
     fail(`npm ${expectedNpm} is required; detected ${actualNpm || "unavailable"}.`);
