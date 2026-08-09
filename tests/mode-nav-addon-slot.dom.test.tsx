@@ -40,12 +40,14 @@ describe("header addon slot ownership", () => {
   it("recognises the routes whose page portals its own header", () => {
     expect(isHeaderAddonSlotOwnedRoute("/differentials/diagnoses/delirium")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/documents/11111111-1111-4111-8111-111111111111")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/services/13yarn")).toBe(true);
 
     // The presentations workflow page renders no portal, and the shell index is
     // not a document detail route.
     expect(isHeaderAddonSlotOwnedRoute("/differentials/presentations/acute-confusion-encephalopathy")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/documents/search")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/differentials/diagnoses")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/services")).toBe(false);
   });
 
   it("is covered, route for route, by the locally-owned early return", () => {
@@ -62,6 +64,7 @@ describe("header addon slot ownership", () => {
       "/differentials/diagnoses/delirium",
       "/documents/11111111-1111-4111-8111-111111111111",
       "/documents/11111111-1111-4111-8111-111111111111/source",
+      "/services/13yarn",
     ]) {
       expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
       expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
@@ -135,6 +138,7 @@ describe("header addon slot ownership", () => {
     expect(claimants.sort()).toEqual([
       "src/components/DocumentViewer.tsx",
       "src/components/differentials/differential-detail-page.tsx",
+      "src/components/services/service-detail-page.tsx",
     ]);
   });
 

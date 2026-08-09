@@ -20,14 +20,6 @@ export type InformationPageSectionDefinition = {
   fragmentId?: string;
 };
 
-const serviceSections: readonly InformationPageSectionDefinition[] = [
-  { id: "overview", label: "Overview", targetIds: ["service-overview"] },
-  { id: "quick-facts", label: "Quick facts", targetIds: ["service-quick-facts"] },
-  { id: "referral", label: "Referral", targetIds: ["service-referral"] },
-  { id: "criteria", label: "Criteria", targetIds: ["service-criteria"] },
-  { id: "verification", label: "Verification", targetIds: ["service-verification"] },
-];
-
 const formSections: readonly InformationPageSectionDefinition[] = [
   { id: "overview", label: "Overview", targetIds: ["form-overview"] },
   {
@@ -93,7 +85,7 @@ const documentSections: readonly InformationPageSectionDefinition[] = [
 
 export function informationPageSectionDefinitions(pathname: string): readonly InformationPageSectionDefinition[] {
   if (!isInformationPage(pathname)) return [];
-  if (pathname.startsWith("/services/") && pathname !== "/services") return serviceSections;
+  // `/services/[slug]` owns `InPageNavHeader` locally — see hasLocalInformationPageNavigation.
   if (pathname.startsWith("/forms/") && pathname !== "/forms") return formSections;
   if (
     pathname.startsWith("/specifiers/") &&
@@ -124,6 +116,8 @@ export function hasLocalInformationPageNavigation(pathname: string): boolean {
     // component rendered — so the route was claimed and nothing was drawn
     // (/issues #256). Declaring local ownership is what was true all along.
     pathname.startsWith("/differentials/presentations/") ||
+    // Service detail mounts `InPageNavHeader` (back, section track, actions).
+    (pathname.startsWith("/services/") && pathname !== "/services") ||
     (pathname.startsWith("/factsheets/") && pathname !== "/factsheets/search") ||
     pathname.startsWith("/therapy-compass/") ||
     // DocumentViewer owns DocumentViewerAnchors (PDF/Evidence/Text/Summary/Images).
@@ -223,11 +217,11 @@ export function PageSecondaryNavigation({
   // duplicate the bar and discard its URL/state-aware action bindings.
   if (pathname === "/therapy-compass" || pathname.startsWith("/therapy-compass/")) return null;
   if (locallyOwnedInformationNavigation) return null;
-  // ORDER IS LOAD-BEARING: this must stay above the mode branch. `services`,
-  // `forms`, `documents` and `prescribing` register no destinations at all yet
-  // still own real "On this page" section navs. Hoisting the mode guard below
-  // up to here would silently delete navigation from every `/services/*`,
-  // `/forms/*`, `/medications/*` and `/documents/<id>` record.
+  // ORDER IS LOAD-BEARING: this must stay above the mode branch. `forms` (and
+  // other pill-rail routes) register no destinations at all yet still own real
+  // "On this page" section navs. Hoisting the mode guard below up to here would
+  // silently delete that shell navigation. Services/medications/documents
+  // detail are locally owned and return earlier.
   if (informationDefinitions.length) {
     return <AvailableInformationPageNavigation definitions={informationDefinitions} sticky={sticky} />;
   }

@@ -24,7 +24,7 @@ import {
   CircleX,
   type LucideIcon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import {
   cn,
@@ -38,7 +38,12 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
+import { InformationPageShell } from "@/components/information-page-shell";
+import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
+import { toDocumentSections } from "@/components/in-page-nav/page-section-index";
+import { jumpToDocumentSection } from "@/components/document-viewer/section-nav";
+import { useDocumentSectionSpy } from "@/components/document-viewer/use-section-spy";
+import { buildServiceSectionIndex } from "@/components/services/service-section-index";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { compactCatalogField } from "@/lib/compact-best-use-title";
@@ -52,6 +57,11 @@ import {
   type ServiceSummaryCard,
 } from "@/lib/service-ranker";
 import { useAccountData } from "@/components/account-data-provider";
+
+const serviceSectionScrollMt = "scroll-mt-[var(--document-anchor-offset,6rem)]";
+
+const actionRowClass =
+  "focus-ring-tab flex min-h-tap w-full items-center gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-left text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-raised)]";
 
 const missingText = "Not listed";
 
@@ -242,28 +252,30 @@ function dedupeTagItems(items: string[]) {
     });
 }
 
-function ActionIconButton({
-  label,
-  onClick,
-  pressed,
-  children,
+function ServiceActions({
+  saved,
+  onToggleSaved,
+  onClose,
 }: {
-  label: string;
-  onClick: () => void;
-  pressed?: boolean;
-  children: ReactNode;
+  saved: boolean;
+  onToggleSaved: () => void;
+  onClose: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-pressed={pressed}
-      title={label}
-      className="grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-    >
-      {children}
-    </button>
+    <div className="grid gap-2">
+      <button type="button" onClick={onToggleSaved} aria-pressed={saved} className={actionRowClass}>
+        {saved ? (
+          <BookmarkCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        ) : (
+          <Bookmark className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        )}
+        {saved ? "Remove saved service" : "Save service"}
+      </button>
+      <button type="button" onClick={onClose} className={actionRowClass}>
+        <X className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        Close service
+      </button>
+    </div>
   );
 }
 
@@ -285,7 +297,10 @@ function Section({
   return (
     <section
       id={id}
-      className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]"
+      className={cn(
+        "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]",
+        id ? serviceSectionScrollMt : null,
+      )}
     >
       <div className="border-b border-[color:var(--border)] px-3 py-3 sm:px-4">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
@@ -520,9 +535,24 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     service.verification?.notes?.find((note) => /local|confirm/i.test(note)) ??
     "Hours not public";
 
-  function goBack() {
+  const sections = useMemo(
+    () => buildServiceSectionIndex({ showQuickFacts, showReferralSection, showCriteriaSection }),
+    [showCriteriaSection, showQuickFacts, showReferralSection],
+  );
+  const documentSections = useMemo(() => toDocumentSections(sections), [sections]);
+  const { activeId, selectSection } = useDocumentSectionSpy(documentSections, true);
+
+  const goBack = useCallback(() => {
     router.push(appModeHomeHref("services", { focus: true }));
-  }
+  }, [router]);
+
+  const onSelectSection = useCallback(
+    (id: string) => {
+      selectSection(id);
+      jumpToDocumentSection(id);
+    },
+    [selectSection],
+  );
 
   async function copyValue(value: string | null | undefined, label: string) {
     if (!hasText(value)) {
@@ -561,6 +591,30 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
 
   return (
     <InformationPageShell testId="service-detail-page" gap={false}>
+      <InPageNavHeader
+        back={{ href: servicesHomeHref, label: "Services" }}
+        title={service.title}
+        sections={sections}
+        activeId={activeId}
+        onSelectSection={onSelectSection}
+        actionsNoun="service"
+        actionsDescription="Save or leave this service record."
+        testIdPrefix="service"
+        actions={(close) => (
+          <ServiceActions
+            saved={saved}
+            onToggleSaved={() => {
+              close();
+              void toggleSaved();
+            }}
+            onClose={() => {
+              close();
+              goBack();
+            }}
+          />
+        )}
+      />
+
       {notice ? (
         <div
           role="status"
@@ -582,56 +636,37 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
         </div>
       ) : null}
 
-      <InformationPageBreadcrumbs home={{ label: "Services", href: servicesHomeHref }} current={service.title} />
-
       <div className="mt-3 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
         <div className="min-w-0 space-y-4">
-          <section id="service-overview" className="rounded-lg bg-[color:var(--surface-lux)]">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:gap-4">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-                  <h1 className="max-w-4xl text-3xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
-                    {service.title}
-                  </h1>
+          <section
+            id="service-overview"
+            className={cn(serviceSectionScrollMt, "rounded-lg bg-[color:var(--surface-lux)]")}
+          >
+            <div className="min-w-0">
+              <h1 className="max-w-4xl text-3xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
+                {service.title}
+              </h1>
+              {service.statusChips?.length ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {service.statusChips.map((chip, index) => (
+                    <span
+                      key={chip.label ?? `status-chip-${index}`}
+                      className={cn(
+                        "inline-flex min-h-6 items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-2xs font-bold",
+                        chipToneClass(chip.tone),
+                      )}
+                    >
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden />
+                      {displayText(chip.label, "Status")}
+                    </span>
+                  ))}
                 </div>
-                {service.statusChips?.length ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {service.statusChips.map((chip, index) => (
-                      <span
-                        key={chip.label ?? `status-chip-${index}`}
-                        className={cn(
-                          "inline-flex min-h-6 items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-2xs font-bold",
-                          chipToneClass(chip.tone),
-                        )}
-                      >
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden />
-                        {displayText(chip.label, "Status")}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                {compactedSubtitle ? (
-                  <p className="mt-3 max-w-4xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                    {compactedSubtitle}
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex items-center gap-2 justify-self-end">
-                <ActionIconButton
-                  label={saved ? "Remove saved service" : "Save service"}
-                  onClick={toggleSaved}
-                  pressed={saved}
-                >
-                  {saved ? (
-                    <BookmarkCheck className="h-5 w-5" aria-hidden />
-                  ) : (
-                    <Bookmark className="h-5 w-5" aria-hidden />
-                  )}
-                </ActionIconButton>
-                <ActionIconButton label="Close service" onClick={goBack}>
-                  <X className="h-5 w-5" aria-hidden />
-                </ActionIconButton>
-              </div>
+              ) : null}
+              {compactedSubtitle ? (
+                <p className="mt-3 max-w-4xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                  {compactedSubtitle}
+                </p>
+              ) : null}
             </div>
           </section>
 
@@ -687,7 +722,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
             <section
               id="service-quick-facts"
               aria-label="Service quick facts"
-              className="grid gap-3 pt-3 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4"
+              className={cn(serviceSectionScrollMt, "grid gap-3 pt-3 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4")}
             >
               {visibleSummaryCards.map((card) => (
                 <SummaryCard key={card.id} card={card} />
@@ -738,7 +773,10 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
 
               <section
                 id="service-verification"
-                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+                className={cn(
+                  serviceSectionScrollMt,
+                  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
+                )}
               >
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">

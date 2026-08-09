@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { ServiceDetailPage } from "@/components/services/service-detail-page";
+import { buildServiceSectionIndex } from "@/components/services/service-section-index";
 import type { ServiceRecord } from "@/lib/service-ranker";
 
 vi.mock("next/navigation", () => ({
@@ -50,7 +52,48 @@ function baseService(overrides: Partial<ServiceRecord> = {}): ServiceRecord {
   };
 }
 
+describe("buildServiceSectionIndex", () => {
+  it("always includes overview and verification, and omits empty optional sections", () => {
+    expect(
+      buildServiceSectionIndex({
+        showQuickFacts: false,
+        showReferralSection: false,
+        showCriteriaSection: false,
+      }).map((section) => section.id),
+    ).toEqual(["service-overview", "service-verification"]);
+
+    expect(
+      buildServiceSectionIndex({
+        showQuickFacts: true,
+        showReferralSection: true,
+        showCriteriaSection: true,
+      }).map((section) => section.id),
+    ).toEqual([
+      "service-overview",
+      "service-quick-facts",
+      "service-referral",
+      "service-criteria",
+      "service-verification",
+    ]);
+  });
+});
+
 describe("ServiceDetailPage content cleanup", () => {
+  it("mounts InPageNavHeader without breadcrumbs and keeps Save/Close in the actions sheet", async () => {
+    const user = userEvent.setup();
+    render(<ServiceDetailPage service={baseService()} />);
+
+    expect(screen.getByTestId("service-detail-header")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to services" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Test Service" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: /breadcrumb/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save service" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("service-actions-trigger"));
+    expect(screen.getByRole("button", { name: "Save service" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close service" })).toBeInTheDocument();
+  });
+
   it("hides quick facts, referral, criteria, and tags when those sections have no content", () => {
     render(
       <ServiceDetailPage
@@ -75,6 +118,9 @@ describe("ServiceDetailPage content cleanup", () => {
     expect(screen.queryByRole("heading", { name: "Referral criteria" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Tags & catchments" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Verification" })).toBeInTheDocument();
+    expect(screen.getByTestId("service-section-trigger")).toHaveTextContent("Overview");
+    expect(screen.getByTestId("service-section-trigger")).not.toHaveTextContent("Quick facts");
+    expect(screen.getByTestId("service-section-trigger")).not.toHaveTextContent("Referral");
   });
 
   it("shows a short website host instead of a raw multi-line URL", () => {

@@ -23,7 +23,6 @@ describe("PageSecondaryNavigation", () => {
   });
 
   it.each([
-    ["/services/community-team", ["Overview", "Quick facts", "Referral", "Criteria", "Verification"]],
     [
       "/forms/form-1",
       ["Overview", "Decision context", "Priority facts", "Legal boundary", "Form information", "Source / verification"],
@@ -49,6 +48,7 @@ describe("PageSecondaryNavigation", () => {
   it.each([
     "/medications/sertraline",
     "/differentials/diagnoses/delirium",
+    "/services/community-team",
     "/factsheets/sertraline",
     "/therapy-compass/cbt",
     "/documents/11111111-1111-4111-8111-111111111111",
@@ -89,13 +89,10 @@ describe("PageSecondaryNavigation", () => {
     expect(hasLocalInformationPageNavigation("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
   });
 
-  it("binds service section targets to IDs rendered by service-detail-page", () => {
-    const servicePage = readFileSync(join(process.cwd(), "src/components/services/service-detail-page.tsx"), "utf8");
-    for (const targetId of informationPageSectionDefinitions("/services/community-team").flatMap(
-      (section) => section.targetIds,
-    )) {
-      expect(servicePage).toContain(`id="${targetId}"`);
-    }
+  it("leaves service detail section navigation to the page-owned InPageNavHeader", () => {
+    expect(informationPageSectionDefinitions("/services/community-team")).toEqual([]);
+    expect(hasLocalInformationPageNavigation("/services/community-team")).toBe(true);
+    expect(hasLocalInformationPageNavigation("/services")).toBe(false);
   });
 
   it("binds form section targets to IDs rendered by form-detail-page", () => {
@@ -186,8 +183,8 @@ describe("PageSecondaryNavigation", () => {
     // claims a section set, and the informationDefinitions branch sits above
     // the mode branch precisely so that survives. Hoisting the empty-registry
     // return up with the therapy/locally-owned early returns would silently
-    // strip navigation from every /services/*, /forms/*, /medications/* and
-    // /documents/<id> record.
+    // strip navigation from every /forms/* record that still uses the shell rail
+    // (services/medications/documents detail are locally owned).
     //
     // The anchors are planted here rather than taken from the real page on
     // purpose: this asserts branch ORDER only. That form-detail-page.tsx now
@@ -259,21 +256,12 @@ describe("PageSecondaryNavigation", () => {
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
   });
 
-  it("replaces mode navigation with only the information sections present in the record", async () => {
-    render(
-      <div>
-        <PageSecondaryNavigation modeId="services" pathname="/services/community-team" hasSubmittedSearch />
-        <section id="service-overview" />
-        <section id="service-criteria" />
-      </div>,
-    );
-
-    const onThisPage = await screen.findByRole("navigation", { name: "On this page" });
-    expect(onThisPage).toBeVisible();
-    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "#service-overview");
-    expect(screen.getByRole("link", { name: "Criteria" })).toHaveAttribute("href", "#service-criteria");
-    expect(screen.queryByRole("link", { name: "Quick facts" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
+  it("keeps the shell bar off service detail routes that own InPageNavHeader", () => {
+    expect(hasLocalInformationPageNavigation("/services/community-team")).toBe(true);
+    render(<PageSecondaryNavigation modeId="services" pathname="/services/community-team" hasSubmittedSearch />);
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
+    expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "On this page" })).toBeNull();
   });
 
   it("leaves locally controlled information and Therapy workflow navigation to their page owners", async () => {

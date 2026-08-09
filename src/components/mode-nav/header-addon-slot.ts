@@ -28,5 +28,7 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // differentials/differential-detail-page.tsx (diagnoses detail only — the
   // presentations workflow page renders no portal).
   if (pathname.startsWith("/differentials/diagnoses/")) return true;
+  // services/service-detail-page.tsx — InPageNavHeader via PhoneHeaderCollapsePortal.
+  if (pathname.startsWith("/services/") && pathname !== "/services") return true;
   return false;
 }

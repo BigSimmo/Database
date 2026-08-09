@@ -2241,8 +2241,10 @@ test.describe("Clinical KB service detail page", () => {
       const copyContactButton = servicePage.getByRole("button", { name: "Copy contact" }).last();
       await expect(servicePage).toBeVisible();
       await expect(servicePage.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
-      await expect(servicePage.getByRole("link", { name: "Services" })).toBeVisible();
-      await expect(servicePage.getByRole("button", { name: "Save service" })).toBeVisible();
+      await expect(page.getByTestId("service-detail-header")).toBeVisible();
+      await expect(page.getByRole("link", { name: "Back to services" })).toBeVisible();
+      await expect(page.getByTestId("service-actions-trigger")).toBeVisible();
+      await expect(servicePage.getByRole("button", { name: "Save service" })).toHaveCount(0);
       await expect(copyContactButton).toBeVisible();
       await expect(servicePage.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:139276");
       await expect(servicePage.getByRole("button", { name: "Use in navigator" })).toBeVisible();
@@ -2333,14 +2335,20 @@ test.describe("Clinical KB service detail page", () => {
     await gotoLauncher(page, "/services/13yarn");
 
     const servicePage = page.getByTestId("service-detail-page");
-    await servicePage.getByRole("button", { name: "Save service" }).click();
+    await page.getByTestId("service-actions-trigger").click();
+    await page.getByTestId("service-actions-sheet").getByRole("button", { name: "Save service" }).click();
     await expect(page.getByRole("status")).toContainText("Service saved");
-    await expect(servicePage.getByRole("button", { name: "Remove saved service" })).toBeVisible();
+
+    await page.getByTestId("service-actions-trigger").click();
+    await expect(
+      page.getByTestId("service-actions-sheet").getByRole("button", { name: "Remove saved service" }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
 
     await servicePage.getByRole("button", { name: "Copy contact" }).last().click();
     await expect(page.getByRole("status")).toContainText("Contact copied");
 
-    await servicePage.getByRole("link", { name: "Services" }).click();
+    await page.getByRole("link", { name: "Back to services" }).click();
     await expect(page).toHaveURL(/\/services(?:\?|$)/);
   });
 });
