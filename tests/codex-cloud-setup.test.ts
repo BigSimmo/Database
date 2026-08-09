@@ -575,6 +575,10 @@ describe("Codex Cloud environment contract", () => {
     );
     expect(setup).toContain("if ! grep -Fq '.clinical-kb-codex-cloud.sh'");
     expect(setup).toContain('if [[ "$actual_version" != "$expected_version" ]]');
+    expect(setup).toContain('expected_node_range="$(sed');
+    expect(setup).toContain('if ! node_version_supported "$actual_node_version"; then');
+    expect(setup).toContain('node_version_supported "$actual_node_version" || fail');
+    expect(setup).not.toContain("actual_node_major=");
     expect(setup).toContain('"$HOME/.bash_profile"');
     expect(setup.match(/unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy/g)).toHaveLength(2);
     expect(setup).toContain("worker/python/requirements-cloud.txt");

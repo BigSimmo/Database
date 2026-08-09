@@ -43,8 +43,42 @@ function runtimeResult(runtimeName: string, version: string, expectedMajor: numb
   };
 }
 
-export function checkNodeRuntime(version: string, expectedMajor = 24): RuntimeCheckResult {
-  return runtimeResult("Node", version, expectedMajor);
+// Must stay equal to the floor declared by package.json engines.node, which is
+// the single source of truth. tests/check-runtime.test.ts pins the two together.
+export const NODE_MINIMUM_VERSION = "24.15.0";
+
+function isBelow(version: string, minimum: string): boolean {
+  const actual = version.split(".").map(Number);
+  const required = minimum.split(".").map(Number);
+  for (let index = 0; index < 3; index += 1) {
+    const left = actual[index] ?? 0;
+    const right = required[index] ?? 0;
+    if (left !== right) return left < right;
+  }
+  return false;
+}
+
+export function checkNodeRuntime(
+  version: string,
+  expectedMajor = 24,
+  minimumVersion = NODE_MINIMUM_VERSION,
+): RuntimeCheckResult {
+  const result = runtimeResult("Node", version, expectedMajor);
+  if (!result.ok) return result;
+
+  // A matching major is not sufficient: dev dependencies (jsdom) carry a
+  // minor-level floor, and a too-old 24.x otherwise passes every gate and then
+  // fails at install with an opaque EBADENGINE for a transitive package.
+  if (isBelow(version, minimumVersion)) {
+    return {
+      ok: false,
+      expectedMajor,
+      actualVersion: version,
+      message: `Node ${version} is below the ${minimumVersion} floor this project requires (package.json engines.node). Install Node ${minimumVersion} or newer.`,
+    };
+  }
+
+  return result;
 }
 
 export function checkNpmRuntime(
