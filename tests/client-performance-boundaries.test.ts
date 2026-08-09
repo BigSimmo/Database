@@ -85,23 +85,20 @@ describe("fixture-free client performance boundaries", () => {
     expect(pdfViewer).not.toContain("renderedPageRef.current?.cleanup()");
   });
 
-  it("bounds retained page canvases by a document-wide budget, not only the per-canvas one", () => {
-    const pdfViewer = source("src/components/document-viewer/pdf-canvas-viewer.tsx");
-
-    // `resolveCanvasRasterPlan` bounds ONE canvas against WebKit's ~2^24 ceiling.
-    // Once several pages are live at once, N individually legal canvases can still
-    // exhaust device memory, so the render window must come from the document-wide
-    // budget rather than a hardcoded page count. The DOM test cannot catch a
-    // regression here: its fixture canvases are small enough that the budget never
-    // binds, so a viewer that dropped it would still window correctly there.
-    expect(pdfViewer).toContain("resolveLiveCanvasWindow");
-    expect(pdfViewer).toContain("resolveRenderAheadPages");
-    expect(pdfViewer).toMatch(/liveCanvasLimit/);
-
-    // Render-ahead must stay deferred. Rendering neighbours eagerly re-introduces
-    // exactly the background fetching `disableAutoFetch` above exists to prevent.
-    expect(pdfViewer).toContain("requestIdleCallback");
-  });
+  // The document-wide canvas budget and the deferred render-ahead are covered by
+  // `tests/document-viewer-page-virtualization.dom.test.tsx`, behaviourally.
+  //
+  // They were briefly asserted here instead, by checking the viewer source
+  // contained `resolveLiveCanvasWindow` / `resolveRenderAheadPages` /
+  // `liveCanvasLimit`. That guard was measured against the regression it named
+  // and did not catch it: replacing the budget call with a hardcoded `3` leaves
+  // every one of those identifiers in the file, so the grep stayed green while
+  // the viewer retained three full-zoom canvases. The DOM test now drives the
+  // budget until it binds (a page at maximum zoom on a dpr-3 display costs the
+  // whole per-canvas ceiling) and fails on exactly that substitution.
+  //
+  // Worth generalising when adding a contract here: a source-text assertion can
+  // only prove a name is present, never that it is load-bearing.
 
   it("revalidates cached document download URLs on every viewer action", () => {
     const viewer = source("src/components/DocumentViewer.tsx");
