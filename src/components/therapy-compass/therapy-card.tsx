@@ -32,14 +32,16 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
     activeTags: b.search.tags,
   });
   const whyMatched =
-    cardPreviewText(therapy.bestUsedFor || therapy.indications, { exclude: therapy.name }) ||
+    cardPreviewText(therapy.bestUsedFor, { exclude: therapy.name }) ||
+    cardPreviewText(therapy.indications, { exclude: therapy.name }) ||
     "Relevant to the current search.";
   const avoidModify =
     summarise(therapy.contraindicationsOrCautions, 1) || "Check source and review status before clinical use.";
   const bestFit =
-    cardPreviewText(therapy.targetSymptoms || therapy.patientPopulation || therapy.setting, {
-      exclude: therapy.name,
-    }) || "See record for population fit.";
+    cardPreviewText(therapy.targetSymptoms, { exclude: therapy.name }) ||
+    cardPreviewText(therapy.patientPopulation, { exclude: therapy.name }) ||
+    cardPreviewText(therapy.setting, { exclude: therapy.name }) ||
+    "See record for population fit.";
 
   const sheetLabel = therapy.patientSheetAvailable ? "Patient sheet" : "Sheet unavailable";
   const sheetShort = therapy.patientSheetAvailable ? "Sheet" : "No sheet";

@@ -12,6 +12,34 @@ describe("cardPreviewText", () => {
     );
   });
 
+  it("skips title restatements that include a parenthetical or comma alias", () => {
+    expect(
+      cardPreviewText("Cognitive Therapy (CT). Classic strongest uses are depression and anxiety disorders.", {
+        exclude: "Cognitive Therapy",
+      }),
+    ).toBe("Classic strongest uses are depression and anxiety disorders.");
+
+    expect(
+      cardPreviewText("Dignity therapy, DT. Best in palliative care and advanced illness.", {
+        exclude: "Dignity therapy",
+      }),
+    ).toBe("Best in palliative care and advanced illness.");
+  });
+
+  it("skips a title-prefixed prose sentence while keeping unrelated prefix-sharing words", () => {
+    expect(
+      cardPreviewText("Behavioural activation is a structured approach. Prefer when avoidance dominates.", {
+        exclude: "Behavioural activation",
+      }),
+    ).toBe("Prefer when avoidance dominates.");
+
+    expect(
+      cardPreviewText("Behavioural activationism remains distinct from the named therapy.", {
+        exclude: "Behavioural activation",
+      }),
+    ).toBe("Behavioural activationism remains distinct from the named therapy.");
+  });
+
   it("returns empty when every sentence is the excluded title", () => {
     const name = "Behavioural activation";
     expect(cardPreviewText(`${name}.`, { exclude: name })).toBe("");

@@ -41,6 +41,21 @@ export function summarise(text: string | null, sentences = 1): string {
 }
 
 /**
+ * True when a sentence is only a therapy-name restatement, or starts with that
+ * name before a word boundary (alias suffixes like `(CT)` / `, DT`, or prose
+ * such as "Behavioural activation is…"). Prefix-sharing words without a
+ * boundary ("Behavioural activationism") stay.
+ */
+function isExcludedTitleSentence(part: string, exclude: string): boolean {
+  if (!exclude) return false;
+  const normalized = part.toLowerCase().replace(/[.]+$/, "").trim();
+  if (!normalized) return false;
+  if (normalized === exclude) return true;
+  const escaped = exclude.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${escaped}\\b`).test(normalized);
+}
+
+/**
  * Compact card copy: skip a leading sentence that merely restates the therapy
  * name (common in clinicalSummary), then return up to `maxSentences` of the
  * remainder. Empty when nothing useful remains.
@@ -57,11 +72,7 @@ export function cardPreviewText(
     .map((part) => part.trim())
     .filter(Boolean);
 
-  const useful = parts.filter((part) => {
-    if (!exclude) return true;
-    const normalized = part.toLowerCase().replace(/[.]+$/, "").trim();
-    return normalized !== exclude && !normalized.startsWith(`${exclude}.`);
-  });
+  const useful = parts.filter((part) => !isExcludedTitleSentence(part, exclude));
 
   return useful.slice(0, maxSentences).join(" ").trim();
 }
