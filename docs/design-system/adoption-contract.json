@@ -659,6 +659,7 @@
     "DoseLine": "answer",
     "DownloadLink": "controls",
     "EmptyState": "feedback",
+    "ErrorState": "feedback",
     "ErrorSummary": "feedback",
     "ExternalTextLink": "controls",
     "FieldError": "feedback",
