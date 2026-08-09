@@ -217,7 +217,7 @@ const STATUS_SURFACE_UTILITY = new RegExp(
  * with any letter outside a unit is prose, and prose is its own channel — so it
  * is not a numeral and not this rule's business.
  */
-const NUMERAL_TEXT = /^[\s\d.,:%+\-–—/×xX()]*$/;
+const NUMERAL_TEXT = /^[\s\d.,:%+\-–—/×xX()]*(?:[A-Za-zµμ]+(?:\/[A-Za-z]+)*)?$/;
 /**
  * The trailing name segment of an expression that is a figure by definition.
  * Kept deliberately short. A looser list (`value`, `amount`, `size`, `index`,
