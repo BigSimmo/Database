@@ -331,6 +331,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   fullscreen = false,
   onFitWidthChange,
   onZoomChange,
+  onRotate,
 }: {
   url: string;
   title: string;
@@ -348,6 +349,13 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   fullscreen?: boolean;
   onFitWidthChange: (fitWidth: boolean) => void;
   onZoomChange: (zoom: number) => void;
+  /**
+   * DocumentFrame's rotate action. `rotation` arrives as a controlled prop with
+   * no way back, so without this the keyboard could reach every viewing control
+   * except rotation. The viewer does not own rotation state — it asks the frame
+   * that does, which keeps one toolbar and one source of truth.
+   */
+  onRotate?: () => void;
 }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
@@ -857,20 +865,47 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     onPanBy: handlePanByDelta,
   });
 
+  /**
+   * Reading-mode key bindings. Documented in `docs/wiring-conventions.md`.
+   *
+   * | Key                  | Action                |
+   * | -------------------- | --------------------- |
+   * | Left / Right arrow   | Previous / next page  |
+   * | Page Up / Page Down  | Previous / next page  |
+   * | Home / End           | First / last page     |
+   * | `+` / `=` and `-`    | Zoom in / out         |
+   * | `0` or `f`           | Fit to width          |
+   * | `r`                  | Rotate 90 degrees     |
+   *
+   * Modified keystrokes are left alone throughout: Ctrl/Cmd+`0` is the browser's
+   * own zoom reset, Cmd+Left is history back on macOS, and a viewer that ate
+   * those would be worse than one with no bindings at all.
+   */
   function handleHolderKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (!pagesReady) return;
     // Only act on keystrokes aimed at the holder itself, so Enter/typing inside
     // child controls (retry button, source links) is never hijacked.
     if (event.target !== event.currentTarget) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
 
     switch (event.key) {
       case "ArrowLeft":
+      case "PageUp":
         event.preventDefault();
         goToPage(page - 1);
         break;
       case "ArrowRight":
+      case "PageDown":
         event.preventDefault();
         goToPage(page + 1);
+        break;
+      case "Home":
+        event.preventDefault();
+        goToPage(1);
+        break;
+      case "End":
+        event.preventDefault();
+        goToPage(totalPages);
         break;
       case "+":
       case "=":
@@ -882,8 +917,18 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
         zoomBy(-VIEWER_ZOOM_STEP);
         break;
       case "0":
+      case "f":
+      case "F":
         event.preventDefault();
         setFitWidth(true);
+        break;
+      case "r":
+      case "R":
+        // Silently inert without the callback rather than swallowing the key:
+        // an unhandled `r` still reaches whatever else wants it.
+        if (!onRotate) break;
+        event.preventDefault();
+        onRotate();
         break;
       default:
         break;
@@ -901,7 +946,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
         ref={holderRef}
         tabIndex={0}
         role="group"
-        aria-label={`${title} — page view. Use arrow keys to change pages, plus and minus to zoom.`}
+        aria-label={`${title} — page view. Arrow keys or Page Up and Page Down change pages, Home and End jump to the first or last page, plus and minus zoom, F fits the width, R rotates.`}
         onKeyDown={handleHolderKeyDown}
         {...gestureHandlers}
         className={cn(
