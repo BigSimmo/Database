@@ -16,6 +16,7 @@ import {
   findRawScaleLiteralClassesInSource,
   findRawScaleLiteralDeclarationsInSource,
   findTextSoftConsumersInSource,
+  findTypeStepUsagesInSource,
   findUnapprovedZIndexClassesInSource,
   hasLegacyTapClass,
   rawColorContractSource,
@@ -383,6 +384,23 @@ describe("design-system contract helpers", () => {
     expect(exempt.padding).toEqual([]);
     expect(exempt.radius).toEqual([]);
     expect(exempt.lineHeight).toEqual([]);
+  });
+
+  it("reports bare text-* selections without deciding which names are type steps", () => {
+    const usages = findTypeStepUsagesInSource(
+      "src/probe.tsx",
+      'export const probe = <div className="text-sm-minus sm:text-2xs text-[color:var(--text)] text-[12px] text-balance" />;',
+    );
+    // Variant prefixes are stripped, so `sm:text-2xs` counts as selecting the
+    // step. Arbitrary and colour forms are not bare names and are left to
+    // check:type-scale, which is the half that already ships.
+    expect(usages).toContain("sm-minus");
+    expect(usages).toContain("2xs");
+    expect(usages).not.toContain("[color:var(--text)]");
+    // Non-size `text-*` utilities share the namespace; the caller filters them
+    // out by intersecting with the @theme block rather than this module
+    // guessing, so they are reported here unfiltered.
+    expect(usages).toContain("balance");
   });
 
   it("counts the same three literals in CSS declarations, exempting zero, keywords and tokens", () => {

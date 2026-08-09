@@ -1099,6 +1099,13 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     if (RAW_PADDING_UTILITY.test(base)) result.rawPaddingLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_RADIUS_UTILITY.test(base)) result.rawRadiusLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_LINE_HEIGHT_UTILITY.test(base)) result.rawLineHeightLiterals.push(`${relativePath}:${line} (${token})`);
+    // Every bare `text-<name>` this file uses, whatever `<name>` turns out to
+    // mean. The caller decides which of these are type steps by reading the
+    // `@theme` block, so the scale is never spelled out twice — writing the
+    // step list here would make this module a second source of truth that
+    // globals.css could drift away from silently.
+    const bareTextUtility = base.match(/^text-([a-z0-9][a-z0-9-]*)$/);
+    if (bareTextUtility) result.typeStepUsages.push(bareTextUtility[1]);
     if (hasLegacyTapClass(token)) result.legacyTapClasses.push(`${relativePath}:${line} (${token})`);
     for (const match of token.matchAll(LEGACY_SHADOW_ALIAS)) {
       result.legacyShadowAliases.push(`${relativePath}:${line} (${match[0]})`);
@@ -1307,6 +1314,10 @@ export function findRawScaleLiteralClassesInSource(relativePath, sourceText) {
     radius: analysis.rawRadiusLiterals,
     lineHeight: analysis.rawLineHeightLiterals,
   };
+}
+
+export function findTypeStepUsagesInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).typeStepUsages;
 }
 
 export function findRawScaleLiteralDeclarationsInSource(sourceText) {
