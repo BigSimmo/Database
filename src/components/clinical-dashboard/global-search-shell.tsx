@@ -975,17 +975,14 @@ function GlobalStandaloneSearchShellBody({
               />
             ) : null}
             {/*
-              Shared, task-oriented mode/section navigation. It self-suppresses on
-              clean mode homes, locally-owned detail routes (medications,
-              factsheets, differentials diagnoses), and Therapy Compass, and only
-              renders an "On this page" bar where a record exposes the shared
-              section ids. Specifiers and Formulation used to be excluded here
-              because they carried their own in-page Subnav; both now take the
-              shared header bar, so the exclusion would suppress their only
-              navigation. Rendered in normal flow (sticky={false}) so it never
-              contends with the universal collapsing header or page-flow search
-              chrome; an adopted mode's bar portals itself into the header from
-              there and leaves this wrapper empty.
+              Shared mode navigation. It self-suppresses on clean mode homes, on
+              Therapy Compass, and on every information page — those own their
+              in-page navigation through `InPageNavHeader`, which is also why
+              this no longer renders an "On this page" section bar of its own.
+              Rendered in normal flow so it never contends with the universal
+              collapsing header or page-flow search chrome; an adopted mode's bar
+              portals itself into the header from there and leaves this wrapper
+              empty.
             */}
             {!pendingModeNavigation ? (
               <PageSecondaryNavigation
@@ -993,7 +990,6 @@ function GlobalStandaloneSearchShellBody({
                 pathname={pathname}
                 hasSubmittedSearch={hasSubmittedModeSearch}
                 searchParamString={searchParamString}
-                sticky={false}
               />
             ) : null}
             {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here

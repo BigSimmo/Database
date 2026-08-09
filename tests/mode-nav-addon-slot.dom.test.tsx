@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative as relativePath, sep } from "node:path";
 
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -40,12 +40,26 @@ describe("header addon slot ownership", () => {
   it("recognises the routes whose page portals its own header", () => {
     expect(isHeaderAddonSlotOwnedRoute("/differentials/diagnoses/delirium")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/documents/11111111-1111-4111-8111-111111111111")).toBe(true);
+    // The six information routes converted onto `InPageNavHeader`.
+    expect(isHeaderAddonSlotOwnedRoute("/services/community-team")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/forms/transport-crisis-form")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/specifiers/with-anxious-distress")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/formulation/rumination")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder/differentials")).toBe(true);
 
     // The presentations workflow page renders no portal, and the shell index is
     // not a document detail route.
     expect(isHeaderAddonSlotOwnedRoute("/differentials/presentations/acute-confusion-encephalopathy")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/documents/search")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/differentials/diagnoses")).toBe(false);
+    // Mode homes and the builder/compare/map/search surfaces keep the mode bar,
+    // so they must stay outside the claimant set.
+    expect(isHeaderAddonSlotOwnedRoute("/services")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/specifiers/compare")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/formulation/builder")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/dsm/search")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/dsm/compare")).toBe(false);
   });
 
   it("is covered, route for route, by the locally-owned early return", () => {
@@ -62,6 +76,12 @@ describe("header addon slot ownership", () => {
       "/differentials/diagnoses/delirium",
       "/documents/11111111-1111-4111-8111-111111111111",
       "/documents/11111111-1111-4111-8111-111111111111/source",
+      "/services/community-team",
+      "/forms/transport-crisis-form",
+      "/specifiers/with-anxious-distress",
+      "/formulation/rumination",
+      "/dsm/diagnoses/major-depressive-disorder",
+      "/dsm/diagnoses/major-depressive-disorder/differentials",
     ]) {
       expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
       expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
@@ -123,7 +143,10 @@ describe("header addon slot ownership", () => {
         if (!entry.name.endsWith(".tsx")) continue;
         // Design-scratch routes 404 in production and own no header.
         if (entry.name.includes("-mockups")) continue;
-        const relative = path.replace(`${process.cwd()}/`, "");
+        // Posix separators regardless of host: a `String.replace` of
+        // `${cwd}/` matches nothing on Windows, so both the shared-header
+        // exclusion below and the comparison at the end silently missed.
+        const relative = relativePath(process.cwd(), path).split(sep).join("/");
         if (relative === sharedHeader) continue;
         if (claimsSlot.test(readFileSync(path, "utf8"))) {
           claimants.push(relative);
@@ -132,9 +155,19 @@ describe("header addon slot ownership", () => {
     };
     walk(join(process.cwd(), "src/components"));
 
+    // The four `*-nav-header.tsx` modules are the client halves of Server
+    // Component pages: sections carry `LucideIcon` values and the header needs
+    // hooks, neither of which crosses the RSC boundary, so the route's claim is
+    // registered in a sibling module rather than in the page itself.
     expect(claimants.sort()).toEqual([
       "src/components/DocumentViewer.tsx",
       "src/components/differentials/differential-detail-page.tsx",
+      "src/components/dsm/dsm-diagnosis-nav-header.tsx",
+      "src/components/dsm/dsm-differential-considerations-page.tsx",
+      "src/components/forms/form-detail-page.tsx",
+      "src/components/formulation/formulation-nav-header.tsx",
+      "src/components/services/service-detail-page.tsx",
+      "src/components/specifiers/specifier-nav-header.tsx",
     ]);
   });
 
