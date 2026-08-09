@@ -6,6 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "rea
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, FileText, GitCompareArrows, ShieldAlert } from "lucide-react";
 
+import { ContextualBackLink } from "@/components/contextual-back-link";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { normalizeSearchText } from "@/lib/catalog-search";
 import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
@@ -685,13 +686,13 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link
-              href={differentialRouteWithQuery("/differentials", query)}
+            <ContextualBackLink
+              fallbackHref={differentialRouteWithQuery("/differentials", query)}
               className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface)]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Back to differential home
-            </Link>
+            </ContextualBackLink>
             <Link
               href={appModeHomeHref("differentials", { focus: true, query: query.trim() || undefined })}
               className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] hover:opacity-90"

@@ -249,7 +249,11 @@
         "preview": ".design-sync/previews/Breadcrumb.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/information-page-shell.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/information-page-shell.dom.test.tsx",
+        "tests/ui-smoke.spec.ts"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",

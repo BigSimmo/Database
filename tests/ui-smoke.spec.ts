@@ -2607,7 +2607,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
   test("answer results surface cross-mode quick links", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
+    const answerRequests: string[] = [];
+    await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
     const question = "What is the maximum dose of clozapine?";
     await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, {
       waitUntil: "domcontentloaded",
@@ -2643,6 +2644,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await waitForReactEventHandler(medicationLink, "onClick");
     await medicationLink.click();
     await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 45_000 });
+    const medicationPage = page.getByTestId("medication-page-clozapine");
+    await expect(medicationPage).toBeVisible();
+    await medicationPage
+      .getByRole("navigation", { name: "Breadcrumb" })
+      .getByRole("link", { name: "Medications", exact: true })
+      .click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === "/" &&
+        url.searchParams.get("mode") === "answer" &&
+        url.searchParams.get("q") === question &&
+        url.searchParams.get("run") === "1",
+      { timeout: 45_000 },
+    );
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    expect(answerRequests).toEqual([question]);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    expect(answerRequests).toEqual([question]);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3152,6 +3172,49 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differentials-home")).toHaveCount(0);
+
+    const origin = new URL(page.url());
+    await visibleByTestId(page, "differentials-search-results")
+      .getByRole("link", { name: "Open page" })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/differentials\/(diagnoses|presentations)\//, { timeout: 30_000 });
+    await page
+      .getByRole("link", { name: /^Back(?: to (?:diagnoses|differentials))?$/i })
+      .filter({ visible: true })
+      .first()
+      .click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === origin.pathname &&
+        url.searchParams.get("q") === origin.searchParams.get("q") &&
+        url.searchParams.get("run") === origin.searchParams.get("run"),
+      { timeout: 30_000 },
+    );
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("document detail back arrow restores its originating search", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/search?mode=documents&q=lithium+monitoring&run=1");
+
+    const workspace = page.getByTestId("document-search-workspace");
+    const firstResult = workspace.getByTestId("document-result-card").first();
+    await expect(firstResult).toBeVisible({ timeout: 30_000 });
+    const origin = new URL(page.url());
+    await firstResult.getByRole("link", { name: /^Open / }).click();
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]+\?/, { timeout: 30_000 });
+
+    await page.getByRole("link", { name: "Back to documents" }).click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === origin.pathname &&
+        url.searchParams.get("q") === origin.searchParams.get("q") &&
+        url.searchParams.get("run") === origin.searchParams.get("run"),
+      { timeout: 30_000 },
+    );
+    await expect(workspace).toBeVisible({ timeout: 30_000 });
   });
 
   test("newer routed differential context wins over an older response", async ({ page }) => {
@@ -3436,13 +3499,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(actionOverflow.overflows).toBe(false);
     expect(actionOverflow.textOverflow).not.toBe("ellipsis");
 
+    const origin = new URL(page.url());
     await acamprosateCard.click();
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     const backLink = page.getByRole("link", { name: "Medications", exact: true });
     await expect(backLink).toBeVisible();
     await expectMinTouchTarget(backLink);
     await backLink.click();
-    await expect(page).toHaveURL(/\/medications$/);
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === origin.pathname &&
+        url.searchParams.get("mode") === origin.searchParams.get("mode") &&
+        url.searchParams.get("q") === origin.searchParams.get("q") &&
+        url.searchParams.get("run") === origin.searchParams.get("run"),
+    );
+    await expect(page.getByTestId("medication-result-acamprosate-phone")).toBeVisible();
   });
 
   test("tablet document chrome keeps one new-chat action and readable Sources rows", async ({ page }) => {
