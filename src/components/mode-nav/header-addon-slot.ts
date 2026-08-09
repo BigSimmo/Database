@@ -1,4 +1,5 @@
 import { isDocumentViewerOwnedRoute } from "@/components/clinical-dashboard/mobile-composer-reserve";
+import { isSlugDetail } from "@/lib/information-pages";
 
 /**
  * Routes whose page already portals a header into the header's single addon
@@ -28,5 +29,17 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // differentials/differential-detail-page.tsx (diagnoses detail only — the
   // presentations workflow page renders no portal).
   if (pathname.startsWith("/differentials/diagnoses/")) return true;
+  // The six information routes converted onto the shared `InPageNavHeader`,
+  // which portals through `PhoneHeaderCollapsePortal` exactly as the two above
+  // do. Each is a slug detail page, never the mode home or a
+  // builder/compare/map/search surface.
+  if (isSlugDetail(pathname, "/services", ["search"])) return true;
+  if (isSlugDetail(pathname, "/forms", ["search"])) return true;
+  if (isSlugDetail(pathname, "/specifiers", ["search"])) return true;
+  if (isSlugDetail(pathname, "/formulation", ["search"])) return true;
+  // dsm/dsm-diagnosis-page.tsx and dsm/dsm-differential-considerations-page.tsx
+  // — the record and its `/differentials` child, but not /dsm/search or
+  // /dsm/compare.
+  if (pathname.startsWith("/dsm/diagnoses/")) return true;
   return false;
 }

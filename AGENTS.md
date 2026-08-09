@@ -848,6 +848,16 @@ to the recommended queue.
   `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).
 - Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
   before a session's context is lost — that is what keeps it a memory rather than a stale list.
+- **An open row is not evidence that nobody is building it.** Some rows do carry a progress marker in
+  their prose (`IN PROGRESS`, `IMPLEMENTED in PR #1766`), but there is no structured status field and
+  no atomic claim: a marker is written by whoever did the work, usually after the fact, and nothing
+  requires or checks one. Absence of a marker therefore means nothing.
+  So before _acting_ on a queued item (not before reading the list back), check the open PRs for the
+  route, component, or surface it touches — a duplicate PR will rarely quote the ledger id. Skipping
+  this shipped the same conversion twice on 2026-08-09: PR #1766, and PR #1767 closed as a duplicate,
+  four hours apart, leaving two divergent shapes to adjudicate. It is one GitHub read and falls under
+  the provider-confirmation boundary above; if GitHub is unreachable, warn and continue rather than
+  blocking an offline session. Tracked as `#292`.
 - A `SessionStart` hook (`.claude/hooks/issues-surface.sh`, wired in `.claude/settings.json`)
   auto-surfaces the recommended queue plus open-item counts at the start of every session and, on a
   context reset (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only — it never

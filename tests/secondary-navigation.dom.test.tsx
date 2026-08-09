@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -36,9 +36,8 @@ function ShellPlacedNavigation() {
         <SecondaryNavigation
           ariaLabel="Page sections"
           placeInShell
-          items={[{ kind: "section", id: "overview", label: "Overview", targetId: "overview" }]}
+          items={[{ kind: "route", id: "overview", label: "Overview", href: "/overview" }]}
         />
-        <section id="overview" />
       </div>
     </SecondaryNavigationShellHostProvider>
   );
@@ -96,8 +95,8 @@ describe("SecondaryNavigation", () => {
         sticky={false}
         activeId="one"
         items={[
-          { kind: "section", id: "one", label: "Overview", targetId: "section-one" },
-          { kind: "section", id: "two", label: "Safety", targetId: "section-two" },
+          { kind: "action", id: "one", label: "Overview", onSelect: vi.fn() },
+          { kind: "action", id: "two", label: "Safety", onSelect: vi.fn() },
         ]}
       />,
     );
@@ -110,54 +109,14 @@ describe("SecondaryNavigation", () => {
         sticky={false}
         activeId="two"
         items={[
-          { kind: "section", id: "one", label: "Overview", targetId: "section-one" },
-          { kind: "section", id: "two", label: "Safety", targetId: "section-two" },
+          { kind: "action", id: "one", label: "Overview", onSelect: vi.fn() },
+          { kind: "action", id: "two", label: "Safety", onSelect: vi.fn() },
         ]}
       />,
     );
 
     await waitFor(() => expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ left: expect.any(Number) })));
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
-  });
-
-  it("uses fragment links, location semantics, history, and reduced-motion-aware scrolling", async () => {
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function getRect(this: HTMLElement) {
-      const top = this.id === "section-two" ? 500 : 0;
-      return { x: 0, y: top, top, left: 0, right: 100, bottom: top + 40, width: 100, height: 40, toJSON() {} };
-    });
-    document.documentElement.setAttribute("data-motion", "reduced");
-    window.history.replaceState({ nextRouteTree: "preserved" }, "", "/");
-
-    render(
-      <div>
-        <SecondaryNavigation
-          ariaLabel="On this page"
-          items={[
-            { kind: "section", id: "one", label: "Overview", targetId: "section-one" },
-            {
-              kind: "section",
-              id: "two",
-              label: "Safety",
-              targetId: "section-two",
-              fragmentId: "safety",
-            },
-          ]}
-        />
-        <section id="section-one" />
-        <section id="section-two" />
-      </div>,
-    );
-
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "location"),
-    );
-    const safety = screen.getByRole("link", { name: "Safety" });
-    expect(safety).toHaveAttribute("href", "#safety");
-    fireEvent.click(safety);
-    expect(window.location.hash).toBe("#safety");
-    expect(window.history.state).toEqual({ nextRouteTree: "preserved" });
-    expect(safety).toHaveAttribute("aria-current", "location");
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: "auto", block: "start" });
   });
 
   it("implements roving tab focus with Arrow, Home, and End keys", async () => {
@@ -182,63 +141,6 @@ describe("SecondaryNavigation", () => {
     await user.keyboard("{Home}");
     expect(summary).toHaveFocus();
     expect(summary).toHaveAttribute("aria-selected", "true");
-  });
-
-  it("aligns an initial deep-linked fragment below the pinned bar", async () => {
-    window.history.replaceState(null, "", "/#section-two");
-    render(
-      <div>
-        <SecondaryNavigation
-          ariaLabel="On this page"
-          items={[
-            { kind: "section", id: "one", label: "Overview", targetId: "section-one" },
-            { kind: "section", id: "two", label: "Safety", targetId: "section-two" },
-          ]}
-        />
-        <section id="section-one" />
-        <section id="section-two" />
-      </div>,
-    );
-
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Safety" })).toHaveAttribute("aria-current", "location"),
-    );
-    await waitFor(() =>
-      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: "auto", block: "start" }),
-    );
-  });
-
-  it("keeps a fragment-selected section current at the shared scroll-margin offset", async () => {
-    let safetyTop = 500;
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function getRect(this: HTMLElement) {
-      const top = this.id === "section-two" ? safetyTop : this.tagName === "NAV" ? 0 : -200;
-      const height = this.tagName === "NAV" ? 56 : 40;
-      return { x: 0, y: top, top, left: 0, right: 100, bottom: top + height, width: 100, height, toJSON() {} };
-    });
-    vi.mocked(Element.prototype.scrollIntoView).mockImplementation(function scrollIntoView(this: Element) {
-      if (this.id === "section-two") safetyTop = 136;
-    });
-
-    render(
-      <div>
-        <SecondaryNavigation
-          ariaLabel="On this page"
-          items={[
-            { kind: "section", id: "one", label: "Overview", targetId: "section-one" },
-            { kind: "section", id: "two", label: "Safety", targetId: "section-two" },
-          ]}
-        />
-        <section id="section-one" />
-        <section id="section-two" />
-      </div>,
-    );
-
-    fireEvent.click(screen.getByRole("link", { name: "Safety" }));
-    fireEvent.scroll(window);
-
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Safety" })).toHaveAttribute("aria-current", "location"),
-    );
   });
 
   it("reveals the active item horizontally without overriding motion preferences", async () => {

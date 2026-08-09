@@ -2,11 +2,13 @@
 
 import { ArrowLeft, ChevronDown, Ellipsis } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
 
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 import { DocumentSectionList, DocumentSectionTrack } from "@/components/document-viewer/section-nav";
 import { toDocumentSections, type PageSection } from "@/components/in-page-nav/page-section-index";
+import { useInPageChromeMetrics } from "@/components/in-page-nav/use-in-page-chrome-metrics";
 import { usePageSectionWeights } from "@/components/in-page-nav/use-page-section-weights";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, pageContainer } from "@/components/ui-primitives";
@@ -27,11 +29,17 @@ export type InPageNavHeaderProps = {
   /** Section-sheet heading. Defaults to `title`. */
   sectionSheetTitle?: string;
   /**
-   * Contents of the actions sheet, given a callback that closes it. Omit and no
-   * ellipsis control is rendered at all — a page with no actions gets no button
-   * that opens an empty sheet.
+   * Contents of the actions sheet. Omit and no ellipsis control is rendered at
+   * all — a page with no actions gets no button that opens an empty sheet.
+   *
+   * A function form receives a callback that closes the sheet, for a client page
+   * whose actions run handlers. Plain `ReactNode` exists because four of the
+   * converted information pages are Server Components: React cannot pass a
+   * function across that boundary, but server-rendered JSX passed as a slot is
+   * fine. Those pages' actions are `<Link>`s, and the sheet closes on the
+   * `pathname` change they cause.
    */
-  actions?: (close: () => void) => ReactNode;
+  actions?: ReactNode | ((close: () => void) => ReactNode);
   /** Actions-sheet heading, e.g. "This service". */
   actionsTitle?: string;
   actionsDescription?: string;
@@ -79,10 +87,27 @@ export function InPageNavHeader({
   className,
   containerClassName,
 }: InPageNavHeaderProps) {
-  const [sectionSheetOpen, setSectionSheetOpen] = useState(false);
-  const [actionsOpen, setActionsOpen] = useState(false);
+  // Both sheets record the route they were opened on rather than a bare
+  // boolean, so navigating closes them without an effect that resets state.
+  // This is load-bearing, not tidiness: most page actions are `<Link>`s, and
+  // action JSX passed in from a Server Component has no way to call `close()`.
+  // Deriving from the pathname covers every link generically, and matches the
+  // shell already resetting phone scroll state on navigation (search-chrome
+  // invariant 14).
+  // `null` is the closed sentinel and must never be a value `currentPath` can
+  // take: `usePathname()` returns null outside a router (which is how this
+  // renders in DOM tests), and a null-vs-null match would read as open.
+  const currentPath = usePathname() ?? "";
+  const [sectionSheetPath, setSectionSheetPath] = useState<string | null>(null);
+  const [actionsPath, setActionsPath] = useState<string | null>(null);
+  const sectionSheetOpen = sectionSheetPath !== null && sectionSheetPath === currentPath;
+  const actionsOpen = actionsPath !== null && actionsPath === currentPath;
+  const setSectionSheetOpen = (open: boolean) => setSectionSheetPath(open ? currentPath : null);
+  const setActionsOpen = (open: boolean) => setActionsPath(open ? currentPath : null);
   const sectionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  useInPageChromeMetrics();
 
   const measuredWeights = usePageSectionWeights(sections);
   const documentSections = toDocumentSections(sections, measuredWeights);
@@ -96,6 +121,7 @@ export function InPageNavHeader({
       <PhoneHeaderCollapsePortal>
         <header
           data-testid={`${testIdPrefix}-detail-header`}
+          data-inpage-sticky-header=""
           className={cn(
             "relative z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 sm:sticky sm:top-0 sm:px-6 lg:px-8",
             className,
@@ -200,7 +226,7 @@ export function InPageNavHeader({
           returnFocusRef={actionsTriggerRef}
           testId={`${testIdPrefix}-actions-sheet`}
         >
-          {actions(() => setActionsOpen(false))}
+          {typeof actions === "function" ? actions(() => setActionsOpen(false)) : actions}
         </Sheet>
       ) : null}
     </>
