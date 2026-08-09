@@ -12,6 +12,7 @@ import {
   fieldControlWithIcon,
   fieldIcon,
   fieldLabel,
+  ignoreUnavailableActivation,
   textMuted,
   toolbarButton,
 } from "@/components/ui-primitives";
@@ -294,11 +295,17 @@ function ProviderButton({ provider }: { provider: SsoProvider }) {
   return (
     <button
       type="button"
-      disabled
+      aria-disabled="true"
+      onClick={ignoreUnavailableActivation}
       title={`${provider} sign-in is unavailable — coming soon`}
       aria-label={`${provider} sign-in unavailable`}
       aria-describedby={descriptionId}
-      className="flex min-h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
+      // `aria-disabled`, not `disabled`: this button is never available, so the
+      // native attribute would take it out of the tab order permanently and the
+      // reason below would be unreachable by keyboard. The `disabled:` variants
+      // became `aria-disabled:` with it — they stop applying otherwise — and the
+      // hover pair is suppressed the same way, since the control is now hoverable.
+      className="flex min-h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:not-aria-disabled:border-[color:var(--border-strong)] hover:not-aria-disabled:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] aria-disabled:cursor-not-allowed aria-disabled:bg-[color:var(--surface-inset)] aria-disabled:text-[color:var(--disabled)] aria-disabled:opacity-75 aria-disabled:shadow-none min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
     >
       <ProviderBrandIcon provider={provider} className="h-5 w-5" />
       <span className="min-w-0 text-2xs leading-none min-[375px]:text-xs sm:text-sm">{provider}</span>

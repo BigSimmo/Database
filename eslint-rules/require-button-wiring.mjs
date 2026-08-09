@@ -15,8 +15,19 @@
  *    (which may default to submit inside a <form>) are left alone.
  *  - Any spread ({...props}) skips the element, since a handler may arrive
  *    dynamically (same escape hatch as require-lucide-icon-aria).
- *  - An unbuilt feature is expressed the codebase's way — `disabled` or
+ *  - An explicitly inert control is expressed the codebase's way — `disabled` or
  *    `aria-disabled` (typically with a "coming soon" note) — and passes.
+ *
+ * Which of the two to reach for is a real decision, not a stylistic one, and
+ * `docs/wiring-conventions.md` is where it is made: a control that is
+ * unavailable for a *stated reason* (feature not built, this record has no such
+ * data) carries `aria-disabled="true"` plus an inert handler, because the native
+ * attribute removes the tab stop and the reason then cannot be reached by
+ * keyboard. A control that is merely *transiently* inert — a request in flight,
+ * a pager at its last page, a form action awaiting validity — keeps native
+ * `disabled`. This rule accepts both, since both are genuinely wired.
+ *
+ * What it does NOT accept is the two together (see `hasRedundantDisabledPair`).
  *
  * There is no auto-fix: wiring a button requires knowing what it should do, so
  * the fix is a human decision (add the handler, or make it an explicit
@@ -75,6 +86,32 @@ function isWiringAttr(attr) {
   return !isStaticallyOff(attr.value);
 }
 
+/**
+ * True when a `<button>` carries BOTH a live native `disabled` and a live
+ * `aria-disabled` — the shape that reads as belt-and-braces and is not.
+ *
+ * The native attribute wins on focus: the element leaves the tab order whatever
+ * `aria-disabled` says, so the pairing buys nothing and actively hides the bug.
+ * Every site that carried it also carried an `aria-describedby` reason that no
+ * keyboard user could reach, which is what made it worth gating rather than
+ * merely documenting (ledger `#291`).
+ *
+ * Statically-off values are excluded on both sides, so `disabled={false}` beside
+ * `aria-disabled="true"` — a legitimate way to spell a conditional placeholder —
+ * still passes, as does any pair where the aria side is `"false"`.
+ */
+function hasRedundantDisabledPair(attributes) {
+  const live = (name) =>
+    attributes.some(
+      (attr) =>
+        attr.type === "JSXAttribute" &&
+        attr.name.type === "JSXIdentifier" &&
+        attr.name.name === name &&
+        !isStaticallyOff(attr.value),
+    );
+  return live("disabled") && live("aria-disabled");
+}
+
 /** @type {import("eslint").Rule.RuleModule} */
 const rule = {
   meta: {
@@ -87,6 +124,8 @@ const rule = {
     messages: {
       unwired:
         'This <button type="button"> has no onClick and no disabled/aria-disabled state — it does nothing when clicked. Wire it with onClick, or make it an explicit disabled "coming soon" placeholder.',
+      redundantDisabledPair:
+        'This <button> carries both `disabled` and `aria-disabled` — the native attribute wins on focus, so the aria one changes nothing and the control still leaves the tab order. Keep `disabled` alone for a transiently inert control, or `aria-disabled="true"` plus an inert onClick when the control is unavailable for a stated reason a keyboard user needs to reach.',
     },
   },
   create(context) {
@@ -95,6 +134,12 @@ const rule = {
         if (node.name.type !== "JSXIdentifier" || node.name.name !== "button") return;
         // A spread may inject a handler dynamically — don't flag.
         if (node.attributes.some((attr) => attr.type === "JSXSpreadAttribute")) return;
+        // The redundant pairing is wrong on any button, not just type="button",
+        // so it is checked before the type gate below.
+        if (hasRedundantDisabledPair(node.attributes)) {
+          context.report({ node, messageId: "redundantDisabledPair" });
+          return;
+        }
         // Only inspect explicit type="button"; submit/reset/dynamic are out of scope.
         if (!node.attributes.some((attr) => isTypeButton(attr))) return;
         if (node.attributes.some((attr) => isWiringAttr(attr))) return;

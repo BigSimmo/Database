@@ -32,6 +32,7 @@ import {
   cn,
   codeText,
   floatingControl,
+  ignoreUnavailableActivation,
   metadataPill,
   metadataPillDensity,
   textMuted,
@@ -938,7 +939,8 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             ) : (
               <button
                 type="button"
-                disabled
+                aria-disabled="true"
+                onClick={ignoreUnavailableActivation}
                 title="Open official source — no official source URL is recorded for this form"
                 aria-describedby="form-source-unavailable"
                 className={cn(inPageActionRowClass, "opacity-60")}
