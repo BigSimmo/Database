@@ -2,7 +2,13 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { ErrorState, errorStateCopy, type ErrorStateProps, type ErrorStateReason } from "@/components/ui/error-state";
+import {
+  ErrorState,
+  errorStateCopy,
+  shouldEmitErrorStateDiagnostic,
+  type ErrorStateProps,
+  type ErrorStateReason,
+} from "@/components/ui/error-state";
 
 /**
  * GATES.md §3, "Render '0 matches' after a failed request". The gate names
@@ -57,15 +63,35 @@ describe("ErrorState", () => {
     expect([hasChildren, hasCount]).toEqual([false, false]);
   });
 
-  it("warns when a caller writes a result count into its copy", () => {
+  it("records rather than throws when a caller writes a result count into its copy", () => {
+    // The tripwire never throws: a thrown error here turns a copy defect into a
+    // blank page on the one screen already reporting a failure. The copy still
+    // renders exactly as the caller wrote it.
+    expect(() => render(<ErrorState reason="request_failed" title="0 matches found" />)).not.toThrow();
+    expect(screen.getByRole("alert")).toHaveTextContent("0 matches found");
+  });
+
+  it("emits the diagnostic in development only, never in production", () => {
+    // Asserted on the predicate rather than through a console spy. Vite
+    // statically replaces `process.env.NODE_ENV` inside `src/` modules, so under
+    // Vitest the emitter's check compiles to `"test" === "development"` and no
+    // `stubEnv` can move it — a spy would stay silent for the wrong reason and
+    // would keep passing even if the guard were deleted.
+    expect(shouldEmitErrorStateDiagnostic("development")).toBe(true);
+    expect(shouldEmitErrorStateDiagnostic("production")).toBe(false);
+    expect(shouldEmitErrorStateDiagnostic("test")).toBe(false);
+    // Unset means production: fail quiet rather than leak caller copy.
+    expect(shouldEmitErrorStateDiagnostic(undefined)).toBe(false);
+  });
+
+  it("keeps the console silent under the test environment", () => {
+    // Weaker than the predicate test above and deliberately kept: it catches an
+    // emitter that warns unconditionally, which the predicate alone would miss.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      render(<ErrorState reason="request_failed" title="0 matches found" />);
-      // The tripwire records rather than throws: a thrown error here turns a
-      // copy defect into a blank page on the one screen already reporting a
-      // failure. The recorder is bounded and deduplicated, and silenced under
-      // NODE_ENV=test, so the assertion is on the rendered outcome.
-      expect(screen.getByRole("alert")).toHaveTextContent("0 matches found");
+      render(<ErrorState reason="request_failed" title="0 matches for prod-probe" />);
+      render(<ErrorState reason={"catastrophe" as unknown as ErrorStateReason} subject="Services" />);
+      expect(warn).not.toHaveBeenCalled();
     } finally {
       warn.mockRestore();
     }

@@ -55,7 +55,13 @@ export {
   type DisclosureGroupProps,
   type DisclosureProps,
 } from "@/components/ui/disclosure";
-export { ErrorState, errorStateCopy, type ErrorStateProps, type ErrorStateReason } from "@/components/ui/error-state";
+export {
+  ErrorState,
+  errorStateCopy,
+  shouldEmitErrorStateDiagnostic,
+  type ErrorStateProps,
+  type ErrorStateReason,
+} from "@/components/ui/error-state";
 export {
   ErrorSummary,
   FieldError,

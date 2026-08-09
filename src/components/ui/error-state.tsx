@@ -92,9 +92,31 @@ const BODIES: Record<ErrorStateReason, string> = {
  */
 const RESULT_COUNT_IN_COPY = /\b(?:\d[\d,.]*|no|zero)\s+(?:match|result|document|source|item|record)s?\b/i;
 
+/**
+ * Development only, and deliberately stricter than `MissingValue`'s recorder,
+ * which emits whenever `NODE_ENV !== "test"`.
+ *
+ * The difference is what the two carry. `MissingValue` logs an unrecognised
+ * enum key; this logs the caller's own `title`/`body` verbatim, and on a
+ * clinical surface that copy can quote the query — "0 results for <query>".
+ * Echoing it to the production console makes a copy defect into a disclosure
+ * risk, and nobody reads a production browser console for design-system
+ * warnings anyway. An unset `NODE_ENV` is treated as production: fail quiet.
+ *
+ * The rule is an exported predicate rather than an inline comparison because a
+ * comparison is untestable here: Vite statically replaces `process.env.NODE_ENV`
+ * inside `src/` modules, so under Vitest the check compiles to
+ * `"test" === "development"` and no `stubEnv` can move it. A console spy
+ * therefore proves nothing about production either way — it stays silent for
+ * the wrong reason. The predicate is tested directly instead.
+ */
+export function shouldEmitErrorStateDiagnostic(nodeEnv: string | undefined): boolean {
+  return nodeEnv === "development";
+}
+
 const recordDiagnostic = createBoundedDiagnosticRecorder({
   emit: (message) => {
-    if (typeof process === "undefined" || process.env?.NODE_ENV !== "test") console.warn(message);
+    if (typeof process !== "undefined" && shouldEmitErrorStateDiagnostic(process.env?.NODE_ENV)) console.warn(message);
   },
 });
 
