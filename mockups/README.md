@@ -61,11 +61,9 @@ These are PNGs for design review only. Runnable `/mockups/*` routes are a separa
 
 **Perfected combined comps** (desktop + phone in one image, recommended directions only) live in [`public/mockups/mode-page-redesign-2026-07/perfected-combined/`](../public/mockups/mode-page-redesign-2026-07/perfected-combined/README.md).
 
-## Breadcrumb header study (2026-08-09)
+## Breadcrumb header study (2026-08-09) — shipped, route retired
 
-Runnable study at [`/mockups/breadcrumb-header`](../src/app/mockups/breadcrumb-header/page.tsx): three sticky header directions for record pages that use `InformationPageBreadcrumbs` and have **no in-page section index** — factsheets, services, forms, DSM, specifiers, formulation, medications.
-
-`InPageNavHeader` stays the default for in-page navigation per [`docs/search-chrome-behaviour.md`](../docs/search-chrome-behaviour.md); it is the wrong shape here because a page with no sections gets a disclosure that opens a one-item sheet and a weighted track that renders one full-width segment. The directions keep that header's row grammar (back, title, ellipsis, one scroll owner) and drop the section machinery:
+Three sticky header directions for record pages that use `InformationPageBreadcrumbs` and have **no in-page section index** — factsheets, services, forms, DSM, specifiers, formulation, medications. `InPageNavHeader` stays the default for in-page navigation per [`docs/search-chrome-behaviour.md`](../docs/search-chrome-behaviour.md); it is the wrong shape for those pages, because with no sections its disclosure opens a one-item sheet and its weighted track renders one full-width segment. Every direction kept that header's row grammar (back, title, ellipsis, one scroll owner) and dropped the section machinery:
 
 | Direction            | Adds                                  | Fits                                    |
 | -------------------- | ------------------------------------- | --------------------------------------- |
@@ -73,6 +71,6 @@ Runnable study at [`/mockups/breadcrumb-header`](../src/app/mockups/breadcrumb-h
 | 02 Action rail       | One promoted primary action pill      | Factsheets, services, medications       |
 | 03 Crumb rail + mode | Segmented view mode in the track slot | Factsheet reading level, medication age |
 
-Shared mockup chrome is suppressed because each frame draws its own universal phone header.
+**Outcome: direction 02 shipped**, as the breadcrumb shape of the existing `InPageNavHeader` rather than a new component — omitting `sections` drops the disclosure and the track, and `primaryAction` / `mode` / `showBackLabel` shape the row. Adopted first on `/factsheets/<slug>`, where the reading level rides the `mode` slot. Contract: `docs/search-chrome-behaviour.md` ("The breadcrumb shape").
 
-**Outcome: direction 02 shipped**, as the breadcrumb shape of the existing `InPageNavHeader` rather than a new component — omitting `sections` drops the disclosure and the track, and `primaryAction` / `mode` / `showBackLabel` shape the row. Adopted first on `/factsheets/<slug>`, where the reading level rides the `mode` slot. Contract: `docs/search-chrome-behaviour.md` ("The breadcrumb shape"). The study stays as the record of the alternatives.
+**The runnable `/mockups/breadcrumb-header` route was removed once 02 shipped.** It was not deleted for tidiness: `check:bundle-budget` totals every built chunk, mockups included, and `main` sits at roughly +9.4% against a 10% tolerance, so the study's two scratch chunks (~9.8 KiB gzip) alone pushed the repo to +10.1% and failed `Build` — the same failure PR #1580 hit, at the same number. A design-scratch route that 404s in production is the wrong thing to spend the last of that headroom on. The table above is the durable record; recover the route from history if the alternatives need re-reading.
