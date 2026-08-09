@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -64,6 +64,29 @@ describe("Playwright production-project isolation", () => {
         `${file} is not collected by productionSpecPattern, so it never runs in a required browser project`,
       ).toBe(true);
     }
+  });
+
+  /**
+   * The viewer-canvas gate is the only browser proof that a clinical source page
+   * actually paints, and it is the single spec most likely to be dropped by a
+   * future edit to those two hand-maintained regexes: it skips on any browser
+   * without pdf.js 6's engine requirement, so "it did not run" and "it ran and
+   * skipped" look identical in a log. Assert its collection directly.
+   */
+  it("collects the viewer-canvas gate into the required browser projects", () => {
+    const source = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    const productionSpecPattern = configPattern(source, "productionSpecPattern");
+    const testMatch = source.match(/testMatch:\s*(\/.*\/),/);
+    expect(testMatch, "playwright.config.ts: could not read the top-level testMatch regex").not.toBeNull();
+    const testMatchPattern = new RegExp(testMatch![1].slice(1, -1));
+
+    const spec = "tests/ui-document-canvas.spec.ts";
+    expect(existsSync(resolve(process.cwd(), spec)), `${spec} is missing`).toBe(true);
+    expect(testMatchPattern.test(spec), `${spec} is not collected by testMatch`).toBe(true);
+    expect(
+      productionSpecPattern.test(spec),
+      `${spec} is not collected by productionSpecPattern, so the viewer canvas has no browser gate at all`,
+    ).toBe(true);
   });
 
   it("blocks service workers for mocked journeys but allows the dedicated PWA suite", () => {

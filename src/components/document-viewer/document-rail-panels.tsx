@@ -8,7 +8,7 @@ import { DocumentSectionIndexCard } from "@/components/document-viewer/section-n
 import { documentIndexingSectionId } from "@/components/document-viewer/section-index";
 import {
   ClinicalSummaryProfile,
-  DocumentImage,
+  DocumentImageList,
   DocumentSectionSummary,
   FormattedHighYieldSummary,
   TableReviewPanel,
@@ -263,10 +263,17 @@ export function DocumentViewerRail({
             />
           ) : (
             <>
+              {/* The filmstrip stays whole: it is one button per figure with no
+                  image behind it, so it is the cheap way to reach any page. The
+                  detailed cards below it are what get windowed. */}
               <DocumentImageFilmstrip images={clinicalImages} activePage={activePage} onSelectPage={onSelectPage} />
-              {clinicalImages.map((image) => (
-                <DocumentImage key={image.id} image={image} activePage={activePage} onSelectPage={onSelectPage} />
-              ))}
+              <DocumentImageList
+                key={`${document?.id ?? "none"}:clinical`}
+                images={clinicalImages}
+                activePage={activePage}
+                onSelectPage={onSelectPage}
+                revealLabel="Tables and diagrams"
+              />
             </>
           )}
           {!effectiveLoadingDocument && auditImages.length > 0 ? (
@@ -275,9 +282,13 @@ export function DocumentViewerRail({
                 Administrative/reference tables retained for audit ({auditImages.length})
               </summary>
               <div className="mt-3 grid gap-3">
-                {auditImages.map((image) => (
-                  <DocumentImage key={image.id} image={image} activePage={activePage} onSelectPage={onSelectPage} />
-                ))}
+                <DocumentImageList
+                  key={`${document?.id ?? "none"}:audit`}
+                  images={auditImages}
+                  activePage={activePage}
+                  onSelectPage={onSelectPage}
+                  revealLabel="Administrative and reference tables"
+                />
               </div>
             </details>
           ) : null}
