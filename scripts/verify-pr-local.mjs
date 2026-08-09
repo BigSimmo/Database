@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
+import { DEV_SERVER_BUILD_REFUSED_EXIT_CODE } from "./guard-next-build.mjs";
 
 const isWindows = process.platform === "win32";
 // Live Supabase audits (check:locality-metadata) stay out of this unconditional gate.
@@ -85,7 +88,7 @@ function readScope(files) {
   return JSON.parse(result.stdout);
 }
 
-function selectedScripts(scope, extended) {
+export function selectedScripts(scope, extended) {
   const scripts = [];
   const add = (...items) => {
     for (const item of items) if (!scripts.includes(item)) scripts.push(item);
@@ -104,6 +107,60 @@ function selectedScripts(scope, extended) {
   else if (scope.static_heavy_changed) add("check:rag:fixtures");
   if (extended && scope.ui_changed) add("verify:ui");
   return scripts;
+}
+
+/**
+ * Closing summary so a selected-but-not-executed step cannot look like a green pass (#167).
+ * @param {string[]} scripts
+ * @param {{ completed: string[], failedScript: string | null, failedExitCode: number }} progress
+ */
+export function summarizePrLocalRun(scripts, progress) {
+  const completed = progress.completed ?? [];
+  const failedScript = progress.failedScript ?? null;
+  const failedExitCode = progress.failedExitCode ?? 0;
+  const notReached = failedScript
+    ? scripts.slice(scripts.indexOf(failedScript) + 1)
+    : scripts.filter((script) => !completed.includes(script));
+
+  const lines = ["", "PR-local verification summary:"];
+  lines.push(`- completed: ${completed.length ? completed.join(", ") : "(none)"}`);
+  if (failedScript) {
+    lines.push(`- failed: ${failedScript} (exit ${failedExitCode})`);
+    if (failedScript === "build" && failedExitCode === DEV_SERVER_BUILD_REFUSED_EXIT_CODE) {
+      lines.push(
+        `- note: production build was refused while the Clinical KB dev server is running (BUILD_REFUSED_DEV_SERVER). This is a failed gate, not a skip.`,
+      );
+    }
+  } else {
+    lines.push("- failed: (none)");
+  }
+  lines.push(`- not reached: ${notReached.length ? notReached.join(", ") : "(none)"}`);
+  return lines.join("\n");
+}
+
+export function runPrLocalScripts(
+  scripts,
+  { runScript = runNpmScript, log = console.log, error = console.error } = {},
+) {
+  const completed = [];
+  let failedScript = null;
+  let failedExitCode = 0;
+
+  for (const script of scripts) {
+    const exitCode = runScript(script);
+    if (exitCode !== 0) {
+      failedScript = script;
+      failedExitCode = exitCode;
+      break;
+    }
+    completed.push(script);
+  }
+
+  const summary = summarizePrLocalRun(scripts, { completed, failedScript, failedExitCode });
+  if (failedExitCode !== 0) error(summary);
+  else log(summary);
+
+  return failedExitCode;
 }
 
 function assertPlan(name, scope, expected, extended = false) {
@@ -140,32 +197,34 @@ if (process.argv.includes("--self-test")) {
   process.exit(0);
 }
 
-const options = parseArgs(process.argv.slice(2));
-const scope = readScope(options.files);
-const scripts = selectedScripts(scope, options.extended);
-console.log(`Changed files: ${scope.files.length > 0 ? scope.files.join(", ") : "(none detected)"}`);
-
-if (options.dryRun) {
-  console.log("\nPR-local verification plan (dry run):");
-  for (const script of scripts) console.log(`- npm run ${script}`);
-  if (!scope.static_heavy_changed)
-    console.log("- lint, typecheck, full unit suite and RAG fixture scan skipped: recognised low-risk scope");
-  if (!scope.build_changed) console.log("- build skipped: no build-affecting changes detected");
-  if (!scope.static_heavy_changed) console.log("- offline RAG checks skipped: no executable product scope");
-  else if (!scope.rag_eval_changed)
-    console.log("- offline RAG production contracts skipped: no RAG-scoped changes (fixtures still selected)");
-  if (options.extended && !scope.ui_changed)
-    console.log("- Chromium UI gate skipped: no UI-affecting changes detected");
-  process.exit(0);
+function isDirectRun() {
+  return process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 }
 
-let exitCode = 0;
-for (const script of scripts) {
-  exitCode = runNpmScript(script);
-  if (exitCode !== 0) break;
+if (isDirectRun()) {
+  const options = parseArgs(process.argv.slice(2));
+  const scope = readScope(options.files);
+  const scripts = selectedScripts(scope, options.extended);
+  console.log(`Changed files: ${scope.files.length > 0 ? scope.files.join(", ") : "(none detected)"}`);
+
+  if (options.dryRun) {
+    console.log("\nPR-local verification plan (dry run):");
+    for (const script of scripts) console.log(`- npm run ${script}`);
+    if (!scope.static_heavy_changed)
+      console.log("- lint, typecheck, full unit suite and RAG fixture scan skipped: recognised low-risk scope");
+    if (!scope.build_changed) console.log("- build skipped: no build-affecting changes detected");
+    if (!scope.static_heavy_changed) console.log("- offline RAG checks skipped: no executable product scope");
+    else if (!scope.rag_eval_changed)
+      console.log("- offline RAG production contracts skipped: no RAG-scoped changes (fixtures still selected)");
+    if (options.extended && !scope.ui_changed)
+      console.log("- Chromium UI gate skipped: no UI-affecting changes detected");
+    process.exit(0);
+  }
+
+  const exitCode = runPrLocalScripts(scripts);
+
+  if (exitCode !== 0) process.exit(exitCode);
+
+  if (!scope.build_changed)
+    console.log("\nSkipping build: no build-affecting source, config, package, or container changes detected.");
 }
-
-if (exitCode !== 0) process.exit(exitCode);
-
-if (!scope.build_changed)
-  console.log("\nSkipping build: no build-affecting source, config, package, or container changes detected.");

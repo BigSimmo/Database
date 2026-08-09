@@ -1,7 +1,9 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { DEV_SERVER_BUILD_REFUSED_EXIT_CODE } from "../scripts/guard-next-build.mjs";
+import { runPrLocalScripts, summarizePrLocalRun } from "../scripts/verify-pr-local.mjs";
 
 const script = path.resolve("scripts/verify-pr-local.mjs");
 
@@ -60,5 +62,37 @@ describe("verify-pr-local CLI", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("ALLOW_EXTENDED_PR_LOCAL=true");
+  });
+
+  it("treats a refused build as a failed selected step, not a green skip (#167)", () => {
+    const error = vi.fn();
+    const runScript = vi
+      .fn()
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(DEV_SERVER_BUILD_REFUSED_EXIT_CODE);
+    const scripts = ["check:runtime", "format:changed", "build", "check:rag:fixtures"];
+
+    const exitCode = runPrLocalScripts(scripts, { runScript, log: () => undefined, error });
+
+    expect(exitCode).toBe(DEV_SERVER_BUILD_REFUSED_EXIT_CODE);
+    expect(runScript).toHaveBeenCalledTimes(3);
+    expect(error).toHaveBeenCalledOnce();
+    const summary = String(error.mock.calls[0]?.[0] ?? "");
+    expect(summary).toContain("failed: build");
+    expect(summary).toContain("BUILD_REFUSED_DEV_SERVER");
+    expect(summary).toContain("not reached: check:rag:fixtures");
+    expect(summary).not.toMatch(/Skipping build/);
+  });
+
+  it("summarizes completed scripts when the whole plan passes", () => {
+    const summary = summarizePrLocalRun(["check:runtime", "build"], {
+      completed: ["check:runtime", "build"],
+      failedScript: null,
+      failedExitCode: 0,
+    });
+    expect(summary).toContain("completed: check:runtime, build");
+    expect(summary).toContain("failed: (none)");
+    expect(summary).toContain("not reached: (none)");
   });
 });

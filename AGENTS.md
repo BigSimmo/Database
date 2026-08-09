@@ -177,6 +177,55 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 
 <!-- END:codex-desktop-worktree-setup -->
 
+<!-- BEGIN:reasoning-effort-calibration -->
+
+# Reasoning effort calibration
+
+Reasoning effort is a budget in the same way verification is a budget, and it is misspent the same
+way — by defaulting to the maximum instead of matching the spend to the risk. **Scale effort to how
+expensive the mistake is to undo (irreversibility × branching factor), never to the phase label.**
+"Plan high, build lower" is a good default, not a rule; it is wrong often enough that it must be
+chosen deliberately rather than assumed.
+
+**Why it is a good default.** Planning errors compound and implementation errors stay local: a wrong
+approach throws away the build, a wrong identifier is one edit. A plan is also a few thousand output
+tokens against a build's many long turns, so effort is cheapest exactly where it has the most leverage.
+
+**The mechanism that makes it work — do not skip this part.** A lower-effort build only succeeds
+against a plan concrete enough to execute: named files, named symbols, ordered steps, and the gate
+that will prove it. Downgrading the build against a vague plan does not save effort, it relocates the
+thinking into the expensive phase. If the plan cannot name those things, the build is not eligible for
+the downgrade.
+
+| Situation                                                                                      | Plan        | Build       |
+| ---------------------------------------------------------------------------------------------- | ----------- | ----------- |
+| Architecture, Supabase migrations/RLS, RAG ranking surfaces, auth/privacy, ingestion contracts | xhigh       | high        |
+| Ordinary feature or UI work with a clear shape                                                 | high        | medium–high |
+| Mechanical and fully specified — ledger append, docs edit, rename (not dependency maintenance) | low or skip | medium      |
+| Debugging an unknown failure                                                                   | low         | high        |
+
+**Where the default inverts and the build needs more than the plan.** These are plan-light and
+execution-heavy; treating them as plan-heavy spends the budget in the wrong place:
+
+- **Debugging.** The plan is "find why X fails." The real reasoning is hypothesis-forming over local
+  runtime, logs, and repro state during the build — hosted providers still need explicit confirmation.
+- **Constraint-dense implementation.** A one-sentence plan whose edit must simultaneously satisfy
+  button wiring, design tokens, the one-composer rule, unlayered CSS, and the tap-target and
+  phone-chrome contracts. Holding all of it at once is the hard part, not deciding what to do.
+- **Areas where training data is stale.** Next 16 is the standing case. Effort does not repair a wrong
+  prior — reading `node_modules/next/dist/docs/` does. Raising effort instead of reading is itself the
+  failure mode.
+
+**Constrain xhigh planning output, not just its effort.** Extra-high planning over-produces:
+alternatives, contingency branches, and surveys that are never used, paid for twice — once generating
+and once reading. Ask for the chosen approach, the files, and the gate, not a survey.
+
+**State the split before non-trivial planning work.** One line before starting: plan effort, build
+effort, and the risk that justifies them. It is cheap, it makes a wrong allocation visible while it is
+still free to change, and it stops the blanket default from being applied silently.
+
+<!-- END:reasoning-effort-calibration -->
+
 <!-- BEGIN:process-hardening -->
 
 # Process hardening phases
@@ -1012,7 +1061,7 @@ Durable notes for Cloud Agents. Standard commands live in `README.md` and `packa
 - Live-mode caveat: `RAG_PROVIDER_MODE=auto` attempts OpenAI (fast → strong route); if generation fails the built-in quality gates it silently degrades to a deterministic "Source-only" answer that still cites real documents — this is expected, not a failure. The header sign-in UI exposes magic-link + OAuth only (no password field), but the `/api/answer` + retrieval flow works server-side without a browser session.
 - What still won't run in this VM even with secrets: `npm run worker` also needs the Python OCR stack (`worker/python/requirements.txt`) and heavy parsing deps; Supabase edge functions need Deno v2.x + deployment. `verify:release` additionally runs governance/eval gates. Treat missing-secret failures of `check:supabase-project`/`verify:release` in demo mode as expected, not regressions.
 - Dev server: `npm run dev` selects a stable per-project localhost port (e.g. `4461`), binds `0.0.0.0`, and prints the exact URL. Never assume port 3000/3001/3002. `npm run ensure` starts/verifies it in the background.
-- Verification without secrets: `npm run lint`, `npm run typecheck`, and `npm run test` (vitest) all pass offline. `npm run verify:cheap` also runs runtime, GitHub Actions pin, CI-scope, and sitemap checks. `npm run verify:pr-local` adds format, conditional build/client-bundle scanning, and RAG fixture/manifest validation without repeating unit tests; browser, Docker/Supabase, audit, and provider checks remain separate. See `docs/testing.md` for lock, live-test, Playwright, and flake-ledger rules.
+- Verification without secrets: `npm run lint`, `npm run typecheck`, and `npm run test` (vitest) all pass offline. `npm run verify:cheap` also runs runtime, GitHub Actions pin, CI-scope, and sitemap checks. `npm run verify:pr-local` adds format, conditional build/client-bundle scanning, and RAG fixture/manifest validation without repeating unit tests; browser, Docker/Supabase, audit, and provider checks remain separate. See `docs/testing.md` for lock, live-test, Playwright, and flake-ledger rules. If `check:installed-lock-parity` or `check:playwright-browser-revision` reports Playwright/image drift (`#255`), do not force a mismatched Chromium path — delegate browser proof to CI Production UI (see `docs/testing.md` § Testing speed playbook).
 - For GitHub-related work authorised in this session, prefer the connected GitHub
   connector/MCP tools first for PR, issue, comment, review-thread, and Actions tasks they
   support (including run/job/log/artifact inspection and review-thread replies/resolution).

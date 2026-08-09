@@ -3,6 +3,7 @@ import type { ReadonlyURLSearchParams } from "next/navigation";
 import { appModeSelectionHref } from "@/lib/app-modes";
 import { DEFAULT_APP_MODE } from "@/components/clinical-dashboard/use-last-app-mode";
 import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
+import { readSearchNavigationContext } from "@/lib/search-navigation-context";
 import type { AppModeId } from "@/lib/app-modes";
 
 /**
@@ -39,6 +40,20 @@ export function useHomeModeSeed({
     homeModeSeededRef.current = true;
     if (landingModeForPreference(readAppPreferences().landing)) return;
     if (lastAppMode === DEFAULT_APP_MODE) return;
-    window.history.replaceState(null, "", appModeSelectionHref(lastAppMode));
+    // Carry the rest of the URL through. Seeding only runs when the URL names no
+    // mode or query, but `focus=1` and the scope/queryMode context can still be
+    // present — rewriting without them silently dropped a requested composer
+    // focus and any scoped-search context on a cold `/` visit.
+    const navigationContext = readSearchNavigationContext(searchParams);
+    window.history.replaceState(
+      null,
+      "",
+      appModeSelectionHref(lastAppMode, {
+        focus: searchParams.get("focus") === "1",
+        queryMode: navigationContext.queryMode,
+        scopeFilters: navigationContext.scopeFilters,
+        scopeRef: navigationContext.scopeRef,
+      }),
+    );
   }, [pathname, searchParams, lastAppMode]);
 }
