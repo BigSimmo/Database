@@ -153,8 +153,11 @@ export function RecommendScreen() {
                   <button
                     type="button"
                     className={`${therapyBtn} flex-1 h-[38px] border border-[color:var(--clinical-accent-border)] rounded-md bg-[color:var(--surface)] text-[color:var(--clinical-accent-hover)] text-sm-minus font-semibold cursor-pointer`}
-                    onClick={() => b.openSheet(top.slug)}
-                    disabled={!top.patientSheetAvailable}
+                    onClick={() => {
+                      if (!top.patientSheetAvailable) return;
+                      b.openSheet(top.slug);
+                    }}
+                    aria-disabled={top.patientSheetAvailable ? undefined : true}
                     title={top.patientSheetAvailable ? undefined : "This record has no patient sheet"}
                   >
                     {top.patientSheetAvailable ? "Sheet" : "Sheet unavailable"}
@@ -202,8 +205,11 @@ export function RecommendScreen() {
                   <button
                     type="button"
                     className={`${therapyBtn} h-[34px] py-0 px-3 border border-[color:var(--border-strong)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-xs font-semibold cursor-pointer`}
-                    onClick={() => b.openSheet(t.slug)}
-                    disabled={!t.patientSheetAvailable}
+                    onClick={() => {
+                      if (!t.patientSheetAvailable) return;
+                      b.openSheet(t.slug);
+                    }}
+                    aria-disabled={t.patientSheetAvailable ? undefined : true}
                     title={t.patientSheetAvailable ? undefined : "This record has no patient sheet"}
                   >
                     {t.patientSheetAvailable ? "Sheet" : "Sheet unavailable"}

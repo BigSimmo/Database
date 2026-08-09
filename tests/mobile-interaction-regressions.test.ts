@@ -87,14 +87,17 @@ describe("mobile interaction regressions", () => {
     const tools = source("src/components/applications-launcher-page.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
 
+    // `aria-disabled` + an inert handler, and NOT the native `disabled` attribute
+    // alongside it: the native one wins on focus, so pairing them left the reason
+    // unreachable by keyboard exactly as if the aria attribute were absent.
     expect(visualEvidence).toContain('title="Add to favourites — coming soon"');
     expect(visualEvidence).toMatch(
-      /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="visual-evidence-add-unavailable"/,
+      /type="button"\s+aria-disabled="true"\s+onClick=\{ignoreUnavailableActivation\}\s+aria-describedby="visual-evidence-add-unavailable"/,
     );
     expect(visualEvidence).not.toContain("setAdded(true)");
     expect(evidencePanels).toContain('title="Add to favourites — coming soon"');
     expect(evidencePanels).toMatch(
-      /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="clinical-notes-add-unavailable"/,
+      /type="button"\s+aria-disabled="true"\s+onClick=\{ignoreUnavailableActivation\}\s+aria-describedby="clinical-notes-add-unavailable"/,
     );
     expect(evidencePanels).not.toContain("setAdded(true)");
 

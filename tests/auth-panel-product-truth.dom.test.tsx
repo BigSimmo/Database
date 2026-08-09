@@ -42,7 +42,10 @@ describe("AuthPanel product truth", () => {
     render(<AuthPanel />);
 
     const apple = screen.getByRole("button", { name: "Apple sign-in unavailable" });
-    expect(apple).toBeDisabled();
+    // `aria-disabled`, not the native attribute — the reason below is only worth
+    // writing if a keyboard user can land on the control and hear it.
+    expect(apple).toHaveAttribute("aria-disabled", "true");
+    expect(apple).not.toBeDisabled();
     expect(apple).toHaveAttribute("title", "Apple sign-in is unavailable — coming soon");
     expect(apple).toHaveAccessibleDescription(
       "Apple sign-in is unavailable. Continue with email, Google, or Microsoft.",

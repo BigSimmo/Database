@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
 import type { Therapy } from "./data/types";
@@ -48,7 +49,8 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       <button
         type="button"
         className={`${therapyBtn} absolute top-3 right-3 z-[10] inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--disabled)] opacity-65 sm:top-3.5 sm:right-4`}
-        disabled
+        aria-disabled="true"
+        onClick={ignoreUnavailableActivation}
         title="Favourite saving is not available yet"
         aria-label="Favourite saving is not available yet"
       >
@@ -103,8 +105,11 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         <button
           type="button"
           className={`${therapyBtn} ${outlineControl} w-full px-2 text-xs sm:px-4 sm:text-sm-minus`}
-          onClick={() => b.openSheet(therapy.slug)}
-          disabled={!therapy.patientSheetAvailable}
+          onClick={() => {
+            if (!therapy.patientSheetAvailable) return;
+            b.openSheet(therapy.slug);
+          }}
+          aria-disabled={therapy.patientSheetAvailable ? undefined : true}
           title={therapy.patientSheetAvailable ? undefined : "This record has no patient sheet"}
           aria-label={sheetLabel}
         >

@@ -187,7 +187,10 @@ describe("SettingsDialog — destructive and account actions", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Sign in" })[0]);
 
     const apple = screen.getByRole("button", { name: "Apple sign-in unavailable" });
-    expect(apple).toBeDisabled();
+    // `aria-disabled` keeps the row focusable so the reason is announced; the
+    // native attribute would drop it out of the tab order entirely.
+    expect(apple).toHaveAttribute("aria-disabled", "true");
+    expect(apple).not.toBeDisabled();
     expect(apple).toHaveAttribute(
       "title",
       "Apple sign-in is unavailable. Continue with email, Google, or Microsoft — coming soon",

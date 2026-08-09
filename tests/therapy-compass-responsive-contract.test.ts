@@ -152,10 +152,15 @@ describe("Therapy Compass responsive contract", () => {
     )?.[0];
 
     expect(favouriteButton).toBeTruthy();
-    expect(favouriteButton).toContain("disabled");
+    // `aria-disabled` + the shared inert handler, not the native attribute: the
+    // reason lives in the title, and `disabled` would take the only route to it
+    // (the tab stop) away. The handler is what makes the control do nothing —
+    // its presence is the contract, so this no longer asserts "no onClick".
+    expect(favouriteButton).toContain('aria-disabled="true"');
+    expect(favouriteButton).not.toMatch(/(^|\s)disabled(\s|=|$)/);
+    expect(favouriteButton).toContain("onClick={ignoreUnavailableActivation}");
     expect(favouriteButton).toContain('aria-label="Favourite saving is not available yet"');
     expect(favouriteButton).toContain("cursor-not-allowed");
-    expect(favouriteButton).not.toContain("onClick");
   });
 
   it("keeps search result cards dense: single-row tags, top favourite, clamped match cells", () => {
