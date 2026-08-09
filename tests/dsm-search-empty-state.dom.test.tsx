@@ -18,4 +18,18 @@ describe("DsmSearchPage empty state", () => {
 
     expect(screen.getByRole("heading", { level: 2, name: "No diagnosis matches" })).toBeVisible();
   });
+
+  it("drops the catalogue page header and owns the query as the page heading", () => {
+    render(<DsmSearchPage query="Delirium" categories={categories} results={[]} totalCount={12} />);
+
+    expect(screen.queryByRole("link", { name: /DSM-5 Diagnosis home/i })).toBeNull();
+    expect(screen.queryByText(/Diagnosis catalogue/i)).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Diagnosis search" })).toBeNull();
+    expect(screen.queryByText(/Find diagnostic records by name/i)).toBeNull();
+
+    expect(screen.getByTestId("search-query-ribbon")).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "Delirium" })).toBeVisible();
+    expect(screen.getByTestId("dsm-category-filter")).toBeVisible();
+    expect(screen.getByTestId("dsm-category-filter")).toHaveTextContent("12");
+  });
 });

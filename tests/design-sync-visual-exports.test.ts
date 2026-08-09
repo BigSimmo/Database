@@ -26,6 +26,7 @@ const visualExports = [
   "DoseLine",
   "DownloadLink",
   "EmptyState",
+  "ErrorState",
   "ErrorSummary",
   "ExternalTextLink",
   "FieldError",
