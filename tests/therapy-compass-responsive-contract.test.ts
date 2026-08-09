@@ -158,6 +158,17 @@ describe("Therapy Compass responsive contract", () => {
     expect(favouriteButton).not.toContain("onClick");
   });
 
+  it("keeps search result cards dense: single-row tags, top favourite, clamped match cells", () => {
+    expect(therapyCardSource).toContain("wrap={false}");
+    expect(therapyCardSource).toContain("max={3}");
+    expect(therapyCardSource).toContain("prioritiseTherapyTags");
+    expect(therapyCardSource).toContain("cardPreviewText");
+    expect(therapyCardSource).toContain("line-clamp-2");
+    expect(therapyCardSource).toContain("sm:grid-cols-3");
+    // Heart lives beside the title, not a third desktop column.
+    expect(therapyCardSource).not.toMatch(/sm:grid-cols-\[minmax\([^)]+\),1fr\)_minmax\([^)]+\),1\.35fr\)_auto\]/);
+  });
+
   it("uses complete toggle semantics and preserves full-size control hit targets", () => {
     const briefGroupTag = openingTagWith(briefSource, "div", [
       'role="group"',

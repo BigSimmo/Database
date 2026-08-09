@@ -69,11 +69,20 @@ export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?
   );
 }
 
-export function TagRow({ tags, max = 5 }: { tags: string[]; max?: number }) {
+export function TagRow({
+  tags,
+  max = 5,
+  /** Search cards keep one row; detail may still wrap a longer set. */
+  wrap = true,
+}: {
+  tags: string[];
+  max?: number;
+  wrap?: boolean;
+}) {
   const shown = tags.slice(0, max);
   const extra = tags.length - shown.length;
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className={cn("flex gap-2", wrap ? "flex-wrap" : "flex-nowrap overflow-hidden")}>
       {shown.map((tag) => (
         <Tag key={tag} tone={tagTone(tag)}>
           {tag}

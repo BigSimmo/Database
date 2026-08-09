@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 import { useTcBindings } from "./bindings";
-import { summarise } from "./data/select";
+import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
 import type { Therapy } from "./data/types";
 import { accentControl, outlineControl, therapyBtn } from "./controls";
 import {
@@ -22,71 +22,69 @@ import { Eyebrow, IconTile, TagRow } from "./ui";
 export function ResultCard({ therapy }: { therapy: Therapy }) {
   const b = useTcBindings();
   const inCompare = b.isInCompare(therapy.slug);
+  const subtitle =
+    cardPreviewText(therapy.clinicalSummary, { exclude: therapy.name }) ||
+    cardPreviewText(therapy.bestUsedFor, { exclude: therapy.name }) ||
+    "";
+  const tags = prioritiseTherapyTags(therapy.tags.length ? therapy.tags : [therapy.category], {
+    query: b.search.query,
+    activeTags: b.search.tags,
+  });
+  const whyMatched =
+    cardPreviewText(therapy.bestUsedFor || therapy.indications, { exclude: therapy.name }) ||
+    "Relevant to the current search.";
+  const avoidModify =
+    summarise(therapy.contraindicationsOrCautions, 1) || "Check source and review status before clinical use.";
+  const bestFit =
+    cardPreviewText(therapy.targetSymptoms || therapy.patientPopulation || therapy.setting, {
+      exclude: therapy.name,
+    }) || "See record for population fit.";
+
   return (
     <article className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
-      <div className="grid grid-cols-1 items-start gap-[22px] px-[22px] py-5 sm:grid-cols-[minmax(280px,1fr)_minmax(400px,1.35fr)_auto]">
-        <div className="flex min-w-0 gap-[15px]">
-          <IconTile icon={ScaleIcon} />
-          <div className="min-w-0">
-            <h3 className="m-0 mb-[5px] text-[color:var(--text-heading)] tracking-display text-base font-semibold">
-              {therapy.name}
-            </h3>
-            <p className="m-0 mb-[11px] text-sm-minus leading-normal text-[color:var(--text-muted)]">
-              {summarise(therapy.clinicalSummary, 1) || therapy.bestUsedFor || therapy.category}
-            </p>
-            <TagRow tags={therapy.tags.length ? therapy.tags : [therapy.category]} max={4} />
+      <div className="grid grid-cols-1 items-start gap-3.5 px-4 py-3.5 sm:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] sm:gap-4 sm:px-5 sm:py-4">
+        <div className="flex min-w-0 gap-3">
+          <IconTile icon={ScaleIcon} size={38} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-2">
+              <h3 className="m-0 min-w-0 flex-1 text-[color:var(--text-heading)] tracking-display text-base font-semibold leading-snug">
+                {therapy.name}
+              </h3>
+              <button
+                type="button"
+                className={`${therapyBtn} inline-flex h-tap w-tap shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--disabled)] opacity-65`}
+                disabled
+                title="Favourite saving is not available yet"
+                aria-label="Favourite saving is not available yet"
+              >
+                <HeartIcon size={17} />
+              </button>
+            </div>
+            {subtitle ? (
+              <p className="m-0 mt-1 mb-2 line-clamp-2 text-sm-minus leading-snug text-[color:var(--text-muted)]">
+                {subtitle}
+              </p>
+            ) : (
+              <div className="mb-2" />
+            )}
+            <TagRow tags={tags} max={3} wrap={false} />
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-3">
-          <CardCell
-            icon={CrosshairIcon}
-            eyebrow="WHY MATCHED"
-            tone="accent"
-            text={therapy.bestUsedFor || therapy.indications || "Relevant to the current search."}
-          />
-          <CardCell
-            icon={AlertIcon}
-            eyebrow="AVOID / MODIFY"
-            tone="warning"
-            text={
-              summarise(therapy.contraindicationsOrCautions, 1) || "Check source and review status before clinical use."
-            }
-          />
-          <CardCell
-            icon={ClockIcon}
-            eyebrow="BEST FIT"
-            tone="muted"
-            text={
-              therapy.targetSymptoms || therapy.patientPopulation || therapy.setting || "See record for population fit."
-            }
-          />
-        </div>
-
-        <div className="flex gap-1">
-          <button
-            type="button"
-            className={`${therapyBtn} inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--disabled)] opacity-65`}
-            disabled
-            title="Favourite saving is not available yet"
-            aria-label="Favourite saving is not available yet"
-          >
-            <HeartIcon size={17} />
-          </button>
+          <CardCell icon={CrosshairIcon} eyebrow="WHY MATCHED" tone="accent" text={whyMatched} />
+          <CardCell icon={AlertIcon} eyebrow="AVOID / MODIFY" tone="warning" text={avoidModify} />
+          <CardCell icon={ClockIcon} eyebrow="BEST FIT" tone="muted" text={bestFit} />
         </div>
       </div>
-      <div className="flex flex-wrap gap-2.5 px-[22px] pb-5">
-        <button
-          type="button"
-          className={`${therapyBtn} ${accentControl} min-w-[150px] flex-1`}
-          onClick={() => b.open(therapy.slug)}
-        >
+      <div className="grid grid-cols-1 gap-2 px-4 pb-3.5 sm:grid-cols-3 sm:px-5 sm:pb-4">
+        <button type="button" className={`${therapyBtn} ${accentControl} w-full`} onClick={() => b.open(therapy.slug)}>
           <ExternalLinkIcon size={16} strokeWidth={1.8} />
           Open record
         </button>
         <button
           type="button"
-          className={`${therapyBtn} ${outlineControl}`}
+          className={`${therapyBtn} ${outlineControl} w-full`}
           onClick={() => b.toggleCompare(therapy.slug)}
           aria-pressed={inCompare}
         >
@@ -95,7 +93,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         </button>
         <button
           type="button"
-          className={`${therapyBtn} ${outlineControl}`}
+          className={`${therapyBtn} ${outlineControl} w-full`}
           onClick={() => b.openSheet(therapy.slug)}
           disabled={!therapy.patientSheetAvailable}
           title={therapy.patientSheetAvailable ? undefined : "This record has no patient sheet"}
@@ -121,13 +119,13 @@ function CardCell({
 }) {
   return (
     <div
-      className={`bg-[color:var(--surface)] px-[13px] py-3 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)] ${tone === "accent" ? "text-[color:var(--clinical-accent)]" : tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] [&_p]:text-[color:var(--warning-text)]" : "text-[color:var(--text-muted)]"}`}
+      className={`bg-[color:var(--surface)] px-3 py-2.5 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-snug [&_p]:text-[color:var(--text-muted)] ${tone === "accent" ? "text-[color:var(--clinical-accent)]" : tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] [&_p]:text-[color:var(--warning-text)]" : "text-[color:var(--text-muted)]"}`}
     >
-      <div className="mb-[7px] flex items-center gap-1.5">
+      <div className="mb-1.5 flex items-center gap-1.5">
         <Icon size={13} strokeWidth={1.9} />
         <Eyebrow tone={tone === "muted" ? "neutral" : tone}>{eyebrow}</Eyebrow>
       </div>
-      <p>{text}</p>
+      <p className="line-clamp-2">{text}</p>
     </div>
   );
 }
