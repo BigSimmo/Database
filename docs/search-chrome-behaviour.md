@@ -30,10 +30,39 @@ the rendered heights, or pass explicit weights when the sections are discrete ta
 with no on-screen height to measure. Ownership and reserves for that chrome are the
 “Document section navigation” row above.
 
+Sections that the reader can jump to carry `inPageAnchor`
+(`src/components/in-page-nav/in-page-nav-classes.ts`), which is
+`scroll-mt-[var(--inpage-anchor-offset,6rem)]`. The property is published from the live chrome
+height by `useInPageChromeMetrics`, which `InPageNavHeader` calls itself — a page needs no
+wiring beyond the class. Without it a jump lands underneath the header, because information
+pages carry no scroll margin of their own.
+
+A declared section whose anchor is not currently rendered is dropped, not shown as a dead
+jump: `useResolvedPageSections` resolves each `PageSection` to the first _visible_ member of
+its `targetIds` and filters the rest. That is what makes breakpoint pairs (a phone copy and a
+desktop copy) work, and why a conditional panel can be declared unconditionally. Anchors are
+asserted against rendered DOM per route in `tests/in-page-nav-route-sections.dom.test.tsx` —
+never by grepping for `id=`, which is the failure `/issues #256` records.
+
+**Pages are Server Components more often than not.** `onSelectSection` is a function and
+`PageSection.icon` is a `LucideIcon`; neither crosses the RSC boundary. A server page mounts
+the header through a small `"use client"` sibling (`specifier-nav-header.tsx`,
+`formulation-nav-header.tsx`, `dsm-diagnosis-nav-header.tsx`) that owns the section table and
+the hooks, and receives `actions` as a `ReactNode` slot — server-rendered JSX passes fine.
+Both sheets close on `pathname` change, because action JSX passed in from a server page has no
+way to call `close()`.
+
 `src/components/DocumentViewer.tsx` still carries its own copy of the header rather than the
 shared one: it owns the page `<h1>`, uses the `edge-glass-header` treatment, and is pinned by
 visual baselines, so converging it is a separate change. It remains the visual reference, and
 detailed DocumentViewer rules remain invariant 22 — but new work mounts `InPageNavHeader`.
+
+**Adopted so far:** `/differentials/diagnoses/[slug]`, `/services/[slug]`, `/forms/[slug]`,
+`/specifiers/[slug]` (record and catalogue reference), `/formulation/[slug]`,
+`/dsm/diagnoses/[slug]` and its `/differentials` child. Each is also listed in
+`isHeaderAddonSlotOwnedRoute` (`src/components/mode-nav/header-addon-slot.ts`), which is how
+the one-header-per-slot rule stays checkable. Still on their own patterns: medications
+(`SectionTabs`), factsheets, and differentials presentations.
 
 **Visual slots (adapt labels, back href, sections, and actions to the mode):**
 

@@ -90,14 +90,16 @@ test("searches clinical language without provenance fields and carries a result 
   await page.getByRole("link", { name: "Open With mixed features" }).click();
   await expect(page).toHaveURL(/\/specifiers\/with-mixed-features$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "With mixed features", exact: true })).toBeVisible();
-  // Address the record label by id. Specifier "On this page" labels do not
+  // Address the record label by id. The in-page section sheet's labels do not
   // currently include these words, but the formulation sibling failed CI under
-  // Playwright strict mode once a nav link shared the same text — pin the
+  // Playwright strict mode once a nav control shared the same text — pin the
   // unique target rather than relying on that coincidence.
   await expect(page.locator("#what-matters-now")).toBeVisible();
 
   await page.getByRole("link", { name: "Use in builder", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Build the diagnosis in the right order" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Specifier wording pathway" })).toBeVisible();
+  await expect(page.getByText(/Start with the base diagnosis/i)).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: /Mixed features/ })).toBeChecked();
   await expect(page.getByText(/with mixed features/i).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -137,8 +139,13 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
 
   await page.getByRole("link", { name: "Open With seasonal pattern" }).click();
   await expect(page.getByRole("heading", { name: "With seasonal pattern", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Compare", exact: true }).last()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Build wording", exact: true }).last()).toBeVisible();
+  // The record's actions moved into the in-page header's ellipsis sheet.
+  await page.getByTestId("specifier-actions-trigger").click();
+  const recordActions = page.getByTestId("specifier-actions-sheet");
+  await expect(recordActions.getByRole("link", { name: "Compare", exact: true })).toBeVisible();
+  await expect(recordActions.getByRole("link", { name: "Build wording", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(recordActions).toBeHidden();
   await expectNoHorizontalOverflow(page);
   await expectNoBlockingAxeViolations(page, testInfo);
 });
@@ -156,6 +163,21 @@ test("keeps the base diagnosis severity-neutral when applying a severity descrip
   await expect(
     page.getByText("Major depressive disorder, recurrent, with anxious distress, mild", { exact: true }),
   ).toBeVisible();
+});
+
+test("keeps the builder pathway readable without horizontal overflow on phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await gotoApp(page, "/specifiers/builder?specifier=mild-severity");
+
+  const pathway = page.getByRole("region", { name: "Specifier wording pathway" });
+  await expect(pathway).toBeVisible();
+  await expect(pathway.getByText("Base diagnosis", { exact: true })).toBeVisible();
+  await expect(pathway.getByText("Episode features", { exact: true })).toBeVisible();
+  await expect(pathway.getByText("Course and onset", { exact: true })).toBeVisible();
+  await expect(pathway.getByText("Severity or remission", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Build the diagnosis in the right order" })).toBeVisible();
+  await expect(page.getByText(/Start with the base diagnosis/i)).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
 });
 
 test("blocks incompatible specifiers and preserves severe psychotic-features wording", async ({ page }) => {

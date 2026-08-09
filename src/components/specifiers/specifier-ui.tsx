@@ -19,6 +19,40 @@ export function SpecifierBreadcrumbs({ current }: { current?: string }) {
   return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers" }} current={current} />;
 }
 
+const specifierWordingPathwaySteps = [
+  "Base diagnosis",
+  "Episode features",
+  "Course and onset",
+  "Severity or remission",
+] as const;
+
+/** Non-interactive clinical wording order shared by map and builder. */
+export function SpecifierWordingPathway() {
+  return (
+    <section
+      aria-label="Specifier wording pathway"
+      className="grid min-w-0 gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] p-3 sm:grid-cols-[minmax(0,0.8fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center"
+    >
+      {specifierWordingPathwaySteps.map((label, index) => (
+        <div key={label} className="contents">
+          <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+            <span className="nums grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs text-[color:var(--clinical-accent-contrast)]">
+              {index + 1}
+            </span>
+            <span className="min-w-0 break-words">{label}</span>
+          </div>
+          {index < specifierWordingPathwaySteps.length - 1 ? (
+            <ArrowRight
+              className="hidden h-4 w-4 justify-self-center text-[color:var(--clinical-accent)] sm:block"
+              aria-hidden
+            />
+          ) : null}
+        </div>
+      ))}
+    </section>
+  );
+}
+
 const familyChipBase =
   "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
 const familyChipActive =
@@ -193,13 +227,22 @@ export function DiagnosisChips({ values }: { values: string[] }) {
   );
 }
 
-export function SpecifierSafetyNote({ compact = false, id }: { compact?: boolean; id?: string }) {
+export function SpecifierSafetyNote({
+  compact = false,
+  id,
+  className,
+}: {
+  compact?: boolean;
+  id?: string;
+  className?: string;
+}) {
   return (
     <aside
       id={id}
       className={cn(
         "flex items-start gap-2.5 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-sm leading-5 text-[color:var(--text-muted)]",
         compact ? "px-3 py-2.5" : "p-4",
+        className,
       )}
     >
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden />
