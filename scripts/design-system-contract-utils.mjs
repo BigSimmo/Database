@@ -203,18 +203,53 @@ const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 // deliberately absent because it carries no state and painting with it is not
 // the defect either rule below is looking for.
 const STATUS_COLOR_TOKEN = String.raw`--(?:success|warning|danger|info)(?:-(?:text|bg|soft|border|solid(?:-(?:hover|active|contrast))?))?`;
-const STATUS_TEXT_UTILITY = new RegExp(String.raw`^text-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]$`);
+/**
+ * The optional Tailwind opacity modifier. Leaving it out was a real hole, not a
+ * theoretical one: 83 status-token utilities in `src` carry a `/NN` suffix, and
+ * an anchored pattern without it rejected every one of them before the semantic
+ * checks ran — so an indicator written `bg-[color:var(--danger)]/90` walked past
+ * a ratchet claiming to be repository-wide.
+ */
+const OPACITY_MODIFIER = String.raw`(?:\/\d{1,3})?`;
+const STATUS_TEXT_UTILITY = new RegExp(
+  String.raw`^text-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]${OPACITY_MODIFIER}$`,
+);
 /** A status hue as a *surface* — the decorative form, with no text of its own. */
 const STATUS_SURFACE_UTILITY = new RegExp(
-  String.raw`^(?:bg|border(?:-[xytrblse])?|ring|outline|fill|stroke)-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]$`,
+  String.raw`^(?:bg|border(?:-[xytrblse])?|ring|outline|fill|stroke)-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]${OPACITY_MODIFIER}$`,
 );
+/** Digits and the separators a figure or range carries, with no letters. */
+const NUMERAL_PUNCTUATION = /^[\s\d.,:%+\-–—/×xX()]*$/;
 /**
- * Numerals, as they appear in JSX text: digits plus the separators, units and
- * ranges a clinical figure carries ("12", "1.5 mg", "40–60%", "3/7"). A child
- * with any letter outside a unit is prose, and prose is its own channel — so it
- * is not a numeral and not this rule's business.
+ * Unit words a clinical figure may carry. An explicit list, because the
+ * alternative — allowing any short alphabetic run after a digit — would read
+ * "12 errors" as a numeral and re-create in text the false positive the
+ * expression classifier was already fixed for.
  */
-const NUMERAL_TEXT = /^[\s\d.,:%+\-–—/×xX()]*$/;
+const NUMERAL_UNIT =
+  /^(?:mg|mcg|ug|µg|ng|g|kg|mL|L|dL|mmol|mol|mEq|IU|U|mmHg|kPa|bpm|ms|sec|s|min|h|hr|hrs|d|day|days|wk|week|weeks|mo|month|months|yr|year|years|per|m|cm|kcal|mg\/kg)$/i;
+
+/**
+ * Whether a JSX text fragment is part of a figure rather than prose: "12",
+ * "1.5 mg", "40–60%", "3/7", "10 mg/day", and the bare " mg" left beside a
+ * `{dose}` expression. Any alphabetic run must be a unit; a word that is not one
+ * is prose, and prose is its own non-colour channel.
+ *
+ * Deliberately no digit requirement — `{dose} mg` splits into an expression and
+ * a unit-only text child, and demanding a digit in every fragment would let the
+ * commonest clinical shape of all slip past.
+ *
+ * The earlier form of this rejected *every* letter while its own comment claimed
+ * units were covered, so a dose painted in a status colour — the single case
+ * this rule exists for — passed silently.
+ */
+function isNumeralTextFragment(text) {
+  const trimmed = text.trim();
+  if (trimmed === "") return true;
+  const alphabeticRuns = trimmed.match(/[A-Za-zµ]+/g) ?? [];
+  if (!alphabeticRuns.every((run) => NUMERAL_UNIT.test(run))) return false;
+  return NUMERAL_PUNCTUATION.test(trimmed.replace(/[A-Za-zµ]+/g, ""));
+}
 /**
  * The trailing name segment of an expression that is a figure by definition.
  * Kept deliberately short. A looser list (`value`, `amount`, `size`, `index`,
@@ -235,8 +270,19 @@ const LITERAL_SHADOW_UTILITY = /^shadow-\[(?!var\()[^\]]+\]$/;
  * what the reader sees, and on a radiograph or a stained slide that is a clinical
  * error, not a styling one (GATES.md §3). Production carries none of these today,
  * so this is a hard zero rather than a ratchet.
+ *
+ * `-0` is excluded: `invert-0` and `hue-rotate-0` *disable* inversion, and a
+ * hard-zero gate that rejects the reset would block the very fix it wants.
  */
-const IMAGE_INVERSION_UTILITY = /^-?(?:backdrop-)?(?:invert|hue-rotate)(?:-(?:\d+|\[[^\]]+\]))?$/;
+const IMAGE_INVERSION_UTILITY = /^-?(?:backdrop-)?(?:invert|hue-rotate)(?:-(?!0$)(?:\d+|\[[^\]]+\]))?$/;
+/**
+ * The same filters written as arbitrary values — `filter-[invert(1)]`,
+ * `[filter:invert(1)]`, and their `backdrop-` forms, all of which compile under
+ * the installed Tailwind and none of which the dedicated-utility pattern above
+ * can see. Matching the function call itself covers every spelling at once, and
+ * cannot collide with an ordinary utility: no other class contains `invert(`.
+ */
+const INVERSION_FUNCTION = /(?:invert|hue-rotate)\(/;
 // Same shape as the literal-shadow ratchet, for the same reason: 371 arbitrary
 // letterspacing values across 31 distinct spellings, seven of them positive steps
 // between 0.04 and 0.16em that no reader can tell apart. `tracking-[var(--…)]` is
@@ -704,13 +750,32 @@ const SWATCH_GEOMETRY = /^(?:h|w|size)-(?:1|1\.5|2|2\.5|3)$/;
 /** Attributes that give an element a name a screen reader can announce. */
 const ACCESSIBLE_NAME_ATTRIBUTES = new Set(["aria-label", "aria-labelledby", "title"]);
 
-function jsxOwnerAttributeNames(owner, source) {
-  if (!ts.isJsxOpeningElement(owner) && !ts.isJsxSelfClosingElement(owner)) return new Set();
-  return new Set(
-    owner.attributes.properties
-      .filter((attribute) => ts.isJsxAttribute(attribute))
-      .map((attribute) => attribute.name.getText(source)),
-  );
+/**
+ * Whether the element carries an accessible name with something actually in it.
+ * `aria-label=""` names nothing, and accepting the attribute's mere presence let
+ * an empty label exempt an indicator from the rule. A non-literal value
+ * (`aria-label={label}`) is accepted, because without a type checker there is no
+ * way to know it is empty and guessing would flag correct code.
+ */
+function hasNonEmptyAccessibleName(element, source) {
+  for (const attribute of element.attributes.properties) {
+    if (!ts.isJsxAttribute(attribute)) continue;
+    if (!ACCESSIBLE_NAME_ATTRIBUTES.has(attribute.name.getText(source))) continue;
+    const initializer = attribute.initializer;
+    // A bare `aria-label` with no value is empty by definition.
+    if (!initializer) continue;
+    if (ts.isStringLiteral(initializer)) {
+      if (initializer.text.trim() !== "") return true;
+      continue;
+    }
+    if (ts.isJsxExpression(initializer)) {
+      const expression = initializer.expression;
+      if (!expression) continue;
+      if (ts.isStringLiteralLike(expression) && expression.text.trim() === "") continue;
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -724,18 +789,42 @@ function jsxOwnerChildren(owner) {
   return element.children.filter((child) => !(ts.isJsxText(child) && child.text.trim() === ""));
 }
 
-/**
- * Whether an expression evaluates to a figure. Structural where it can be —
- * a numeric literal, arithmetic on one, a `toFixed` call — and a name test only
- * for the shapes no syntax reveals (`items.length`, `counts.high`).
- */
+/** Operators that produce a number. `+` is included and then guarded below. */
+const ARITHMETIC_OPERATORS = new Set([
+  ts.SyntaxKind.PlusToken,
+  ts.SyntaxKind.MinusToken,
+  ts.SyntaxKind.AsteriskToken,
+  ts.SyntaxKind.SlashToken,
+  ts.SyntaxKind.PercentToken,
+  ts.SyntaxKind.AsteriskAsteriskToken,
+]);
+
+/** Whether any operand anywhere in the expression is literal text. */
+function containsTextLiteral(node) {
+  if (ts.isStringLiteralLike(node) || ts.isTemplateExpression(node)) return true;
+  if (ts.isParenthesizedExpression(node)) return containsTextLiteral(node.expression);
+  if (ts.isBinaryExpression(node)) return containsTextLiteral(node.left) || containsTextLiteral(node.right);
+  return false;
+}
+
 function isNumeralExpression(node) {
   if (ts.isParenthesizedExpression(node)) return isNumeralExpression(node.expression);
   if (ts.isNumericLiteral(node)) return true;
-  if (ts.isPrefixUnaryExpression(node)) return isNumeralExpression(node.operand);
+  if (ts.isPrefixUnaryExpression(node)) {
+    // Sign only. `!count` is a boolean, and treating it as a figure would let a
+    // negation render as a "numeral" painted in a status colour.
+    const signed = node.operator === ts.SyntaxKind.PlusToken || node.operator === ts.SyntaxKind.MinusToken;
+    return signed && isNumeralExpression(node.operand);
+  }
   if (ts.isBinaryExpression(node)) {
-    // `{index + 1}` and friends. One numeric side is enough; a string
-    // concatenation would have a string literal rather than a numeric one.
+    // `{index + 1}` yes; `{count + " errors"}` no. The earlier note here — that
+    // a concatenation "would have a string literal rather than a numeric one" —
+    // was wrong, because one numeric side was enough to classify the whole
+    // expression: the visible word "errors" IS the required non-colour channel,
+    // so flagging it would have failed CI on a correct surface. Comparison and
+    // logical operators are excluded for the same reason: they yield booleans.
+    if (!ARITHMETIC_OPERATORS.has(node.operatorToken.kind)) return false;
+    if (containsTextLiteral(node)) return false;
     return isNumeralExpression(node.left) || isNumeralExpression(node.right);
   }
   if (ts.isCallExpression(node)) {
@@ -758,7 +847,7 @@ function childrenAreNumeralOnly(children) {
   for (const child of children) {
     if (ts.isJsxText(child)) {
       const text = child.text.trim();
-      if (!NUMERAL_TEXT.test(text)) return false;
+      if (!isNumeralTextFragment(text)) return false;
       if (/\d/.test(text)) sawNumeral = true;
       continue;
     }
@@ -775,11 +864,48 @@ function childrenAreNumeralOnly(children) {
   return sawNumeral;
 }
 
-/** Whether a JSX child renders words a reader can see. */
+/**
+ * Whether a JSX child renders words a reader can see.
+ *
+ * Expressions are treated as text by default, because without a type checker
+ * `{label}` and `{count}` are indistinguishable and assuming the worst would
+ * flag every labelled swatch in the repository. The exclusions below are the
+ * cases that are *statically* not text: a rendered-nothing literal, and a bare
+ * element such as an icon, which is another colour/shape channel rather than a
+ * second one.
+ */
 function rendersVisibleText(node) {
   if (ts.isJsxText(node)) return /[A-Za-z]/.test(node.text);
-  if (ts.isJsxExpression(node)) return Boolean(node.expression);
   if (ts.isJsxElement(node)) return node.children.some(rendersVisibleText);
+  if (ts.isJsxFragment(node)) return node.children.some(rendersVisibleText);
+  if (ts.isJsxSelfClosingElement(node)) return false;
+  if (ts.isJsxExpression(node)) {
+    const expression = node.expression;
+    if (!expression) return false;
+    if (
+      expression.kind === ts.SyntaxKind.NullKeyword ||
+      expression.kind === ts.SyntaxKind.FalseKeyword ||
+      (ts.isIdentifier(expression) && expression.text === "undefined")
+    ) {
+      return false;
+    }
+    // If the expression builds markup — a conditional element, a `.map` over
+    // rows — judge it by that markup. Otherwise it is a value being printed
+    // (`{label}`, `{statusLabel(status)}`) and counts as text, because without a
+    // type checker there is no way to tell a label from a count and assuming the
+    // worst would flag every labelled swatch in the repository.
+    const embedded = [];
+    const collect = (child) => {
+      if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child) || ts.isJsxFragment(child)) {
+        embedded.push(child);
+        return;
+      }
+      ts.forEachChild(child, collect);
+    };
+    collect(expression);
+    if (embedded.length > 0) return embedded.some(rendersVisibleText);
+    return true;
+  }
   return false;
 }
 
@@ -792,9 +918,18 @@ function rendersVisibleText(node) {
  * taught the next reader that the rule cries wolf.
  */
 function hasSiblingTextChannel(owner) {
-  const self = ts.isJsxOpeningElement(owner) ? owner.parent : owner;
-  const parent = self?.parent;
-  if (!parent || !ts.isJsxElement(parent)) return false;
+  let self = ts.isJsxOpeningElement(owner) ? owner.parent : owner;
+  let parent = self?.parent;
+  // Climb out of the expression wrappers a conditional swatch sits in.
+  // `{status === "emergent" ? <span …/> : null}` puts the element inside a
+  // ConditionalExpression inside a JsxExpression, so it is not a direct child of
+  // the element holding its label — and stopping at the first non-JSX parent
+  // reported a labelled badge as colour-only.
+  while (parent && !ts.isJsxElement(parent) && !ts.isJsxFragment(parent)) {
+    self = parent;
+    parent = parent.parent;
+  }
+  if (!parent) return false;
   return parent.children.some((child) => child !== self && rendersVisibleText(child));
 }
 
@@ -813,10 +948,11 @@ function hasAccessibleNameInScope(owner, source) {
     // matches an ancestor, which is how the first draft of this walk found
     // nothing at all.
     const element = ts.isJsxElement(node) ? node.openingElement : node;
-    if (ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)) {
-      for (const name of jsxOwnerAttributeNames(element, source)) {
-        if (ACCESSIBLE_NAME_ATTRIBUTES.has(name)) return true;
-      }
+    if (
+      (ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)) &&
+      hasNonEmptyAccessibleName(element, source)
+    ) {
+      return true;
     }
     node = node.parent;
   }
@@ -916,7 +1052,9 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     if (base === "transition-all" || HARDCODED_MOTION_UTILITY.test(base)) {
       result.hardcodedMotionClasses.push(`${relativePath}:${line} (${token})`);
     }
-    if (IMAGE_INVERSION_UTILITY.test(base)) result.imageInversions.push(`${relativePath}:${line} (${token})`);
+    if (IMAGE_INVERSION_UTILITY.test(base) || INVERSION_FUNCTION.test(base)) {
+      result.imageInversions.push(`${relativePath}:${line} (${token})`);
+    }
     if (LITERAL_SHADOW_UTILITY.test(base)) result.literalShadowClasses.push(`${relativePath}:${line} (${token})`);
     if (ARBITRARY_TRACKING_UTILITY.test(base)) result.arbitraryTracking.push(`${relativePath}:${line} (${token})`);
     if (hasLegacyTapClass(token)) result.legacyTapClasses.push(`${relativePath}:${line} (${token})`);
