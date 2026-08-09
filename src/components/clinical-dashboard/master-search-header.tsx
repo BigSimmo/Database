@@ -866,9 +866,7 @@ export function MasterSearchHeader({
             window.setTimeout(restoreSameModeFocus, 50);
             return;
           }
-          if (!restoreFocusUnlessMoved(modeButtonRef.current)) {
-            modeButtonRef.current?.focus({ preventScroll: true });
-          }
+          restoreFocusUnlessMoved(modeButtonRef.current);
           pendingModeSelectionFocusRef.current = null;
         };
         window.requestAnimationFrame(() => {
