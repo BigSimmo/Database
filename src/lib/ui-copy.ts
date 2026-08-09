@@ -1,3 +1,5 @@
+import type { AppModeId } from "@/lib/app-modes";
+
 /**
  * Central home for static, user-facing UI copy.
  *
@@ -12,9 +14,67 @@
  * never hardcoded here.
  */
 
-export const answerEmptyState = {
-  heading: "How can I help?",
-  subheading: "Ask a clinical question or search your documents.",
+export type SharedHomePresentation = {
+  title: string;
+  subtitle: string;
+};
+
+export const sharedHomePresentation = {
+  answer: {
+    title: "What can I help with?",
+    subtitle: "Ask a source-backed clinical question.",
+  },
+  documents: {
+    title: "Find a source?",
+    subtitle: "Search documents and evidence passages.",
+  },
+  services: {
+    title: "Find a service?",
+    subtitle: "Search services and referral pathways.",
+  },
+  forms: {
+    title: "Find a form?",
+    subtitle: "Search clinical forms and pathways.",
+  },
+  favourites: {
+    title: "Find a saved item?",
+    subtitle: "Search your saved clinical items.",
+  },
+  differentials: {
+    title: "What else could it be?",
+    subtitle: "Compare causes and clinical clues.",
+  },
+  dsm: {
+    title: "Check DSM-5 criteria?",
+    subtitle: "Search diagnoses, criteria, and codes.",
+  },
+  specifiers: {
+    title: "Which specifier fits?",
+    subtitle: "Refine diagnostic wording and episode patterns.",
+  },
+  formulation: {
+    title: "What explains the pattern?",
+    subtitle: "Explore mechanisms behind the presentation.",
+  },
+  prescribing: {
+    title: "Check a medication?",
+    subtitle: "Check dosing, safety, and monitoring.",
+  },
+  tools: {
+    title: "Find a clinical tool?",
+    subtitle: "Search clinical tools and applications.",
+  },
+  "therapy-compass": {
+    title: "Which therapy fits?",
+    subtitle: "Explore source-grounded therapy guidance.",
+  },
+  factsheets: {
+    title: "Find a patient factsheet?",
+    subtitle: "Search clear patient information to share.",
+  },
+} as const satisfies Record<AppModeId, SharedHomePresentation>;
+
+export const sharedHomeEmptyState = {
   starterActionsLabel: "Starter actions",
   recentLabel: "Recent searches",
 } as const;
