@@ -986,7 +986,8 @@ test.describe("Clinical KB tools launcher", () => {
 
   for (const viewport of [
     { name: "mobile", width: 390, height: 820 },
-    { name: "tablet", width: 768, height: 1024 },
+    // Tablet (≥640) shares the desktop-page composer path with desktop; keep one
+    // representative width above the phone breakpoint.
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
     for (const route of [
@@ -1486,7 +1487,7 @@ test.describe("Clinical KB tools launcher", () => {
   });
 
   // The mode pill no longer opens mode homes, so reach /differentials the way a
-  // user now does: the sidebar's "More modes" group, or a direct link.
+  // user now does: the sidebar's "More modes" sheet, or a direct link.
   test("the differentials home renders inside the dashboard when opened directly", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/differentials");

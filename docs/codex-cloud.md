@@ -56,6 +56,21 @@ unversioned installer. Set
 `CODEX_CLOUD_SKIP_BROWSER_INSTALL=1` only for an explicitly source-only environment; that
 environment is not full browser-ready.
 
+### Playwright browser readiness (#255)
+
+Browser gates need the **locked** Playwright package and a Chromium revision that matches
+`node_modules/playwright-core/browsers.json`. When a remote/Cloud image forces
+`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` with `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` and that
+tree only ships an older revision (for example 1194 while the lock expects 1234):
+
+1. Run `npm run check:installed-lock-parity` and `npm run check:playwright-browser-revision`.
+2. Do **not** point `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` at the mismatched shell.
+3. Delegate browser proof to CI Production UI, or refresh the environment image / install matching
+   browsers into a managed cache, or unset the container browser env vars so
+   `npx playwright install` can populate the managed path.
+
+`CODEX_CLOUD_SKIP_BROWSER_INSTALL=1` remains source-only: that environment is not browser-ready.
+
 ## Access profiles
 
 ### Offline (default)

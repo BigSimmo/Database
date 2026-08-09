@@ -555,31 +555,15 @@ jobs:
       # report as `cancelled` and re-create exactly the ambiguity #095 removed.
       fail-fast: false
       matrix:
-        # THREE, and the count is measured rather than chosen. `fullyParallel: false`
-        # makes a spec file the indivisible unit, so shard sizes are lumpy and more
-        # shards is not monotonically faster. Re-measured 2026-07-30 against this
-        # merged tree — 342 non-quarantine/non-mockup chromium tests
-        # (`--list --shard=i/N`):
-        #   N=3 -> 121/111/110   largest 121 (35%)
-        #   N=4 -> 121/106/98/17 largest 121 (35%)  — same bound, one more runner
-        # Earlier on a 340-test tree, N=5 -> 121/106/0/96/17 and N=8 gave two empty
-        # shards. N=4 buys nothing over N=3 because one 121-test spec group bounds
-        # both, and any N with an empty shard would go RED: `test:e2e:pr`
-        # deliberately omits `--pass-with-no-tests` (only the advisory lane has it).
-        # Re-measure before changing this number, and keep every shard non-empty:
-        #   npm run ensure
-        #   PLAYWRIGHT_BASE_URL=<printed> npx playwright test --project=chromium \
-        #     --grep-invert "@quarantine|@mockup" --shard=i/N --list
-        #
-        # MEASURED on the first real sharded run (CI 30530618838, 2026-07-30):
-        #   shard 1 -> 121 tests, 9m36
-        #   shard 2 -> 111 tests, 6m54
-        #   shard 3 -> 110 tests, 6m20
-        # Per-test cost is NOT uniform — 111 tests took 6m54 while 121 took 9m36 —
-        # so counting tests UNDERSTATES the largest shard. A count-balanced split is
-        # the best `--shard` can do; balancing by duration would mean splitting the
-        # slow spec files themselves. Predicting from test count alone was wrong by
-        # ~40% here, so trust a measured run over the arithmetic.
+        # THREE explicit duration-aware file groups (scripts/playwright-pr-shards.mjs),
+        # not Playwright `--shard=i/N`. Count-balanced `--shard` packed the slow
+        # phone-scroll family into one runner (measured 9m36 vs 6m54/6m20 on
+        # CI 30530618838). Explicit groups mix slow-per-test specs with faster
+        # mega-specs. `tests/playwright-pr-shards.test.ts` fails closed if any
+        # production e2e:pr file is missing, duplicated, or leaves a shard empty.
+        # Re-measure wall time after suite growth before reshuffling membership:
+        #   node scripts/playwright-pr-shards.mjs --list
+        #   node scripts/playwright-pr-shards.mjs --validate
         shard: [1, 2, 3]
     steps:
       - name: Checkout
@@ -607,7 +591,7 @@ jobs:
         env:
           PLAYWRIGHT_BUILD_ROOT_ID: ci-production
           PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
-        run: npm run test:e2e:pr -- --shard=${{ matrix.shard }}/3
+        run: npm run test:e2e:pr:shard -- --shard ${{ matrix.shard }}
 
       - name: Classify exact failed test identities
         if: failure()
@@ -682,7 +666,27 @@ jobs:
   visual-baseline:
     name: Visual baselines (advisory)
     needs: changes
-    if: needs.changes.outputs.ui_changed == 'true'
+    # Deliberately NOT on pull_request or merge_group. Owner decision, 2026-08-09:
+    # a pixel gate that reports on every UI pull request taxes exactly the work it
+    # exists to support. During a redesign the honest result is red on every push,
+    # and the baselines cannot be refreshed until a run has produced the new
+    # images, so that red is unavoidable rather than actionable. It never blocked
+    # a merge (`continue-on-error`, and absent from `pr-required`), but a red check
+    # nobody can act on mid-iteration is friction whether or not it gates.
+    # `merge_group` is excluded for the same reason: queue runs are still
+    # pre-merge UI churn, not a post-land refresh point.
+    #
+    # Drift is still caught: this runs on pushes to main and release branches, on
+    # the weekly schedule, and on demand via workflow_dispatch. That puts the
+    # signal where a refresh is cheap — after the change has landed — instead of
+    # interrupting the change. Refresh with `npm run design-system:baselines:adopt`
+    # against that run's artifact.
+    #
+    # Do not add `pull_request` / `merge_group` back, and do not add this job to
+    # `pr-required`, without the owner saying so.
+    if: >
+      needs.changes.outputs.ui_changed == 'true' &&
+      contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name)
     continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 45

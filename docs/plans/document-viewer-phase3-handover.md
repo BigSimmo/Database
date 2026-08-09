@@ -7,13 +7,19 @@ time, so every page flip on a long guideline is a cold render — that is the re
 **Scope:** every Phase 3 capability **except crop → page overlay**. Crop overlay is deliberately out —
 `bbox` is SELECTed at `src/lib/document-detail.ts:441` but absent from `DocumentDetailImage` in
 `src/lib/document-detail-contract.ts`, so it needs contract plumbing through `src/lib/**document**`,
-which trips `clinicalRiskPatterns` in `scripts/pr-policy.mjs` and forces a governance preflight. Every
-remaining item stays inside `src/components/document-viewer/**`, which classifies `clinicalRisk: false`.
+which is a wider contract change than this phase should carry.
+
+Most of the work lands in `src/components/document-viewer/**`. **One deliberate exception:** Task 3 may
+wire `src/app/api/images/signed-urls/route.ts`, which matches `clinicalRiskPatterns` in
+`scripts/pr-policy.mjs` (`/^src\/app\/api\//`). If you touch that route, `pr-policy` will hard-block the
+merge without a complete `## Clinical Governance Preflight` — but complete it either way. See
+"Governance" below: the preflight is required by behaviour, not by which paths the classifier happens to
+match.
 
 **Already done:** toolbar density shipped in Phase 2 (`document-frame.tsx:404`, `hidden sm:inline` plus
 an `sm:hidden` overflow menu). Strike it from the plan's table.
 
-All line references below were verified against `main` at `8db1e53`.
+All line references below were verified against `main` at `50ef12e`.
 
 ---
 
@@ -90,9 +96,12 @@ still mint signed URLs. Virtualize the long list and stop off-screen rows resolv
 
 Above-fold evidence should resolve and decode before the below-fold rail. Build on the in-flight dedupe
 already in `use-signed-image-url.ts` — **read the warning below before touching that file.**
-`src/app/api/images/signed-urls/route.ts` batches up to 100 ids and has no caller (ledger `#283`);
-wiring it is in scope if the rail mounts several distinct images at once, but keep the per-image
-endpoint for the lightbox retry path.
+`src/app/api/images/signed-urls/route.ts` batches up to 100 ids and has no caller (ledger `#283`).
+Wiring it is permitted if the rail mounts several distinct images at once, but treat it as a deliberate
+scope exception, not a free extension: it is a privileged owner-scoped endpoint, it matches
+`clinicalRiskPatterns`, and touching it makes the `## Clinical Governance Preflight` a hard merge gate
+rather than a discipline requirement. Prefer deferring it to its own PR unless the batching win is
+measured. If you do wire it, keep the per-image endpoint for the lightbox retry path.
 
 ## Task 4 — keyboard reading mode
 
@@ -140,21 +149,52 @@ Two gates will move and must not be silenced:
 
 ## Read this before editing `use-signed-image-url.ts`
 
-The Phase 0–2 pass shipped two identity bugs in that file, both caught in review.
+**Both bugs described here are already fixed on `main`. Do not reintroduce them.**
+
+The Phase 0–2 pass shipped two identity bugs in that file, both caught in review before merge.
 `authorizationHeadersForAccessToken` emits **lowercase** `authorization`
 (`src/lib/supabase/client.tsx:82`), but the dedupe key read `headers.Authorization` — so the token was
-never in the key, every identity collapsed onto `endpoint `, and an account switch with a request in
-flight could hand user B user A's signed URL. The second: the module LRU was written from inside the
-shared promise, so a superseded response could refill a cleared cache after an identity change.
-`authorizationHeader` is a `Record<string, string>`, so reading the wrong casing fails silently. Ledger
-`#286` tracks the casing helper that would make this unrepeatable — consider landing it first.
+never in the key, every identity collapsed onto the endpoint alone (the key was the literal endpoint
+followed by a trailing space), and an account switch with a request in flight could hand user B user A's
+signed URL. The second: the module LRU was written from inside the shared promise, so a superseded
+response could refill a cleared cache after an identity change.
+
+The shipped state on `main` is the correct one: `authorizationIdentity(headers)` reads
+`headers.authorization ?? headers.Authorization`, the key joins endpoint and identity with a NUL
+separator so neither field can bleed into the other, the cache write happens in the active consumer
+after its identity check, and `tests/auth-signed-url-cache.dom.test.tsx` carries the regression
+coverage.
+
+**Required before any Task 3 change to this file:** run that test file first and confirm it is green, and
+keep it green afterwards. If you restructure the dedupe or cache path, the identity must remain in the
+key and the cache write must stay outside the shared promise. `authorizationHeader` is a
+`Record<string, string>`, so reading the wrong casing fails silently — never key identity off a property
+access without going through the helper. Ledger `#289` tracks exporting that helper repo-wide so the
+mistake stops being available.
 
 ## Handoff
 
-Stage as separate commits per task so any one stays independently revertible while the PR is open. The
-PR body needs no `## Clinical Governance Preflight` and no `RAG impact:` line **provided** the diff
-stays inside `src/components/document-viewer/**` and `tests/**` — if it reaches `src/lib/**document**`
-or `src/app/api/**`, both become required. Check with
+Stage as separate commits per task so any one stays independently revertible while the PR is open.
+
+### Governance
+
+**Complete the `## Clinical Governance Preflight` from `.github/pull_request_template.md`.** Phase 3
+changes source rendering (virtualization changes how a clinical source page is displayed, and a bug
+shows the reader the wrong page or no page) and document access (the signed-URL and decode-priority
+work). `AGENTS.md:257` requires the preflight for any PR touching those behaviours — that requirement is
+behavioural, not path-based.
+
+Do not infer an exemption from `scripts/pr-policy.mjs`. Its `clinicalRiskPatterns` deliberately does not
+match `src/components/**` unless the path also mentions auth/permission/privacy/security/upload/download/
+patient, so a diff confined to `src/components/document-viewer/**` classifies `clinicalRisk: false` and
+the merge gate stays quiet. That is the classifier under-approximating, not policy granting a pass — the
+comment at `pr-policy.mjs:62` records PR #1489 shipping 205 therapy records (including one labelling ECT
+as "ACT") past exactly this gap. If Task 3 wires `src/app/api/images/signed-urls/route.ts`, the gate does
+fire and will hard-block without the preflight.
+
+No `RAG impact:` line is required: no protected ranking surface is in scope (`src/lib/rag/**`,
+clinical-search, retrieval-selection, ranking-config, answer-ranking, the eval harness, the golden
+fixture, the retrieval RPCs). Confirm the classification for your actual diff with
 `npm run verify:pr-local -- --dry-run --files <paths>`.
 
 Capture anything deferred with `/issues capture` before the session ends.

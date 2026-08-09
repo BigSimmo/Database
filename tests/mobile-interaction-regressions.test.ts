@@ -13,11 +13,12 @@ describe("mobile interaction regressions", () => {
   it("keys diagnosis cards by their unique stable identity", () => {
     const ids = differentialDiagnosesCards.map((card) => card.id);
     const titles = differentialDiagnosesCards.map((card) => card.title);
-    const streamSource = source("src/components/differentials/differential-stream-page.tsx");
+    const streamSource = source("src/components/differentials/differential-stream-workspace.tsx");
 
     expect(new Set(ids).size).toBe(ids.length);
     expect(new Set(titles).size).toBeLessThan(titles.length);
-    expect(streamSource).toContain("key={card.id}");
+    expect(streamSource).toContain("key={item.id}");
+    expect(streamSource).not.toContain("key={item.title}");
     expect(streamSource).not.toContain("key={card.title}");
   });
 
