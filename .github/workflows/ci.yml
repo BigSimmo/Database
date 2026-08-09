@@ -700,7 +700,24 @@ jobs:
         uses: ./.github/actions/setup-ui-e2e
 
       - name: Chromium visual baselines
+        id: visual-comparison
+        # Pixel drift is evidence, not an execution failure. Keeping this at the
+        # step (rather than only the job) prevents GitHub from publishing a red
+        # check for the expected stale-golden case demonstrated by PR #1743.
+        continue-on-error: true
         run: npm run test:e2e:visual
+
+      - name: Report visual differences
+        if: steps.visual-comparison.outcome == 'failure'
+        run: |
+          echo "::warning title=Visual baseline drift::Chromium pixels differ from the committed Linux baseline. Review the visual-baseline-${{ github.run_id }} artifact; this advisory comparison does not block merging."
+          {
+            echo "### Visual baseline drift detected"
+            echo
+            echo "The Chromium comparison found changed pixels. This is advisory: required interaction, accessibility, and style-contract checks remain separate."
+            echo
+            echo "Download \`visual-baseline-${{ github.run_id }}\` and review the expected, actual, and diff images before refreshing the Linux baseline."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # The actual/diff/expected PNGs live here. On a first run these are the images
       # to commit as the baseline; on a later run they are the evidence of what moved.

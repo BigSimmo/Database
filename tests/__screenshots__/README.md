@@ -54,5 +54,8 @@ without `--update-snapshots`: a baseline that fails its own immediate re-run is
 capturing a race, not a design. `maxDiffPixelRatio: 0.002` with `threshold: 0.2`
 absorbs antialiasing, not layout that has not settled.
 
-Comparison is advisory until the jobs are flipped off `continue-on-error`. Until
-then a real regression shows as a red _artifact_, not a red _check_.
+Comparison is advisory. Pixel drift produces a workflow warning and summary while
+the job uploads expected, actual, and diff images for review; it does not produce a
+failed GitHub check. The job runs post-land, weekly, or manually rather than on pull
+requests and merge queues. Setup or artifact-upload failures can still fail the job
+because they leave no trustworthy evidence to review.

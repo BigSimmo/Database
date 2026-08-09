@@ -352,6 +352,16 @@ describe("Visual baseline routing", () => {
     expect(prRequiredNeeds, "could not read pr-required's needs list from ci.yml").not.toBe("");
     expect(prRequiredNeeds).not.toMatch(/\bvisual-baseline\b/);
   });
+
+  it("reports pixel drift as a warning while preserving review artifacts", () => {
+    expect(visualBaselineJob).toMatch(
+      /name: Chromium visual baselines\n\s+id: visual-comparison\n(?:\s+#.*\n)*\s+continue-on-error: true/,
+    );
+    expect(visualBaselineJob).toContain("if: steps.visual-comparison.outcome == 'failure'");
+    expect(visualBaselineJob).toContain("::warning title=Visual baseline drift::");
+    expect(visualBaselineJob).toContain("$GITHUB_STEP_SUMMARY");
+    expect(visualBaselineJob).toMatch(/name: Upload visual diffs\n\s+if: always\(\)/);
+  });
 });
 
 describe("Lighthouse budget routing", () => {

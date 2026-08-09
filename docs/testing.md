@@ -167,7 +167,10 @@ laptop-generated baseline makes every CI run red. A platform with no baseline fa
 than passing silently. The CI `visual-baseline` job is deliberately **off `pull_request` and
 `merge_group`** (owner decision on PR #1755 / `#118`): it still runs on pushes to main/release, the
 weekly schedule, and `workflow_dispatch`, and stays `continue-on-error` / outside `pr-required`. Do
-not re-add pre-merge triggers or promote it without an explicit owner ask.
+not re-add pre-merge triggers or promote it without an explicit owner ask. The pixel-comparison step
+also uses `continue-on-error`: drift creates a workflow warning, job summary, and downloadable
+expected/actual/diff artifact instead of a failed check. Setup or artifact-publication failures remain
+visible as job failures because those runs produced no trustworthy comparison evidence.
 
 ## Performance budget
 
