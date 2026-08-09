@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|ui-(?:smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|ui-(?:smoke|stress|accessibility|document-canvas|tools|overlap|universal-search|specifiers|formulation|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Explicit shard membership. Ordered to mix the measured slow phone-scroll
@@ -49,6 +49,10 @@ export const prUiShardGroups = {
   3: [
     "tests/ui-tools.spec.ts",
     "tests/ui-accessibility.spec.ts",
+    // Small (three document-route navigations) and placed here rather than in
+    // the mega-spec group; it skips entirely on a browser that cannot raster
+    // pdf.js 6, so its cost is near zero outside the pinned Chromium build.
+    "tests/ui-document-canvas.spec.ts",
     "tests/ui-overlap.spec.ts",
     "tests/ui-universal-search.spec.ts",
     "tests/ui-stress.spec.ts",
