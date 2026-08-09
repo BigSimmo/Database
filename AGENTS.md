@@ -289,11 +289,38 @@ action must perform one; a page that ships must be reachable.
   allowlist (redirect targets / legacy-compat routes). Both run in `verify:cheap` and CI. Mockups
   (`src/app/mockups/**`, `*-mockups.tsx`) are design-scratch and exempt from both — **and from
   nothing else**. Mockups are compiled like any other source: they are typechecked, and their client
-  chunks count toward `check:bundle-budget`'s repo-wide total, so a mockup-only PR can still fail
-  `Build` (PR #1580, `+10.1%` against a 10% tolerance). Do not read "exempt" as "free".
+  chunks are still weighed by `check:bundle-budget` — against the separate `mockups` scratch budget,
+  not the `production` one (reconciled 2026-08-09; see "Bundle budget" below). Do not read "exempt"
+  as "free".
 - **Never** add a production page route without either an inbound link or a documented
   reachability allowlist entry plus an `/issues` note, and never silence the button-wiring rule
   with a blanket disable — wire the control or make it an explicit placeholder.
+
+# Bundle budget
+
+`check:bundle-budget` enforces **two** baselines in `bundle-budget.json`, because one number could
+not honestly answer both questions (`#013` vs `#252`, reconciled 2026-08-09):
+
+- **`production`** — every chunk a non-mockup route reaches, plus chunks no route manifest claims
+  (framework, polyfills, runtime). This is user-facing weight and the real regression guard.
+  Tolerance 10%. A failure here means find the regression; do not refresh the baseline to clear it.
+- **`mockups`** — chunks reachable **only** from `/mockups/**`. Nobody downloads these, so this is a
+  repo-hygiene ceiling for unbounded accumulation, not a per-mockup gate. Tolerance 25%.
+
+A chunk shared by a mockup and a production route counts as production — it would be built either
+way. Attribution comes from the per-route `*_client-reference-manifest.js` files under
+`.next/server/app`; if that tree is missing or resolves no routes the check **fails closed** rather
+than collapsing the two buckets.
+
+Why the split rather than a raised ceiling: measured on `main` at `af85cbc`, the repo-wide total was
++9.96% of the old single baseline — 576 bytes from failing `Build` — while production-only was
+**9.06% below** it. Every byte of the apparent regression was design scratch; production had
+actually shrunk since the baseline was captured. Raising the ceiling would have hidden that.
+
+**Measuring:** `npm run build` reuses a cached `.next`, and the check then reads stale output and
+reports byte-identical numbers — it will tell you the budget passes when it does not. Always
+`rm -rf .next` before measuring, and sanity-check `.next/BUILD_ID`'s mtime against the current
+commit before trusting a number.
 
 <!-- END:page-and-button-wiring -->
 
