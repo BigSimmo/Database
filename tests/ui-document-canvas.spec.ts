@@ -1,7 +1,5 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 
-import { blockExternalRequests } from "./helpers/phone-scroll";
-
 /**
  * Browser gate for the PDF reader's raster surface.
  *
@@ -46,6 +44,26 @@ import { blockExternalRequests } from "./helpers/phone-scroll";
 // the embedded-image evidence page. Two visibly different pages is what makes
 // "a page flip changed the raster" a real assertion rather than a tautology.
 const CANVAS_DOCUMENT = "/documents/22222222-2222-4222-8222-222222222222?page=1";
+
+/**
+ * Fail any request that leaves the local origin.
+ *
+ * Deliberately a local copy rather than the shared `helpers/phone-scroll`
+ * version: importing that helper enrols a spec in the phone-chrome consumer list
+ * (`scripts/verify-phone-chrome.mjs`, asserted by `tests/verify-phone-chrome.test.ts`),
+ * and this desktop raster gate has nothing to do with phone chrome selection.
+ */
+async function blockExternalRequests(page: Page) {
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    const local = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
+    if ((url.protocol === "http:" || url.protocol === "https:") && !local) {
+      await route.abort("blockedbyclient");
+      return;
+    }
+    await route.fallback();
+  });
+}
 
 type CanvasReading = {
   readonly width: number;
