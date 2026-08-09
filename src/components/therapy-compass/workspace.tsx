@@ -35,8 +35,11 @@ function TherapyCompassDataError() {
         type="button"
         className={`${therapyBtn} ${accentControl}`}
         onClick={b.retryData}
+        // Native `disabled` alone: retry-while-loading is transient, not an
+        // unavailability with a reason to announce, so the browser semantics are
+        // the right ones. The `aria-disabled` that used to sit beside it changed
+        // nothing — the native attribute wins on focus either way.
         disabled={b.loading}
-        aria-disabled={b.loading}
       >
         {b.loading ? "Retrying…" : "Retry"}
       </button>

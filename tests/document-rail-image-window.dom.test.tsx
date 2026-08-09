@@ -10,7 +10,7 @@ vi.mock("@/lib/supabase/client", () => {
   return { useAuthSession: () => ({ authorizationHeader, markSessionExpired, session: null }) };
 });
 
-import { DocumentImageList } from "@/components/document-viewer/source-panels";
+import { DocumentImageList, RAIL_IMAGE_WINDOW } from "@/components/document-viewer/source-panels";
 import type { ImageRow } from "@/components/document-viewer/types";
 
 /**
@@ -93,56 +93,69 @@ function reachSentinel() {
 
 const renderedRows = () => screen.queryAllByTestId("document-image").length;
 
+/**
+ * A list long enough that the window always applies, expressed against the
+ * window rather than as a literal.
+ *
+ * Every count below is derived from `RAIL_IMAGE_WINDOW`. Tuning the window from
+ * 6 to 8 is a product judgement about how much of a figure rail is worth
+ * mounting up front — it is not a regression, and it should not turn five
+ * assertions red.
+ */
+const LONG_LIST = RAIL_IMAGE_WINDOW * 6 + 4;
+
 describe("document rail figure windowing", () => {
   it("mounts only the first window of rows for a long figure list", () => {
-    render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" />);
+    render(<DocumentImageList images={images(LONG_LIST)} revealLabel="Tables and diagrams" />);
 
-    expect(renderedRows()).toBe(6);
+    expect(renderedRows()).toBe(RAIL_IMAGE_WINDOW);
     expect(screen.getByTestId("document-image-reveal")).toBeTruthy();
   });
 
   it("mounts a short list whole, with no sentinel and no reveal control", () => {
     // The overwhelming majority of indexed documents are this case, so the
     // window must not add chrome to them.
-    render(<DocumentImageList images={images(4)} revealLabel="Tables and diagrams" />);
+    const shortList = RAIL_IMAGE_WINDOW - 2;
+    render(<DocumentImageList images={images(shortList)} revealLabel="Tables and diagrams" />);
 
-    expect(renderedRows()).toBe(4);
+    expect(renderedRows()).toBe(shortList);
     expect(screen.queryByTestId("document-image-reveal")).toBeNull();
   });
 
   it("grows by one window each time the sentinel is reached", () => {
-    render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" />);
+    render(<DocumentImageList images={images(LONG_LIST)} revealLabel="Tables and diagrams" />);
 
     act(() => reachSentinel());
-    expect(renderedRows()).toBe(12);
+    expect(renderedRows()).toBe(RAIL_IMAGE_WINDOW * 2);
 
     act(() => reachSentinel());
-    expect(renderedRows()).toBe(18);
+    expect(renderedRows()).toBe(RAIL_IMAGE_WINDOW * 3);
   });
 
   it("reveals the whole list from its control, for readers who never scroll it", () => {
     // Scroll-driven growth is unreachable by keyboard and by a screen reader
     // walking the rail, so the control is the real affordance rather than a
     // no-IntersectionObserver fallback.
-    render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" />);
+    render(<DocumentImageList images={images(LONG_LIST)} revealLabel="Tables and diagrams" />);
 
-    const reveal = screen.getByRole("button", { name: /show the remaining 34/i });
+    const reveal = screen.getByRole("button", { name: /show the remaining \d+/i });
     fireEvent.click(reveal);
 
-    expect(renderedRows()).toBe(40);
+    expect(renderedRows()).toBe(LONG_LIST);
     expect(screen.queryByTestId("document-image-reveal")).toBeNull();
   });
 
   it("clamps the window when the list shrinks underneath an expanded reader", () => {
     // Navigating to another document, or a reindex, can replace the array while
     // the reader has already expanded past the new length.
-    const { rerender } = render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" />);
-    fireEvent.click(screen.getByRole("button", { name: /show the remaining 34/i }));
-    expect(renderedRows()).toBe(40);
+    const { rerender } = render(<DocumentImageList images={images(LONG_LIST)} revealLabel="Tables and diagrams" />);
+    fireEvent.click(screen.getByRole("button", { name: /show the remaining \d+/i }));
+    expect(renderedRows()).toBe(LONG_LIST);
 
-    rerender(<DocumentImageList images={images(3)} revealLabel="Tables and diagrams" />);
+    const shrunk = RAIL_IMAGE_WINDOW - 3;
+    rerender(<DocumentImageList images={images(shrunk)} revealLabel="Tables and diagrams" />);
 
-    expect(renderedRows()).toBe(3);
+    expect(renderedRows()).toBe(shrunk);
     expect(screen.queryByTestId("document-image-reveal")).toBeNull();
   });
 
@@ -155,14 +168,16 @@ describe("document rail figure windowing", () => {
 
   it("resets the window when remounted for another document's long list", () => {
     const { rerender } = render(
-      <DocumentImageList key="doc-a:clinical" images={images(40)} revealLabel="Tables and diagrams" />,
+      <DocumentImageList key="doc-a:clinical" images={images(LONG_LIST)} revealLabel="Tables and diagrams" />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /show the remaining 34/i }));
-    expect(renderedRows()).toBe(40);
+    fireEvent.click(screen.getByRole("button", { name: /show the remaining \d+/i }));
+    expect(renderedRows()).toBe(LONG_LIST);
 
-    rerender(<DocumentImageList key="doc-b:clinical" images={images(40, 100)} revealLabel="Tables and diagrams" />);
+    rerender(
+      <DocumentImageList key="doc-b:clinical" images={images(LONG_LIST, 100)} revealLabel="Tables and diagrams" />,
+    );
 
-    expect(renderedRows()).toBe(6);
+    expect(renderedRows()).toBe(RAIL_IMAGE_WINDOW);
     expect(screen.getByTestId("document-image-reveal")).toBeTruthy();
   });
 });

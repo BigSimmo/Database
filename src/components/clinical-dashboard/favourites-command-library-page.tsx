@@ -31,7 +31,7 @@ import {
 } from "@/components/clinical-dashboard/favourites-library-nav";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { cn, EmptyState } from "@/components/ui-primitives";
+import { cn, EmptyState, ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
 import {
   favouriteItems as prototypeFavouriteItems,
@@ -515,7 +515,8 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
           <button
             type="button"
             role="menuitem"
-            disabled
+            aria-disabled="true"
+            onClick={ignoreUnavailableActivation}
             title="Coming soon"
             className="flex min-h-tap w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--disabled)]"
           >
@@ -971,7 +972,8 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
             </span>
             <button
               type="button"
-              disabled
+              aria-disabled="true"
+              onClick={ignoreUnavailableActivation}
               title="Coming soon"
               className="inline-flex h-9 cursor-not-allowed items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--disabled)]"
             >
@@ -980,7 +982,8 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
             </button>
             <button
               type="button"
-              disabled
+              aria-disabled="true"
+              onClick={ignoreUnavailableActivation}
               title="Coming soon"
               className={cn(
                 "inline-flex h-9 cursor-not-allowed items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)]",

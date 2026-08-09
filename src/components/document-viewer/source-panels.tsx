@@ -444,7 +444,7 @@ export function DocumentImage({
  * Six covers the great majority of indexed documents outright, so most rails
  * never mount a sentinel at all.
  */
-const RAIL_IMAGE_WINDOW = 6;
+export const RAIL_IMAGE_WINDOW = 6;
 
 /**
  * Lookahead for the rail's own signed-URL requests, against `SignedImage`'s

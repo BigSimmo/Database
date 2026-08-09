@@ -270,11 +270,14 @@ action must perform one; a page that ships must be reachable.
 
 - **Buttons.** Every interactive `<button>` must do something: an `onClick`, a `type="submit"`
   inside a `<form onSubmit>`, or navigation (wrap it in a `<Link>` / call `router.push`). A control
-  whose feature is not yet built uses the explicit disabled-placeholder pattern — `disabled` or
-  `aria-disabled="true"` + `title="… — coming soon"` + an `sr-only` note wired via
-  `aria-describedby` (see `favourites-hub.tsx`). **Never** ship a styled, `aria-label`led button
-  with no handler and no disabled state — that was the "Language and region" defect fixed
-  2026-07-21.
+  that is unavailable for a **stated reason** — feature not built, or this record lacks the data —
+  uses `aria-disabled="true"` + `onClick={ignoreUnavailableActivation}` + `title="… — coming soon"`
+  - an `sr-only` note wired via `aria-describedby` (see `favourites-hub.tsx`). Native `disabled`
+    would remove the tab stop and the reason would never be reached. Keep native `disabled` for
+    **transient** inertness (request in flight, pager at its last page, form action awaiting
+    validity). Never both attributes on one button — lint fails on the pair. **Never** ship a styled,
+    `aria-label`led button with no handler and no disabled state — that was the "Language and region"
+    defect fixed 2026-07-21.
 - **Navigation.** Internal navigation uses `<Link>`, `router.push`, or server `redirect()` — never
   a raw `<a href="/…">` to an internal route. Build hrefs from the existing sources
   (`src/lib/app-modes.ts`, `src/lib/tools-catalog.ts`, `src/lib/universal-search.ts`), not

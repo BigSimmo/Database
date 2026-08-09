@@ -22,6 +22,7 @@ import {
   fieldIcon,
   fieldLabel,
   floatingControl,
+  ignoreUnavailableActivation,
   InlineNotice,
   panelSubtle,
   primaryControl,
@@ -256,11 +257,14 @@ function ProviderButton({
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={disabled ? ignoreUnavailableActivation : onClick}
+      aria-disabled={disabled || undefined}
       title={disabled ? "Apple sign-in is unavailable — coming soon" : undefined}
       aria-describedby={disabled ? "auth-apple-sign-in-unavailable" : undefined}
-      className="flex min-h-tap w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none"
+      // `aria-disabled` keeps the tab stop so a keyboard user reaches the reason
+      // above; the click is inert instead. Styling follows the attribute, and the
+      // hover pair is suppressed because an aria-disabled button still hovers.
+      className="flex min-h-tap w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:not-aria-disabled:border-[color:var(--border-strong)] hover:not-aria-disabled:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] aria-disabled:cursor-not-allowed aria-disabled:bg-[color:var(--surface-inset)] aria-disabled:text-[color:var(--disabled)] aria-disabled:opacity-75 aria-disabled:shadow-none"
     >
       <ProviderMark provider={provider} />
       <span className="min-w-0 flex-1 truncate">

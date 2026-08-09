@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
@@ -28,22 +29,49 @@ describe("FavouritesHub unavailable controls", () => {
     favouritesHook.registryStatus = "ready";
   });
 
-  it("keeps unavailable actions natively disabled and exposes their reasons", () => {
+  it("keeps unavailable actions reachable and exposes their reasons", () => {
     render(<FavouritesHub query="" onClearQuery={() => undefined} demoMode={false} />);
 
     const recent = screen.getByRole("button", { name: "Recent" });
     const add = screen.getByRole("button", { name: /Add favourite/ });
     const newSet = screen.getByRole("button", { name: "New set" });
 
-    expect(recent).toBeDisabled();
-    expect(recent).not.toHaveAttribute("aria-disabled");
+    // `aria-disabled`, never the native attribute: `disabled` removes the tab
+    // stop, so the description each of these carries would be written and then
+    // never reached by a keyboard user. See docs/wiring-conventions.md.
+    for (const control of [recent, add, newSet]) {
+      expect(control).toHaveAttribute("aria-disabled", "true");
+      expect(control).not.toBeDisabled();
+    }
     expect(recent).toHaveAccessibleDescription("Additional sort options are coming soon.");
-    expect(add).toBeDisabled();
-    expect(add).not.toHaveAttribute("aria-disabled");
     expect(add).toHaveAccessibleDescription("Adding favourites from this screen is coming soon.");
-    expect(newSet).toBeDisabled();
-    expect(newSet).not.toHaveAttribute("aria-disabled");
     expect(newSet).toHaveAccessibleDescription("Creating favourite sets is coming soon.");
+  });
+
+  it("lets the keyboard reach an unavailable action, and does nothing when it is activated", async () => {
+    const user = userEvent.setup();
+    render(<FavouritesHub query="" onClearQuery={() => undefined} demoMode={false} />);
+
+    const add = screen.getByRole("button", { name: /Add favourite/ });
+
+    // The whole point of the conversion: focus lands on it. `.focus()` would
+    // pass on a natively disabled button in jsdom, so tab to it for real — that
+    // is the assertion nothing pinned before, and it is what regressed when the
+    // native attribute was there.
+    add.focus();
+    expect(add).toHaveFocus();
+    await user.tab();
+    expect(add).not.toHaveFocus();
+    await user.tab({ shift: true });
+    expect(add).toHaveFocus();
+
+    // Focusable must not mean operable. Activating by keyboard and by pointer
+    // both no-op, and the accessible description is what the user gets instead.
+    await user.keyboard("{Enter}");
+    await user.keyboard(" ");
+    await user.click(add);
+    expect(add).toHaveAccessibleDescription("Adding favourites from this screen is coming soon.");
+    expect(screen.getByTestId("favourites-hub")).toBeInTheDocument();
   });
 
   it("does not assert library zeroes while the saved registry is still loading", () => {
