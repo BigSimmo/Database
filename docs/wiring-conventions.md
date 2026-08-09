@@ -28,7 +28,7 @@ or empty handler. The reference markup is `favourites-hub.tsx`:
 ```tsx
 <button
   type="button"
-  aria-disabled="true"
+  disabled
   aria-describedby="thing-unavailable"
   className="… cursor-not-allowed opacity-60 …"
   title="Thing — coming soon"
@@ -39,6 +39,29 @@ or empty handler. The reference markup is `favourites-hub.tsx`:
   Thing is coming soon.
 </span>
 ```
+
+**Native `disabled`, not `aria-disabled`, is the default here** — and the reason is worth stating,
+because `disabled` looks like it should suppress the `aria-describedby` reason and does not. A
+disabled button stays in the accessibility tree with its accessible description intact, so a screen
+reader reaching it by virtual cursor or swipe still announces why it is unavailable. That is asserted,
+not assumed: `tests/favourites-hub-unavailable-controls.dom.test.tsx` pins `toBeDisabled()`,
+`not.toHaveAttribute("aria-disabled")` **and** `toHaveAccessibleDescription(...)` together on all three
+hub placeholders. What `disabled` does remove is the tab stop, which is why the `title` matters for
+pointer users and why WCAG permits it (a disabled control is exempt from focus-order requirements).
+
+Reach for `aria-disabled="true"` plus a no-op handler only when the control genuinely must stay
+tabbable — a roving-tabindex group where skipping a dead end would strand arrow navigation, as in
+`ResultFilterSheet`. `AGENTS.md` accepts either form, and `require-button-wiring` treats both as
+wired.
+
+**Both attributes together is a third shape, and the repo currently pins it two different ways.**
+`tests/mobile-interaction-regressions.test.ts` asserts the density placeholders in
+`differential-presentation-workflow-page.tsx` are native-only (`not.toContain("aria-disabled")`),
+and in the same file asserts `disabled aria-disabled="true"` together for the Add placeholders in
+`visual-evidence.tsx` and `evidence-panels.tsx`. Those two positions have not been reconciled — the
+pairing is redundant (native `disabled` already conveys the state, and the two attributes disagree
+about focusability), but it is pinned, so do not "tidy" either shape without settling which one wins.
+Tracked as `#291`.
 
 **Read-only indicators are not controls.** The shared `ToggleSwitch` (`ui-primitives.tsx`) renders an
 operable `role="switch"` only when an `onToggle` is passed; without it, it is a presentational
