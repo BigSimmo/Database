@@ -203,10 +203,13 @@ const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 // deliberately absent because it carries no state and painting with it is not
 // the defect either rule below is looking for.
 const STATUS_COLOR_TOKEN = String.raw`--(?:success|warning|danger|info)(?:-(?:text|bg|soft|border|solid(?:-(?:hover|active|contrast))?))?`;
-const STATUS_TEXT_UTILITY = new RegExp(String.raw`^text-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]$`);
+const STATUS_ALPHA_MODIFIER = String.raw`(?:/(?:\d+(?:\.\d+)?|\[[^\]]+\]))?`;
+const STATUS_TEXT_UTILITY = new RegExp(
+  String.raw`^text-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]${STATUS_ALPHA_MODIFIER}$`,
+);
 /** A status hue as a *surface* — the decorative form, with no text of its own. */
 const STATUS_SURFACE_UTILITY = new RegExp(
-  String.raw`^(?:bg|border(?:-[xytrblse])?|ring|outline|fill|stroke)-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]$`,
+  String.raw`^(?:bg|border(?:-[xytrblse])?|ring|outline|fill|stroke)-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]${STATUS_ALPHA_MODIFIER}$`,
 );
 /**
  * Numerals, as they appear in JSX text: digits plus the separators, units and
