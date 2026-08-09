@@ -151,11 +151,12 @@ so it was left alone.
 
 **Adopted so far:** `/differentials/diagnoses/[slug]`, `/services/[slug]`, `/forms/[slug]`,
 `/specifiers/[slug]` (record and catalogue reference), `/formulation/[slug]`,
-`/dsm/diagnoses/[slug]` and its `/differentials` child, and factsheet detail pages
-(`/factsheets/[slug]`). Each is also listed in
+`/dsm/diagnoses/[slug]` and its `/differentials` child, `/factsheets/[slug]`, and
+`/medications/[slug]`. Each is also listed in
 `isHeaderAddonSlotOwnedRoute` (`src/components/mode-nav/header-addon-slot.ts`), which is how
-the one-header-per-slot rule stays checkable. Still on their own patterns: medications
-(`SectionTabs`) and differentials presentations.
+the one-header-per-slot rule stays checkable. Two routes remain outside the template on
+purpose: `DocumentViewer` (decided above) and the differentials presentations workflow
+(decided below).
 
 **Visual slots (adapt labels, back href, sections, and actions to the mode):**
 
@@ -179,7 +180,7 @@ the one-header-per-slot rule stays checkable. Still on their own patterns: medic
 - Do not give the in-page header its own scroll-hide hook; share the universal collapse
   signal described under “Scroll hide/reveal”.
 
-**The breadcrumb shape (pages with no section index).** The eight record pages behind
+**The breadcrumb shape (pages with no section index).** The record pages behind
 `InformationPageBreadcrumbs` have no sections, so the disclosure would open a sheet listing
 one item and the track would render one full-width segment. Omit `sections` and
 `InPageNavHeader` drops both and renders the breadcrumb shape instead — same row grammar,
@@ -200,11 +201,73 @@ shape that row:
   the row; from `sm` it sits inline and costs no extra height (measured on
   `/factsheets/sertraline`: 131px phone, 75px from `sm`, 65px with no mode).
 
-Adopted by `src/components/factsheets/factsheet-detail-page.tsx`. When a page adopts this,
+Used by `medication-nav-header.tsx` while the record is still loading (no record, no
+sections) and by `factsheet-nav-header.tsx` for the seven non-`medRich` sheets, which carry
+one reading level and so pass no `mode`. When a page adopts this,
 register its routes in `isHeaderAddonSlotOwnedRoute`
 (`src/components/mode-nav/header-addon-slot.ts`) and add the component to the expected
 claimants in `tests/mode-nav-addon-slot.dom.test.tsx`, or that guard fails: the slot holds
 exactly one page-owned header.
+
+### Panel-swap adopters: the track drives tabs, and the sections carry no anchor
+
+Two adopters exchange a panel rather than scrolling: `/differentials/diagnoses/[slug]`
+(`differential-detail-page.tsx`) and `/medications/[slug]`
+(`medication-nav-header.tsx`). Their `PageSection.id` is the tab id, not a DOM anchor id,
+and the rules above change in three specific ways:
+
+- **Pass explicit `weight`s.** `usePageSectionWeights` measures rendered heights and only
+  the active panel is ever rendered, so measurement would report one full-width segment
+  beside three empty ones. Both routes derive weights from what each panel holds — section
+  counts, with a floor so an empty tab stays visible and a cap so one dense tab does not
+  squeeze the rest to hairlines.
+- **No `inPageAnchor`, and no `useInPageSectionNav`.** There is nothing to scroll to, so
+  there is no scroll margin to set and no scroll spy to run: `activeId` is the active tab
+  and `onSelectSection` sets it. `useResolvedPageSections` must not be used either — it
+  would drop the three tabs whose panels are not currently mounted and collapse the track to
+  one segment. (`differential-detail-page.tsx`'s existing `scroll-mt-24` values are inside
+  panel bodies and are unrelated; leave them.)
+- **Never claim `collapsible`.** The trailing chevron in `DocumentSectionList` means "this
+  row opens an accordion". Selecting a tab swaps a panel instead.
+
+The panel is not a `tabpanel` and its control is not a `tab`: the section list is a list of
+buttons, so a `role="tab"` / `aria-controls` pair would name a tablist that no longer exists.
+Keep a per-tab `id` on the panel — that is the rendered evidence a declared section resolves
+to something real, which is what the panel-swap half of
+`tests/in-page-nav-route-sections.dom.test.tsx` asserts in place of the anchor check.
+
+### The differentials presentations workflow keeps its own layout — decided, not pending
+
+`src/components/differentials/differential-presentation-workflow-page.tsx` is **not** being
+converted, and this is a decision rather than a backlog item. Do not re-open it without new
+facts against the three reasons below.
+
+The premise that it was a conversion candidate does not survive reading it. It was carried
+forward as "a `SectionTabs` page that swaps panels"; it swaps nothing. Its `MobileTabs` is
+four `<Link>`s to **other routes** — the diagnosis detail page, its `?tab=map` and
+`?tab=related` views, and the compare route — with "Compare" hardcoded as the active one.
+That is mode-level page switching, which the "Not this template" note below already carves
+out for Therapy-style `ModeNav`, and the same carve-out covers this row.
+
+1. **It is a comparison workspace, not a reading spine.** Every candidate section —
+   `SafetySnapshot`, the comparison table, `ReviewPanels`, `SourceStatusPanel` — is rendered
+   two or three times at different breakpoints, in different DOM parents: an `xl` sidebar
+   `<aside>`, an `md`–`lg` grid, and a phone copy nested _inside_ the mobile comparison
+   section. `PageSection.targetIds` resolves a phone/desktop pair; it does not model three
+   copies where one is a descendant of another section's anchor.
+2. **Its own header row is cross-route navigation plus a phone footer.** The page already
+   owns a `PhoneFooterLayerPortal` action bar, and its back control is duplicated across two
+   breakpoint blocks. Mounting the shared header would leave the `MobileTabs` route row in
+   place beside it — two navigation rows, one in-page and one cross-route, which is the
+   wrapping-toolbar shape the template exists to remove.
+3. **It is a Server Component with no client half.** Adding one is cheap; adding one whose
+   only job is to declare sections that resolve inconsistently across three breakpoints is
+   not.
+
+`isHeaderAddonSlotOwnedRoute` therefore continues to return `false` for
+`/differentials/presentations/[slug]`, and `tests/mode-nav-addon-slot.dom.test.tsx` pins
+that. If the differentials mode nav is reworked so this page stops owning a route-tab row,
+revisit reason 2 then — not before.
 
 **Not this template:** Therapy-style `ModeNav` (multi-route mode tabs via
 `ModeNavHeaderPortal`) is a different pattern for mode-level page switching. Info-page

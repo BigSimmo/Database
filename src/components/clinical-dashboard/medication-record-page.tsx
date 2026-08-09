@@ -18,10 +18,16 @@ import {
   Timer,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { MedicationConsiderations } from "@/components/clinical-dashboard/medication-considerations";
+import {
+  MedicationNavHeader,
+  medicationNavSections,
+  medicationSectionsByTab,
+  type MedicationTabId,
+} from "@/components/clinical-dashboard/medication-nav-header";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
 import { useMedicationDetail } from "@/components/clinical-dashboard/use-medication-catalog";
 import {
@@ -49,12 +55,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import {
-  InformationPageBreadcrumbs,
-  InformationPageFooter,
-  InformationPageShell,
-} from "@/components/information-page-shell";
-import { appModeHomeHref } from "@/lib/app-modes";
+import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 
 const sectionIcons: Record<string, LucideIcon> = {
   dose: CalendarDays,
@@ -169,74 +170,6 @@ function DetailTile({ metric }: { metric: MedicationHeroMetric }) {
       </div>
       <p className={cn("mt-1.5 text-sm-minus font-semibold leading-5", tone.value)}>{metric.value}</p>
     </div>
-  );
-}
-
-const detailTabs = [
-  ["summary", "Summary"],
-  ["dosing", "Dosing"],
-  ["safety", "Safety"],
-  ["more", "More"],
-] as const;
-type MedicationTabId = (typeof detailTabs)[number][0];
-
-function SectionTabs({ active, onChange }: { active: MedicationTabId; onChange: (id: MedicationTabId) => void }) {
-  const tabRefs = useRef(new Map<MedicationTabId, HTMLButtonElement>());
-
-  function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    const order = detailTabs.map((tab) => tab[0]);
-    const index = order.indexOf(active);
-    const next =
-      event.key === "ArrowRight"
-        ? order[(index + 1) % order.length]
-        : event.key === "ArrowLeft"
-          ? order[(index - 1 + order.length) % order.length]
-          : event.key === "Home"
-            ? order[0]
-            : event.key === "End"
-              ? order[order.length - 1]
-              : null;
-    if (!next) return;
-    event.preventDefault();
-    if (next !== active) onChange(next);
-    tabRefs.current.get(next)?.focus();
-  }
-
-  return (
-    <nav
-      role="tablist"
-      aria-label="Medication sections"
-      onKeyDown={handleKeyDown}
-      className="flex gap-1 border-b border-[color:var(--border)] text-sm font-semibold text-[color:var(--text-muted)]"
-    >
-      {detailTabs.map(([id, label]) => {
-        const isActive = active === id;
-        return (
-          <button
-            key={id}
-            ref={(element) => {
-              if (element) tabRefs.current.set(id, element);
-              else tabRefs.current.delete(id);
-            }}
-            type="button"
-            role="tab"
-            id={`medication-tab-${id}`}
-            aria-selected={isActive}
-            aria-controls={`medication-panel-${id}`}
-            tabIndex={isActive ? 0 : -1}
-            onClick={() => onChange(id)}
-            className={cn(
-              "min-h-tap flex-1 whitespace-nowrap border-b-2 px-1 pb-2.5 pt-1.5 text-center text-2xs transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:flex-none sm:px-4 sm:text-sm",
-              isActive
-                ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
-                : "border-transparent hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            {label}
-          </button>
-        );
-      })}
-    </nav>
   );
 }
 
@@ -366,29 +299,19 @@ function MedicationAccessPanel({ record }: { record: MedicationRecord }) {
 function MedicationRecordDetail({
   record,
   governance,
+  activeTab,
 }: {
   record: MedicationRecord;
   governance?: MedicationGovernance;
+  /** Owned by `MedicationRecordPage` so the shared header can drive it. */
+  activeTab: MedicationTabId;
 }) {
   const metrics = useMemo(() => medicationHeroMetrics(record), [record]);
   const badges = useMemo(() => medicationIdentityBadges(record, governance), [record, governance]);
   const indication = useMemo(() => medicationIndication(record), [record]);
-  const [activeTab, setActiveTab] = useState<MedicationTabId>("summary");
-
-  const sectionsByTab = useMemo(() => {
-    const summaryTypes = new Set(["summary", "ind", "form"]);
-    const dosingTypes = new Set(["dose"]);
-    const safetyTypes = new Set(["risk", "contra", "mon", "safe"]);
-    const moreTypes = new Set(["inter", "pearl", "evid", "spec", "comp", "sel", "src"]);
-    return {
-      summary: record.sections.filter((section) => summaryTypes.has(section.type)),
-      dosing: record.sections.filter((section) => dosingTypes.has(section.type)),
-      safety: record.sections.filter((section) => safetyTypes.has(section.type)),
-      more: record.sections.filter((section) => moreTypes.has(section.type)),
-    };
-  }, [record.sections]);
-
+  const sectionsByTab = useMemo(() => medicationSectionsByTab(record), [record]);
   const activeSections = sectionsByTab[activeTab];
+  const activeTabLabel = medicationNavSections.find((section) => section.id === activeTab)?.label ?? "Medication";
 
   return (
     <div className="space-y-3 py-1 sm:py-2" style={medicationAccentStyle(record.accent)}>
@@ -439,12 +362,15 @@ function MedicationRecordDetail({
             <MedicationConsiderations record={record} />
           </section>
 
-          <SectionTabs active={activeTab} onChange={setActiveTab} />
-
+          {/* The panel is no longer a `tabpanel`: the control that swaps it is
+              the shared header's section list, which is a list of buttons rather
+              than a tablist, so claiming the role would name a `tab` that no
+              longer exists. The id stays per-tab — it is the rendered evidence
+              that a declared section resolves to a real panel, which is what
+              `tests/in-page-nav-route-sections.dom.test.tsx` asserts. */}
           <section
-            role="tabpanel"
             id={`medication-panel-${activeTab}`}
-            aria-labelledby={`medication-tab-${activeTab}`}
+            aria-label={`${activeTabLabel} sections`}
             className="overflow-hidden rounded-lg border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--med-accent)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]"
           >
             {activeSections.length ? (
@@ -499,37 +425,39 @@ export function MedicationRecordPage({
   // flight. A failed request means the authoritative status is unknown, so
   // don't keep presenting the fixture-derived guess as if it were confirmed.
   const governance = data?.governance ?? (error ? undefined : fallbackGovernance);
+  // Owned here rather than in `MedicationRecordDetail` so the shared header —
+  // which sits above the shell — can drive it. The record can swap underneath
+  // (SSR fallback → live), and every record offers the same four tabs, so the
+  // selection survives that swap rather than snapping back to Summary.
+  const [activeTab, setActiveTab] = useState<MedicationTabId>("summary");
 
   return (
-    <InformationPageShell testId={`medication-page-${slug}`} gap={false}>
-      <InformationPageBreadcrumbs
-        home={{
-          label: "Medications",
-          // Plain mode home. Carrying the slug as a query made sense when
-          // `/?mode=prescribing` was the Medication home; that URL is now the shared
-          // home, so a query here would land the breadcrumb on `/` with the drug
-          // name prefilled instead of on Medications.
-          href: appModeHomeHref("prescribing"),
-        }}
-        current={record?.name ?? slug}
+    <>
+      <MedicationNavHeader
+        title={record?.name ?? slug}
+        record={record}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
       />
-      <div className="mt-3">
-        {record ? (
-          <MedicationRecordDetail record={record} governance={governance} />
-        ) : loading ? (
-          <LoadingPanel label="Loading medication reference…" variant="skeleton" lines={6} />
-        ) : (
-          <div className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] p-4 text-sm text-[color:var(--danger-text)]">
-            <div className="flex items-start gap-2">
-              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <p>{error ?? "Medication not found."}</p>
+      <InformationPageShell testId={`medication-page-${slug}`} gap={false}>
+        <div className="mt-3">
+          {record ? (
+            <MedicationRecordDetail record={record} governance={governance} activeTab={activeTab} />
+          ) : loading ? (
+            <LoadingPanel label="Loading medication reference…" variant="skeleton" lines={6} />
+          ) : (
+            <div className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] p-4 text-sm text-[color:var(--danger-text)]">
+              <div className="flex items-start gap-2">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <p>{error ?? "Medication not found."}</p>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-      <InformationPageFooter className="mt-4 pb-1">
-        Clinical KB provides evidence summaries, not medical advice. Verify clinical decisions.
-      </InformationPageFooter>
-    </InformationPageShell>
+          )}
+        </div>
+        <InformationPageFooter className="mt-4 pb-1">
+          Clinical KB provides evidence summaries, not medical advice. Verify clinical decisions.
+        </InformationPageFooter>
+      </InformationPageShell>
+    </>
   );
 }

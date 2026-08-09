@@ -110,7 +110,7 @@ export type InPageNavHeaderProps =
  * header's bottom edge.
  *
  * It has two shapes, and the section list decides which. With `sections`, the
- * above. Without them — the eight record pages behind `InformationPageBreadcrumbs`
+ * above. Without them — the record pages behind `InformationPageBreadcrumbs`
  * have no section index — the disclosure and the track would be a sheet listing
  * one item and a single full-width segment, so both are dropped and the row
  * becomes the breadcrumb shape: back, title, an optional `primaryAction`, an
@@ -118,9 +118,10 @@ export type InPageNavHeaderProps =
  * none of the section machinery.
  *
  * Extracted from the differentials detail page, which built the template by hand
- * first. `DocumentViewer` still carries its own copy — it owns the `<h1>`, uses
- * the `edge-glass-header` treatment, and is pinned by visual baselines, so
- * converging it is a separate change rather than half of this one.
+ * first. `DocumentViewer` keeps its own copy — it owns the `<h1>`, uses the
+ * `edge-glass-header` treatment, and is pinned by visual baselines. That is a
+ * settled non-adoption, not pending work: see "DocumentViewer keeps its own
+ * header — decided, not pending" in `docs/search-chrome-behaviour.md`.
  *
  * `relative` on the header is load-bearing: the track is absolutely positioned
  * against it, and a `static` phone header would let the track escape to whichever
