@@ -17,6 +17,19 @@ one-task-one-PR churn)". Only proceed to the steps below (which create a new bra
 worktree) once bundling doesn't apply: the work isn't independently low-risk by that
 rule's test, or there's no suitable open PR to ride.
 
+**Ask that same open-PR list a second question: is someone already building this?** A
+ledger row records that work is _wanted_, never that it is _underway_, so two sessions can
+read the same queued `/issues` item and both build it. That is not hypothetical — on
+2026-08-09 two assistants took the same queued item about four hours apart and shipped the
+same conversion twice (PR #1766, and PR #1767 closed as a duplicate), which also left two
+divergent shapes to adjudicate afterwards. Before starting a queued item, scan the open PRs
+for the **route, component, or surface** it touches, not just for a matching ledger id — the
+duplicate PR will rarely quote the id. If you find one, stop and reconcile with it rather
+than opening a second branch. This is one GitHub read (`mcp__github__list_pull_requests`, or
+`gh pr list` where available) and it falls inside the existing provider-confirmation
+boundary. If GitHub is unreachable, treat it as a warning and continue — an offline session
+must still be able to start work. Recorded as `#292`.
+
 ## Steps
 
 1. **Sync main.** `git fetch --quiet origin main`.
