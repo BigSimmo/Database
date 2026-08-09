@@ -17,9 +17,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { DiagnosisTermChip, DiagnosisTermInlineList } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { cn } from "@/components/ui-primitives";
+import { isClinicalHingeLabel, resolveDiagnosisTermSegments } from "@/lib/differential-diagnosis-links";
 import {
   AD_HOC_DIFFERENTIAL_COMPARE_ID,
   acuteConfusionPresentationWorkflow,
@@ -31,6 +33,19 @@ import {
   type DifferentialSection,
 } from "@/lib/differentials";
 import { differentialRouteWithQuery } from "@/lib/differentials-navigation";
+
+/** Criteria whose cells are typically diagnosis-name lists rather than free prose. */
+const DIAGNOSIS_NAME_LIST_CRITERIA = new Set(["mimics-overlap", "what-argues-against", "must-not-miss"]);
+
+function ComparisonCellContent({ criterionId, value }: { criterionId: string; value: string }) {
+  if (!DIAGNOSIS_NAME_LIST_CRITERIA.has(criterionId)) {
+    return <>{value}</>;
+  }
+  const segments = resolveDiagnosisTermSegments(value);
+  if (segments.length === 0) return <>{value}</>;
+  if (segments.length === 1 && !segments[0]?.slug) return <>{value}</>;
+  return <DiagnosisTermInlineList segments={segments} />;
+}
 
 type CandidateView = {
   record: DifferentialRecord;
@@ -272,7 +287,10 @@ function DesktopComparisonTable({
                       !candidate.selected && "text-[color:var(--text-muted)]",
                     )}
                   >
-                    {candidate.comparison[criterion.id] ?? "Review locally."}
+                    <ComparisonCellContent
+                      criterionId={criterion.id}
+                      value={candidate.comparison[criterion.id] ?? "Review locally."}
+                    />
                   </td>
                 ))}
               </tr>
@@ -306,14 +324,28 @@ function SafetySnapshot({ workflow }: { workflow: DifferentialPresentationWorkfl
             {workflow.safetySnapshot.summary}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {workflow.safetySnapshot.tags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--danger-border)] bg-[color:var(--surface)] px-2 text-2xs font-bold text-[color:var(--danger)] xl:min-h-7 xl:text-xs"
-              >
-                {tag}
-              </span>
-            ))}
+            {workflow.safetySnapshot.tags.map((tag) => {
+              if (isClinicalHingeLabel(tag)) {
+                return (
+                  <span
+                    key={tag}
+                    className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-2xs font-semibold text-[color:var(--text-muted)] xl:min-h-7 xl:text-xs"
+                  >
+                    {tag}
+                  </span>
+                );
+              }
+              const segments = resolveDiagnosisTermSegments(tag);
+              return segments.map((segment, index) => (
+                <DiagnosisTermChip
+                  key={`${tag}-${segment.text}-${index}`}
+                  label={segment.text}
+                  slug={segment.slug}
+                  tone="danger"
+                  className="min-h-6 px-2 text-2xs font-bold xl:min-h-7 xl:text-xs"
+                />
+              ));
+            })}
           </div>
         </div>
       </div>
@@ -387,7 +419,16 @@ function HighestUrgencyPanel({
         <EmergencyBadge status="emergent" />
         <ul className="mt-3 grid gap-1.5 text-sm font-semibold text-[color:var(--text-heading)]">
           {emergent.slice(0, 3).map((candidate) => (
-            <li key={candidate.record.slug}>{candidate.record.title}</li>
+            <li key={candidate.record.slug}>
+              <Link
+                href={`/differentials/diagnoses/${candidate.record.slug}`}
+                className="inline-flex min-h-tap items-center gap-1 text-[color:var(--text-heading)] underline-offset-2 hover:text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                aria-label={`Open diagnosis: ${candidate.record.title}`}
+              >
+                {candidate.record.title}
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
+              </Link>
+            </li>
           ))}
         </ul>
         <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">{workflow.highestUrgencyNote}</p>
@@ -505,6 +546,15 @@ function MobileCandidateCard({
         <ChevronDown className="h-4 w-4 text-[color:var(--text-muted)] transition group-open:rotate-180" aria-hidden />
       </summary>
       <div className="border-t border-[color:var(--border)] px-3 pb-2">
+        <div className="border-b border-[color:var(--border)] py-2">
+          <Link
+            href={`/differentials/diagnoses/${candidate.record.slug}`}
+            className="inline-flex min-h-tap items-center gap-1 text-sm font-bold text-[color:var(--clinical-accent)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            Open diagnosis record
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+        </div>
         {workflow.criteria.map((criterion) => {
           const Icon = criterionIcon[criterion.tone];
           return (
@@ -520,7 +570,10 @@ function MobileCandidateCard({
               <div className="min-w-0">
                 <h3 className="text-sm-minus font-extrabold text-[color:var(--text-heading)]">{criterion.title}</h3>
                 <p className="mt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
-                  {candidate.comparison[criterion.id] ?? "Review locally."}
+                  <ComparisonCellContent
+                    criterionId={criterion.id}
+                    value={candidate.comparison[criterion.id] ?? "Review locally."}
+                  />
                 </p>
               </div>
             </div>

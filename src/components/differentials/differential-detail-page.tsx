@@ -28,6 +28,7 @@ import {
 import type { DifferentialRecordGovernance } from "@/components/clinical-dashboard/use-differential-catalog";
 import { buildDifferentialSectionIndex } from "@/components/differentials/detail-section-index";
 import { DiagnosisMapPanel } from "@/components/differentials/diagnosis-map-panel";
+import { DiagnosisTermChip, DiagnosisTermInline } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { cn, pageContainer, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
@@ -131,29 +132,34 @@ const sectionItemIconClass: Partial<Record<DifferentialSection["tone"], string>>
  *
  * @param section - The section whose tone determines the item layout and styling
  * @param items - The items to display
- * @param overlapLinks - Maps overlap item labels to diagnosis slugs for linked items
+ * @param termLinks - Maps cleaned item labels to diagnosis slugs for linked items
  * @returns The rendered section item list
  */
 function SectionItems({
   section,
   items,
-  overlapLinks,
+  termLinks,
 }: {
   section: DifferentialSection;
   items: string[];
-  overlapLinks: Record<string, string>;
+  termLinks: Record<string, string>;
 }) {
   if (section.tone === "action") {
     return (
       <ol className="grid gap-2">
-        {items.map((item, index) => (
-          <li key={item} className="grid grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-2">
-            <span className="grid h-6 w-6 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-2xs font-extrabold text-[color:var(--clinical-accent)]">
-              {index + 1}
-            </span>
-            <span className="pt-0.5 text-sm leading-6 text-[color:var(--text)]">{item}</span>
-          </li>
-        ))}
+        {items.map((item, index) => {
+          const slug = termLinks[item] ?? null;
+          return (
+            <li key={item} className="grid grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-2">
+              <span className="grid h-6 w-6 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-2xs font-extrabold text-[color:var(--clinical-accent)]">
+                {index + 1}
+              </span>
+              <span className="pt-0.5 text-sm leading-6 text-[color:var(--text)]">
+                {slug ? <DiagnosisTermInline label={item} slug={slug} /> : item}
+              </span>
+            </li>
+          );
+        })}
       </ol>
     );
   }
@@ -161,26 +167,11 @@ function SectionItems({
   if (section.tone === "overlap") {
     return (
       <ul className="flex flex-wrap gap-2">
-        {items.map((item) => {
-          const slug = overlapLinks[item];
-          return (
-            <li key={item}>
-              {slug ? (
-                <Link
-                  href={`/differentials/diagnoses/${slug}`}
-                  className="inline-flex min-h-tap items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]"
-                >
-                  {item}
-                  <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-                </Link>
-              ) : (
-                <span className="inline-flex min-h-tap items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {item}
-                </span>
-              )}
-            </li>
-          );
-        })}
+        {items.map((item) => (
+          <li key={item}>
+            <DiagnosisTermChip label={item} slug={termLinks[item] ?? null} tone="accent" />
+          </li>
+        ))}
       </ul>
     );
   }
@@ -194,18 +185,23 @@ function SectionItems({
           "rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-3",
       )}
     >
-      {items.map((item) => (
-        <li key={item} className="flex items-start gap-2">
-          <Icon
-            className={cn(
-              "mt-0.5 h-4 w-4 shrink-0",
-              sectionItemIconClass[section.tone] ?? "text-[color:var(--text-muted)]",
-            )}
-            aria-hidden
-          />
-          <span className="text-sm leading-6 text-[color:var(--text)]">{item}</span>
-        </li>
-      ))}
+      {items.map((item) => {
+        const slug = termLinks[item] ?? null;
+        return (
+          <li key={item} className="flex items-start gap-2">
+            <Icon
+              className={cn(
+                "mt-0.5 h-4 w-4 shrink-0",
+                sectionItemIconClass[section.tone] ?? "text-[color:var(--text-muted)]",
+              )}
+              aria-hidden
+            />
+            <span className="text-sm leading-6 text-[color:var(--text)]">
+              {slug ? <DiagnosisTermInline label={item} slug={slug} /> : item}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -215,13 +211,13 @@ function SectionRow({
   record,
   open,
   onOpenChange,
-  overlapLinks,
+  termLinks,
 }: {
   section: DifferentialSection;
   record: DifferentialRecord;
   open: boolean;
   onOpenChange: (id: string, open: boolean) => void;
-  overlapLinks: Record<string, string>;
+  termLinks: Record<string, string>;
 }) {
   const Icon = sectionIcons[section.tone];
   const meta = rowMeta[section.tone];
@@ -307,7 +303,7 @@ function SectionRow({
         data-testid="differential-section-items"
         className="border-t border-[color:var(--border)] px-3 pb-4 pt-3 sm:pl-[3.25rem] sm:pr-4"
       >
-        <SectionItems section={section} items={items} overlapLinks={overlapLinks} />
+        <SectionItems section={section} items={items} termLinks={termLinks} />
       </div>
     </details>
   );
@@ -377,9 +373,11 @@ function safetyFactGridClass(count: number): string {
 function SafetySnapshot({
   record,
   onReviewMustNotMiss,
+  termLinks,
 }: {
   record: DifferentialRecord;
   onReviewMustNotMiss: (() => void) | null;
+  termLinks: Record<string, string>;
 }) {
   const theme = snapshotThemes[record.status];
   const facts = resolveSafetyFacts(record);
@@ -422,17 +420,18 @@ function SafetySnapshot({
             Watch for
           </span>
           <div className="flex flex-wrap gap-1.5">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className={cn(
-                  "inline-flex min-h-6 items-center rounded-md border px-2 text-2xs font-semibold",
-                  theme.chip,
-                )}
-              >
-                {cleanDifferentialItem(tag)}
-              </span>
-            ))}
+            {tags.map((tag) => {
+              const cleaned = cleanDifferentialItem(tag);
+              return (
+                <DiagnosisTermChip
+                  key={tag}
+                  label={cleaned}
+                  slug={termLinks[cleaned] ?? null}
+                  tone="danger"
+                  className={cn(!termLinks[cleaned] && theme.chip, "min-h-6 px-2 text-2xs")}
+                />
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -1159,7 +1158,11 @@ export function DifferentialDetailPage({
         >
           {activeTab === "overview" ? (
             <>
-              <SafetySnapshot record={record} onReviewMustNotMiss={reviewMustNotMiss} />
+              <SafetySnapshot
+                record={record}
+                onReviewMustNotMiss={reviewMustNotMiss}
+                termLinks={detailContext.termLinks}
+              />
               <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
                 <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
                   <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -1188,7 +1191,7 @@ export function DifferentialDetailPage({
                     record={record}
                     open={openSections.has(section.id)}
                     onOpenChange={setSectionOpen}
-                    overlapLinks={detailContext.overlapLinks}
+                    termLinks={detailContext.termLinks}
                   />
                 ))}
               </div>
