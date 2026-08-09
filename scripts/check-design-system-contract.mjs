@@ -10,6 +10,7 @@ import {
   findDebtPathRegressions,
   findInteractiveTapLiteralsInSource,
   findTextSoftConsumersInSource,
+  findTypeStepCssUsagesInSource,
   LEGACY_TAP_CLASS,
   hasLegacyTapClass,
   jsxClassText,
@@ -120,6 +121,9 @@ const metrics = {
   darkColorOverrides: 0,
   legacyShadowAliases: 0,
   arbitraryTracking: 0,
+  rawPaddingLiterals: 0,
+  rawRadiusLiterals: 0,
+  rawLineHeightLiterals: 0,
   layoutTransitionExceptions: 0,
   textSoftConsumers: 0,
 };
@@ -129,7 +133,21 @@ const recordDebt = (metric, relativePath, count) => {
   if (count > 0) debtByPath[metric][relativePath] = (debtByPath[metric][relativePath] ?? 0) + count;
 };
 
+/**
+ * Type steps that are declared but deliberately unconsumed, with the reason.
+ *
+ * Retiring a step edits the `@theme` block, so it belongs in its own revertible
+ * change rather than riding along with a gate. Anything listed here is recorded
+ * debt with a ledger row, not a permanent licence — an entry should leave this
+ * list by being deleted from `globals.css`, not by being forgotten.
+ */
+const UNUSED_TYPE_STEP_EXEMPTIONS = new Map([
+  ["2xl-compact", "no consumer since it was added; retirement tracked as docs/outstanding-issues.md #297"],
+]);
+
 const densityOverrideFindings = [];
+const typeStepUsage = new Set();
+const typeStepCssUsage = new Set();
 const hardcodedMotionClassFindings = [];
 const imageInversionFindings = [];
 const layoutTransitionFindings = [];
@@ -176,6 +194,11 @@ for (const file of files) {
   recordDebt("darkColorOverrides", file.relativePath, classAnalysis.darkColorOverrides.length);
   recordDebt("legacyShadowAliases", file.relativePath, classAnalysis.legacyShadowAliases.length);
   recordDebt("arbitraryTracking", file.relativePath, classAnalysis.arbitraryTracking.length);
+  recordDebt("rawPaddingLiterals", file.relativePath, classAnalysis.rawPaddingLiterals.length);
+  recordDebt("rawRadiusLiterals", file.relativePath, classAnalysis.rawRadiusLiterals.length);
+  recordDebt("rawLineHeightLiterals", file.relativePath, classAnalysis.rawLineHeightLiterals.length);
+  for (const step of classAnalysis.typeStepUsages) typeStepUsage.add(step);
+  for (const step of findTypeStepCssUsagesInSource(source, file.relativePath)) typeStepCssUsage.add(step);
   densityOverrideFindings.push(...classAnalysis.densityOverrides);
   hardcodedMotionClassFindings.push(...classAnalysis.hardcodedMotionClasses);
   layoutTransitionFindings.push(...classAnalysis.layoutTransitions);
@@ -186,6 +209,9 @@ for (const file of files) {
     recordDebt("hardcodedCssMotionDurations", file.relativePath, cssAnalysis.hardcodedMotionDurations.length);
     recordDebt("rawCssZIndices", file.relativePath, cssAnalysis.rawZIndices.length);
     recordDebt("legacyShadowAliases", file.relativePath, cssAnalysis.legacyShadowAliases.length);
+    recordDebt("rawPaddingLiterals", file.relativePath, cssAnalysis.rawPaddingLiterals.length);
+    recordDebt("rawRadiusLiterals", file.relativePath, cssAnalysis.rawRadiusLiterals.length);
+    recordDebt("rawLineHeightLiterals", file.relativePath, cssAnalysis.rawLineHeightLiterals.length);
     imageInversionFindings.push(...cssAnalysis.imageInversions);
     layoutTransitionFindings.push(...cssAnalysis.layoutTransitions);
   }
@@ -335,6 +361,49 @@ assert(
 
 const globals = textAt("src/app/globals.css");
 assert(!/^\s*--space-\d+\s*:/m.test(globals), "unused --space-* tokens returned");
+
+// Step SELECTION, the half `check:type-scale` cannot cover. That gate blocks
+// arbitrary `text-[12px]` values; nothing has stopped the scale itself growing
+// a step no surface ever picks. A declared-but-unconsumed step is the shape of
+// that drift which IS mechanically decidable — whether a heading should have
+// picked `text-sm` over `text-sm-minus` is not, and no lint here pretends
+// otherwise.
+const themeBlockStart = globals.indexOf("@theme {");
+assert(themeBlockStart >= 0, "globals.css @theme block is missing");
+if (themeBlockStart >= 0) {
+  const themeBlock = globals.slice(themeBlockStart, globals.indexOf("\n}", themeBlockStart));
+  const declaredTypeSteps = [...themeBlock.matchAll(/^\s*--text-([a-z0-9-]+)\s*:/gm)]
+    .map((match) => match[1])
+    // `--text-<step>--line-height` and `--text-<step>-tr` are companions that
+    // mark and accompany a step; they are not steps and generate no utility.
+    .filter((step) => !step.includes("--") && !step.endsWith("-tr"));
+  assert(declaredTypeSteps.length > 0, "no --text-* type steps found in the globals.css @theme block");
+
+  const typeStepIsConsumed = (step) => typeStepUsage.has(step) || typeStepCssUsage.has(step);
+  const unusedTypeSteps = declaredTypeSteps.filter(
+    (step) => !typeStepIsConsumed(step) && !UNUSED_TYPE_STEP_EXEMPTIONS.has(step),
+  );
+  assert(
+    unusedTypeSteps.length === 0,
+    `type steps are declared in globals.css @theme but no production surface selects them: ${unusedTypeSteps
+      .map((step) => `--text-${step} (text-${step})`)
+      .join(", ")}. Retire the step or use it; do not leave the scale carrying a step nobody picks.`,
+  );
+  // An exemption for a step that has since gained a consumer is stale, and a
+  // stale exemption is how a list like this starts lying to the next reader.
+  // Class utilities and direct `var(--text-*)` consumers both count — the same
+  // predicate as the unused-step filter above.
+  for (const [step, reason] of UNUSED_TYPE_STEP_EXEMPTIONS) {
+    assert(
+      declaredTypeSteps.includes(step),
+      `--text-${step} is exempted as unused but is no longer declared in @theme — drop the exemption (${reason})`,
+    );
+    assert(
+      !typeStepIsConsumed(step),
+      `--text-${step} is exempted as unused but production now selects text-${step} / var(--text-${step}) — drop the exemption (${reason})`,
+    );
+  }
+}
 const primitives = textAt("src/components/ui-primitives.tsx");
 assert(
   primitives.includes('export const chatComposerInput = "chat-composer-input"'),
@@ -405,6 +474,9 @@ console.log(
 );
 console.log(
   `Status-colour boundary: colour-only status indicators ${metrics.colourOnlyStatusIndicators}; status-coloured numerals ${metrics.statusColouredNumerals}; image inversions ${imageInversionFindings.length}.`,
+);
+console.log(
+  `Scale ratchets: raw padding literals ${metrics.rawPaddingLiterals}; raw radius literals ${metrics.rawRadiusLiterals}; raw line-height literals ${metrics.rawLineHeightLiterals}.`,
 );
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);
