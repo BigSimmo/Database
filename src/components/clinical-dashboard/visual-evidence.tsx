@@ -38,6 +38,7 @@ import {
   EmptyState,
   floatingControl,
   iconTilePremium,
+  ignoreUnavailableActivation,
   metadataPillDensity,
   sourceCard,
   tableCard,
@@ -690,8 +691,8 @@ export function MobileEvidenceSheetContent({
           </button>
           <button
             type="button"
-            disabled
             aria-disabled="true"
+            onClick={ignoreUnavailableActivation}
             aria-describedby="visual-evidence-add-unavailable"
             title="Add to favourites — coming soon"
             className="inline-flex min-h-12 cursor-not-allowed items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)] opacity-60"
