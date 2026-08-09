@@ -15,7 +15,8 @@ import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumen
 import { formRecords } from "../src/lib/forms";
 import { deriveGovernanceFromSections } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
-import { medicationToSearchResult, rankMedicationRecords, type MedicationRecord } from "../src/lib/medications";
+import { searchMedicationCatalog } from "../src/lib/medication-query";
+import { medicationToSearchResult, type MedicationRecord } from "../src/lib/medications";
 import { serviceRecords } from "../src/lib/services";
 import { recentQueryStorageKey } from "../src/lib/recent-query-storage";
 
@@ -302,19 +303,27 @@ async function blockExternalRequests(page: Page) {
 }
 
 function medicationIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
-  return records.map((record) => ({
-    slug: record.slug,
-    name: record.name,
-    class: record.class,
-    subclass: record.subclass,
-    category: record.category,
-    accent: record.accent,
-    tag: record.tag,
-    schedule: record.schedule,
-    stats: [],
-    sections: [],
-    quick: [],
-  }));
+  return records.map((record) => {
+    const brandRows = record.sections
+      .filter((section) => section.type === "form")
+      .flatMap((section) => section.rows)
+      .filter((row) => /brand\s*names?/i.test(row.key));
+    return {
+      slug: record.slug,
+      name: record.name,
+      class: record.class,
+      subclass: record.subclass,
+      category: record.category,
+      accent: record.accent,
+      tag: record.tag,
+      schedule: record.schedule,
+      stats: [],
+      sections: brandRows.length
+        ? [{ title: "Formulation & Access", type: "form", rows: brandRows.map((row) => ({ ...row })) }]
+        : [],
+      quick: [],
+    };
+  });
 }
 
 async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
@@ -367,16 +376,26 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
     const limit = Number(url.searchParams.get("limit") ?? "50");
     const fullRecords = loadMedicationSnapshot();
     const records = url.searchParams.get("fields") === "index" ? medicationIndexRecords(fullRecords) : fullRecords;
-    const matches = query ? rankMedicationRecords(records, query, limit) : undefined;
+    const ranked = query ? searchMedicationCatalog(fullRecords, query, limit) : undefined;
     await route.fulfill({
       json: {
         records,
-        matches: matches?.map((match) => ({
+        matches: ranked?.matches.map((match) => ({
           medication: match.medication,
           result: medicationToSearchResult(match),
           score: match.score,
           reasons: match.reasons,
         })),
+        interpretation: ranked
+          ? {
+              correctedQuery:
+                ranked.analysis.corrections.length && ranked.analysis.correctedQuery !== ranked.analysis.originalQuery
+                  ? ranked.analysis.correctedQuery
+                  : undefined,
+              corrections: ranked.analysis.corrections.length ? ranked.analysis.corrections : undefined,
+              appliedExpansions: ranked.analysis.expansions.length ? ranked.analysis.expansions : undefined,
+            }
+          : undefined,
         total: records.length,
         governance: {},
         demoMode: true,

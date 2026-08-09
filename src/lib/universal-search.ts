@@ -12,6 +12,7 @@ import { dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
 import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
 import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
+import { analyzeMedicationCatalogQuery } from "@/lib/medication-query";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
 import { loadOwnerCatalogue } from "@/lib/owner-catalogue-cache";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
@@ -257,9 +258,14 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
           })
         ).map(rowToMedicationRecord)
       : defaultMedicationRecords();
-  return rankMedicationRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
-    medicationItem(match.medication, match.score),
-  );
+  // Catalog-local typo/brand understanding (not clinical-search / RAG analysis).
+  const catalogAnalysis = analyzeMedicationCatalogQuery(args.query, records);
+  return rankMedicationRecords(
+    records,
+    catalogAnalysis.correctedQuery || args.baseQuery,
+    args.limitPerDomain,
+    catalogAnalysis.expansions,
+  ).map((match) => medicationItem(match.medication, match.score));
 }
 
 async function searchServicesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {

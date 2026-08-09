@@ -118,6 +118,33 @@ function quickValue(record: MedicationRecord, labelIncludes: string) {
   return row?.value?.trim() ?? "";
 }
 
+/** Brand names from the Formulation & Access "Brand Names" row (prescription names). */
+export function medicationBrandNames(record: MedicationRecord): string[] {
+  const values = record.sections
+    .filter((section) => section.type === "form")
+    .flatMap((section) => section.rows)
+    .filter((row) => /brand\s*names?/i.test(row.key))
+    .map((row) => row.val.replace(/\*\*/g, "").trim())
+    .filter(Boolean);
+
+  const brands: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    for (const part of value.split(/[,;/]/g)) {
+      const brand = part
+        .replace(/\([^)]*\)/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (brand.length < 2) continue;
+      const key = brand.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      brands.push(brand);
+    }
+  }
+  return brands;
+}
+
 export function medicationSearchText(record: MedicationRecord) {
   const sectionText = record.sections
     .flatMap((section) => [section.title, ...section.rows.flatMap((row) => [row.key, row.val, ...(row.tags ?? [])])])
@@ -133,6 +160,7 @@ export function medicationSearchText(record: MedicationRecord) {
       record.category,
       record.tag,
       record.schedule,
+      medicationBrandNames(record).join(" "),
       sectionText,
       quickText,
       statText,
@@ -289,6 +317,13 @@ export function rankMedicationRecords(
         text: (medication) => normalizeSearchText(`${medication.name} ${medication.slug}`),
       },
       {
+        // Prescription / trade names — same weight family as generic name so brand
+        // queries (Campral, Zoloft) are not demoted to weak content hits.
+        id: "brands",
+        weight: 8,
+        text: (medication) => normalizeSearchText(medicationBrandNames(medication).join(" ")),
+      },
+      {
         id: "taxonomy",
         weight: 3,
         text: (medication) =>
@@ -300,11 +335,20 @@ export function rankMedicationRecords(
     fullText: medicationSearchText,
     contentWeight: 2,
     compactBonus: 6,
-    compactExtraText: (medication) => normalizeSearchText(medication.name),
+    compactExtraText: (medication) =>
+      normalizeSearchText([medication.name, ...medicationBrandNames(medication)].join(" ")),
     phraseBonus: 4,
-    exactValues: (medication) => [normalizeSearchText(medication.name), normalizeSearchText(medication.slug)],
+    exactValues: (medication) => [
+      normalizeSearchText(medication.name),
+      normalizeSearchText(medication.slug),
+      ...medicationBrandNames(medication).map((brand) => normalizeSearchText(brand)),
+    ],
     exactBonus: 10,
-    prefixValues: (medication) => [normalizeSearchText(medication.name), normalizeSearchText(medication.slug)],
+    prefixValues: (medication) => [
+      normalizeSearchText(medication.name),
+      normalizeSearchText(medication.slug),
+      ...medicationBrandNames(medication).map((brand) => normalizeSearchText(brand)),
+    ],
     prefixBonus: 5,
     expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
     limit,
@@ -314,6 +358,7 @@ export function rankMedicationRecords(
     score,
     reasons: [
       signals.fields.name ? "name" : "",
+      signals.fields.brands ? "brand" : "",
       signals.prefix ? "name prefix" : "",
       signals.compact ? "exact name" : "",
       signals.fields.taxonomy ? "class/category" : "",

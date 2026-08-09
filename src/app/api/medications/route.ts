@@ -16,9 +16,10 @@ import {
   rowGovernance,
   rowToMedicationRecord,
 } from "@/lib/medication-records";
+import { medicationCatalogInterpretation, searchMedicationCatalog } from "@/lib/medication-query";
 import {
+  medicationBrandNames,
   medicationToSearchResult,
-  rankMedicationRecords,
   type MedicationRecord,
   type MedicationSearchMatch,
 } from "@/lib/medications";
@@ -44,8 +45,20 @@ const medicationListQuerySchema = z.object({
 
 // `fields=index` strips the heavy per-record content (stats/sections/quick are
 // ~99% of the ~3.4 MB catalog) for callers that only need identity-level
-// ranking, e.g. the answer surface's cross-mode links. The records keep the
-// full MedicationRecord shape so rankers and badge helpers work unchanged.
+// ranking, e.g. the answer surface's cross-mode links. Brand Names rows are
+// retained so prescription-name search still scores at name weight.
+function brandIdentitySections(record: MedicationRecord): MedicationRecord["sections"] {
+  const brands = medicationBrandNames(record);
+  if (!brands.length) return [];
+  return [
+    {
+      title: "Formulation & Access",
+      type: "form",
+      rows: [{ key: "Brand Names", val: brands.join(", ") }],
+    },
+  ];
+}
+
 function toIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
   return records.map((record) => ({
     slug: record.slug,
@@ -57,9 +70,17 @@ function toIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
     tag: record.tag,
     schedule: record.schedule,
     stats: [],
-    sections: [],
+    sections: brandIdentitySections(record),
     quick: [],
   }));
+}
+
+function rankCatalogMatches(records: MedicationRecord[], q: string, limit: number) {
+  const { matches, analysis } = searchMedicationCatalog(records, q, limit);
+  return {
+    matches: matchesPayload(matches),
+    interpretation: medicationCatalogInterpretation(analysis),
+  };
 }
 
 function medicationResponse(payload: Record<string, unknown>, options: { request?: Request; fixture?: boolean } = {}) {
@@ -108,12 +129,16 @@ function publicGovernance(records: MedicationRecord[]) {
 }
 
 function publicMedicationPayload(q: string | undefined, limit: number, fields?: "index") {
-  const records = fields === "index" ? publicIndexRecords() : defaultMedicationRecords();
-  const governance = publicGovernance(records);
-  const matches = q ? rankMedicationRecords(records, q, limit) : undefined;
+  // Rank against the full snapshot even for fields=index so typo/brand vocabulary
+  // is complete; response records still use the slim identity projection.
+  const fullRecords = defaultMedicationRecords();
+  const records = fields === "index" ? publicIndexRecords() : fullRecords;
+  const governance = publicGovernance(fullRecords);
+  const ranked = q ? rankCatalogMatches(fullRecords, q, limit) : undefined;
   return {
     records,
-    matches: matches ? matchesPayload(matches) : undefined,
+    matches: ranked?.matches,
+    interpretation: ranked?.interpretation,
     total: records.length,
     governance,
   };
@@ -163,10 +188,12 @@ export async function GET(request: Request) {
     const fullRecords = rows.map(rowToMedicationRecord);
     const records = fields === "index" ? toIndexRecords(fullRecords) : fullRecords;
     const governanceBySlug = Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)]));
+    const ranked = q ? rankCatalogMatches(fullRecords, q, limit) : undefined;
 
     return medicationResponse({
       records,
-      matches: q ? matchesPayload(rankMedicationRecords(records, q, limit)) : undefined,
+      matches: ranked?.matches,
+      interpretation: ranked?.interpretation,
       total: rows.length,
       governance: governanceBySlug,
     });

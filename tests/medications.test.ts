@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medication-snapshot";
+import { analyzeMedicationCatalogQuery, isEditDistanceOne, searchMedicationCatalog } from "@/lib/medication-query";
 import {
   firstClinicalSentence,
   medicationActionDetail,
+  medicationBrandNames,
   medicationHeroMetrics,
   medicationIndication,
   medicationToSearchResult,
@@ -60,12 +62,65 @@ describe("medications catalogue", () => {
     expect(matches[0]?.reasons).toContain("name prefix");
   });
 
+  it("scores prescription brand names at name weight", () => {
+    const records = loadMedicationSnapshot();
+    const acamprosate = records.find((record) => record.slug === "acamprosate");
+    expect(medicationBrandNames(acamprosate!).map((brand) => brand.toLowerCase())).toContain("campral");
+
+    const matches = rankMedicationRecords(records, "campral", 5);
+    expect(matches[0]?.medication.slug).toBe("acamprosate");
+    expect(matches[0]?.reasons).toContain("brand");
+  });
+
   it("exposes prescribing summary fields for search results", () => {
     const record = getMedicationRecord("acamprosate");
     expect(record).toBeTruthy();
     expect(record?.stats.length).toBeGreaterThan(0);
     expect(record?.sections.some((section) => section.type === "dose")).toBe(true);
     expect(record?.quick.length).toBeGreaterThan(0);
+  });
+});
+
+describe("medication catalog query understanding", () => {
+  it("corrects common generic typos before ranking", () => {
+    const records = loadMedicationSnapshot();
+    const { matches, analysis } = searchMedicationCatalog(records, "sertaline", 5);
+    expect(analysis.corrections).toContainEqual({ from: "sertaline", to: "sertraline" });
+    expect(matches[0]?.medication.slug).toBe("sertraline");
+  });
+
+  it("expands brand identity aliases for catalog recall", () => {
+    const records = loadMedicationSnapshot();
+    const analysis = analyzeMedicationCatalogQuery("zyprexa", records);
+    expect(analysis.expansions.some((term) => term.includes("olanzapine"))).toBe(true);
+
+    const { matches } = searchMedicationCatalog(records, "zyprexa", 5);
+    expect(matches.some((match) => match.medication.slug.includes("olanzapine"))).toBe(true);
+    expect(matches[0]?.reasons.some((reason) => reason === "brand" || reason === "name")).toBe(true);
+  });
+
+  it("applies conservative unique edit-distance-1 corrections only", () => {
+    expect(isEditDistanceOne("sertaline", "sertraline")).toBe(true);
+    expect(isEditDistanceOne("sertralne", "sertraline")).toBe(true);
+    expect(isEditDistanceOne("sertalin", "sertraline")).toBe(false);
+    expect(isEditDistanceOne("abc", "xyz")).toBe(false);
+
+    const records = loadMedicationSnapshot();
+    // Short tokens must not invent corrections.
+    const short = analyzeMedicationCatalogQuery("dose", records);
+    expect(short.corrections).toHaveLength(0);
+
+    // Ambiguous/non-unique near-misses must not invent a medication.
+    const nonsense = analyzeMedicationCatalogQuery("zzzzzz", records);
+    expect(nonsense.corrections).toHaveLength(0);
+    expect(searchMedicationCatalog(records, "zzzzzz", 5).matches).toHaveLength(0);
+  });
+
+  it("keeps the mid-word substring guard after query normalization", () => {
+    const records = loadMedicationSnapshot();
+    const { matches } = searchMedicationCatalog(records, "renal dose", 10);
+    const adrenaline = matches.find((match) => match.medication.slug.includes("adrenaline"));
+    expect(adrenaline?.reasons ?? []).not.toContain("name");
   });
 });
 
