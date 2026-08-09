@@ -136,9 +136,7 @@ describe("document rail figure windowing", () => {
   it("clamps the window when the list shrinks underneath an expanded reader", () => {
     // Navigating to another document, or a reindex, can replace the array while
     // the reader has already expanded past the new length.
-    const { rerender } = render(
-      <DocumentImageList images={images(40)} revealLabel="Tables and diagrams" />,
-    );
+    const { rerender } = render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" />);
     fireEvent.click(screen.getByRole("button", { name: /show the remaining 34/i }));
     expect(renderedRows()).toBe(40);
 
@@ -162,9 +160,7 @@ describe("document rail figure windowing", () => {
     fireEvent.click(screen.getByRole("button", { name: /show the remaining 34/i }));
     expect(renderedRows()).toBe(40);
 
-    rerender(
-      <DocumentImageList key="doc-b:clinical" images={images(40, 100)} revealLabel="Tables and diagrams" />,
-    );
+    rerender(<DocumentImageList key="doc-b:clinical" images={images(40, 100)} revealLabel="Tables and diagrams" />);
 
     expect(renderedRows()).toBe(6);
     expect(screen.getByTestId("document-image-reveal")).toBeTruthy();
