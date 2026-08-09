@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -5,6 +6,7 @@ import {
   formatDifferentialCopyText,
   groupCurrentPresentation,
   isDetailTabId,
+  isRedundantSafetySummary,
   resolveSafetyFacts,
   sectionBadgeLabel,
   visibleSectionItems,
@@ -127,6 +129,60 @@ describe("resolveSafetyFacts", () => {
   });
 });
 
+describe("isRedundantSafetySummary", () => {
+  it("treats an exact comma-joined tag list as redundant", () => {
+    expect(
+      isRedundantSafetySummary("Superimposed delirium, aspiration, falls, abuse/neglect", [
+        "Superimposed delirium",
+        "aspiration",
+        "falls",
+        "abuse/neglect",
+      ]),
+    ).toBe(true);
+  });
+
+  it("ignores case and trailing punctuation", () => {
+    expect(
+      isRedundantSafetySummary("Wandering, exploitation, medication mismanagement.", [
+        "wandering",
+        "Exploitation",
+        "medication mismanagement",
+      ]),
+    ).toBe(true);
+  });
+
+  it("keeps summary tokens that tags do not cover, even at high overlap", () => {
+    expect(
+      isRedundantSafetySummary("Superimposed delirium, aspiration, falls, abuse/neglect, unsafe living.", [
+        "Superimposed delirium",
+        "aspiration",
+        "falls",
+        "abuse/neglect",
+      ]),
+    ).toBe(false);
+  });
+
+  it("does not hide a summary when tags are only a subset of its risks", () => {
+    expect(
+      isRedundantSafetySummary("Suicide risk, violence risk, unsafe living", ["Suicide risk", "violence risk"]),
+    ).toBe(false);
+  });
+
+  it("keeps unique prose summaries that tags do not cover", () => {
+    expect(
+      isRedundantSafetySummary("Acute change needs a delirium workup before attributing decline to dementia alone.", [
+        "Superimposed delirium",
+        "aspiration",
+      ]),
+    ).toBe(false);
+  });
+
+  it("hides an empty summary and keeps a summary when there are no tags", () => {
+    expect(isRedundantSafetySummary("", ["falls"])).toBe(true);
+    expect(isRedundantSafetySummary("Falls and aspiration risk.", [])).toBe(false);
+  });
+});
+
 describe("formatDifferentialCopyText", () => {
   it("produces a deterministic register ending with the disclaimer", () => {
     const record = buildRecord({
@@ -209,5 +265,16 @@ describe("getDifferentialDetailContext", () => {
         expect(getDifferentialRecord(slug), `overlap link ${slug} from ${record.slug}`).not.toBeNull();
       }
     }
+  });
+});
+
+describe("Safety Snapshot phone metric labels", () => {
+  it("keeps the full fact label available to assistive tech when the compact label is shown", () => {
+    const source = readFileSync(
+      new URL("../src/components/differentials/differential-detail-page.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("aria-label={fact.label}");
+    expect(source).toMatch(/sm:hidden[^>]*>\s*\{[\s\S]*compactLabel/);
   });
 });
