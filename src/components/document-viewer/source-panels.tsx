@@ -303,6 +303,14 @@ export function DocumentImage({
         failureLabel="Image preview failed."
         retryLabel="Retry"
         expandLabel={isWideCrop ? "Open full screen" : undefined}
+        // Tighter than the shared default. The rail is secondary evidence beside
+        // (desktop) or below (phone) the source the reader opened, and the wide
+        // default lookahead minted signed URLs for rows most of a viewport away
+        // — competing with the page's own above-the-fold work for no benefit,
+        // since those rows are not on screen when the requests land. There is no
+        // cross-surface request scheduler, so this differential IS the ordering:
+        // surfaces that keep the wide margin resolve first.
+        rootMargin={RAIL_IMAGE_ROOT_MARGIN}
         // No `min-h-*` here. `aspect-ratio` transfers size constraints across
         // axes, so a min-height of 10rem on a 3:1 table crop became a *minimum
         // width* of 480px and blew the phone card past the viewport. The frame
@@ -437,6 +445,12 @@ export function DocumentImage({
  * never mount a sentinel at all.
  */
 const RAIL_IMAGE_WINDOW = 6;
+
+/**
+ * Lookahead for the rail's own signed-URL requests, against `SignedImage`'s
+ * wider default. See the call site in `DocumentImage` for why they differ.
+ */
+const RAIL_IMAGE_ROOT_MARGIN = "240px 0px";
 
 /**
  * The figure rail, windowed.
