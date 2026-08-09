@@ -1477,6 +1477,7 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
+        "tests/factsheet-save.dom.test.tsx",
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
         "tests/mode-nav.dom.test.tsx",
