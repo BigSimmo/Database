@@ -75,11 +75,31 @@ describe("resolveDiagnosisTerm", () => {
 });
 
 describe("resolveDiagnosisTermSegments", () => {
-  it("splits composite presentation tags into linked segments", () => {
+  it("splits spaced-slash presentation tags into linked segments", () => {
     const segments = resolveDiagnosisTermSegments("Delirium / medical psychosis");
     expect(segments.map((segment) => segment.text)).toEqual(["Delirium", "medical psychosis"]);
     expect(segments[0]?.slug).toBe("delirium");
     expect(segments[1]?.slug).toBe("acute-psychosis");
+  });
+
+  it("splits comma and semicolon lists without rewriting unspaced slash phrases", () => {
+    const semicolon = resolveDiagnosisTermSegments("Primary psychosis; dementia");
+    expect(semicolon.map((segment) => segment.text)).toEqual(["Primary psychosis", "dementia"]);
+    expect(semicolon[0]?.slug).toBe("schizophrenia");
+    expect(semicolon[1]?.slug).toBe("dementia-neurocognitive-disorder");
+
+    const compound = resolveDiagnosisTermSegments("Alcohol/benzo withdrawal seizures, aspiration");
+    expect(compound.map((segment) => segment.text)).toEqual(["Alcohol/benzo withdrawal seizures", "aspiration"]);
+    expect(compound[0]?.slug).toBeNull();
+    expect(compound[1]?.slug).toBeNull();
+  });
+
+  it("preserves unspaced clinical slash compounds as a single segment", () => {
+    expect(resolveDiagnosisTermSegments("alcohol/benzo withdrawal").map((s) => s.text)).toEqual([
+      "alcohol/benzo withdrawal",
+    ]);
+    expect(resolveDiagnosisTermSegments("DVT/PE").map((s) => s.text)).toEqual(["DVT/PE"]);
+    expect(resolveDiagnosisTermSegments("food/fluid refusal").map((s) => s.text)).toEqual(["food/fluid refusal"]);
   });
 
   it("keeps unresolved whole labels as a single unlinked segment", () => {

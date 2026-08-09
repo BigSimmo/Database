@@ -134,7 +134,12 @@ export function resolveDiagnosisTerm(
   return resolveSingleCleaned(cleaned, titleMap, routableSlugs, options.excludeSlug);
 }
 
-const SEGMENT_SPLIT = /\s*[,;]\s*/;
+/**
+ * List delimiters only — never bare `/` inside compound clinical phrases
+ * (`alcohol/benzo withdrawal`, `DVT/PE`). Spaced slash (`Delirium / medical
+ * psychosis`) is treated as a discrete-term separator alongside `,` and `;`.
+ */
+const SEGMENT_SPLIT = /\s*[,;]\s*|\s+\/\s+/;
 
 /**
  * Split composite presentation tags / comma lists into ordered segments and
