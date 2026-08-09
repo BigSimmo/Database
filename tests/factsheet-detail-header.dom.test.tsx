@@ -77,6 +77,35 @@ describe("factsheet detail header", () => {
     expect(screen.queryByText(factsheet.whatEasy)).toBeNull();
   });
 
+  it("puts the reading level in the actions sheet as well as the row", async () => {
+    // The phone home for the view mode. Both copies exist in the DOM and CSS
+    // picks one per breakpoint, so the assertion is that the sheet copy is
+    // present and drives the same state — not that only one is rendered.
+    const user = userEvent.setup();
+    renderFactsheet("sertraline");
+
+    // Only the inline copy exists before the sheet is opened.
+    expect(screen.getAllByRole("radiogroup", { name: "Reading level" })).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Open factsheet actions" }));
+    const sheetMode = screen.getByTestId("factsheet-sheet-mode");
+    expect(sheetMode).toBeInTheDocument();
+
+    await user.click(within(sheetMode).getByRole("radio", { name: "Standard" }));
+    const factsheet = findFactsheet("sertraline");
+    if (factsheet?.kind !== "medRich") throw new Error("Expected sertraline to be the medRich fixture");
+    expect(screen.getAllByText(factsheet.whatStandard).length).toBeGreaterThan(0);
+  });
+
+  it("pairs the download and the ellipsis into one control group", () => {
+    // The fix for two competing bordered shapes at the end of the row: one
+    // group, both members inside it.
+    renderFactsheet("sertraline");
+    const group = screen.getByTestId("factsheet-action-group");
+    expect(within(group).getByRole("button", { name: "Download PDF" })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Open factsheet actions" })).toBeInTheDocument();
+  });
+
   it("reserves no reading-level control on a factsheet that has one level", () => {
     // Seven of the eight sheets are not `medRich`; none of them should carry
     // the band or an empty gap where it would be.

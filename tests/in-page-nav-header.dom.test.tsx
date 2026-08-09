@@ -136,6 +136,15 @@ describe("InPageNavHeader", () => {
     expect(screen.getByTestId("service-detail-header")).toBeInTheDocument();
   });
 
+  it("keeps the phone-icon back control at the production tap-target floor", () => {
+    // The visible label is `hidden sm:inline`. Without min-w-tap the hit target
+    // collapses to ~40×48 on a phone and Production UI fails expectMinTouchTarget.
+    renderHeader();
+    const back = screen.getByRole("link", { name: "Back to services" });
+    expect(back.className).toMatch(/\bmin-h-tap\b/);
+    expect(back.className).toMatch(/\bmin-w-tap\b/);
+  });
+
   it("leaves the page's single h1 to the record body", () => {
     // Information pages keep their large title in the body, so the header title
     // must not be a second heading.
