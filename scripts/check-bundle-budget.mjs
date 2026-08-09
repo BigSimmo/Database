@@ -8,10 +8,40 @@
  * client chunks and compares total gzip size against a committed baseline
  * (bundle-budget.json), failing when growth exceeds the tolerance.
  *
- * STATUS: enforced. `bundle-budget.json` carries `enforce: true` and a committed
- * `totalGzipBytes` baseline, so CI fails on >tolerancePct gzip growth.
+ * WHICH QUESTION THIS ANSWERS — two, separately, on purpose.
+ *
+ * It used to answer one blurred question. `totalGzipBytes` summed EVERY built
+ * client chunk, including `src/app/mockups/**` design scratch that 404s in
+ * production, and compared that to a ceiling named as though it were production
+ * weight. Two repo positions then disagreed with nothing to arbitrate them:
+ * `#013` held that mockup chunks "are not an initial production bundle", while
+ * this gate charged them against the ceiling anyway — which is how PR #1580
+ * blocked on "+10.1% vs baseline" for chunks no user can load.
+ *
+ * Measured on `main` at af85cbc (2026-08-09), the blur had become the whole
+ * signal: 1546.5 KiB total was +9.96% of the old baseline — 576 bytes from
+ * failing — while the production-only number was 1279.1 KiB, or 9.06% BELOW
+ * that same baseline. Every byte of the apparent regression was design scratch;
+ * production had actually shrunk. So the split is not a way to raise a ceiling,
+ * it is the only way either number means anything.
+ *
+ *   - `production` — chunks any non-mockup route reaches, plus every chunk no
+ *     route manifest claims (framework, polyfills, runtime). This is user-facing
+ *     weight and the regression guard the budget was written for. Enforced at
+ *     `production.tolerancePct` (default 10%).
+ *   - `mockups` — chunks reachable ONLY from `/mockups/**`. Nobody downloads
+ *     these, so this is a repo-hygiene ceiling that exists to catch unbounded
+ *     accumulation (66 mockup routes today), not to gate the next mockup.
+ *     Enforced at the deliberately looser `mockups.tolerancePct` (default 25%).
+ *
+ * A chunk shared by both is production: it would be built with or without the
+ * mockup. Attribution failures fail the check rather than collapsing the
+ * buckets.
+ *
+ * STATUS: enforced. `bundle-budget.json` carries `enforce: true` and committed
+ * `production.gzipBytes` / `mockups.gzipBytes` baselines.
  *   - After an intentional, known-good production build, run
- *     `npm run check:bundle-budget -- --update` to refresh the baseline.
+ *     `npm run check:bundle-budget -- --update` to refresh both baselines.
  *   - Set `enforce: false` to fall back to warn-only.
  * Reads .next/static/chunks/**.js. If no build output exists it prints a note and
  * exits 0 (so it never breaks a run that didn't build).
@@ -45,6 +75,16 @@ const ROOT_PAGE_CLIENT_REFERENCE_MANIFEST_PATH = path.join(
   "app",
   "page_client-reference-manifest.js",
 );
+const SERVER_APP_DIR = path.join(root, ".next", "server", "app");
+
+/**
+ * Route segment that marks design-scratch routes. `src/app/mockups/**` 404s in
+ * production (see next.config.ts) and is exempt from the wiring and
+ * reachability gates, so its client chunks are not production weight — but they
+ * are still built, so they are still repo weight. Everything downstream of this
+ * constant exists to keep those two facts in separate numbers.
+ */
+export const MOCKUP_ROUTE_SEGMENT = "mockups";
 
 /** Hard ceiling so a stuck stdio drain cannot burn the whole Build job timeout. */
 export const EXIT_FAILSAFE_MS = 1_000;
@@ -104,7 +144,9 @@ export function measureChunkPaths(paths, readFile = readFileSync) {
     measured.push({ name: path.relative(CHUNKS_DIR, full), rawBytes, gzipBytes });
   }
   const largest = [...measured].sort((a, b) => b.gzipBytes - a.gzipBytes).slice(0, 5);
-  return { files: measured.length, totalRawBytes, totalGzipBytes, largest };
+  // `measured` carries names and byte counts only — no buffers — so exposing it
+  // for per-bucket subtotals does not reintroduce the RSS problem above.
+  return { files: measured.length, totalRawBytes, totalGzipBytes, largest, measured };
 }
 
 /**
@@ -120,11 +162,20 @@ export function compareToBudget(current, budget) {
   if (baseline == null) {
     return { status: "warn", reason: "no baseline recorded", overPct: null, baseline, tolerancePct, enforce };
   }
-  const overPct = ((current.totalGzipBytes - baseline) / baseline) * 100;
-  const withinTolerance = overPct <= tolerancePct;
+  // A zero baseline is valid (e.g. `--update` after a build with no mockup-exclusive
+  // chunks). `(0 - 0) / 0` is NaN and would permanently fail an unchanged empty
+  // budget; treat that as within tolerance, and any growth from zero as unbounded.
+  const overPct =
+    baseline === 0
+      ? current.totalGzipBytes === 0
+        ? 0
+        : Number.POSITIVE_INFINITY
+      : ((current.totalGzipBytes - baseline) / baseline) * 100;
+  const withinTolerance = Number.isFinite(overPct) && overPct <= tolerancePct;
+  const overPctLabel = Number.isFinite(overPct) ? overPct.toFixed(1) : "∞";
   return {
     status: withinTolerance ? "ok" : enforce ? "fail" : "warn",
-    reason: withinTolerance ? "within tolerance" : `+${overPct.toFixed(1)}% vs baseline (tolerance ${tolerancePct}%)`,
+    reason: withinTolerance ? "within tolerance" : `+${overPctLabel}% vs baseline (tolerance ${tolerancePct}%)`,
     overPct,
     baseline,
     tolerancePct,
@@ -159,6 +210,105 @@ function loadRootPageClientReferenceManifest() {
   const jsonEnd = source.lastIndexOf(";");
   if (jsonEnd <= jsonStart) return null;
   return JSON.parse(source.slice(jsonStart, jsonEnd));
+}
+
+/**
+ * Parse any per-route `*_client-reference-manifest.js` and return the client
+ * chunk names it references. Next 16 (webpack) emits no `app-build-manifest.json`,
+ * so these per-route manifests are the only route -> chunk mapping available.
+ * Returns `null` when the file cannot be decoded so callers can fail closed —
+ * an empty set only means a successfully parsed route with no client chunks.
+ *
+ * @param {string} source raw manifest file contents
+ * @returns {Set<string>|null} chunk names relative to `.next/static/chunks`, or null
+ */
+export function clientChunkNamesFromManifestSource(source) {
+  const names = new Set();
+  const marker = "globalThis.__RSC_MANIFEST[";
+  const start = source.indexOf(marker);
+  if (start < 0) return null;
+  const assign = source.indexOf("]=", start);
+  if (assign < 0) return null;
+  const end = source.lastIndexOf(";");
+  if (end <= assign) return null;
+  let manifest;
+  try {
+    manifest = JSON.parse(source.slice(assign + 2, end));
+  } catch {
+    return null;
+  }
+  for (const clientModule of Object.values(manifest?.clientModules ?? {})) {
+    for (const chunk of Array.isArray(clientModule?.chunks) ? clientModule.chunks : []) {
+      if (typeof chunk === "string" && chunk.endsWith(".js")) {
+        names.add(chunk.replace(/^\/?static\/chunks\//, ""));
+      }
+    }
+  }
+  return names;
+}
+
+/**
+ * Walk `.next/server/app` and split client chunk names into the ones reachable
+ * only from `/mockups/**` and the ones any production route reaches.
+ *
+ * A chunk shared by a mockup route and a production route is **production**: it
+ * would be built regardless of whether the mockup existed, so charging it to
+ * design scratch would understate production weight. Chunks no manifest
+ * references at all (framework, polyfills, webpack runtime) are likewise
+ * production — attribution failures must never shrink the production number,
+ * because that is the number with the enforced ceiling.
+ *
+ * Every discovered `*_client-reference-manifest.js` must decode. Counting a
+ * malformed file toward `routeCount` would bypass the later "none resolved"
+ * checks, and a production parse failure with a surviving mockup parse would
+ * leave shared chunks only in `mockupChunks`, understating the production budget.
+ *
+ * @returns {{
+ *   mockupExclusive: Set<string>,
+ *   routeCount: number,
+ *   mockupRouteCount: number,
+ *   unparseable: string[],
+ * }}
+ */
+export function partitionRouteClientChunks(serverAppDir, deps = {}) {
+  const { readDir = readdirSync, readFile = readFileSync } = deps;
+  const mockupChunks = new Set();
+  const productionChunks = new Set();
+  const unparseable = [];
+  let routeCount = 0;
+  let mockupRouteCount = 0;
+
+  const walk = (dir, isMockup) => {
+    for (const entry of readDir(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full, isMockup || entry.name === MOCKUP_ROUTE_SEGMENT);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith("_client-reference-manifest.js")) continue;
+      const names = clientChunkNamesFromManifestSource(readFile(full, "utf8"));
+      if (names == null) {
+        unparseable.push(full);
+        continue;
+      }
+      routeCount += 1;
+      if (isMockup) mockupRouteCount += 1;
+      const target = isMockup ? mockupChunks : productionChunks;
+      for (const name of names) target.add(name);
+    }
+  };
+  walk(serverAppDir, false);
+
+  const mockupExclusive = new Set([...mockupChunks].filter((name) => !productionChunks.has(name)));
+  return { mockupExclusive, routeCount, mockupRouteCount, unparseable };
+}
+
+/** Sum the gzip bytes of the measured chunks whose names are in `names`. */
+export function gzipBytesOf(measuredFiles, names) {
+  return measuredFiles.reduce(
+    (sum, file) => (names.has(file.name.replace(/\\/g, "/")) ? sum + file.gzipBytes : sum),
+    0,
+  );
 }
 
 /** Identify large fixture payloads from stable groups of serialized keys/slugs.
@@ -294,24 +444,111 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
   // Drop fixture buffers before the full-tree gzip pass so peak RSS stays low.
   for (const chunk of initialDashboardChunks) chunk.buffer = Buffer.alloc(0);
   const current = measureChunkPaths(chunkPaths);
+
+  // Attribute chunks to production vs design scratch. Fail closed: a broken or
+  // missing route manifest tree must not silently collapse the two buckets,
+  // because "everything is production" inflates the enforced number and
+  // "everything is scratch" would hide a real regression.
+  if (!existsSync(SERVER_APP_DIR)) {
+    console.error(
+      `[bundle-budget] FAIL — no route manifests at ${path.relative(root, SERVER_APP_DIR)}; cannot separate production weight from ${MOCKUP_ROUTE_SEGMENT}/ scratch.`,
+    );
+    return 1;
+  }
+  const { mockupExclusive, routeCount, mockupRouteCount, unparseable } = partitionRouteClientChunks(SERVER_APP_DIR);
+  if (unparseable.length > 0) {
+    console.error(
+      `[bundle-budget] FAIL — ${unparseable.length} route manifest(s) could not be decoded; chunk attribution is broken.`,
+    );
+    for (const full of unparseable.slice(0, 5)) {
+      console.error(`  ${path.relative(root, full)}`);
+    }
+    return 1;
+  }
+  if (routeCount === 0) {
+    console.error("[bundle-budget] FAIL — the route manifest tree resolved no routes; chunk attribution is broken.");
+    return 1;
+  }
+  const mockupRoutesBuilt = existsSync(path.join(SERVER_APP_DIR, MOCKUP_ROUTE_SEGMENT));
+  if (mockupRoutesBuilt && mockupRouteCount === 0) {
+    console.error(
+      `[bundle-budget] FAIL — ${MOCKUP_ROUTE_SEGMENT}/ routes were built but none resolved a client manifest; chunk attribution is broken.`,
+    );
+    return 1;
+  }
+
+  const mockupGzipBytes = gzipBytesOf(current.measured, mockupExclusive);
+  const productionGzipBytes = current.totalGzipBytes - mockupGzipBytes;
   const budget = loadBudget();
 
   if (update) {
-    const next = { ...budget, totalGzipBytes: current.totalGzipBytes, updatedAt: new Date().toISOString() };
+    const next = {
+      ...budget,
+      production: { ...(budget.production ?? {}), gzipBytes: productionGzipBytes },
+      mockups: { ...(budget.mockups ?? {}), gzipBytes: mockupGzipBytes },
+      totalGzipBytes: current.totalGzipBytes,
+      updatedAt: new Date().toISOString(),
+    };
     writeFileSync(BUDGET_PATH, JSON.stringify(next, null, 2) + "\n");
-    console.log(`[bundle-budget] baseline updated to ${kb(current.totalGzipBytes)} gzip (${current.files} chunks).`);
+    console.log(
+      `[bundle-budget] baselines updated — production ${kb(productionGzipBytes)}, ${MOCKUP_ROUTE_SEGMENT} ${kb(mockupGzipBytes)}, total ${kb(current.totalGzipBytes)} gzip (${current.files} chunks).`,
+    );
     return 0;
   }
 
-  const verdict = compareToBudget(current, budget);
+  const enforce = Boolean(budget?.enforce);
+  const productionVerdict = compareToBudget(
+    { totalGzipBytes: productionGzipBytes },
+    {
+      totalGzipBytes: budget?.production?.gzipBytes ?? null,
+      tolerancePct: budget?.production?.tolerancePct ?? 10,
+      enforce,
+    },
+  );
+  // Scratch weight is a runaway detector, not a per-mockup gate: a ceiling tight
+  // enough to fire on the next mockup would just be `--update`d reflexively,
+  // which is worse than no gate. It is always reported, enforced only on a jump.
+  const mockupVerdict = compareToBudget(
+    { totalGzipBytes: mockupGzipBytes },
+    { totalGzipBytes: budget?.mockups?.gzipBytes ?? null, tolerancePct: budget?.mockups?.tolerancePct ?? 25, enforce },
+  );
+
   if (asJson) {
-    console.log(JSON.stringify({ current, verdict, initialDashboardChunks: initialDashboardChunks.length }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          current: { ...current, measured: undefined },
+          production: { gzipBytes: productionGzipBytes, verdict: productionVerdict },
+          mockups: {
+            gzipBytes: mockupGzipBytes,
+            chunks: mockupExclusive.size,
+            routes: mockupRouteCount,
+            verdict: mockupVerdict,
+          },
+          initialDashboardChunks: initialDashboardChunks.length,
+        },
+        null,
+        2,
+      ),
+    );
   } else {
     console.log(
-      `[bundle-budget] client chunks: ${current.files} files, ${kb(current.totalGzipBytes)} gzip (${kb(current.totalRawBytes)} raw).`,
+      `[bundle-budget] client chunks: ${current.files} files, ${kb(current.totalGzipBytes)} gzip (${kb(current.totalRawBytes)} raw) across ${routeCount} routes.`,
     );
-    if (verdict.baseline != null)
-      console.log(`[bundle-budget] baseline ${kb(verdict.baseline)} gzip; ${verdict.reason}.`);
+    // Say which question each number answers — the ambiguity these two lines
+    // remove is the whole point of splitting the budget (`#013`/`#252`).
+    console.log(
+      `[bundle-budget] production (what users download, ${routeCount - mockupRouteCount} routes): ${kb(productionGzipBytes)} gzip` +
+        (productionVerdict.baseline != null
+          ? ` — baseline ${kb(productionVerdict.baseline)}, ${productionVerdict.reason}.`
+          : " — no baseline recorded."),
+    );
+    console.log(
+      `[bundle-budget] ${MOCKUP_ROUTE_SEGMENT} (design scratch, 404s in production, ${mockupRouteCount} routes, ${mockupExclusive.size} exclusive chunks): ${kb(mockupGzipBytes)} gzip` +
+        (mockupVerdict.baseline != null
+          ? ` — baseline ${kb(mockupVerdict.baseline)}, ${mockupVerdict.reason}.`
+          : " — no baseline recorded."),
+    );
     console.log("[bundle-budget] largest chunks (gzip):");
     for (const c of current.largest) console.log(`  ${kb(c.gzipBytes).padStart(12)}  ${c.name}`);
     console.log(
@@ -319,18 +556,33 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
     );
   }
 
-  if (verdict.status === "fail") {
+  let failed = false;
+  if (productionVerdict.status === "fail") {
     console.error(
-      `[bundle-budget] FAIL — ${verdict.reason}. Refresh intentionally with \`npm run check:bundle-budget -- --update\`.`,
+      `[bundle-budget] FAIL — production bundle ${productionVerdict.reason}. This is user-facing weight; find the regression before refreshing the baseline.`,
     );
-    return 1;
+    failed = true;
   }
-  if (verdict.status === "warn" && verdict.baseline == null) {
-    console.log(
-      "[bundle-budget] warn-only: capture a baseline with --update after a known-good build, then set enforce:true.",
+  if (mockupVerdict.status === "fail") {
+    console.error(
+      `[bundle-budget] FAIL — ${MOCKUP_ROUTE_SEGMENT} scratch ${mockupVerdict.reason}. No user loads these chunks, so this is a hygiene ceiling: prune stale mockups, or refresh deliberately with \`npm run check:bundle-budget -- --update\` and say why in the PR.`,
     );
-  } else if (verdict.status === "warn") {
-    console.warn(`[bundle-budget] WARN (not enforced) — ${verdict.reason}.`);
+    failed = true;
+  }
+  if (failed) return 1;
+
+  for (const [label, verdict] of [
+    ["production bundle", productionVerdict],
+    [`${MOCKUP_ROUTE_SEGMENT} scratch`, mockupVerdict],
+  ]) {
+    if (verdict.status !== "warn") continue;
+    if (verdict.baseline == null) {
+      console.log(
+        `[bundle-budget] warn-only: no ${label} baseline — capture one with --update after a known-good build, then set enforce:true.`,
+      );
+    } else {
+      console.warn(`[bundle-budget] WARN (not enforced) — ${label} ${verdict.reason}.`);
+    }
   }
   console.log("[bundle-budget] done.");
   return 0;
