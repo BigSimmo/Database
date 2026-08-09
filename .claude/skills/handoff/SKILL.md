@@ -28,6 +28,12 @@ force-push, or discard work.
    - Default: `npm run verify:pr-local` (format + cheap gate, plus build/RAG when the
      scope needs them).
    - Touched UI/routing/styling: add `npm run verify:ui`.
+   - Touched `src/app/`, `src/components/`, or `tests/` (or design-system adoption
+     inputs): run `npm run design-system:adoption:update` and stage any regenerated
+     `docs/design-system/adoption-manifest.json` / marked COMPONENTS/ADOPTION sections
+     before push. Pre-commit syncs this when hooks are installed; Cloud agents that
+     bypass hooks still need the explicit update or static-pr + coverage fail together
+     (PR #1782).
    - Touched Supabase env/config: `npm run check:supabase-project` (provider — confirm first).
      Do not claim a gate passed unless it actually ran.
 4. **Commit** with a clear message. End the message with:

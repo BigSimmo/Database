@@ -747,24 +747,14 @@ export function printBlocks(sheet: Factsheet, readingLevel: "easy" | "standard" 
   }
 }
 
-export function tocFor(sheet: Factsheet): string[] {
-  switch (sheet.kind) {
-    case "medRich":
-      return [
-        "At a glance",
-        "What is this medicine?",
-        "How to take it",
-        "Side effects",
-        "When to get urgent help",
-        "Sources",
-      ];
-    case "medLite":
-      return ["How long it takes", ...sheet.sections.map((section) => section.heading), "Sources"];
-    case "condition":
-      return ["In plain terms", "Signs to look for", "Why it happens", "What helps", "You’re not alone", "Sources"];
-    case "therapy":
-      return ["What it is", "How it works", "What to expect", "Sources"];
-    case "procedure":
-      return ["Why it matters", "How to prepare", "Step by step", "Staying safe", "Sources"];
-  }
-}
+/*
+ * `tocFor` used to live here: a hand-maintained switch over `sheet.kind`
+ * returning heading *strings*, painted into an inert `<li>` list in the detail
+ * page's sidebar. It was wrong in both directions — it named "What is this
+ * medicine?" where the page renders "What is <title>?", and never listed the
+ * More-in-topic or Related sections the page renders on every sheet — and it
+ * could not have been right, because nothing tied a string to a rendered
+ * element. The section index is now `factsheetNavSections`
+ * (`factsheet-nav-header.tsx`), which returns ids asserted against the rendered
+ * DOM by `tests/in-page-nav-route-sections.dom.test.tsx`.
+ */
