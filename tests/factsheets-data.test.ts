@@ -10,7 +10,6 @@ import {
   findFactsheet,
   printBlocks,
   relatedFactsheets,
-  tocFor,
 } from "@/components/factsheets/factsheets-data";
 
 const kinds = new Set(["medRich", "medLite", "condition", "therapy", "procedure"]);
@@ -82,13 +81,12 @@ describe("factsheet library", () => {
     }
   });
 
-  it("builds a print projection and table of contents for every kind", () => {
+  it("builds a print projection for every kind", () => {
     for (const sheet of factsheets) {
       const blocks = printBlocks(sheet);
       expect(blocks.length).toBeGreaterThan(0);
       // The sources block is always the final print block.
       expect(blocks.at(-1)?.kind).toBe("sources");
-      expect(tocFor(sheet)).toContain("Sources");
     }
   });
 

@@ -1,7 +1,14 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import {
+  MEDICATION_TAB_IDS,
+  medicationNavSections,
+  medicationSectionsByTab,
+} from "@/components/clinical-dashboard/medication-nav-header";
+import { MedicationRecordPage } from "@/components/clinical-dashboard/medication-record-page";
 import { DsmDiagnosisPage } from "@/components/dsm/dsm-diagnosis-page";
 import { dsmDiagnosisNavSections } from "@/components/dsm/dsm-diagnosis-nav-header";
 import {
@@ -9,6 +16,9 @@ import {
   dsmDifferentialNavSections,
   type DsmDifferentialConsideration,
 } from "@/components/dsm/dsm-differential-considerations-page";
+import { FactsheetDetailPage } from "@/components/factsheets/factsheet-detail-page";
+import { factsheetNavSections } from "@/components/factsheets/factsheet-nav-header";
+import { factsheets, type Factsheet } from "@/components/factsheets/factsheets-data";
 import { FormDetailPage, formNavSections } from "@/components/forms/form-detail-page";
 import { FormulationMechanismPage } from "@/components/formulation/formulation-mechanism-page";
 import { formulationNavSections } from "@/components/formulation/formulation-nav-header";
@@ -20,6 +30,7 @@ import { SpecifierRecordPage } from "@/components/specifiers/specifier-record-pa
 import { SpecifierReferencePage } from "@/components/specifiers/specifier-reference-page";
 import { dsmDiagnoses } from "@/lib/dsm";
 import { formRecords } from "@/lib/forms";
+import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import { formulationMechanisms } from "@/lib/formulation";
 import { serviceRecords } from "@/lib/services";
 import { specifierCatalogItems, curatedEnrichmentFor } from "@/lib/specifiers-content";
@@ -37,6 +48,16 @@ vi.mock("@/components/account-data-provider", () => ({
     setFavourite: vi.fn(async () => true),
   }),
 }));
+
+// The medication page refreshes its record through a live owner-aware fetch and
+// mounts two data-owning sidebar panels. None of that is section navigation, so
+// the page runs on its SSR fallback record here — exactly the content-first
+// state `tests/medication-record-page.dom.test.tsx` pins.
+vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
+  useMedicationDetail: () => ({ data: null, loading: false, error: null }),
+}));
+vi.mock("@/components/clinical-dashboard/patient-profile-panel", () => ({ PatientProfilePanel: () => null }));
+vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({ MedicationConsiderations: () => null }));
 
 afterEach(cleanup);
 
@@ -65,6 +86,17 @@ type RouteCase = {
    * being skipped.
    */
   conditional?: readonly string[];
+  /**
+   * Declared sections this fixture legitimately does not render, because no
+   * fixture of its kind carries the data (the therapy and procedure factsheets
+   * are each alone in their category, so neither has a "More in topic" list).
+   *
+   * These are asserted *absent* rather than skipped: an unrendered anchor is
+   * the case `useResolvedPageSections` must drop, so proving it is missing is
+   * as load-bearing as proving the others are present. Do not use this to
+   * silence a section that should render.
+   */
+  absent?: readonly string[];
 };
 
 const specifierRecord = specifierRecords[0];
@@ -73,6 +105,29 @@ const dsmDiagnosisWithKeyFeatures = dsmDiagnoses.find(
   (diagnosis) => diagnosis.key_features.length > 0 && diagnosis.criteria_display.length > 0,
 );
 const dsmDiagnosisWithDifferentials = dsmDiagnoses.find((diagnosis) => diagnosis.differentials.length > 0);
+
+/**
+ * One factsheet per `kind`. The five kinds render five different bodies, so a
+ * single fixture would leave four section sets unguarded — which is how `tocFor`
+ * (the hand-maintained switch this index replaces) drifted out of step with the
+ * page in the first place.
+ */
+function factsheetOfKind(kind: Factsheet["kind"]): Factsheet {
+  const sheet = factsheets.find((candidate) => candidate.kind === kind);
+  if (!sheet) throw new Error(`Expected a ${kind} factsheet fixture`);
+  return sheet;
+}
+
+function factsheetRoute(kind: Factsheet["kind"], absent?: readonly string[]): RouteCase {
+  const factsheet = factsheetOfKind(kind);
+  return {
+    name: `/factsheets/[slug] (${kind})`,
+    sections: factsheetNavSections(factsheet),
+    render: () => <FactsheetDetailPage factsheet={factsheet} />,
+    conditional: ["factsheet-more-in-topic"],
+    absent,
+  };
+}
 
 function buildConsiderations(values: string[]): DsmDifferentialConsideration[] {
   return values.map((value, index) => ({
@@ -133,6 +188,13 @@ const routes: RouteCase[] = [
       />
     ),
   },
+  factsheetRoute("medRich"),
+  factsheetRoute("medLite"),
+  factsheetRoute("condition"),
+  // `cbt` is the only Therapies sheet and `lithium-monitoring` the only Tests &
+  // procedures sheet, so neither has a topic sibling to list.
+  factsheetRoute("therapy", ["factsheet-more-in-topic"]),
+  factsheetRoute("procedure", ["factsheet-more-in-topic"]),
 ];
 
 describe("in-page navigation section contracts", () => {
@@ -142,11 +204,18 @@ describe("in-page navigation section contracts", () => {
       const { container } = render(route.render());
 
       for (const section of route.sections) {
+        const found = sectionTargetIds(section).some((id) => container.querySelector(`#${CSS.escape(id)}`));
+        if (route.absent?.includes(section.id)) {
+          // The other side of the same contract: this fixture carries no data
+          // for the section, so nothing may render its anchor and
+          // `useResolvedPageSections` drops the entry.
+          expect(found, `${route.name}: "${section.id}" renders an anchor it was declared not to have`).toBe(false);
+          continue;
+        }
         // A section may declare several breakpoint copies; jsdom applies no
         // Tailwind, so both are in the DOM here and any one of them proves the
         // anchor exists. Which copy is *displayed* is resolved at runtime by
         // `useResolvedPageSections`, and covered by the Playwright pair check.
-        const found = sectionTargetIds(section).some((id) => container.querySelector(`#${CSS.escape(id)}`));
         expect(found, `${route.name}: no element renders an anchor for "${section.id}"`).toBe(true);
       }
     },
@@ -160,6 +229,7 @@ describe("in-page navigation section contracts", () => {
       const { container } = render(route.render());
 
       for (const section of route.sections) {
+        if (route.absent?.includes(section.id)) continue;
         const anchor = sectionTargetIds(section)
           .map((id) => container.querySelector(`#${CSS.escape(id)}`))
           .find((element): element is Element => element !== null);
@@ -193,8 +263,84 @@ describe("in-page navigation section contracts", () => {
   });
 
   it("covers every route that mounts the shared header", () => {
-    // A seventh component converted without a case here would leave its
-    // declared sections unguarded, which is the whole failure mode.
-    expect(routes).toHaveLength(7);
+    // A component converted without a case here would leave its declared
+    // sections unguarded, which is the whole failure mode. Seven anchor-scrolling
+    // routes plus one factsheet case per `kind`; the medication page swaps
+    // panels rather than scrolling and is guarded by the suite below.
+    expect(routes).toHaveLength(12);
+  });
+});
+
+/**
+ * The panel-swap half of the same contract.
+ *
+ * Medications declare tab ids rather than DOM anchors — selecting one exchanges
+ * the rendered panel instead of scrolling to it, so there is nothing to carry
+ * `inPageAnchor` and the assertions above do not apply. What still must hold is
+ * `/issues #256`'s stop rule: every declared section resolves to something the
+ * route actually renders, proven against the DOM rather than by reading the
+ * table back to itself. Here that is the panel each tab id swaps in.
+ */
+describe("in-page navigation panel-swap contracts", () => {
+  // Every tab must have content, or "the panel swapped" would be indistinguishable
+  // from the empty state on a sparse record.
+  const medication = loadMedicationSnapshot().find((record) => {
+    const byTab = medicationSectionsByTab(record);
+    return MEDICATION_TAB_IDS.every((id) => byTab[id].length > 0);
+  });
+
+  it("has a medication fixture that fills all four tabs", () => {
+    expect(medication, "no snapshot medication renders every declared tab").toBeDefined();
+  });
+
+  it("/medications/[slug] swaps in a panel for every declared section", async () => {
+    const user = userEvent.setup();
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+
+    for (const section of medicationNavSections) {
+      await user.click(screen.getByTestId("medication-section-trigger"));
+      const sheet = screen.getByTestId("medication-section-sheet");
+      await user.click(within(sheet).getByRole("button", { name: new RegExp(`^${section.label}`) }));
+
+      const panel = document.querySelector(`#medication-panel-${CSS.escape(section.id)}`);
+      expect(panel, `no panel renders for the declared "${section.id}" section`).not.toBeNull();
+      // The panel is the live one, not a stale sibling left in the DOM.
+      expect(document.querySelectorAll('[id^="medication-panel-"]')).toHaveLength(1);
+    }
+  });
+
+  it("names every declared section in the visible rail, with its count", () => {
+    // The rail is the desktop navigation, so a section missing from it is
+    // unreachable above `sm` even though the sheet still lists it.
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const rail = screen.getByTestId("medication-section-rail");
+    const byTab = medicationSectionsByTab(medication!);
+
+    for (const section of medicationNavSections) {
+      const entry = within(rail).getByRole("button", { name: new RegExp(`^${section.label}`) });
+      expect(entry, `"${section.id}" is missing from the rail`).toBeInTheDocument();
+      expect(entry).toHaveTextContent(String(byTab[section.id as keyof typeof byTab].length));
+    }
+  });
+
+  it("swaps the panel from the rail, not only from the sheet", async () => {
+    const user = userEvent.setup();
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const rail = screen.getByTestId("medication-section-rail");
+
+    await user.click(within(rail).getByRole("button", { name: /^Safety/ }));
+
+    expect(document.querySelector("#medication-panel-safety")).not.toBeNull();
+    expect(within(rail).getByRole("button", { name: /^Safety/ })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("offers no dead segment: every declared tab holds at least one section", () => {
+    // The track always draws four segments, so a tab that could never hold
+    // content would be a permanently empty destination. This pins the grouping
+    // predicate against the real corpus rather than against itself.
+    const byTab = medicationSectionsByTab(medication!);
+    for (const id of MEDICATION_TAB_IDS) {
+      expect(byTab[id].length, `the "${id}" tab renders no sections`).toBeGreaterThan(0);
+    }
   });
 });

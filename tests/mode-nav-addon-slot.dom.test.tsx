@@ -47,6 +47,10 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/formulation/rumination")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder/differentials")).toBe(true);
+    // Factsheet and medication detail, converted onto the shared header.
+    expect(isHeaderAddonSlotOwnedRoute("/factsheets/sertraline")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/medications/sertraline")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/medications")).toBe(false);
 
     // The presentations workflow page renders no portal, and the shell index is
     // not a document detail route.
@@ -82,6 +86,8 @@ describe("header addon slot ownership", () => {
       "/formulation/rumination",
       "/dsm/diagnoses/major-depressive-disorder",
       "/dsm/diagnoses/major-depressive-disorder/differentials",
+      "/factsheets/sertraline",
+      "/medications/sertraline",
     ]) {
       expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
       expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
@@ -155,16 +161,20 @@ describe("header addon slot ownership", () => {
     };
     walk(join(process.cwd(), "src/components"));
 
-    // The four `*-nav-header.tsx` modules are the client halves of Server
-    // Component pages: sections carry `LucideIcon` values and the header needs
-    // hooks, neither of which crosses the RSC boundary, so the route's claim is
-    // registered in a sibling module rather than in the page itself.
+    // The `*-nav-header.tsx` modules are the section-table siblings
+    // `docs/search-chrome-behaviour.md` pins every new conversion to. For the
+    // four Server Component pages they are also a necessity — sections carry
+    // `LucideIcon` values and the header needs hooks, neither of which crosses
+    // the RSC boundary — while `factsheet-` and `medication-nav-header.tsx`
+    // adopt the same shape from Client Component pages by convention. Either
+    // way the route's claim is registered in the sibling, not the page.
     expect(claimants.sort()).toEqual([
       "src/components/DocumentViewer.tsx",
+      "src/components/clinical-dashboard/medication-nav-header.tsx",
       "src/components/differentials/differential-detail-page.tsx",
       "src/components/dsm/dsm-diagnosis-nav-header.tsx",
       "src/components/dsm/dsm-differential-considerations-page.tsx",
-      "src/components/factsheets/factsheet-detail-page.tsx",
+      "src/components/factsheets/factsheet-nav-header.tsx",
       "src/components/forms/form-detail-page.tsx",
       "src/components/formulation/formulation-nav-header.tsx",
       "src/components/services/service-detail-page.tsx",

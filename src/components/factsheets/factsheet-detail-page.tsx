@@ -7,7 +7,6 @@ import {
   Check,
   ChevronRight,
   Clock,
-  Download,
   HeartHandshake,
   Printer,
   Share2,
@@ -23,11 +22,11 @@ import {
   printBlocks,
   relatedFactsheets,
   sameTopicFactsheets,
-  tocFor,
   type Factsheet,
 } from "@/components/factsheets/factsheets-data";
 import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
-import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
+import { FactsheetNavHeader, factsheetBodySectionId } from "@/components/factsheets/factsheet-nav-header";
+import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, toneDanger, toneWarning } from "@/components/ui-primitives";
 import {
@@ -67,7 +66,6 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
 
   const related = relatedFactsheets(factsheet.slug);
   const moreInTopic = sameTopicFactsheets(factsheet.slug);
-  const toc = tocFor(factsheet);
   const blocks = printBlocks(factsheet, readingLevel);
 
   useEffect(() => {
@@ -112,31 +110,16 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
   return (
     <>
       <InformationPageShell testId="factsheet-detail-page" width="bleed" className="factsheet-screen">
-        {/* The breadcrumb shape of the shared in-page header: no section index,
-            so no disclosure and no segment track. Reading level is a page-level
-            view mode rather than an action, so it rides the `mode` slot and
-            stays out of the row reserved for verbs. */}
-        <InPageNavHeader
-          back={{ href: "/factsheets/search", label: "All factsheets" }}
-          showBackLabel={false}
-          title={factsheet.title}
-          primaryAction={{ label: "Download PDF", icon: Download, onClick: downloadPdf }}
-          mode={
-            // Only `medRich` sheets carry both reading levels; the other seven
-            // must not reserve the band.
-            factsheet.kind === "medRich"
-              ? {
-                  label: "Reading level",
-                  value: readingLevel,
-                  options: readingLevelOptions,
-                  onChange: (value) => setReadingLevel(value === "standard" ? "standard" : "easy"),
-                }
-              : undefined
-          }
-          actionsTitle="This factsheet"
-          actionsDescription={`${factsheet.title} · updated ${factsheet.reviewedOn}`}
-          actionsNoun="factsheet"
-          testIdPrefix="factsheet"
+        {/* Section index, disclosure and segment track now come from the sibling
+            that owns the table. Reading level stays a page-level view mode
+            rather than an action, so it rides the `mode` slot and stays out of
+            the row reserved for verbs. */}
+        <FactsheetNavHeader
+          factsheet={factsheet}
+          readingLevel={readingLevel}
+          readingLevelOptions={readingLevelOptions}
+          onReadingLevelChange={(value) => setReadingLevel(value === "standard" ? "standard" : "easy")}
+          onDownload={downloadPdf}
           actions={() => (
             // Deliberately does not close the sheet: saving is a state change
             // you want to see reflected on the control you just pressed. The
@@ -206,7 +189,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
             </div>
 
             {/* sources */}
-            <section className="mt-7">
+            <section id="factsheet-sources" className={cn(inPageAnchor, "mt-7")}>
               <Heading>Where this information comes from</Heading>
               <div className="mt-3 grid gap-2">
                 {factsheet.sources.map((source) => {
@@ -259,7 +242,10 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
 
             {/* more in topic */}
             {moreInTopic.length ? (
-              <section className="mt-7 border-t border-[color:var(--border)] pt-6">
+              <section
+                id="factsheet-more-in-topic"
+                className={cn(inPageAnchor, "mt-7 border-t border-[color:var(--border)] pt-6")}
+              >
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <Heading>More in {factsheet.category}</Heading>
                   <Link
@@ -305,7 +291,10 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
             ) : null}
 
             {/* related */}
-            <section className="mt-7 border-t border-[color:var(--border)] pt-6">
+            <section
+              id="factsheet-related"
+              className={cn(inPageAnchor, "mt-7 border-t border-[color:var(--border)] pt-6")}
+            >
               <Heading>Related sheets</Heading>
               <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                 {related.map((sheet) => {
@@ -362,16 +351,12 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                 {factsheet.reviewedOn}
               </p>
             </div>
-            <div className="border-t border-[color:var(--border)] p-4">
-              <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--text-muted)]">On this page</p>
-              <ul className="mt-2 grid gap-1.5">
-                {toc.map((item) => (
-                  <li key={item} className="text-sm text-[color:var(--text-muted)]">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {/* "On this page" used to live here as a plain `<li>` list built by
+                `tocFor` — display strings with no anchors behind them, so it
+                read as a table of contents and navigated nowhere. The header's
+                section disclosure now owns that job at every width, with the
+                labels derived from what this sheet actually renders, so a second
+                inert copy would be the same decoration twice. */}
             <div className="grid gap-2 border-t border-[color:var(--border)] p-4">
               <button
                 type="button"
@@ -430,7 +415,8 @@ function FactsheetBody({
       return (
         <div className="flex flex-col gap-6">
           <div
-            className="rounded-2xl border p-5"
+            id="factsheet-at-a-glance"
+            className={cn(inPageAnchor, "rounded-2xl border p-5")}
             style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
           >
             <p className="text-2xs font-bold uppercase tracking-label" style={{ color: theme.accent }}>
@@ -445,13 +431,13 @@ function FactsheetBody({
               ))}
             </div>
           </div>
-          <section>
+          <section id="factsheet-what" className={inPageAnchor}>
             <Heading>What is {factsheet.title.toLowerCase()}?</Heading>
             <p className="mt-2 max-w-[66ch] text-pretty text-base leading-7 text-[color:var(--text)]">
               {readingLevel === "easy" ? factsheet.whatEasy : factsheet.whatStandard}
             </p>
           </section>
-          <section>
+          <section id="factsheet-howto" className={inPageAnchor}>
             <Heading>How to take it</Heading>
             <div className="mt-3 flex flex-col gap-3">
               {factsheet.howto.map((step) => (
@@ -469,7 +455,7 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <section>
+          <section id="factsheet-side-effects" className={inPageAnchor}>
             <Heading>Side effects</Heading>
             <div className="mt-3 grid gap-3.5 sm:grid-cols-2">
               <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
@@ -510,7 +496,13 @@ function FactsheetBody({
               </div>
             </div>
           </section>
-          <div className="flex gap-3.5 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--surface)] p-5">
+          <div
+            id="factsheet-urgent"
+            className={cn(
+              inPageAnchor,
+              "flex gap-3.5 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--surface)] p-5",
+            )}
+          >
             <span className="grid h-tap w-tap shrink-0 place-items-center rounded-xl bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)]">
               <Zap className="h-5 w-5" aria-hidden="true" />
             </span>
@@ -527,7 +519,8 @@ function FactsheetBody({
       return (
         <div className="flex flex-col gap-5">
           <div
-            className="flex gap-3.5 rounded-2xl border p-4"
+            id="factsheet-timing"
+            className={cn(inPageAnchor, "flex gap-3.5 rounded-2xl border p-4")}
             style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
           >
             <Clock className="mt-0.5 h-5 w-5 shrink-0" style={{ color: theme.accent }} aria-hidden="true" />
@@ -536,8 +529,13 @@ function FactsheetBody({
               <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">{factsheet.timing}</p>
             </div>
           </div>
-          {factsheet.sections.map((section) => (
-            <section key={section.heading} className="border-l-[3px] pl-4" style={{ borderColor: theme.accent }}>
+          {factsheet.sections.map((section, index) => (
+            <section
+              key={section.heading}
+              id={factsheetBodySectionId(index)}
+              className={cn(inPageAnchor, "border-l-[3px] pl-4")}
+              style={{ borderColor: theme.accent }}
+            >
               <h2 className="text-lg-minus font-bold text-[color:var(--text-heading)]">{section.heading}</h2>
               <p className="mt-1.5 max-w-[64ch] text-pretty text-base-minus leading-7 text-[color:var(--text)]">
                 {section.body}
@@ -549,13 +547,13 @@ function FactsheetBody({
     case "condition":
       return (
         <div className="flex flex-col gap-6">
-          <section>
+          <section id="factsheet-plain-terms" className={inPageAnchor}>
             <Heading>In plain terms</Heading>
             <p className="mt-2 max-w-[66ch] text-pretty text-base leading-7 text-[color:var(--text)]">
               {factsheet.intro}
             </p>
           </section>
-          <section>
+          <section id="factsheet-signs" className={inPageAnchor}>
             <Heading>Signs to look for</Heading>
             <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
               {factsheet.signs.map((sign) => (
@@ -574,13 +572,13 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <section>
+          <section id="factsheet-why" className={inPageAnchor}>
             <Heading>Why it happens</Heading>
             <p className="mt-2 max-w-[66ch] text-pretty text-base leading-7 text-[color:var(--text)]">
               {factsheet.why}
             </p>
           </section>
-          <section>
+          <section id="factsheet-helps" className={inPageAnchor}>
             <Heading>What helps</Heading>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {factsheet.helps.map((help) => (
@@ -601,7 +599,8 @@ function FactsheetBody({
             </div>
           </section>
           <div
-            className="flex gap-3.5 rounded-2xl border p-5"
+            id="factsheet-support"
+            className={cn(inPageAnchor, "flex gap-3.5 rounded-2xl border p-5")}
             style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
           >
             <span
@@ -625,13 +624,13 @@ function FactsheetBody({
     case "therapy":
       return (
         <div className="flex flex-col gap-6">
-          <section>
+          <section id="factsheet-what-it-is" className={inPageAnchor}>
             <Heading>What it is</Heading>
             <p className="mt-2 max-w-[66ch] text-pretty text-base leading-7 text-[color:var(--text)]">
               {factsheet.intro}
             </p>
           </section>
-          <section>
+          <section id="factsheet-how-it-works" className={inPageAnchor}>
             <Heading>How it works</Heading>
             <div className="mt-3.5">
               {factsheet.steps.map((step, index) => (
@@ -657,7 +656,7 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <section>
+          <section id="factsheet-what-to-expect" className={inPageAnchor}>
             <Heading>What to expect</Heading>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {factsheet.expect.map((item) => (
@@ -676,13 +675,13 @@ function FactsheetBody({
     case "procedure":
       return (
         <div className="flex flex-col gap-6">
-          <section>
+          <section id="factsheet-why-it-matters" className={inPageAnchor}>
             <Heading>Why it matters</Heading>
             <p className="mt-2 max-w-[66ch] text-pretty text-base leading-7 text-[color:var(--text)]">
               {factsheet.why}
             </p>
           </section>
-          <section>
+          <section id="factsheet-prepare" className={inPageAnchor}>
             <Heading>How to prepare</Heading>
             <div className="mt-3 flex flex-col gap-2.5">
               {factsheet.prepare.map((item) => (
@@ -701,7 +700,7 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <section>
+          <section id="factsheet-timeline" className={inPageAnchor}>
             <Heading>Step by step</Heading>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {factsheet.timeline.map((step) => (
@@ -717,7 +716,10 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <div className={cn("flex gap-3.5 rounded-2xl border p-5", toneWarning)}>
+          <div
+            id="factsheet-staying-safe"
+            className={cn(inPageAnchor, "flex gap-3.5 rounded-2xl border p-5", toneWarning)}
+          >
             <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" aria-hidden="true" />
             <div>
               <p className="text-sm font-bold text-[color:var(--warning)]">Staying safe between tests</p>
