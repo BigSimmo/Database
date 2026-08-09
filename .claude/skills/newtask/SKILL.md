@@ -17,9 +17,12 @@ one-task-one-PR churn)". Only proceed to the steps below (which create a new bra
 worktree) once bundling doesn't apply: the work isn't independently low-risk by that
 rule's test, or there's no suitable open PR to ride.
 
-**Ask that same open-PR list a second question: is someone already building this?** A
-ledger row records that work is _wanted_, never that it is _underway_, so two sessions can
-read the same queued `/issues` item and both build it. That is not hypothetical — on
+**Ask that same open-PR list a second question: is someone already building this?** Some
+ledger rows carry a progress marker in their prose (`IN PROGRESS`, `IMPLEMENTED in PR
+#1766`), but there is no structured status field and no atomic claim — a marker is written
+by whoever did the work, usually after the fact, and nothing requires or checks one, so its
+absence means nothing. Two sessions can read the same queued `/issues` item and both build
+it. That is not hypothetical — on
 2026-08-09 two assistants took the same queued item about four hours apart and shipped the
 same conversion twice (PR #1766, and PR #1767 closed as a duplicate), which also left two
 divergent shapes to adjudicate afterwards. Before starting a queued item, scan the open PRs

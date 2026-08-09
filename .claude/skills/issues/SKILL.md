@@ -32,9 +32,11 @@ If a filter is given, filter the open items before rendering steps 2–3, then s
 queued tasks and matching non-queued items: `/issues P1` (by priority), `/issues issues` /
 `/issues recs` / `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
 
-**A row being open is not evidence that nobody is working on it.** The ledger records that work is
-_wanted_; it has no "in progress" state, so two sessions can read the same queued item and both build
-it (PR #1766 and the duplicate PR #1767, four hours apart, 2026-08-09). Before _acting_ on a queued
+**A row being open is not evidence that nobody is working on it.** Some rows carry a progress marker
+in their prose (`IN PROGRESS`, `IMPLEMENTED in PR #1766`), but there is no structured status field and
+no atomic claim — a marker is written by whoever did the work, usually after the fact, and nothing
+requires or checks one, so its absence means nothing. Two sessions can therefore read the same queued
+item and both build it (PR #1766 and the duplicate PR #1767, four hours apart, 2026-08-09). Before _acting_ on a queued
 item — not before merely reading the list back — check the open PRs for the route, component, or
 surface it touches, since a duplicate PR will rarely quote the ledger id. See the `newtask` skill's
 "Before you start", which makes this the same GitHub read it already does for PR bundling. A plain
