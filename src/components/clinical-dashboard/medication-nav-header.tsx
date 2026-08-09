@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ClipboardList, Layers, ShieldAlert } from "lucide-react";
+import { CalendarDays, ClipboardList, Layers, ShieldAlert, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
@@ -90,14 +90,18 @@ export function buildMedicationNavSections(record: MedicationRecord): PageSectio
   const weights = MEDICATION_TAB_IDS.map((id) => rawWeight(byTab[id].length));
   const total = weights.reduce((sum, weight) => sum + weight, 0) || 1;
 
-  return medicationNavSections.map((section, index) => ({
-    ...section,
-    detail: plural(byTab[section.id as MedicationTabId].length, "section"),
-    weight: (weights[index] ?? 1) / total,
-    // The trailing chevron in `DocumentSectionList` means "this row opens an
-    // accordion". Selecting a tab swaps a panel instead, so never claim it.
-    collapsible: false,
-  }));
+  return medicationNavSections.map((section, index) => {
+    const count = byTab[section.id as MedicationTabId].length;
+    return {
+      ...section,
+      count,
+      detail: plural(count, "section"),
+      weight: (weights[index] ?? 1) / total,
+      // The trailing chevron in `DocumentSectionList` means "this row opens an
+      // accordion". Selecting a tab swaps a panel instead, so never claim it.
+      collapsible: false,
+    };
+  });
 }
 
 /**
@@ -114,6 +118,7 @@ export function MedicationNavHeader({
   record,
   activeTab,
   onSelectTab,
+  onOpenPatientDetails,
   actions,
 }: {
   title: string;
@@ -121,6 +126,12 @@ export function MedicationNavHeader({
   record: MedicationRecord | null;
   activeTab: MedicationTabId;
   onSelectTab: (id: MedicationTabId) => void;
+  /**
+   * Opens the patient-details sheet. This is where the two cards that used to
+   * sit in the page body now live — the entry point moved into the header, the
+   * feature did not go anywhere.
+   */
+  onOpenPatientDetails: () => void;
   actions?: ReactNode;
 }) {
   const back = { href: appModeHomeHref("prescribing"), label: "Medications" };
@@ -131,10 +142,15 @@ export function MedicationNavHeader({
     actionsNoun: "medication" as const,
     actionsDescription: "Choose how to use this medication.",
     testIdPrefix: "medication" as const,
+    // Icon-only at every width: a person glyph carries "patient" on its own, and
+    // a labelled control here would push the group wide enough to squeeze the
+    // record title on a phone.
+    primaryAction: { label: "Patient details", icon: UserRound, onClick: onOpenPatientDetails },
+    primaryActionIconOnly: true,
   };
 
   // No record means no sections to offer, so the header falls back to the
-  // breadcrumb shape rather than drawing a four-segment track over nothing.
+  // breadcrumb shape rather than drawing a four-segment rail over nothing.
   if (!record) return <InPageNavHeader {...shared} />;
 
   return (
@@ -145,6 +161,7 @@ export function MedicationNavHeader({
       onSelectSection={(id) => {
         if (isMedicationTabId(id)) onSelectTab(id);
       }}
+      rail={{ label: "Medication sections" }}
     />
   );
 }

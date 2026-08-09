@@ -309,6 +309,31 @@ describe("in-page navigation panel-swap contracts", () => {
     }
   });
 
+  it("names every declared section in the visible rail, with its count", () => {
+    // The rail is the desktop navigation, so a section missing from it is
+    // unreachable above `sm` even though the sheet still lists it.
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const rail = screen.getByTestId("medication-section-rail");
+    const byTab = medicationSectionsByTab(medication!);
+
+    for (const section of medicationNavSections) {
+      const entry = within(rail).getByRole("button", { name: new RegExp(`^${section.label}`) });
+      expect(entry, `"${section.id}" is missing from the rail`).toBeInTheDocument();
+      expect(entry).toHaveTextContent(String(byTab[section.id as keyof typeof byTab].length));
+    }
+  });
+
+  it("swaps the panel from the rail, not only from the sheet", async () => {
+    const user = userEvent.setup();
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const rail = screen.getByTestId("medication-section-rail");
+
+    await user.click(within(rail).getByRole("button", { name: /^Safety/ }));
+
+    expect(document.querySelector("#medication-panel-safety")).not.toBeNull();
+    expect(within(rail).getByRole("button", { name: /^Safety/ })).toHaveAttribute("aria-current", "true");
+  });
+
   it("offers no dead segment: every declared tab holds at least one section", () => {
     // The track always draws four segments, so a tab that could never hold
     // content would be a permanently empty destination. This pins the grouping

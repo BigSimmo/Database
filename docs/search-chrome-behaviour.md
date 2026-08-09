@@ -191,15 +191,26 @@ shape that row:
 - `showBackLabel={false}` keeps the arrow alone at every width when the row also carries an
   action or a mode, so the title owns the space. `back.label` is still the accessible name
   and becomes the desktop tooltip.
-- `primaryAction` promotes exactly **one** page action, as `Button variant="secondary"` —
-  not the filled `--command` slab, because a control pinned to every scroll position should
-  not be the page's heaviest. Its label is `sr-only` below `sm` so the accessible name does
-  not change with the breakpoint. A second promoted control is what turns the row back into
-  the wrapping toolbar this shape replaced; everything else belongs in `actions`.
+- `primaryAction` promotes exactly **one** page action. It is **not** the filled `--command`
+  slab, because a control pinned to every scroll position should not be the page's heaviest.
+  Its label is `sr-only` below `sm` so the accessible name does not change with the
+  breakpoint; `primaryActionIconOnly` drops the label at every width for a glyph that carries
+  its own meaning (the patients control on medications). A second promoted control is what
+  turns the row back into the wrapping toolbar this shape replaced; everything else belongs
+  in `actions`.
+- **`primaryAction` and `actions` render as one joined group**, not two free-standing
+  controls: a single border and radius around both, with a hairline between them. A bordered
+  promoted action beside a borderless ellipsis reads as two unrelated things competing at the
+  end of the row — which is what `/factsheets/[slug]` shipped before this. A lone `actions`
+  trigger still gets the group's border, so the two cases look like the same control.
 - `mode` is a page-level **view** mode — how the page renders, not where you are in it — and
-  uses the shared `SegmentedControl`. Below `sm` it wraps to its own full-width band under
-  the row; from `sm` it sits inline and costs no extra height (measured on
-  `/factsheets/sertraline`: 131px phone, 75px from `sm`, 65px with no mode).
+  uses the shared `SegmentedControl`. From `sm` it sits inline in the row and costs no extra
+  height. Below `sm` it renders **inside the actions sheet** under its own label, because a
+  mode you set once and then read past does not earn permanent pinned chrome on the smallest
+  screen; the full-width band it used to claim was the only second phone row on any converted
+  page. Both copies are always in the DOM with CSS choosing one per breakpoint, so there is no
+  state to keep in step. `mode` therefore **requires `actions`** — with no sheet to move into,
+  a phone would have no way to reach it.
 
 Used by `medication-nav-header.tsx` while the record is still loading (no record, no
 sections) and by `factsheet-nav-header.tsx` for the seven non-`medRich` sheets, which carry
@@ -235,6 +246,30 @@ buttons, so a `role="tab"` / `aria-controls` pair would name a tablist that no l
 Keep a per-tab `id` on the panel — that is the rendered evidence a declared section resolves
 to something real, which is what the panel-swap half of
 `tests/in-page-nav-route-sections.dom.test.tsx` asserts in place of the anchor check.
+
+**The two-rail variant (`rail`).** A panel-swap route with few enough sections to name in a
+row may pass `rail={{ label }}` and get `InPageSectionRail` in place of the weighted track:
+icon, label and a `count` badge per section, active one underlined. `/medications/[slug]` is
+the only adopter, and the prop exists so it stays the only one by choice rather than by
+drift — `/factsheets/[slug]`'s eight anchored sections would overflow the row this is meant
+to simplify, and a scrolling route already has a spy moving the active state continuously.
+
+The rail changes three things about the row above it:
+
+- **From `sm` the title stops being a disclosure.** Every section is already named in the
+  rail, so the chevron would open a list of the same destinations. The title renders as plain
+  text and the section sheet is unreachable. Below `sm` the rail scrolls, so the disclosure
+  returns as its overflow — that is the "two rails" shape.
+- **The rail is not a `role="tablist"`.** The same sections are reachable from the sheet on a
+  phone, so a roving-tabindex group would put half the destinations behind arrow keys and half
+  behind Tab. Ordinary buttons are reachable both ways.
+- **`count` is a separate field from `detail`.** The sheet row has space for "3 sections" and
+  the badge does not; parsing digits back out of the prose would break the first time a route
+  worded its detail differently.
+
+Rail items are `min-h-12` like every other production tap target. Two rails are tall on a
+phone and `min-h-11` would buy back 4px per rail — do not take it. That is the substitution
+`AGENTS.md` calls out, and it reintroduces a known `ui-smoke` sub-pixel flake.
 
 ### The differentials presentations workflow keeps its own layout — decided, not pending
 

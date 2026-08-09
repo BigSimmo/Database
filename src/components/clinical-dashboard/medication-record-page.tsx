@@ -18,7 +18,7 @@ import {
   Timer,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { MedicationConsiderations } from "@/components/clinical-dashboard/medication-considerations";
@@ -56,6 +56,7 @@ import {
   toneWarning,
 } from "@/components/ui-primitives";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import { Sheet } from "@/components/ui/sheet";
 
 const sectionIcons: Record<string, LucideIcon> = {
   dose: CalendarDays,
@@ -357,10 +358,11 @@ function MedicationRecordDetail({
             ))}
           </section>
 
-          <section className="space-y-2.5">
-            <PatientProfilePanel defaultOpen={false} />
-            <MedicationConsiderations record={record} />
-          </section>
+          {/* The patient-profile and considerations cards used to sit here,
+              between the hero stats and the sections. They moved behind the
+              header's patients control: they are a per-patient overlay on a
+              reference record, not part of the record, and inline they pushed
+              every section below a permanently-empty prompt. */}
 
           {/* The panel is no longer a `tabpanel`: the control that swaps it is
               the shared header's section list, which is a list of buttons rather
@@ -430,6 +432,8 @@ export function MedicationRecordPage({
   // (SSR fallback → live), and every record offers the same four tabs, so the
   // selection survives that swap rather than snapping back to Summary.
   const [activeTab, setActiveTab] = useState<MedicationTabId>("summary");
+  const [patientOpen, setPatientOpen] = useState(false);
+  const patientTriggerRef = useRef<HTMLElement | null>(null);
 
   return (
     <>
@@ -438,7 +442,22 @@ export function MedicationRecordPage({
         record={record}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        onOpenPatientDetails={() => setPatientOpen(true)}
       />
+      <Sheet
+        open={patientOpen}
+        onClose={() => setPatientOpen(false)}
+        title="Patient details"
+        description="Optional. Used only in this browser to tailor dosing, safety and contraindication notes."
+        closeLabel="Close patient details"
+        returnFocusRef={patientTriggerRef}
+        testId="medication-patient-sheet"
+      >
+        <div className="grid gap-3">
+          <PatientProfilePanel defaultOpen />
+          {record ? <MedicationConsiderations record={record} /> : null}
+        </div>
+      </Sheet>
       <InformationPageShell testId={`medication-page-${slug}`} gap={false}>
         <div className="mt-3">
           {record ? (
