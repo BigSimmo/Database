@@ -173,6 +173,43 @@ describe("DocumentViewer — shell states", () => {
     expect(screen.queryByText("Sign in required")).toBeNull();
   });
 
+  // Search/answer opens always attach ?chunk=…. Citation landing used to
+  // scrollIntoView(#pdf-preview-section) whenever a chunk was present, which
+  // skipped the phone overview at the top. Open at the top; the PDF still
+  // targets the cited page inside its own canvas.
+  it("does not auto-scroll the page to the PDF when opening with a chunk deep-link", async () => {
+    const scrolledIds: string[] = [];
+    vi.mocked(Element.prototype.scrollIntoView).mockImplementation(function scrollIntoView(this: Element) {
+      if (this.id) scrolledIds.push(this.id);
+    });
+
+    const detail = detailPayload();
+    detail.chunks = [
+      {
+        id: "chunk-1",
+        page_number: 1,
+        chunk_index: 0,
+        section_heading: "Scope",
+        content: "Cited passage",
+        image_ids: [],
+        metadata: {},
+      },
+    ];
+    detail.window.selectedChunkId = "chunk-1";
+    detail.window.chunks.selectedChunkId = "chunk-1";
+    detail.chunkWindow.selectedChunkId = "chunk-1";
+
+    render(<DocumentViewer documentId="doc-1" initialPage={1} chunkId="chunk-1" initialDetail={detail} />);
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
+    expect(document.getElementById("pdf-preview-section")).not.toBeNull();
+
+    // Let any mount effects that would have scrolled settle.
+    await waitFor(() => {
+      expect(scrolledIds).not.toContain("pdf-preview-section");
+    });
+  });
+
   it("requires two characters and ignores an aborted search response after the query changes", async () => {
     const pendingSearches: Array<{
       url: string;
