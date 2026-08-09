@@ -120,6 +120,9 @@ const metrics = {
   darkColorOverrides: 0,
   legacyShadowAliases: 0,
   arbitraryTracking: 0,
+  rawPaddingLiterals: 0,
+  rawRadiusLiterals: 0,
+  rawLineHeightLiterals: 0,
   layoutTransitionExceptions: 0,
   textSoftConsumers: 0,
 };
@@ -176,6 +179,9 @@ for (const file of files) {
   recordDebt("darkColorOverrides", file.relativePath, classAnalysis.darkColorOverrides.length);
   recordDebt("legacyShadowAliases", file.relativePath, classAnalysis.legacyShadowAliases.length);
   recordDebt("arbitraryTracking", file.relativePath, classAnalysis.arbitraryTracking.length);
+  recordDebt("rawPaddingLiterals", file.relativePath, classAnalysis.rawPaddingLiterals.length);
+  recordDebt("rawRadiusLiterals", file.relativePath, classAnalysis.rawRadiusLiterals.length);
+  recordDebt("rawLineHeightLiterals", file.relativePath, classAnalysis.rawLineHeightLiterals.length);
   densityOverrideFindings.push(...classAnalysis.densityOverrides);
   hardcodedMotionClassFindings.push(...classAnalysis.hardcodedMotionClasses);
   layoutTransitionFindings.push(...classAnalysis.layoutTransitions);
@@ -186,6 +192,9 @@ for (const file of files) {
     recordDebt("hardcodedCssMotionDurations", file.relativePath, cssAnalysis.hardcodedMotionDurations.length);
     recordDebt("rawCssZIndices", file.relativePath, cssAnalysis.rawZIndices.length);
     recordDebt("legacyShadowAliases", file.relativePath, cssAnalysis.legacyShadowAliases.length);
+    recordDebt("rawPaddingLiterals", file.relativePath, cssAnalysis.rawPaddingLiterals.length);
+    recordDebt("rawRadiusLiterals", file.relativePath, cssAnalysis.rawRadiusLiterals.length);
+    recordDebt("rawLineHeightLiterals", file.relativePath, cssAnalysis.rawLineHeightLiterals.length);
     imageInversionFindings.push(...cssAnalysis.imageInversions);
     layoutTransitionFindings.push(...cssAnalysis.layoutTransitions);
   }
@@ -401,6 +410,9 @@ console.log(
 );
 console.log(
   `Status-colour boundary: colour-only status indicators ${metrics.colourOnlyStatusIndicators}; status-coloured numerals ${metrics.statusColouredNumerals}; image inversions ${imageInversionFindings.length}.`,
+);
+console.log(
+  `Scale ratchets: raw padding literals ${metrics.rawPaddingLiterals}; raw radius literals ${metrics.rawRadiusLiterals}; raw line-height literals ${metrics.rawLineHeightLiterals}.`,
 );
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);

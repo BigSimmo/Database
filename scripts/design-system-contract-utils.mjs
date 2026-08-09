@@ -289,6 +289,41 @@ const INVERSION_FUNCTION = /(?:invert|hue-rotate)\(/;
 // the sanctioned token form and is deliberately NOT counted, exactly as
 // `text-[color:var(--…)]` is exempt from the type-scale check.
 const ARBITRARY_TRACKING_UTILITY = /^tracking-\[(?!var\()[^\]]+\]$/;
+/**
+ * Spacing, radius and line-height written as a bare literal — `px-[22px]`,
+ * `rounded-[7px]`, `leading-[1.15]` — rather than picked off the scale.
+ *
+ * These deliberately exempt any arbitrary value containing a CSS *function*,
+ * not just `var(`. `tracking-[var(--…)]` above can use the narrower `(?!var\()`
+ * because letterspacing is only ever a token or a literal, but padding is not:
+ * production carries `pb-[env(safe-area-inset-bottom)]`,
+ * `pt-[max(0.75rem,var(--safe-area-top))]`, `pt-[clamp(1.5rem,5vh,3rem)]` and
+ * `pb-[calc(7rem+env(safe-area-inset-bottom))]`. Those are computed from the
+ * viewport or the safe-area inset, cannot be spelled as a scale step, and are
+ * sanctioned. A `(?!var\()` lookahead would flag every one of them, because
+ * they open with `max(`, `clamp(`, `env(` or `calc(` rather than `var(`.
+ *
+ * So the rule is: a value with no function call in it at all is a raw literal.
+ * That keeps the sanctioned computed forms out without enumerating them.
+ */
+const RAW_LITERAL_VALUE = String.raw`\[(?![^\]]*\w\()[^\]]+\]`;
+const RAW_PADDING_UTILITY = new RegExp(String.raw`^p[xytrbles]?-${RAW_LITERAL_VALUE}$`);
+const RAW_RADIUS_UTILITY = new RegExp(
+  String.raw`^rounded(?:-(?:[trblse]|[tb][lr]|ss|se|ee|es))?-${RAW_LITERAL_VALUE}$`,
+);
+const RAW_LINE_HEIGHT_UTILITY = new RegExp(String.raw`^leading-${RAW_LITERAL_VALUE}$`);
+/**
+ * The CSS-declaration half of the same three rules, so a literal cannot simply
+ * move from a class into `globals.css` to escape the ratchet — the same reason
+ * `legacyShadowAliases` and the colour ratchet count both sides.
+ *
+ * `0` in any unit carries no design decision and is exempt, as are the CSS-wide
+ * keywords and `line-height: normal`.
+ */
+const RAW_PADDING_PROPERTY = /^padding(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?$/;
+const RAW_RADIUS_PROPERTY = /^border(?:-(?:top|bottom)-(?:left|right)|-(?:start|end)-(?:start|end))?-radius$/;
+const CSS_WIDE_KEYWORD = /^(?:inherit|initial|unset|revert|revert-layer|normal|auto)$/;
+const CSS_ZERO_VALUE = /^-?0(?:\.0+)?(?:px|rem|em|%|vh|vw|vmin|vmax|ch|ex)?$/;
 const LEGACY_SHADOW_ALIAS = /var\(--shadow-(?:tight|card|soft|hover|elevated|lux|lift)\)/g;
 const LEGACY_PALETTE_UTILITY =
   /^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(?:white|black|(?:slate|gray|zinc|neutral|stone)-\d{2,3})(?:\/\d{1,3})?$/;
@@ -974,7 +1009,11 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     legacyTapClasses: [],
     legacyPaletteUtilities: [],
     literalShadowClasses: [],
+    rawLineHeightLiterals: [],
+    rawPaddingLiterals: [],
+    rawRadiusLiterals: [],
     statusColouredNumerals: [],
+    typeStepUsages: [],
     unapprovedZIndices: [],
   };
   if (!analyzer) return result;
@@ -1057,6 +1096,9 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     }
     if (LITERAL_SHADOW_UTILITY.test(base)) result.literalShadowClasses.push(`${relativePath}:${line} (${token})`);
     if (ARBITRARY_TRACKING_UTILITY.test(base)) result.arbitraryTracking.push(`${relativePath}:${line} (${token})`);
+    if (RAW_PADDING_UTILITY.test(base)) result.rawPaddingLiterals.push(`${relativePath}:${line} (${token})`);
+    if (RAW_RADIUS_UTILITY.test(base)) result.rawRadiusLiterals.push(`${relativePath}:${line} (${token})`);
+    if (RAW_LINE_HEIGHT_UTILITY.test(base)) result.rawLineHeightLiterals.push(`${relativePath}:${line} (${token})`);
     if (hasLegacyTapClass(token)) result.legacyTapClasses.push(`${relativePath}:${line} (${token})`);
     for (const match of token.matchAll(LEGACY_SHADOW_ALIAS)) {
       result.legacyShadowAliases.push(`${relativePath}:${line} (${match[0]})`);
@@ -1186,11 +1228,32 @@ export function analyzeCssContractsInSource(relativePath, sourceText) {
     layoutTransitions: [],
     legacyShadowAliases: [],
     onePixelShadowSpreads: [],
+    rawLineHeightLiterals: [],
+    rawPaddingLiterals: [],
+    rawRadiusLiterals: [],
     rawZIndices: [],
   };
   for (const declaration of cssDeclarations(sourceText)) {
     const line = declaration.source?.start?.line ?? 1;
     const prop = declaration.prop.toLowerCase();
+    // Custom-property declarations are the token definitions themselves — the
+    // scale has to be written down somewhere — so only real properties count.
+    if (!prop.startsWith("--")) {
+      const value = declaration.value.trim();
+      const isRawLiteral = !/\w\(/.test(value) && !CSS_WIDE_KEYWORD.test(value);
+      const everyPartIsZero = value.split(/\s+/).every((part) => CSS_ZERO_VALUE.test(part));
+      if (isRawLiteral && !everyPartIsZero) {
+        if (RAW_PADDING_PROPERTY.test(prop)) {
+          result.rawPaddingLiterals.push(`${relativePath}:${line} (${prop}: ${value})`);
+        }
+        if (RAW_RADIUS_PROPERTY.test(prop)) {
+          result.rawRadiusLiterals.push(`${relativePath}:${line} (${prop}: ${value})`);
+        }
+        if (prop === "line-height") {
+          result.rawLineHeightLiterals.push(`${relativePath}:${line} (${prop}: ${value})`);
+        }
+      }
+    }
     if (/^(?:-webkit-)?(?:backdrop-)?filter$/.test(prop)) {
       for (const match of declaration.value.matchAll(/\b(invert|hue-rotate)\(/g)) {
         result.imageInversions.push(`${relativePath}:${line} (${prop}: ${match[1]}())`);
@@ -1235,6 +1298,24 @@ export function findCssLayoutTransitionsInSource(relativePath, sourceText) {
 
 export function countRawCssZIndicesInSource(sourceText) {
   return analyzeCssContractsInSource("source.css", sourceText).rawZIndices.length;
+}
+
+export function findRawScaleLiteralClassesInSource(relativePath, sourceText) {
+  const analysis = analyzeClassContractsInSource(relativePath, sourceText);
+  return {
+    padding: analysis.rawPaddingLiterals,
+    radius: analysis.rawRadiusLiterals,
+    lineHeight: analysis.rawLineHeightLiterals,
+  };
+}
+
+export function findRawScaleLiteralDeclarationsInSource(sourceText) {
+  const analysis = analyzeCssContractsInSource("source.css", sourceText);
+  return {
+    padding: analysis.rawPaddingLiterals,
+    radius: analysis.rawRadiusLiterals,
+    lineHeight: analysis.rawLineHeightLiterals,
+  };
 }
 
 export function findDebtPathRegressions(metric, currentByPath, baselineByPath) {
