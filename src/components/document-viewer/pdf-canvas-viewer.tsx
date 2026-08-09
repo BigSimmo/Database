@@ -246,15 +246,20 @@ const PdfPageSlot = memo(function PdfPageSlot({
   // in a virtualized column, for every page they have ever visited. Zeroing the
   // dimensions releases it when the page leaves the window, not at some later
   // collection.
-  useEffect(
-    () => () => {
-      const canvas = canvasRef.current;
+  //
+  // Capture the concrete node while `render` is true so that when the effect
+  // re-runs with `render === false` the canvas has already been removed from the
+  // DOM and `canvasRef.current` is null — using the captured reference ensures
+  // the cleanup always has access to the element.
+  useEffect(() => {
+    if (!render) return;
+    const canvas = canvasRef.current;
+    return () => {
       if (!canvas) return;
       canvas.width = 0;
       canvas.height = 0;
-    },
-    [],
-  );
+    };
+  }, [render]);
 
   useEffect(() => {
     if (!render) setPainted(false);
@@ -764,6 +769,18 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   const handleGeometry = useCallback((_pageNumber: number, geometry: PageGeometry) => {
     setReferenceGeometry((current) => current ?? geometry);
   }, []);
+
+  // Rotation changes the page's physical dimensions (portrait ↔ landscape). The
+  // reference geometry must be discarded so the first page to render after the
+  // rotation seeds a fresh, correct fallback — otherwise unrendered slots keep
+  // the pre-rotation dimensions and slots jump as they render into their new size.
+  const prevRotationRef = useRef(rotation);
+  useEffect(() => {
+    if (prevRotationRef.current !== rotation) {
+      prevRotationRef.current = rotation;
+      setReferenceGeometry(null);
+    }
+  }, [rotation]);
 
   const handleRenderStateChange = useCallback((pageNumber: number, rendering: boolean) => {
     setRenderingPages((current) => {
