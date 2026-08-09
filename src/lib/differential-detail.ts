@@ -127,6 +127,47 @@ export function resolveSafetyFacts(record: DifferentialRecord): DifferentialSafe
   return facts.slice(0, 4);
 }
 
+/** Compact phone labels for the Safety Snapshot metric strip. Longer labels
+ *  wrap awkwardly in equal 3-column cells; the full label remains the
+ *  accessible name via the fact's `label` field. */
+export const safetyFactCompactLabel: Partial<Record<DifferentialSafetyFact["id"], string>> = {
+  causes: "High-risk",
+  tests: "Core tests",
+  actions: "Actions",
+  related: "Related",
+  "high-risk": "High risk",
+};
+
+function normalizeSafetyToken(value: string): string {
+  return value
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[.,;:]+$/g, "")
+    .toLowerCase();
+}
+
+/** Split a summary or tag into comparable watch-for tokens (comma, slash, "and"). */
+function splitSafetyTokens(value: string): string[] {
+  return value
+    .split(/\s*(?:,|\/|\band\b)\s*/i)
+    .map(normalizeSafetyToken)
+    .filter(Boolean);
+}
+
+/** True when every summary token is already covered by the Watch-for tags.
+ *  Prefer tags in the card; keep the summary whenever it adds any unique risk
+ *  token (tags being a subset of the summary must not hide those extras). */
+export function isRedundantSafetySummary(summary: string, tags: readonly string[]): boolean {
+  const summaryTokens = [...new Set(splitSafetyTokens(summary))];
+  if (summaryTokens.length === 0) return true;
+
+  const tagTokens = [...new Set(tags.flatMap((tag) => splitSafetyTokens(tag)))];
+  if (tagTokens.length === 0) return false;
+
+  const tagSet = new Set(tagTokens);
+  return summaryTokens.every((token) => tagSet.has(token));
+}
+
 /** Deterministic plain-text register of the record for the "Copy after
  *  review" action: headline, hinge, safety summary, then actionable lists,
  *  ending with the on-page disclaimer. */
