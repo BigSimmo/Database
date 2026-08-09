@@ -134,7 +134,7 @@ export function resolveDiagnosisTerm(
   return resolveSingleCleaned(cleaned, titleMap, routableSlugs, options.excludeSlug);
 }
 
-const SEGMENT_SPLIT = /\s*\/\s*|\s*,\s*/;
+const SEGMENT_SPLIT = /\s*[,;]\s*/;
 
 /**
  * Split composite presentation tags / comma lists into ordered segments and

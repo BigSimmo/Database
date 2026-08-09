@@ -1161,7 +1161,7 @@ export function DifferentialDetailPage({
               <SafetySnapshot
                 record={record}
                 onReviewMustNotMiss={reviewMustNotMiss}
-                termLinks={detailContext.termLinks}
+                termLinks={detailContext.termLinks ?? {}}
               />
               <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
                 <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
@@ -1191,7 +1191,7 @@ export function DifferentialDetailPage({
                     record={record}
                     open={openSections.has(section.id)}
                     onOpenChange={setSectionOpen}
-                    termLinks={detailContext.termLinks}
+                    termLinks={detailContext.termLinks ?? {}}
                   />
                 ))}
               </div>

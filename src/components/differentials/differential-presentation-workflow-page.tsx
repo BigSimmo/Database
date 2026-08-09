@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import {
   Activity,
   ArrowLeft,
@@ -336,15 +337,19 @@ function SafetySnapshot({ workflow }: { workflow: DifferentialPresentationWorkfl
                 );
               }
               const segments = resolveDiagnosisTermSegments(tag);
-              return segments.map((segment, index) => (
-                <DiagnosisTermChip
-                  key={`${tag}-${segment.text}-${index}`}
-                  label={segment.text}
-                  slug={segment.slug}
-                  tone="danger"
-                  className="min-h-6 px-2 text-2xs font-bold xl:min-h-7 xl:text-xs"
-                />
-              ));
+              return (
+                <Fragment key={tag}>
+                  {segments.map((segment, index) => (
+                    <DiagnosisTermChip
+                      key={`${tag}-${segment.text}-${index}`}
+                      label={segment.text}
+                      slug={segment.slug}
+                      tone="danger"
+                      className="min-h-6 px-2 text-2xs font-bold xl:min-h-7 xl:text-xs"
+                    />
+                  ))}
+                </Fragment>
+              );
             })}
           </div>
         </div>
