@@ -56,7 +56,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       >
         <HeartIcon size={17} />
       </button>
-      <div className="grid grid-cols-1 items-start gap-3 px-4 py-3.5 pr-[calc(0.75rem+var(--spacing-tap)+0.5rem)] sm:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] sm:gap-4 sm:px-5 sm:py-4 sm:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
+      <div className="grid grid-cols-1 items-start gap-3 px-4 py-3.5 pr-[calc(0.75rem+var(--spacing-tap)+0.5rem)] md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] md:gap-4 md:px-5 md:py-4 md:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
         <div className="flex min-w-0 gap-3">
           <IconTile icon={ScaleIcon} size={38} />
           <div className="min-w-0 flex-1">
