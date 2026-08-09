@@ -13,24 +13,40 @@ const sectionAnchorAliases: Record<string, string[]> = {
 };
 
 /**
- * The section's element as currently rendered, or null when the section is on
- * the page but not displayed at this breakpoint.
+ * The first of `ids` that is currently rendered, or null when none of them is
+ * displayed at this breakpoint.
  *
  * A `display: none` element still resolves by id and reports a zero rect, which
  * reads as "at the very top of the viewport" — enough to make a hidden phone
  * panel win the active-section race on desktop. Size is the only reliable test.
+ *
+ * Exported as the candidate-list primitive so a caller that already knows a
+ * section's breakpoint copies supplies them directly. `usePageSectionWeights`
+ * is that caller: page sections declare their copies as `PageSection.targetIds`
+ * rather than through the viewer's alias map below, and the two had drifted into
+ * separate copies of this same loop.
  */
-export function resolveSectionElement(id: string): HTMLElement | null {
+export function resolveVisibleElement(ids: readonly string[]): HTMLElement | null {
   if (typeof window === "undefined") return null;
 
-  for (const candidate of [id, ...(sectionAnchorAliases[id] ?? [])]) {
-    const element = window.document.getElementById(candidate);
+  for (const id of ids) {
+    const element = window.document.getElementById(id);
     if (!element) continue;
     const rect = element.getBoundingClientRect();
     if (rect.width > 0 || rect.height > 0) return element;
   }
 
   return null;
+}
+
+/**
+ * The document section's element as currently rendered, resolved through the
+ * viewer's alias map: the viewer builds its sections from the indexed payload
+ * (`buildDocumentSectionIndex`), so there is no declaration site on which to
+ * hang per-section `targetIds` the way an information page has.
+ */
+export function resolveSectionElement(id: string): HTMLElement | null {
+  return resolveVisibleElement([id, ...(sectionAnchorAliases[id] ?? [])]);
 }
 
 /**
