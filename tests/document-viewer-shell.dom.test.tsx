@@ -65,7 +65,7 @@ vi.mock("@/components/document-viewer/pdf-canvas-viewer", () => ({
 import { DocumentViewer } from "@/components/DocumentViewer";
 import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
 
-function detailPayload() {
+function detailPayload(): DocumentDetailPayload {
   return {
     document: {
       id: "doc-1",
@@ -101,7 +101,7 @@ function detailPayload() {
     },
     pageWindow: { from: 1, to: 4, limit: 4, total: 4, hasBefore: false, hasAfter: false },
     chunkWindow: { offset: 0, limit: 8, total: 8, hasBefore: false, hasAfter: false, selectedChunkId: null },
-  } satisfies DocumentDetailPayload;
+  };
 }
 
 // In demo / local-no-auth mode every document is public, so the private-access
