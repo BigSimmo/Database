@@ -53,8 +53,12 @@ it there. Do not bump Playwright, do not pin `pdfjs-dist` down, and do not run `
 Write a Playwright viewer-canvas journey asserting a page actually paints: non-blank canvas pixels,
 correct page count, page-flip changes the raster. Expect it to fail locally with
 `getOrInsertComputed is not a function` and pass in CI. Guard it so the local failure is an explicit
-skip-with-reason, never a silent green — `docs/testing.md` flake policy applies. Then supersede `#279`
-with `npm run ledger:append -- --supersede`, recording it as container-only with the measured numbers.
+skip-with-reason, never a silent green — `docs/testing.md` flake policy applies.
+
+`#279` lives in `docs/outstanding-issues.md`, so close it with `npm run issues:done -- '#279'` (or
+`issues:update` if the gate is only partly built) — **not** `ledger:append --supersede`, which appends to
+the separate branch-review ledger and would leave the durable row untouched. Its refuted remedy has
+already been struck from the row; record the gate you built as the resolution.
 
 Everything below is proven by that gate in CI plus focused unit tests locally.
 
