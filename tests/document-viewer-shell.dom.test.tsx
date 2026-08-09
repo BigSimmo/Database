@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // DocumentViewer resolves a four-way shell state (loading / ready / auth-required
@@ -204,10 +204,12 @@ describe("DocumentViewer — shell states", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
     expect(document.getElementById("pdf-preview-section")).not.toBeNull();
 
-    // Let any mount effects that would have scrolled settle.
-    await waitFor(() => {
-      expect(scrolledIds).not.toContain("pdf-preview-section");
+    // Flush mount effects before the negative assertion. A waitFor that can
+    // pass while scrolledIds is still empty would miss a late scrollIntoView.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
+    expect(scrolledIds).not.toContain("pdf-preview-section");
   });
 
   it("requires two characters and ignores an aborted search response after the query changes", async () => {

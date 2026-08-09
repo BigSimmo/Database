@@ -394,6 +394,7 @@
         "tests/answer-render-policy.test.ts",
         "tests/citations.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/document-viewer-shell.dom.test.tsx",
         "tests/rag-claim-support.test.ts",
         "tests/rag-eval-source-governance.test.ts",
         "tests/source-backed-recovery-cross-reference.test.ts",
