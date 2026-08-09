@@ -24,6 +24,7 @@ import {
   cn,
   codeText,
   eyebrowText,
+  ignoreUnavailableActivation,
   pageContainer,
   panelSubtle,
   searchFocusRing,
@@ -262,7 +263,8 @@ function RefinePanel({ open, panelId }: { open: boolean; panelId: string }) {
         </div>
         <button
           type="button"
-          disabled
+          aria-disabled="true"
+          onClick={ignoreUnavailableActivation}
           title="Coming soon"
           className={cn(
             "cursor-not-allowed rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] opacity-70",
@@ -413,7 +415,8 @@ function PathwayPanel() {
       <div className="mt-5 flex justify-center">
         <button
           type="button"
-          disabled
+          aria-disabled="true"
+          onClick={ignoreUnavailableActivation}
           title="Coming soon"
           className={cn(
             "inline-flex min-h-9 cursor-not-allowed items-center gap-3 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] opacity-70",
@@ -712,7 +715,8 @@ function MobilePathway() {
       </div>
       <button
         type="button"
-        disabled
+        aria-disabled="true"
+        onClick={ignoreUnavailableActivation}
         title="Coming soon"
         className={cn(
           "mx-auto mt-1 flex min-h-8 cursor-not-allowed items-center gap-2 rounded-md px-2 text-sm-minus font-extrabold text-[color:var(--clinical-accent)] opacity-70",
@@ -852,8 +856,8 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             </p>
             <button
               type="button"
-              disabled
               aria-disabled="true"
+              onClick={ignoreUnavailableActivation}
               aria-describedby="form-filters-unavailable"
               title="Form filters — coming soon"
               className="inline-flex min-h-tap cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)] opacity-60 sm:min-h-9"
