@@ -268,11 +268,11 @@ export function DocumentViewerRail({
                   detailed cards below it are what get windowed. */}
               <DocumentImageFilmstrip images={clinicalImages} activePage={activePage} onSelectPage={onSelectPage} />
               <DocumentImageList
+                key={`${document?.id ?? "none"}:clinical`}
                 images={clinicalImages}
                 activePage={activePage}
                 onSelectPage={onSelectPage}
                 revealLabel="Tables and diagrams"
-                collectionKey={`${document?.id ?? "none"}:clinical`}
               />
             </>
           )}
@@ -283,11 +283,11 @@ export function DocumentViewerRail({
               </summary>
               <div className="mt-3 grid gap-3">
                 <DocumentImageList
+                  key={`${document?.id ?? "none"}:audit`}
                   images={auditImages}
                   activePage={activePage}
                   onSelectPage={onSelectPage}
                   revealLabel="Administrative and reference tables"
-                  collectionKey={`${document?.id ?? "none"}:audit`}
                 />
               </div>
             </details>
