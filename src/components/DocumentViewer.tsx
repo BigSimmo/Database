@@ -1493,6 +1493,10 @@ export function DocumentViewer({
                     fullscreen={pdfFullscreen}
                     onFitWidthChange={handlePdfFitWidthChange}
                     onZoomChange={handlePdfZoomChange}
+                    // The same handler DocumentFrame's rotate control uses, so
+                    // the keyboard reaches rotation without the viewer owning a
+                    // second copy of that state.
+                    onRotate={handlePdfRotate}
                   />
                 ) : (
                   <NonPdfSourcePreview

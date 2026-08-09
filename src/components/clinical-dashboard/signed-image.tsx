@@ -46,7 +46,15 @@ export const SignedImage = memo(function SignedImage({
   failureLabel?: string;
   /** Label for the retry button in the failed state. */
   retryLabel?: string;
-  /** IntersectionObserver root margin that gates the network request. */
+  /**
+   * IntersectionObserver root margin that gates the network request.
+   *
+   * The default is a wide lookahead, which suits a surface whose images are the
+   * point of the page. A long secondary list should pass something tighter: the
+   * margin is what decides how many signed URLs are in flight at once, and with
+   * no cross-surface scheduler it is also what decides which surface's requests
+   * go first.
+   */
   rootMargin?: string;
   /** When true, the loaded image is clickable and opens a fullscreen lightbox. */
   zoomable?: boolean;
@@ -173,6 +181,13 @@ export const SignedImage = memo(function SignedImage({
           sizes="(max-width: 768px) 92vw, 320px"
           unoptimized
           priority={priority}
+          // Decode priority, not just fetch order. An above-the-fold evidence
+          // figure competes for the main thread with the page it is part of;
+          // a deferred rail crop does not need to, and saying so explicitly is
+          // what keeps a long figure rail from contending with whatever the
+          // reader is actually looking at. next/image already emits
+          // `decoding="async"`, so this is the missing half of that pair.
+          fetchPriority={priority ? "high" : "low"}
           onLoad={() => setLoaded(true)}
           onError={handleImageError}
           className={cn(

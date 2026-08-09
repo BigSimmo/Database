@@ -207,6 +207,109 @@ describe("InPageNavHeader", () => {
     await waitFor(() => expect(screen.queryByTestId("service-actions-sheet")).toBeNull());
   });
 
+  it("drops the section machinery when the page has no sections", () => {
+    // A one-item sheet and a single full-width segment are what the section
+    // shape degrades to on a breadcrumb page, so neither is rendered at all.
+    // Omit `sections` entirely — an empty array would still demand a select
+    // handler under the discriminated props contract.
+    renderHeader({ sections: undefined, activeId: undefined, onSelectSection: undefined });
+
+    expect(screen.queryByTestId("service-section-trigger")).toBeNull();
+    expect(screen.queryByTestId("service-section-sheet")).toBeNull();
+    expect(screen.getByText("Community Alcohol and Drug Services (CADS) network")).toBeInTheDocument();
+  });
+
+  it("keeps the back destination named when its label is hidden", () => {
+    // Hiding the text must not cost the accessible name — it is the only thing
+    // that says where the arrow goes.
+    renderHeader({ sections: undefined, activeId: undefined, onSelectSection: undefined, showBackLabel: false });
+
+    const back = screen.getByRole("link", { name: "Back to services" });
+    expect(back).toHaveAttribute("href", "/services");
+    expect(within(back).queryByText("Services")).toBeNull();
+  });
+
+  it("promotes one action and keeps its name across breakpoints", async () => {
+    const user = userEvent.setup();
+    const pressed: string[] = [];
+    renderHeader({
+      sections: undefined,
+      activeId: undefined,
+      onSelectSection: undefined,
+      primaryAction: { label: "Download PDF", icon: Compass, onClick: () => pressed.push("download") },
+    });
+
+    // The label is `sr-only` below `sm` rather than removed, so this name holds
+    // at every width.
+    await user.click(screen.getByRole("button", { name: "Download PDF" }));
+    expect(pressed).toEqual(["download"]);
+  });
+
+  it("renders a view mode as a radiogroup and reports the chosen value", async () => {
+    const user = userEvent.setup();
+    const chosen: string[] = [];
+    renderHeader({
+      sections: undefined,
+      activeId: undefined,
+      onSelectSection: undefined,
+      mode: {
+        label: "Reading level",
+        value: "easy",
+        options: [
+          { value: "easy", label: "Easy read" },
+          { value: "standard", label: "Standard" },
+        ],
+        onChange: (value) => chosen.push(value),
+      },
+    });
+
+    const group = screen.getByRole("radiogroup", { name: "Reading level" });
+    expect(within(group).getByRole("radio", { name: "Easy read" })).toBeChecked();
+
+    await user.click(within(group).getByRole("radio", { name: "Standard" }));
+    expect(chosen).toEqual(["standard"]);
+  });
+
+  it("renders no view mode when the page has none", () => {
+    renderHeader({ sections: undefined, activeId: undefined, onSelectSection: undefined });
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+  });
+
+  it("keeps phone tab order aligned with the painted header rows", () => {
+    // Below `sm`, mode is the lower full-width band. Putting it before the
+    // verbs in the DOM made keyboard focus enter the lower band then jump back
+    // up to Download / ellipsis. DOM order is now verbs then mode; `sm:order-*`
+    // only rearranges the desktop paint.
+    renderHeader({
+      sections: undefined,
+      activeId: undefined,
+      onSelectSection: undefined,
+      primaryAction: { label: "Download PDF", icon: Compass, onClick: () => undefined },
+      mode: {
+        label: "Reading level",
+        value: "easy",
+        options: [
+          { value: "easy", label: "Easy read" },
+          { value: "standard", label: "Standard" },
+        ],
+        onChange: () => undefined,
+      },
+      actions: <button type="button">Save</button>,
+      actionsNoun: "factsheet",
+    });
+
+    const header = screen.getByTestId("service-detail-header");
+    const focusables = Array.from(
+      header.querySelectorAll('a[href], button:not([disabled]), [role="radio"]'),
+    ) as HTMLElement[];
+    const names = focusables.map((el) => {
+      if (el.getAttribute("role") === "radio") return el.textContent?.trim() ?? "";
+      return el.getAttribute("aria-label") || el.textContent?.replace(/\s+/g, " ").trim() || "";
+    });
+
+    expect(names).toEqual(["Back to services", "Download PDF", "Open factsheet actions", "Easy read", "Standard"]);
+  });
+
   it("accepts plain node actions from a Server Component page", async () => {
     // Four of the seven converted pages are Server Components. React cannot pass
     // a function across that boundary, so the render-prop form alone would fail

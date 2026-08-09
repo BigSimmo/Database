@@ -189,6 +189,7 @@ describe("differentials API routes", () => {
     const payload = (await response.json()) as {
       detailContext?: {
         knownRelatedSlugs?: string[];
+        termLinks?: Record<string, string>;
         overlapLinks?: Record<string, string>;
         comparePresentation?: { slug: string } | null;
       };
@@ -197,6 +198,7 @@ describe("differentials API routes", () => {
     expect(response.status).toBe(200);
     expectPrivateCache(response);
     expect(payload.detailContext?.knownRelatedSlugs).toEqual([]);
+    expect(payload.detailContext?.termLinks).toEqual({});
     expect(payload.detailContext?.overlapLinks).toEqual({});
     expect(payload.detailContext?.comparePresentation).toBeNull();
   });

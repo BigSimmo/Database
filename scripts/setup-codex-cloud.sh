@@ -34,11 +34,30 @@ repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "Run this scrip
 cd "$repo_root"
 
 expected_node_major="$(tr -cd '0-9' < .node-version)"
+expected_node_range="$(sed -n 's/.*"node"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -n 1)"
+expected_node_floor="$(printf '%s\n' "$expected_node_range" | sed -n 's/^>=\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\) <[0-9][0-9]*$/\1/p')"
+expected_node_ceiling="$(printf '%s\n' "$expected_node_range" | sed -n 's/^>=[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]* <\([0-9][0-9]*\)$/\1/p')"
 expected_npm_version="$(sed -n 's/.*"packageManager"[[:space:]]*:[[:space:]]*"npm@\([^"]*\)".*/\1/p' package.json | head -n 1)"
 codex_cli_version="0.146.0"
 expected_cloud_python="3.12"
 [[ -n "$expected_node_major" ]] || fail "Could not read the Node major from .node-version."
+[[ -n "$expected_node_floor" && -n "$expected_node_ceiling" ]] || fail "Could not read the bounded Node range from package.json engines.node."
 [[ -n "$expected_npm_version" ]] || fail "Could not read the npm version from package.json."
+
+node_version_supported() {
+  local version="$1"
+  local actual_major actual_minor actual_patch minimum_major minimum_minor minimum_patch
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+  IFS=. read -r actual_major actual_minor actual_patch <<< "$version"
+  IFS=. read -r minimum_major minimum_minor minimum_patch <<< "$expected_node_floor"
+
+  (( actual_major < expected_node_ceiling )) || return 1
+  (( actual_major > minimum_major )) && return 0
+  (( actual_major == minimum_major )) || return 1
+  (( actual_minor > minimum_minor )) && return 0
+  (( actual_minor == minimum_minor )) || return 1
+  (( actual_patch >= minimum_patch ))
+}
 
 # Codex Cloud supplies standards-based proxy variables as well. Remove npm's
 # deprecated lowercase aliases before the first npm invocation.
@@ -62,16 +81,19 @@ install_npm_cli() {
 setup_step="node-runtime"
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 setup_step="node-runtime"
-actual_node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
-if [[ "$actual_node_major" != "$expected_node_major" ]]; then
-  [[ -s "$NVM_DIR/nvm.sh" ]] || fail "Node ${expected_node_major}.x is required. Select it in the Codex Cloud environment or provide nvm."
+actual_node_version="$(node -p 'process.versions.node' 2>/dev/null || true)"
+if ! node_version_supported "$actual_node_version"; then
+  [[ -s "$NVM_DIR/nvm.sh" ]] || fail "Node ${expected_node_range} is required; detected ${actual_node_version:-unavailable}. Select it in the Codex Cloud environment or provide nvm."
   # shellcheck source=/dev/null
   source "$NVM_DIR/nvm.sh"
-  log "Installing and selecting Node ${expected_node_major}.x."
+  log "Installing and selecting Node ${expected_node_major}.x to satisfy ${expected_node_range}."
   nvm install "$expected_node_major"
   nvm alias default "$expected_node_major"
   nvm use "$expected_node_major"
 fi
+
+actual_node_version="$(node -p 'process.versions.node' 2>/dev/null || true)"
+node_version_supported "$actual_node_version" || fail "Node ${expected_node_range} is required; detected ${actual_node_version:-unavailable}."
 
 if [[ "$(npm --version)" != "$expected_npm_version" ]]; then
   log "Installing the repository npm version ${expected_npm_version}."

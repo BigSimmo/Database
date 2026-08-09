@@ -17,7 +17,15 @@ export function isDetailTabId(value: string | null | undefined): value is Differ
 export type DifferentialDetailContext = {
   /** related[].id values verified against the diagnosis catalog (safe to link). */
   knownRelatedSlugs: string[];
-  /** Cleaned mimic/overlap item text -> diagnosis slug (exact title matches only). */
+  /**
+   * Cleaned Watch-for tags + section item labels → diagnosis slug.
+   * Exact catalog title or curated alias only (see differential-diagnosis-links).
+   */
+  termLinks: Record<string, string>;
+  /**
+   * Cleaned mimic/overlap item text → diagnosis slug.
+   * Derived subset of `termLinks` for overlap-tone items (back-compat).
+   */
   overlapLinks: Record<string, string>;
   /** First presentation workflow that lists this diagnosis as a candidate. */
   comparePresentation: { slug: string; title: string } | null;

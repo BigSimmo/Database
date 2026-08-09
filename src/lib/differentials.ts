@@ -1,4 +1,5 @@
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+import { buildDiagnosisTitleSlugMap, buildTermLinkMap } from "@/lib/differential-diagnosis-links";
 import { cleanDifferentialItem, type DifferentialDetailContext } from "@/lib/differential-detail";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import { deriveGovernanceFromSnapshot } from "@/lib/differential-records";
@@ -370,15 +371,6 @@ export function presentationStaticParams() {
   return differentialPresentations().map((presentation) => ({ slug: presentation.id }));
 }
 
-function diagnosisTitleSlugMap(records: DifferentialRecord[]) {
-  const titleToSlug = new Map<string, string>();
-  for (const record of records) {
-    const key = cleanDifferentialItem(record.title).toLowerCase();
-    if (key && !titleToSlug.has(key)) titleToSlug.set(key, record.slug);
-  }
-  return titleToSlug;
-}
-
 /** Server-computed context for the diagnosis detail page. Everything the page
  *  needs from the full catalog travels in this small serializable payload so
  *  the client component never imports the generated snapshot. */
@@ -397,14 +389,25 @@ export function getDifferentialDetailContext(
     ...new Set(record.related.map((node) => node.id).filter((id) => routableDiagnosisSlugs.has(id))),
   ];
 
+  const titleMap = buildDiagnosisTitleSlugMap(catalogRecords);
+  // Owner-row payloads can be partial in tests/live drift — never assume tags/items exist.
+  const termLabels = [
+    ...(record.safetySnapshot?.tags ?? []),
+    ...(record.sections ?? []).flatMap((section) => section.items ?? []),
+  ];
+  const termLinks = buildTermLinkMap(termLabels, {
+    excludeSlug: record.slug,
+    titleMap,
+    routableSlugs: routableDiagnosisSlugs,
+  });
+
   const overlapLinks: Record<string, string> = {};
-  const titleMap = diagnosisTitleSlugMap(catalogRecords);
-  for (const section of record.sections) {
+  for (const section of record.sections ?? []) {
     if (section.tone !== "overlap") continue;
-    for (const item of section.items) {
+    for (const item of section.items ?? []) {
       const cleaned = cleanDifferentialItem(item);
-      const slug = titleMap.get(cleaned.toLowerCase());
-      if (slug && slug !== record.slug && routableDiagnosisSlugs.has(slug)) overlapLinks[cleaned] = slug;
+      const slug = termLinks[cleaned];
+      if (slug) overlapLinks[cleaned] = slug;
     }
   }
 
@@ -419,6 +422,7 @@ export function getDifferentialDetailContext(
   const governance = deriveGovernanceFromSnapshot(snapshot);
   return {
     knownRelatedSlugs,
+    termLinks,
     overlapLinks,
     comparePresentation: presentation ? { slug: presentation.id, title: presentation.title } : null,
     source: {

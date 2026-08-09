@@ -303,6 +303,14 @@ export function DocumentImage({
         failureLabel="Image preview failed."
         retryLabel="Retry"
         expandLabel={isWideCrop ? "Open full screen" : undefined}
+        // Tighter than the shared default. The rail is secondary evidence beside
+        // (desktop) or below (phone) the source the reader opened, and the wide
+        // default lookahead minted signed URLs for rows most of a viewport away
+        // — competing with the page's own above-the-fold work for no benefit,
+        // since those rows are not on screen when the requests land. There is no
+        // cross-surface request scheduler, so this differential IS the ordering:
+        // surfaces that keep the wide margin resolve first.
+        rootMargin={RAIL_IMAGE_ROOT_MARGIN}
         // No `min-h-*` here. `aspect-ratio` transfers size constraints across
         // axes, so a min-height of 10rem on a 3:1 table crop became a *minimum
         // width* of 480px and blew the phone card past the viewport. The frame
@@ -428,6 +436,104 @@ export function DocumentImage({
         </div>
       ) : null}
     </figure>
+  );
+}
+
+/**
+ * Rows revealed before the reader has scrolled anywhere near the end of them.
+ * Six covers the great majority of indexed documents outright, so most rails
+ * never mount a sentinel at all.
+ */
+const RAIL_IMAGE_WINDOW = 6;
+
+/**
+ * Lookahead for the rail's own signed-URL requests, against `SignedImage`'s
+ * wider default. See the call site in `DocumentImage` for why they differ.
+ */
+const RAIL_IMAGE_ROOT_MARGIN = "240px 0px";
+
+/**
+ * The figure rail, windowed.
+ *
+ * A `DocumentImage` is not a cheap row. Each one parses table markdown, decides
+ * whether a structured `AccessibleTable` can render at all, computes quality
+ * warnings and evidence tags, and mounts a `SignedImage` frame. A guideline with
+ * ninety indexed tables paid all of that on hydration, for every row, before the
+ * reader had opened the section — and the audit list underneath paid it again.
+ *
+ * Signed-URL fetches were already deferred behind `SignedImage`'s own
+ * IntersectionObserver, so this is not primarily about network. What it removes
+ * is the mount cost of rows nobody has looked at, and the `640px` observer
+ * root-margin fanning requests out well past a tall desktop viewport once the
+ * section does open.
+ *
+ * Deliberately no virtualization dependency: rows have data-dependent heights, a
+ * windowed list needs no measurement to be correct, and `check:bundle-budget`
+ * totals every built chunk — a library here would land straight on it.
+ */
+export function DocumentImageList({
+  images,
+  activePage,
+  onSelectPage,
+  revealLabel,
+}: {
+  images: ImageRow[];
+  activePage?: number;
+  onSelectPage?: (page: number) => void;
+  /** Accessible label for the manual reveal control. */
+  revealLabel: string;
+}) {
+  const [requestedCount, setRequestedCount] = useState(RAIL_IMAGE_WINDOW);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // Derived rather than synchronised: the list shrinking underneath the reader (a
+  // reindex, or navigating documents without remounting the rail) clamps here
+  // during render, so there is no effect that can leave the window pointing past
+  // the end of the array for a frame.
+  // Document changes remount this list via `key` at the call site so an expanded
+  // window cannot carry into the next guideline.
+  const visibleCount = Math.min(Math.max(requestedCount, RAIL_IMAGE_WINDOW), images.length);
+  const remaining = Math.max(images.length - visibleCount, 0);
+
+  useEffect(() => {
+    if (remaining === 0) return () => undefined;
+    const sentinel = sentinelRef.current;
+    if (!sentinel || !("IntersectionObserver" in window)) return () => undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        setRequestedCount((current) => Math.min(current + RAIL_IMAGE_WINDOW, images.length));
+      },
+      // Enough to land the next rows before they are reached, far less than the
+      // signed-image observer's own 640px so the two do not both run far ahead.
+      { rootMargin: "320px 0px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [images.length, remaining]);
+
+  return (
+    <>
+      {images.slice(0, visibleCount).map((image) => (
+        <DocumentImage key={image.id} image={image} activePage={activePage} onSelectPage={onSelectPage} />
+      ))}
+      {remaining > 0 ? (
+        // The control is not only a no-IntersectionObserver fallback: it is the
+        // only way to reach the rest of the list without scrolling, which is what
+        // a keyboard or screen-reader user needs.
+        <div ref={sentinelRef} data-testid="document-image-reveal" className="pt-1">
+          <button
+            type="button"
+            onClick={() => setRequestedCount(images.length)}
+            className={cn(secondaryButton, "w-full justify-center")}
+            aria-label={`${revealLabel} — show the remaining ${remaining}`}
+          >
+            <FileImage aria-hidden="true" className="h-4 w-4" />
+            Show {remaining} more
+          </button>
+        </div>
+      ) : null}
+    </>
   );
 }
 
