@@ -58,8 +58,12 @@ describe("require-button-wiring", () => {
     expect(messageIds('<button type="button" disabled aria-disabled="false">x</button>')).toEqual([]);
   });
 
-  it("keeps the spread escape hatch", () => {
+  it("keeps the spread escape hatch for unwired checks only", () => {
     expect(messageIds('<button type="button" {...props} />')).toEqual([]);
-    expect(messageIds('<button type="button" {...props} disabled aria-disabled="true" />')).toEqual([]);
+    // Explicit pair after a spread is still the forbidden pairing — native wins
+    // on focus, so the rule must not let the spread escape hatch hide it.
+    expect(messageIds('<button type="button" {...props} disabled aria-disabled="true" />')).toEqual([
+      "redundantDisabledPair",
+    ]);
   });
 });

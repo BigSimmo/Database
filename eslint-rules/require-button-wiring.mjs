@@ -132,14 +132,16 @@ const rule = {
     return {
       JSXOpeningElement(node) {
         if (node.name.type !== "JSXIdentifier" || node.name.name !== "button") return;
-        // A spread may inject a handler dynamically — don't flag.
-        if (node.attributes.some((attr) => attr.type === "JSXSpreadAttribute")) return;
         // The redundant pairing is wrong on any button, not just type="button",
-        // so it is checked before the type gate below.
+        // and must run before the spread escape: explicit `disabled` +
+        // `aria-disabled` after `{...props}` still create the forbidden pair
+        // (native wins on focus regardless of anything the spread injects).
         if (hasRedundantDisabledPair(node.attributes)) {
           context.report({ node, messageId: "redundantDisabledPair" });
           return;
         }
+        // A spread may inject a handler dynamically — don't flag unwired.
+        if (node.attributes.some((attr) => attr.type === "JSXSpreadAttribute")) return;
         // Only inspect explicit type="button"; submit/reset/dynamic are out of scope.
         if (!node.attributes.some((attr) => isTypeButton(attr))) return;
         if (node.attributes.some((attr) => isWiringAttr(attr))) return;
