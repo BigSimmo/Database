@@ -195,6 +195,23 @@ describe("check-bundle-budget CLI exit", () => {
       rmSync(sandbox, { recursive: true, force: true });
     }
   });
+
+  it("fails closed when a discovered route manifest cannot be decoded", async () => {
+    const sandbox = makeSandbox();
+    const appDir = path.join(sandbox, ".next", "server", "app");
+    mkdirSync(path.join(appDir, MOCKUP_ROUTE_SEGMENT, "demo"), { recursive: true });
+    writeFileSync(
+      path.join(appDir, MOCKUP_ROUTE_SEGMENT, "demo", "page_client-reference-manifest.js"),
+      'globalThis.__RSC_MANIFEST["/mockups/demo"]={truncated',
+    );
+    const result = await runCli(sandbox);
+    try {
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("could not be decoded");
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("compareToBudget", () => {
@@ -224,6 +241,21 @@ describe("compareToBudget", () => {
   it("treats exactly-at-tolerance as ok", () => {
     const v = compareToBudget({ totalGzipBytes: 1100 }, { enforce: true, tolerancePct: 10, totalGzipBytes: 1000 });
     expect(v.status).toBe("ok");
+  });
+
+  it("treats an unchanged zero baseline as within tolerance", () => {
+    // `--update` can record mockups.gzipBytes: 0; (0-0)/0 must not become NaN fail.
+    const v = compareToBudget({ totalGzipBytes: 0 }, { enforce: true, tolerancePct: 25, totalGzipBytes: 0 });
+    expect(v.status).toBe("ok");
+    expect(v.overPct).toBe(0);
+    expect(v.reason).toBe("within tolerance");
+  });
+
+  it("treats any growth from a zero baseline as over tolerance", () => {
+    const v = compareToBudget({ totalGzipBytes: 40 }, { enforce: true, tolerancePct: 25, totalGzipBytes: 0 });
+    expect(v.status).toBe("fail");
+    expect(v.overPct).toBe(Number.POSITIVE_INFINITY);
+    expect(v.reason).toContain("+∞%");
   });
 });
 
@@ -302,12 +334,15 @@ describe("production vs mockup chunk attribution", () => {
   }
 
   it("parses chunk names out of a route client-reference manifest", () => {
-    expect([...clientChunkNamesFromManifestSource(manifest("/page", ["a.js", "b.js"]))]).toEqual(["a.js", "b.js"]);
+    const names = clientChunkNamesFromManifestSource(manifest("/page", ["a.js", "b.js"]));
+    expect(names).toBeInstanceOf(Set);
+    expect([...(names ?? [])]).toEqual(["a.js", "b.js"]);
   });
 
-  it("returns nothing rather than throwing on an unparseable manifest", () => {
-    expect([...clientChunkNamesFromManifestSource("module.exports = {}")]).toEqual([]);
-    expect([...clientChunkNamesFromManifestSource('globalThis.__RSC_MANIFEST["/x"]={oops;')]).toEqual([]);
+  it("returns null rather than an empty set on an unparseable manifest", () => {
+    // Empty set means "decoded, no client chunks"; null is the fail-closed signal.
+    expect(clientChunkNamesFromManifestSource("module.exports = {}")).toBeNull();
+    expect(clientChunkNamesFromManifestSource('globalThis.__RSC_MANIFEST["/x"]={oops;')).toBeNull();
   });
 
   it("charges a chunk shared with a production route to production, not to scratch", () => {
@@ -324,6 +359,7 @@ describe("production vs mockup chunk attribution", () => {
     expect([...result.mockupExclusive]).toEqual(["scratch.js"]);
     expect(result.routeCount).toBe(2);
     expect(result.mockupRouteCount).toBe(1);
+    expect(result.unparseable).toEqual([]);
   });
 
   it("treats nested mockup routes as scratch and API route manifests as production", () => {
@@ -334,6 +370,7 @@ describe("production vs mockup chunk attribution", () => {
     const result = partitionRouteClientChunks("app", { readDir, readFile });
     expect([...result.mockupExclusive]).toEqual(["deep.js"]);
     expect(result.mockupRouteCount).toBe(1);
+    expect(result.unparseable).toEqual([]);
   });
 
   it("leaves chunks no route claims on the production side", () => {
@@ -355,5 +392,39 @@ describe("production vs mockup chunk attribution", () => {
   it("reports no routes when the manifest tree is empty, so the caller can fail closed", () => {
     const { readDir, readFile } = fakeTree({});
     expect(partitionRouteClientChunks("app", { readDir, readFile }).routeCount).toBe(0);
+  });
+
+  it("surfaces a malformed mockup manifest instead of counting it as resolved", () => {
+    // Counting before parse let one valid root + one truncated mockup exit 0
+    // while the mockup budget silently measured nothing.
+    const { readDir, readFile } = fakeTree({
+      "app/page_client-reference-manifest.js": manifest("/page", ["main.js"]),
+      [`app/${MOCKUP_ROUTE_SEGMENT}/demo/page_client-reference-manifest.js`]:
+        'globalThis.__RSC_MANIFEST["/mockups/demo"]={truncated',
+    });
+    const result = partitionRouteClientChunks("app", { readDir, readFile });
+    expect(result.unparseable).toEqual([`app/${MOCKUP_ROUTE_SEGMENT}/demo/page_client-reference-manifest.js`]);
+    expect(result.routeCount).toBe(1);
+    expect(result.mockupRouteCount).toBe(0);
+    expect([...result.mockupExclusive]).toEqual([]);
+  });
+
+  it("surfaces a malformed production manifest so shared chunks cannot drift to scratch", () => {
+    // Asymmetric case: production fails to parse, mockup still parses. Without
+    // fail-closed attribution, `shared.js` would only appear in mockupChunks and
+    // be subtracted from the production budget.
+    const { readDir, readFile } = fakeTree({
+      "app/page_client-reference-manifest.js": 'globalThis.__RSC_MANIFEST["/page"]={truncated',
+      [`app/${MOCKUP_ROUTE_SEGMENT}/demo/page_client-reference-manifest.js`]: manifest("/mockups/demo", [
+        "shared.js",
+        "scratch.js",
+      ]),
+    });
+    const result = partitionRouteClientChunks("app", { readDir, readFile });
+    expect(result.unparseable).toEqual(["app/page_client-reference-manifest.js"]);
+    expect(result.routeCount).toBe(1);
+    expect(result.mockupRouteCount).toBe(1);
+    // Caller must fail before trusting mockupExclusive; do not compute budgets from this.
+    expect(result.unparseable.length).toBeGreaterThan(0);
   });
 });

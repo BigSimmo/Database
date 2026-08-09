@@ -162,11 +162,20 @@ export function compareToBudget(current, budget) {
   if (baseline == null) {
     return { status: "warn", reason: "no baseline recorded", overPct: null, baseline, tolerancePct, enforce };
   }
-  const overPct = ((current.totalGzipBytes - baseline) / baseline) * 100;
-  const withinTolerance = overPct <= tolerancePct;
+  // A zero baseline is valid (e.g. `--update` after a build with no mockup-exclusive
+  // chunks). `(0 - 0) / 0` is NaN and would permanently fail an unchanged empty
+  // budget; treat that as within tolerance, and any growth from zero as unbounded.
+  const overPct =
+    baseline === 0
+      ? current.totalGzipBytes === 0
+        ? 0
+        : Number.POSITIVE_INFINITY
+      : ((current.totalGzipBytes - baseline) / baseline) * 100;
+  const withinTolerance = Number.isFinite(overPct) && overPct <= tolerancePct;
+  const overPctLabel = Number.isFinite(overPct) ? overPct.toFixed(1) : "∞";
   return {
     status: withinTolerance ? "ok" : enforce ? "fail" : "warn",
-    reason: withinTolerance ? "within tolerance" : `+${overPct.toFixed(1)}% vs baseline (tolerance ${tolerancePct}%)`,
+    reason: withinTolerance ? "within tolerance" : `+${overPctLabel}% vs baseline (tolerance ${tolerancePct}%)`,
     overPct,
     baseline,
     tolerancePct,
@@ -207,25 +216,26 @@ function loadRootPageClientReferenceManifest() {
  * Parse any per-route `*_client-reference-manifest.js` and return the client
  * chunk names it references. Next 16 (webpack) emits no `app-build-manifest.json`,
  * so these per-route manifests are the only route -> chunk mapping available.
- * Unparseable input yields an empty set; the caller decides whether that is fatal.
+ * Returns `null` when the file cannot be decoded so callers can fail closed —
+ * an empty set only means a successfully parsed route with no client chunks.
  *
  * @param {string} source raw manifest file contents
- * @returns {Set<string>} chunk names relative to `.next/static/chunks`
+ * @returns {Set<string>|null} chunk names relative to `.next/static/chunks`, or null
  */
 export function clientChunkNamesFromManifestSource(source) {
   const names = new Set();
   const marker = "globalThis.__RSC_MANIFEST[";
   const start = source.indexOf(marker);
-  if (start < 0) return names;
+  if (start < 0) return null;
   const assign = source.indexOf("]=", start);
-  if (assign < 0) return names;
+  if (assign < 0) return null;
   const end = source.lastIndexOf(";");
-  if (end <= assign) return names;
+  if (end <= assign) return null;
   let manifest;
   try {
     manifest = JSON.parse(source.slice(assign + 2, end));
   } catch {
-    return names;
+    return null;
   }
   for (const clientModule of Object.values(manifest?.clientModules ?? {})) {
     for (const chunk of Array.isArray(clientModule?.chunks) ? clientModule.chunks : []) {
@@ -248,12 +258,23 @@ export function clientChunkNamesFromManifestSource(source) {
  * production — attribution failures must never shrink the production number,
  * because that is the number with the enforced ceiling.
  *
- * @returns {{ mockupExclusive: Set<string>, routeCount: number, mockupRouteCount: number }}
+ * Every discovered `*_client-reference-manifest.js` must decode. Counting a
+ * malformed file toward `routeCount` would bypass the later "none resolved"
+ * checks, and a production parse failure with a surviving mockup parse would
+ * leave shared chunks only in `mockupChunks`, understating the production budget.
+ *
+ * @returns {{
+ *   mockupExclusive: Set<string>,
+ *   routeCount: number,
+ *   mockupRouteCount: number,
+ *   unparseable: string[],
+ * }}
  */
 export function partitionRouteClientChunks(serverAppDir, deps = {}) {
   const { readDir = readdirSync, readFile = readFileSync } = deps;
   const mockupChunks = new Set();
   const productionChunks = new Set();
+  const unparseable = [];
   let routeCount = 0;
   let mockupRouteCount = 0;
 
@@ -265,16 +286,21 @@ export function partitionRouteClientChunks(serverAppDir, deps = {}) {
         continue;
       }
       if (!entry.isFile() || !entry.name.endsWith("_client-reference-manifest.js")) continue;
+      const names = clientChunkNamesFromManifestSource(readFile(full, "utf8"));
+      if (names == null) {
+        unparseable.push(full);
+        continue;
+      }
       routeCount += 1;
       if (isMockup) mockupRouteCount += 1;
       const target = isMockup ? mockupChunks : productionChunks;
-      for (const name of clientChunkNamesFromManifestSource(readFile(full, "utf8"))) target.add(name);
+      for (const name of names) target.add(name);
     }
   };
   walk(serverAppDir, false);
 
   const mockupExclusive = new Set([...mockupChunks].filter((name) => !productionChunks.has(name)));
-  return { mockupExclusive, routeCount, mockupRouteCount };
+  return { mockupExclusive, routeCount, mockupRouteCount, unparseable };
 }
 
 /** Sum the gzip bytes of the measured chunks whose names are in `names`. */
@@ -429,7 +455,16 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
     );
     return 1;
   }
-  const { mockupExclusive, routeCount, mockupRouteCount } = partitionRouteClientChunks(SERVER_APP_DIR);
+  const { mockupExclusive, routeCount, mockupRouteCount, unparseable } = partitionRouteClientChunks(SERVER_APP_DIR);
+  if (unparseable.length > 0) {
+    console.error(
+      `[bundle-budget] FAIL — ${unparseable.length} route manifest(s) could not be decoded; chunk attribution is broken.`,
+    );
+    for (const full of unparseable.slice(0, 5)) {
+      console.error(`  ${path.relative(root, full)}`);
+    }
+    return 1;
+  }
   if (routeCount === 0) {
     console.error("[bundle-budget] FAIL — the route manifest tree resolved no routes; chunk attribution is broken.");
     return 1;
