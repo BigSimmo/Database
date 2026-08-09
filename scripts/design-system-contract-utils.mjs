@@ -197,10 +197,46 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
 
 const BORDER_WIDTH_UTILITY = /^border(?:-[xytrblse])?(?:-(?:0|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
+// The status-colour family declared in `globals.css` (`--success`/`--warning`/
+// `--danger`/`--info` and their -text/-bg/-soft/-border/-solid variants). These
+// four hues are the ones GATES.md §3 reserves for state; `--decoration-soft` is
+// deliberately absent because it carries no state and painting with it is not
+// the defect either rule below is looking for.
+const STATUS_COLOR_TOKEN = String.raw`--(?:success|warning|danger|info)(?:-(?:text|bg|soft|border|solid(?:-(?:hover|active|contrast))?))?`;
+const STATUS_TEXT_UTILITY = new RegExp(String.raw`^text-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]$`);
+/** A status hue as a *surface* — the decorative form, with no text of its own. */
+const STATUS_SURFACE_UTILITY = new RegExp(
+  String.raw`^(?:bg|border(?:-[xytrblse])?|ring|outline|fill|stroke)-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]$`,
+);
+/**
+ * Numerals, as they appear in JSX text: digits plus the separators, units and
+ * ranges a clinical figure carries ("12", "1.5 mg", "40–60%", "3/7"). A child
+ * with any letter outside a unit is prose, and prose is its own channel — so it
+ * is not a numeral and not this rule's business.
+ */
+const NUMERAL_TEXT = /^[\s\d.,:%+\-–—/×xX()]*$/;
+/**
+ * The trailing name segment of an expression that is a figure by definition.
+ * Kept deliberately short. A looser list (`value`, `amount`, `size`, `index`,
+ * `num`) was measured first and flagged an icon wrapper whose child expression
+ * merely mentioned `size` — the exact false positive that would have forced an
+ * exemption onto a rule that had not yet caught a single real defect.
+ */
+const NUMERAL_NAME = /^(?:count|total|length|score|dose|percent|pct|qty|quantity)$/i;
+/** Methods that exist to render a number as text. */
+const NUMERAL_METHOD = /^(?:toFixed|toLocaleString|toPrecision)$/;
 const DENSITY_HEIGHT_UTILITY = /^(?:h|min-h|max-h|size)-/;
 const DENSITY_TEXT_UTILITY = /^text-(?:2xs|xs|sm-minus|sm|base|lg|xl|[2-9]xl|\[[^\]]*(?:px|rem|em|clamp\()[^\]]*\])$/;
 const HARDCODED_MOTION_UTILITY = /^(?:duration|delay)-(?:\d+|\[(?!var\(--duration-)[^\]]+\])$/;
 const LITERAL_SHADOW_UTILITY = /^shadow-\[(?!var\()[^\]]+\]$/;
+/**
+ * Tailwind's inversion filters. A PDF page, a diagram or a clinical photograph
+ * carries meaning in its own colours — inverting it to suit a dark theme changes
+ * what the reader sees, and on a radiograph or a stained slide that is a clinical
+ * error, not a styling one (GATES.md §3). Production carries none of these today,
+ * so this is a hard zero rather than a ratchet.
+ */
+const IMAGE_INVERSION_UTILITY = /^-?(?:backdrop-)?(?:invert|hue-rotate)(?:-(?:\d+|\[[^\]]+\]))?$/;
 // Same shape as the literal-shadow ratchet, for the same reason: 371 arbitrary
 // letterspacing values across 31 distinct spellings, seven of them positive steps
 // between 0.04 and 0.16em that no reader can tell apart. `tracking-[var(--…)]` is
@@ -663,19 +699,146 @@ function uniqueTokenEntries(possibilities) {
   return [...tokens.values()];
 }
 
+/** The tiny fixed box a status swatch is drawn at — `h-2 w-2`, `size-2`, and neighbours. */
+const SWATCH_GEOMETRY = /^(?:h|w|size)-(?:1|1\.5|2|2\.5|3)$/;
+/** Attributes that give an element a name a screen reader can announce. */
+const ACCESSIBLE_NAME_ATTRIBUTES = new Set(["aria-label", "aria-labelledby", "title"]);
+
+function jsxOwnerAttributeNames(owner, source) {
+  if (!ts.isJsxOpeningElement(owner) && !ts.isJsxSelfClosingElement(owner)) return new Set();
+  return new Set(
+    owner.attributes.properties
+      .filter((attribute) => ts.isJsxAttribute(attribute))
+      .map((attribute) => attribute.name.getText(source)),
+  );
+}
+
+/**
+ * The element's own children, whitespace-only JSX text dropped. A self-closing
+ * element has none by construction.
+ */
+function jsxOwnerChildren(owner) {
+  if (!ts.isJsxOpeningElement(owner)) return [];
+  const element = owner.parent;
+  if (!element || !ts.isJsxElement(element)) return [];
+  return element.children.filter((child) => !(ts.isJsxText(child) && child.text.trim() === ""));
+}
+
+/**
+ * Whether an expression evaluates to a figure. Structural where it can be —
+ * a numeric literal, arithmetic on one, a `toFixed` call — and a name test only
+ * for the shapes no syntax reveals (`items.length`, `counts.high`).
+ */
+function isNumeralExpression(node) {
+  if (ts.isParenthesizedExpression(node)) return isNumeralExpression(node.expression);
+  if (ts.isNumericLiteral(node)) return true;
+  if (ts.isPrefixUnaryExpression(node)) return isNumeralExpression(node.operand);
+  if (ts.isBinaryExpression(node)) {
+    // `{index + 1}` and friends. One numeric side is enough; a string
+    // concatenation would have a string literal rather than a numeric one.
+    return isNumeralExpression(node.left) || isNumeralExpression(node.right);
+  }
+  if (ts.isCallExpression(node)) {
+    const callee = node.expression;
+    return ts.isPropertyAccessExpression(callee) && NUMERAL_METHOD.test(callee.name.text);
+  }
+  if (ts.isPropertyAccessExpression(node)) return NUMERAL_NAME.test(node.name.text);
+  if (ts.isIdentifier(node)) return NUMERAL_NAME.test(node.text);
+  return false;
+}
+
+/**
+ * True when every child reads as a figure rather than prose. An element with no
+ * children at all is not a numeral — that case is the colour-only indicator rule
+ * below, and letting both fire on one element is how a rule earns an exemption.
+ */
+function childrenAreNumeralOnly(children) {
+  if (children.length === 0) return false;
+  let sawNumeral = false;
+  for (const child of children) {
+    if (ts.isJsxText(child)) {
+      const text = child.text.trim();
+      if (!NUMERAL_TEXT.test(text)) return false;
+      if (/\d/.test(text)) sawNumeral = true;
+      continue;
+    }
+    if (ts.isJsxExpression(child)) {
+      if (!child.expression) continue;
+      if (!isNumeralExpression(child.expression)) return false;
+      sawNumeral = true;
+      continue;
+    }
+    // A nested element (icon, badge, another span) means this node is a
+    // container, not a painted numeral.
+    return false;
+  }
+  return sawNumeral;
+}
+
+/** Whether a JSX child renders words a reader can see. */
+function rendersVisibleText(node) {
+  if (ts.isJsxText(node)) return /[A-Za-z]/.test(node.text);
+  if (ts.isJsxExpression(node)) return Boolean(node.expression);
+  if (ts.isJsxElement(node)) return node.children.some(rendersVisibleText);
+  return false;
+}
+
+/**
+ * Whether a label sits beside the element rather than inside it. The legend
+ * pattern — a coloured disc followed by the word it stands for, both inside one
+ * flex row — is the single most common shape this rule meets, and it is already
+ * correct: the state is in the text, and the swatch only repeats it in colour.
+ * Without this the baseline would have carried ten legend swatches as debt and
+ * taught the next reader that the rule cries wolf.
+ */
+function hasSiblingTextChannel(owner) {
+  const self = ts.isJsxOpeningElement(owner) ? owner.parent : owner;
+  const parent = self?.parent;
+  if (!parent || !ts.isJsxElement(parent)) return false;
+  return parent.children.some((child) => child !== self && rendersVisibleText(child));
+}
+
+/**
+ * Whether the element, or any JSX element enclosing it, carries an accessible
+ * name. The ancestor walk is what distinguishes a bare colour swatch from a
+ * labelled composite: the services confidence bar paints three unlabelled
+ * segments inside one `aria-label` that states all four counts, and flagging its
+ * segments individually would be measuring markup rather than the defect.
+ */
+function hasAccessibleNameInScope(owner, source) {
+  let node = owner;
+  while (node) {
+    // Walking upwards yields `JsxElement`, whose attributes live on its opening
+    // element — checking only for opening/self-closing nodes silently never
+    // matches an ancestor, which is how the first draft of this walk found
+    // nothing at all.
+    const element = ts.isJsxElement(node) ? node.openingElement : node;
+    if (ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)) {
+      for (const name of jsxOwnerAttributeNames(element, source)) {
+        if (ACCESSIBLE_NAME_ATTRIBUTES.has(name)) return true;
+      }
+    }
+    node = node.parent;
+  }
+  return false;
+}
+
 export function analyzeClassContractsInSource(relativePath, sourceText) {
   const analyzer = classExpressionAnalyzer(relativePath, sourceText);
   const result = {
     arbitraryTracking: [],
+    colourOnlyStatusIndicators: [],
     darkColorOverrides: [],
     densityOverrides: [],
     edgeOwnershipConflicts: [],
     hardcodedMotionClasses: [],
+    imageInversions: [],
     layoutTransitions: [],
     legacyShadowAliases: [],
     legacyTapClasses: [],
     legacyPaletteUtilities: [],
     literalShadowClasses: [],
+    statusColouredNumerals: [],
     unapprovedZIndices: [],
   };
   if (!analyzer) return result;
@@ -706,6 +869,44 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
       const line = analyzer.source.getLineAndCharacterOfPosition(root.owner.getStart(analyzer.source)).line + 1;
       result.densityOverrides.push(`${relativePath}:${line} (${[...densityConflictsForRoot].join(", ")})`);
     }
+
+    // Status-colour boundary (GATES.md §3). Two distinct defects, one pass over
+    // the same resolved class set, and deliberately mutually exclusive: a
+    // numeral has children, a colour-only indicator has none.
+    const rootBases = [...new Set(possibilities.flatMap((p) => p.tokens.map(({ token }) => utilityBase(token))))];
+    const statusText = rootBases.filter((base) => STATUS_TEXT_UTILITY.test(base));
+    const statusSurface = rootBases.filter((base) => STATUS_SURFACE_UTILITY.test(base));
+    const rootLine = analyzer.source.getLineAndCharacterOfPosition(root.owner.getStart(analyzer.source)).line + 1;
+
+    if (statusText.length > 0 && childrenAreNumeralOnly(jsxOwnerChildren(root.owner))) {
+      result.statusColouredNumerals.push(`${relativePath}:${rootLine} (${statusText[0]})`);
+    }
+
+    if (statusSurface.length > 0 && root.tag !== "StatusMark") {
+      const isJsxRoot = ts.isJsxOpeningElement(root.owner) || ts.isJsxSelfClosingElement(root.owner);
+      if (isJsxRoot) {
+        // A status hue painted on a box that says nothing: no children to read,
+        // and no name on it or anything containing it. Colour is then the only
+        // channel the state has.
+        if (
+          !hasAccessibleNameInScope(root.owner, analyzer.source) &&
+          !hasSiblingTextChannel(root.owner) &&
+          jsxOwnerChildren(root.owner).length === 0
+        ) {
+          result.colourOnlyStatusIndicators.push(`${relativePath}:${rootLine} (${statusSurface[0]})`);
+        }
+      } else if (root.tag === "recipe") {
+        // A shared swatch recipe — a status hue plus a tiny round box and no text
+        // utility. Its call sites inherit the defect, and the analyzer cannot see
+        // across files to find them, so the recipe is where it is catchable.
+        const swatch =
+          rootBases.some((base) => SWATCH_GEOMETRY.test(base)) &&
+          rootBases.includes("rounded-full") &&
+          !rootBases.some((base) => base.startsWith("text-"));
+        if (swatch) result.colourOnlyStatusIndicators.push(`${relativePath}:${rootLine} (${statusSurface[0]})`);
+      }
+    }
+
     for (const entry of uniqueTokenEntries(possibilities)) allTokens.set(entry.id, entry);
   }
 
@@ -715,6 +916,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     if (base === "transition-all" || HARDCODED_MOTION_UTILITY.test(base)) {
       result.hardcodedMotionClasses.push(`${relativePath}:${line} (${token})`);
     }
+    if (IMAGE_INVERSION_UTILITY.test(base)) result.imageInversions.push(`${relativePath}:${line} (${token})`);
     if (LITERAL_SHADOW_UTILITY.test(base)) result.literalShadowClasses.push(`${relativePath}:${line} (${token})`);
     if (ARBITRARY_TRACKING_UTILITY.test(base)) result.arbitraryTracking.push(`${relativePath}:${line} (${token})`);
     if (hasLegacyTapClass(token)) result.legacyTapClasses.push(`${relativePath}:${line} (${token})`);
@@ -743,7 +945,17 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
 
   result.edgeOwnershipConflicts = [...new Set(result.edgeOwnershipConflicts)];
   result.densityOverrides = [...new Set(result.densityOverrides)];
+  result.colourOnlyStatusIndicators = [...new Set(result.colourOnlyStatusIndicators)];
+  result.statusColouredNumerals = [...new Set(result.statusColouredNumerals)];
   return result;
+}
+
+export function findStatusColouredNumeralsInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).statusColouredNumerals;
+}
+
+export function findColourOnlyStatusIndicatorsInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).colourOnlyStatusIndicators;
 }
 
 export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) {
@@ -832,6 +1044,7 @@ function transitionProperties(declaration) {
 export function analyzeCssContractsInSource(relativePath, sourceText) {
   const result = {
     hardcodedMotionDurations: [],
+    imageInversions: [],
     layoutTransitions: [],
     legacyShadowAliases: [],
     onePixelShadowSpreads: [],
@@ -840,6 +1053,11 @@ export function analyzeCssContractsInSource(relativePath, sourceText) {
   for (const declaration of cssDeclarations(sourceText)) {
     const line = declaration.source?.start?.line ?? 1;
     const prop = declaration.prop.toLowerCase();
+    if (/^(?:-webkit-)?(?:backdrop-)?filter$/.test(prop)) {
+      for (const match of declaration.value.matchAll(/\b(invert|hue-rotate)\(/g)) {
+        result.imageInversions.push(`${relativePath}:${line} (${prop}: ${match[1]}())`);
+      }
+    }
     for (const match of declaration.value.matchAll(LEGACY_SHADOW_ALIAS)) {
       result.legacyShadowAliases.push(`${relativePath}:${line} (${prop} ${match[0]})`);
     }
