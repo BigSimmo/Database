@@ -7,10 +7,10 @@ import { useRef, useState, type ReactNode } from "react";
 
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 import { DocumentSectionList, DocumentSectionTrack } from "@/components/document-viewer/section-nav";
+import { InPageSectionRail } from "@/components/in-page-nav/in-page-section-rail";
 import { toDocumentSections, type PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageChromeMetrics } from "@/components/in-page-nav/use-in-page-chrome-metrics";
 import { usePageSectionWeights } from "@/components/in-page-nav/use-page-section-weights";
-import { Button } from "@/components/ui/button";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, pageContainer } from "@/components/ui-primitives";
@@ -41,9 +41,22 @@ type InPageNavHeaderSharedProps = {
    */
   primaryAction?: { label: string; icon: LucideIcon; onClick: () => void };
   /**
+   * `true` drops the promoted action's text label at every width, leaving the
+   * icon. Use when the icon carries the meaning on its own (a person glyph for
+   * patient details) and the label would only widen the group.
+   */
+  primaryActionIconOnly?: boolean;
+  /**
    * A page-level view mode — how the page renders, not where you are in it.
-   * Below `sm` it wraps to its own full-width band under the row; from `sm` it
-   * sits inline and costs no extra height at all.
+   *
+   * From `sm` it sits inline in the row and costs no extra height. Below `sm` it
+   * moves **into the actions sheet** rather than claiming a full-width band
+   * under the row: a view mode is set once and then read past, so it does not
+   * earn permanent pinned chrome on the smallest screen. That band was the only
+   * thing on any converted page that took a second phone row.
+   *
+   * It therefore requires `actions` — without a sheet to move into there would
+   * be no way to reach it on a phone.
    */
   mode?: {
     /** Group label, e.g. "Reading level". */
@@ -100,6 +113,17 @@ export type InPageNavHeaderProps =
       sections: readonly PageSection[];
       activeId?: string | null;
       onSelectSection: (id: string) => void;
+      /**
+       * Render the sections as a visible second rail instead of the weighted
+       * track (`docs/search-chrome-behaviour.md`, "Two-rail adopters").
+       *
+       * Only for a route whose sections are discrete panels and few enough to
+       * name in a row. The rail then owns "where am I", so from `sm` — where
+       * every section fits — the title stops being a disclosure and the sheet is
+       * not rendered at all. Below `sm` the rail scrolls and the disclosure
+       * returns as its overflow.
+       */
+      rail?: { label: string };
     });
 
 /**
@@ -110,7 +134,7 @@ export type InPageNavHeaderProps =
  * header's bottom edge.
  *
  * It has two shapes, and the section list decides which. With `sections`, the
- * above. Without them — the eight record pages behind `InformationPageBreadcrumbs`
+ * above. Without them — the record pages behind `InformationPageBreadcrumbs`
  * have no section index — the disclosure and the track would be a sheet listing
  * one item and a single full-width segment, so both are dropped and the row
  * becomes the breadcrumb shape: back, title, an optional `primaryAction`, an
@@ -118,9 +142,10 @@ export type InPageNavHeaderProps =
  * none of the section machinery.
  *
  * Extracted from the differentials detail page, which built the template by hand
- * first. `DocumentViewer` still carries its own copy — it owns the `<h1>`, uses
- * the `edge-glass-header` treatment, and is pinned by visual baselines, so
- * converging it is a separate change rather than half of this one.
+ * first. `DocumentViewer` keeps its own copy — it owns the `<h1>`, uses the
+ * `edge-glass-header` treatment, and is pinned by visual baselines. That is a
+ * settled non-adoption, not pending work: see "DocumentViewer keeps its own
+ * header — decided, not pending" in `docs/search-chrome-behaviour.md`.
  *
  * `relative` on the header is load-bearing: the track is absolutely positioned
  * against it, and a `static` phone header would let the track escape to whichever
@@ -136,6 +161,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
     title,
     titleAs = "span",
     primaryAction,
+    primaryActionIconOnly = false,
     mode,
     sectionSheetTitle,
     actions,
@@ -151,6 +177,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
   const sections = props.sections ?? [];
   const activeId = props.activeId ?? null;
   const onSelectSection = props.sections ? props.onSelectSection : undefined;
+  const rail = props.sections ? props.rail : undefined;
   // Both sheets record the route they were opened on rather than a bare
   // boolean, so navigating closes them without an effect that resets state.
   // This is load-bearing, not tidiness: most page actions are `<Link>`s, and
@@ -204,13 +231,27 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               aria-label={`Back to ${back.label.toLowerCase()}`}
               title={showBackLabel ? undefined : back.label}
               className={cn(
-                "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
-                showBackLabel ? "pr-3" : "pr-1.5",
+                // `min-w-tap` is load-bearing on phones: the visible label is
+                // `hidden sm:inline`, so without a width floor the control shrinks
+                // to the icon + horizontal padding (~40px) and fails the production
+                // tap-target contract that Production UI asserts on medications.
+                "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
+                showBackLabel ? "pl-1.5 pr-3 max-sm:px-1.5" : "px-1.5",
               )}
             >
               <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
               {showBackLabel ? <span className="hidden sm:inline">{back.label}</span> : null}
             </Link>
+            {rail ? (
+              // With a rail, every section is already named in the row below, so
+              // from `sm` — where the whole rail fits — the disclosure would open
+              // a list of the same destinations. The title goes back to being a
+              // title. `sm:hidden` on the button rather than a second render of
+              // the whole header keeps one DOM node per concern.
+              <TitleTag className="hidden min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text-heading)] sm:block sm:text-base">
+                {title}
+              </TitleTag>
+            ) : null}
             {documentSections.length > 0 ? (
               // The title is the section-list disclosure. Line two names where
               // you are, which the track can place but never label.
@@ -221,7 +262,10 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
                 aria-expanded={sectionSheetOpen}
                 aria-haspopup="dialog"
                 data-testid={`${testIdPrefix}-section-trigger`}
-                className="focus-ring-tab flex min-h-tap min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 text-left transition hover:bg-[color:var(--surface-subtle)]"
+                className={cn(
+                  "focus-ring-tab flex min-h-tap min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 text-left transition hover:bg-[color:var(--surface-subtle)]",
+                  rail && "sm:hidden",
+                )}
               >
                 <span className="min-w-0 flex-1">
                   <TitleTag className="block truncate text-sm font-semibold leading-tight text-[color:var(--text-heading)] sm:text-base">
@@ -247,54 +291,65 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
                 {title}
               </TitleTag>
             )}
-            {primaryAction ? (
-              // Bordered rather than the filled `--command` slab: a header that
-              // is pinned to every scroll position should not carry the page's
-              // heaviest control. The label is `sr-only` below `sm` so the
-              // accessible name never changes with the breakpoint.
-              // `sm:order-2` pairs with the mode control's `sm:order-1` so the
-              // phone DOM order (actions before mode) stays the keyboard order
-              // while desktop still paints mode between the title and the verbs.
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={primaryAction.icon}
-                onClick={primaryAction.onClick}
-                testId={`${testIdPrefix}-primary-action`}
-                className="ml-auto shrink-0 max-sm:w-tap max-sm:gap-0 max-sm:px-0 sm:order-2"
+            {primaryAction || actions ? (
+              // One joined group, not two free-standing controls. A bordered
+              // promoted action beside a borderless ellipsis reads as two
+              // unrelated things competing at the end of the row; a single
+              // border with a hairline between the members reads as one control
+              // with two actions. `sm:order-2` keeps the phone DOM order
+              // (verbs before mode) as the keyboard order while desktop still
+              // paints mode between the title and the verbs.
+              <span
+                data-testid={`${testIdPrefix}-action-group`}
+                className="ml-auto inline-flex shrink-0 items-stretch overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] sm:order-2"
               >
-                <span className="max-sm:sr-only">{primaryAction.label}</span>
-              </Button>
-            ) : null}
-            {actions ? (
-              <button
-                type="button"
-                ref={actionsTriggerRef}
-                onClick={() => setActionsOpen(true)}
-                aria-label={`Open ${actionsNoun} actions`}
-                aria-haspopup="dialog"
-                aria-expanded={actionsOpen}
-                title={`${actionsNoun.charAt(0).toUpperCase()}${actionsNoun.slice(1)} actions`}
-                data-testid={`${testIdPrefix}-actions-trigger`}
-                className={cn(
-                  "focus-ring-tab grid h-tap w-tap shrink-0 place-items-center rounded-xl text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] sm:order-3",
-                  // Beside a promoted action the bordered face would be its
-                  // visual twin and the row would read as two equal buttons.
-                  // Alone, it is the row's only control and keeps its own face.
-                  primaryAction
-                    ? "bg-transparent"
-                    : "ml-auto border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)]",
-                )}
-              >
-                <Ellipsis className="h-5 w-5" strokeWidth={2.25} aria-hidden />
-              </button>
+                {primaryAction ? (
+                  // Not the filled `--command` slab: a control pinned to every
+                  // scroll position should not be the page's heaviest. The label
+                  // is `sr-only` below `sm` so the accessible name never changes
+                  // with the breakpoint.
+                  <button
+                    type="button"
+                    onClick={primaryAction.onClick}
+                    title={primaryAction.label}
+                    data-testid={`${testIdPrefix}-primary-action`}
+                    className={cn(
+                      // Explicit focus styles rather than `focus-ring-tab`: that
+                      // utility sets a `border-radius`, and a rounded child
+                      // inside a rounded, clipped group paints a second corner
+                      // against the group's own edge.
+                      "flex min-h-tap items-center justify-center gap-2 px-3 text-sm font-bold text-[color:var(--text-heading)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                      primaryActionIconOnly ? "w-tap px-0" : "max-sm:w-tap max-sm:gap-0 max-sm:px-0",
+                    )}
+                  >
+                    <primaryAction.icon className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
+                    <span className={primaryActionIconOnly ? "sr-only" : "max-sm:sr-only"}>{primaryAction.label}</span>
+                  </button>
+                ) : null}
+                {actions ? (
+                  <button
+                    type="button"
+                    ref={actionsTriggerRef}
+                    onClick={() => setActionsOpen(true)}
+                    aria-label={`Open ${actionsNoun} actions`}
+                    aria-haspopup="dialog"
+                    aria-expanded={actionsOpen}
+                    title={`${actionsNoun.charAt(0).toUpperCase()}${actionsNoun.slice(1)} actions`}
+                    data-testid={`${testIdPrefix}-actions-trigger`}
+                    className={cn(
+                      "grid h-tap w-tap shrink-0 place-items-center text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                      primaryAction && "border-l border-[color:var(--border)]",
+                    )}
+                  >
+                    <Ellipsis className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                  </button>
+                ) : null}
+              </span>
             ) : null}
             {mode ? (
-              // DOM order places this after the verbs so phone keyboard order
-              // matches the painted rows (mode is the lower full-width band).
-              // From `sm`, `order-1` pulls it back beside the title; the
-              // primitive's own `w-full` plus `sm:w-auto` is what drops the
-              // extra phone band without costing desktop height.
+              // Inline from `sm` only. Below that it renders inside the actions
+              // sheet instead — see the `mode` prop docs. `order-1` pulls it
+              // back beside the title on desktop.
               <SegmentedControl
                 label={mode.label}
                 value={mode.value}
@@ -308,11 +363,19 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
                 // the segments to their labels, and the phone band gets its even
                 // split from the child override instead of from the floor.
                 layout="fit"
-                className="max-sm:[&>button]:flex-1 sm:order-1 sm:w-auto sm:shrink-0 sm:flex-nowrap"
+                className="hidden sm:order-1 sm:flex sm:w-auto sm:shrink-0 sm:flex-nowrap"
               />
             ) : null}
           </div>
-          {documentSections.length > 0 ? (
+          {rail ? (
+            <InPageSectionRail
+              sections={sections}
+              activeId={activeSection?.id ?? null}
+              onSelect={(id) => onSelectSection?.(id)}
+              label={rail.label}
+              testIdPrefix={testIdPrefix}
+            />
+          ) : documentSections.length > 0 ? (
             <DocumentSectionTrack sections={documentSections} activeId={activeSection?.id ?? null} />
           ) : null}
         </header>
@@ -355,6 +418,26 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
           returnFocusRef={actionsTriggerRef}
           testId={`${testIdPrefix}-actions-sheet`}
         >
+          {mode ? (
+            // The phone home for the view mode. `sm:hidden` rather than a
+            // conditional render so there is exactly one `SegmentedControl` per
+            // breakpoint and no state to keep in step — the inline copy above is
+            // `hidden` below `sm`, this one from `sm`. Full-width here because a
+            // sheet row has the space the header row does not.
+            <div className="mb-4 sm:hidden" data-testid={`${testIdPrefix}-sheet-mode`}>
+              <p className="mb-2 text-3xs font-black uppercase tracking-kicker text-[color:var(--text-muted)]">
+                {mode.label}
+              </p>
+              <SegmentedControl
+                label={mode.label}
+                value={mode.value}
+                options={mode.options}
+                onChange={mode.onChange}
+                layout="equal"
+                className="w-full [&>button]:flex-1"
+              />
+            </div>
+          ) : null}
           {typeof actions === "function" ? actions(() => setActionsOpen(false)) : actions}
         </Sheet>
       ) : null}

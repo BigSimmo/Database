@@ -21,6 +21,8 @@ const PAGE_ROOT_TEST_IDS = [
   "search-query-ribbon",
 ] as const;
 
+const FORMS_SECTION_NAV = "tests/ui-forms-section-nav.spec.ts";
+
 describe("playwright settlement contract (#093)", () => {
   it("ui-route-coverage scopes page-root testids through visibleByTestId", () => {
     const source = readFileSync(ROUTE_COVERAGE, "utf8");
@@ -32,5 +34,14 @@ describe("playwright settlement contract (#093)", () => {
         new RegExp(String.raw`getByTestId\(\s*["']${testId}["']\s*\)`),
       );
     }
+  });
+
+  it("ui-forms-section-nav scopes form-detail-header through visibleByTestId", () => {
+    // Production UI shard 1 on PR #1781: bare form-detail-header resolved to 2
+    // under full-suite load (in-flow + phone-portaled / streaming twin).
+    const source = readFileSync(FORMS_SECTION_NAV, "utf8");
+    expect(source).toMatch(/import\s*\{[^}]*\bvisibleByTestId\b[^}]*\}\s*from\s*["']\.\/playwright-settlement["']/);
+    expect(source).toContain('visibleByTestId(page, "form-detail-header")');
+    expect(source).not.toMatch(/getByTestId\(\s*["']form-detail-header["']\s*\)/);
   });
 });

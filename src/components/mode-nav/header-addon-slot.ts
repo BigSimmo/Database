@@ -29,9 +29,12 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // differentials/differential-detail-page.tsx (diagnoses detail only — the
   // presentations workflow page renders no portal).
   if (pathname.startsWith("/differentials/diagnoses/")) return true;
-  // factsheets/factsheet-detail-page.tsx mounts the same shared header in its
-  // breadcrumb shape (no sections, so no disclosure and no track).
+  // factsheets/factsheet-nav-header.tsx, mounted by the detail page.
   if (isSlugDetail(pathname, "/factsheets", ["search"])) return true;
+  // clinical-dashboard/medication-nav-header.tsx, mounted by
+  // `MedicationRecordPage`. The header drives the panel swap that
+  // `SectionTabs` used to own, so the record page now claims the slot too.
+  if (isSlugDetail(pathname, "/medications")) return true;
   // The six information routes converted onto the shared `InPageNavHeader`,
   // which portals through `PhoneHeaderCollapsePortal` exactly as the two above
   // do. Each is a slug detail page, never the mode home or a

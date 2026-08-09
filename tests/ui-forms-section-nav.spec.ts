@@ -1,5 +1,7 @@
 import { expect, test } from "playwright/test";
 
+import { visibleByTestId } from "./playwright-settlement";
+
 /**
  * `/issues` #256, proven where it actually failed: in the browser.
  *
@@ -65,7 +67,12 @@ test.describe("Forms section navigation", () => {
     ] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });
-      await expect(page.getByTestId("form-detail-header")).toBeVisible({ timeout: 20_000 });
+      // Ledger #093: under Production UI load Next can leave a hidden twin of the
+      // in-page header (in-flow under the reserve pad + portaled phone copy, or a
+      // streaming clone). Bare getByTestId then fails Playwright strict mode even
+      // when only one owner is visible — the same defect that already gates
+      // ui-route-coverage through visibleByTestId.
+      await expect(visibleByTestId(page, "form-detail-header")).toBeVisible({ timeout: 20_000 });
 
       const visible = await page.evaluate(() =>
         [
