@@ -216,9 +216,13 @@ describe("PDF reader keyboard bindings", () => {
     const { holder } = await renderReader();
 
     const label = holder.getAttribute("aria-label") ?? "";
-    expect(label).toMatch(/Page Up and Page Down/);
-    expect(label).toMatch(/Home and End/);
-    expect(label).toMatch(/F fits the width/);
-    expect(label).toMatch(/R rotates/);
+
+    // A binding a screen-reader user is never told about is a binding they do
+    // not have, so the contract is that every key is named. The phrasing around
+    // the keys is copy and may be rewritten freely — assert the keys, not the
+    // sentence, or the next wording pass turns this red for no defect.
+    for (const key of ["Page Up", "Page Down", "Home", "End", "F", "R"]) {
+      expect(label, `the holder's accessible name does not mention ${key}`).toMatch(new RegExp(`\\b${key}\\b`));
+    }
   });
 });
