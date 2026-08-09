@@ -32,7 +32,9 @@ task status, priority, order, dependencies, and completion state are canonical o
 
 ## Recommended execution queue
 
-This queue is the ordered view of **every open ledger row**. Revalidate a row against current
+This queue is the ordered, prioritised view of open ledger rows — a **curated subset**, not every
+open row. The detailed tables below remain the complete record; absence from this queue means
+deprioritised, never closed. Revalidate a row against current
 `main` before starting. Its position is not authority to call providers, spend money, change
 production, commit, push, open a PR, or deploy. Acuity still decides what to start first; Optional
 rows are deferred until their trigger.
