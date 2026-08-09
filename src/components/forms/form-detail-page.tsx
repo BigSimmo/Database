@@ -943,7 +943,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 onClick={ignoreUnavailableActivation}
                 title="Open official source — no official source URL is recorded for this form"
                 aria-describedby="form-source-unavailable"
-                className={cn(inPageActionRowClass, "opacity-60")}
+                className={inPageActionRowClass}
               >
                 <ExternalLink className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
                 Open official source

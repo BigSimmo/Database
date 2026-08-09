@@ -100,16 +100,32 @@ function isWiringAttr(attr) {
  * `aria-disabled="true"` — a legitimate way to spell a conditional placeholder —
  * still passes, as does any pair where the aria side is `"false"`.
  */
+function hasLiveAttr(attributes, name) {
+  return attributes.some(
+    (attr) =>
+      attr.type === "JSXAttribute" &&
+      attr.name.type === "JSXIdentifier" &&
+      attr.name.name === name &&
+      !isStaticallyOff(attr.value),
+  );
+}
+
 function hasRedundantDisabledPair(attributes) {
-  const live = (name) =>
-    attributes.some(
-      (attr) =>
-        attr.type === "JSXAttribute" &&
-        attr.name.type === "JSXIdentifier" &&
-        attr.name.name === name &&
-        !isStaticallyOff(attr.value),
-    );
-  return live("disabled") && live("aria-disabled");
+  return hasLiveAttr(attributes, "disabled") && hasLiveAttr(attributes, "aria-disabled");
+}
+
+/**
+ * True when a button advertises `aria-disabled` without an inert (or any) click
+ * handler. Native `disabled` is itself inert; `aria-disabled` is not — without
+ * an onClick that prevents activation the control stays fully operable, which
+ * is the opposite of the unavailable-placeholder contract.
+ */
+function hasAriaDisabledWithoutHandler(attributes) {
+  return (
+    hasLiveAttr(attributes, "aria-disabled") &&
+    !hasLiveAttr(attributes, "disabled") &&
+    !hasLiveAttr(attributes, "onClick")
+  );
 }
 
 /** @type {import("eslint").Rule.RuleModule} */
@@ -126,6 +142,8 @@ const rule = {
         'This <button type="button"> has no onClick and no disabled/aria-disabled state — it does nothing when clicked. Wire it with onClick, or make it an explicit disabled "coming soon" placeholder.',
       redundantDisabledPair:
         'This <button> carries both `disabled` and `aria-disabled` — the native attribute wins on focus, so the aria one changes nothing and the control still leaves the tab order. Keep `disabled` alone for a transiently inert control, or `aria-disabled="true"` plus an inert onClick when the control is unavailable for a stated reason a keyboard user needs to reach.',
+      ariaDisabledNeedsHandler:
+        "This <button> carries `aria-disabled` without an onClick — unlike native `disabled`, aria-disabled does not block activation. Add an inert onClick (for example `ignoreUnavailableActivation`) so the control stays reachable but does nothing.",
     },
   },
   create(context) {
@@ -138,6 +156,12 @@ const rule = {
         // (native wins on focus regardless of anything the spread injects).
         if (hasRedundantDisabledPair(node.attributes)) {
           context.report({ node, messageId: "redundantDisabledPair" });
+          return;
+        }
+        // Same for aria-disabled without a handler: an explicit attribute after
+        // a spread still leaves the control operable unless onClick is present.
+        if (hasAriaDisabledWithoutHandler(node.attributes)) {
+          context.report({ node, messageId: "ariaDisabledNeedsHandler" });
           return;
         }
         // A spread may inject a handler dynamically — don't flag unwired.

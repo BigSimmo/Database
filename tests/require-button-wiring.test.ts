@@ -37,6 +37,14 @@ describe("require-button-wiring", () => {
     expect(messageIds('<button type="button" onClick={go}>x</button>')).toEqual([]);
   });
 
+  it("flags aria-disabled without an onClick, because aria-disabled alone stays operable", () => {
+    expect(messageIds('<button type="button" aria-disabled="true">x</button>')).toEqual(["ariaDisabledNeedsHandler"]);
+    // Explicit after a spread still needs a handler — the spread escape must not hide it.
+    expect(messageIds('<button type="button" {...props} aria-disabled="true" />')).toEqual([
+      "ariaDisabledNeedsHandler",
+    ]);
+  });
+
   it("flags the two encodings together, because native disabled wins on focus", () => {
     expect(messageIds('<button type="button" disabled aria-disabled="true">x</button>')).toEqual([
       "redundantDisabledPair",
