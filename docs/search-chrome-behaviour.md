@@ -4,15 +4,16 @@ This repo uses one shared search experience across the global shell, dashboard r
 
 ## Page ownership model
 
-| Page state                          | Composer placement                                                         | Reserve owner                                                                  |
-| ----------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Answer home / standalone mode homes | In-flow hero composer on phones and larger breakpoints                     | Page content; no fixed phone dock reserve                                      |
-| Submitted/search-result views       | Compact bottom dock on phones; in normal page flow on tablets and desktops | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
-| Answer result view                  | Overlaid glass header plus answer composer dock                            | Dashboard `#main-content` top/bottom reserves                                  |
-| Document detail/source routes       | `DocumentViewer` floating composer                                         | `DocumentViewer` content padding                                               |
-| Document section navigation         | Header row disclosure (phone sheet) + rail index card at `lg`              | None — adds no chrome and no reserve                                           |
-| Calculators (`/calculators`)        | Page-owned composer (desktop top + phone bottom dock)                      | Calculators page pad; shell reserve stays `0`                                  |
-| Info/detail pages with no composer  | No fixed composer                                                          | Idle shell padding only                                                        |
+| Page state                          | Composer placement                                                          | Reserve owner                                                                  |
+| ----------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Answer home / standalone mode homes | In-flow hero composer on phones and larger breakpoints                      | Page content; no fixed phone dock reserve                                      |
+| Submitted/search-result views       | Compact bottom dock on phones; in normal page flow on tablets and desktops  | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
+| Answer result view                  | Overlaid glass header plus answer composer dock                             | Dashboard `#main-content` top/bottom reserves                                  |
+| Document detail/source routes       | `DocumentViewer` floating composer                                          | `DocumentViewer` content padding                                               |
+| Document section navigation         | Header row disclosure (phone sheet) + rail index card at `lg`               | None — adds no chrome and no reserve                                           |
+| Record page breadcrumb header       | Same header row without the disclosure or track; view mode inline from `sm` | None — portals into the phone collapse row, sticky at `sm+`                    |
+| Calculators (`/calculators`)        | Page-owned composer (desktop top + phone bottom dock)                       | Calculators page pad; shell reserve stays `0`                                  |
+| Info/detail pages with no composer  | No fixed composer                                                           | Idle shell padding only                                                        |
 
 ## Default in-page navigation template
 
@@ -150,10 +151,11 @@ so it was left alone.
 
 **Adopted so far:** `/differentials/diagnoses/[slug]`, `/services/[slug]`, `/forms/[slug]`,
 `/specifiers/[slug]` (record and catalogue reference), `/formulation/[slug]`,
-`/dsm/diagnoses/[slug]` and its `/differentials` child. Each is also listed in
+`/dsm/diagnoses/[slug]` and its `/differentials` child, and factsheet detail pages
+(`/factsheets/[slug]`). Each is also listed in
 `isHeaderAddonSlotOwnedRoute` (`src/components/mode-nav/header-addon-slot.ts`), which is how
 the one-header-per-slot rule stays checkable. Still on their own patterns: medications
-(`SectionTabs`), factsheets, and differentials presentations.
+(`SectionTabs`) and differentials presentations.
 
 **Visual slots (adapt labels, back href, sections, and actions to the mode):**
 
@@ -176,6 +178,33 @@ the one-header-per-slot rule stays checkable. Still on their own patterns: medic
   Never add a second sticky/fixed phone navigation header inside `#main-content`.
 - Do not give the in-page header its own scroll-hide hook; share the universal collapse
   signal described under “Scroll hide/reveal”.
+
+**The breadcrumb shape (pages with no section index).** The eight record pages behind
+`InformationPageBreadcrumbs` have no sections, so the disclosure would open a sheet listing
+one item and the track would render one full-width segment. Omit `sections` and
+`InPageNavHeader` drops both and renders the breadcrumb shape instead — same row grammar,
+same single collapse owner, none of the section machinery. `usePageSectionWeights` observes
+nothing for an empty list, so those pages pay no measurement cost. Three optional props
+shape that row:
+
+- `showBackLabel={false}` keeps the arrow alone at every width when the row also carries an
+  action or a mode, so the title owns the space. `back.label` is still the accessible name
+  and becomes the desktop tooltip.
+- `primaryAction` promotes exactly **one** page action, as `Button variant="secondary"` —
+  not the filled `--command` slab, because a control pinned to every scroll position should
+  not be the page's heaviest. Its label is `sr-only` below `sm` so the accessible name does
+  not change with the breakpoint. A second promoted control is what turns the row back into
+  the wrapping toolbar this shape replaced; everything else belongs in `actions`.
+- `mode` is a page-level **view** mode — how the page renders, not where you are in it — and
+  uses the shared `SegmentedControl`. Below `sm` it wraps to its own full-width band under
+  the row; from `sm` it sits inline and costs no extra height (measured on
+  `/factsheets/sertraline`: 131px phone, 75px from `sm`, 65px with no mode).
+
+Adopted by `src/components/factsheets/factsheet-detail-page.tsx`. When a page adopts this,
+register its routes in `isHeaderAddonSlotOwnedRoute`
+(`src/components/mode-nav/header-addon-slot.ts`) and add the component to the expected
+claimants in `tests/mode-nav-addon-slot.dom.test.tsx`, or that guard fails: the slot holds
+exactly one page-owned header.
 
 **Not this template:** Therapy-style `ModeNav` (multi-route mode tabs via
 `ModeNavHeaderPortal`) is a different pattern for mode-level page switching. Info-page
