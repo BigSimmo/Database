@@ -21,7 +21,6 @@ import {
   X,
 } from "lucide-react";
 
-import { DsmPageHeader } from "@/components/dsm/dsm-page-header";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, codeText, EmptyState, metadataPill, pageContainer, searchFocusRing } from "@/components/ui-primitives";
@@ -142,7 +141,7 @@ function CategoryFilterDropdown({
   const activeCount = activeCategory ? activeCategory.diagnosis_count : totalCount;
 
   return (
-    <div ref={rootRef} onBlur={handleRootBlur} className="relative w-full sm:w-auto">
+    <div ref={rootRef} onBlur={handleRootBlur} className="relative w-full">
       <button
         type="button"
         ref={triggerRef}
@@ -153,23 +152,25 @@ function CategoryFilterDropdown({
         onKeyDown={handleTriggerKeyDown}
         onClick={() => (open ? setOpen(false) : openMenu(Math.max(0, activeIndex)))}
         className={cn(
-          "inline-flex min-h-tap w-full items-center gap-2 rounded-lg border px-3 text-xs font-bold transition sm:w-auto sm:min-w-[15rem]",
+          // One inset surface inside the band filter row — avoid a bordered
+          // button sitting in another bordered gray strip (double box).
+          "inline-flex min-h-tap w-full items-center gap-2 rounded-lg border px-3 text-xs font-bold transition",
           searchFocusRing,
           open || activeCategory
             ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
             : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--border-strong)]",
         )}
       >
-        <ListFilter className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        <ListFilter className="h-4 w-4 shrink-0 text-[color:var(--text-heading)]" aria-hidden />
+        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
           Category
         </span>
         <span className="min-w-0 flex-1 truncate text-left font-extrabold text-[color:var(--text-heading)]">
           {activeLabel}
         </span>
-        <span className="shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">
-          {activeCount}
-        </span>
+        {/* Plain tabular count — a surface-subtle pill on the band's
+            surface-subtle filter row made the figure disappear. */}
+        <span className="shrink-0 text-xs font-bold tabular-nums text-[color:var(--text-muted)]">{activeCount}</span>
         <ChevronDown
           className={cn(
             "h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition-transform",
@@ -257,32 +258,27 @@ export function DsmSearchPage({
 
   return (
     <div data-testid="dsm-search-page" className="min-h-full bg-[color:var(--background)]">
-      <DsmPageHeader
-        eyebrow="Diagnosis catalogue"
-        title="Diagnosis search"
-        description="Find diagnostic records by name, ICD code, symptom phrase, or category."
-        actions={
-          canCompare ? (
-            <Link
-              href={compareHref(selected)}
-              data-testid="dsm-search-compare"
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
-            >
-              <GitCompareArrows className="h-4 w-4" aria-hidden />
-              Compare {selected.length}
-            </Link>
-          ) : null
-        }
-      />
-
       <div className={cn(pageContainer, "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8")}>
         <SearchResultsHeaderBand
           modeId="dsm"
           query={query}
           matchCount={results.length}
+          headingLevel={1}
           filterLabel="Filter diagnoses by category"
+          utilityControls={
+            canCompare ? (
+              <Link
+                href={compareHref(selected)}
+                data-testid="dsm-search-compare"
+                className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--command)] px-2.5 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] sm:min-h-10"
+              >
+                <GitCompareArrows className="h-4 w-4" aria-hidden />
+                Compare {selected.length}
+              </Link>
+            ) : null
+          }
           filterControls={
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            <div className="flex w-full flex-wrap items-center gap-x-2 gap-y-1.5">
               <CategoryFilterDropdown
                 query={query}
                 categories={categories}

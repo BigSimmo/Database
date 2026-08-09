@@ -37,6 +37,15 @@ export type PageSection = {
   /** Renders as an exclusive-accordion `<details>`; drives the trailing chevron. */
   collapsible?: boolean;
   pending?: boolean;
+  /**
+   * Magnitude as a bare number, for the badge on `InPageSectionRail`.
+   *
+   * Deliberately separate from `detail`: the sheet row has room for "3 sections"
+   * and the rail badge does not, and parsing the digits back out of the prose
+   * would break the moment a route words its detail differently. Only the rail
+   * reads this, so a route without one simply renders no badge.
+   */
+  count?: number;
 };
 
 /**

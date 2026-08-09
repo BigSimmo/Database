@@ -47,7 +47,28 @@ export PLAYWRIGHT_KEEP_BUILD_ROOT=true
 
 **Refuted levers (do not revive):** persistent Actions cache for the Next webpack tree (~804 MB, evicts browser cache); transporting the critical job's 1.09 GB webpack cache to three shard runners (CI 31285952061 spent 19–67s downloading it and the slowest runner was slower than a cold build); splitting `ui-phone-scroll*` to rebalance `--shard` (siblings still co-land); renaming specs to game alphabetical shard order; Playwright `workers > 1` or blocking retries; dropping Production UI from ordinary UI PRs; Firefox/WebKit on every PR (main/weekly matrix only).
 
-**Remote / Cloud browser drift.** When `check:installed-lock-parity` fails on `playwright`, or `check:playwright-browser-revision` reports `/opt/pw-browsers` revision drift, do **not** point `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` at a mismatched shell. `run-playwright.mjs` applies the same revision check in its launch preflight and refuses the override before acquiring the heavy lock or building. Delegate browser proof to CI Production UI (or refresh the image/install matching browsers). See `#255` and [codex-cloud.md](codex-cloud.md).
+**Remote / Cloud browser drift.** When `check:installed-lock-parity` fails on `playwright`, or `check:playwright-browser-revision` reports `/opt/pw-browsers` revision drift, do **not** point `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` at a mismatched shell and do **not** set `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` to force a run — a browser gate against the wrong revision is not evidence. `run-playwright.mjs` applies the same revision check in its launch preflight and refuses a mismatched override before acquiring the heavy lock or building. Delegating browser proof to CI Production UI is always valid. Restoring the gates locally is also possible; the recipe below was verified end to end on 2026-08-09 (`#255`). See also [codex-cloud.md](codex-cloud.md).
+
+Two separate image faults produce this, and the second is why the obvious fix looks impossible:
+
+1. **The baked `node_modules` is stale or incomplete.** Symptoms range from no `node_modules` at all to `playwright: installed 1.62.0 does not match locked 1.62.1` with `tailwind-merge` missing entirely. The lockfile is not wrong — do not re-pin it to the installed version.
+2. **The image's Node is too old to run `npm ci`.** `jsdom@30.0.1` requires `^22.22.2 || ^24.15.0 || >=26.0.0`; images have shipped v24.13.0, so `npm ci --include=dev` dies on `EBADENGINE` under `engine-strict=true`. Never bypass with `--force`, `--legacy-peer-deps`, or `--engine-strict=false`.
+
+```bash
+# 1. Node >= 24.15.0 (satisfies both the repo's 24.x engine and jsdom's floor).
+curl -sSL -o /tmp/node24.tar.xz https://nodejs.org/dist/v24.19.0/node-v24.19.0-linux-x64.tar.xz
+mkdir -p /root/.node24 && tar -xf /tmp/node24.tar.xz -C /root/.node24/
+export PATH=/root/.node24/node-v24.19.0-linux-x64/bin:$PATH   # node v24.19.0, npm 11.17.0
+
+# 2. Real install. Expect exit 0; then parity prints all seven pinned packages.
+npm ci --include=dev && npm run check:installed-lock-parity
+
+# 3. Browsers. Playwright 1.62.1 wants Chromium 1234; images have shipped only 1194.
+unset PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
+npx playwright install chromium chromium-headless-shell   # installs into PLAYWRIGHT_BROWSERS_PATH
+```
+
+Costs roughly 5 minutes and ~330 MB (184 MB chromium + 115 MB headless shell + 32 MB node), needs a few GB free, and is paid **per session** because the container is ephemeral. The durable fix is still an image that ships Node ≥ 24.15.0, a complete `npm ci`, and the locked Chromium revision.
 
 Codex Cloud agents remain provider-free. Run authenticated Supabase tests through the
 manual `.github/workflows/authenticated-live-tests.yml` workflow, which requires the

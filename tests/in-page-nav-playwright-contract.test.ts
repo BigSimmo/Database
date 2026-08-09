@@ -1,0 +1,50 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+/**
+ * Guards the Production UI failures that blocked PR #1781:
+ *
+ * 1. InPageNavHeader's back control is always named `Back to ${label}` via
+ *    aria-label. Asserting the bare mode label (`Medications`, exact) passes on
+ *    desktop (visible text) and fails on phone (`hidden sm:inline`). An autofix
+ *    that only patches the desktop prescribing smoke left shard 2 red.
+ * 2. `form-detail-header` (and every `*-detail-header` from InPageNavHeader) is a
+ *    #093 settlement surface: bare getByTestId trips strict mode under
+ *    Production UI load when a hidden twin remains.
+ */
+
+const UI_SMOKE = "tests/ui-smoke.spec.ts";
+const UI_FORMS_SECTION_NAV = "tests/ui-forms-section-nav.spec.ts";
+const IN_PAGE_NAV_HEADER = "src/components/in-page-nav/in-page-nav-header.tsx";
+
+describe("in-page-nav Playwright contract", () => {
+  it("prescribing smoke asserts the aria-label back name on both desktop and phone", () => {
+    const source = readFileSync(UI_SMOKE, "utf8");
+    const prescribingBlock = source.slice(
+      source.indexOf('test("prescribing workflow uses in-app medication routes'),
+      source.indexOf('test("tablet document chrome keeps one new-chat action'),
+    );
+
+    expect(prescribingBlock).toContain('name: "Back to medications"');
+    expect(prescribingBlock).not.toMatch(/getByRole\(\s*["']link["']\s*,\s*\{\s*name:\s*["']Medications["']/);
+    // Both the desktop and phone prescribing tests must use the aria-label form.
+    expect(prescribingBlock.match(/Back to medications/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+
+  it("forms section-nav scopes form-detail-header through visibleByTestId", () => {
+    const source = readFileSync(UI_FORMS_SECTION_NAV, "utf8");
+    expect(source).toMatch(/import\s*\{[^}]*\bvisibleByTestId\b[^}]*\}\s*from\s*["']\.\/playwright-settlement["']/);
+    expect(source).toContain('visibleByTestId(page, "form-detail-header")');
+    expect(source).not.toMatch(/getByTestId\(\s*["']form-detail-header["']\s*\)/);
+  });
+
+  it("InPageNavHeader keeps the Back to ${label} aria-label contract", () => {
+    const source = readFileSync(IN_PAGE_NAV_HEADER, "utf8");
+    expect(source).toContain("Back to ${back.label.toLowerCase()}");
+  });
+
+  it("InPageNavHeader floors the back control with min-w-tap for phone icon-only width", () => {
+    const source = readFileSync(IN_PAGE_NAV_HEADER, "utf8");
+    expect(source).toMatch(/min-h-tap\s+min-w-tap/);
+  });
+});

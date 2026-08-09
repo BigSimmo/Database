@@ -2135,35 +2135,52 @@ test.describe("Clinical KB tools launcher", () => {
     expect(overviewLineCount).toBe(1);
   });
 
-  test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {
+  test("differentials compare queue launches presentation comparison", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
     const workflow = acuteConfusionPresentationWorkflow;
-    await gotoLauncher(page, "/differentials/compare");
-    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
 
+    await gotoLauncher(page, "/differentials/compare");
+    await expect(page).toHaveURL(/\/differentials\/compare\/?$/, { timeout: 30_000 });
+    await expect(page.getByTestId("differential-compare-empty")).toBeVisible();
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Compare", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "Open Search" })).toBeVisible();
+    // Queue is a mode surface (composer allowed); presentation workflow below still owns no-composer chrome.
+    await expectNoPageHorizontalOverflow(page);
+
+    await gotoLauncher(page, "/differentials/compare?ids=wernicke-encephalopathy&q=Pain");
+    await expect(page).toHaveURL(/\/differentials\/compare/);
+    await expect(page).toHaveURL(/ids=wernicke-encephalopathy/);
+    const queue = page.getByTestId("differential-compare-queue");
+    await expect(queue).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { level: 1, name: "1 diagnosis selected" })).toBeVisible();
+    await expect(queue.getByRole("link", { name: "Wernicke encephalopathy", exact: true })).toBeVisible();
+    await expect(page.getByTestId("differential-compare-edit-selection")).toHaveAttribute(
+      "href",
+      /\/differentials\?.*ids=wernicke-encephalopathy/,
+    );
+    await expect(page.getByTestId("differential-compare-open")).toBeVisible();
+
+    await page.getByTestId("differential-compare-open").click();
+    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/ids=wernicke-encephalopathy/);
+
     await expect(
       page.getByTestId("mobile-composer-reserve-pad").getByTestId("differential-presentation-page"),
     ).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
     await expect(
-      page
-        .getByRole("heading", {
-          name: `Selected differentials (${workflow.selectedCount} of ${workflow.totalCount})`,
-        })
-        .first(),
+      page.getByRole("heading", { name: `Selected differentials (1 of ${workflow.totalCount})` }).first(),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/differentials");
+    await expect(
+      page.locator("span:visible", { hasText: `+${workflow.totalCount - 1} not selected` }).first(),
+    ).toBeVisible();
     await expect(page.getByRole("heading", { name: "Safety snapshot" }).first()).toBeVisible();
     await expect(page.getByText("Service details")).toHaveCount(0);
     await expect(page.getByText("Transport order")).toHaveCount(0);
     await expect(page.getByLabel("Differential review sidebar").getByText("Local content only").first()).toBeVisible();
-    await expect(
-      page.getByLabel("Differential review sidebar").getByText("Source pending review").first(),
-    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Copy after review" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Edit columns" })).toBeDisabled();
-    await expect(page.getByText("Long press to reorder. Tap to remove.")).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
 
     const tableScrolls = await page.getByTestId("differential-comparison-scroll").evaluate((element) => {
@@ -2174,17 +2191,10 @@ test.describe("Clinical KB tools launcher", () => {
     expect(desktopTableBox?.width ?? 0).toBeGreaterThan(900);
     await expectNoPageHorizontalOverflow(page);
 
-    await gotoLauncher(page, "/differentials/compare?ids=wernicke-encephalopathy");
-    await expect(page).toHaveURL(/ids=wernicke-encephalopathy/);
-    await expect(
-      page.getByRole("heading", { name: `Selected differentials (1 of ${workflow.totalCount})` }).first(),
-    ).toBeVisible();
-    await expect(
-      page.locator("span:visible", { hasText: `+${workflow.totalCount - 1} not selected` }).first(),
-    ).toBeVisible();
-
     await page.setViewportSize({ width: 390, height: 844 });
-    await gotoLauncher(page, "/differentials/compare");
+    await gotoLauncher(page, "/differentials/compare?ids=wernicke-encephalopathy");
+    await expect(page.getByTestId("differential-compare-queue")).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("differential-compare-open").click();
     await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
 
     // Scope to the live shell scrollport: Next may briefly retain a hidden
@@ -2195,12 +2205,10 @@ test.describe("Clinical KB tools launcher", () => {
       .getByTestId("differential-presentation-page");
     await expect(presentationPage).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("link", { name: "Back to differentials" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Compare", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
     const mobileComparison = page.getByLabel("Mobile differential comparison");
     await expect(mobileComparison.getByRole("button", { name: "Column filters unavailable" })).toBeDisabled();
-    await expect(mobileComparison.getByText("Delirium", { exact: true }).first()).toBeVisible();
-    await expect(mobileComparison.getByText("Substance intoxication", { exact: true }).first()).toBeVisible();
+    await expect(mobileComparison.getByText("Wernicke encephalopathy", { exact: true }).first()).toBeVisible();
     const languageControl = page.getByRole("button", { name: "Language and region settings (coming soon)" });
     await expect(languageControl).toBeVisible();
     await expect(languageControl).toHaveAttribute("aria-disabled", "true");
