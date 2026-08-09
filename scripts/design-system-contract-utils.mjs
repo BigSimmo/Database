@@ -197,10 +197,92 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
 
 const BORDER_WIDTH_UTILITY = /^border(?:-[xytrblse])?(?:-(?:0|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
+// The status-colour family declared in `globals.css` (`--success`/`--warning`/
+// `--danger`/`--info` and their -text/-bg/-soft/-border/-solid variants). These
+// four hues are the ones GATES.md §3 reserves for state; `--decoration-soft` is
+// deliberately absent because it carries no state and painting with it is not
+// the defect either rule below is looking for.
+const STATUS_COLOR_TOKEN = String.raw`--(?:success|warning|danger|info)(?:-(?:text|bg|soft|border|solid(?:-(?:hover|active|contrast))?))?`;
+/**
+ * The optional Tailwind opacity modifier. Leaving it out was a real hole, not a
+ * theoretical one: 83 status-token utilities in `src` carry a `/NN` suffix, and
+ * an anchored pattern without it rejected every one of them before the semantic
+ * checks ran — so an indicator written `bg-[color:var(--danger)]/90` walked past
+ * a ratchet claiming to be repository-wide.
+ */
+const STATUS_ALPHA_MODIFIER = String.raw`(?:/(?:\d+(?:\.\d+)?|\[[^\]]+\]))?`;
+const STATUS_TEXT_UTILITY = new RegExp(
+  String.raw`^text-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]${STATUS_ALPHA_MODIFIER}$`,
+);
+/** A status hue as a *surface* — the decorative form, with no text of its own. */
+const STATUS_SURFACE_UTILITY = new RegExp(
+  String.raw`^(?:bg|border(?:-[xytrblse])?|ring|outline|fill|stroke)-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]${STATUS_ALPHA_MODIFIER}$`,
+);
+/** Digits and the separators a figure or range carries, with no letters. */
+const NUMERAL_PUNCTUATION = /^[\s\d.,:%+\-–—/×xX()]*$/;
+/**
+ * Unit words a clinical figure may carry. An explicit list, because the
+ * alternative — allowing any short alphabetic run after a digit — would read
+ * "12 errors" as a numeral and re-create in text the false positive the
+ * expression classifier was already fixed for.
+ */
+const NUMERAL_UNIT =
+  /^(?:mg|mcg|ug|µg|ng|g|kg|mL|L|dL|mmol|mol|mEq|IU|U|mmHg|kPa|bpm|ms|sec|s|min|h|hr|hrs|d|day|days|wk|week|weeks|mo|month|months|yr|year|years|per|m|cm|kcal|mg\/kg)$/i;
+
+/**
+ * Whether a JSX text fragment is part of a figure rather than prose: "12",
+ * "1.5 mg", "40–60%", "3/7", "10 mg/day", and the bare " mg" left beside a
+ * `{dose}` expression. Any alphabetic run must be a unit; a word that is not one
+ * is prose, and prose is its own non-colour channel.
+ *
+ * Deliberately no digit requirement — `{dose} mg` splits into an expression and
+ * a unit-only text child, and demanding a digit in every fragment would let the
+ * commonest clinical shape of all slip past.
+ *
+ * The earlier form of this rejected *every* letter while its own comment claimed
+ * units were covered, so a dose painted in a status colour — the single case
+ * this rule exists for — passed silently.
+ */
+function isNumeralTextFragment(text) {
+  const trimmed = text.trim();
+  if (trimmed === "") return true;
+  const alphabeticRuns = trimmed.match(/[A-Za-zµ]+/g) ?? [];
+  if (!alphabeticRuns.every((run) => NUMERAL_UNIT.test(run))) return false;
+  return NUMERAL_PUNCTUATION.test(trimmed.replace(/[A-Za-zµ]+/g, ""));
+}
+/**
+ * The trailing name segment of an expression that is a figure by definition.
+ * Kept deliberately short. A looser list (`value`, `amount`, `size`, `index`,
+ * `num`) was measured first and flagged an icon wrapper whose child expression
+ * merely mentioned `size` — the exact false positive that would have forced an
+ * exemption onto a rule that had not yet caught a single real defect.
+ */
+const NUMERAL_NAME = /^(?:count|total|length|score|dose|percent|pct|qty|quantity)$/i;
+/** Methods that exist to render a number as text. */
+const NUMERAL_METHOD = /^(?:toFixed|toLocaleString|toPrecision)$/;
 const DENSITY_HEIGHT_UTILITY = /^(?:h|min-h|max-h|size)-/;
 const DENSITY_TEXT_UTILITY = /^text-(?:2xs|xs|sm-minus|sm|base|lg|xl|[2-9]xl|\[[^\]]*(?:px|rem|em|clamp\()[^\]]*\])$/;
 const HARDCODED_MOTION_UTILITY = /^(?:duration|delay)-(?:\d+|\[(?!var\(--duration-)[^\]]+\])$/;
 const LITERAL_SHADOW_UTILITY = /^shadow-\[(?!var\()[^\]]+\]$/;
+/**
+ * Tailwind's inversion filters. A PDF page, a diagram or a clinical photograph
+ * carries meaning in its own colours — inverting it to suit a dark theme changes
+ * what the reader sees, and on a radiograph or a stained slide that is a clinical
+ * error, not a styling one (GATES.md §3). Production carries none of these today,
+ * so this is a hard zero rather than a ratchet.
+ *
+ * `-0` is excluded: `invert-0` and `hue-rotate-0` *disable* inversion, and a
+ * hard-zero gate that rejects the reset would block the very fix it wants.
+ */
+const IMAGE_INVERSION_UTILITY = /^-?(?:backdrop-)?(?:invert|hue-rotate)(?:-(?!0$)(?:\d+|\[[^\]]+\]))?$/;
+/**
+ * The same filters written as arbitrary values — `filter-[invert(1)]`,
+ * `[filter:invert(1)]`, and their `backdrop-` forms, all of which compile under
+ * the installed Tailwind and none of which the dedicated-utility pattern above
+ * can see. Matching the function call itself covers every spelling at once, and
+ * cannot collide with an ordinary utility: no other class contains `invert(`.
+ */
+const INVERSION_FUNCTION = /(?:invert|hue-rotate)\(/;
 // Same shape as the literal-shadow ratchet, for the same reason: 371 arbitrary
 // letterspacing values across 31 distinct spellings, seven of them positive steps
 // between 0.04 and 0.16em that no reader can tell apart. `tracking-[var(--…)]` is
@@ -663,19 +745,236 @@ function uniqueTokenEntries(possibilities) {
   return [...tokens.values()];
 }
 
+/** The tiny fixed box a status swatch is drawn at — `h-2 w-2`, `size-2`, and neighbours. */
+const SWATCH_GEOMETRY = /^(?:h|w|size)-(?:1|1\.5|2|2\.5|3)$/;
+/** Attributes that give an element a name a screen reader can announce. */
+const ACCESSIBLE_NAME_ATTRIBUTES = new Set(["aria-label", "aria-labelledby", "title"]);
+
+/**
+ * Whether the element carries an accessible name with something actually in it.
+ * `aria-label=""` names nothing, and accepting the attribute's mere presence let
+ * an empty label exempt an indicator from the rule. A non-literal value
+ * (`aria-label={label}`) is accepted, because without a type checker there is no
+ * way to know it is empty and guessing would flag correct code.
+ */
+function hasNonEmptyAccessibleName(element, source) {
+  for (const attribute of element.attributes.properties) {
+    if (!ts.isJsxAttribute(attribute)) continue;
+    if (!ACCESSIBLE_NAME_ATTRIBUTES.has(attribute.name.getText(source))) continue;
+    const initializer = attribute.initializer;
+    // A bare `aria-label` with no value is empty by definition.
+    if (!initializer) continue;
+    if (ts.isStringLiteral(initializer)) {
+      if (initializer.text.trim() !== "") return true;
+      continue;
+    }
+    if (ts.isJsxExpression(initializer)) {
+      const expression = initializer.expression;
+      if (!expression) continue;
+      if (ts.isStringLiteralLike(expression) && expression.text.trim() === "") continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * The element's own children, whitespace-only JSX text dropped. A self-closing
+ * element has none by construction.
+ */
+function jsxOwnerChildren(owner) {
+  if (!ts.isJsxOpeningElement(owner)) return [];
+  const element = owner.parent;
+  if (!element || !ts.isJsxElement(element)) return [];
+  return element.children.filter((child) => !(ts.isJsxText(child) && child.text.trim() === ""));
+}
+
+/** Operators that produce a number. `+` is included and then guarded below. */
+const ARITHMETIC_OPERATORS = new Set([
+  ts.SyntaxKind.PlusToken,
+  ts.SyntaxKind.MinusToken,
+  ts.SyntaxKind.AsteriskToken,
+  ts.SyntaxKind.SlashToken,
+  ts.SyntaxKind.PercentToken,
+  ts.SyntaxKind.AsteriskAsteriskToken,
+]);
+
+/** Whether any operand anywhere in the expression is literal text. */
+function containsTextLiteral(node) {
+  if (ts.isStringLiteralLike(node) || ts.isTemplateExpression(node)) return true;
+  if (ts.isParenthesizedExpression(node)) return containsTextLiteral(node.expression);
+  if (ts.isBinaryExpression(node)) return containsTextLiteral(node.left) || containsTextLiteral(node.right);
+  return false;
+}
+
+function isNumeralExpression(node) {
+  if (ts.isParenthesizedExpression(node)) return isNumeralExpression(node.expression);
+  if (ts.isNumericLiteral(node)) return true;
+  if (ts.isPrefixUnaryExpression(node)) {
+    // Sign only. `!count` is a boolean, and treating it as a figure would let a
+    // negation render as a "numeral" painted in a status colour.
+    const signed = node.operator === ts.SyntaxKind.PlusToken || node.operator === ts.SyntaxKind.MinusToken;
+    return signed && isNumeralExpression(node.operand);
+  }
+  if (ts.isBinaryExpression(node)) {
+    // `{index + 1}` yes; `{count + " errors"}` no. The earlier note here — that
+    // a concatenation "would have a string literal rather than a numeric one" —
+    // was wrong, because one numeric side was enough to classify the whole
+    // expression: the visible word "errors" IS the required non-colour channel,
+    // so flagging it would have failed CI on a correct surface. Comparison and
+    // logical operators are excluded for the same reason: they yield booleans.
+    if (!ARITHMETIC_OPERATORS.has(node.operatorToken.kind)) return false;
+    if (containsTextLiteral(node)) return false;
+    return isNumeralExpression(node.left) || isNumeralExpression(node.right);
+  }
+  if (ts.isCallExpression(node)) {
+    const callee = node.expression;
+    return ts.isPropertyAccessExpression(callee) && NUMERAL_METHOD.test(callee.name.text);
+  }
+  if (ts.isPropertyAccessExpression(node)) return NUMERAL_NAME.test(node.name.text);
+  if (ts.isIdentifier(node)) return NUMERAL_NAME.test(node.text);
+  return false;
+}
+
+/**
+ * True when every child reads as a figure rather than prose. An element with no
+ * children at all is not a numeral — that case is the colour-only indicator rule
+ * below, and letting both fire on one element is how a rule earns an exemption.
+ */
+function childrenAreNumeralOnly(children) {
+  if (children.length === 0) return false;
+  let sawNumeral = false;
+  for (const child of children) {
+    if (ts.isJsxText(child)) {
+      const text = child.text.trim();
+      if (!isNumeralTextFragment(text)) return false;
+      if (/\d/.test(text)) sawNumeral = true;
+      continue;
+    }
+    if (ts.isJsxExpression(child)) {
+      if (!child.expression) continue;
+      if (!isNumeralExpression(child.expression)) return false;
+      sawNumeral = true;
+      continue;
+    }
+    // A nested element (icon, badge, another span) means this node is a
+    // container, not a painted numeral.
+    return false;
+  }
+  return sawNumeral;
+}
+
+/**
+ * Whether a JSX child renders words a reader can see.
+ *
+ * Expressions are treated as text by default, because without a type checker
+ * `{label}` and `{count}` are indistinguishable and assuming the worst would
+ * flag every labelled swatch in the repository. The exclusions below are the
+ * cases that are *statically* not text: a rendered-nothing literal, and a bare
+ * element such as an icon, which is another colour/shape channel rather than a
+ * second one.
+ */
+function rendersVisibleText(node) {
+  if (ts.isJsxText(node)) return /[A-Za-z]/.test(node.text);
+  if (ts.isJsxElement(node)) return node.children.some(rendersVisibleText);
+  if (ts.isJsxFragment(node)) return node.children.some(rendersVisibleText);
+  if (ts.isJsxSelfClosingElement(node)) return false;
+  if (ts.isJsxExpression(node)) {
+    const expression = node.expression;
+    if (!expression) return false;
+    if (
+      expression.kind === ts.SyntaxKind.NullKeyword ||
+      expression.kind === ts.SyntaxKind.FalseKeyword ||
+      (ts.isIdentifier(expression) && expression.text === "undefined")
+    ) {
+      return false;
+    }
+    // If the expression builds markup — a conditional element, a `.map` over
+    // rows — judge it by that markup. Otherwise it is a value being printed
+    // (`{label}`, `{statusLabel(status)}`) and counts as text, because without a
+    // type checker there is no way to tell a label from a count and assuming the
+    // worst would flag every labelled swatch in the repository.
+    const embedded = [];
+    const collect = (child) => {
+      if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child) || ts.isJsxFragment(child)) {
+        embedded.push(child);
+        return;
+      }
+      ts.forEachChild(child, collect);
+    };
+    collect(expression);
+    if (embedded.length > 0) return embedded.some(rendersVisibleText);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a label sits beside the element rather than inside it. The legend
+ * pattern — a coloured disc followed by the word it stands for, both inside one
+ * flex row — is the single most common shape this rule meets, and it is already
+ * correct: the state is in the text, and the swatch only repeats it in colour.
+ * Without this the baseline would have carried ten legend swatches as debt and
+ * taught the next reader that the rule cries wolf.
+ */
+function hasSiblingTextChannel(owner) {
+  let self = ts.isJsxOpeningElement(owner) ? owner.parent : owner;
+  let parent = self?.parent;
+  // Climb out of the expression wrappers a conditional swatch sits in.
+  // `{status === "emergent" ? <span …/> : null}` puts the element inside a
+  // ConditionalExpression inside a JsxExpression, so it is not a direct child of
+  // the element holding its label — and stopping at the first non-JSX parent
+  // reported a labelled badge as colour-only.
+  while (parent && !ts.isJsxElement(parent) && !ts.isJsxFragment(parent)) {
+    self = parent;
+    parent = parent.parent;
+  }
+  if (!parent) return false;
+  return parent.children.some((child) => child !== self && rendersVisibleText(child));
+}
+
+/**
+ * Whether the element, or any JSX element enclosing it, carries an accessible
+ * name. The ancestor walk is what distinguishes a bare colour swatch from a
+ * labelled composite: the services confidence bar paints three unlabelled
+ * segments inside one `aria-label` that states all four counts, and flagging its
+ * segments individually would be measuring markup rather than the defect.
+ */
+function hasAccessibleNameInScope(owner, source) {
+  let node = owner;
+  while (node) {
+    // Walking upwards yields `JsxElement`, whose attributes live on its opening
+    // element — checking only for opening/self-closing nodes silently never
+    // matches an ancestor, which is how the first draft of this walk found
+    // nothing at all.
+    const element = ts.isJsxElement(node) ? node.openingElement : node;
+    if (
+      (ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)) &&
+      hasNonEmptyAccessibleName(element, source)
+    ) {
+      return true;
+    }
+    node = node.parent;
+  }
+  return false;
+}
+
 export function analyzeClassContractsInSource(relativePath, sourceText) {
   const analyzer = classExpressionAnalyzer(relativePath, sourceText);
   const result = {
     arbitraryTracking: [],
+    colourOnlyStatusIndicators: [],
     darkColorOverrides: [],
     densityOverrides: [],
     edgeOwnershipConflicts: [],
     hardcodedMotionClasses: [],
+    imageInversions: [],
     layoutTransitions: [],
     legacyShadowAliases: [],
     legacyTapClasses: [],
     legacyPaletteUtilities: [],
     literalShadowClasses: [],
+    statusColouredNumerals: [],
     unapprovedZIndices: [],
   };
   if (!analyzer) return result;
@@ -706,6 +1005,44 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
       const line = analyzer.source.getLineAndCharacterOfPosition(root.owner.getStart(analyzer.source)).line + 1;
       result.densityOverrides.push(`${relativePath}:${line} (${[...densityConflictsForRoot].join(", ")})`);
     }
+
+    // Status-colour boundary (GATES.md §3). Two distinct defects, one pass over
+    // the same resolved class set, and deliberately mutually exclusive: a
+    // numeral has children, a colour-only indicator has none.
+    const rootBases = [...new Set(possibilities.flatMap((p) => p.tokens.map(({ token }) => utilityBase(token))))];
+    const statusText = rootBases.filter((base) => STATUS_TEXT_UTILITY.test(base));
+    const statusSurface = rootBases.filter((base) => STATUS_SURFACE_UTILITY.test(base));
+    const rootLine = analyzer.source.getLineAndCharacterOfPosition(root.owner.getStart(analyzer.source)).line + 1;
+
+    if (statusText.length > 0 && childrenAreNumeralOnly(jsxOwnerChildren(root.owner))) {
+      result.statusColouredNumerals.push(`${relativePath}:${rootLine} (${statusText[0]})`);
+    }
+
+    if (statusSurface.length > 0 && root.tag !== "StatusMark") {
+      const isJsxRoot = ts.isJsxOpeningElement(root.owner) || ts.isJsxSelfClosingElement(root.owner);
+      if (isJsxRoot) {
+        // A status hue painted on a box that says nothing: no children to read,
+        // and no name on it or anything containing it. Colour is then the only
+        // channel the state has.
+        if (
+          !hasAccessibleNameInScope(root.owner, analyzer.source) &&
+          !hasSiblingTextChannel(root.owner) &&
+          jsxOwnerChildren(root.owner).length === 0
+        ) {
+          result.colourOnlyStatusIndicators.push(`${relativePath}:${rootLine} (${statusSurface[0]})`);
+        }
+      } else if (root.tag === "recipe") {
+        // A shared swatch recipe — a status hue plus a tiny round box and no text
+        // utility. Its call sites inherit the defect, and the analyzer cannot see
+        // across files to find them, so the recipe is where it is catchable.
+        const swatch =
+          rootBases.some((base) => SWATCH_GEOMETRY.test(base)) &&
+          rootBases.includes("rounded-full") &&
+          !rootBases.some((base) => base.startsWith("text-"));
+        if (swatch) result.colourOnlyStatusIndicators.push(`${relativePath}:${rootLine} (${statusSurface[0]})`);
+      }
+    }
+
     for (const entry of uniqueTokenEntries(possibilities)) allTokens.set(entry.id, entry);
   }
 
@@ -714,6 +1051,9 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     const variants = utilityVariants(token);
     if (base === "transition-all" || HARDCODED_MOTION_UTILITY.test(base)) {
       result.hardcodedMotionClasses.push(`${relativePath}:${line} (${token})`);
+    }
+    if (IMAGE_INVERSION_UTILITY.test(base) || INVERSION_FUNCTION.test(base)) {
+      result.imageInversions.push(`${relativePath}:${line} (${token})`);
     }
     if (LITERAL_SHADOW_UTILITY.test(base)) result.literalShadowClasses.push(`${relativePath}:${line} (${token})`);
     if (ARBITRARY_TRACKING_UTILITY.test(base)) result.arbitraryTracking.push(`${relativePath}:${line} (${token})`);
@@ -743,7 +1083,17 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
 
   result.edgeOwnershipConflicts = [...new Set(result.edgeOwnershipConflicts)];
   result.densityOverrides = [...new Set(result.densityOverrides)];
+  result.colourOnlyStatusIndicators = [...new Set(result.colourOnlyStatusIndicators)];
+  result.statusColouredNumerals = [...new Set(result.statusColouredNumerals)];
   return result;
+}
+
+export function findStatusColouredNumeralsInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).statusColouredNumerals;
+}
+
+export function findColourOnlyStatusIndicatorsInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).colourOnlyStatusIndicators;
 }
 
 export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) {
@@ -832,6 +1182,7 @@ function transitionProperties(declaration) {
 export function analyzeCssContractsInSource(relativePath, sourceText) {
   const result = {
     hardcodedMotionDurations: [],
+    imageInversions: [],
     layoutTransitions: [],
     legacyShadowAliases: [],
     onePixelShadowSpreads: [],
@@ -840,6 +1191,11 @@ export function analyzeCssContractsInSource(relativePath, sourceText) {
   for (const declaration of cssDeclarations(sourceText)) {
     const line = declaration.source?.start?.line ?? 1;
     const prop = declaration.prop.toLowerCase();
+    if (/^(?:-webkit-)?(?:backdrop-)?filter$/.test(prop)) {
+      for (const match of declaration.value.matchAll(/\b(invert|hue-rotate)\(/g)) {
+        result.imageInversions.push(`${relativePath}:${line} (${prop}: ${match[1]}())`);
+      }
+    }
     for (const match of declaration.value.matchAll(LEGACY_SHADOW_ALIAS)) {
       result.legacyShadowAliases.push(`${relativePath}:${line} (${prop} ${match[0]})`);
     }

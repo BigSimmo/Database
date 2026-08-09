@@ -3,18 +3,17 @@ import { expect, test } from "playwright/test";
 /**
  * `/issues` #256, proven where it actually failed: in the browser.
  *
- * `informationPageSectionDefinitions` claims `/forms/<slug>` before the mode
- * branch in `PageSecondaryNavigation`, then `AvailableInformationPageNavigation`
- * drops every section whose `targetIds` are absent from the DOM and returns
- * `null` when all are dropped. `form-detail-page.tsx` rendered no `id`
- * attributes at all, so the route was claimed and nothing was drawn — silently,
- * with no error and no failing test.
+ * The route used to declare its sections in a table beside the page, and the
+ * shell dropped every section whose target was absent from the DOM — so a set
+ * could rot to nothing and the only symptom was a route silently drawing no
+ * navigation, with no error and no failing test. `/forms/<slug>` now mounts the
+ * shared `InPageNavHeader` and declares its own sections, but the failure mode
+ * is the same one: `useResolvedPageSections` still drops what it cannot see.
  *
- * The unit-level binding guard in `tests/page-secondary-navigation.dom.test.tsx`
- * matches `id="…"` in the source, which is necessary but not sufficient: it
- * cannot see whether an anchor is inside a branch that never renders, and jsdom
- * applies no Tailwind, so it cannot distinguish a `-mobile` target from its
- * `-desktop` twin. Only a real browser at a real width can.
+ * `tests/in-page-nav-route-sections.dom.test.tsx` asserts every declared anchor
+ * renders. That is necessary but not sufficient: jsdom applies no Tailwind, so
+ * it cannot distinguish a `-mobile` target from its `-desktop` twin. Only a real
+ * browser at a real width can.
  */
 /**
  * A real catalogue slug, not the `/forms/form-1` placeholder the unit tests
@@ -24,22 +23,40 @@ import { expect, test } from "playwright/test";
 const FORM_ROUTE = "/forms/transport-crisis-form";
 
 test.describe("Forms section navigation", () => {
-  test("renders On this page against anchors the form record actually paints", async ({ page }) => {
+  test("opens a section sheet listing the anchors the form record actually paints", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });
 
-    const onThisPage = page.getByRole("navigation", { name: "On this page" });
-    await expect(onThisPage).toBeVisible({ timeout: 20_000 });
+    const trigger = page.getByTestId("form-section-trigger");
+    await expect(trigger).toBeVisible({ timeout: 20_000 });
+    await trigger.click();
 
-    // Every declared section resolves. Before the fix this nav did not exist.
-    await expect(onThisPage.getByRole("link")).toHaveCount(6);
-    await expect(onThisPage.getByRole("link", { name: "Overview" })).toBeVisible();
-    await expect(onThisPage.getByRole("link", { name: "Legal boundary" })).toBeVisible();
+    const sheet = page.getByTestId("form-section-sheet");
+    await expect(sheet).toBeVisible();
+    // Every declared section resolves. Before the header existed this route drew
+    // no in-page navigation at all.
+    await expect(sheet.getByRole("button", { name: "Overview" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Legal boundary" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Decision context" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Source / verification" })).toBeVisible();
+  });
+
+  test("moves the reader to a section and records the stable fragment", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });
+
+    await page.getByTestId("form-section-trigger").click();
+    await page.getByTestId("form-section-sheet").getByRole("button", { name: "Source / verification" }).click();
+
+    // The breakpoint-independent fragment, not whichever copy is displayed, so
+    // a link copied on a phone still resolves on a desktop.
+    await expect(page).toHaveURL(/#form-source-verification$/);
+    await expect(page.getByTestId("form-section-sheet")).toBeHidden();
   });
 
   test("resolves each breakpoint variant to the side that is actually visible", async ({ page }) => {
     // The -mobile/-desktop pairs are the part a source scan cannot check.
-    // `AvailableInformationPageNavigation` takes the FIRST VISIBLE target, and
+    // `useResolvedPageSections` takes the FIRST VISIBLE target, and
     // `lg:hidden` / `hidden lg:block` make exactly one side display:none per
     // width. If both resolved, or neither, the section would silently drop.
     for (const [label, width] of [
@@ -48,7 +65,7 @@ test.describe("Forms section navigation", () => {
     ] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("navigation", { name: "On this page" })).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByTestId("form-detail-header")).toBeVisible({ timeout: 20_000 });
 
       const visible = await page.evaluate(() =>
         [
