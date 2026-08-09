@@ -26,7 +26,14 @@ import {
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import { useHideOnScroll, useReserveTransitionMarker } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
-import { chatComposerInput, chatComposerShellBase, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
+import {
+  chatComposerInput,
+  chatComposerShellBase,
+  chatSendButton,
+  cn,
+  eyebrowText,
+  ignoreUnavailableActivation,
+} from "@/components/ui-primitives";
 
 import {
   calculators,
@@ -613,8 +620,8 @@ export function CalculatorsSearchPage() {
               </div>
               <button
                 type="button"
-                disabled
                 aria-disabled="true"
+                onClick={ignoreUnavailableActivation}
                 aria-describedby="calculators-filters-unavailable"
                 title="Advanced filters — coming soon"
                 aria-label="Filters"

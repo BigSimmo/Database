@@ -50,6 +50,7 @@ import {
   codeText,
   EmptyState,
   iconTilePremium,
+  ignoreUnavailableActivation,
   metadataPillDensity,
   panelSubtle,
   proseMeasure,
@@ -907,8 +908,8 @@ export function ClinicalNotesChecklistPanel({
           </button>
           <button
             type="button"
-            disabled
             aria-disabled="true"
+            onClick={ignoreUnavailableActivation}
             aria-describedby="clinical-notes-add-unavailable"
             title="Add to favourites — coming soon"
             className="inline-flex min-h-tap cursor-not-allowed items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)] opacity-60"

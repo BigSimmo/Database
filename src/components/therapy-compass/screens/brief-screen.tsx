@@ -74,8 +74,14 @@ export function BriefScreen() {
           <button
             type="button"
             className={`${therapyBtn} ${commandControl}`}
-            onClick={() => b.openSheet(t.slug)}
-            disabled={!t.patientSheetAvailable}
+            // `aria-disabled` rather than `disabled`: "no patient handout" is a
+            // reason the reader needs, and a natively disabled button leaves the
+            // tab order, so keyboard users never reach the title that carries it.
+            onClick={() => {
+              if (!t.patientSheetAvailable) return;
+              b.openSheet(t.slug);
+            }}
+            aria-disabled={t.patientSheetAvailable ? undefined : true}
             title={t.patientSheetAvailable ? undefined : "This intervention has no patient handout"}
           >
             <FileTextIcon size={16} />
@@ -292,8 +298,11 @@ export function BriefScreen() {
             <button
               type="button"
               className={`${therapyBtn} ${commandControl} ml-auto`}
-              onClick={() => b.openSheet(t.slug)}
-              disabled={!t.patientSheetAvailable}
+              onClick={() => {
+                if (!t.patientSheetAvailable) return;
+                b.openSheet(t.slug);
+              }}
+              aria-disabled={t.patientSheetAvailable ? undefined : true}
               title={t.patientSheetAvailable ? undefined : "This intervention has no patient sheet"}
             >
               <FileTextIcon size={16} />
