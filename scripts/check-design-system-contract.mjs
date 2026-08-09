@@ -110,6 +110,8 @@ const metrics = {
   rawColorLiterals: 0,
   literalShadowClasses: 0,
   legacyTapClasses: 0,
+  colourOnlyStatusIndicators: 0,
+  statusColouredNumerals: 0,
   edgeOwnershipConflicts: 0,
   onePixelShadowSpreads: 0,
   hardcodedCssMotionDurations: 0,
@@ -129,6 +131,7 @@ const recordDebt = (metric, relativePath, count) => {
 
 const densityOverrideFindings = [];
 const hardcodedMotionClassFindings = [];
+const imageInversionFindings = [];
 const layoutTransitionFindings = [];
 const unapprovedZIndexFindings = [];
 const textSoftConsumerFindings = [];
@@ -166,6 +169,9 @@ for (const file of files) {
   );
   const fileEdgeFindings = classAnalysis.edgeOwnershipConflicts;
   recordDebt("edgeOwnershipConflicts", file.relativePath, fileEdgeFindings.length);
+  recordDebt("colourOnlyStatusIndicators", file.relativePath, classAnalysis.colourOnlyStatusIndicators.length);
+  recordDebt("statusColouredNumerals", file.relativePath, classAnalysis.statusColouredNumerals.length);
+  imageInversionFindings.push(...classAnalysis.imageInversions);
   recordDebt("legacyPaletteUtilities", file.relativePath, classAnalysis.legacyPaletteUtilities.length);
   recordDebt("darkColorOverrides", file.relativePath, classAnalysis.darkColorOverrides.length);
   recordDebt("legacyShadowAliases", file.relativePath, classAnalysis.legacyShadowAliases.length);
@@ -180,6 +186,7 @@ for (const file of files) {
     recordDebt("hardcodedCssMotionDurations", file.relativePath, cssAnalysis.hardcodedMotionDurations.length);
     recordDebt("rawCssZIndices", file.relativePath, cssAnalysis.rawZIndices.length);
     recordDebt("legacyShadowAliases", file.relativePath, cssAnalysis.legacyShadowAliases.length);
+    imageInversionFindings.push(...cssAnalysis.imageInversions);
     layoutTransitionFindings.push(...cssAnalysis.layoutTransitions);
   }
   for (const match of source.matchAll(CUSTOM_CONTROL_CLASS_PROP)) {
@@ -201,6 +208,14 @@ assert(
 assert(
   unapprovedZIndexFindings.length === 0,
   `Tailwind z-index utilities bypass the named ladder: ${unapprovedZIndexFindings.join(", ")}`,
+);
+// A PDF page, diagram or clinical image must read the same in every theme
+// (GATES.md §3). Production carries no inversion filter today, so this is pinned
+// at zero rather than ratcheted — there is no debt to pay down, only new debt to
+// refuse.
+assert(
+  imageInversionFindings.length === 0,
+  `inversion filters would recolour clinical imagery: ${imageInversionFindings.join(", ")}`,
 );
 assert(
   textSoftConsumerFindings.length === 0,
@@ -383,6 +398,9 @@ console.log(
 );
 console.log(
   `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; layout transitions ${metrics.layoutTransitionExceptions}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}; arbitrary tracking ${metrics.arbitraryTracking}.`,
+);
+console.log(
+  `Status-colour boundary: colour-only status indicators ${metrics.colourOnlyStatusIndicators}; status-coloured numerals ${metrics.statusColouredNumerals}; image inversions ${imageInversionFindings.length}.`,
 );
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);
