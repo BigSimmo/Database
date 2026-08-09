@@ -141,7 +141,7 @@ const recordDebt = (metric, relativePath, count) => {
  * list by being deleted from `globals.css`, not by being forgotten.
  */
 const UNUSED_TYPE_STEP_EXEMPTIONS = new Map([
-  ["2xl-compact", "no consumer since it was added; retirement tracked as docs/outstanding-issues.md #295"],
+  ["2xl-compact", "no consumer since it was added; retirement tracked as docs/outstanding-issues.md #297"],
 ]);
 
 const densityOverrideFindings = [];

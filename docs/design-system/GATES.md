@@ -46,7 +46,7 @@ flagged.
 inside `check:design-system-contract`: a step declared in the `globals.css` `@theme` block
 that no production surface selects fails the build, naming the step. It found one on the day
 it landed — `--text-2xl-compact`, zero consumers, carried as a documented exemption with its
-retirement tracked as `#295`. The exemption itself is gated: the build also fails if an
+retirement tracked as `#297`. The exemption itself is gated: the build also fails if an
 exempted step stops being declared or gains a consumer, so the list cannot rot.
 
 **Still not enforced:** which of the _existing_ steps a component picks. Nothing stops a

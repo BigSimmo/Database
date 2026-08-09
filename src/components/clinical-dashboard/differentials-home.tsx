@@ -428,6 +428,12 @@ function DesktopResultRow({
           >
             <span className="line-clamp-1">{result.title}</span>
           </Link>
+          <DesignChip
+            size="compact"
+            appearance={{ kind: "information", tone: result.kind === "presentation" ? "accent" : "inset" }}
+          >
+            {result.kind === "presentation" ? "Presentation" : "Diagnosis"}
+          </DesignChip>
           <StatusBadge status={result.status} />
         </div>
         <p className="mt-1 line-clamp-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
@@ -496,6 +502,12 @@ function MobileResultCard({
             <span className="line-clamp-2">{result.title}</span>
           </Link>
           <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2">
+            <DesignChip
+              size="compact"
+              appearance={{ kind: "information", tone: result.kind === "presentation" ? "accent" : "inset" }}
+            >
+              {result.kind === "presentation" ? "Presentation" : "Diagnosis"}
+            </DesignChip>
             <StatusBadge status={result.status} />
             <MatchBadge label={result.matchLabel} />
           </div>
@@ -576,6 +588,12 @@ function BestAnswerCard({
               </Link>
             </h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
+              <DesignChip
+                size="compact"
+                appearance={{ kind: "information", tone: best.kind === "presentation" ? "accent" : "inset" }}
+              >
+                {best.kind === "presentation" ? "Presentation" : "Diagnosis"}
+              </DesignChip>
               <StatusBadge status={best.status} />
               <Link
                 href={best.href}

@@ -316,6 +316,30 @@ export function resolveDifferentialCompareHandoff(ids: Iterable<string>, query =
   };
 }
 
+/**
+ * Href for the Compare queue "Open comparison" CTA.
+ * Catalogue-hosted selections open the presentation workflow; cross-presentation
+ * selections open the ad-hoc workspace on `/differentials/compare`.
+ */
+export function resolveDifferentialCompareLaunchHref(ids: Iterable<string>, query = ""): string {
+  const handoff = resolveDifferentialCompareHandoff(ids, query);
+  if (handoff.kind === "presentation") return handoff.href;
+  const params = new URLSearchParams();
+  const trimmedQuery = query.trim();
+  if (trimmedQuery) params.set("q", trimmedQuery);
+  if (handoff.selection.diagnosisIds.length) params.set("ids", handoff.selection.diagnosisIds.join(","));
+  params.set("workspace", "1");
+  return `/differentials/compare?${params.toString()}`;
+}
+
+/** Queue rows for the Compare page (title lookup from the local catalogue). */
+export function differentialCompareQueueItems(ids: Iterable<string>): Array<{ slug: string; title: string }> {
+  return normalizeRequestedDiagnosisIds(ids).map((slug) => ({
+    slug,
+    title: getDifferentialRecord(slug)?.title ?? slug.replace(/-/g, " "),
+  }));
+}
+
 export const acuteConfusionPresentationWorkflow: DifferentialPresentationWorkflow =
   getPresentationWorkflow("acute-confusion-encephalopathy") ?? differentialPresentations()[0]!;
 
