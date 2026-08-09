@@ -231,8 +231,12 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               aria-label={`Back to ${back.label.toLowerCase()}`}
               title={showBackLabel ? undefined : back.label}
               className={cn(
-                "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
-                showBackLabel ? "pr-3" : "pr-1.5",
+                // `min-w-tap` is load-bearing on phones: the visible label is
+                // `hidden sm:inline`, so without a width floor the control shrinks
+                // to the icon + horizontal padding (~40px) and fails the production
+                // tap-target contract that Production UI asserts on medications.
+                "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
+                showBackLabel ? "pl-1.5 pr-3 max-sm:px-1.5" : "px-1.5",
               )}
             >
               <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
