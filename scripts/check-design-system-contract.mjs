@@ -10,6 +10,7 @@ import {
   findDebtPathRegressions,
   findInteractiveTapLiteralsInSource,
   findTextSoftConsumersInSource,
+  findTypeStepCssUsagesInSource,
   LEGACY_TAP_CLASS,
   hasLegacyTapClass,
   jsxClassText,
@@ -146,6 +147,7 @@ const UNUSED_TYPE_STEP_EXEMPTIONS = new Map([
 
 const densityOverrideFindings = [];
 const typeStepUsage = new Set();
+const typeStepCssUsage = new Set();
 const hardcodedMotionClassFindings = [];
 const imageInversionFindings = [];
 const layoutTransitionFindings = [];
@@ -196,6 +198,7 @@ for (const file of files) {
   recordDebt("rawRadiusLiterals", file.relativePath, classAnalysis.rawRadiusLiterals.length);
   recordDebt("rawLineHeightLiterals", file.relativePath, classAnalysis.rawLineHeightLiterals.length);
   for (const step of classAnalysis.typeStepUsages) typeStepUsage.add(step);
+  for (const step of findTypeStepCssUsagesInSource(source, file.relativePath)) typeStepCssUsage.add(step);
   densityOverrideFindings.push(...classAnalysis.densityOverrides);
   hardcodedMotionClassFindings.push(...classAnalysis.hardcodedMotionClasses);
   layoutTransitionFindings.push(...classAnalysis.layoutTransitions);
@@ -376,12 +379,9 @@ if (themeBlockStart >= 0) {
     .filter((step) => !step.includes("--") && !step.endsWith("-tr"));
   assert(declaredTypeSteps.length > 0, "no --text-* type steps found in the globals.css @theme block");
 
+  const typeStepIsConsumed = (step) => typeStepUsage.has(step) || typeStepCssUsage.has(step);
   const unusedTypeSteps = declaredTypeSteps.filter(
-    (step) =>
-      !typeStepUsage.has(step) &&
-      // A step consumed straight from CSS rather than through its utility.
-      !new RegExp(String.raw`var\(\s*--text-${step}\s*[,)]`).test(globals) &&
-      !UNUSED_TYPE_STEP_EXEMPTIONS.has(step),
+    (step) => !typeStepIsConsumed(step) && !UNUSED_TYPE_STEP_EXEMPTIONS.has(step),
   );
   assert(
     unusedTypeSteps.length === 0,
@@ -391,14 +391,16 @@ if (themeBlockStart >= 0) {
   );
   // An exemption for a step that has since gained a consumer is stale, and a
   // stale exemption is how a list like this starts lying to the next reader.
+  // Class utilities and direct `var(--text-*)` consumers both count — the same
+  // predicate as the unused-step filter above.
   for (const [step, reason] of UNUSED_TYPE_STEP_EXEMPTIONS) {
     assert(
       declaredTypeSteps.includes(step),
       `--text-${step} is exempted as unused but is no longer declared in @theme — drop the exemption (${reason})`,
     );
     assert(
-      !typeStepUsage.has(step),
-      `--text-${step} is exempted as unused but production now selects text-${step} — drop the exemption (${reason})`,
+      !typeStepIsConsumed(step),
+      `--text-${step} is exempted as unused but production now selects text-${step} / var(--text-${step}) — drop the exemption (${reason})`,
     );
   }
 }

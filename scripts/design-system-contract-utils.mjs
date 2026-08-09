@@ -318,12 +318,40 @@ const RAW_LINE_HEIGHT_UTILITY = new RegExp(String.raw`^leading-${RAW_LITERAL_VAL
  * `legacyShadowAliases` and the colour ratchet count both sides.
  *
  * `0` in any unit carries no design decision and is exempt, as are the CSS-wide
- * keywords and `line-height: normal`.
+ * keywords and `line-height: normal`. The zero matcher takes any CSS unit
+ * identifier (`0dvh`, `0svw`, `0cqw`, `0lh`, …), not a finite allowlist — a
+ * closed list falsely counted those as raw debt.
+ *
+ * Tailwind's arbitrary-property spelling (`[padding:22px]`,
+ * `[border-radius:7px]`, `[line-height:1.35]`) reaches the same properties as
+ * the named utilities above and is counted with the same raw-literal predicate,
+ * or the ratchet could be bypassed by changing syntax alone.
  */
 const RAW_PADDING_PROPERTY = /^padding(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?$/;
 const RAW_RADIUS_PROPERTY = /^border(?:-(?:top|bottom)-(?:left|right)|-(?:start|end)-(?:start|end))?-radius$/;
 const CSS_WIDE_KEYWORD = /^(?:inherit|initial|unset|revert|revert-layer|normal|auto)$/;
-const CSS_ZERO_VALUE = /^-?0(?:\.0+)?(?:px|rem|em|%|vh|vw|vmin|vmax|ch|ex)?$/;
+const CSS_ZERO_VALUE = /^-?0(?:\.0+)?(?:[a-z%]+)?$/i;
+const ARBITRARY_PROPERTY_UTILITY = /^\[([a-z-]+):([^\]]+)\]$/i;
+
+function isRawScaleLiteralValue(value) {
+  const trimmed = value.trim();
+  if (!trimmed || /\w\(/.test(trimmed) || CSS_WIDE_KEYWORD.test(trimmed)) return false;
+  return !trimmed.split(/\s+/).every((part) => CSS_ZERO_VALUE.test(part));
+}
+
+function recordRawScaleLiteralProperty(result, relativePath, line, prop, value, token) {
+  if (!isRawScaleLiteralValue(value)) return;
+  const label = token ?? `${prop}: ${value}`;
+  if (RAW_PADDING_PROPERTY.test(prop)) {
+    result.rawPaddingLiterals.push(`${relativePath}:${line} (${label})`);
+  }
+  if (RAW_RADIUS_PROPERTY.test(prop)) {
+    result.rawRadiusLiterals.push(`${relativePath}:${line} (${label})`);
+  }
+  if (prop === "line-height") {
+    result.rawLineHeightLiterals.push(`${relativePath}:${line} (${label})`);
+  }
+}
 const LEGACY_SHADOW_ALIAS = /var\(--shadow-(?:tight|card|soft|hover|elevated|lux|lift)\)/g;
 const LEGACY_PALETTE_UTILITY =
   /^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(?:white|black|(?:slate|gray|zinc|neutral|stone)-\d{2,3})(?:\/\d{1,3})?$/;
@@ -1099,6 +1127,17 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     if (RAW_PADDING_UTILITY.test(base)) result.rawPaddingLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_RADIUS_UTILITY.test(base)) result.rawRadiusLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_LINE_HEIGHT_UTILITY.test(base)) result.rawLineHeightLiterals.push(`${relativePath}:${line} (${token})`);
+    const arbitraryProperty = base.match(ARBITRARY_PROPERTY_UTILITY);
+    if (arbitraryProperty) {
+      recordRawScaleLiteralProperty(
+        result,
+        relativePath,
+        line,
+        arbitraryProperty[1].toLowerCase(),
+        arbitraryProperty[2],
+        token,
+      );
+    }
     // Every bare `text-<name>` this file uses, whatever `<name>` turns out to
     // mean. The caller decides which of these are type steps by reading the
     // `@theme` block, so the scale is never spelled out twice — writing the
@@ -1246,20 +1285,7 @@ export function analyzeCssContractsInSource(relativePath, sourceText) {
     // Custom-property declarations are the token definitions themselves — the
     // scale has to be written down somewhere — so only real properties count.
     if (!prop.startsWith("--")) {
-      const value = declaration.value.trim();
-      const isRawLiteral = !/\w\(/.test(value) && !CSS_WIDE_KEYWORD.test(value);
-      const everyPartIsZero = value.split(/\s+/).every((part) => CSS_ZERO_VALUE.test(part));
-      if (isRawLiteral && !everyPartIsZero) {
-        if (RAW_PADDING_PROPERTY.test(prop)) {
-          result.rawPaddingLiterals.push(`${relativePath}:${line} (${prop}: ${value})`);
-        }
-        if (RAW_RADIUS_PROPERTY.test(prop)) {
-          result.rawRadiusLiterals.push(`${relativePath}:${line} (${prop}: ${value})`);
-        }
-        if (prop === "line-height") {
-          result.rawLineHeightLiterals.push(`${relativePath}:${line} (${prop}: ${value})`);
-        }
-      }
+      recordRawScaleLiteralProperty(result, relativePath, line, prop, declaration.value);
     }
     if (/^(?:-webkit-)?(?:backdrop-)?filter$/.test(prop)) {
       for (const match of declaration.value.matchAll(/\b(invert|hue-rotate)\(/g)) {
@@ -1318,6 +1344,40 @@ export function findRawScaleLiteralClassesInSource(relativePath, sourceText) {
 
 export function findTypeStepUsagesInSource(relativePath, sourceText) {
   return analyzeClassContractsInSource(relativePath, sourceText).typeStepUsages;
+}
+
+/**
+ * Direct `var(--text-<step>)` consumers in any production source. The unused-step
+ * gate and its exemption anti-rot check must share this predicate — a class-only
+ * check lets an exemption survive once a CSS consumer appears.
+ *
+ * CSS sources are walked declaration-by-declaration so a quoted `content:`
+ * string cannot fake a consumer. Non-CSS sources strip comments first, then
+ * match `var(--text-*)` in remaining text (covers inline style strings).
+ */
+export function findTypeStepCssUsagesInSource(sourceText, relativePath = "source.css") {
+  const steps = [];
+  const record = (step) => {
+    if (!step.includes("--") && !step.endsWith("-tr")) steps.push(step);
+  };
+
+  if (relativePath.endsWith(".css")) {
+    for (const declaration of cssDeclarations(sourceText)) {
+      if (declaration.prop.startsWith("--")) continue;
+      // Drop CSS string tokens so `content:"var(--text-…)"` cannot count.
+      const value = declaration.value.replace(/"(?:\\.|[^"\\])*"/g, '""').replace(/'(?:\\.|[^'\\])*'/g, "''");
+      for (const match of value.matchAll(/var\(\s*--text-([a-z0-9-]+)\s*[,)]/g)) {
+        record(match[1]);
+      }
+    }
+    return steps;
+  }
+
+  const withoutComments = sourceText.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  for (const match of withoutComments.matchAll(/var\(\s*--text-([a-z0-9-]+)\s*[,)]/g)) {
+    record(match[1]);
+  }
+  return steps;
 }
 
 export function findRawScaleLiteralDeclarationsInSource(sourceText) {

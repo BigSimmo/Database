@@ -16,6 +16,7 @@ import {
   findRawScaleLiteralClassesInSource,
   findRawScaleLiteralDeclarationsInSource,
   findTextSoftConsumersInSource,
+  findTypeStepCssUsagesInSource,
   findTypeStepUsagesInSource,
   findUnapprovedZIndexClassesInSource,
   hasLegacyTapClass,
@@ -374,12 +375,22 @@ describe("design-system contract helpers", () => {
     expect(found.radius).toEqual(["src/probe.tsx:1 (rounded-[7px])"]);
     expect(found.lineHeight).toEqual(["src/probe.tsx:1 (leading-[1.35])"]);
 
+    // Arbitrary-property spellings reach the same CSS properties and must not
+    // bypass the named-utility matchers.
+    const arbitraryProperty = findRawScaleLiteralClassesInSource(
+      "src/probe.tsx",
+      'export const probe = <div className="[padding:22px] [border-radius:7px] [line-height:1.35]" />;',
+    );
+    expect(arbitraryProperty.padding).toEqual(["src/probe.tsx:1 ([padding:22px])"]);
+    expect(arbitraryProperty.radius).toEqual(["src/probe.tsx:1 ([border-radius:7px])"]);
+    expect(arbitraryProperty.lineHeight).toEqual(["src/probe.tsx:1 ([line-height:1.35])"]);
+
     // The sanctioned computed forms production actually ships. A `(?!var\()`
     // lookahead would flag every one of these, because they open with `env(`,
     // `max(`, `clamp(` or `calc(` rather than `var(`.
     const exempt = findRawScaleLiteralClassesInSource(
       "src/probe.tsx",
-      'export const probe = <div className="p-[var(--pad-card)] pb-[env(safe-area-inset-bottom)] pt-[max(0.5rem,var(--safe-area-top))] px-[clamp(1rem,2vw,2rem)] pl-[calc(7rem+1px)] rounded-[var(--radius-lg)] leading-[var(--leading-prose)]" />;',
+      'export const probe = <div className="p-[var(--pad-card)] pb-[env(safe-area-inset-bottom)] pt-[max(0.5rem,var(--safe-area-top))] px-[clamp(1rem,2vw,2rem)] pl-[calc(7rem+1px)] rounded-[var(--radius-lg)] leading-[var(--leading-prose)] [padding:var(--pad-card)] [border-radius:calc(0.5rem+1px)]" />;',
     );
     expect(exempt.padding).toEqual([]);
     expect(exempt.radius).toEqual([]);
@@ -410,11 +421,26 @@ describe("design-system contract helpers", () => {
     expect(found.lineHeight).toEqual(["source.css:1 (line-height: 1.35)"]);
 
     const exempt = findRawScaleLiteralDeclarationsInSource(
-      ".a{padding:0;padding-inline:var(--pad-card);border-radius:inherit;line-height:normal;margin:5px;--radius-xs:0.25rem;}",
+      ".a{padding:0;padding-inline:0dvh;border-radius:0svw;line-height:0lh;padding-block:var(--pad-card);border-top-left-radius:inherit;line-height:normal;margin:5px;--radius-xs:0.25rem;}",
     );
     expect(exempt.padding).toEqual([]);
     expect(exempt.radius).toEqual([]);
     expect(exempt.lineHeight).toEqual([]);
+  });
+
+  it("reports direct var(--text-*) consumers for the shared unused-step predicate", () => {
+    expect(
+      findTypeStepCssUsagesInSource(
+        '.a{font-size:var(--text-2xl-compact)}.b{font-size:var(--text-hero, 2rem)}.c{--text-sm-minus:1rem;content:"var(--text-sm-minus)"}',
+        "src/probe.css",
+      ),
+    ).toEqual(["2xl-compact", "hero"]);
+    expect(
+      findTypeStepCssUsagesInSource(
+        'const style = { fontSize: "var(--text-2xl-compact)" };\n// var(--text-hero)\n',
+        "src/probe.tsx",
+      ),
+    ).toEqual(["2xl-compact"]);
   });
 
   it("rejects debt moved to a new path even when its global total is unchanged", () => {
