@@ -69,17 +69,40 @@ export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?
   );
 }
 
-export function TagRow({ tags, max = 5 }: { tags: string[]; max?: number }) {
+export function TagRow({
+  tags,
+  max = 5,
+  /** Search cards keep one row; detail may still wrap a longer set. */
+  wrap = true,
+}: {
+  tags: string[];
+  max?: number;
+  wrap?: boolean;
+}) {
   const shown = tags.slice(0, max);
   const extra = tags.length - shown.length;
+  const pills = shown.map((tag) => (
+    <Tag key={tag} tone={tagTone(tag)}>
+      {tag}
+    </Tag>
+  ));
+  const overflow = extra > 0 ? <Tag tone="neutral">+{extra}</Tag> : null;
+
+  // Single-row cards: keep `+N` as a non-shrinking sibling so overflow-hidden
+  // clips long tags, not the indicator that more tags exist.
+  if (!wrap) {
+    return (
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-nowrap gap-2 overflow-hidden">{pills}</div>
+        {overflow ? <span className="shrink-0">{overflow}</span> : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap gap-2">
-      {shown.map((tag) => (
-        <Tag key={tag} tone={tagTone(tag)}>
-          {tag}
-        </Tag>
-      ))}
-      {extra > 0 ? <Tag tone="neutral">+{extra}</Tag> : null}
+      {pills}
+      {overflow}
     </div>
   );
 }
