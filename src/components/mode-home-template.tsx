@@ -39,6 +39,7 @@ type ModeHomeTemplateProps = {
   footer?: ReactNode;
   className?: string;
   headingLevel?: 1 | 2;
+  stabilizePhoneCopy?: boolean;
 };
 
 const pillToneClass: Record<NonNullable<ModeHomePill["tone"]>, string> = {
@@ -59,12 +60,14 @@ export function ModeHomeHero({
   subtitle,
   icon: Icon,
   headingLevel = 1,
+  stabilizePhoneCopy = false,
 }: {
   testId?: string;
   title: string;
   subtitle: string;
   icon: LucideIcon;
   headingLevel?: 1 | 2;
+  stabilizePhoneCopy?: boolean;
 }) {
   const Heading = headingLevel === 1 ? "h1" : "h2";
 
@@ -84,11 +87,19 @@ export function ModeHomeHero({
       <div className="grid gap-1 sm:gap-1.5">
         <Heading
           id={`${testId ?? "mode-home"}-title`}
-          className="text-balance text-hero font-extrabold leading-display tracking-normal text-[color:var(--text-heading)]"
+          className={cn(
+            "text-balance text-hero font-extrabold leading-display tracking-normal text-[color:var(--text-heading)]",
+            stabilizePhoneCopy && "max-sm:grid max-sm:min-h-[2lh] max-sm:place-items-center",
+          )}
         >
           {title}
         </Heading>
-        <p className="mx-auto max-w-2xl text-pretty text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-5 lg:text-base lg:leading-6">
+        <p
+          className={cn(
+            "mx-auto max-w-2xl text-pretty text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-5 lg:text-base lg:leading-6",
+            stabilizePhoneCopy && "max-sm:grid max-sm:min-h-[2lh] max-sm:place-items-center",
+          )}
+        >
           {subtitle}
         </p>
       </div>
@@ -261,6 +272,7 @@ export function ModeHomeTemplate({
   footer,
   className,
   headingLevel = 1,
+  stabilizePhoneCopy = false,
 }: ModeHomeTemplateProps) {
   return (
     <div
@@ -270,7 +282,14 @@ export function ModeHomeTemplate({
         className,
       )}
     >
-      <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
+      <ModeHomeHero
+        testId={testId}
+        title={title}
+        subtitle={subtitle}
+        icon={icon}
+        headingLevel={headingLevel}
+        stabilizePhoneCopy={stabilizePhoneCopy}
+      />
 
       {/* Reserve settled composer height only while adoption is pending or the
           portal host is present. SSR starts pending so first paint does not CLS;
