@@ -261,10 +261,21 @@ describe("getDifferentialDetailContext", () => {
       for (const slug of context.knownRelatedSlugs) {
         expect(catalogSlugs.has(slug), `related slug ${slug} on ${record.slug}`).toBe(true);
       }
+      for (const slug of Object.values(context.termLinks)) {
+        expect(getDifferentialRecord(slug), `term link ${slug} from ${record.slug}`).not.toBeNull();
+        expect(slug, `term link must not self-link ${record.slug}`).not.toBe(record.slug);
+      }
       for (const slug of Object.values(context.overlapLinks)) {
         expect(getDifferentialRecord(slug), `overlap link ${slug} from ${record.slug}`).not.toBeNull();
       }
     }
+  });
+
+  it("includes alias-backed termLinks for dementia watch-for tags", () => {
+    const dementia = getDifferentialRecord("dementia-apathy-neurocognitive-disorder");
+    expect(dementia).not.toBeNull();
+    const context = getDifferentialDetailContext(dementia!);
+    expect(context.termLinks["Superimposed delirium"]).toBe("delirium");
   });
 });
 
