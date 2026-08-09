@@ -10,6 +10,7 @@ import {
   findDebtPathRegressions,
   findInteractiveTapLiteralsInSource,
   findTextSoftConsumersInSource,
+  isSanctionedRawValue,
   LEGACY_TAP_CLASS,
   hasLegacyTapClass,
   jsxClassText,
@@ -26,6 +27,17 @@ const RAW_COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch)\(/gi;
 /** Whole-file backstop for literal shadow utilities the AST class-root pass can miss. */
 const LITERAL_SHADOW_TEXT = /(?:^|[\s"'`])shadow-\[(?!var\()[^\]]+\]/g;
 const ARBITRARY_TRACKING_TEXT = /(?:^|[\s"'`])tracking-\[(?!var\()[^\]]+\]/g;
+/**
+ * Whole-file backstop for the one raw-value family pinned at zero. The three
+ * ratcheted families deliberately have no text backstop: `AST >= text` is an
+ * assertion that the class-root pass missed nothing, which is only safe to
+ * demand where the count is zero — a file carrying recorded padding debt inside
+ * an expression shape the analyzer resolves differently would fail the
+ * assertion rather than the ratchet, reporting an analyzer disagreement as a
+ * design defect. `leading-[…]` is at zero and stays there, so any text match at
+ * all is a real regression, whether or not the AST pass can see it.
+ */
+const ARBITRARY_LEADING_TEXT = /(?:^|[\s"'`])leading-\[([^\]]+)\]/g;
 const CUSTOM_CONTROL_CLASS_PROP =
   /(?:closeButtonClassName|sheetCloseButtonClassName|buttonClassName|triggerClassName)\s*=\s*(?:"([^"]*)"|`([^`]*)`)/g;
 
@@ -120,6 +132,10 @@ const metrics = {
   darkColorOverrides: 0,
   legacyShadowAliases: 0,
   arbitraryTracking: 0,
+  arbitraryPadding: 0,
+  arbitraryGap: 0,
+  arbitraryRadius: 0,
+  arbitraryLeading: 0,
   layoutTransitionExceptions: 0,
   textSoftConsumers: 0,
 };
@@ -155,6 +171,9 @@ for (const file of files) {
   const textLegacyTap = countMatches(classTextSource, LEGACY_TAP_CLASS);
   const textLiteralShadow = countMatches(classTextSource, LITERAL_SHADOW_TEXT);
   const textArbitraryTracking = countMatches(classTextSource, ARBITRARY_TRACKING_TEXT);
+  const textArbitraryLeading = [...classTextSource.matchAll(ARBITRARY_LEADING_TEXT)].filter(
+    (match) => !isSanctionedRawValue(match[1]),
+  ).length;
   assert(
     classAnalysis.legacyTapClasses.length >= textLegacyTap,
     `${file.relativePath} has ${textLegacyTap} legacy tap class text match(es) but the AST class-root pass only saw ${classAnalysis.legacyTapClasses.length}`,
@@ -167,6 +186,10 @@ for (const file of files) {
     classAnalysis.arbitraryTracking.length >= textArbitraryTracking,
     `${file.relativePath} has ${textArbitraryTracking} arbitrary tracking text match(es) but the AST class-root pass only saw ${classAnalysis.arbitraryTracking.length}`,
   );
+  assert(
+    classAnalysis.arbitraryLeading.length >= textArbitraryLeading,
+    `${file.relativePath} has ${textArbitraryLeading} arbitrary line-height text match(es) but the AST class-root pass only saw ${classAnalysis.arbitraryLeading.length}`,
+  );
   const fileEdgeFindings = classAnalysis.edgeOwnershipConflicts;
   recordDebt("edgeOwnershipConflicts", file.relativePath, fileEdgeFindings.length);
   recordDebt("colourOnlyStatusIndicators", file.relativePath, classAnalysis.colourOnlyStatusIndicators.length);
@@ -176,6 +199,10 @@ for (const file of files) {
   recordDebt("darkColorOverrides", file.relativePath, classAnalysis.darkColorOverrides.length);
   recordDebt("legacyShadowAliases", file.relativePath, classAnalysis.legacyShadowAliases.length);
   recordDebt("arbitraryTracking", file.relativePath, classAnalysis.arbitraryTracking.length);
+  recordDebt("arbitraryPadding", file.relativePath, classAnalysis.arbitraryPadding.length);
+  recordDebt("arbitraryGap", file.relativePath, classAnalysis.arbitraryGap.length);
+  recordDebt("arbitraryRadius", file.relativePath, classAnalysis.arbitraryRadius.length);
+  recordDebt("arbitraryLeading", file.relativePath, classAnalysis.arbitraryLeading.length);
   densityOverrideFindings.push(...classAnalysis.densityOverrides);
   hardcodedMotionClassFindings.push(...classAnalysis.hardcodedMotionClasses);
   layoutTransitionFindings.push(...classAnalysis.layoutTransitions);
@@ -403,4 +430,7 @@ console.log(
   `Status-colour boundary: colour-only status indicators ${metrics.colourOnlyStatusIndicators}; status-coloured numerals ${metrics.statusColouredNumerals}; image inversions ${imageInversionFindings.length}.`,
 );
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
+console.log(
+  `Raw-value ratchets: arbitrary padding ${metrics.arbitraryPadding}; gap ${metrics.arbitraryGap}; radius ${metrics.arbitraryRadius}; line-height ${metrics.arbitraryLeading}.`,
+);
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);

@@ -94,7 +94,7 @@ theme-list parity, and remote design-project publication remain separate concern
 | Border **and** ring on one surface, or a 1px spread in a drop shadow | `check:design-system-contract` — `edgeOwnershipConflicts` (27) + `onePixelShadowSpreads` (2)              | **implemented-blocking for new use** — AST/CSS ratchets with per-path pins; the recorded debt itself is Gate 8's remaining half                                                 |
 | A child shadow heavier than its parent's                             | Gate 7                                                                                                    | implemented-partial                                                                                                                                                             |
 | Use `--shadow-tight`/any alias in new code                           | `check:design-system-contract` — `legacyShadowAliases`, ratcheted at 224 with per-path pins               | **implemented-blocking for new use** — a new alias in any file fails; retiring the existing 224 is `#262`                                                                       |
-| Raw pixel size, padding, radius or line-height in markup             | Contract ratchet                                                                                          | implemented-partial (colour/shadow/tap literals only)                                                                                                                           |
+| Raw pixel size, padding, radius or line-height in markup             | `check:design-system-contract` — `arbitraryPadding` (58), `arbitraryGap` (21), `arbitraryRadius` (2), `arbitraryLeading` (**zero**) | **implemented-blocking for new use** (9 Aug 2026) — line-height is pinned at zero with a whole-file text backstop; padding/gap/radius are ratchets with per-path pins. Raw *size* is still covered only for tap/shadow/colour. Values referencing a safe-area inset are exempt, and so are values whose lengths all come from tokens; see §6 |
 | Animate `width`, `height`, `grid-template-*`, `top`, `left`, `gap`   | `check:design-system-contract` — `layoutTransitionExceptions`, ratcheted at 12 with per-path pins         | **implemented-blocking for new use** — `SAFE_TRANSITION_PROPERTIES` carries the compositor-only allowlist; phone chrome's deliberate `grid-template-rows` is in the recorded 12 |
 | Hardcode a transition duration                                       | `check:design-system-contract` — `hardcodedMotionClasses` (**zero**) + `hardcodedCssMotionDurations` (42) | **implemented-blocking** for the Tailwind `duration-*`/`delay-*`/`transition-all` form; the CSS form is a ratchet, so its 42 are debt                                           |
 | A `z-` value outside the named rungs                                 | `require-z-index-ladder` (ESLint)                                                                         | implemented-blocking                                                                                                                                                            |
@@ -214,3 +214,57 @@ again. Since `ui-style-contract.spec.ts` runs in the required `Production UI` jo
 an intermittent version would have blocked every merge in the repo, which is worse than the
 gap it closes. Recorded here so the next attempt starts from a deterministic surface rather
 than re-deriving the same six runs.
+
+---
+
+## 6 · Raw padding, gap, radius and line-height — ratcheted 9 August 2026
+
+Ledger `#262` part 3, and the §3 row that had read `implemented-partial (colour/shadow/tap
+literals only)` since the table was written. Measured against `origin/main` `199b303b7`.
+
+Four metrics rather than one pooled `arbitrarySpacing`, because the debt is three different
+sizes and one of them is zero. Pooling would let the 59th padding site be traded against the
+first `leading-[1.15]`, which is the exact swap a per-family ratchet exists to refuse.
+
+- `arbitraryPadding` — **58** across 18 files. Covers `p-`/`px-`/`py-`/`pt-`/`pr-`/`pb-`/
+  `pl-` and the logical `ps-`/`pe-`.
+- `arbitraryGap` — **21** across 8 files, every one of them in `therapy-compass/`.
+- `arbitraryRadius` — **2**: `rounded-[7px]` on the search band's filter chip and
+  `rounded-t-[2px]` on the mode-nav rule.
+- `arbitraryLeading` — pinned at **zero**, not ratcheted, and carrying a whole-file text
+  backstop so a `leading-[…]` the AST class-root pass cannot resolve still fails.
+
+**Two exemptions, both measured rather than assumed.** The first draft used the same
+`(?!var\()` lookahead the shadow and tracking ratchets carry and found 100 sites. Twenty of
+them were not debt:
+
+- **Safe-area insets (19).** `env(safe-area-inset-*)` has no value at author time, and
+  `--safe-area-*` / `--keyboard-height` are this repo's own runtime wrappers over it. No
+  design token can restate them. `docs/search-chrome-behaviour.md` *mandates* this form —
+  "visible composer chrome may still consume safe-area inset" — so a strict ratchet would
+  have failed a correct new phone composer while passing an incorrect one that dropped the
+  inset. They are exempt as a form, so `pb-[calc(9rem+var(--safe-area-bottom))]` is exempt
+  even though `9rem` is literal. That is a known hole, recorded here rather than left silent;
+  the alternative is a rule that punishes compliance, and those get suppressed, not obeyed.
+- **Token-only arithmetic (1).** `pl-[calc(var(--pad-card)_+_var(--rule-w))]` in
+  `answer-card.tsx` is entirely tokens. The lookahead flagged it for the crime of adding two
+  of them together — it is the very form the ratchet exists to encourage.
+
+Removing the lookahead in favour of `isSanctionedRawValue` also **caught one site the
+lookahead had been hiding**: `px-[var(--pad-panel,1.5rem)]` in `answer-card.tsx:92`, where a
+literal fallback restates a value `TOKENS.md` owns. It is in the recorded 58.
+
+**All four are mutation-verified, and both exemptions are verified in the negative.** Adding
+each class to `missing-value.tsx` fails with the metric *and* the path:
+`arbitraryPadding increased from 58 to 59`, `arbitraryGap increased from 21 to 23`,
+`arbitraryRadius increased from 2 to 3`, `arbitraryLeading increased from 0 to 1`, each with
+its `at src/components/ui/missing-value.tsx increased from 0 to N` line. A `leading-[1.35]`
+placed outside any class root — where the AST pass sees nothing — fails the backstop instead:
+`has 1 arbitrary line-height text match(es) but the AST class-root pass only saw 0`. Adding
+`p-[var(--space-x)]` or `pb-[calc(1rem+env(safe-area-inset-bottom))]` leaves the gate green.
+
+**All 100 initial findings were read in source before anything was pinned**, per the lesson
+in §5. `legacyShadowAliases` measures 218 today against a pinned 220 — two aliases were
+retired on `main` without a baseline refresh. That slack is left exactly as found: tightening
+an unrelated ratchet inside this change would make the two non-revertible as one commit, and
+retiring those aliases is `#262` part 1.

@@ -289,6 +289,81 @@ const INVERSION_FUNCTION = /(?:invert|hue-rotate)\(/;
 // the sanctioned token form and is deliberately NOT counted, exactly as
 // `text-[color:var(--…)]` is exempt from the type-scale check.
 const ARBITRARY_TRACKING_UTILITY = /^tracking-\[(?!var\()[^\]]+\]$/;
+/**
+ * GATES.md §3, "Raw pixel size, padding, radius or line-height in markup" — the
+ * row that has read `implemented-partial (colour/shadow/tap literals only)`
+ * since the table was written. These four families are the missing half.
+ *
+ * They are separated rather than pooled into one `arbitrarySpacing` count
+ * because their debt is three different sizes and one of them is zero: pooling
+ * would let the 65th padding site be traded against a new `leading-[1.15]`,
+ * which is exactly the swap a per-family ratchet exists to refuse.
+ *
+ * What counts is decided by `isSanctionedRawValue` below rather than by a
+ * `(?!var\()` lookahead, because measurement showed the lookahead is too blunt
+ * here in both directions. Padding is the one family that legitimately carries
+ * values no token can express, and 20 of the 100 sites this first matched were
+ * of exactly that kind.
+ *
+ * Padding covers the logical properties (`ps-`/`pe-`) as well as the physical
+ * ones. The single-letter class is bounded by the alternation rather than a
+ * character class so no non-padding utility can be swept in: `place-items-*`
+ * and `pointer-events-*` both start with `p` and neither can match.
+ */
+const ARBITRARY_PADDING_UTILITY = /^p(?:[xytrbl]|[se])?-\[([^\]]+)\]$/;
+const ARBITRARY_GAP_UTILITY = /^gap(?:-[xy])?-\[([^\]]+)\]$/;
+const ARBITRARY_RADIUS_UTILITY = /^rounded(?:-(?:[trbl]|[se]|[tb][lr]|ss|se|ee|es))?-\[([^\]]+)\]$/;
+/**
+ * A length written out by hand: `18px`, `0.6875rem`, `4vh`, `1.15`. Unitless is
+ * included so `leading-[1.15]` is caught; `var(--x)` and `env(…)` are not
+ * lengths by this definition, which is the whole point.
+ */
+const RAW_LENGTH_VALUE = /(?:^|[^\w.-])\d*\.?\d+(?:px|rem|em|ch|ex|vh|vw|vmin|vmax|pt|%)?(?![\w-])/;
+/**
+ * Insets the browser supplies and no design token can restate. `env(safe-area-
+ * inset-*)` has no value at author time; `--safe-area-*` and `--keyboard-height`
+ * are this repo's own wrappers over it, set from JS at runtime.
+ *
+ * These are exempt as a *form*, not merely when they are the entire value —
+ * `pb-[calc(9rem+var(--safe-area-bottom))]` is exempt even though `9rem` is
+ * literal. That is deliberate and it is a known hole. The alternative refuses
+ * the phone composer reserve that `docs/search-chrome-behaviour.md` mandates —
+ * "visible composer chrome may still consume safe-area inset" — so the strict
+ * reading would fail a *correct* new composer and pass an incorrect one that
+ * dropped the inset. A ratchet that punishes compliance gets suppressed, not
+ * obeyed. The literal component is counted separately and reported, so the hole
+ * is visible rather than silent.
+ */
+const BROWSER_INSET_VALUE = /env\(\s*safe-area-inset-|var\(--safe-area-|var\(--keyboard-height/;
+
+/**
+ * True when an arbitrary value is the sanctioned token form rather than debt.
+ *
+ * Two ways to qualify: it references a browser-provided inset, or every length
+ * in it comes from a design token. The second admits arithmetic, so
+ * `p-[calc(var(--pad-card)_+_var(--rule-w))]` passes — it is exactly the token
+ * form the ratchet exists to encourage, and a `(?!var\()` lookahead would have
+ * flagged it for the crime of adding two tokens together.
+ */
+export function isSanctionedRawValue(value) {
+  if (BROWSER_INSET_VALUE.test(value)) return true;
+  return value.includes("var(--") && !RAW_LENGTH_VALUE.test(value);
+}
+/**
+ * Line-height is the one family with nothing to pay down, so it is pinned at a
+ * hard zero rather than ratcheted. Leading is where a raw value does the most
+ * damage per site: it is invisible in review, it does not scale with the type
+ * step it sits on, and a literal `leading-[1.15]` silently opts that text out
+ * of the whole type scale.
+ */
+const ARBITRARY_LEADING_UTILITY = /^leading-\[([^\]]+)\]$/;
+/** Pattern → result bucket, walked once per resolved class token. */
+const RAW_VALUE_FAMILIES = [
+  [ARBITRARY_PADDING_UTILITY, "arbitraryPadding"],
+  [ARBITRARY_GAP_UTILITY, "arbitraryGap"],
+  [ARBITRARY_RADIUS_UTILITY, "arbitraryRadius"],
+  [ARBITRARY_LEADING_UTILITY, "arbitraryLeading"],
+];
 const LEGACY_SHADOW_ALIAS = /var\(--shadow-(?:tight|card|soft|hover|elevated|lux|lift)\)/g;
 const LEGACY_PALETTE_UTILITY =
   /^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(?:white|black|(?:slate|gray|zinc|neutral|stone)-\d{2,3})(?:\/\d{1,3})?$/;
@@ -962,6 +1037,10 @@ function hasAccessibleNameInScope(owner, source) {
 export function analyzeClassContractsInSource(relativePath, sourceText) {
   const analyzer = classExpressionAnalyzer(relativePath, sourceText);
   const result = {
+    arbitraryGap: [],
+    arbitraryLeading: [],
+    arbitraryPadding: [],
+    arbitraryRadius: [],
     arbitraryTracking: [],
     colourOnlyStatusIndicators: [],
     darkColorOverrides: [],
@@ -1057,6 +1136,12 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     }
     if (LITERAL_SHADOW_UTILITY.test(base)) result.literalShadowClasses.push(`${relativePath}:${line} (${token})`);
     if (ARBITRARY_TRACKING_UTILITY.test(base)) result.arbitraryTracking.push(`${relativePath}:${line} (${token})`);
+    for (const [pattern, bucket] of RAW_VALUE_FAMILIES) {
+      const value = base.match(pattern)?.[1];
+      if (value !== undefined && !isSanctionedRawValue(value)) {
+        result[bucket].push(`${relativePath}:${line} (${token})`);
+      }
+    }
     if (hasLegacyTapClass(token)) result.legacyTapClasses.push(`${relativePath}:${line} (${token})`);
     for (const match of token.matchAll(LEGACY_SHADOW_ALIAS)) {
       result.legacyShadowAliases.push(`${relativePath}:${line} (${match[0]})`);
