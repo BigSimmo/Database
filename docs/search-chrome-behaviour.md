@@ -86,10 +86,67 @@ owner:
 Touch one of those files for an unrelated reason and leave its section table where it is.
 Converting a route onto `InPageNavHeader` for the first time is the moment the rule applies.
 
-`src/components/DocumentViewer.tsx` still carries its own copy of the header rather than the
-shared one: it owns the page `<h1>`, uses the `edge-glass-header` treatment, and is pinned by
-visual baselines, so converging it is a separate change. It remains the visual reference, and
-detailed DocumentViewer rules remain invariant 22 — but new work mounts `InPageNavHeader`.
+### DocumentViewer keeps its own header — decided, not pending
+
+`src/components/DocumentViewer.tsx` renders its own header row rather than mounting
+`InPageNavHeader`. This was evaluated as a convergence task (`/issues #288`) and **declined on
+the merits**. It is not a migration waiting for an owner: do not re-open it without new facts
+against the four reasons below. New work on any _other_ page still mounts `InPageNavHeader`,
+and the viewer remains the visual reference the template was drawn from.
+
+**What is already shared, and what is not.** The duplication is the ~70-line header row and its
+sheet-state plumbing — nothing else. The behaviour underneath is one implementation that both
+paths import today:
+
+| Concern                                | Single implementation                                     |
+| -------------------------------------- | --------------------------------------------------------- |
+| Segment track, section list, jump      | `document-viewer/section-nav.tsx`                         |
+| Scroll spy, visible-element resolution | `document-viewer/use-section-spy.ts`                      |
+| Anchor-offset / collapse measurement   | `sticky-chrome-metrics.ts` (both hooks are thin bindings) |
+
+So "fix a bug in one and the other keeps it" does not hold for the spy, the track, the list, the
+jump, or the anchor measurement — a fix to any of those already reaches every route. The residual
+risk is confined to header markup.
+
+**Why the row itself is not converged.** Each of these would require `InPageNavHeader` to grow an
+escape hatch for its one non-conforming consumer, on a component seven routes already mount:
+
+1. **Sheet state is observed and externally driven.** `DocumentViewer.tsx` feeds
+   `mobileActionsOpen || sectionSheetOpen` to `useDocumentViewerChromeScroll` so both chrome
+   edges stay open under a sheet; a **second** actions trigger lives in the phone composer dock;
+   and `openSectionSheet` blurs the source-search input first, because the viewer owns a composer
+   whose focus pins hide-on-scroll. `InPageNavHeader` owns its sheet state privately and
+   deliberately — pathname-keyed, so the four Server Component adopters need no client state.
+   Adoption means inverting that to controlled props for one caller.
+2. **Both sheets carry viewer-only content.** The section sheet mounts
+   `DocumentViewDensityToggle` (persisted, defaults condensed); the actions sheet passes
+   `portal`, `contentClassName` and `headerLeading`, and is gated on `readyDocument`. The shared
+   sheets take no content slot and pass none of those through.
+3. **Chrome metrics differ in scope, property set and return value.** The viewer scopes to its
+   own `<main>`, publishes a third property (`--document-collapse-height`), and consumes
+   `headerHidden` for the desktop rail. `InPageNavHeader` calls `useInPageChromeMetrics()`
+   itself — document-scoped, two properties, result discarded — with no way to opt out or read it.
+4. **It breaks the contract tests that exist to protect this chrome.**
+   `tests/header-scroll-hide-contract.test.ts` requires `<PhoneHeaderCollapsePortal>` and
+   `data-document-sticky-header` in `DocumentViewer.tsx`, and
+   `tests/document-section-nav-contract.test.ts` requires `data-testid="document-section-trigger"`
+   there; all three move into the shared header on adoption. Keeping them green would mean
+   threading literal strings through props purely to satisfy source-text greps.
+
+**Anchor aliasing: both models stand, and they are not rivals.** The viewer keeps
+`sectionAnchorAliases` inside `resolveSectionElement`; information pages keep
+`PageSection.targetIds`. The viewer's sections are derived from the indexed payload at render
+time by `buildDocumentSectionIndex`, so there is no declaration site on which to hang `targetIds`;
+pages resolve their copies _before_ the spy runs, which is what keeps `useDocumentSectionSpy`
+generic. Do not "unify" these by moving the alias map into the page model.
+
+**What was converged instead.** The visible-element predicate had drifted into two identical
+copies — one in `use-section-spy.ts`, one in `use-page-section-weights.ts`. It is now the single
+exported `resolveVisibleElement(ids)`, with `resolveSectionElement(id)` as the alias-aware
+wrapper over it. `useResolvedPageSections` still carries a third, deliberately _different_
+predicate (`getClientRects` + computed `display` rather than rect size); converging that one
+would change resolution behaviour on seven live routes and is not covered by any current test,
+so it was left alone.
 
 **Adopted so far:** `/differentials/diagnoses/[slug]`, `/services/[slug]`, `/forms/[slug]`,
 `/specifiers/[slug]` (record and catalogue reference), `/formulation/[slug]`,
