@@ -313,7 +313,21 @@ const RAW_RADIUS_UTILITY = new RegExp(
 );
 const RAW_LINE_HEIGHT_UTILITY = new RegExp(String.raw`^leading-${RAW_LITERAL_VALUE}$`);
 /**
- * The CSS-declaration half of the same three rules, so a literal cannot simply
+ * Gap, on the same predicate and for the same reason as padding.
+ *
+ * Added after the padding/radius/line-height families rather than alongside
+ * them, because gap was the one remaining spacing surface a hand-picked value
+ * could hide in: `gap-[9px]` was counted by no ratchet at all. 21 sites, every
+ * one under `src/components/therapy-compass/`.
+ *
+ * Its own metric rather than folded into `rawPaddingLiterals`, so the
+ * therapy-compass cleanup can be paid down and re-pinned on its own — the
+ * padding debt is spread over fifteen unrelated files and will move at a
+ * different pace.
+ */
+const RAW_GAP_UTILITY = new RegExp(String.raw`^gap(?:-[xy])?-${RAW_LITERAL_VALUE}$`);
+/**
+ * The CSS-declaration half of the same four rules, so a literal cannot simply
  * move from a class into `globals.css` to escape the ratchet — the same reason
  * `legacyShadowAliases` and the colour ratchet count both sides.
  *
@@ -329,6 +343,8 @@ const RAW_LINE_HEIGHT_UTILITY = new RegExp(String.raw`^leading-${RAW_LITERAL_VAL
  */
 const RAW_PADDING_PROPERTY = /^padding(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?$/;
 const RAW_RADIUS_PROPERTY = /^border(?:-(?:top|bottom)-(?:left|right)|-(?:start|end)-(?:start|end))?-radius$/;
+/** `gap` is the shorthand; `row-gap`/`column-gap` are the longhands it expands to. */
+const RAW_GAP_PROPERTY = /^(?:gap|row-gap|column-gap)$/;
 const CSS_WIDE_KEYWORD = /^(?:inherit|initial|unset|revert|revert-layer|normal|auto)$/;
 const CSS_ZERO_VALUE = /^-?0(?:\.0+)?(?:[a-z%]+)?$/i;
 const ARBITRARY_PROPERTY_UTILITY = /^\[([a-z-]+):([^\]]+)\]$/i;
@@ -347,6 +363,9 @@ function recordRawScaleLiteralProperty(result, relativePath, line, prop, value, 
   }
   if (RAW_RADIUS_PROPERTY.test(prop)) {
     result.rawRadiusLiterals.push(`${relativePath}:${line} (${label})`);
+  }
+  if (RAW_GAP_PROPERTY.test(prop)) {
+    result.rawGapLiterals.push(`${relativePath}:${line} (${label})`);
   }
   if (prop === "line-height") {
     result.rawLineHeightLiterals.push(`${relativePath}:${line} (${label})`);
@@ -1037,6 +1056,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     legacyTapClasses: [],
     legacyPaletteUtilities: [],
     literalShadowClasses: [],
+    rawGapLiterals: [],
     rawLineHeightLiterals: [],
     rawPaddingLiterals: [],
     rawRadiusLiterals: [],
@@ -1126,6 +1146,7 @@ export function analyzeClassContractsInSource(relativePath, sourceText) {
     if (ARBITRARY_TRACKING_UTILITY.test(base)) result.arbitraryTracking.push(`${relativePath}:${line} (${token})`);
     if (RAW_PADDING_UTILITY.test(base)) result.rawPaddingLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_RADIUS_UTILITY.test(base)) result.rawRadiusLiterals.push(`${relativePath}:${line} (${token})`);
+    if (RAW_GAP_UTILITY.test(base)) result.rawGapLiterals.push(`${relativePath}:${line} (${token})`);
     if (RAW_LINE_HEIGHT_UTILITY.test(base)) result.rawLineHeightLiterals.push(`${relativePath}:${line} (${token})`);
     const arbitraryProperty = base.match(ARBITRARY_PROPERTY_UTILITY);
     if (arbitraryProperty) {
@@ -1274,6 +1295,7 @@ export function analyzeCssContractsInSource(relativePath, sourceText) {
     layoutTransitions: [],
     legacyShadowAliases: [],
     onePixelShadowSpreads: [],
+    rawGapLiterals: [],
     rawLineHeightLiterals: [],
     rawPaddingLiterals: [],
     rawRadiusLiterals: [],
@@ -1338,6 +1360,7 @@ export function findRawScaleLiteralClassesInSource(relativePath, sourceText) {
   return {
     padding: analysis.rawPaddingLiterals,
     radius: analysis.rawRadiusLiterals,
+    gap: analysis.rawGapLiterals,
     lineHeight: analysis.rawLineHeightLiterals,
   };
 }
@@ -1385,6 +1408,7 @@ export function findRawScaleLiteralDeclarationsInSource(sourceText) {
   return {
     padding: analysis.rawPaddingLiterals,
     radius: analysis.rawRadiusLiterals,
+    gap: analysis.rawGapLiterals,
     lineHeight: analysis.rawLineHeightLiterals,
   };
 }

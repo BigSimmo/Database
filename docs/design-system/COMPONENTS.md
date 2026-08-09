@@ -945,8 +945,8 @@ tests to run.
 
 ## Generated maturity snapshot
 
-Registered public components: 53
-Components with a valid design-sync preview: 53
+Registered public components: 54
+Components with a valid design-sync preview: 54
 Components with product imports: 31
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
@@ -970,6 +970,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `DoseLine`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DownloadLink`           | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              12 |
+| `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ExternalTextLink`       | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `FieldError`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |

@@ -207,7 +207,8 @@
         "src/components/DocumentManagementActions.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
-        "src/components/clinical-dashboard/search-results-header-band.tsx"
+        "src/components/clinical-dashboard/search-results-header-band.tsx",
+        "src/components/ui/error-state.tsx"
       ],
       "productImportFiles": [
         "src/components/DocumentManagementActions.tsx",
@@ -683,6 +684,34 @@
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "ErrorState",
+      "family": "feedback",
+      "source": "src/components/ui/error-state.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ErrorState.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/error-state.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -3314,8 +3343,8 @@
     "declaredV2SurfaceCount": 14
   },
   "summary": {
-    "registeredComponentCount": 53,
-    "previewCount": 53,
+    "registeredComponentCount": 54,
+    "previewCount": 54,
     "productImportedComponentCount": 31,
     "rootCount": 59,
     "productionRouteCount": 51,
