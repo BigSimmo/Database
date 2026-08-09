@@ -193,10 +193,10 @@ test("moves a selected mechanism through framework, quality review, and an edita
   await expect(continueStep).toBeEnabled();
   await continueStep.click();
   await expect(page.getByTestId("formulation-builder-structure")).toBeVisible();
-  const cbtCycle = page.getByRole("radio", { name: /CBT cycle/ });
-  // Prefer the radio control over nearby text — the peer is sr-only and a bare
-  // getByText click can miss the associated label under shard contention (#257).
-  await cbtCycle.check();
+  const frameworkGroup = page.getByRole("radiogroup", { name: "Formulation framework" });
+  const cbtCycle = frameworkGroup.getByRole("radio", { name: /CBT cycle/ });
+  // sr-only peer radios: click via the radiogroup like ui-tools/ui-specifiers (#257).
+  await cbtCycle.click();
   await expect(cbtCycle).toBeChecked();
   await page
     .getByRole("textbox", { name: "Presenting problem" })
