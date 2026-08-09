@@ -401,6 +401,11 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [referenceGeometry, setReferenceGeometry] = useState<PageGeometry | null>(null);
+  // Largest measured raster cost at the current rotation/zoom inputs. A mixed-size
+  // PDF can seed referenceGeometry from a cheap page while neighbours are much
+  // larger; budgeting only against the cheap seed would let retained canvases
+  // exceed MAX_LIVE_CANVAS_PIXELS.
+  const [maxObservedCanvasPixels, setMaxObservedCanvasPixels] = useState(0);
 
   const onUrlExpiredRef = useRef(onUrlExpired);
   const onLoadSuccessRef = useRef(onLoadSuccess);
@@ -714,7 +719,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   // Render window
   // ---------------------------------------------------------------------------
   const perCanvasPixels = useMemo(() => {
-    if (!referenceGeometry) return 0;
+    if (!referenceGeometry) return maxObservedCanvasPixels;
     const viewportScale = resolveViewportScale({
       fitWidth,
       contentWidth,
@@ -727,8 +732,8 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       viewportScale,
       devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio,
     });
-    return plan.width * plan.height;
-  }, [contentWidth, fitWidth, referenceGeometry, renderZoom]);
+    return Math.max(plan.width * plan.height, maxObservedCanvasPixels);
+  }, [contentWidth, fitWidth, maxObservedCanvasPixels, referenceGeometry, renderZoom]);
 
   const liveCanvasLimit = useMemo(() => resolveLiveCanvasWindow({ perCanvasPixels }), [perCanvasPixels]);
 
@@ -766,9 +771,26 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   // deep link straight to page 50 still gets a sized column. Measuring every page
   // up front would mean fetching every page, which is the cost virtualization
   // exists to avoid; mixed-size documents correct each slot as it renders.
-  const handleGeometry = useCallback((_pageNumber: number, geometry: PageGeometry) => {
-    setReferenceGeometry((current) => current ?? geometry);
-  }, []);
+  const handleGeometry = useCallback(
+    (_pageNumber: number, geometry: PageGeometry) => {
+      setReferenceGeometry((current) => current ?? geometry);
+      const viewportScale = resolveViewportScale({
+        fitWidth,
+        contentWidth,
+        baseWidth: geometry.width,
+        renderZoom,
+      });
+      const plan = resolveCanvasRasterPlan({
+        baseWidth: geometry.width,
+        baseHeight: geometry.height,
+        viewportScale,
+        devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio,
+      });
+      const cost = plan.width * plan.height;
+      setMaxObservedCanvasPixels((current) => Math.max(current, cost));
+    },
+    [contentWidth, fitWidth, renderZoom],
+  );
 
   // Rotation changes the page's physical dimensions (portrait ↔ landscape). The
   // reference geometry must be discarded so the first page to render after the
@@ -779,6 +801,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     if (prevRotationRef.current !== rotation) {
       prevRotationRef.current = rotation;
       setReferenceGeometry(null);
+      setMaxObservedCanvasPixels(0);
     }
   }, [rotation]);
 
@@ -909,12 +932,14 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       case "ArrowLeft":
       case "PageUp":
         event.preventDefault();
-        goToPage(page - 1);
+        // Key-repeat can fire several times before React re-renders; pageRef is
+        // updated synchronously inside goToPage, so relative moves must read it.
+        goToPage(pageRef.current - 1);
         break;
       case "ArrowRight":
       case "PageDown":
         event.preventDefault();
-        goToPage(page + 1);
+        goToPage(pageRef.current + 1);
         break;
       case "Home":
         event.preventDefault();

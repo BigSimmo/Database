@@ -40,7 +40,7 @@ const image = (index: number): ImageRow =>
     labels: [],
   }) as unknown as ImageRow;
 
-const images = (count: number) => Array.from({ length: count }, (_, index) => image(index));
+const images = (count: number, start = 0) => Array.from({ length: count }, (_, index) => image(start + index));
 
 type SentinelObserver = { callback: IntersectionObserverCallback; targets: Element[] };
 let sentinelObservers: SentinelObserver[] = [];
@@ -95,7 +95,7 @@ const renderedRows = () => screen.queryAllByTestId("document-image").length;
 
 describe("document rail figure windowing", () => {
   it("mounts only the first window of rows for a long figure list", () => {
-    render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" />);
+    render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" collectionKey="doc-a:clinical" />);
 
     expect(renderedRows()).toBe(6);
     expect(screen.getByTestId("document-image-reveal")).toBeTruthy();
@@ -104,14 +104,14 @@ describe("document rail figure windowing", () => {
   it("mounts a short list whole, with no sentinel and no reveal control", () => {
     // The overwhelming majority of indexed documents are this case, so the
     // window must not add chrome to them.
-    render(<DocumentImageList images={images(4)} revealLabel="Tables and diagrams" />);
+    render(<DocumentImageList images={images(4)} revealLabel="Tables and diagrams" collectionKey="doc-a:clinical" />);
 
     expect(renderedRows()).toBe(4);
     expect(screen.queryByTestId("document-image-reveal")).toBeNull();
   });
 
   it("grows by one window each time the sentinel is reached", () => {
-    render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" />);
+    render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" collectionKey="doc-a:clinical" />);
 
     act(() => reachSentinel());
     expect(renderedRows()).toBe(12);
@@ -124,7 +124,7 @@ describe("document rail figure windowing", () => {
     // Scroll-driven growth is unreachable by keyboard and by a screen reader
     // walking the rail, so the control is the real affordance rather than a
     // no-IntersectionObserver fallback.
-    render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" />);
+    render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" collectionKey="doc-a:clinical" />);
 
     const reveal = screen.getByRole("button", { name: /show the remaining 34/i });
     fireEvent.click(reveal);
@@ -136,20 +136,37 @@ describe("document rail figure windowing", () => {
   it("clamps the window when the list shrinks underneath an expanded reader", () => {
     // Navigating to another document, or a reindex, can replace the array while
     // the reader has already expanded past the new length.
-    const { rerender } = render(<DocumentImageList images={images(40)} revealLabel="Tables and diagrams" />);
+    const { rerender } = render(
+      <DocumentImageList images={images(40)} revealLabel="Tables and diagrams" collectionKey="doc-a:clinical" />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /show the remaining 34/i }));
     expect(renderedRows()).toBe(40);
 
-    rerender(<DocumentImageList images={images(3)} revealLabel="Tables and diagrams" />);
+    rerender(<DocumentImageList images={images(3)} revealLabel="Tables and diagrams" collectionKey="doc-a:clinical" />);
 
     expect(renderedRows()).toBe(3);
     expect(screen.queryByTestId("document-image-reveal")).toBeNull();
   });
 
   it("renders nothing at all for an empty list", () => {
-    render(<DocumentImageList images={[]} revealLabel="Tables and diagrams" />);
+    render(<DocumentImageList images={[]} revealLabel="Tables and diagrams" collectionKey="doc-a:clinical" />);
 
     expect(renderedRows()).toBe(0);
     expect(screen.queryByTestId("document-image-reveal")).toBeNull();
+  });
+
+  it("resets the window when the collection key changes to another long list", () => {
+    const { rerender } = render(
+      <DocumentImageList images={images(40)} revealLabel="Tables and diagrams" collectionKey="doc-a:clinical" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /show the remaining 34/i }));
+    expect(renderedRows()).toBe(40);
+
+    rerender(
+      <DocumentImageList images={images(40, 100)} revealLabel="Tables and diagrams" collectionKey="doc-b:clinical" />,
+    );
+
+    expect(renderedRows()).toBe(6);
+    expect(screen.getByTestId("document-image-reveal")).toBeTruthy();
   });
 });

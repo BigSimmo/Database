@@ -476,15 +476,23 @@ export function DocumentImageList({
   activePage,
   onSelectPage,
   revealLabel,
+  collectionKey,
 }: {
   images: ImageRow[];
   activePage?: number;
   onSelectPage?: (page: number) => void;
   /** Accessible label for the manual reveal control. */
   revealLabel: string;
+  /** Document-scoped key so an expanded window does not carry into the next document. */
+  collectionKey: string;
 }) {
   const [requestedCount, setRequestedCount] = useState(RAIL_IMAGE_WINDOW);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // Expanding "show more" must not survive a document change: a later guideline
+  // with >= N figures would otherwise mount the prior expanded count on first paint.
+  useEffect(() => {
+    setRequestedCount(RAIL_IMAGE_WINDOW);
+  }, [collectionKey]);
   // Derived rather than synchronised: the list shrinking underneath the reader (a
   // reindex, or navigating documents without remounting the rail) clamps here
   // during render, so there is no effect that can leave the window pointing past

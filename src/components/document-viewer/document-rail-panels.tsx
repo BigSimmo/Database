@@ -272,6 +272,7 @@ export function DocumentViewerRail({
                 activePage={activePage}
                 onSelectPage={onSelectPage}
                 revealLabel="Tables and diagrams"
+                collectionKey={`${document?.id ?? "none"}:clinical`}
               />
             </>
           )}
@@ -286,6 +287,7 @@ export function DocumentViewerRail({
                   activePage={activePage}
                   onSelectPage={onSelectPage}
                   revealLabel="Administrative and reference tables"
+                  collectionKey={`${document?.id ?? "none"}:audit`}
                 />
               </div>
             </details>
