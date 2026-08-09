@@ -164,6 +164,7 @@ describe("header addon slot ownership", () => {
       "src/components/differentials/differential-detail-page.tsx",
       "src/components/dsm/dsm-diagnosis-nav-header.tsx",
       "src/components/dsm/dsm-differential-considerations-page.tsx",
+      "src/components/factsheets/factsheet-detail-page.tsx",
       "src/components/forms/form-detail-page.tsx",
       "src/components/formulation/formulation-nav-header.tsx",
       "src/components/services/service-detail-page.tsx",
