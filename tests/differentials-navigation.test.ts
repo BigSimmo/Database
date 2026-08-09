@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
+import {
+  differentialCompareQueueItems,
+  resolveDifferentialCompareHandoff,
+  resolveDifferentialCompareLaunchHref,
+} from "@/lib/differentials";
 import {
   differentialIdsFromSearchParams,
   differentialRouteWithQuery,
@@ -78,5 +82,35 @@ describe("differentials navigation", () => {
     expect(handoff.kind).toBe("presentation");
     expect(handoff.href).toContain("anorexia-nervosa");
     expect(handoff.href).toContain("bulimia-nervosa-binge-purge-pattern");
+  });
+
+  it("launches same-presentation compare into the presentation workflow", () => {
+    const href = resolveDifferentialCompareLaunchHref(
+      ["anorexia-nervosa", "bulimia-nervosa-binge-purge-pattern"],
+      "Pain",
+    );
+    expect(href).toMatch(/^\/differentials\/presentations\/[^/?]+/);
+    expect(href).toContain("ids=");
+  });
+
+  it("launches cross-presentation compare into the compare workspace", () => {
+    const href = resolveDifferentialCompareLaunchHref(
+      ["medical-gi-endocrine-painful-organic-cause", "bpsd-as-unmet-need-delirium-pain-mimic"],
+      "Pain",
+    );
+    expect(href).toContain("/differentials/compare?");
+    expect(href).toContain("workspace=1");
+    expect(href).toContain("ids=");
+  });
+
+  it("builds compare queue titles from known diagnosis slugs only", () => {
+    const items = differentialCompareQueueItems([
+      "delirium",
+      "unknown-diagnosis-slug",
+      "dementia-neurocognitive-disorder",
+    ]);
+    expect(items.map((item) => item.slug)).toEqual(["delirium", "dementia-neurocognitive-disorder"]);
+    expect(items[0]).toEqual({ slug: "delirium", title: "Delirium" });
+    expect(items[1]?.title.toLowerCase()).toContain("dementia");
   });
 });

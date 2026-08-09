@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { DifferentialCompareQueuePage } from "@/components/differentials/differential-compare-queue-page";
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
-import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
+import {
+  differentialCompareQueueItems,
+  resolveDifferentialCompareHandoff,
+  resolveDifferentialCompareLaunchHref,
+} from "@/lib/differentials";
 
 export const metadata: Metadata = {
   title: "Compare differentials | Clinical KB",
@@ -10,7 +15,12 @@ export const metadata: Metadata = {
 };
 
 type DifferentialCompareRouteProps = {
-  searchParams?: Promise<{ query?: string | string[]; q?: string | string[]; ids?: string | string[] }>;
+  searchParams?: Promise<{
+    query?: string | string[];
+    q?: string | string[];
+    ids?: string | string[];
+    workspace?: string | string[];
+  }>;
 };
 
 function firstSearchParam(value?: string | string[]) {
@@ -18,12 +28,9 @@ function firstSearchParam(value?: string | string[]) {
 }
 
 /**
- * Compare entry page.
- *
- * Same-presentation selections (and bare/unknown ids) redirect into a catalogue
- * presentation workflow. Cross-presentation selections render an ad-hoc compare
- * view here so every valid id is preserved. A competing `route.ts` at this path
- * is invalid in the App Router — handoff lives in the page instead.
+ * Compare queue: empty state or selected diagnosis ids. Open comparison launches
+ * a catalogue presentation workflow, or an ad-hoc workspace (`workspace=1`) when
+ * selections span presentations.
  */
 export default async function DifferentialCompareRoute({ searchParams }: DifferentialCompareRouteProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
@@ -32,6 +39,17 @@ export default async function DifferentialCompareRoute({ searchParams }: Differe
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+  const workspace = firstSearchParam(resolvedSearchParams.workspace)?.trim() === "1";
+
+  if (!workspace) {
+    return (
+      <DifferentialCompareQueuePage
+        query={query}
+        items={differentialCompareQueueItems(selectedIds)}
+        openComparisonHref={resolveDifferentialCompareLaunchHref(selectedIds, query)}
+      />
+    );
+  }
 
   const handoff = resolveDifferentialCompareHandoff(selectedIds, query);
   if (handoff.kind === "presentation") {

@@ -54,7 +54,7 @@ const routeDescriptions: Record<string, string> = {
   "/applications": "Legacy application launcher redirect to Tools.",
   "/differentials": "Differentials home and search surface.",
   "/differentials/compare":
-    "Compare entry: same-presentation selections redirect into a catalogue workflow; cross-presentation selections render an ad-hoc comparison.",
+    "Compare queue: empty state or selected diagnosis ids; Open comparison launches a catalogue presentation workflow or an ad-hoc workspace (`workspace=1`).",
   "/differentials/diagnoses": "Diagnosis stream.",
   "/differentials/diagnoses/[slug]": "Differential diagnosis detail.",
   "/differentials/presentations": "Presentation catalogue stream.",
