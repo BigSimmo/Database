@@ -210,13 +210,13 @@ const STATUS_COLOR_TOKEN = String.raw`--(?:success|warning|danger|info)(?:-(?:te
  * checks ran — so an indicator written `bg-[color:var(--danger)]/90` walked past
  * a ratchet claiming to be repository-wide.
  */
-const OPACITY_MODIFIER = String.raw`(?:\/\d{1,3})?`;
+const STATUS_ALPHA_MODIFIER = String.raw`(?:/(?:\d+(?:\.\d+)?|\[[^\]]+\]))?`;
 const STATUS_TEXT_UTILITY = new RegExp(
-  String.raw`^text-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]${OPACITY_MODIFIER}$`,
+  String.raw`^text-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]${STATUS_ALPHA_MODIFIER}$`,
 );
 /** A status hue as a *surface* — the decorative form, with no text of its own. */
 const STATUS_SURFACE_UTILITY = new RegExp(
-  String.raw`^(?:bg|border(?:-[xytrblse])?|ring|outline|fill|stroke)-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]${OPACITY_MODIFIER}$`,
+  String.raw`^(?:bg|border(?:-[xytrblse])?|ring|outline|fill|stroke)-\[(?:color:)?var\(${STATUS_COLOR_TOKEN}\)\]${STATUS_ALPHA_MODIFIER}$`,
 );
 /** Digits and the separators a figure or range carries, with no letters. */
 const NUMERAL_PUNCTUATION = /^[\s\d.,:%+\-–—/×xX()]*$/;
