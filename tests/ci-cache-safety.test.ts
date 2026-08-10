@@ -396,10 +396,26 @@ describe("Visual baseline routing", () => {
     // Owner decision (PR #1755 / #118): pre-merge UI churn is the wrong place for
     // an unavoidably-red pixel gate. merge_group is still pre-merge.
     expect(visualBaselineJob).toContain('["push","schedule","workflow_dispatch"]');
-    expect(visualBaselineJob).toContain("continue-on-error: true");
     const prRequiredNeeds = /\n  pr-required:\n[\s\S]*?needs:\s*\n?\s*\[([\s\S]*?)\]/.exec(workflow)?.[1] ?? "";
     expect(prRequiredNeeds, "could not read pr-required's needs list from ci.yml").not.toBe("");
     expect(prRequiredNeeds).not.toMatch(/\bvisual-baseline\b/);
+  });
+
+  it("soft-fails only the pixel-comparison step, not the whole advisory job", () => {
+    // Job-level continue-on-error would also swallow setup / upload failures.
+    // Job keys in the captured block are indented four spaces; step keys are deeper.
+    expect(visualBaselineJob).not.toMatch(/^ {4}continue-on-error:\s*true\s*$/m);
+    expect(visualBaselineJob).toMatch(
+      /name: Chromium visual baselines\n\s+id: visual-comparison\n(?:\s+#.*\n)*\s+continue-on-error: true/,
+    );
+  });
+
+  it("reports pixel drift as a warning while preserving review artifacts", () => {
+    expect(visualBaselineJob).toContain("if: steps.visual-comparison.outcome == 'failure'");
+    expect(visualBaselineJob).toContain("scripts/classify-visual-baseline-outcome.mjs");
+    expect(visualBaselineJob).toContain("::warning title=Visual baseline drift::");
+    expect(visualBaselineJob).toContain("$GITHUB_STEP_SUMMARY");
+    expect(visualBaselineJob).toMatch(/name: Upload visual diffs\n\s+if: always\(\)/);
   });
 });
 

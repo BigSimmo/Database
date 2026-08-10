@@ -633,7 +633,7 @@ jobs:
   #   - Pixel comparison needs a soak before it can block a merge; this repo has
   #     already paid for a sub-pixel rounding flake (the min-h-11 -> min-h-12 change).
   # Promote to a required check by adding it to `pr-required` once the baselines have
-  # held across a few runs, and drop `continue-on-error` at the same time.
+  # held across a few runs, and drop the pixel-step soft-fail / drift classifier then.
   visual-baseline:
     name: Visual baselines (advisory)
     needs: changes
@@ -641,9 +641,11 @@ jobs:
     # a pixel gate that reports on every UI pull request taxes exactly the work it
     # exists to support. During a redesign the honest result is red on every push,
     # and the baselines cannot be refreshed until a run has produced the new
-    # images, so that red is unavoidable rather than actionable. It never blocked
-    # a merge (`continue-on-error`, and absent from `pr-required`), but a red check
-    # nobody can act on mid-iteration is friction whether or not it gates.
+    # images, so that red is unavoidable rather than actionable. Pixel drift is
+    # soft-failed at the comparison step (and classified) rather than with a
+    # job-level continue-on-error that would also hide setup failures; the job
+    # remains absent from `pr-required`. A red check nobody can act on
+    # mid-iteration is friction whether or not it gates.
     # `merge_group` is excluded for the same reason: queue runs are still
     # pre-merge UI churn, not a post-land refresh point.
     #
@@ -658,7 +660,8 @@ jobs:
     if: >
       needs.changes.outputs.ui_changed == 'true' &&
       contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name)
-    continue-on-error: true
+    # Deliberately NOT continue-on-error at the job: setup / artifact / non-drift
+    # failures must stay red. Only the pixel-comparison step soft-fails below.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -671,7 +674,28 @@ jobs:
         uses: ./.github/actions/setup-ui-e2e
 
       - name: Chromium visual baselines
+        id: visual-comparison
+        # Pixel drift is evidence, not an execution failure. Keeping this at the
+        # step (rather than only the job) prevents GitHub from publishing a red
+        # check for the expected stale-golden case demonstrated by PR #1743.
+        continue-on-error: true
         run: npm run test:e2e:visual
+
+      - name: Report visual differences
+        if: steps.visual-comparison.outcome == 'failure'
+        run: |
+          if ! node scripts/classify-visual-baseline-outcome.mjs; then
+            echo "::error title=Visual baseline non-drift failure::Visual comparison failed for a reason other than pixel drift (missing baseline, setup/runtime, or assertion). See the visual-baseline-${{ github.run_id }} artifact."
+            exit 1
+          fi
+          echo "::warning title=Visual baseline drift::Chromium pixels differ from the committed Linux baseline. Review the visual-baseline-${{ github.run_id }} artifact; this advisory comparison does not block merging."
+          {
+            echo "### Visual baseline drift detected"
+            echo
+            echo "The Chromium comparison found changed pixels. This is advisory: required interaction, accessibility, and style-contract checks remain separate."
+            echo
+            echo "Download \`visual-baseline-${{ github.run_id }}\` and review the expected, actual, and diff images before refreshing the Linux baseline."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # The actual/diff/expected PNGs live here. On a first run these are the images
       # to commit as the baseline; on a later run they are the evidence of what moved.

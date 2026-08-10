@@ -167,8 +167,13 @@ job's artifact, not from a developer machine** — font hinting and antialiasing
 laptop-generated baseline makes every CI run red. A platform with no baseline fails loudly rather
 than passing silently. The CI `visual-baseline` job is deliberately **off `pull_request` and
 `merge_group`** (owner decision on PR #1755 / `#118`): it still runs on pushes to main/release, the
-weekly schedule, and `workflow_dispatch`, and stays `continue-on-error` / outside `pr-required`. Do
-not re-add pre-merge triggers or promote it without an explicit owner ask.
+weekly schedule, and `workflow_dispatch`, and stays outside `pr-required`. Do not re-add pre-merge
+triggers or promote it without an explicit owner ask. Only the pixel-comparison step uses
+`continue-on-error`, and only after `scripts/classify-visual-baseline-outcome.mjs` confirms the
+failure is a `toHaveScreenshot` pixel mismatch: drift creates a workflow warning, job summary, and
+downloadable expected/actual/diff artifact instead of a failed check. Missing baselines, setup,
+runtime/assertion, and artifact-publication failures remain visible as job failures because those
+runs produced no trustworthy comparison evidence.
 
 ## Performance budget
 
@@ -267,7 +272,15 @@ UI scope runs a fail-fast `@critical` Chromium job on pull requests / merge queu
 
 PR body synchronization is skipped unless the checked-out head actually contains `PR_POLICY_BODY.md`. The eval-canary liveness API probe runs once with the daily Ops Digest cadence rather than on every PR. These remove repeated provider-side work without weakening a required result.
 
-Two further jobs are advisory (`continue-on-error`, deliberately outside `pr-required`): `visual-baseline` on UI scope and `lighthouse-budget` on the narrower perf scope (see "When the budget runs" above — `worker/**` and container surfaces, dependency manifests and the lockfile, Playwright/test surfaces, most of `src/app/api/**` other than initial-load handlers, and `src/app/mockups/**` are excluded; `src/proxy.ts` stays in). Both upload their evidence on every run, pass or fail, because the artifact is the whole point on a first run — the baselines to adopt and the reports to grade. Promote either to required by adding it to `pr-required` and removing `continue-on-error` in the same edit; for `lighthouse-budget` that edit must also restore `merge_group` to its `if:`.
+Two further jobs are advisory (deliberately outside `pr-required`): `visual-baseline` on UI scope
+(soft-fail only the classified pixel-drift step) and `lighthouse-budget` on the narrower perf scope
+(`continue-on-error` — see "When the budget runs" above; `worker/**` and container surfaces,
+dependency manifests and the lockfile, Playwright/test surfaces, most of `src/app/api/**` other than
+initial-load handlers, and `src/app/mockups/**` are excluded; `src/proxy.ts` stays in). Both upload
+their evidence on every run, pass or fail, because the artifact is the whole point on a first run —
+the baselines to adopt and the reports to grade. Promote either to required by adding it to
+`pr-required` and removing the soft-fail (`continue-on-error` / drift classifier) in the same edit;
+for `lighthouse-budget` that edit must also restore `merge_group` to its `if:`.
 
 ## Contribution checklist (UI changes)
 
