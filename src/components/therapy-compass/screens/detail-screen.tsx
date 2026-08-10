@@ -37,7 +37,7 @@ export function DetailScreen() {
     <section data-screen-label="Detail" className={pageContainer}>
       <ContextualBackLink
         fallbackHref="/therapy-compass/search"
-        className={`${therapyBtn} flex items-center gap-2 mb-4 py-1.5 px-1 border-0 bg-transparent text-[color:var(--clinical-accent)] text-sm font-semibold cursor-pointer`}
+        className={`${therapyBtn} flex min-h-12 items-center gap-2 mb-4 py-1.5 px-1 border-0 bg-transparent text-[color:var(--clinical-accent)] text-sm font-semibold cursor-pointer`}
       >
         <ArrowLeftIcon size={18} />
         Back to results

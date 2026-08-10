@@ -54,7 +54,8 @@ export function usePersistedAnswerThread({
       latestTurn,
       collapsedTurnIds: [...collapsedTurnIds],
       showEarlierTurns,
-      ...metadata,
+      latestSubmissionSignature: metadata.latestSubmissionSignature,
+      expiresAt: metadata.expiresAt,
     });
   }, [answer, collapsedTurnIds, enabled, latestTurn, metadata, ownerId, priorTurns, showEarlierTurns]);
 }

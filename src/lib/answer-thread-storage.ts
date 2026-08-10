@@ -182,11 +182,16 @@ export function loadPersistedAnswerThread(
         : record.version === 1
           ? migrateV1(record as LegacyPersistedAnswerThread, options.expectedSubmissionSignature)
           : null;
-    if (
-      !thread ||
-      (options.expectedSubmissionSignature && thread.latestSubmissionSignature !== options.expectedSubmissionSignature)
-    ) {
+    if (!thread) {
       removeStoredThread(ownerId);
+      return null;
+    }
+    // A URL/signature mismatch means this navigation does not own the stored
+    // thread — leave it intact for a later forward restore or home restore.
+    if (
+      options.expectedSubmissionSignature &&
+      thread.latestSubmissionSignature !== options.expectedSubmissionSignature
+    ) {
       return null;
     }
     if (record.version === 1) savePersistedAnswerThread(ownerId, thread);

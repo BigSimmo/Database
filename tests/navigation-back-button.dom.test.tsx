@@ -97,9 +97,18 @@ describe("contextual back navigation", () => {
     render(<ContextualBackLink fallbackHref="/services">Back to services</ContextualBackLink>);
     const link = screen.getByRole("link", { name: "Back to services" });
     const event = new MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true, button: 0 });
-    window.addEventListener("click", (clickEvent) => clickEvent.preventDefault(), { once: true });
+    let preventedByComponent: boolean | undefined;
+    window.addEventListener(
+      "click",
+      (clickEvent) => {
+        preventedByComponent = clickEvent.defaultPrevented;
+        clickEvent.preventDefault();
+      },
+      { once: true },
+    );
 
     link.dispatchEvent(event);
+    expect(preventedByComponent).toBe(false);
     expect(link).toHaveAttribute("href", "/services");
     expect(router.back).not.toHaveBeenCalled();
     expect(router.replace).not.toHaveBeenCalled();

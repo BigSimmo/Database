@@ -126,7 +126,7 @@ describe("answer thread storage", () => {
     ).toBeNull();
   });
 
-  it("purges a valid thread when the returned URL signature does not match", () => {
+  it("leaves a valid thread in place when the returned URL signature does not match", () => {
     const sampleThread = createSampleThread();
     savePersistedAnswerThread("user-a", sampleThread);
 
@@ -135,7 +135,8 @@ describe("answer thread storage", () => {
         expectedSubmissionSignature: "answer:what about renal impairment?:queryMode=compare_guidance",
       }),
     ).toBeNull();
-    expect(storage.has(`${answerThreadStorageKey}:user-a`)).toBe(false);
+    expect(storage.has(`${answerThreadStorageKey}:user-a`)).toBe(true);
+    expect(loadPersistedAnswerThread("user-a")).toEqual(sampleThread);
   });
 
   it("restores the latest thread on the unsubmitted answer home", () => {

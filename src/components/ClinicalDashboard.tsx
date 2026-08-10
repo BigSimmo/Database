@@ -700,7 +700,10 @@ export function ClinicalDashboard({
         setPriorAnswerTurns(persisted.priorTurns);
         setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
         setShowEarlierTurns(persisted.showEarlierTurns);
-        latestAnswerSnapshotMetadataRef.current = persisted;
+        latestAnswerSnapshotMetadataRef.current = {
+          latestSubmissionSignature: persisted.latestSubmissionSignature,
+          expiresAt: persisted.expiresAt,
+        };
         if (persisted.latestTurn) {
           latestAnswerTurnRef.current = persisted.latestTurn;
           setAnswer(persisted.latestTurn.answer);

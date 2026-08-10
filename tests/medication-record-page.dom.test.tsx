@@ -6,6 +6,7 @@ import { MedicationRecordPage } from "@/components/clinical-dashboard/medication
 import type { MedicationRecord } from "@/lib/medications";
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/medications/test-med",
   useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
 }));
 

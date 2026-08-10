@@ -44,8 +44,8 @@ const SECTIONS: Section[] = [
         Raw question text is not written to query logs by default; logs use a keyed one-way hash. Generated answer text
         is also omitted from durable query logs by default. A short-lived response cache can contain the answer while
         its read TTL is valid. To make recent answers reappear quickly, completed answer threads may also remain in this
-        browser tab for up to 12 hours. That tab-only copy is not shared across tabs or devices and is never available
-        offline.
+        browser tab for up to 12 hours. That tab-only copy stays in this tab, is not shared across tabs or devices, and
+        is never sent to the application service.
       </>
     ),
   },

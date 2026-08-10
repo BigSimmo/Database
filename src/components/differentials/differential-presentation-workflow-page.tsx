@@ -744,7 +744,7 @@ export function DifferentialPresentationWorkflowPage({
           <div className="mb-4 hidden items-center gap-5 xl:flex">
             <ContextualBackLink
               fallbackHref="/differentials"
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
+              className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Back
@@ -756,7 +756,7 @@ export function DifferentialPresentationWorkflowPage({
           <div className="mb-4 grid gap-3 xl:hidden">
             <ContextualBackLink
               fallbackHref="/differentials"
-              className="inline-flex min-h-10 w-fit items-center gap-2 rounded-lg text-sm font-bold text-[color:var(--clinical-accent)]"
+              className="inline-flex min-h-12 w-fit items-center gap-2 rounded-lg text-sm font-bold text-[color:var(--clinical-accent)]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Back to differentials

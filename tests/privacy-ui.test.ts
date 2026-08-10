@@ -50,7 +50,7 @@ describe("privacy UI", () => {
     expect(markup).toContain("Clipboard, print, and PDF copies are outside the app");
     expect(markup).toContain("Generated answer text is also omitted from durable query logs by default");
     expect(markup).toContain("completed answer threads may also remain in this browser tab for up to 12 hours");
-    expect(markup).toContain("is never available offline");
+    expect(markup).toContain("is never sent to the application service");
     expect(markup).toContain("cleared by New chat, sign-out, or an account change");
     expect(markup).toContain("application service in Singapore");
     expect(markup).toContain("Railway in Singapore");

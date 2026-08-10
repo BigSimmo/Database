@@ -220,7 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setError(null);
           setNotice(null);
         } else {
-          clearPersistedAnswerThread();
+          // Initial signed-out must not wipe the guest answer-thread snapshot:
+          // auth boots as `loading`, then resolves here before the dashboard
+          // adopts `guest-tab-session` and restores. Account transitions still
+          // clear via sign-out / user-id change / expiry handlers below.
           clearRecentQueries();
           clearSignedUrlCache();
           if (callbackError) {
