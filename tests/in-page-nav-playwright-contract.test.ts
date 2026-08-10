@@ -31,6 +31,21 @@ describe("in-page-nav Playwright contract", () => {
     expect(prescribingBlock.match(/Back to medications/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 
+  it("cross-mode quick-links smoke uses the aria-label back name, not Breadcrumb/Medications", () => {
+    // Production UI (2) on PR #1788 timed out waiting for Breadcrumb >
+    // Medications exact inside medication-page-*; the back control lives in
+    // MedicationNavHeader with aria-label "Back to medications".
+    const source = readFileSync(UI_SMOKE, "utf8");
+    const quickLinksBlock = source.slice(
+      source.indexOf('test("answer results surface cross-mode quick links"'),
+      source.indexOf('test("answer mode keeps prior turns visible for follow-up questions"'),
+    );
+
+    expect(quickLinksBlock).toContain('name: "Back to medications"');
+    expect(quickLinksBlock).not.toMatch(/name:\s*["']Breadcrumb["']/);
+    expect(quickLinksBlock).not.toMatch(/getByRole\(\s*["']link["']\s*,\s*\{\s*name:\s*["']Medications["']/);
+  });
+
   it("forms section-nav scopes form-detail-header through visibleByTestId", () => {
     const source = readFileSync(UI_FORMS_SECTION_NAV, "utf8");
     expect(source).toMatch(/import\s*\{[^}]*\bvisibleByTestId\b[^}]*\}\s*from\s*["']\.\/playwright-settlement["']/);

@@ -15,12 +15,15 @@
 import { ChevronRight, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ContextualBackLink } from "@/components/contextual-back-link";
 import { cn, eyebrowText, iconTilePremium, textMuted } from "@/components/ui-primitives";
 
 export type Crumb = {
   label: string;
   /** Omit on the final crumb — the current page is not a link to itself. */
   href?: string;
+  /** History-aware page back; `href` remains the deep-link fallback. */
+  behavior?: "link" | "history-back";
   /**
    * Leading glyph. Exists so the first crumb can keep the back-arrow that the
    * information pages already use to get a history-less deep link home; that
@@ -64,7 +67,15 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
                   className="size-icon-xs shrink-0 text-[color:var(--decoration-soft)]"
                 />
               ) : null}
-              {item.href ? (
+              {item.href && item.behavior === "history-back" ? (
+                <ContextualBackLink
+                  fallbackHref={item.href}
+                  className="inline-flex min-h-tap min-w-0 items-center gap-1.5 rounded-md px-1.5 text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                >
+                  {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
+                  <span className="truncate">{item.label}</span>
+                </ContextualBackLink>
+              ) : item.href ? (
                 <Link
                   href={item.href}
                   className="inline-flex min-h-tap min-w-0 items-center gap-1.5 rounded-md px-1.5 text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"

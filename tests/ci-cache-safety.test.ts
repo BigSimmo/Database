@@ -10,6 +10,7 @@ const lighthouseChromiumSetup = readFileSync(
   "utf8",
 );
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+const prShardRunner = readFileSync(new URL("../scripts/playwright-pr-shards.mjs", import.meta.url), "utf8");
 const liveWebVitalsWorkflow = readFileSync(
   new URL("../.github/workflows/live-web-vitals.yml", import.meta.url),
   "utf8",
@@ -31,6 +32,19 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("run: npm run test:e2e:advisory");
     expect(workflow).not.toContain("ui-quarantine:");
     expect(workflow).not.toContain("ui-mockups:");
+  });
+
+  it("keeps the critical fail-fast subset disjoint from required PR shards", () => {
+    expect(workflow).toContain("npm run test:e2e:critical");
+    expect(workflow).toContain("--exclude-critical");
+    expect(prShardRunner).toContain('"@critical|@quarantine|@mockup"');
+    expect(prShardRunner).toContain('"@quarantine|@mockup"');
+  });
+
+  it("does not transport the cross-job Next cache after hosted evidence showed a net loss", () => {
+    expect(workflow).not.toContain("playwright-next-build-cache-");
+    expect(workflow).not.toContain("Publish isolated Next.js build cache");
+    expect(workflow).not.toContain("Restore isolated Next.js build cache");
   });
 
   it("installs Playwright system dependencies when browser caches hit", () => {
@@ -62,6 +76,12 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("if: needs.changes.outputs.static_heavy_changed == 'true'");
     expect(workflow).toContain("run: npm run test:ci-workflows");
     expect(workflow).toContain("run: npm run check:verification-plan");
+  });
+
+  it("does not repeat focused workflow contracts inside the full coverage run", () => {
+    expect(workflow).toContain(
+      "if: needs.changes.outputs.workflow_changed == 'true' && needs.changes.outputs.coverage_changed != 'true'",
+    );
   });
 
   it("keeps every workflow-reading unit contract in the focused suite", () => {
@@ -121,8 +141,37 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("run: npm run format:changed");
     expect(workflow).toContain("BASE_SHA: ${{ github.event.pull_request.base.sha");
     expect(workflow).toMatch(
-      /name: Scheduled full-tree format drift\s+if: github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'\s+run: npm run format:check/,
+      /name: Scheduled full-tree format drift\s+if: github\.event_name == 'schedule' \|\| \(github\.event_name == 'workflow_dispatch' && github\.event\.inputs\.refresh_lighthouse_baseline != 'true'\)\s+run: npm run format:check/,
     );
+  });
+
+  it("keeps a Lighthouse baseline refresh focused on measurement contracts", () => {
+    expect(workflow).toContain(
+      "node scripts/ci-change-scope.mjs --files .github/actions/setup-lighthouse-chromium/action.yml",
+    );
+    expect(workflow).toContain(
+      "(github.event_name == 'workflow_dispatch' && github.event.inputs.refresh_lighthouse_baseline != 'true')",
+    );
+  });
+
+  it("lets the release Playwright wrapper own its build and skips proven production Chromium", () => {
+    const releaseJob = workflow.slice(workflow.indexOf("  release-browser-matrix:"));
+    expect(releaseJob).not.toContain("path: .next/cache");
+    expect(releaseJob).not.toContain("run: npm run build");
+    expect(releaseJob).toContain("npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit");
+    expect(releaseJob).toContain("npm run test:e2e");
+  });
+
+  it("scopes the main-branch release backstop to UI, performance, or lockfile risk", () => {
+    const releaseHeader = workflow.slice(
+      workflow.indexOf("  release-browser-matrix:"),
+      workflow.indexOf("    steps:", workflow.indexOf("  release-browser-matrix:")),
+    );
+    expect(releaseHeader).toContain("github.ref == 'refs/heads/main'");
+    expect(releaseHeader).toContain("needs.changes.outputs.ui_changed == 'true'");
+    expect(releaseHeader).toContain("needs.changes.outputs.perf_changed == 'true'");
+    expect(releaseHeader).toContain("needs.changes.outputs.lockfile_changed == 'true'");
+    expect(releaseHeader).toContain("startsWith(github.ref, 'refs/heads/release/')");
   });
 });
 
@@ -347,10 +396,26 @@ describe("Visual baseline routing", () => {
     // Owner decision (PR #1755 / #118): pre-merge UI churn is the wrong place for
     // an unavoidably-red pixel gate. merge_group is still pre-merge.
     expect(visualBaselineJob).toContain('["push","schedule","workflow_dispatch"]');
-    expect(visualBaselineJob).toContain("continue-on-error: true");
     const prRequiredNeeds = /\n  pr-required:\n[\s\S]*?needs:\s*\n?\s*\[([\s\S]*?)\]/.exec(workflow)?.[1] ?? "";
     expect(prRequiredNeeds, "could not read pr-required's needs list from ci.yml").not.toBe("");
     expect(prRequiredNeeds).not.toMatch(/\bvisual-baseline\b/);
+  });
+
+  it("soft-fails only the pixel-comparison step, not the whole advisory job", () => {
+    // Job-level continue-on-error would also swallow setup / upload failures.
+    // Job keys in the captured block are indented four spaces; step keys are deeper.
+    expect(visualBaselineJob).not.toMatch(/^ {4}continue-on-error:\s*true\s*$/m);
+    expect(visualBaselineJob).toMatch(
+      /name: Chromium visual baselines\n\s+id: visual-comparison\n(?:\s+#.*\n)*\s+continue-on-error: true/,
+    );
+  });
+
+  it("reports pixel drift as a warning while preserving review artifacts", () => {
+    expect(visualBaselineJob).toContain("if: steps.visual-comparison.outcome == 'failure'");
+    expect(visualBaselineJob).toContain("scripts/classify-visual-baseline-outcome.mjs");
+    expect(visualBaselineJob).toContain("::warning title=Visual baseline drift::");
+    expect(visualBaselineJob).toContain("$GITHUB_STEP_SUMMARY");
+    expect(visualBaselineJob).toMatch(/name: Upload visual diffs\n\s+if: always\(\)/);
   });
 });
 

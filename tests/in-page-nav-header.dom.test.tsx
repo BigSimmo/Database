@@ -10,7 +10,10 @@ import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
 
 /** Reassigned per case so a rerender can simulate a route change. */
 let pathname: string | null = null;
-vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => pathname,
+  useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
+}));
 
 // Module state, so a case that navigates would otherwise hand its final
 // pathname to whichever case runs next.
