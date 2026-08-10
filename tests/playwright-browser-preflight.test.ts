@@ -113,6 +113,13 @@ describe("playwright browser preflight", () => {
             platform: "linux",
             architecture: "x64",
             containerBrowsersRoot: root,
+            revisionCheck: () => ({
+              ok: true,
+              status: "container-aligned",
+              message: "aligned",
+              expectedRevision: "1234",
+              installedRevisions: ["1234"],
+            }),
           },
         ),
       ).toMatchObject({
@@ -136,6 +143,50 @@ describe("playwright browser preflight", () => {
         path: managedPath,
         source: "playwright chromium-headless-shell",
       });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed on designated-container revision drift before accepting an override (#255)", () => {
+    const root = mkdtempSync(join(tmpdir(), "pw-container-drift-"));
+    const stale = join(root, "chromium_headless_shell-1194", "chrome-linux", "headless_shell");
+    const driftMessage =
+      "Playwright browser revision drift (#255): lock expects chromium-1234, but the container only has chromium-1194.";
+    try {
+      mkdirSync(join(stale, ".."), { recursive: true });
+      writeFileSync(stale, "");
+      const env = {
+        NODE_ENV: "test" as const,
+        PLAYWRIGHT_BROWSERS_PATH: root,
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
+        PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: stale,
+      };
+      const resolveOptions = {
+        managedChromiumPath: join(root, "chromium_headless_shell-1234", "missing"),
+        platform: "linux" as const,
+        architecture: "x64" as const,
+        containerBrowsersRoot: root,
+        revisionCheck: () => ({
+          ok: false,
+          status: "container-revision-drift",
+          message: driftMessage,
+          expectedRevision: "1234",
+          installedRevisions: ["1194"],
+        }),
+      };
+
+      expect(resolvePlaywrightBrowserExecutable("chromium", env, resolveOptions)).toMatchObject({
+        path: "",
+        revisionDrift: true,
+        source: "container Chromium revision drift (#255)",
+        message: driftMessage,
+      });
+
+      const preflight = playwrightBrowserPreflight(["--project=chromium"], env, resolveOptions);
+      expect(preflight.ok).toBe(false);
+      expect(preflight.message).toBe(driftMessage);
+      expect(preflight.missing?.[0]?.path).toBe("");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
