@@ -10,6 +10,7 @@ import { Sheet } from "@/components/ui/sheet";
 
 import { MODE_NAV_MIN_ITEMS, planModeNavBands } from "./mode-nav-bands";
 import { ModeNavHeaderPortal } from "./mode-nav-portal";
+import { ModeNavSlotInk, modeNavSlotBase } from "./nav-slot-ink";
 
 export type ModeNavItem = {
   id: string;
@@ -27,83 +28,6 @@ export type ModeNavItem = {
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]";
-
-/** 48px hit area — matches `--spacing-tap`, clear of the `expectMinTouchTarget` rounding flake. */
-const slotBase =
-  "mode-nav__slot relative flex min-h-12 min-w-0 items-center justify-center px-3 no-underline transition-colors";
-
-function SlotInk({
-  icon: Icon,
-  label,
-  count,
-  state,
-  trailing,
-}: {
-  icon?: LucideIcon;
-  label: string;
-  count?: string;
-  state: "on" | "trail" | "off";
-  trailing?: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        // One weight in every state. Bolding the active label changes its width,
-        // which shifts the rule and every neighbour on each navigation.
-        "mode-nav__ink relative flex h-5 min-w-0 items-center gap-2 text-sm-minus font-semibold tracking-display",
-        // The 2px rule takes space at the bottom of the bar, so a centred label
-        // sits optically high without this compensating offset.
-        "mt-0.5",
-        state === "on" ? "text-[color:var(--text-heading)]" : "text-[color:var(--text-muted)]",
-      )}
-    >
-      {Icon ? (
-        <Icon
-          aria-hidden="true"
-          className={cn(
-            "h-[1.0625rem] w-[1.0625rem] shrink-0",
-            state === "on"
-              ? "text-[color:var(--clinical-accent)]"
-              : state === "trail"
-                ? "text-[color:var(--clinical-accent)]/55"
-                : "opacity-70",
-          )}
-        />
-      ) : null}
-      <span className="min-w-0 truncate">{label}</span>
-      {count ? (
-        <span
-          className={cn(
-            "nums grid h-[1.125rem] min-w-[1.125rem] shrink-0 place-items-center rounded-full border px-1.5 text-3xs font-bold leading-none",
-            state === "on"
-              ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)]"
-              : "border-[color:var(--border-strong)] text-[color:var(--text-muted)]",
-          )}
-        >
-          {count}
-        </span>
-      ) : null}
-      {trailing ? <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-55" /> : null}
-      {/* The rule hangs off the ink, so it is exactly as wide as icon plus word:
-          short under "Search", long under "Recommend". A rule sized to the
-          padding box always looks a few pixels wrong.
-          The 2px cap stays a literal: it is a hairline on a 2px-tall bar, below
-          the radius ladder's 4px floor, and rounding it to `rounded-t-xs` would
-          double it into a visible dome. */}
-      <span
-        aria-hidden="true"
-        className={cn(
-          "mode-nav__rule absolute inset-x-0 -bottom-[0.8125rem] rounded-t-[2px]",
-          state === "on"
-            ? "h-0.5 bg-[color:var(--clinical-accent)]"
-            : state === "trail"
-              ? "h-px bg-[color:var(--clinical-accent)]/35"
-              : "h-0.5 bg-transparent",
-        )}
-      />
-    </span>
-  );
-}
 
 /**
  * Navigation for the pages of one mode, pinned inside the universal header.
@@ -235,14 +159,14 @@ export function ModeNav({
               <li
                 key={item.id}
                 data-band={band ?? "none"}
-                className={cn(slotBase, focusRing, band ? undefined : "hidden")}
+                className={cn(modeNavSlotBase, focusRing, band ? undefined : "hidden")}
               >
                 <Link
                   href={item.href}
                   aria-current={isActive ? "page" : undefined}
                   className={cn("flex h-full w-full items-center justify-center rounded-lg no-underline", focusRing)}
                 >
-                  <SlotInk
+                  <ModeNavSlotInk
                     icon={item.icon}
                     label={item.label}
                     count={item.count}
@@ -256,7 +180,7 @@ export function ModeNav({
             <li
               data-until={plan.moreUntil}
               data-active-from={activeFrom}
-              className={cn(slotBase, "mode-nav__more", "flex")}
+              className={cn(modeNavSlotBase, "mode-nav__more", "flex")}
             >
               <button
                 type="button"
@@ -265,7 +189,7 @@ export function ModeNav({
                 aria-expanded={open}
                 className={cn("flex h-full w-full items-center justify-center rounded-lg", focusRing)}
               >
-                <SlotInk label="More" state="off" trailing />
+                <ModeNavSlotInk label="More" state="off" trailing />
                 {/* Composed into the accessible name rather than set as an
                     `aria-label`, because whether it applies depends on the
                     container band and only CSS can answer that. `display: none`
