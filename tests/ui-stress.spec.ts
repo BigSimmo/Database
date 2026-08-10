@@ -374,9 +374,11 @@ test.describe("Clinical KB long-content stress coverage", () => {
       // Production hydration can briefly replace the server-rendered composer.
       // Require one settled owner with live React handlers before typing, or the
       // replacement can lose the value and leave the submit button disabled.
-      const answerSurface = page.getByTestId("answer-empty-state");
-      await expect(answerSurface).toHaveCount(1, { timeout: 15_000 });
-      const questionInput = answerSurface.locator('[aria-label^="Search indexed guidelines by question or keyword"]');
+      const sharedHomeSurface = page.getByTestId("shared-home-empty-state");
+      await expect(sharedHomeSurface).toHaveCount(1, { timeout: 15_000 });
+      const questionInput = sharedHomeSurface.locator(
+        '[aria-label^="Search indexed guidelines by question or keyword"]',
+      );
       await expect(questionInput).toHaveCount(1);
       const answerForm = questionInput.locator("xpath=ancestor::form[1]");
       await waitForReactEventHandler(questionInput, "onChange");
