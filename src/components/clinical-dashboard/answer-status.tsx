@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, type CSSProperties } from "react";
-import { Check, Circle, Clipboard, ClipboardCheck, History, Loader2, MessageSquareText, Square } from "lucide-react";
+import { Check, Circle, Clipboard, ClipboardCheck, History, Loader2, Square } from "lucide-react";
 
 import {
   answerProgressDisplayMessage,
@@ -14,7 +14,9 @@ import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-su
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
-import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
+import { appModeIcons } from "@/lib/app-mode-icons";
+import type { AppModeId } from "@/lib/app-modes";
+import { answerLoading, copyButton, sharedHomeEmptyState, sharedHomePresentation } from "@/lib/ui-copy";
 
 export function CopyButton({
   label,
@@ -47,11 +49,13 @@ export function CopyButton({
   );
 }
 
-export function AnswerEmptyState({
+export function SharedHomeEmptyState({
+  modeId,
   desktopComposerSlotId,
   recentQueries = [],
   onSelectRecent,
 }: {
+  modeId: AppModeId;
   desktopComposerSlotId?: string;
   recentQueries?: string[];
   onSelectRecent?: (query: string) => void;
@@ -65,25 +69,27 @@ export function AnswerEmptyState({
     onSelectRecent && preferences.showRecentOnHome
       ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5)
       : [];
+  const presentation = sharedHomePresentation[modeId];
 
   return (
     <ModeHomeTemplate
-      testId="answer-empty-state"
-      title={answerEmptyState.heading}
-      subtitle={answerEmptyState.subheading}
-      icon={MessageSquareText}
+      testId="shared-home-empty-state"
+      title={presentation.title}
+      subtitle={presentation.subtitle}
+      icon={appModeIcons[modeId]}
       headingLevel={2}
+      stabilizePhoneCopy
       desktopComposerSlotId={desktopComposerSlotId}
-      actionsLabel={answerEmptyState.starterActionsLabel}
+      actionsLabel={sharedHomeEmptyState.starterActionsLabel}
       actions={[]}
       footer={
         <div className="grid w-full gap-3">
           {recents.length > 0 && (
             <AnswerSuggestionChips
-              testId="answer-recent-queries"
+              testId="shared-home-recent-queries"
               suggestions={recents}
               onPick={(entry) => onSelectRecent?.(entry)}
-              label={answerEmptyState.recentLabel}
+              label={sharedHomeEmptyState.recentLabel}
               layout="wrap"
               className="justify-center"
               icon={History}

@@ -148,4 +148,23 @@ describe("mode menu destination prefetch", () => {
     expect(router.prefetch.mock.calls.some(([href]) => href === previousHref)).toBe(true);
     expect(new Set(router.prefetch.mock.calls.map(([href]) => href)).size).toBe(1);
   });
+
+  it("restores mode-trigger focus when re-selecting the already active mode", async () => {
+    const user = userEvent.setup();
+    const onSearchModeChange = vi.fn();
+    render(<MasterSearchHeader {...headerProps()} onSearchModeChange={onSearchModeChange} />);
+
+    const trigger = screen.getByRole("button", { name: /Mode Answer/i });
+    await user.click(trigger);
+    const answerOption = within(await screen.findByRole("menu", { name: "Choose app mode" })).getByRole(
+      "menuitemradio",
+      { name: /Answer/i },
+    );
+    await user.click(answerOption);
+
+    expect(onSearchModeChange).toHaveBeenCalledWith("answer");
+    await vi.waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
+  });
 });

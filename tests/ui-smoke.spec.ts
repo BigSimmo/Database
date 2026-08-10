@@ -1665,7 +1665,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu).toHaveCount(0);
     await expect(page).toHaveURL(/\/\?mode=tools\b/);
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
-    await expect(visibleByTestId(page, "answer-empty-state")).toBeVisible();
+    await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -2536,7 +2536,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    const recentChips = page.getByTestId("answer-recent-queries");
+    const recentChips = page.getByTestId("shared-home-recent-queries");
     await expect(recentChips).toBeVisible();
     await expect(recentChips).toContainText("Recent searches");
     const chip = recentChips.getByRole("button", { name: recent });
@@ -2583,8 +2583,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&focus=1&run=1`, { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
-    await expect(page.getByText("How can I help?", { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("shared-home-empty-state")).toHaveCount(0);
+    await expect(page.getByText("What can I help with?", { exact: true })).toHaveCount(0);
     // Prefer :visible — a useSearchParams() Suspense ancestor can leave a persistent
     // hidden S: clone (search-chrome invariant 17), which makes getByLabel strict-mode fail.
     await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
@@ -2595,8 +2595,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(questionEcho).toContainText(question);
     await expect(page.getByTestId("plain-answer-response")).toContainText("synthetic clozapine table image highlights");
     await expect(visibleQuestionInput(page)).toHaveValue("");
-    await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
-    await expect(page.getByText("How can I help?", { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("shared-home-empty-state")).toHaveCount(0);
+    await expect(page.getByText("What can I help with?", { exact: true })).toHaveCount(0);
     expect(answerRequests).toEqual([question]);
     await expectNoPageHorizontalOverflow(page);
   });
