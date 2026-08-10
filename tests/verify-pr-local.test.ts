@@ -54,6 +54,20 @@ describe("verify-pr-local CLI", () => {
     expect(output).toContain("- npm run verify:ui");
   });
 
+  it("fails fast on package and lockfile install drift before broad PR-local checks (#204)", () => {
+    for (const file of ["package.json", "package-lock.json"]) {
+      const output = dryRun(file);
+      expect(output).toContain("- npm run check:npm-ci-dry-run");
+      expect(output.indexOf("- npm run check:npm-ci-dry-run")).toBeLessThan(output.indexOf("- npm run lint"));
+    }
+  });
+
+  it("does not repeat focused workflow contracts inside the full unit suite", () => {
+    const output = dryRun(".github/workflows/ci.yml,package.json");
+    expect(output).toContain("- npm run test");
+    expect(output).not.toContain("- npm run test:ci-workflows");
+  });
+
   it("requires explicit approval before executing the extended plan", () => {
     const result = spawnSync(process.execPath, [script, "--extended", "--files", "docs/frontend-architecture.md"], {
       encoding: "utf8",
