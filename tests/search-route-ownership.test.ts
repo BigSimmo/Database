@@ -260,8 +260,12 @@ describe("shared-search route ownership", () => {
     expect(selectSearchMode.slice(0, selectSearchMode.indexOf("function stageAnswerFollowUpDraft"))).not.toContain(
       "crossModeSearch(mode, carriedQuery)",
     );
-    expect(dashboardSource).toContain(
-      'if (modeChangeFromUiRef.current || (pathname === "/" && !submittedUrlRunRequested)) return;',
+    expect(dashboardSource).toContain('if (pathname === "/" && !submittedUrlRunRequested) return;');
+    expect(dashboardSource).toContain("if (modeChangeFromUiRef.current && !submittedUrlModeMatchesActive) return;");
+    // Ask-this / cross-mode into Answer must not depend solely on auto-run: the
+    // dashboard stays mounted, so submit explicitly after pushing run=1.
+    expect(dashboardSource).toMatch(
+      /if \(mode === "answer" \|\| mode === "documents"\) \{[\s\S]*?void executeSearch\(crossQuery, mode/,
     );
     expect(dashboardSource).toMatch(
       /const showSharedHome =\s*isHomeRoute &&\s*!submittedUrlRunRequested &&[\s\S]*?!submittedAnswerSearchActive;/,

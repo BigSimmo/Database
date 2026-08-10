@@ -2233,10 +2233,13 @@ export function ClinicalDashboard({
     const trimmedQuery = query.trim();
     const submittedSearchText = searchMode === "answer" && submittedUrlQuery ? submittedUrlQuery : trimmedQuery;
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
-    // A mode pick can update local mode/query state one render before Next lands
-    // the new shared-home URL. Never treat that transition frame (or a root URL
-    // without run=1) as permission to submit the preserved draft.
-    if (modeChangeFromUiRef.current || (pathname === "/" && !submittedUrlRunRequested)) return;
+    // Draft shared-home URLs must never auto-submit. A mode pick can update local
+    // mode/query one frame before the router drops the previous run=1 URL — suppress
+    // that stale frame only while the URL mode no longer matches local state.
+    // Intentional run=1 arrivals (Ask-this / crossModeSearch) keep mode+run aligned,
+    // so they must still submit even if modeChangeFromUiRef is still set.
+    if (pathname === "/" && !submittedUrlRunRequested) return;
+    if (modeChangeFromUiRef.current && !submittedUrlModeMatchesActive) return;
     if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
     if (authStatus === "loading") return;
     if (!privateScopeReadyForRoute(routedSearchContext.scopeRef, privateScopeStatus, restoredPrivateScopeRef)) return;
@@ -2277,6 +2280,7 @@ export function ClinicalDashboard({
     autoRunSearch,
     pathname,
     submittedUrlRunRequested,
+    submittedUrlModeMatchesActive,
     authStatus,
     canRunSearch,
     loading,
@@ -2341,6 +2345,15 @@ export function ClinicalDashboard({
     }
     setSearchMode(mode);
     router.push(href);
+    // Submit immediately for dashboard-owned modes. Auto-run alone is racy here:
+    // modeChangeFromUiRef stays set until the URL-sync effect runs, and a late or
+    // suppressed auto-run leaves the run=1 pending shell with no /api/answer call
+    // (Ask-this bridge). Seed the signature so a later auto-run does not double-fire.
+    if (mode === "answer" || mode === "documents") {
+      const navigationContext = { queryMode, scopeFilters } as const;
+      autoRunSearchSignatureRef.current = searchSubmissionSignature(mode, crossQuery.trim(), navigationContext);
+      void executeSearch(crossQuery, mode, scopeFilters, queryMode, false);
+    }
     window.requestAnimationFrame(() => {
       scrollSurface(mainRef.current, 0, resolveScrollBehavior());
     });
