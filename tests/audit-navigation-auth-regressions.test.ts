@@ -135,15 +135,16 @@ describe("audit navigation and auth regressions", () => {
       "function handleModeTriggerKeyDown(",
     );
 
-    expect(masterSearchHeaderSource).toContain("function prefetchModeDestination(modeId: AppModeId)");
+    expect(masterSearchHeaderSource).toContain("function prefetchModeSelection(modeId: AppModeId)");
+    expect(masterSearchHeaderSource).toContain("const href = appModeSelectionHref(modeId)");
     expect(masterSearchHeaderSource).toContain("router.prefetch(href,");
     expect(masterSearchHeaderSource).toContain("onInvalidate:");
-    expect(modeOptions).toContain("onFocus={() => prefetchModeDestination(mode.id)}");
-    expect(modeOptions).toContain("onPointerEnter={() => prefetchModeDestination(mode.id)}");
+    expect(modeOptions).toContain("onFocus={() => prefetchModeSelection(mode.id)}");
+    expect(modeOptions).toContain("onPointerEnter={() => prefetchModeSelection(mode.id)}");
     // Menu-open paths warm only the highlighted option — never every visible home.
-    expect(openModeMenuWithFocus).toContain("prefetchModeDestination(highlighted.id)");
-    expect(toggleModeMenu).toContain("prefetchModeDestination(highlighted.id)");
-    expect(masterSearchHeaderSource).not.toContain("function prefetchModeDestinations(");
+    expect(openModeMenuWithFocus).toContain("prefetchModeSelection(highlighted.id)");
+    expect(toggleModeMenu).toContain("prefetchModeSelection(highlighted.id)");
+    expect(masterSearchHeaderSource).not.toContain("function prefetchModeSelections(");
     expect(masterSearchHeaderSource).not.toContain("visibleAppModeOptions.forEach((mode) => router.prefetch");
     expect(masterSearchHeaderSource).not.toContain(
       "new Set(visibleAppModeOptions.map((mode) => appModeHomeHref(mode.id)))",
