@@ -2246,34 +2246,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const geo = await page.evaluate(() => {
       const header = document.querySelector("header");
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
-      const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
-      // Include vertical margins: the phone bottom clearance (`max-sm:mb-4`) sits
-      // outside getBoundingClientRect().height and still consumes scroll budget.
-      let alsoMatchesHeight = 0;
-      if (alsoMatches instanceof HTMLElement) {
-        const box = alsoMatches.getBoundingClientRect();
-        const styles = window.getComputedStyle(alsoMatches);
-        alsoMatchesHeight = Math.ceil(
-          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
-        );
-      }
       return {
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
-        alsoMatchesHeight,
       };
     });
-    // Content-sized section => no unexplained phantom scroll. Submitted universal
-    // matches are real content below the answer, so their compact panel may account
-    // for the overflow; the old viewport floor created much more empty scroll.
-    // The responsive notice keeps its complete instruction while returning the
-    // unexplained-scroll allowance to the original 8px phone contract. Submitted
-    // universal matches are real content, so subtract their measured height
-    // before applying that phantom-overflow budget. That measured height already
-    // includes the section's phone bottom margin, so the 8px allowance stays put.
-    const permittedOverflow = geo.alsoMatchesHeight + 8;
+    // Content-sized section => no unexplained phantom scroll. The responsive
+    // notice keeps its complete instruction while retaining the 8px phone budget.
     expect(scrollGeometry.owner).toBe("document");
-    expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
+    expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(8);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
     // (a bottom-anchor regression would push surfaceTop far down the viewport).
     expect(geo.surfaceTop - geo.headerBottom).toBeGreaterThanOrEqual(0);

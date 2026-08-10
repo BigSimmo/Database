@@ -29,10 +29,6 @@ vi.mock("@/components/clinical-dashboard/search-command-context", () => ({
   useSearchCommand: () => null,
 }));
 
-vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
-  UniversalSearchAlsoMatches: () => null,
-}));
-
 describe("favourites empty rendering", () => {
   it("renders one no-match state and one related status region across responsive layouts", () => {
     render(<FavouritesCommandLibraryPage query="" demoMode={false} />);

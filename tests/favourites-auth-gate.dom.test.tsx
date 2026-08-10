@@ -43,10 +43,6 @@ vi.mock("@/components/clinical-dashboard/search-command-context", () => ({
   useSearchCommand: () => null,
 }));
 
-vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
-  UniversalSearchAlsoMatches: () => null,
-}));
-
 function sidebarProps(showAccountLibrary: boolean) {
   return {
     recentQueries: [] as string[],

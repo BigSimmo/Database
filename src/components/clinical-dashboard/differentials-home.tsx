@@ -30,7 +30,6 @@ import {
   ResultFilterTrigger,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
 import { Chip as DesignChip } from "@/components/ui/chip";
@@ -1284,8 +1283,6 @@ function SearchResultsView({
       {best ? (
         <DifferentialsMobileCompareBar selectedCount={selectedCount} selectedIds={comparisonIds} query={query} />
       ) : null}
-
-      <UniversalSearchAlsoMatches modeId="differentials" query={query} />
 
       <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
         Clinical decision support only. Review before use.

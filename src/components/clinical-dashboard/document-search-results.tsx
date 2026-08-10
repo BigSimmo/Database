@@ -51,7 +51,6 @@ import {
   type AppliedFilterChip,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { deriveDocumentSearchUnavailable } from "@/components/clinical-dashboard/document-search-unavailable-status";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 import {
   DocumentActionButton,
@@ -1937,8 +1936,6 @@ function DocumentSearchResultsPanelImpl({
           </div>
         </>
       )}
-
-      {trimmedQuery && !shouldShowHome ? <UniversalSearchAlsoMatches modeId="documents" query={trimmedQuery} /> : null}
     </div>
   );
 }
