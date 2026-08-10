@@ -1828,7 +1828,61 @@ summary::-webkit-details-marker {
   display: none;
 }
 
+.smart-search-phone-ticker {
+  display: grid;
+  width: 100%;
+  min-height: var(--spacing-tap);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--clinical-accent) 18%, var(--border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--clinical-accent-soft) 42%, var(--surface));
+  padding: 0.5rem 0.625rem;
+  color: var(--text-heading);
+  text-align: left;
+  box-shadow: var(--shadow-inset);
+}
+
+.smart-search-phone-ticker-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--clinical-accent);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.smart-search-phone-ticker-query {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-search-phone-ticker-action {
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.smart-search-phone-ticker:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 @media (min-width: 1024px) {
+  .smart-search-phone-ticker {
+    display: none;
+  }
+
   .smart-search-rotating-text {
     display: flex;
   }

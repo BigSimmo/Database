@@ -160,7 +160,17 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
   );
 }
 
-function SmartRotatingHint({ examples, modeLabel }: { examples: string[]; modeLabel: string }) {
+function SmartRotatingHint({
+  examples,
+  modeLabel,
+  showPhoneTicker,
+  onPickExample,
+}: {
+  examples: string[];
+  modeLabel: string;
+  showPhoneTicker: boolean;
+  onPickExample: (example: string) => void;
+}) {
   const [activeExampleIndex, setActiveExampleIndex] = useState(0);
   const activeExample = examples[activeExampleIndex % examples.length];
 
@@ -175,13 +185,33 @@ function SmartRotatingHint({ examples, modeLabel }: { examples: string[]; modeLa
   if (!activeExample) return null;
 
   return (
-    <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text" aria-live="polite">
-      <span>Smart search</span>
-      <span aria-hidden="true">·</span>
-      <span>
-        Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
-      </span>
-    </div>
+    <>
+      <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text" aria-live="polite">
+        <span>Smart search</span>
+        <span aria-hidden="true">·</span>
+        <span>
+          Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
+        </span>
+      </div>
+      {showPhoneTicker ? (
+        <button
+          type="button"
+          data-testid="smart-search-phone-ticker"
+          className="smart-search-phone-ticker"
+          onClick={() => onPickExample(activeExample)}
+          aria-label={`Try suggested search: ${activeExample}`}
+        >
+          <span className="smart-search-phone-ticker-kicker">
+            <Sparkles aria-hidden="true" className="size-icon-sm" />
+            Try this
+          </span>
+          <span className="smart-search-phone-ticker-query">{activeExample}</span>
+          <span className="smart-search-phone-ticker-action" aria-hidden="true">
+            Tap to search
+          </span>
+        </button>
+      ) : null}
+    </>
   );
 }
 
@@ -364,6 +394,7 @@ export function UniversalSearchCommandSurface({
   onFocusSearchInput,
   onListboxIdReady,
   onActiveItemIdChange,
+  showPhoneSuggestionTicker = false,
   placement = "inline",
   children,
 }: {
@@ -384,6 +415,8 @@ export function UniversalSearchCommandSurface({
   onFocusSearchInput?: () => void;
   onListboxIdReady?: (listboxId: string) => void;
   onActiveItemIdChange?: (activeItemId: string | null) => void;
+  /** Show the compact, tappable suggestion ticker below an in-flow phone home composer. */
+  showPhoneSuggestionTicker?: boolean;
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
@@ -992,7 +1025,15 @@ export function UniversalSearchCommandSurface({
         placement === "bottom-dock" ? "gap-1" : "gap-2",
       )}
     >
-      <SmartRotatingHint examples={config.examples} modeLabel={mode.label} />
+      <SmartRotatingHint
+        examples={config.examples}
+        modeLabel={mode.label}
+        showPhoneTicker={showPhoneSuggestionTicker}
+        onPickExample={(example) => {
+          onQueryChange(example);
+          onFocusSearchInput?.();
+        }}
+      />
       <div
         className="relative w-full"
         onKeyDownCapture={(event) => {
