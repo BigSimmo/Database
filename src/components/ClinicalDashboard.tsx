@@ -354,8 +354,9 @@ export function ClinicalDashboard({
   const submittedUrlModeMatchesActive =
     !submittedUrlMode ||
     (isAppModeId(submittedUrlMode) && isAppModeVisible(submittedUrlMode) && submittedUrlMode === searchMode);
+  const submittedUrlRunRequested = searchParams.get("run") === "1";
   const submittedUrlQuery =
-    autoRunSearch && searchParams.get("run") === "1" && submittedUrlModeMatchesActive
+    autoRunSearch && submittedUrlRunRequested && submittedUrlModeMatchesActive
       ? (searchParams.get("q") ?? searchParams.get("query") ?? "").trim()
       : "";
 
@@ -416,7 +417,7 @@ export function ClinicalDashboard({
   // differentials results view can tell live-edited catalogue results apart
   // from evidence that belongs to a previously submitted search.
   const [differentialEvidenceQuery, setDifferentialEvidenceQuery] = useState<string | null>(null);
-  const clearDifferentialModeResultState = useCallback(() => {
+  const clearModeResultState = useCallback(() => {
     resetAnswerThread();
     setAnswer(null);
     setSources([]);
@@ -1526,7 +1527,7 @@ export function ClinicalDashboard({
     const shouldFocusComposer = searchParams.get("focus") === "1";
     const hasUrlQuery = searchParams.has("q") || searchParams.has("query");
     const frame = window.requestAnimationFrame(() => {
-      if (mode === "differentials") clearDifferentialModeResultState();
+      if (mode === "differentials") clearModeResultState();
       setSearchMode(mode);
       if (hasUrlQuery) setQuery(nextQuery);
       setModeSearchSubmitted(false);
@@ -1536,7 +1537,7 @@ export function ClinicalDashboard({
       if (shouldFocusComposer) focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [searchParams, clearDifferentialModeResultState, focusComposerInput]);
+  }, [searchParams, clearModeResultState, focusComposerInput]);
 
   useHomeModeSeed({ pathname, searchParams, lastAppMode });
 
@@ -1550,7 +1551,7 @@ export function ClinicalDashboard({
     urlSearchBootstrappedRef.current = true;
     const targetMode = mode;
     const frame = window.requestAnimationFrame(() => {
-      if (targetMode === "differentials") clearDifferentialModeResultState();
+      if (targetMode === "differentials") clearModeResultState();
       setSearchMode(targetMode);
       // run=1 URLs name the latest answered question; the composer stays empty
       // while an answer thread is active (including after localStorage restore).
@@ -1559,7 +1560,7 @@ export function ClinicalDashboard({
       if (shouldFocusComposer && params.get("run") !== "1") focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [clearDifferentialModeResultState, focusComposerInput]);
+  }, [clearModeResultState, focusComposerInput]);
 
   const executeSearchRef = useRef(executeSearch);
   executeSearchRef.current = executeSearch;
@@ -1889,7 +1890,7 @@ export function ClinicalDashboard({
       setQuery(trimmedQuery);
     }
     if (modeSearch.kind !== "tools") setModeSearchSubmitted(true);
-    if (isDifferentialsMode) clearDifferentialModeResultState();
+    if (isDifferentialsMode) clearModeResultState();
 
     if (modeSearch.kind === "tools") {
       setLoading(false);
@@ -2256,6 +2257,10 @@ export function ClinicalDashboard({
     const trimmedQuery = query.trim();
     const submittedSearchText = searchMode === "answer" && submittedUrlQuery ? submittedUrlQuery : trimmedQuery;
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
+    // A mode pick can update local mode/query state one render before Next lands
+    // the new shared-home URL. Never treat that transition frame (or a root URL
+    // without run=1) as permission to submit the preserved draft.
+    if (modeChangeFromUiRef.current || (pathname === "/" && !submittedUrlRunRequested)) return;
     if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
     if (authStatus === "loading") return;
     if (!privateScopeReadyForRoute(routedSearchContext.scopeRef, privateScopeStatus, restoredPrivateScopeRef)) return;
@@ -2294,6 +2299,8 @@ export function ClinicalDashboard({
     void askRef.current(submittedSearchText, routedSearchContext, routedContextChanged);
   }, [
     autoRunSearch,
+    pathname,
+    submittedUrlRunRequested,
     authStatus,
     canRunSearch,
     loading,
@@ -2337,7 +2344,7 @@ export function ClinicalDashboard({
       return;
     }
     modeChangeFromUiRef.current = true;
-    if (mode === "differentials") clearDifferentialModeResultState();
+    if (mode === "differentials") clearModeResultState();
     setQuery(crossQuery);
     setModeSearchSubmitted(false);
     setLoading(false);
@@ -2645,35 +2652,20 @@ export function ClinicalDashboard({
       return;
     }
 
-    // Results are on screen: carry the query into the newly picked mode rather
-    // than dropping it. crossModeSearch already owns that transition.
+    // Outside the shared home, every mode pick returns to `/`. Preserve the
+    // current question as an unsubmitted draft, but never carry `run=1` into the
+    // newly selected mode — only an explicit submit may open its result route.
     const carriedQuery = query.trim() || submittedUrlQuery.trim();
-    if (carriedQuery) {
-      crossModeSearch(mode, carriedQuery);
-      return;
-    }
-
-    // Nothing to carry: return to the shared home with the mode preselected. This
-    // always stays on `/`, so the transition is dashboard-internal — no unmount,
-    // and no chrome flip from an eager mode set before a route landed.
-    const href = appModeSelectionHref(mode, { queryMode, scopeFilters });
+    const href = appModeSelectionHref(mode, {
+      query: carriedQuery || undefined,
+      queryMode,
+      scopeFilters,
+    });
     modeChangeFromUiRef.current = true;
-    if (mode === "differentials") clearDifferentialModeResultState();
-    setQuery("");
-    if (mode === "answer") {
-      resetAnswerThread();
-      setAnswer(null);
-      setSources([]);
-    }
+    clearModeResultState();
+    setQuery(carriedQuery);
     setModeSearchSubmitted(false);
     setLoading(false);
-    setError(null);
-    setAnswerProgress(null);
-    setSearchRelevance(null);
-    setSearchFacets(null);
-    setSearchScope(null);
-    setSourceGovernanceWarnings([]);
-    setDocumentMatches([]);
     setSearchMode(mode);
     router.push(href);
     // Dashboard-internal mode flips keep the same scroller; jump to top so
@@ -3034,13 +3026,7 @@ export function ClinicalDashboard({
   // docs/search-chrome-behaviour.md — a mode pick must not flip composer reserve.
   const isHomeRoute = pathname === "/";
   const showSharedHome =
-    isHomeRoute &&
-    !error &&
-    !answer &&
-    !loading &&
-    !modeSearchSubmitted &&
-    !submittedUrlQuery &&
-    !submittedAnswerSearchActive;
+    isHomeRoute && !submittedUrlRunRequested && !error && !answer && !loading && !submittedAnswerSearchActive;
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
