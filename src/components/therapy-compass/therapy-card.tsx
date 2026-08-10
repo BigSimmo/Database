@@ -6,7 +6,7 @@ import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { useTcBindings } from "./bindings";
 import { summarise } from "./data/select";
 import type { Therapy } from "./data/types";
-import { accentControl, outlineControl, therapyBtn } from "./controls";
+import { accentControl, iconControl, outlineControl, therapyBtn } from "./controls";
 import {
   AlertIcon,
   ChevronRightIcon,
@@ -24,22 +24,25 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
   const b = useTcBindings();
   const inCompare = b.isInCompare(therapy.slug);
   return (
-    <article className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
-      <div className="grid grid-cols-1 items-start gap-[22px] px-[22px] py-5 sm:grid-cols-[minmax(280px,1fr)_minmax(400px,1.35fr)_auto]">
-        <div className="flex min-w-0 gap-[15px]">
-          <IconTile icon={ScaleIcon} />
-          <div className="min-w-0">
-            <h3 className="m-0 mb-[5px] text-[color:var(--text-heading)] tracking-display text-base font-semibold">
-              {therapy.name}
-            </h3>
-            <p className="m-0 mb-[11px] text-sm-minus leading-normal text-[color:var(--text-muted)]">
-              {summarise(therapy.clinicalSummary, 1) || therapy.bestUsedFor || therapy.category}
-            </p>
-            <TagRow tags={therapy.tags.length ? therapy.tags : [therapy.category]} max={4} />
-          </div>
+    <article
+      data-therapy-result-card
+      className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-4 px-4 pt-4 sm:gap-x-4 sm:px-5 sm:pt-5 lg:grid-cols-[minmax(280px,1fr)_minmax(400px,1.35fr)_auto] lg:gap-[22px] lg:px-[22px]">
+        <div data-therapy-result-copy className="min-w-0">
+          <h3 className="m-0 mb-[5px] text-base font-semibold tracking-display text-[color:var(--text-heading)]">
+            {therapy.name}
+          </h3>
+          <p className="m-0 mb-3 text-sm-minus leading-normal text-[color:var(--text-muted)]">
+            {summarise(therapy.clinicalSummary, 1) || therapy.bestUsedFor || therapy.category}
+          </p>
+          <TagRow tags={therapy.tags.length ? therapy.tags : [therapy.category]} max={4} />
         </div>
 
-        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-3">
+        <div
+          data-therapy-result-evidence
+          className="col-span-2 -mx-4 grid grid-cols-1 gap-px overflow-hidden border-y border-[color:var(--border)] bg-[color:var(--border)] sm:mx-0 sm:grid-cols-3 sm:rounded-lg sm:border lg:col-span-1"
+        >
           <CardCell
             icon={CrosshairIcon}
             eyebrow="WHY MATCHED"
@@ -64,10 +67,10 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           />
         </div>
 
-        <div className="flex gap-1">
+        <div className="col-start-2 row-start-1 flex gap-1 lg:col-start-auto lg:row-start-auto">
           <button
             type="button"
-            className={`${therapyBtn} inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--disabled)] opacity-65`}
+            className={iconControl}
             aria-disabled="true"
             onClick={ignoreUnavailableActivation}
             title="Favourite saving is not available yet"
@@ -77,18 +80,22 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           </button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2.5 px-[22px] pb-5">
+      <div
+        data-therapy-result-actions
+        className="grid grid-cols-3 gap-2 px-4 py-4 sm:flex sm:flex-wrap sm:gap-2.5 sm:px-5 sm:pb-5 lg:px-[22px]"
+      >
         <button
           type="button"
-          className={`${therapyBtn} ${accentControl} min-w-[150px] flex-1`}
+          className={`${accentControl} w-full min-w-0 max-sm:gap-1.5 max-sm:px-1.5 max-sm:text-xs sm:min-w-[150px] sm:flex-1`}
           onClick={() => b.open(therapy.slug)}
         >
           <ExternalLinkIcon size={16} strokeWidth={1.8} />
-          Open record
+          <span className="sm:hidden">Open</span>
+          <span className="max-sm:hidden">Open record</span>
         </button>
         <button
           type="button"
-          className={`${therapyBtn} ${outlineControl}`}
+          className={`${outlineControl} w-full min-w-0 max-sm:gap-1.5 max-sm:px-1.5 max-sm:text-xs`}
           onClick={() => b.toggleCompare(therapy.slug)}
           aria-pressed={inCompare}
         >
@@ -97,7 +104,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         </button>
         <button
           type="button"
-          className={`${therapyBtn} ${outlineControl}`}
+          className={`${outlineControl} w-full min-w-0 max-sm:gap-1.5 max-sm:px-1.5 max-sm:text-xs`}
           onClick={() => {
             if (!therapy.patientSheetAvailable) return;
             b.openSheet(therapy.slug);
@@ -106,7 +113,8 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           title={therapy.patientSheetAvailable ? undefined : "This record has no patient sheet"}
         >
           <FileTextIcon size={16} />
-          {therapy.patientSheetAvailable ? "Patient sheet" : "Sheet unavailable"}
+          <span className="sm:hidden">{therapy.patientSheetAvailable ? "Sheet" : "No sheet"}</span>
+          <span className="max-sm:hidden">{therapy.patientSheetAvailable ? "Patient sheet" : "Sheet unavailable"}</span>
         </button>
       </div>
     </article>
@@ -126,7 +134,7 @@ function CardCell({
 }) {
   return (
     <div
-      className={`bg-[color:var(--surface)] px-[13px] py-3 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)] ${tone === "accent" ? "text-[color:var(--clinical-accent)]" : tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] [&_p]:text-[color:var(--warning-text)]" : "text-[color:var(--text-muted)]"}`}
+      className={`bg-[color:var(--surface)] px-4 py-3.5 sm:px-3 sm:py-3 lg:px-[13px] [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)] ${tone === "accent" ? "text-[color:var(--clinical-accent)]" : tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] [&_p]:text-[color:var(--warning-text)]" : "text-[color:var(--text-muted)]"}`}
     >
       <div className="mb-[7px] flex items-center gap-1.5">
         <Icon size={13} strokeWidth={1.9} />

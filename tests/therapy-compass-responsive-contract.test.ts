@@ -103,7 +103,6 @@ describe("Therapy Compass responsive contract", () => {
   });
 
   it("marks every fixed screen/card grid for phone reflow without changing its desktop template", () => {
-    expect(responsiveStackCount(therapyCardSource)).toBeGreaterThanOrEqual(1);
     expect(homeSource).toContain("ModeHomeMain");
     expect(homeSource).toContain("ModeHomeTemplate");
     expect(modeHomeTemplateSource).toContain("sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
@@ -146,6 +145,22 @@ describe("Therapy Compass responsive contract", () => {
     expect(allScreens).toMatch(/sm:grid-cols-\[/);
   });
 
+  it("lets result-card evidence and actions use the phone width without forcing the desktop grid", () => {
+    const resultCardSource = therapyCardSource.slice(
+      therapyCardSource.indexOf("export function ResultCard"),
+      therapyCardSource.indexOf("function CardCell"),
+    );
+
+    expect(resultCardSource).toContain("data-therapy-result-card");
+    expect(resultCardSource).toContain("grid-cols-[minmax(0,1fr)_auto]");
+    expect(resultCardSource).toContain("lg:grid-cols-[minmax(280px,1fr)_minmax(400px,1.35fr)_auto]");
+    expect(resultCardSource).toContain("col-span-2 -mx-4");
+    expect(resultCardSource).toContain("sm:grid-cols-3");
+    expect(resultCardSource).toMatch(/data-therapy-result-actions\s+className="grid grid-cols-3/);
+    expect(resultCardSource).toContain('<span className="sm:hidden">Open</span>');
+    expect(resultCardSource).not.toContain("<IconTile");
+  });
+
   it("renders the unavailable Favourite action honestly disabled", () => {
     const favouriteButton = therapyCardSource.match(
       /<button[\s\S]*?title="Favourite saving is not available yet"[\s\S]*?<\/button>/,
@@ -160,7 +175,8 @@ describe("Therapy Compass responsive contract", () => {
     expect(favouriteButton).not.toMatch(/(^|\s)disabled(\s|=|$)/);
     expect(favouriteButton).toContain("onClick={ignoreUnavailableActivation}");
     expect(favouriteButton).toContain('aria-label="Favourite saving is not available yet"');
-    expect(favouriteButton).toContain("cursor-not-allowed");
+    expect(favouriteButton).toContain("className={iconControl}");
+    expect(controlsSource).toContain("aria-disabled:cursor-not-allowed");
   });
 
   it("uses complete toggle semantics and preserves full-size control hit targets", () => {
