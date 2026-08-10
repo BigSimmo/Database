@@ -202,10 +202,12 @@ test("moves a selected mechanism through framework, quality review, and an edita
   await expect(page.getByTestId("formulation-builder-structure")).toBeVisible();
   const frameworkGroup = page.getByRole("radiogroup", { name: "Formulation framework" });
   const cbtCycle = frameworkGroup.getByRole("radio", { name: /CBT cycle/ });
-  // Input is `sr-only` (not actionable). Activate via the wrapping <label>, scoped
-  // to this radiogroup so shard contention with ui-specifiers cannot hit a stray
+  // Input is `sr-only` (not actionable for Playwright hit-testing). Prefer
+  // role-based check with force so activation does not depend on scroll-into-view
+  // of a clipped control (Production UI shard 1 failure on PR #1788). Keep the
+  // radiogroup scope so shard contention with ui-specifiers cannot hit a stray
   // "CBT cycle" text node (#257).
-  await frameworkGroup.locator("label").filter({ hasText: "CBT cycle" }).click();
+  await cbtCycle.check({ force: true });
   await expect(cbtCycle).toBeChecked();
   await page
     .getByRole("textbox", { name: "Presenting problem" })
