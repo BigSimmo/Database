@@ -1,6 +1,35 @@
 import { describe, expect, it } from "vitest";
 
-import { cardPreviewText, prioritiseTherapyTags } from "@/components/therapy-compass/data/select";
+import { cardPreviewText, prioritiseTherapyTags, searchTherapies } from "@/components/therapy-compass/data/select";
+import type { Therapy } from "@/components/therapy-compass/data/types";
+
+const searchableTherapy = {
+  slug: "behavioural-activation",
+  name: "Behavioural activation",
+  aliases: [],
+  tags: ["depression"],
+  category: "Behavioural",
+  bestUsedFor: "Low mood",
+  targetSymptoms: "withdrawal",
+  clinicalSummary: "A structured activity-based therapy.",
+  indications: "Depression",
+  briefInterventionAvailable: false,
+  patientSheetAvailable: false,
+  reviewStatus: "reviewed",
+} as unknown as Therapy;
+
+describe("searchTherapies", () => {
+  it("recovers a close therapy-name typo", () => {
+    const results = searchTherapies([searchableTherapy], {
+      query: "behavoural activaton",
+      tags: [],
+      briefOnly: false,
+      sheetOnly: false,
+      reviewedOnly: false,
+    });
+    expect(results[0]?.slug).toBe("behavioural-activation");
+  });
+});
 
 describe("cardPreviewText", () => {
   it("skips a leading sentence that restates the therapy name", () => {

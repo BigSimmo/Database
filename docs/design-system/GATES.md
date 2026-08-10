@@ -113,7 +113,7 @@ theme-list parity, and remote design-project publication remain separate concern
 | Invert a PDF, diagram or clinical image in any theme                 | `check:design-system-contract` — `imageInversions`, pinned at **zero**, not ratcheted                                                    | **implemented-blocking** (9 Aug 2026) — CSS `filter`/`backdrop-filter` plus the Tailwind `invert`/`hue-rotate` utilities; see §5                                                                                                                                                                                                                           |
 | Border **and** ring on one surface, or a 1px spread in a drop shadow | `check:design-system-contract` — `edgeOwnershipConflicts` (27) + `onePixelShadowSpreads` (2)                                             | **implemented-blocking for new use** — AST/CSS ratchets with per-path pins; the recorded debt itself is Gate 8's remaining half                                                                                                                                                                                                                            |
 | A child shadow heavier than its parent's                             | Gate 7                                                                                                                                   | implemented-partial                                                                                                                                                                                                                                                                                                                                        |
-| Use `--shadow-tight`/any alias in new code                           | `check:design-system-contract` — `legacyShadowAliases`, ratcheted at 224 with per-path pins                                              | **implemented-blocking for new use** — a new alias in any file fails; retiring the existing 224 is `#262`                                                                                                                                                                                                                                                  |
+| Use `--shadow-card`/any surviving alias in new code                  | `check:design-system-contract` — `legacyShadowAliases`, ratcheted at 127 with per-path pins                                              | **implemented-blocking for new use** — a new alias in any file fails; `--shadow-tight` is retired outright (90 sites onto `--e1`, 10 Aug 2026, §6), and retiring the remaining 127 across the other six roles is `#262`                                                                                                                                    |
 | Raw pixel size, padding, radius, gap or line-height in markup        | `check:design-system-contract` — `rawPaddingLiterals` (67), `rawRadiusLiterals` (24), `rawGapLiterals` (34), `rawLineHeightLiterals` (3) | **implemented-blocking for new use** (9 Aug 2026) — per-path ratchets over both the utility and the CSS-declaration spelling, so a literal cannot move into `globals.css` to escape. Values containing a CSS function (`env(`, `clamp(`, `max(`, `calc(`) are sanctioned computed forms and exempt. Raw _size_ is still covered only for tap/shadow/colour |
 | Animate `width`, `height`, `grid-template-*`, `top`, `left`, `gap`   | `check:design-system-contract` — `layoutTransitionExceptions`, ratcheted at 12 with per-path pins                                        | **implemented-blocking for new use** — `SAFE_TRANSITION_PROPERTIES` carries the compositor-only allowlist; phone chrome's deliberate `grid-template-rows` is in the recorded 12                                                                                                                                                                            |
 | Hardcode a transition duration                                       | `check:design-system-contract` — `hardcodedMotionClasses` (**zero**) + `hardcodedCssMotionDurations` (42)                                | **implemented-blocking** for the Tailwind `duration-*`/`delay-*`/`transition-all` form; the CSS form is a ratchet, so its 42 are debt                                                                                                                                                                                                                      |
@@ -234,3 +234,50 @@ again. Since `ui-style-contract.spec.ts` runs in the required `Production UI` jo
 an intermittent version would have blocked every merge in the repo, which is worse than the
 gap it closes. Recorded here so the next attempt starts from a deterministic surface rather
 than re-deriving the same six runs.
+
+## 6 · `--shadow-tight` retired — 10 August 2026
+
+`#262` part 1. Measured against `origin/main` `a16dd26`, walking `src/**` with the same
+`analyzeClassContractsInSource` / `analyzeCssContractsInSource` pass
+`check-design-system-contract.mjs` uses.
+
+**The alias was never an independent value.** `--shadow-tight` resolved to exactly
+`var(--e1)` in both theme declarations, and the forced-colors block already flattened `--e1`
+alongside the roles — so substituting the tier for the alias is value-preserving and needs no
+visual review of its own. 90 gated production sites across 48 files moved to `var(--e1)`; the
+60 design-scratch mockup occurrences moved in the same pass so that no file names a token
+that no longer exists.
+
+**Do not accept that argument on the declarations alone — the v2 layer redeclares the tier.**
+`ckb-v2-tokens.css` sets `--e1: 0 1px 2px rgb(13 40 71 / 5%)` in light against globals'
+`0 1px 2px rgb(11 42 56 / 7%)`, and it never redeclares the role. A custom property whose
+value contains `var()` substitutes **on the element it is declared on**, so an alias declared
+in one scope and overridden in a narrower one freezes at the outer value and the two spellings
+diverge. What saves this migration is that both selectors match the same element: `.ckb-v2` is
+on `<html>` (`layout.tsx`), `.ckb-v2.ckb-v2` outspecifies `:root`, and the alias therefore
+substitutes against the winning v2 tier. Measured in Chromium rather than argued — a page
+carrying exactly that cascade computes `var(--shadow-tight)` and `var(--e1)` both to
+`rgba(13, 40, 71, 0.05) 0px 1px 2px 0px`, the v2 value. Light is the only theme where the two
+layers disagree at all; the dark tiers are byte-identical and forced-colors is `none` on both
+sides. **The same check is owed to each remaining alias in `#262`** — the reasoning is about
+where a declaration sits, not about this token.
+
+**The declarations are gone**, both themes and the forced-colors flattening, and
+`design-token-contract.test.ts` now asserts the absence over the whole stylesheet rather than
+per theme block — any scope that redeclares it makes the alias spellable again.
+Mutation-verified: restoring `--shadow-tight: var(--e1);` to `:root` fails with
+`--shadow-tight is retired; call sites use --e1`.
+
+**The ratchet is pinned to measured, not merely lowered:** `legacyShadowAliases` 220 → **127**
+with 17 paths dropped. The pre-existing baseline also carried 3 aliases of stale slack across
+the other six roles (measured 217 against a 220 ceiling); per-path counts are now exact, so
+that headroom is closed too. This is the same slack `#264` found on 9 August, re-accumulated.
+
+**Zeroing this metric is still not the success criterion.** 127 aliases remain across
+`--shadow-soft` (71), `--shadow-elevated` (17), `--shadow-hover` (17), `--shadow-card` (12),
+`--shadow-lux` (8) and `--shadow-lift` (2) — `#262`'s remaining tranches. Count the token by
+reading the `var()` call, not the declaration it sits in: two of the 71 `--shadow-soft` hits
+are the **value** of the `--shadow-focus` declarations in each theme, which is how an earlier
+pass mis-read them as a `--shadow-focus` tally. `LEGACY_SHADOW_ALIAS` has matched exactly
+`tight|card|soft|hover|elevated|lux|lift` since PR #1616 and has never included `focus`, so
+`#261` shares no counter with this row.

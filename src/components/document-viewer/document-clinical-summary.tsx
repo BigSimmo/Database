@@ -402,7 +402,7 @@ export function DocumentClinicalSummary({
         <div className="bg-[linear-gradient(105deg,color-mix(in_srgb,var(--clinical-accent-soft)_82%,var(--surface-raised)),var(--surface-raised)_32%)] px-4 pb-3 pt-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
                 <Sparkles aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
               </span>
               <h2 className="text-sm font-bold tracking-display text-[color:var(--text-heading)] sm:text-base">
@@ -531,7 +531,7 @@ export function DocumentClinicalSummary({
         title="Clinical priorities"
         description="Expanded, source-linked clinical detail"
         headerLeading={
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
             <ListChecks aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
           </span>
         }
