@@ -195,7 +195,14 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
   const actionsOpen = actionsPath !== null && actionsPath === currentPath;
   const setSectionSheetOpen = (open: boolean) => setSectionSheetPath(open ? currentPath : null);
   const setActionsOpen = (open: boolean) => setActionsPath(open ? currentPath : null);
-  const sectionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // The section sheet can open from the title disclosure or a priority rail's
+  // More slot. Capture the button that actually opened it so closing never
+  // returns focus to a breakpoint-hidden sibling.
+  const sectionSheetOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const openSectionSheet = (opener: HTMLButtonElement) => {
+    sectionSheetOpenerRef.current = opener;
+    setSectionSheetOpen(true);
+  };
   const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useInPageChromeMetrics();
@@ -257,8 +264,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               // you are, which the track can place but never label.
               <button
                 type="button"
-                ref={sectionTriggerRef}
-                onClick={() => setSectionSheetOpen(true)}
+                onClick={(event) => openSectionSheet(event.currentTarget)}
                 aria-expanded={sectionSheetOpen}
                 aria-haspopup="dialog"
                 data-testid={`${testIdPrefix}-section-trigger`}
@@ -372,6 +378,8 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               sections={sections}
               activeId={activeSection?.id ?? null}
               onSelect={(id) => onSelectSection?.(id)}
+              onOpenSectionSheet={openSectionSheet}
+              sectionSheetOpen={sectionSheetOpen}
               label={rail.label}
               testIdPrefix={testIdPrefix}
             />
@@ -394,7 +402,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               : undefined
           }
           closeLabel="Close section list"
-          returnFocusRef={sectionTriggerRef}
+          returnFocusRef={sectionSheetOpenerRef}
           testId={`${testIdPrefix}-section-sheet`}
         >
           <DocumentSectionList
