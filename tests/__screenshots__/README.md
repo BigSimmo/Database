@@ -56,6 +56,7 @@ absorbs antialiasing, not layout that has not settled.
 
 Comparison is advisory. Pixel drift produces a workflow warning and summary while
 the job uploads expected, actual, and diff images for review; it does not produce a
-failed GitHub check. The job runs post-land, weekly, or manually rather than on pull
-requests and merge queues. Setup or artifact-upload failures can still fail the job
-because they leave no trustworthy evidence to review.
+failed GitHub check. Missing baselines and other non-comparison failures stay red.
+The job runs post-land, weekly, or manually rather than on pull requests and merge
+queues. Setup or artifact-upload failures can still fail the job because they leave
+no trustworthy evidence to review.

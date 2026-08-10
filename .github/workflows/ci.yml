@@ -662,7 +662,7 @@ jobs:
   #   - Pixel comparison needs a soak before it can block a merge; this repo has
   #     already paid for a sub-pixel rounding flake (the min-h-11 -> min-h-12 change).
   # Promote to a required check by adding it to `pr-required` once the baselines have
-  # held across a few runs, and drop `continue-on-error` at the same time.
+  # held across a few runs, and drop the pixel-step soft-fail / drift classifier then.
   visual-baseline:
     name: Visual baselines (advisory)
     needs: changes
@@ -670,9 +670,11 @@ jobs:
     # a pixel gate that reports on every UI pull request taxes exactly the work it
     # exists to support. During a redesign the honest result is red on every push,
     # and the baselines cannot be refreshed until a run has produced the new
-    # images, so that red is unavoidable rather than actionable. It never blocked
-    # a merge (`continue-on-error`, and absent from `pr-required`), but a red check
-    # nobody can act on mid-iteration is friction whether or not it gates.
+    # images, so that red is unavoidable rather than actionable. Pixel drift is
+    # soft-failed at the comparison step (and classified) rather than with a
+    # job-level continue-on-error that would also hide setup failures; the job
+    # remains absent from `pr-required`. A red check nobody can act on
+    # mid-iteration is friction whether or not it gates.
     # `merge_group` is excluded for the same reason: queue runs are still
     # pre-merge UI churn, not a post-land refresh point.
     #
@@ -687,7 +689,8 @@ jobs:
     if: >
       needs.changes.outputs.ui_changed == 'true' &&
       contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name)
-    continue-on-error: true
+    # Deliberately NOT continue-on-error at the job: setup / artifact / non-drift
+    # failures must stay red. Only the pixel-comparison step soft-fails below.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -710,6 +713,10 @@ jobs:
       - name: Report visual differences
         if: steps.visual-comparison.outcome == 'failure'
         run: |
+          if ! node scripts/classify-visual-baseline-outcome.mjs; then
+            echo "::error title=Visual baseline non-drift failure::Visual comparison failed for a reason other than pixel drift (missing baseline, setup/runtime, or assertion). See the visual-baseline-${{ github.run_id }} artifact."
+            exit 1
+          fi
           echo "::warning title=Visual baseline drift::Chromium pixels differ from the committed Linux baseline. Review the visual-baseline-${{ github.run_id }} artifact; this advisory comparison does not block merging."
           {
             echo "### Visual baseline drift detected"
