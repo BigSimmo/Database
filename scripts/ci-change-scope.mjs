@@ -162,7 +162,11 @@ const uiPatterns = [
   // against a miss that is silent.
   /^tests\/helpers\/.*\.ts$/,
   /^playwright(?:\..*)?\.config\.ts$/,
-  /^scripts\/(run-playwright|playwright-base-url)\.(?:mjs|ts)$/,
+  // Playwright runner helpers (launch preflight, revision pin, PR shard list).
+  // Without these, a main-only edit to the helpers reports ui_changed=false and
+  // the narrowed release-browser-matrix backstop also skips, so a browser-launch
+  // or shard-runner regression can pass Vitest alone.
+  /^scripts\/(run-playwright|playwright-base-url|playwright-browser-preflight|playwright-pr-shards|check-playwright-browser-revision)\.(?:mjs|ts)$/,
   // Committed visual baselines. Without this a commit that changes only a golden
   // PNG reports ui_changed=false, the visual job is skipped, and an incorrect or
   // corrupted baseline is never compared against the app it claims to describe.
@@ -778,6 +782,21 @@ function selfTest() {
     coverage_changed: true,
     ui_changed: true,
   });
+  // Direct Playwright runner helpers must trip ui_changed so PR Chromium jobs and
+  // the post-merge release-browser-matrix backstop still run for launch/shard edits.
+  assertScope(
+    "playwright-runner-helpers",
+    [
+      "scripts/playwright-browser-preflight.mjs",
+      "scripts/check-playwright-browser-revision.mjs",
+      "scripts/playwright-pr-shards.mjs",
+    ],
+    {
+      source_changed: true,
+      coverage_changed: true,
+      ui_changed: true,
+    },
+  );
   // A baseline-only commit must still run the visual job, or a corrupted golden is
   // never compared against the app it claims to describe.
   assertScope("visual-baseline-png", ["tests/__screenshots__/linux/dashboard-shell.png"], {
