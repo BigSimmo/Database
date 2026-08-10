@@ -411,8 +411,8 @@
   --e4: 0 4px 8px rgb(11 42 56 / 5%), 0 24px 48px -12px rgb(11 42 56 / 15%);
 
   /* Role aliases onto the ladder. Keep these pointing AT a tier — the previous
-     hand-tuned values produced five effects that did not sort by name. */
-  --shadow-tight: var(--e1);
+     hand-tuned values produced five effects that did not sort by name. The
+     resting-hairline role is gone: its call sites reach for --e1 directly. */
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
   --shadow-hover: var(--e3);
@@ -653,7 +653,6 @@
   --e3: inset 0 1px 0 rgb(255 255 255 / 6%), 0 8px 20px -6px rgb(0 0 0 / 55%);
   --e4: inset 0 1px 0 rgb(255 255 255 / 7%), 0 20px 40px -12px rgb(0 0 0 / 62%);
 
-  --shadow-tight: var(--e1);
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
   --shadow-hover: var(--e3);
@@ -845,7 +844,7 @@ summary::-webkit-details-marker {
   .universal-header-mode-button {
     border-color: var(--border);
     background: var(--surface);
-    box-shadow: var(--shadow-tight);
+    box-shadow: var(--e1);
   }
 
   .universal-header-icon-control {
@@ -860,7 +859,7 @@ summary::-webkit-details-marker {
   }
 
   .dark .universal-header-mode-button {
-    box-shadow: var(--shadow-tight);
+    box-shadow: var(--e1);
   }
 
   .dark .universal-header-icon-control {
@@ -3058,18 +3057,18 @@ td,
   .source-capsule-hit:hover .source-capsule-face {
     transform: translateY(-1px);
     border-color: var(--clinical-accent-border);
-    box-shadow: var(--shadow-tight);
+    box-shadow: var(--e1);
   }
 
   .source-capsule-hit[aria-expanded="true"] .source-capsule-face {
     border-color: var(--clinical-accent);
-    box-shadow: var(--shadow-tight), var(--shadow-inset);
+    box-shadow: var(--e1), var(--shadow-inset);
   }
 
   .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: translateY(-1px);
     border-color: var(--clinical-accent);
-    box-shadow: var(--shadow-tight), var(--shadow-inset);
+    box-shadow: var(--e1), var(--shadow-inset);
   }
 
   .source-capsule-hit:focus-visible .source-capsule-face {
@@ -3287,7 +3286,6 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --e3: none;
     --e4: none;
     --shadow-soft: none;
-    --shadow-tight: none;
     --shadow-card: none;
     --shadow-hover: none;
     --shadow-elevated: none;
@@ -3757,7 +3755,7 @@ html.theme-transitioning *:after {
   height: 18px;
   border-radius: 50%;
   background: var(--surface-raised);
-  box-shadow: var(--shadow-tight);
+  box-shadow: var(--e1);
   transform: translate(0, -50%);
   transition: transform 150ms var(--ease-spring);
 }
