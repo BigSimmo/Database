@@ -25,7 +25,7 @@ function nodeMajor(): number {
   return Number(process.versions.node.split(".")[0]);
 }
 
-const ALLOWED_NODE_MAJOR_VERSIONS = [24, 26] as const;
+const ALLOWED_NODE_MAJOR_VERSIONS = [24, 26];
 
 function npmMajor(): number | null {
   const userAgent = process.env.npm_config_user_agent ?? "";
