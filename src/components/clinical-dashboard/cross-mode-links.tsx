@@ -87,7 +87,7 @@ function CrossModeLinkChip({ link, Icon, query, onModeSearch }: CrossModeLinkCar
   return (
     <article
       role="listitem"
-      className="flex shrink-0 items-stretch overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-tight)]"
+      className="flex shrink-0 items-stretch overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--e1)]"
     >
       <Link
         href={link.detailHref}

@@ -845,7 +845,7 @@ summary::-webkit-details-marker {
   .universal-header-mode-button {
     border-color: var(--border);
     background: var(--surface);
-    box-shadow: var(--shadow-tight);
+    box-shadow: var(--e1);
   }
 
   .universal-header-icon-control {
@@ -860,7 +860,7 @@ summary::-webkit-details-marker {
   }
 
   .dark .universal-header-mode-button {
-    box-shadow: var(--shadow-tight);
+    box-shadow: var(--e1);
   }
 
   .dark .universal-header-icon-control {
@@ -3058,18 +3058,18 @@ td,
   .source-capsule-hit:hover .source-capsule-face {
     transform: translateY(-1px);
     border-color: var(--clinical-accent-border);
-    box-shadow: var(--shadow-tight);
+    box-shadow: var(--e1);
   }
 
   .source-capsule-hit[aria-expanded="true"] .source-capsule-face {
     border-color: var(--clinical-accent);
-    box-shadow: var(--shadow-tight), var(--shadow-inset);
+    box-shadow: var(--e1), var(--shadow-inset);
   }
 
   .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: translateY(-1px);
     border-color: var(--clinical-accent);
-    box-shadow: var(--shadow-tight), var(--shadow-inset);
+    box-shadow: var(--e1), var(--shadow-inset);
   }
 
   .source-capsule-hit:focus-visible .source-capsule-face {
@@ -3757,7 +3757,7 @@ html.theme-transitioning *:after {
   height: 18px;
   border-radius: 50%;
   background: var(--surface-raised);
-  box-shadow: var(--shadow-tight);
+  box-shadow: var(--e1);
   transform: translate(0, -50%);
   transition: transform 150ms var(--ease-spring);
 }

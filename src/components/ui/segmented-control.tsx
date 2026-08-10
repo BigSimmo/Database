@@ -107,7 +107,7 @@ export function SegmentedControl<T extends string>({
               "flex min-h-tap min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:text-[color:var(--disabled)]",
               layout === "equal" ? "min-w-[min(100%,8rem)] flex-1" : "flex-none",
               checked
-                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
+                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
             )}
           >
