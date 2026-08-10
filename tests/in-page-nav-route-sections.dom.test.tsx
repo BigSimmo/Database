@@ -365,6 +365,38 @@ describe("in-page navigation panel-swap contracts", () => {
     await waitFor(() => expect(overflow).toHaveFocus());
   });
 
+  it("restores focus to a visible rail control when More hides while the sheet is open", async () => {
+    // Mimic the 33rem `@container` band: More vanishes while the dialog is still
+    // open. Sheet only checks `isConnected` on returnFocusRef, so without a late
+    // visible-target resolver keyboard focus would land on <body>.
+    const user = userEvent.setup();
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const overflow = screen.getByTestId("medication-section-overflow");
+    const rail = screen.getByTestId("medication-section-rail");
+    const summary = within(rail).getByRole("button", { name: /^Summary/ });
+
+    await user.click(overflow);
+    expect(await screen.findByTestId("medication-section-sheet")).toBeTruthy();
+
+    // Mirror the wide rail band: title disclosure is `sm:hidden`, More is
+    // `@container` `display: none`, and every section slot is shown.
+    const titleTrigger = screen.getByTestId("medication-section-trigger");
+    titleTrigger.style.display = "none";
+    const moreSlot = overflow.closest("li");
+    expect(moreSlot).not.toBeNull();
+    moreSlot!.style.display = "none";
+    for (const slot of rail.querySelectorAll<HTMLElement>("li[data-band]")) {
+      slot.style.display = "flex";
+    }
+
+    await user.click(screen.getByRole("button", { name: "Close section list" }));
+    await waitFor(() => expect(screen.queryByTestId("medication-section-sheet")).toBeNull());
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    expect(document.activeElement).toBe(summary);
+    expect(document.activeElement).not.toBe(overflow);
+    expect(document.activeElement).not.toBe(titleTrigger);
+  });
+
   it("swaps the panel from the rail, not only from the sheet", async () => {
     const user = userEvent.setup();
     render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
