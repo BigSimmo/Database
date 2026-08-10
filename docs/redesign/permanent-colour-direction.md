@@ -102,7 +102,7 @@ Shadows are `--e0` … `--e4` — one monotonic sequence that sorts by name, hue
 | `--e3` | Hover, lifted chrome    |
 | `--e4` | Modals, sheets, drawers |
 
-The role names are aliases onto tiers, not independent values: `--shadow-tight` → `--e1`; `--shadow-card` / `--shadow-soft` → `--e2`; `--shadow-hover` → `--e3`; `--shadow-elevated` / `--shadow-lux` → `--e4`. Dark lifts with a top highlight rather than more black. Reach for a tier; never hand-roll a `shadow-[0_…]`.
+The surviving role names are aliases onto tiers, not independent values: `--shadow-card` / `--shadow-soft` → `--e2`; `--shadow-hover` → `--e3`; `--shadow-elevated` / `--shadow-lux` → `--e4`. `--shadow-tight` is retired; the resting hairline is `--e1` at the call site. Dark lifts with a top highlight rather than more black. Reach for a tier; never hand-roll a `shadow-[0_…]`.
 
 ## Role contract
 

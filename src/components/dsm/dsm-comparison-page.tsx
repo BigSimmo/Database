@@ -97,7 +97,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
         actions={
           <Link
             href={chooseDiagnosesHref(diagnoses)}
-            className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
+            className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
           >
             <Plus className="h-4 w-4" aria-hidden />
             Choose diagnoses
