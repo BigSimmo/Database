@@ -13,7 +13,7 @@ import { cn } from "@/components/ui-primitives";
 // Pinned by tests/privacy-ui.test.ts and reproduced verbatim on both sides:
 // "Do not enter patient-identifiable information." and the "Privacy and data
 // processing" link to /privacy. The subtitle is ordinary product copy
-// (src/lib/ui-copy.ts, answerEmptyState.subheading) and is not pinned.
+// (src/lib/ui-copy.ts, sharedHomePresentation.answer.subtitle) and is not pinned.
 
 const OBLIGATION = "Do not enter patient-identifiable information.";
 const PRIVACY_LINK = "Privacy and data processing";

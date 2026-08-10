@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { MedicationRecordPage } from "@/components/clinical-dashboard/medication-record-page";
@@ -11,10 +12,15 @@ vi.mock("next/navigation", () => ({
 // Controllable data-hook mock so each test drives one content-first state.
 const { useMedicationDetail } = vi.hoisted(() => ({ useMedicationDetail: vi.fn() }));
 vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({ useMedicationDetail }));
-// The two heavy sidebar panels carry their own data concerns; stub them so these
-// tests isolate the page's content-first + governance-reconciliation logic.
-vi.mock("@/components/clinical-dashboard/patient-profile-panel", () => ({ PatientProfilePanel: () => null }));
-vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({ MedicationConsiderations: () => null }));
+// The two patient panels carry their own data concerns; stub them to a findable
+// marker so these tests can assert *where* they render without pulling in the
+// profile store.
+vi.mock("@/components/clinical-dashboard/patient-profile-panel", () => ({
+  PatientProfilePanel: () => <p>patient-profile-panel</p>,
+}));
+vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({
+  MedicationConsiderations: () => <p>medication-considerations</p>,
+}));
 
 function mockDetail(state: { data: unknown; loading: boolean; error: string | null }) {
   useMedicationDetail.mockReturnValue(state);
@@ -80,6 +86,23 @@ describe("MedicationRecordPage content-first states", () => {
     // ...but the fixture's approved-governance "Reviewed" badge must not survive
     // the error, because the authoritative status is now unknown.
     expect(screen.queryByText("Reviewed")).not.toBeInTheDocument();
+  });
+
+  it("moves the patient panels out of the body and behind the header control", async () => {
+    // Both cards left the page body; the feature did not leave with them. The
+    // entry point is the header's patients control, and the panels render inside
+    // the sheet it opens.
+    const user = userEvent.setup();
+    mockDetail({ data: { record: liveDrug, governance: null }, loading: false, error: null });
+    render(<MedicationRecordPage slug="test-med" fallbackRecord={fallbackDrug} />);
+
+    expect(screen.queryByText("patient-profile-panel")).not.toBeInTheDocument();
+    expect(screen.queryByText("medication-considerations")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Patient details" }));
+    const sheet = screen.getByTestId("medication-patient-sheet");
+    expect(within(sheet).getByText("patient-profile-panel")).toBeInTheDocument();
+    expect(within(sheet).getByText("medication-considerations")).toBeInTheDocument();
   });
 
   it("keeps the SSR fallback governance badge while the fetch is still in flight", () => {

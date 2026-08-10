@@ -326,7 +326,7 @@ multiply-owned routes fail the check. `src/app/api/**` and `src/app/mockups/**` 
 product exclusions; the only route-only disposition is the documented legacy document-source
 redirect. Shared shell/component roots carry their own explicit `shared-shell` disposition.
 
-Registered public components: 53
+Registered public components: 54
 Declared product roots: 59
 Roots with a literal `.ckb-v2` opt-in: 1
 Roots inheriting `.ckb-v2` from the global `<html>`: 58

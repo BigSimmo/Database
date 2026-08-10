@@ -970,15 +970,6 @@ export function DocumentViewer({
     : typeof indexHealth?.warnings === "string" && indexHealth.warnings
       ? [indexHealth.warnings]
       : [];
-  useEffect(() => {
-    if (!activeChunkId || loadingDocument) return;
-    // Citation landing: keep the PDF as the first reading surface. Do not dump
-    // the viewport into the indexed source-passages list.
-    globalThis.document.getElementById("pdf-preview-section")?.scrollIntoView({
-      block: "start",
-      behavior: resolveScrollBehavior(),
-    });
-  }, [activeChunkId, loadingDocument]);
   const inspectIndexedTextSection = useCallback(() => {
     setInspectRevealKey(`${documentId}::${activeChunkId ?? ""}`);
     window.requestAnimationFrame(() => {

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { ReactNode, MouseEvent } from "react";
 
 /**
@@ -9,8 +8,10 @@ import type { ReactNode, MouseEvent } from "react";
  *
  * `<Link>` soft-nav from `/dsm/compare?ids=a,b` → `/dsm/compare?ids=b` can
  * complete its click handler under Production UI load without ever updating
- * the URL (zero network, URL stuck). Explicit `router.push` is the same
- * pattern `useResultSort` uses for pathname-stable query updates.
+ * the URL (zero network, URL stuck). `router.push` was the next attempt and
+ * still stalled under full-suite Chromium load on PR #1782: the remove
+ * control went `[active]` while `?ids=` stayed unchanged for 15s. A full
+ * assign is the durable hop for this filter change.
  */
 export function DsmCompareRemoveLink({
   href,
@@ -23,11 +24,10 @@ export function DsmCompareRemoveLink({
   className?: string;
   children: ReactNode;
 }) {
-  const router = useRouter();
-
   function onClick(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault();
-    router.push(href);
+    event.stopPropagation();
+    window.location.assign(href);
   }
 
   return (

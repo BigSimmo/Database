@@ -72,10 +72,10 @@ import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/da
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
-  AnswerEmptyState,
   AnswerProgressStepper,
   AnswerSkeleton,
   SearchProgressBanner,
+  SharedHomeEmptyState,
 } from "@/components/clinical-dashboard/answer-status";
 import {
   type AnswerProgressUpdate,
@@ -3394,6 +3394,7 @@ export function ClinicalDashboard({
           composerFollowUpSuggestions={searchMode === "answer" ? answerFollowUpSuggestions : undefined}
           onPickComposerFollowUpSuggestion={handlePickFollowUpSuggestion}
           composerFollowUpSuggestionsDisabled={loading}
+          sharedHomeIdentity={showSharedHome}
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           // Every phone dock is the compact single-row pill so content keeps
@@ -3672,10 +3673,11 @@ export function ClinicalDashboard({
 
                 {showSharedHome ? (
                   // The one home surface, shared by all 13 modes. It sits above every
-                  // mode-specific branch so picking a mode on `/` changes only the pill
-                  // and the composer placeholder; the mode's own content stays behind
+                  // mode-specific branch so picking a mode on `/` changes only its
+                  // presentation and composer target; mode-owned content stays behind
                   // its own route (/tools, /favourites, /dsm, …).
-                  <AnswerEmptyState
+                  <SharedHomeEmptyState
+                    modeId={searchMode}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                     recentQueries={recentQueries}
                     onSelectRecent={(recentQuery) => {

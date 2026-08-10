@@ -265,7 +265,7 @@ export const appModeDefinitions = [
     href: "/formulation",
     search: {
       kind: "formulation",
-      placeholder: "Describe a pattern, mechanism, or clinical clue...",
+      placeholder: "Describe a pattern or clinical clue...",
       inputAriaLabel: "Search formulation mechanisms by pattern or patient language",
       submitIdleLabel: "Find",
       submitBusyLabel: "Find",

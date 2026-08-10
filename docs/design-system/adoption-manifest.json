@@ -207,7 +207,8 @@
         "src/components/DocumentManagementActions.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
-        "src/components/clinical-dashboard/search-results-header-band.tsx"
+        "src/components/clinical-dashboard/search-results-header-band.tsx",
+        "src/components/ui/error-state.tsx"
       ],
       "productImportFiles": [
         "src/components/DocumentManagementActions.tsx",
@@ -276,13 +277,11 @@
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
-        "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
-        "src/components/clinical-dashboard/signed-image.tsx",
-        "src/components/in-page-nav/in-page-nav-header.tsx"
+        "src/components/clinical-dashboard/signed-image.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -397,6 +396,7 @@
         "tests/answer-render-policy.test.ts",
         "tests/citations.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/document-viewer-shell.dom.test.tsx",
         "tests/rag-claim-support.test.ts",
         "tests/rag-eval-source-governance.test.ts",
         "tests/source-backed-recovery-cross-reference.test.ts",
@@ -689,6 +689,34 @@
       "locallyRegistered": true,
       "v2ShellMounted": true,
       "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
+      "name": "ErrorState",
+      "family": "feedback",
+      "source": "src/components/ui/error-state.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [],
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ErrorState.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/error-state.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "v2MountMode": "none",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -1432,6 +1460,7 @@
         "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
+        "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/mode-action-popup.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
@@ -1458,6 +1487,7 @@
         "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
+        "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/mode-action-popup.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
@@ -3318,8 +3348,8 @@
     "declaredV2SurfaceCount": 14
   },
   "summary": {
-    "registeredComponentCount": 53,
-    "previewCount": 53,
+    "registeredComponentCount": 54,
+    "previewCount": 54,
     "productImportedComponentCount": 31,
     "rootCount": 59,
     "productionRouteCount": 51,
