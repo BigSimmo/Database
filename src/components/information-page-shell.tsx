@@ -69,8 +69,8 @@ export type InformationPageCrumb = {
 };
 
 /**
- * Back-link + optional trail. Prefer this over mode-local `router.push` icon buttons
- * so history-less deep links still land on the mode home.
+ * Contextual back-link + optional trail. History-less deep links still land on
+ * the mode home through the crumb's fallback href.
  *
  * Now a projection onto the DS `Breadcrumb` rather than a second implementation
  * of one. The semantics it already shipped are the ones that survive: a crumb
@@ -91,7 +91,7 @@ export function InformationPageBreadcrumbs({
   className?: string;
 }) {
   const items: Crumb[] = [
-    { label: home.label, href: home.href, icon: ArrowLeft },
+    { label: home.label, href: home.href, icon: ArrowLeft, behavior: "history-back" },
     ...crumbs,
     ...(current ? [{ label: current }] : []),
   ];

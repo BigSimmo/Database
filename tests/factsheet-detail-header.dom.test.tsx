@@ -1,9 +1,14 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { FactsheetDetailPage } from "@/components/factsheets/factsheet-detail-page";
 import { findFactsheet } from "@/components/factsheets/factsheets-data";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/factsheets/sertraline",
+  useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
+}));
 
 function renderFactsheet(slug: string) {
   const factsheet = findFactsheet(slug);

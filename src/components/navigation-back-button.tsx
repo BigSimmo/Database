@@ -3,6 +3,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { navigateContextuallyBack } from "@/components/contextual-back-link";
 import { cn, floatingControl, IconButton } from "@/components/ui-primitives";
 
 type NavigationBackButtonProps = {
@@ -17,9 +18,7 @@ type NavigationBackButtonProps = {
 };
 
 /**
- * Deterministic in-app back control. Always navigates to `fallbackHref` rather
- * than `history.back()`, so deep links / external referrers cannot eject the
- * user out of Clinical KB (same contract as form detail pages).
+ * Browser-history back control with a deterministic fallback for a fresh tab.
  */
 export function NavigationBackButton({
   label = "Go back",
@@ -35,7 +34,7 @@ export function NavigationBackButton({
       icon={ArrowLeft}
       onClick={() => {
         if (onBeforeNavigate && !onBeforeNavigate()) return;
-        router.push(fallbackHref);
+        navigateContextuallyBack(router, fallbackHref);
       }}
       className={cn(floatingControl, "rounded-full text-[color:var(--text-muted)]", className)}
       iconClassName="h-5 w-5"
