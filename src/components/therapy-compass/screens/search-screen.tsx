@@ -47,7 +47,7 @@ export function SearchScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
 
   return (
-    <section data-screen-label="Search" className={pageContainer}>
+    <section data-screen-label="Search" className={`${pageContainer} space-y-2.5 sm:space-y-3`}>
       <SearchResultsHeaderBand
         modeId="therapy-compass"
         query={q}
@@ -70,7 +70,7 @@ export function SearchScreen() {
           />
         }
         filterControls={
-          <div className="flex flex-wrap gap-2.5 mb-6">
+          <div className="mb-1 flex flex-wrap gap-2.5 sm:mb-2">
             {QUICK_TAGS.map((tag) => {
               const on = b.search.tags.includes(tag);
               return (

@@ -63,6 +63,8 @@ describe("Therapy Compass production-mode wiring", () => {
     // Search route owns filters/results only; the results ribbon is the page h1.
     expect(searchSrc).toContain("SearchResultsHeaderBand");
     expect(searchSrc).toContain("headingLevel={1}");
+    // Documents-style gap so the band does not sit flush on the first card.
+    expect(searchSrc).toContain("space-y-2.5 sm:space-y-3");
     expect(searchSrc).not.toContain("Search therapies");
     expect(searchSrc).not.toContain("Find source-grounded therapy records");
     expect(workspaceSrc).toContain("Therapy could not load");
