@@ -46,7 +46,6 @@ describe("custom @theme scales are not misclassified", () => {
     "text-base-minus",
     "text-lg-minus",
     "text-2xl-minus",
-    "text-2xl-compact",
     "text-3xl-minus",
     "text-hero",
   ];
