@@ -2626,7 +2626,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
   test("answer results surface cross-mode quick links", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
+    const answerRequests: string[] = [];
+    await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
     const question = "What is the maximum dose of clozapine?";
     await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, {
       waitUntil: "domcontentloaded",
@@ -2662,6 +2663,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await waitForReactEventHandler(medicationLink, "onClick");
     await medicationLink.click();
     await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 45_000 });
+    // MedicationNavHeader portals above `medication-page-*`; InPageNavHeader's
+    // back control is always named via aria-label (`Back to ${label}`), which is
+    // the only stable accessible name across desktop (visible text) and phone
+    // (label hidden). See tests/in-page-nav-playwright-contract.test.ts.
+    await expect(page.getByTestId("medication-page-clozapine")).toBeVisible();
+    const medicationsBack = page.getByRole("link", { name: "Back to medications" }).filter({ visible: true });
+    await expect(medicationsBack).toBeVisible();
+    await medicationsBack.click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === "/" &&
+        url.searchParams.get("mode") === "answer" &&
+        url.searchParams.get("q") === question &&
+        url.searchParams.get("run") === "1",
+      { timeout: 45_000 },
+    );
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    expect(answerRequests).toEqual([question]);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    expect(answerRequests).toEqual([question]);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3171,6 +3193,49 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differentials-home")).toHaveCount(0);
+
+    const origin = new URL(page.url());
+    await visibleByTestId(page, "differentials-search-results")
+      .getByRole("link", { name: "Open page" })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/differentials\/(diagnoses|presentations)\//, { timeout: 30_000 });
+    await page
+      .getByRole("link", { name: /^Back(?: to (?:diagnoses|differentials))?$/i })
+      .filter({ visible: true })
+      .first()
+      .click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === origin.pathname &&
+        url.searchParams.get("q") === origin.searchParams.get("q") &&
+        url.searchParams.get("run") === origin.searchParams.get("run"),
+      { timeout: 30_000 },
+    );
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("document detail back arrow restores its originating search", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/search?mode=documents&q=lithium+monitoring&run=1");
+
+    const workspace = page.getByTestId("document-search-workspace");
+    const firstResult = workspace.getByTestId("document-result-card").first();
+    await expect(firstResult).toBeVisible({ timeout: 30_000 });
+    const origin = new URL(page.url());
+    await firstResult.getByRole("link", { name: /^Open / }).click();
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]+\?/, { timeout: 30_000 });
+
+    await page.getByRole("link", { name: "Back to documents" }).click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === origin.pathname &&
+        url.searchParams.get("q") === origin.searchParams.get("q") &&
+        url.searchParams.get("run") === origin.searchParams.get("run"),
+      { timeout: 30_000 },
+    );
+    await expect(workspace).toBeVisible({ timeout: 30_000 });
   });
 
   test("newer routed differential context wins over an older response", async ({ page }) => {
@@ -3455,6 +3520,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(actionOverflow.overflows).toBe(false);
     expect(actionOverflow.textOverflow).not.toBe("ellipsis");
 
+    const origin = new URL(page.url());
     await acamprosateCard.click();
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     // InPageNavHeader always names the control `Back to ${label}` via aria-label;
@@ -3464,8 +3530,79 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const backLink = page.getByRole("link", { name: "Back to medications" }).filter({ visible: true });
     await expect(backLink).toBeVisible();
     await expectMinTouchTarget(backLink);
+
+    const medicationRail = page.getByTestId("medication-section-rail");
+    await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeVisible();
+    await expect(medicationRail.getByRole("button", { name: /^Dosing/ })).toBeVisible();
+    await expect(medicationRail.getByRole("button", { name: /^Safety/ })).toBeHidden();
+    const medicationMore = page.getByTestId("medication-section-overflow");
+    await expect(medicationMore).toBeVisible();
+    await expectMinTouchTarget(medicationMore);
+    const railGeometry = await medicationRail.evaluate((rail) => ({
+      clientWidth: rail.clientWidth,
+      scrollWidth: rail.scrollWidth,
+      overflowX: getComputedStyle(rail).overflowX,
+    }));
+    expect(railGeometry.scrollWidth).toBeLessThanOrEqual(railGeometry.clientWidth + 1);
+    expect(railGeometry.overflowX).not.toMatch(/auto|scroll/);
+
+    await medicationMore.click();
+    const sectionSheet = page.getByTestId("medication-section-sheet");
+    await sectionSheet.getByRole("button", { name: /^Safety/ }).click();
+    await expect(page.locator("#medication-panel-safety")).toBeVisible();
+    await expect(medicationMore).toHaveAccessibleName("More, current section: Safety");
+    await expect(medicationMore).toBeFocused();
+
+    for (const viewport of [
+      { width: 320, height: 720, density: "disclosure" },
+      { width: 390, height: 844, density: "priority" },
+      { width: 639, height: 820, density: "full" },
+      { width: 640, height: 820, density: "full" },
+      { width: 768, height: 1024, density: "full" },
+      { width: 1440, height: 920, density: "full" },
+      { width: 1920, height: 1080, density: "full" },
+    ] as const) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(
+        () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+      );
+      await expectNoPageHorizontalOverflow(page);
+
+      if (viewport.density === "disclosure") {
+        await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeHidden();
+        await expect(medicationMore).toBeHidden();
+        await expect(page.getByTestId("medication-section-trigger")).toBeVisible();
+      } else if (viewport.density === "priority") {
+        await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeVisible();
+        await expect(medicationRail.getByRole("button", { name: /^Dosing/ })).toBeVisible();
+        await expect(medicationRail.getByRole("button", { name: /^Safety/ })).toBeHidden();
+        await expect(medicationMore).toBeVisible();
+      } else {
+        await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeVisible();
+        await expect(medicationRail.getByRole("button", { name: /^Dosing/ })).toBeVisible();
+        await expect(medicationRail.getByRole("button", { name: /^Safety/ })).toBeVisible();
+        await expect(medicationRail.getByRole("button", { name: /^Additional/ })).toBeVisible();
+        await expect(medicationMore).toBeHidden();
+      }
+    }
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(medicationMore).toBeVisible();
+    await medicationMore.focus();
+    await expect(medicationMore).toBeFocused();
+    await expectNoPageHorizontalOverflow(page);
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
+
     await backLink.click();
-    await expect(page).toHaveURL(/\/medications$/);
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === origin.pathname &&
+        url.searchParams.get("mode") === origin.searchParams.get("mode") &&
+        url.searchParams.get("q") === origin.searchParams.get("q") &&
+        url.searchParams.get("run") === origin.searchParams.get("run"),
+    );
+    await expect(page.getByTestId("medication-result-acamprosate-phone")).toBeVisible();
   });
 
   test("tablet document chrome keeps one new-chat action and readable Sources rows", async ({ page }) => {

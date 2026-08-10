@@ -6,7 +6,7 @@ import { appModeHomeHref } from "@/lib/app-modes";
 
 const router = vi.hoisted(() => ({
   back: vi.fn(),
-  push: vi.fn(),
+  replace: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -19,7 +19,11 @@ describe("PatientSafetyPlan privacy contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     router.back.mockReset();
-    router.push.mockReset();
+    router.replace.mockReset();
+    Object.defineProperty(window, "navigation", {
+      configurable: true,
+      value: { canGoBack: false },
+    });
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText },
@@ -78,13 +82,13 @@ describe("PatientSafetyPlan privacy contract", () => {
 
     expect(confirmSpy).toHaveBeenCalledOnce();
     expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/Leave this safety plan\?.*will be lost/i));
-    expect(router.push).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
 
     confirmSpy.mockReturnValue(true);
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 
-    expect(router.push).toHaveBeenCalledOnce();
-    expect(router.push).toHaveBeenCalledWith(appModeHomeHref("tools"));
+    expect(router.replace).toHaveBeenCalledOnce();
+    expect(router.replace).toHaveBeenCalledWith(appModeHomeHref("tools"));
   });
 
   it("confirms before leaving unadded safety-plan step text", () => {
@@ -97,7 +101,7 @@ describe("PatientSafetyPlan privacy contract", () => {
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 
     expect(confirmSpy).toHaveBeenCalledOnce();
-    expect(router.push).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it("confirms before leaving unadded contact detail text", () => {
@@ -109,7 +113,7 @@ describe("PatientSafetyPlan privacy contract", () => {
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 
     expect(confirmSpy).toHaveBeenCalledOnce();
-    expect(router.push).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it("keeps unadded draft text dirty after loading and clearing the example", () => {
@@ -124,7 +128,7 @@ describe("PatientSafetyPlan privacy contract", () => {
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 
     expect(confirmSpy).toHaveBeenCalledOnce();
-    expect(router.push).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it("navigates back without confirmation when the safety plan is empty", () => {
@@ -134,7 +138,7 @@ describe("PatientSafetyPlan privacy contract", () => {
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 
     expect(confirmSpy).not.toHaveBeenCalled();
-    expect(router.push).toHaveBeenCalledOnce();
-    expect(router.push).toHaveBeenCalledWith(appModeHomeHref("tools"));
+    expect(router.replace).toHaveBeenCalledOnce();
+    expect(router.replace).toHaveBeenCalledWith(appModeHomeHref("tools"));
   });
 });

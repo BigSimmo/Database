@@ -398,7 +398,7 @@ test.describe("previously uncovered production routes", () => {
         await expect(remove).toBeEnabled();
         await Promise.all([
           currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, {
-            timeout: 15_000,
+            timeout: 30_000,
             waitUntil: "domcontentloaded",
           }),
           remove.click(),

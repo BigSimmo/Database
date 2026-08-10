@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, GitCompareArrows, Search, X } from "lucide-react";
 
+import { ContextualBackLink } from "@/components/contextual-back-link";
 import { differentialCompareSearchHref, differentialRouteWithQuery } from "@/lib/differentials-navigation";
 
 export type DifferentialCompareQueueItem = {
@@ -86,13 +87,13 @@ export function DifferentialCompareQueuePage({
                 <p className="mt-2 text-sm font-bold text-[color:var(--clinical-accent)]">Query: {trimmedQuery}</p>
               ) : null}
             </div>
-            <Link
-              href={editSelectionHref}
+            <ContextualBackLink
+              fallbackHref={editSelectionHref}
               className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Search
-            </Link>
+            </ContextualBackLink>
           </div>
         </section>
 

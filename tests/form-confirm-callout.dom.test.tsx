@@ -1,6 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/forms/test-form",
+  useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
+}));
+
 import { FormDetailPage } from "@/components/forms/form-detail-page";
 import { getFormRecord } from "@/lib/forms";
 

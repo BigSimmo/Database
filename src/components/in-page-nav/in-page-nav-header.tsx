@@ -1,11 +1,11 @@
 "use client";
 
 import { ArrowLeft, ChevronDown, Ellipsis, type LucideIcon } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
+import { ContextualBackLink } from "@/components/contextual-back-link";
 import { DocumentSectionList, DocumentSectionTrack } from "@/components/document-viewer/section-nav";
 import { InPageSectionRail } from "@/components/in-page-nav/in-page-section-rail";
 import { toDocumentSections, type PageSection } from "@/components/in-page-nav/page-section-index";
@@ -195,8 +195,45 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
   const actionsOpen = actionsPath !== null && actionsPath === currentPath;
   const setSectionSheetOpen = (open: boolean) => setSectionSheetPath(open ? currentPath : null);
   const setActionsOpen = (open: boolean) => setActionsPath(open ? currentPath : null);
-  const sectionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // The section sheet can open from the title disclosure or a priority rail's
+  // More slot. Capture the button that actually opened it so closing never
+  // returns focus to a breakpoint-hidden sibling.
+  const sectionSheetOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const sectionTitleTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const openSectionSheet = (opener: HTMLButtonElement) => {
+    sectionSheetOpenerRef.current = opener;
+    setSectionSheetOpen(true);
+  };
   const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  // More can open the sheet at the three-slot band and then vanish under the
+  // 33rem `@container` rule while the dialog is still open (rotate / resize).
+  // Sheet only requires `isConnected` before restore, so a late resolver must
+  // pick a currently displayed control — title disclosure or a rail section.
+  const isDisplayedFocusTarget = (element: HTMLElement | null): element is HTMLElement => {
+    if (!element?.isConnected) return false;
+    let node: HTMLElement | null = element;
+    while (node) {
+      if (node.hidden || node.getAttribute("aria-hidden") === "true") return false;
+      // Inline `display: none` is how DOM tests simulate the `@container` /
+      // `sm:hidden` bands without loading stylesheet rules into jsdom.
+      if (node.style.display === "none") return false;
+      const style = window.getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      node = node.parentElement;
+    }
+    return true;
+  };
+  const resolveSectionSheetReturnFocus = useCallback((): HTMLElement | null => {
+    const opener = sectionSheetOpenerRef.current;
+    if (isDisplayedFocusTarget(opener)) return opener;
+    if (isDisplayedFocusTarget(sectionTitleTriggerRef.current)) return sectionTitleTriggerRef.current;
+    const rail = window.document.querySelector<HTMLElement>(`[data-testid="${testIdPrefix}-section-rail"]`);
+    if (!rail) return null;
+    const active = rail.querySelector<HTMLButtonElement>('button[aria-current="true"]');
+    if (isDisplayedFocusTarget(active)) return active;
+    return Array.from(rail.querySelectorAll<HTMLButtonElement>("li button")).find(isDisplayedFocusTarget) ?? null;
+  }, [testIdPrefix]);
 
   useInPageChromeMetrics();
 
@@ -226,8 +263,8 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
           <div
             className={cn(containerClassName ?? pageContainer, "flex min-h-12 min-w-0 flex-wrap items-center gap-2")}
           >
-            <Link
-              href={back.href}
+            <ContextualBackLink
+              fallbackHref={back.href}
               aria-label={`Back to ${back.label.toLowerCase()}`}
               title={showBackLabel ? undefined : back.label}
               className={cn(
@@ -241,7 +278,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
             >
               <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
               {showBackLabel ? <span className="hidden sm:inline">{back.label}</span> : null}
-            </Link>
+            </ContextualBackLink>
             {rail ? (
               // With a rail, every section is already named in the row below, so
               // from `sm` — where the whole rail fits — the disclosure would open
@@ -257,8 +294,8 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               // you are, which the track can place but never label.
               <button
                 type="button"
-                ref={sectionTriggerRef}
-                onClick={() => setSectionSheetOpen(true)}
+                ref={sectionTitleTriggerRef}
+                onClick={(event) => openSectionSheet(event.currentTarget)}
                 aria-expanded={sectionSheetOpen}
                 aria-haspopup="dialog"
                 data-testid={`${testIdPrefix}-section-trigger`}
@@ -372,6 +409,8 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               sections={sections}
               activeId={activeSection?.id ?? null}
               onSelect={(id) => onSelectSection?.(id)}
+              onOpenSectionSheet={openSectionSheet}
+              sectionSheetOpen={sectionSheetOpen}
               label={rail.label}
               testIdPrefix={testIdPrefix}
             />
@@ -394,7 +433,8 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               : undefined
           }
           closeLabel="Close section list"
-          returnFocusRef={sectionTriggerRef}
+          returnFocusRef={sectionSheetOpenerRef}
+          resolveReturnFocusTarget={resolveSectionSheetReturnFocus}
           testId={`${testIdPrefix}-section-sheet`}
         >
           <DocumentSectionList

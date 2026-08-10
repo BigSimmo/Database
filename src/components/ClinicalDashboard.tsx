@@ -157,7 +157,7 @@ import {
   UploadPanel,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
-import { clearLegacyRecentQueries, demoRecentQueryOwnerId, recentQueryStorageKey } from "@/lib/recent-query-storage";
+import { clearLegacyRecentQueries, recentQueryStorageKey } from "@/lib/recent-query-storage";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
@@ -212,10 +212,15 @@ import { useDeferredRegistrySearch } from "@/components/clinical-dashboard/use-d
 import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
 import {
   clearPersistedAnswerThread,
-  loadPersistedAnswerThread,
+  createAnswerThreadSnapshotMetadata,
   maxStoredAnswerTurns,
-  savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
+import { useAnswerThreadBootstrap } from "@/components/clinical-dashboard/use-answer-thread-bootstrap";
+import {
+  resolveDashboardAnswerThreadOwnerId,
+  usePersistedAnswerThread,
+  type AnswerThreadSnapshotMetadata,
+} from "@/components/clinical-dashboard/use-persisted-answer-thread";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
 import {
@@ -342,6 +347,7 @@ export function ClinicalDashboard({
   const threadRestoreScrolledRef = useRef(false);
   const restoredThreadFromStorageRef = useRef(false);
   const latestAnswerTurnRef = useRef<Omit<AnswerTurn, "id"> | null>(null);
+  const latestAnswerSnapshotMetadataRef = useRef<AnswerThreadSnapshotMetadata | null>(null);
   const answerTurnSeqRef = useRef(0);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
   const [searchRelevance, setSearchRelevance] = useState<EvidenceRelevance | null>(null);
@@ -354,8 +360,9 @@ export function ClinicalDashboard({
   const submittedUrlModeMatchesActive =
     !submittedUrlMode ||
     (isAppModeId(submittedUrlMode) && isAppModeVisible(submittedUrlMode) && submittedUrlMode === searchMode);
+  const submittedUrlRunRequested = searchParams.get("run") === "1";
   const submittedUrlQuery =
-    autoRunSearch && searchParams.get("run") === "1" && submittedUrlModeMatchesActive
+    autoRunSearch && submittedUrlRunRequested && submittedUrlModeMatchesActive
       ? (searchParams.get("q") ?? searchParams.get("query") ?? "").trim()
       : "";
 
@@ -401,6 +408,7 @@ export function ClinicalDashboard({
     setLatestAnswerQuery(null);
     setCollapsedTurnIds(new Set());
     setShowEarlierTurns(false);
+    latestAnswerSnapshotMetadataRef.current = null;
     const ownerId = activeAnswerThreadOwnerIdRef.current;
     if (ownerId) clearPersistedAnswerThread(ownerId);
   }, []);
@@ -416,7 +424,7 @@ export function ClinicalDashboard({
   // differentials results view can tell live-edited catalogue results apart
   // from evidence that belongs to a previously submitted search.
   const [differentialEvidenceQuery, setDifferentialEvidenceQuery] = useState<string | null>(null);
-  const clearDifferentialModeResultState = useCallback(() => {
+  const clearModeResultState = useCallback(() => {
     resetAnswerThread();
     setAnswer(null);
     setSources([]);
@@ -656,57 +664,33 @@ export function ClinicalDashboard({
     openAccountProfile,
     setSettingsOpen: settingsState.setSettingsOpen,
   });
-  const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
-  const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
-  useEffect(() => {
-    const previousOwnerId = previousAnswerThreadOwnerIdRef.current;
-    previousAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
-    activeAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
-    if (!previousOwnerId || previousOwnerId === answerThreadOwnerId) return;
-    answerThreadBootstrappedRef.current = false;
-    queueMicrotask(() => {
-      setPriorAnswerTurns([]);
-      setLatestAnswerQuery(null);
-      setCollapsedTurnIds(new Set());
-      setAnswer(null);
-      setSources([]);
-      latestAnswerTurnRef.current = null;
-      setAnswerThreadBootstrapped(false);
-    });
-  }, [answerThreadOwnerId]);
-  useEffect(() => {
-    if (authStatus === "loading" || answerThreadBootstrappedRef.current) return;
-    queueMicrotask(() => {
-      const persisted = answerThreadOwnerId ? loadPersistedAnswerThread(answerThreadOwnerId) : null;
-      if (persisted) {
-        restoredThreadFromStorageRef.current = true;
-        setPriorAnswerTurns(persisted.priorTurns);
-        setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
-        if (persisted.latestTurn) {
-          latestAnswerTurnRef.current = persisted.latestTurn;
-          setAnswer(persisted.latestTurn.answer);
-          setSources(persisted.latestTurn.sources);
-          setModeSearchSubmitted(true);
-          setQuery("");
-          const restoredQuery = persisted.latestTurn.query.trim();
-          if (restoredQuery) autoRunSearchSignatureRef.current = `answer:${restoredQuery}`;
-        }
-        answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
-          const match = /^answer-turn-(\d+)$/.exec(turn.id);
-          return match ? Math.max(max, Number(match[1])) : max;
-        }, 0);
-        setCollapsedTurnIds(
-          persisted.collapsedTurnIds.length
-            ? new Set(persisted.collapsedTurnIds)
-            : new Set(persisted.priorTurns.map((turn) => turn.id)),
-        );
-      } else if (!answerThreadOwnerId) {
-        clearPersistedAnswerThread();
-      }
-      answerThreadBootstrappedRef.current = true;
-      setAnswerThreadBootstrapped(true);
-    });
-  }, [answerThreadOwnerId, authStatus]);
+  const answerThreadOwnerId = resolveDashboardAnswerThreadOwnerId(auth.session?.user.id, clientDemoMode, authStatus);
+  useAnswerThreadBootstrap({
+    answerThreadOwnerId,
+    authStatus,
+    searchMode,
+    submittedUrlQuery,
+    expectedSubmissionSignature:
+      searchMode === "answer" && submittedUrlQuery
+        ? searchSubmissionSignature(searchMode, submittedUrlQuery, routedSearchContext)
+        : undefined,
+    activeAnswerThreadOwnerIdRef,
+    answerThreadBootstrappedRef,
+    restoredThreadFromStorageRef,
+    latestAnswerTurnRef,
+    latestAnswerSnapshotMetadataRef,
+    answerTurnSeqRef,
+    autoRunSearchSignatureRef,
+    setPriorAnswerTurns,
+    setLatestAnswerQuery,
+    setCollapsedTurnIds,
+    setShowEarlierTurns,
+    setAnswer,
+    setSources,
+    setModeSearchSubmitted,
+    setQuery,
+    setAnswerThreadBootstrapped,
+  });
   // Local no-auth can still exercise public-read APIs, but administration is always
   // derived separately from the immutable account role claim.
   const uploadReadOnlyMode = resolveUploadReadOnlyMode({
@@ -839,29 +823,16 @@ export function ClinicalDashboard({
     [answerThreadOwnerId],
   );
 
-  useEffect(() => {
-    if (!answerThreadBootstrapped) return;
-    if (searchMode !== "answer") return;
-    if (!answer && priorAnswerTurns.length === 0) {
-      if (answerThreadOwnerId) clearPersistedAnswerThread(answerThreadOwnerId);
-      return;
-    }
-    if (!answerThreadOwnerId) return;
-    savePersistedAnswerThread(answerThreadOwnerId, {
-      version: 1,
-      priorTurns: priorAnswerTurns,
-      latestTurn: latestAnswerTurnRef.current,
-      collapsedTurnIds: [...collapsedTurnIds],
-    });
-  }, [
-    searchMode,
+  usePersistedAnswerThread({
+    ownerId: answerThreadOwnerId,
+    enabled: answerThreadBootstrapped && searchMode === "answer",
     answer,
-    priorAnswerTurns,
+    priorTurns: priorAnswerTurns,
+    latestTurn: latestAnswerTurnRef.current,
     collapsedTurnIds,
-    latestAnswerQuery,
-    answerThreadBootstrapped,
-    answerThreadOwnerId,
-  ]);
+    showEarlierTurns,
+    metadata: latestAnswerSnapshotMetadataRef.current,
+  });
 
   useEffect(() => {
     documentsRef.current = documents;
@@ -1526,7 +1497,7 @@ export function ClinicalDashboard({
     const shouldFocusComposer = searchParams.get("focus") === "1";
     const hasUrlQuery = searchParams.has("q") || searchParams.has("query");
     const frame = window.requestAnimationFrame(() => {
-      if (mode === "differentials") clearDifferentialModeResultState();
+      if (mode === "differentials") clearModeResultState();
       setSearchMode(mode);
       if (hasUrlQuery) setQuery(nextQuery);
       setModeSearchSubmitted(false);
@@ -1536,7 +1507,7 @@ export function ClinicalDashboard({
       if (shouldFocusComposer) focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [searchParams, clearDifferentialModeResultState, focusComposerInput]);
+  }, [searchParams, clearModeResultState, focusComposerInput]);
 
   useHomeModeSeed({ pathname, searchParams, lastAppMode });
 
@@ -1550,7 +1521,7 @@ export function ClinicalDashboard({
     urlSearchBootstrappedRef.current = true;
     const targetMode = mode;
     const frame = window.requestAnimationFrame(() => {
-      if (targetMode === "differentials") clearDifferentialModeResultState();
+      if (targetMode === "differentials") clearModeResultState();
       setSearchMode(targetMode);
       // run=1 URLs name the latest answered question; the composer stays empty
       // while an answer thread is active (including after localStorage restore).
@@ -1559,7 +1530,7 @@ export function ClinicalDashboard({
       if (shouldFocusComposer && params.get("run") !== "1") focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [clearDifferentialModeResultState, focusComposerInput]);
+  }, [clearModeResultState, focusComposerInput]);
 
   const executeSearchRef = useRef(executeSearch);
   executeSearchRef.current = executeSearch;
@@ -1820,7 +1791,7 @@ export function ClinicalDashboard({
     const priorTurn = archivePreviousAnswer ? latestAnswerTurnRef.current : null;
     if (priorTurn) {
       const turnId = `answer-turn-${++answerTurnSeqRef.current}`;
-      setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }].slice(-maxStoredAnswerTurns));
+      setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }].slice(-(maxStoredAnswerTurns - 1)));
       setCollapsedTurnIds((current) => new Set(current).add(turnId));
     }
     const committedQuery = displayQuery ?? payload.query;
@@ -1889,7 +1860,7 @@ export function ClinicalDashboard({
       setQuery(trimmedQuery);
     }
     if (modeSearch.kind !== "tools") setModeSearchSubmitted(true);
-    if (isDifferentialsMode) clearDifferentialModeResultState();
+    if (isDifferentialsMode) clearModeResultState();
 
     if (modeSearch.kind === "tools") {
       setLoading(false);
@@ -2100,6 +2071,15 @@ export function ClinicalDashboard({
 
       // M10: discard a stale response — a newer search owns the UI state.
       if (requestIsCurrent()) {
+        if (successfulPayload.kind === "answer") {
+          latestAnswerSnapshotMetadataRef.current = createAnswerThreadSnapshotMetadata(
+            searchSubmissionSignature(targetMode, trimmedQuery, {
+              queryMode: targetQueryMode,
+              scopeFilters: filtersOverride,
+              scopeRef: privateScopeRef,
+            }),
+          );
+        }
         applySearchResult(successfulPayload, trimmedQuery, !replaceExistingAnswer);
         if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
         if (successfulPayload.kind === "answer") {
@@ -2108,11 +2088,8 @@ export function ClinicalDashboard({
           // effect. Seed their completed context so a later in-place route to
           // the same query with different intent/scope is recognized as a
           // replacement search instead of leaving the old answer on screen.
-          autoRunSearchSignatureRef.current = searchSubmissionSignature(targetMode, trimmedQuery, {
-            queryMode: targetQueryMode,
-            scopeFilters: filtersOverride,
-            scopeRef: privateScopeRef,
-          });
+          autoRunSearchSignatureRef.current =
+            latestAnswerSnapshotMetadataRef.current?.latestSubmissionSignature ?? null;
           // The composer is a draft box in a conversation: clear it so the
           // user can type the next follow-up immediately.
           setQuery("");
@@ -2256,6 +2233,13 @@ export function ClinicalDashboard({
     const trimmedQuery = query.trim();
     const submittedSearchText = searchMode === "answer" && submittedUrlQuery ? submittedUrlQuery : trimmedQuery;
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
+    // Draft shared-home URLs must never auto-submit. A mode pick can update local
+    // mode/query one frame before the router drops the previous run=1 URL — suppress
+    // that stale frame only while the URL mode no longer matches local state.
+    // Intentional run=1 arrivals (Ask-this / crossModeSearch) keep mode+run aligned,
+    // so they must still submit even if modeChangeFromUiRef is still set.
+    if (pathname === "/" && !submittedUrlRunRequested) return;
+    if (modeChangeFromUiRef.current && !submittedUrlModeMatchesActive) return;
     if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
     if (authStatus === "loading") return;
     if (!privateScopeReadyForRoute(routedSearchContext.scopeRef, privateScopeStatus, restoredPrivateScopeRef)) return;
@@ -2294,6 +2278,9 @@ export function ClinicalDashboard({
     void askRef.current(submittedSearchText, routedSearchContext, routedContextChanged);
   }, [
     autoRunSearch,
+    pathname,
+    submittedUrlRunRequested,
+    submittedUrlModeMatchesActive,
     authStatus,
     canRunSearch,
     loading,
@@ -2337,7 +2324,7 @@ export function ClinicalDashboard({
       return;
     }
     modeChangeFromUiRef.current = true;
-    if (mode === "differentials") clearDifferentialModeResultState();
+    if (mode === "differentials") clearModeResultState();
     setQuery(crossQuery);
     setModeSearchSubmitted(false);
     setLoading(false);
@@ -2358,6 +2345,15 @@ export function ClinicalDashboard({
     }
     setSearchMode(mode);
     router.push(href);
+    // Submit immediately for dashboard-owned modes. Auto-run alone is racy here:
+    // modeChangeFromUiRef stays set until the URL-sync effect runs, and a late or
+    // suppressed auto-run leaves the run=1 pending shell with no /api/answer call
+    // (Ask-this bridge). Seed the signature so a later auto-run does not double-fire.
+    if (mode === "answer" || mode === "documents") {
+      const navigationContext = { queryMode, scopeFilters } as const;
+      autoRunSearchSignatureRef.current = searchSubmissionSignature(mode, crossQuery.trim(), navigationContext);
+      void executeSearch(crossQuery, mode, scopeFilters, queryMode, false);
+    }
     window.requestAnimationFrame(() => {
       scrollSurface(mainRef.current, 0, resolveScrollBehavior());
     });
@@ -2645,35 +2641,24 @@ export function ClinicalDashboard({
       return;
     }
 
-    // Results are on screen: carry the query into the newly picked mode rather
-    // than dropping it. crossModeSearch already owns that transition.
+    // Outside the shared home, every mode pick returns to `/`. Preserve the
+    // current question as an unsubmitted draft, but never carry `run=1` into the
+    // newly selected mode — only an explicit submit may open its result route.
     const carriedQuery = query.trim() || submittedUrlQuery.trim();
-    if (carriedQuery) {
-      crossModeSearch(mode, carriedQuery);
-      return;
-    }
-
-    // Nothing to carry: return to the shared home with the mode preselected. This
-    // always stays on `/`, so the transition is dashboard-internal — no unmount,
-    // and no chrome flip from an eager mode set before a route landed.
-    const href = appModeSelectionHref(mode, { queryMode, scopeFilters });
+    const href = appModeSelectionHref(mode, {
+      query: carriedQuery || undefined,
+      queryMode,
+      scopeFilters,
+    });
     modeChangeFromUiRef.current = true;
-    if (mode === "differentials") clearDifferentialModeResultState();
-    setQuery("");
-    if (mode === "answer") {
-      resetAnswerThread();
-      setAnswer(null);
-      setSources([]);
-    }
+    // Dashboard stays mounted on `/`, so an in-flight Answer/documents request
+    // would still look current after this navigation. Abort and bump the seq
+    // before clearing UI; otherwise a late applySearchResult can repaint the
+    // old answer and replaceState a run=1 URL over the shared-home draft.
+    stopSearch();
+    clearModeResultState();
+    setQuery(carriedQuery);
     setModeSearchSubmitted(false);
-    setLoading(false);
-    setError(null);
-    setAnswerProgress(null);
-    setSearchRelevance(null);
-    setSearchFacets(null);
-    setSearchScope(null);
-    setSourceGovernanceWarnings([]);
-    setDocumentMatches([]);
     setSearchMode(mode);
     router.push(href);
     // Dashboard-internal mode flips keep the same scroller; jump to top so
@@ -3034,13 +3019,7 @@ export function ClinicalDashboard({
   // docs/search-chrome-behaviour.md — a mode pick must not flip composer reserve.
   const isHomeRoute = pathname === "/";
   const showSharedHome =
-    isHomeRoute &&
-    !error &&
-    !answer &&
-    !loading &&
-    !modeSearchSubmitted &&
-    !submittedUrlQuery &&
-    !submittedAnswerSearchActive;
+    isHomeRoute && !submittedUrlRunRequested && !error && !answer && !loading && !submittedAnswerSearchActive;
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";

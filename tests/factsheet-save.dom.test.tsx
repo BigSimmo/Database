@@ -2,6 +2,11 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/factsheets/sertraline",
+  useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
+}));
+
 import { FactsheetDetailPage } from "@/components/factsheets/factsheet-detail-page";
 import { findFactsheet } from "@/components/factsheets/factsheets-data";
 import { savedFactsheetsStorageKey } from "@/lib/saved-registry-storage";

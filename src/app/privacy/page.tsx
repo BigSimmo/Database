@@ -43,7 +43,9 @@ const SECTIONS: Section[] = [
       <>
         Raw question text is not written to query logs by default; logs use a keyed one-way hash. Generated answer text
         is also omitted from durable query logs by default. A short-lived response cache can contain the answer while
-        its read TTL is valid.
+        its read TTL is valid. To make recent answers reappear quickly, completed answer threads may also remain in this
+        browser tab for up to 12 hours. That tab-only copy stays in this tab, is not shared across tabs or devices, and
+        is never sent to the application service.
       </>
     ),
   },
@@ -64,7 +66,7 @@ const SECTIONS: Section[] = [
   },
   {
     heading: "Retention",
-    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Uploaded documents remain until removed under the applicable process. Safety-plan working content has no Clinical KB retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
+    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Uploaded documents remain until removed under the applicable process. Completed answer threads in the current browser tab expire no later than 12 hours after the most recent answer and are also cleared by New chat, sign-out, or an account change. Safety-plan working content has no Clinical KB retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
   },
   {
     heading: "Your responsibilities",
