@@ -143,7 +143,6 @@ describe("surface scale", () => {
 describe("elevation ladder", () => {
   it.each(themes)("aliases every shadow role onto an --e tier in $name", ({ tokens }) => {
     const aliases = {
-      "--shadow-tight": "--e1",
       "--shadow-card": "--e2",
       "--shadow-soft": "--e2",
       "--shadow-hover": "--e3",
@@ -156,6 +155,18 @@ describe("elevation ladder", () => {
     // --shadow-lux may add a top highlight, but its body is still a tier.
     expect(tokens.get("--shadow-lux")).toContain("var(--e4)");
     expect(tokens.get("--e0")).toBe("none");
+  });
+
+  // `--shadow-tight` was retired once its 90 production call sites moved onto
+  // `--e1` (`#262` part 1). Redeclaring it anywhere — either theme, the v2 layer
+  // or the forced-colors flattening — would reopen the alias the contract
+  // ratchet is paying down, and would do it quietly: a role that resolves to the
+  // same tier looks harmless at the declaration and reads as sanctioned at the
+  // call site. Asserted over the whole stylesheet, not per theme block, because
+  // any scope that reintroduces it makes the alias spellable again.
+  it("keeps the retired --shadow-tight role deleted", () => {
+    expect(globals, "--shadow-tight is retired; call sites use --e1").not.toContain("--shadow-tight");
+    expect(v2Stylesheet, "--shadow-tight is retired; call sites use --e1").not.toContain("--shadow-tight");
   });
 
   it("flattens the ladder itself under forced colors, not only the role aliases", () => {

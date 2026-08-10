@@ -411,8 +411,8 @@
   --e4: 0 4px 8px rgb(11 42 56 / 5%), 0 24px 48px -12px rgb(11 42 56 / 15%);
 
   /* Role aliases onto the ladder. Keep these pointing AT a tier — the previous
-     hand-tuned values produced five effects that did not sort by name. */
-  --shadow-tight: var(--e1);
+     hand-tuned values produced five effects that did not sort by name. The
+     resting-hairline role is gone: its call sites reach for --e1 directly. */
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
   --shadow-hover: var(--e3);
@@ -653,7 +653,6 @@
   --e3: inset 0 1px 0 rgb(255 255 255 / 6%), 0 8px 20px -6px rgb(0 0 0 / 55%);
   --e4: inset 0 1px 0 rgb(255 255 255 / 7%), 0 20px 40px -12px rgb(0 0 0 / 62%);
 
-  --shadow-tight: var(--e1);
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
   --shadow-hover: var(--e3);
@@ -3287,7 +3286,6 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --e3: none;
     --e4: none;
     --shadow-soft: none;
-    --shadow-tight: none;
     --shadow-card: none;
     --shadow-hover: none;
     --shadow-elevated: none;
