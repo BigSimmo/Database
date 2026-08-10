@@ -1878,7 +1878,7 @@ summary::-webkit-details-marker {
   outline-offset: 2px;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 640px) {
   .smart-search-phone-ticker {
     display: none;
   }

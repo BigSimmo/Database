@@ -172,15 +172,37 @@ function SmartRotatingHint({
   onPickExample: (example: string) => void;
 }) {
   const [activeExampleIndex, setActiveExampleIndex] = useState(0);
+  const [heldTickerExample, setHeldTickerExample] = useState<string | null>(null);
+  const [isTickerHeld, setIsTickerHeld] = useState(false);
   const activeExample = examples[activeExampleIndex % examples.length];
 
   useEffect(() => {
+    if (isTickerHeld) return;
+    setHeldTickerExample(activeExample);
+  }, [activeExample, isTickerHeld]);
+
+  useEffect(() => {
+    if (isTickerHeld) {
+      return;
+    }
+
     if (examples.length <= 1) return;
     const intervalId = window.setInterval(() => {
       setActiveExampleIndex((current) => (current + 1) % examples.length);
     }, SMART_HINT_ROTATION_MS);
     return () => window.clearInterval(intervalId);
-  }, [examples]);
+  }, [examples, isTickerHeld]);
+
+  const freezeTicker = useCallback(() => {
+    setHeldTickerExample(activeExample);
+    setIsTickerHeld(true);
+  }, [activeExample]);
+
+  const releaseTicker = useCallback(() => {
+    setIsTickerHeld(false);
+  }, []);
+
+  const resolvedTickerExample = heldTickerExample ?? activeExample;
 
   if (!activeExample) return null;
 
@@ -198,14 +220,25 @@ function SmartRotatingHint({
           type="button"
           data-testid="smart-search-phone-ticker"
           className="smart-search-phone-ticker"
-          onClick={() => onPickExample(activeExample)}
-          aria-label={`Try suggested search: ${activeExample}`}
+          onClick={() => onPickExample(resolvedTickerExample)}
+          onFocus={freezeTicker}
+          onBlur={releaseTicker}
+          onMouseEnter={freezeTicker}
+          onMouseLeave={releaseTicker}
+          onPointerDown={freezeTicker}
+          onPointerUp={releaseTicker}
+          onPointerLeave={releaseTicker}
+          onPointerCancel={releaseTicker}
+          onTouchStart={freezeTicker}
+          onTouchEnd={releaseTicker}
+          onTouchCancel={releaseTicker}
+          aria-label={`Try suggested search: ${resolvedTickerExample}`}
         >
           <span className="smart-search-phone-ticker-kicker">
             <Sparkles aria-hidden="true" className="size-icon-sm" />
             Try this
           </span>
-          <span className="smart-search-phone-ticker-query">{activeExample}</span>
+          <span className="smart-search-phone-ticker-query">{resolvedTickerExample}</span>
           <span className="smart-search-phone-ticker-action" aria-hidden="true">
             Tap to search
           </span>
