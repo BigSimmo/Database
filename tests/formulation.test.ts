@@ -52,6 +52,10 @@ describe("clinical formulation content", () => {
     expect(searchFormulationMechanisms("If it is not perfect it is a failure")[0]?.mechanism.id).toBe("perfectionism");
   });
 
+  it("recovers a close mechanism-name typo", () => {
+    expect(searchFormulationMechanisms("rumiantion")[0]?.mechanism.id).toBe("rumination");
+  });
+
   it("filters the mechanism catalogue by formulation domain", () => {
     const trauma = searchFormulationMechanisms("", { domain: "Trauma" });
     expect(trauma.length).toBeGreaterThan(0);

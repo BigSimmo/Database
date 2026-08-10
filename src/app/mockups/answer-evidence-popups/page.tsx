@@ -122,13 +122,13 @@ function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neu
 }
 
 function Action({ children, primary = false }: { children: ReactNode; primary?: boolean }) {
-  const baseClass = `inline-flex min-h-10 max-w-full min-w-0 items-center justify-center gap-2 rounded-md px-3 text-center text-xs font-semibold leading-tight transition duration-160 ease-[var(--ease-spring)] hover:-translate-y-px hover:shadow-[var(--shadow-tight)] active:translate-y-0 active:scale-[0.99] ${focusRing} [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 sm:min-h-11 sm:text-sm`;
+  const baseClass = `inline-flex min-h-10 max-w-full min-w-0 items-center justify-center gap-2 rounded-md px-3 text-center text-xs font-semibold leading-tight transition duration-160 ease-[var(--ease-spring)] hover:-translate-y-px hover:shadow-[var(--e1)] active:translate-y-0 active:scale-[0.99] ${focusRing} [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 sm:min-h-11 sm:text-sm`;
   return (
     <button
       type="button"
       className={
         primary
-          ? `${baseClass} bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)]`
+          ? `${baseClass} bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-[var(--e1)]`
           : `${baseClass} border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-accent)]/35`
       }
     >
@@ -155,7 +155,7 @@ function SourceCapsule() {
       type="button"
       aria-haspopup="dialog"
       aria-expanded="true"
-      className={`mt-2 inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition duration-160 ease-[var(--ease-spring)] hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/45 hover:shadow-[var(--shadow-tight)] active:scale-[0.99] ${focusRing}`}
+      className={`mt-2 inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition duration-160 ease-[var(--ease-spring)] hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/45 hover:shadow-[var(--e1)] active:scale-[0.99] ${focusRing}`}
     >
       <span className="min-w-0 truncate">Source-backed</span>
       <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-[color:var(--surface-raised)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
@@ -301,7 +301,7 @@ function EvidenceTabs({ selected }: { selected: string }) {
               type="button"
               role="tab"
               aria-selected={active}
-              className={`inline-flex min-h-10 max-w-[8rem] items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none transition hover:-translate-y-px hover:shadow-[var(--shadow-tight)] ${focusRing} sm:min-h-11 sm:max-w-none sm:px-3 ${
+              className={`inline-flex min-h-10 max-w-[8rem] items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none transition hover:-translate-y-px hover:shadow-[var(--e1)] ${focusRing} sm:min-h-11 sm:max-w-none sm:px-3 ${
                 active
                   ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
                   : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-raised)]"
@@ -364,7 +364,7 @@ function EvidenceSummaryMini({ selected }: { selected: string }) {
 function TablePreview({ expanded = false }: { expanded?: boolean }) {
   return (
     <div
-      className={`overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] ${expanded ? "" : "shadow-[var(--shadow-tight)]"}`}
+      className={`overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] ${expanded ? "" : "shadow-[var(--e1)]"}`}
     >
       <div className="flex min-h-10 items-center justify-between gap-2 border-b border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-3 py-2 text-sm font-semibold text-[color:var(--text-heading)]">
         <span className="min-w-0 truncate">Clozapine monitoring schedule</span>
@@ -420,7 +420,7 @@ function SourceCards() {
       {sources.map(([title, meta, support, score]) => (
         <article
           key={title}
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)]"
+          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--e1)]"
         >
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
             <span
@@ -460,7 +460,7 @@ function QuoteCards() {
       {[1, 2].map((item) => (
         <article
           key={item}
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)]"
+          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--e1)]"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Exact quote</p>
@@ -497,7 +497,7 @@ function ImageEvidence() {
       {items.map(({ label, icon: Icon, body }) => (
         <figure
           key={label}
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)]"
+          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--e1)]"
         >
           <div className="grid min-h-28 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] sm:min-h-32">
             <div className="grid justify-items-center gap-2">
@@ -522,7 +522,7 @@ function PdfLinks() {
         <button
           type="button"
           key={title}
-          className={`grid min-h-[56px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 text-left shadow-[var(--shadow-tight)] transition hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/35 hover:shadow-[var(--shadow-elevated)] ${focusRing}`}
+          className={`grid min-h-[56px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 text-left shadow-[var(--e1)] transition hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/35 hover:shadow-[var(--shadow-elevated)] ${focusRing}`}
         >
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{title}</span>

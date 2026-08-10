@@ -1,4 +1,5 @@
 import type { Therapy } from "./types";
+import { fuzzySearchTokenCount } from "@/lib/catalog-search";
 
 // ---- text helpers -------------------------------------------------------
 
@@ -153,6 +154,15 @@ function scoreTherapy(t: Therapy, q: string): number {
   if (lc(t.targetSymptoms).includes(q)) score += 5;
   if (lc(t.clinicalSummary).includes(q)) score += 3;
   if (lc(t.indications).includes(q)) score += 3;
+  if (score === 0) {
+    score +=
+      fuzzySearchTokenCount(
+        q,
+        [t.name, ...t.aliases, ...t.tags, t.category, t.bestUsedFor, t.targetSymptoms, t.clinicalSummary, t.indications]
+          .filter(Boolean)
+          .join(" "),
+      ) * 2;
+  }
   return score;
 }
 

@@ -36,6 +36,10 @@ describe("psychiatric specifier catalogue", () => {
     expect(searchSpecifiers("much better but not fully recovered")[0]?.record.slug).toBe("in-partial-remission");
   });
 
+  it("recovers a close specifier typo", () => {
+    expect(searchSpecifiers("melancholc")[0]?.record.slug).toBe("with-melancholic-features");
+  });
+
   it("filters by diagnostic role and diagnosis context", () => {
     const courseResults = searchSpecifiers("", { family: "course-onset" });
     expect(courseResults.length).toBeGreaterThan(0);

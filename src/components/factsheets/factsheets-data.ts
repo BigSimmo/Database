@@ -1,3 +1,5 @@
+import { fuzzySearchTokenCount } from "@/lib/catalog-search";
+
 /**
  * Patient factsheet library — content model and helpers.
  *
@@ -659,9 +661,8 @@ export function filterFactsheets(query: string, category?: string): Factsheet[] 
       if (!q) return true;
       // Include the brand suffix (e.g. "(Zoloft)") so brand-name searches resolve
       // even though it is stored separately from the title.
-      return `${sheet.title} ${sheet.brand ?? ""} ${sheet.summary} ${sheet.category} ${sheet.audience}`
-        .toLowerCase()
-        .includes(q);
+      const text = `${sheet.title} ${sheet.brand ?? ""} ${sheet.summary} ${sheet.category} ${sheet.audience}`;
+      return text.toLowerCase().includes(q) || fuzzySearchTokenCount(q, text) > 0;
     });
 }
 

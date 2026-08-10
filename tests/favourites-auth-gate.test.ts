@@ -18,7 +18,6 @@ describe("favourites auth gate", () => {
     const commandSurface = source("src/components/clinical-dashboard/universal-search-command-surface.tsx");
     const toolsCatalog = source("src/lib/tools-catalog.ts");
     const launcher = source("src/components/applications-launcher-page.tsx");
-    const alsoMatches = source("src/components/clinical-dashboard/universal-search-also-matches.tsx");
 
     expect(modes).toContain("export function canAccessFavouritesMode");
     expect(modes).toContain("export function visibleAppModeDefinitionsForSession");
@@ -89,8 +88,7 @@ describe("favourites auth gate", () => {
     expect(launcher).toContain("toolCatalogRecordsForSession");
     expect(launcher).toContain("quickActionsForSession");
     expect(launcher).toContain("desktopFiltersForSession");
-    expect(alsoMatches).toContain("favouritesAccessible");
-    expect(alsoMatches).toContain("isFavouritesHref");
+    expect(commandSurface).not.toContain("isFavouritesHref");
 
     expect(library).toContain("canAccessFavouritesMode");
     expect(library).toContain('intent="favourites"');

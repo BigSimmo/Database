@@ -49,7 +49,6 @@ import { canAccessFavouritesMode } from "@/lib/app-modes";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { useAuthSession } from "@/lib/supabase/client";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 type FavouriteType =
   "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form" | "Differential";
@@ -353,7 +352,7 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
   const Icon = item.icon;
   return (
     <section
-      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
+      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e1)]"
       data-testid="favourites-continue-strip"
     >
       <div className="grid min-h-[3.25rem] grid-cols-[3px_minmax(0,1fr)]">
@@ -379,7 +378,7 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
             href={item.href}
             aria-label={`Continue ${item.title}`}
             className={cn(
-              "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] sm:min-h-9 sm:w-auto",
+              "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:min-h-9 sm:w-auto",
               focusRing,
             )}
           >
@@ -538,7 +537,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
 
 function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
   return (
-    <article className="min-w-0 max-w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)]">
+    <article className="min-w-0 max-w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--e1)]">
       <div className="min-w-0">
         <h3 className="line-clamp-2 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
           {item.title}
@@ -898,7 +897,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
             <Link
               href={item.href}
               className={cn(
-                "mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]",
+                "mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]",
                 focusRing,
               )}
             >
@@ -1100,7 +1099,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 type="button"
                 data-testid="favourites-open-account-setup"
                 onClick={() => setAccountSetupDismissed(false)}
-                className="mt-3 inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="mt-3 inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 Sign up to save favourites
               </button>
@@ -1249,8 +1248,6 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 onSelectItem={setSelectedItemId}
               />
             )}
-
-            <UniversalSearchAlsoMatches modeId="favourites" query={query} />
           </div>
         </div>
         {selectedItem ? (

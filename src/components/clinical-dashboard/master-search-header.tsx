@@ -2124,7 +2124,7 @@ export function MasterSearchHeader({
             </div>
           ) : isServicesMode ? (
             <div className="hidden min-w-0 items-center gap-3 lg:flex">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
                 <ShieldCheck className="h-5 w-5" aria-hidden />
               </span>
               <span className="min-w-0">
@@ -2175,7 +2175,7 @@ export function MasterSearchHeader({
             aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
             aria-label={`Mode ${selectedAppMode.label}`}
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
               <SelectedAppModeIcon aria-hidden="true" className="h-3.5 w-3.5" />
             </span>
             <span className="min-w-0">
