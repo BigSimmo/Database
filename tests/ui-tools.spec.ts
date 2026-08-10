@@ -2432,15 +2432,16 @@ test.describe("Clinical KB service detail page", () => {
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     // The compact dock reserve is 5.5rem (88px) plus any safe-area inset.
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThanOrEqual(80);
-    await scrollPrimarySurface(page, "end");
-    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-
-    await expect
-      .poll(async () => {
-        const geometry = await readPrimaryScrollGeometry(page);
-        return geometry.maxScrollTop - geometry.scrollTop;
-      })
-      .toBeLessThanOrEqual(1);
+    // Document scrolling can change the settled range after the first endpoint
+    // jump (reserve/layout commit). Re-issue scroll-to-end while asserting so
+    // the position converges instead of polling a stale scrollTop (~67px left).
+    await expect(async () => {
+      await scrollPrimarySurface(page, "end");
+      await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+      const geometry = await readPrimaryScrollGeometry(page);
+      expect(geometry.owner).toBe("document");
+      expect(geometry.maxScrollTop - geometry.scrollTop).toBeLessThanOrEqual(1);
+    }).toPass({ timeout: 15_000 });
     const scrollGeometry = await readPrimaryScrollGeometry(page);
 
     const clearance = await footer.evaluate((element) => {
