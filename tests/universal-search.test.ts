@@ -436,6 +436,20 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
     expect(medications?.items.some((item) => item.title.toLowerCase().includes("clozapine"))).toBe(true);
   });
 
+  it("keeps shared clinical-search typo corrections for the medications domain", async () => {
+    const { runUniversalSearch } = await loadUniversalSearch();
+    // "monitring" is corrected by analyzeClinicalQuery, not the catalog-local map.
+    // Medications must rank against the shared corrected base query, not the raw typo.
+    const response = await runUniversalSearch({ query: "monitring", limitPerDomain: 8, demo: true });
+    expect(response.interpretation?.correctedQuery).toBe("monitoring");
+    const medications = response.groups.find((group) => group.kind === "medications");
+    expect((medications?.items.length ?? 0) > 0).toBe(true);
+    const monitoringHits = await runUniversalSearch({ query: "monitoring", limitPerDomain: 8, demo: true });
+    const monitoringMeds = monitoringHits.groups.find((group) => group.kind === "medications");
+    expect(medications?.items.length ?? 0).toBeGreaterThanOrEqual(1);
+    expect(monitoringMeds?.items.length ?? 0).toBeGreaterThanOrEqual(1);
+  });
+
   it("pins a confident best-bet as topHit and omits it when nothing is near-exact", async () => {
     const { runUniversalSearch } = await loadUniversalSearch();
     const hit = await runUniversalSearch({ query: "acamprosate", limitPerDomain: 5, demo: true });

@@ -330,8 +330,10 @@ zuclopenthixol decanoate
 
 // This is deliberately a compact, static safety catalogue derived from the
 // medication snapshot. Importing the full snapshot would add several megabytes
-// of presentation data to the answer path. Aliases only establish identity for
-// safety checks; they do not expand retrieval queries or alter ranking.
+// of presentation data to the answer path. Aliases establish identity for
+// safety checks and are not used to expand RAG retrieval queries. Medication
+// catalog search may borrow this list for brand↔generic recall via
+// medication-query.ts only.
 const medicationIdentityGroups = [
   ["adrenaline", "epinephrine"],
   ["aripiprazole", "abilify"],

@@ -6,7 +6,7 @@ import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
 import type { Therapy } from "./data/types";
-import { accentControl, outlineControl, therapyBtn } from "./controls";
+import { accentControl, iconControl, outlineControl, therapyBtn } from "./controls";
 import {
   AlertIcon,
   ChevronRightIcon,
@@ -47,10 +47,13 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
   const sheetShort = therapy.patientSheetAvailable ? "Sheet" : "No sheet";
 
   return (
-    <article className="relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <article
+      data-therapy-result-card
+      className="relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+    >
       <button
         type="button"
-        className={`${therapyBtn} absolute top-3 right-3 z-[10] inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--disabled)] opacity-65 sm:top-3.5 sm:right-4`}
+        className={`${iconControl} absolute top-3 right-3 z-[10] sm:top-3.5 sm:right-4`}
         aria-disabled="true"
         onClick={ignoreUnavailableActivation}
         title="Favourite saving is not available yet"
@@ -58,34 +61,34 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       >
         <HeartIcon size={17} />
       </button>
-      <div className="grid grid-cols-1 items-start gap-3 px-4 py-3.5 pr-[calc(0.75rem+var(--spacing-tap)+0.5rem)] md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] md:gap-4 md:px-5 md:py-4 md:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
-        <div className="flex min-w-0 gap-3">
-          <IconTile icon={ScaleIcon} size={38} />
-          <div className="min-w-0 flex-1">
-            <h3 className="m-0 text-[color:var(--text-heading)] tracking-display text-base font-semibold leading-snug">
-              {therapy.name}
-            </h3>
-            {subtitle ? (
-              <p className="m-0 mt-1 mb-2 line-clamp-2 text-sm-minus leading-snug text-[color:var(--text-muted)]">
-                {subtitle}
-              </p>
-            ) : (
-              <div className="mb-2" />
-            )}
-            <TagRow tags={tags} max={3} wrap={false} />
-          </div>
+      <div className="grid grid-cols-1 items-start gap-3 px-4 pt-3.5 md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] md:gap-4 md:px-5 md:py-4 md:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
+        <div data-therapy-result-copy className="min-w-0 pr-[calc(var(--spacing-tap)+0.5rem)] md:pr-0">
+          <h3 className="m-0 text-base font-semibold leading-snug tracking-display text-[color:var(--text-heading)]">
+            {therapy.name}
+          </h3>
+          {subtitle ? (
+            <p className="m-0 mt-1 mb-2 line-clamp-2 text-sm-minus leading-snug text-[color:var(--text-muted)]">
+              {subtitle}
+            </p>
+          ) : (
+            <div className="mb-2" />
+          )}
+          <TagRow tags={tags} max={3} wrap={false} />
         </div>
 
-        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-3">
+        <div
+          data-therapy-result-evidence
+          className="-mx-4 grid grid-cols-1 gap-px overflow-hidden border-y border-[color:var(--border)] bg-[color:var(--border)] sm:mx-0 sm:grid-cols-3 sm:rounded-lg sm:border"
+        >
           <CardCell icon={CrosshairIcon} eyebrow="WHY MATCHED" tone="accent" text={whyMatched} />
           <CardCell icon={AlertIcon} eyebrow="AVOID / MODIFY" tone="warning" text={avoidModify} />
           <CardCell icon={ClockIcon} eyebrow="BEST FIT" tone="muted" text={bestFit} />
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 px-4 pb-3.5 sm:px-5 sm:pb-4">
+      <div data-therapy-result-actions className="grid grid-cols-3 gap-2 px-4 py-3.5 sm:px-5 sm:pb-4 md:pt-0">
         <button
           type="button"
-          className={`${therapyBtn} ${accentControl} w-full px-2 text-xs sm:px-[18px] sm:text-sm-minus`}
+          className={`${therapyBtn} ${accentControl} w-full min-w-0 px-2 text-xs sm:px-[18px] sm:text-sm-minus`}
           onClick={() => b.open(therapy.slug)}
           aria-label="Open record"
         >
@@ -95,7 +98,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         </button>
         <button
           type="button"
-          className={`${therapyBtn} ${outlineControl} w-full px-2 text-xs sm:px-4 sm:text-sm-minus`}
+          className={`${therapyBtn} ${outlineControl} w-full min-w-0 px-2 text-xs sm:px-4 sm:text-sm-minus`}
           onClick={() => b.toggleCompare(therapy.slug)}
           aria-pressed={inCompare}
           aria-label={inCompare ? "In compare" : "Compare"}
@@ -106,7 +109,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         </button>
         <button
           type="button"
-          className={`${therapyBtn} ${outlineControl} w-full px-2 text-xs sm:px-4 sm:text-sm-minus`}
+          className={`${therapyBtn} ${outlineControl} w-full min-w-0 px-2 text-xs sm:px-4 sm:text-sm-minus`}
           onClick={() => {
             if (!therapy.patientSheetAvailable) return;
             b.openSheet(therapy.slug);

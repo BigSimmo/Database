@@ -209,7 +209,13 @@ describe("medications API", () => {
 
     const response = await GET(request("/api/medications?fields=index"));
     const payload = (await response.json()) as {
-      records: Array<{ slug: string; name: string; stats: unknown[]; sections: unknown[]; quick: unknown[] }>;
+      records: Array<{
+        slug: string;
+        name: string;
+        stats: unknown[];
+        sections: Array<{ type: string; rows: Array<{ key: string }> }>;
+        quick: unknown[];
+      }>;
     };
 
     expect(response.status).toBe(200);
@@ -217,9 +223,71 @@ describe("medications API", () => {
     expect(acamprosate?.name).toBe("Acamprosate");
     expect(
       payload.records.every(
-        (record) => record.stats.length === 0 && record.sections.length === 0 && record.quick.length === 0,
+        (record) =>
+          record.stats.length === 0 &&
+          record.quick.length === 0 &&
+          record.sections.every(
+            (section) => section.type === "form" && section.rows.every((row) => /brand\s*names?/i.test(row.key)),
+          ),
       ),
     ).toBe(true);
+    expect(acamprosate?.sections[0]?.rows[0]?.key).toMatch(/brand\s*names?/i);
+  });
+
+  it("ranks brand names and typo corrections on the list endpoint", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const brandResponse = await GET(request("/api/medications?q=campral&limit=5"));
+    const brandPayload = (await brandResponse.json()) as {
+      matches?: Array<{ medication: { slug: string }; reasons: string[] }>;
+    };
+    expect(brandResponse.status).toBe(200);
+    expect(brandPayload.matches?.[0]?.medication.slug).toBe("acamprosate");
+    expect(brandPayload.matches?.[0]?.reasons).toContain("brand");
+
+    const typoResponse = await GET(request("/api/medications?q=sertaline&limit=5"));
+    const typoPayload = (await typoResponse.json()) as {
+      matches?: Array<{ medication: { slug: string } }>;
+      interpretation?: { correctedQuery?: string; corrections?: Array<{ from: string; to: string }> };
+    };
+    expect(typoResponse.status).toBe(200);
+    expect(typoPayload.matches?.[0]?.medication.slug).toBe("sertraline");
+    expect(typoPayload.interpretation?.correctedQuery).toBe("sertraline");
+    expect(typoPayload.interpretation?.corrections).toContainEqual({ from: "sertaline", to: "sertraline" });
+  });
+
+  it("projects matched medications to the index shape when fields=index&q is set", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const response = await GET(request("/api/medications?fields=index&q=campral&limit=5"));
+    const payload = (await response.json()) as {
+      matches?: Array<{
+        medication: {
+          slug: string;
+          stats: unknown[];
+          quick: unknown[];
+          sections: Array<{ type: string; rows: Array<{ key: string }> }>;
+        };
+      }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.matches?.length).toBeGreaterThan(0);
+    expect(
+      payload.matches?.every(
+        (match) =>
+          match.medication.stats.length === 0 &&
+          match.medication.quick.length === 0 &&
+          match.medication.sections.every(
+            (section) => section.type === "form" && section.rows.every((row) => /brand\s*names?/i.test(row.key)),
+          ),
+      ),
+    ).toBe(true);
+    expect(payload.matches?.[0]?.medication.slug).toBe("acamprosate");
   });
 
   it("serves curated public records for unauthenticated list requests outside demo mode", async () => {
