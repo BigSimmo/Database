@@ -253,9 +253,9 @@ try {
     `${JSON.stringify(
       {
         extends: "../../tsconfig.json",
+        // Resolve `@/*` from the repo root without deprecated `baseUrl` (TS 6 / Next 16.3).
         compilerOptions: {
-          baseUrl: "../..",
-          paths: { "@/*": ["src/*"] },
+          paths: { "@/*": ["../../src/*"] },
         },
       },
       null,

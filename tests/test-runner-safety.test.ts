@@ -733,6 +733,10 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain('["--max-old-space-size=8192", nextBin, "build", "--webpack"]');
     expect(runner).toContain('[nextBin, "start", "--hostname"');
     expect(runner).not.toContain('[nextBin, "dev", "--hostname"');
+    // Next 16.3 + TS 6 fail isolated Playwright builds when the run-root tsconfig
+    // still injects deprecated `baseUrl` (TS5101). Keep root-relative `@/*` paths.
+    expect(runner).toContain('paths: { "@/*": ["../../src/*"] }');
+    expect(runner).not.toContain('baseUrl: "../.."');
     expect(runner).toContain('NODE_ENV: "production"');
     expect(runner).toContain('PLAYWRIGHT_OFFLINE_MODE: "true"');
     expect(runner).toContain('NEXT_PUBLIC_MOCKUPS_ENABLED: mockupProjectRequested ? "true" : "false"');
