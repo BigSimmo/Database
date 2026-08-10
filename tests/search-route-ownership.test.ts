@@ -249,6 +249,14 @@ describe("shared-search route ownership", () => {
     expect(selectSearchMode).toMatch(
       /const href = appModeSelectionHref\(mode, \{[\s\S]*?query: carriedQuery \|\| undefined/,
     );
+    // Returning home must invalidate the in-flight search before clearing UI —
+    // the dashboard stays mounted, so a late applySearchResult would otherwise
+    // restore the old answer and rewrite run=1 over the draft home.
+    const leaveResultsBranch = selectSearchMode.slice(
+      selectSearchMode.indexOf("// Outside the shared home"),
+      selectSearchMode.indexOf("function stageAnswerFollowUpDraft"),
+    );
+    expect(leaveResultsBranch).toMatch(/stopSearch\(\);\s*clearModeResultState\(\);/);
     expect(selectSearchMode.slice(0, selectSearchMode.indexOf("function stageAnswerFollowUpDraft"))).not.toContain(
       "crossModeSearch(mode, carriedQuery)",
     );

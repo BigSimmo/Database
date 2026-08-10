@@ -2662,10 +2662,14 @@ export function ClinicalDashboard({
       scopeFilters,
     });
     modeChangeFromUiRef.current = true;
+    // Dashboard stays mounted on `/`, so an in-flight Answer/documents request
+    // would still look current after this navigation. Abort and bump the seq
+    // before clearing UI; otherwise a late applySearchResult can repaint the
+    // old answer and replaceState a run=1 URL over the shared-home draft.
+    stopSearch();
     clearModeResultState();
     setQuery(carriedQuery);
     setModeSearchSubmitted(false);
-    setLoading(false);
     setSearchMode(mode);
     router.push(href);
     // Dashboard-internal mode flips keep the same scroller; jump to top so
