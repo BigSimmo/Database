@@ -61,8 +61,8 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       >
         <HeartIcon size={17} />
       </button>
-      <div className="grid grid-cols-1 items-start gap-3 px-4 pt-3.5 pr-[calc(0.75rem+var(--spacing-tap)+0.5rem)] md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] md:gap-4 md:px-5 md:py-4 md:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
-        <div data-therapy-result-copy className="min-w-0">
+      <div className="grid grid-cols-1 items-start gap-3 px-4 pt-3.5 md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] md:gap-4 md:px-5 md:py-4 md:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
+        <div data-therapy-result-copy className="min-w-0 pr-[calc(var(--spacing-tap)+0.5rem)] md:pr-0">
           <h3 className="m-0 text-base font-semibold leading-snug tracking-display text-[color:var(--text-heading)]">
             {therapy.name}
           </h3>
