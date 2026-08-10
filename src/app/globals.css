@@ -1831,15 +1831,19 @@ summary::-webkit-details-marker {
 .smart-search-phone-ticker {
   display: grid;
   width: 100%;
+  --smart-search-phone-ticker-gap: 0.5rem;
+  --smart-search-phone-ticker-inline-padding: 0.625rem;
+  --smart-search-phone-ticker-vertical-padding: 0.5rem;
   min-height: var(--spacing-tap);
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--smart-search-phone-ticker-gap);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--clinical-accent) 18%, var(--border));
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--clinical-accent-soft) 42%, var(--surface));
-  padding: 0.5rem 0.625rem;
+  padding-block: var(--smart-search-phone-ticker-vertical-padding);
+  padding-inline: var(--smart-search-phone-ticker-inline-padding);
   color: var(--text-heading);
   text-align: left;
   box-shadow: var(--shadow-inset);
@@ -1848,7 +1852,8 @@ summary::-webkit-details-marker {
 .smart-search-phone-ticker-kicker {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  --smart-search-phone-ticker-kicker-gap: 0.25rem;
+  gap: var(--smart-search-phone-ticker-kicker-gap);
   color: var(--clinical-accent);
   font-size: 0.625rem;
   font-weight: 800;
@@ -1861,7 +1866,8 @@ summary::-webkit-details-marker {
   overflow: hidden;
   font-size: 0.75rem;
   font-weight: 700;
-  line-height: 1.1rem;
+  --smart-search-phone-ticker-line-height: 1.1rem;
+  line-height: var(--smart-search-phone-ticker-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
