@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CircleAlert,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
+import { ContextualBackLink } from "@/components/contextual-back-link";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
@@ -1091,14 +1091,14 @@ export function DocumentViewer({
           className="edge-glass-header relative z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--e1)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]"
         >
           <div className="mx-auto flex min-h-12 min-w-0 max-w-[1440px] items-center gap-2">
-            <Link
-              href={documentHomeHref}
+            <ContextualBackLink
+              fallbackHref={documentHomeHref}
               className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
               aria-label="Back to documents"
             >
               <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
               <span className="hidden sm:inline">Documents</span>
-            </Link>
+            </ContextualBackLink>
             {documentSections.length > 0 ? (
               // The title is the section-list disclosure. Line two names where you
               // are, which the track can place but never label.

@@ -4,6 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import { FormDetailPage } from "@/components/forms/form-detail-page";
 import { formRecords } from "@/lib/forms";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/forms/transport-crisis-form",
+  useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
+}));
+
 vi.mock("@/components/account-data-provider", () => ({
   useAccountData: () => ({
     isSaved: () => false,

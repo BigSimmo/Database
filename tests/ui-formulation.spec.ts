@@ -202,10 +202,10 @@ test("moves a selected mechanism through framework, quality review, and an edita
   await expect(page.getByTestId("formulation-builder-structure")).toBeVisible();
   const frameworkGroup = page.getByRole("radiogroup", { name: "Formulation framework" });
   const cbtCycle = frameworkGroup.getByRole("radio", { name: /CBT cycle/ });
-  // Input is `sr-only` (not actionable). Activate via the wrapping <label>, scoped
-  // to this radiogroup so shard contention with ui-specifiers cannot hit a stray
-  // "CBT cycle" text node (#257).
-  await frameworkGroup.locator("label").filter({ hasText: "CBT cycle" }).click();
+  // Controlled `sr-only` radios still flake under `locator.check({ force })` on
+  // Production UI shard 1 (state does not flip). Drive selection through the
+  // visible label click handler instead, then assert the radio role.
+  await frameworkGroup.getByText("CBT cycle", { exact: true }).click();
   await expect(cbtCycle).toBeChecked();
   await page
     .getByRole("textbox", { name: "Presenting problem" })

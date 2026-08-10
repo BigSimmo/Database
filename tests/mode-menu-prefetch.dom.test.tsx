@@ -5,16 +5,13 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
-import { appModeHomeHref, visibleAppModeDefinitionsForSession, type AppModeId } from "@/lib/app-modes";
+import { appModeSelectionHref, visibleAppModeDefinitionsForSession, type AppModeId } from "@/lib/app-modes";
 
 /**
- * The route the composer will push to for `modeId`. Picking a mode no longer
- * navigates — submitting does — so the menu warms the mode's *search* destination
- * rather than its home. The path is query-independent, so a placeholder query
- * resolves the right route without pinning one query's payload.
+ * The shared-home URL the mode picker itself will open for `modeId`.
  */
-function modeDestinationPath(modeId: AppModeId) {
-  return appModeHomeHref(modeId, { query: "_", run: true }).split(/[?#]/, 1)[0] || "/";
+function modeSelectionHref(modeId: AppModeId) {
+  return appModeSelectionHref(modeId);
 }
 
 const router = vi.hoisted(() => ({
@@ -90,11 +87,11 @@ describe("mode menu destination prefetch", () => {
     router.prefetch.mockReset();
   });
 
-  it("prefetches a mode search destination when the user points at that option", async () => {
+  it("prefetches the shared-home selection URL when the user points at a mode", async () => {
     const user = userEvent.setup();
     const documents = guestModeHomes().find((mode) => mode.id === "documents");
     expect(documents).toBeTruthy();
-    const documentsHref = modeDestinationPath("documents");
+    const documentsHref = modeSelectionHref("documents");
 
     render(<MasterSearchHeader {...headerProps()} />);
     await user.click(screen.getByRole("button", { name: /Mode Answer/i }));
@@ -111,7 +108,7 @@ describe("mode menu destination prefetch", () => {
 
   it("warms a mode again after Next invalidates its cached payload", async () => {
     const user = userEvent.setup();
-    const documentsHref = modeDestinationPath("documents");
+    const documentsHref = modeSelectionHref("documents");
 
     render(<MasterSearchHeader {...headerProps()} />);
     await user.click(screen.getByRole("button", { name: /Mode Answer/i }));
@@ -137,7 +134,7 @@ describe("mode menu destination prefetch", () => {
     expect(answerIndex).toBeGreaterThanOrEqual(0);
     const previous = modes[(answerIndex - 1 + modes.length) % modes.length];
     expect(previous.id).not.toBe("answer");
-    const previousHref = modeDestinationPath(previous.id);
+    const previousHref = modeSelectionHref(previous.id);
 
     render(<MasterSearchHeader {...headerProps()} />);
     const trigger = screen.getByRole("button", { name: /Mode Answer/i });
