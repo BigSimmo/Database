@@ -15,7 +15,7 @@ export type ButtonSize = "sm" | "md" | "lg";
 // mean "important" — importance is `primary`.
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
-    "bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] hover:shadow-[var(--shadow-hover)] active:bg-[color:var(--command-active)]",
+    "bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--command-hover)] hover:shadow-[var(--shadow-hover)] active:bg-[color:var(--command-active)]",
   secondary:
     "border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
   toolbar:
@@ -23,7 +23,7 @@ const VARIANT: Record<ButtonVariant, string> = {
   ghost:
     "bg-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
   danger:
-    "bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--danger-solid-hover)] active:bg-[color:var(--danger-solid-active)]",
+    "bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--danger-solid-hover)] active:bg-[color:var(--danger-solid-active)]",
 };
 
 // Height is the tap target and never drops below `--spacing-tap` (48px); `size` moves the optical

@@ -554,7 +554,7 @@ export function DocumentFrame({
       {controls ? (
         <div
           data-print-hide
-          className="flex min-w-0 shrink-0 flex-col gap-2 border-b border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] p-2 shadow-[var(--shadow-tight)] sm:flex-row sm:items-center sm:justify-between sm:p-3"
+          className="flex min-w-0 shrink-0 flex-col gap-2 border-b border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] p-2 shadow-[var(--e1)] sm:flex-row sm:items-center sm:justify-between sm:p-3"
         >
           <DocumentControls
             controls={controls}
