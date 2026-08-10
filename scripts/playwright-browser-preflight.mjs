@@ -2,6 +2,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { chromium, firefox, webkit } from "playwright";
+import { playwrightBrowserRevisionCheck } from "./check-playwright-browser-revision.mjs";
 
 const BROWSER_TYPES = {
   chromium,
@@ -164,9 +165,31 @@ export function resolvePlaywrightBrowserExecutable(
     platform = process.platform,
     architecture = process.arch,
     containerBrowsersRoot = platform === "linux" ? "/opt/pw-browsers" : null,
+    projectRoot = process.cwd(),
+    revisionCheck = playwrightBrowserRevisionCheck,
   } = {},
 ) {
   if (family === "chromium") {
+    const downloadsDisabled = /^(?:1|true)$/i.test(env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD?.trim() ?? "");
+    const exposedBrowsersRoot = env.PLAYWRIGHT_BROWSERS_PATH?.trim();
+    const normalizedExposedRoot = exposedBrowsersRoot?.replaceAll("\\", "/").replace(/\/+$/, "");
+    const normalizedContainerRoot = containerBrowsersRoot?.replaceAll("\\", "/").replace(/\/+$/, "");
+    const designatedContainerRoot =
+      normalizedExposedRoot && normalizedContainerRoot && normalizedExposedRoot === normalizedContainerRoot;
+    if (downloadsDisabled && designatedContainerRoot) {
+      const revision = revisionCheck({ projectRoot, env, containerBrowsersRoot });
+      if (!revision.ok) {
+        return {
+          family,
+          path: "",
+          source: "container Chromium revision drift (#255)",
+          revisionDrift: true,
+          message: revision.message,
+          managedPath: managedChromiumPath,
+        };
+      }
+    }
+
     const override = env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim();
     if (override) {
       return {
@@ -182,12 +205,6 @@ export function resolvePlaywrightBrowserExecutable(
         source: "playwright chromium-headless-shell",
       };
     }
-    const downloadsDisabled = /^(?:1|true)$/i.test(env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD?.trim() ?? "");
-    const exposedBrowsersRoot = env.PLAYWRIGHT_BROWSERS_PATH?.trim();
-    const normalizedExposedRoot = exposedBrowsersRoot?.replaceAll("\\", "/").replace(/\/+$/, "");
-    const normalizedContainerRoot = containerBrowsersRoot?.replaceAll("\\", "/").replace(/\/+$/, "");
-    const designatedContainerRoot =
-      normalizedExposedRoot && normalizedContainerRoot && normalizedExposedRoot === normalizedContainerRoot;
     if (downloadsDisabled && designatedContainerRoot) {
       const preinstalled = newestPreinstalledChromiumHeadlessShell(exposedBrowsersRoot, {
         fileExists,
@@ -216,7 +233,7 @@ export function resolvePlaywrightBrowserExecutable(
   };
 }
 
-export function playwrightBrowserPreflight(args = [], env = process.env) {
+export function playwrightBrowserPreflight(args = [], env = process.env, resolveOptions = {}) {
   const projects = requestedPlaywrightBrowserProjects(args);
   const unsupportedProjects = projects.filter((project) => !browserFamilyForProject(project));
   const families = [...new Set(projects.map(browserFamilyForProject).filter(Boolean))];
@@ -225,18 +242,31 @@ export function playwrightBrowserPreflight(args = [], env = process.env) {
     path: "",
     source: `unmapped Playwright project ${project}`,
   }));
+  const checked = [];
   for (const family of families) {
-    const resolved = resolvePlaywrightBrowserExecutable(family, env);
+    const resolved = resolvePlaywrightBrowserExecutable(family, env, resolveOptions);
+    checked.push(resolved);
     if (!resolved.path || !existsSync(resolved.path)) missing.push(resolved);
   }
   if (missing.length === 0) {
-    return { ok: true, projects, checked: families.map((family) => resolvePlaywrightBrowserExecutable(family, env)) };
+    return { ok: true, projects, checked };
+  }
+  const revisionDrift = missing.find((entry) => entry.revisionDrift);
+  if (revisionDrift?.message) {
+    return {
+      ok: false,
+      projects,
+      missing,
+      checked,
+      message: revisionDrift.message,
+    };
   }
   const details = missing.map((entry) => `- ${entry.family} (${entry.source}): ${entry.path}`).join("\n");
   return {
     ok: false,
     projects,
     missing,
+    checked,
     message:
       `Playwright browser preflight failed before the production build.\n` +
       `Missing executable(s):\n${details}\n` +

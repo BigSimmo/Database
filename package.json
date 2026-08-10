@@ -56,6 +56,7 @@
     "test:e2e:pr:shard": "node scripts/playwright-pr-shards.mjs",
     "check:playwright-pr-shards": "node scripts/playwright-pr-shards.mjs --validate",
     "check:playwright-browser-revision": "node scripts/check-playwright-browser-revision.mjs",
+    "check:npm-ci-dry-run": "npm ci --dry-run --ignore-scripts",
     "test:e2e:quarantine": "node scripts/run-playwright.mjs --project=chromium --grep @quarantine --pass-with-no-tests",
     "test:e2e:mockups": "node scripts/run-playwright.mjs --project=chromium-mockups",
     "test:e2e:advisory": "node scripts/run-playwright.mjs --project=chromium --project=chromium-mockups --grep \"@quarantine|@mockup\" --pass-with-no-tests",
