@@ -2644,12 +2644,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await waitForReactEventHandler(medicationLink, "onClick");
     await medicationLink.click();
     await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 45_000 });
-    const medicationPage = page.getByTestId("medication-page-clozapine");
-    await expect(medicationPage).toBeVisible();
-    await medicationPage
-      .getByRole("navigation", { name: "Breadcrumb" })
-      .getByRole("link", { name: "Medications", exact: true })
-      .click();
+    // MedicationNavHeader portals above `medication-page-*`; InPageNavHeader's
+    // back control is always named via aria-label (`Back to ${label}`), which is
+    // the only stable accessible name across desktop (visible text) and phone
+    // (label hidden). See tests/in-page-nav-playwright-contract.test.ts.
+    await expect(page.getByTestId("medication-page-clozapine")).toBeVisible();
+    const medicationsBack = page.getByRole("link", { name: "Back to medications" }).filter({ visible: true });
+    await expect(medicationsBack).toBeVisible();
+    await medicationsBack.click();
     await expect(page).toHaveURL(
       (url) =>
         url.pathname === "/" &&

@@ -252,8 +252,8 @@
       },
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
-        "tests/information-page-shell.dom.test.tsx",
-        "tests/ui-smoke.spec.ts"
+        "tests/in-page-nav-playwright-contract.test.ts",
+        "tests/information-page-shell.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
