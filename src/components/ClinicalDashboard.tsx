@@ -213,9 +213,9 @@ import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/
 import {
   clearPersistedAnswerThread,
   createAnswerThreadSnapshotMetadata,
-  loadPersistedAnswerThread,
   maxStoredAnswerTurns,
 } from "@/lib/answer-thread-storage";
+import { useAnswerThreadBootstrap } from "@/components/clinical-dashboard/use-answer-thread-bootstrap";
 import {
   resolveDashboardAnswerThreadOwnerId,
   usePersistedAnswerThread,
@@ -664,70 +664,32 @@ export function ClinicalDashboard({
     setSettingsOpen: settingsState.setSettingsOpen,
   });
   const answerThreadOwnerId = resolveDashboardAnswerThreadOwnerId(auth.session?.user.id, clientDemoMode, authStatus);
-  const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
-  useEffect(() => {
-    const previousOwnerId = previousAnswerThreadOwnerIdRef.current;
-    previousAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
-    activeAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
-    if (!previousOwnerId || previousOwnerId === answerThreadOwnerId) return;
-    clearPersistedAnswerThread(previousOwnerId);
-    if (answerThreadOwnerId) clearPersistedAnswerThread(answerThreadOwnerId);
-    answerThreadBootstrappedRef.current = false;
-    queueMicrotask(() => {
-      setPriorAnswerTurns([]);
-      setLatestAnswerQuery(null);
-      setCollapsedTurnIds(new Set());
-      setAnswer(null);
-      setSources([]);
-      latestAnswerTurnRef.current = null;
-      latestAnswerSnapshotMetadataRef.current = null;
-      setAnswerThreadBootstrapped(false);
-    });
-  }, [answerThreadOwnerId]);
-  useEffect(() => {
-    if (authStatus === "loading" || answerThreadBootstrappedRef.current) return;
-    queueMicrotask(() => {
-      const expectedSubmissionSignature =
-        searchMode === "answer" && submittedUrlQuery
-          ? searchSubmissionSignature(searchMode, submittedUrlQuery, routedSearchContext)
-          : undefined;
-      const persisted =
-        answerThreadOwnerId && searchMode === "answer"
-          ? loadPersistedAnswerThread(answerThreadOwnerId, { expectedSubmissionSignature })
-          : null;
-      if (persisted) {
-        restoredThreadFromStorageRef.current = true;
-        setPriorAnswerTurns(persisted.priorTurns);
-        setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
-        setShowEarlierTurns(persisted.showEarlierTurns);
-        latestAnswerSnapshotMetadataRef.current = {
-          latestSubmissionSignature: persisted.latestSubmissionSignature,
-          expiresAt: persisted.expiresAt,
-        };
-        if (persisted.latestTurn) {
-          latestAnswerTurnRef.current = persisted.latestTurn;
-          setAnswer(persisted.latestTurn.answer);
-          setSources(persisted.latestTurn.sources);
-          setModeSearchSubmitted(true);
-          setQuery("");
-          autoRunSearchSignatureRef.current = persisted.latestSubmissionSignature;
-        }
-        answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
-          const match = /^answer-turn-(\d+)$/.exec(turn.id);
-          return match ? Math.max(max, Number(match[1])) : max;
-        }, 0);
-        setCollapsedTurnIds(
-          persisted.collapsedTurnIds.length
-            ? new Set(persisted.collapsedTurnIds)
-            : new Set(persisted.priorTurns.map((turn) => turn.id)),
-        );
-      } else if (!answerThreadOwnerId) {
-        clearPersistedAnswerThread();
-      }
-      answerThreadBootstrappedRef.current = true;
-      setAnswerThreadBootstrapped(true);
-    });
-  }, [answerThreadOwnerId, authStatus, routedSearchContext, searchMode, submittedUrlQuery]);
+  useAnswerThreadBootstrap({
+    answerThreadOwnerId,
+    authStatus,
+    searchMode,
+    submittedUrlQuery,
+    expectedSubmissionSignature:
+      searchMode === "answer" && submittedUrlQuery
+        ? searchSubmissionSignature(searchMode, submittedUrlQuery, routedSearchContext)
+        : undefined,
+    activeAnswerThreadOwnerIdRef,
+    answerThreadBootstrappedRef,
+    restoredThreadFromStorageRef,
+    latestAnswerTurnRef,
+    latestAnswerSnapshotMetadataRef,
+    answerTurnSeqRef,
+    autoRunSearchSignatureRef,
+    setPriorAnswerTurns,
+    setLatestAnswerQuery,
+    setCollapsedTurnIds,
+    setShowEarlierTurns,
+    setAnswer,
+    setSources,
+    setModeSearchSubmitted,
+    setQuery,
+    setAnswerThreadBootstrapped,
+  });
   // Local no-auth can still exercise public-read APIs, but administration is always
   // derived separately from the immutable account role claim.
   const uploadReadOnlyMode = resolveUploadReadOnlyMode({
