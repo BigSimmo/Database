@@ -157,7 +157,7 @@ import {
   UploadPanel,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
-import { clearLegacyRecentQueries, demoRecentQueryOwnerId, recentQueryStorageKey } from "@/lib/recent-query-storage";
+import { clearLegacyRecentQueries, recentQueryStorageKey } from "@/lib/recent-query-storage";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
@@ -212,10 +212,15 @@ import { useDeferredRegistrySearch } from "@/components/clinical-dashboard/use-d
 import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
 import {
   clearPersistedAnswerThread,
-  loadPersistedAnswerThread,
+  createAnswerThreadSnapshotMetadata,
   maxStoredAnswerTurns,
-  savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
+import { useAnswerThreadBootstrap } from "@/components/clinical-dashboard/use-answer-thread-bootstrap";
+import {
+  resolveDashboardAnswerThreadOwnerId,
+  usePersistedAnswerThread,
+  type AnswerThreadSnapshotMetadata,
+} from "@/components/clinical-dashboard/use-persisted-answer-thread";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
 import {
@@ -342,6 +347,7 @@ export function ClinicalDashboard({
   const threadRestoreScrolledRef = useRef(false);
   const restoredThreadFromStorageRef = useRef(false);
   const latestAnswerTurnRef = useRef<Omit<AnswerTurn, "id"> | null>(null);
+  const latestAnswerSnapshotMetadataRef = useRef<AnswerThreadSnapshotMetadata | null>(null);
   const answerTurnSeqRef = useRef(0);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
   const [searchRelevance, setSearchRelevance] = useState<EvidenceRelevance | null>(null);
@@ -402,6 +408,7 @@ export function ClinicalDashboard({
     setLatestAnswerQuery(null);
     setCollapsedTurnIds(new Set());
     setShowEarlierTurns(false);
+    latestAnswerSnapshotMetadataRef.current = null;
     const ownerId = activeAnswerThreadOwnerIdRef.current;
     if (ownerId) clearPersistedAnswerThread(ownerId);
   }, []);
@@ -657,57 +664,33 @@ export function ClinicalDashboard({
     openAccountProfile,
     setSettingsOpen: settingsState.setSettingsOpen,
   });
-  const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
-  const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
-  useEffect(() => {
-    const previousOwnerId = previousAnswerThreadOwnerIdRef.current;
-    previousAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
-    activeAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
-    if (!previousOwnerId || previousOwnerId === answerThreadOwnerId) return;
-    answerThreadBootstrappedRef.current = false;
-    queueMicrotask(() => {
-      setPriorAnswerTurns([]);
-      setLatestAnswerQuery(null);
-      setCollapsedTurnIds(new Set());
-      setAnswer(null);
-      setSources([]);
-      latestAnswerTurnRef.current = null;
-      setAnswerThreadBootstrapped(false);
-    });
-  }, [answerThreadOwnerId]);
-  useEffect(() => {
-    if (authStatus === "loading" || answerThreadBootstrappedRef.current) return;
-    queueMicrotask(() => {
-      const persisted = answerThreadOwnerId ? loadPersistedAnswerThread(answerThreadOwnerId) : null;
-      if (persisted) {
-        restoredThreadFromStorageRef.current = true;
-        setPriorAnswerTurns(persisted.priorTurns);
-        setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
-        if (persisted.latestTurn) {
-          latestAnswerTurnRef.current = persisted.latestTurn;
-          setAnswer(persisted.latestTurn.answer);
-          setSources(persisted.latestTurn.sources);
-          setModeSearchSubmitted(true);
-          setQuery("");
-          const restoredQuery = persisted.latestTurn.query.trim();
-          if (restoredQuery) autoRunSearchSignatureRef.current = `answer:${restoredQuery}`;
-        }
-        answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
-          const match = /^answer-turn-(\d+)$/.exec(turn.id);
-          return match ? Math.max(max, Number(match[1])) : max;
-        }, 0);
-        setCollapsedTurnIds(
-          persisted.collapsedTurnIds.length
-            ? new Set(persisted.collapsedTurnIds)
-            : new Set(persisted.priorTurns.map((turn) => turn.id)),
-        );
-      } else if (!answerThreadOwnerId) {
-        clearPersistedAnswerThread();
-      }
-      answerThreadBootstrappedRef.current = true;
-      setAnswerThreadBootstrapped(true);
-    });
-  }, [answerThreadOwnerId, authStatus]);
+  const answerThreadOwnerId = resolveDashboardAnswerThreadOwnerId(auth.session?.user.id, clientDemoMode, authStatus);
+  useAnswerThreadBootstrap({
+    answerThreadOwnerId,
+    authStatus,
+    searchMode,
+    submittedUrlQuery,
+    expectedSubmissionSignature:
+      searchMode === "answer" && submittedUrlQuery
+        ? searchSubmissionSignature(searchMode, submittedUrlQuery, routedSearchContext)
+        : undefined,
+    activeAnswerThreadOwnerIdRef,
+    answerThreadBootstrappedRef,
+    restoredThreadFromStorageRef,
+    latestAnswerTurnRef,
+    latestAnswerSnapshotMetadataRef,
+    answerTurnSeqRef,
+    autoRunSearchSignatureRef,
+    setPriorAnswerTurns,
+    setLatestAnswerQuery,
+    setCollapsedTurnIds,
+    setShowEarlierTurns,
+    setAnswer,
+    setSources,
+    setModeSearchSubmitted,
+    setQuery,
+    setAnswerThreadBootstrapped,
+  });
   // Local no-auth can still exercise public-read APIs, but administration is always
   // derived separately from the immutable account role claim.
   const uploadReadOnlyMode = resolveUploadReadOnlyMode({
@@ -840,29 +823,16 @@ export function ClinicalDashboard({
     [answerThreadOwnerId],
   );
 
-  useEffect(() => {
-    if (!answerThreadBootstrapped) return;
-    if (searchMode !== "answer") return;
-    if (!answer && priorAnswerTurns.length === 0) {
-      if (answerThreadOwnerId) clearPersistedAnswerThread(answerThreadOwnerId);
-      return;
-    }
-    if (!answerThreadOwnerId) return;
-    savePersistedAnswerThread(answerThreadOwnerId, {
-      version: 1,
-      priorTurns: priorAnswerTurns,
-      latestTurn: latestAnswerTurnRef.current,
-      collapsedTurnIds: [...collapsedTurnIds],
-    });
-  }, [
-    searchMode,
+  usePersistedAnswerThread({
+    ownerId: answerThreadOwnerId,
+    enabled: answerThreadBootstrapped && searchMode === "answer",
     answer,
-    priorAnswerTurns,
+    priorTurns: priorAnswerTurns,
+    latestTurn: latestAnswerTurnRef.current,
     collapsedTurnIds,
-    latestAnswerQuery,
-    answerThreadBootstrapped,
-    answerThreadOwnerId,
-  ]);
+    showEarlierTurns,
+    metadata: latestAnswerSnapshotMetadataRef.current,
+  });
 
   useEffect(() => {
     documentsRef.current = documents;
@@ -1821,7 +1791,7 @@ export function ClinicalDashboard({
     const priorTurn = archivePreviousAnswer ? latestAnswerTurnRef.current : null;
     if (priorTurn) {
       const turnId = `answer-turn-${++answerTurnSeqRef.current}`;
-      setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }].slice(-maxStoredAnswerTurns));
+      setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }].slice(-(maxStoredAnswerTurns - 1)));
       setCollapsedTurnIds((current) => new Set(current).add(turnId));
     }
     const committedQuery = displayQuery ?? payload.query;
@@ -2101,6 +2071,15 @@ export function ClinicalDashboard({
 
       // M10: discard a stale response — a newer search owns the UI state.
       if (requestIsCurrent()) {
+        if (successfulPayload.kind === "answer") {
+          latestAnswerSnapshotMetadataRef.current = createAnswerThreadSnapshotMetadata(
+            searchSubmissionSignature(targetMode, trimmedQuery, {
+              queryMode: targetQueryMode,
+              scopeFilters: filtersOverride,
+              scopeRef: privateScopeRef,
+            }),
+          );
+        }
         applySearchResult(successfulPayload, trimmedQuery, !replaceExistingAnswer);
         if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
         if (successfulPayload.kind === "answer") {
@@ -2109,11 +2088,8 @@ export function ClinicalDashboard({
           // effect. Seed their completed context so a later in-place route to
           // the same query with different intent/scope is recognized as a
           // replacement search instead of leaving the old answer on screen.
-          autoRunSearchSignatureRef.current = searchSubmissionSignature(targetMode, trimmedQuery, {
-            queryMode: targetQueryMode,
-            scopeFilters: filtersOverride,
-            scopeRef: privateScopeRef,
-          });
+          autoRunSearchSignatureRef.current =
+            latestAnswerSnapshotMetadataRef.current?.latestSubmissionSignature ?? null;
           // The composer is a draft box in a conversation: clear it so the
           // user can type the next follow-up immediately.
           setQuery("");
