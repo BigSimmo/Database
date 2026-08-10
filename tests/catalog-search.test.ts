@@ -69,6 +69,9 @@ describe("rankCatalogRecords", () => {
 
   it("does not fuzz short clinical abbreviations or unrelated words", () => {
     expect(fuzzySearchTokenCount("GAD", "Major depressive disorder")).toBe(0);
+    // Four-character medication-class abbreviations are one edit apart and
+    // must not fuzzy-match each other (CodeRabbit on PR #1800).
+    expect(fuzzySearchTokenCount("SSRI", "SNRI")).toBe(0);
     expect(rank("transport").some((match) => match.record.slug === "clozapine-monitoring")).toBe(false);
   });
 

@@ -26,15 +26,18 @@ export function compactSearchText(value: string) {
 
 function typoDistanceLimit(term: string) {
   if (term.length >= 8) return 2;
-  if (term.length >= 4) return 1;
+  // Four-character clinical abbreviations (SSRI/SNRI, ADHD/ODD, etc.) are
+  // often one edit apart; require five characters before allowing a typo.
+  if (term.length >= 5) return 1;
   return 0;
 }
 
 /**
  * Bounded Damerau-Levenshtein distance for catalogue search. The short-token
- * guard prevents clinically meaningful abbreviations (for example, MDD/GAD)
- * from being broadened, while the transposition case catches common typing
- * errors without involving document retrieval or answer-mode RAG.
+ * guard prevents clinically meaningful abbreviations (for example, MDD/GAD
+ * and four-character medication-class labels such as SSRI/SNRI) from being
+ * broadened, while the transposition case catches common typing errors
+ * without involving document retrieval or answer-mode RAG.
  */
 function boundedTypoDistance(left: string, right: string, limit: number) {
   if (Math.abs(left.length - right.length) > limit) return limit + 1;
