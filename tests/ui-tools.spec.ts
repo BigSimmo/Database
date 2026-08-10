@@ -649,7 +649,36 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("header mode switches carry a submitted query into the new mode", async ({ page }) => {
+  test("dashboard mode switches return answer results to the shared home as a draft", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/?mode=answer&q=lithium+dosing&run=1");
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: 30_000 });
+
+    const menu = await openAppModeMenu(page, "Answer");
+    const formsMode = menu.getByRole("menuitemradio", { name: /^Forms\b/ });
+    await waitForReactEventHandler(formsMode);
+    await formsMode.click();
+
+    await expect
+      .poll(() => {
+        const url = new URL(page.url());
+        return {
+          pathname: url.pathname,
+          mode: url.searchParams.get("mode"),
+          query: url.searchParams.get("q"),
+          run: url.searchParams.get("run"),
+        };
+      })
+      .toEqual({ pathname: "/", mode: "forms", query: "lithium dosing", run: null });
+    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
+    await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
+    await expect(visibleGlobalSearchInput(page)).toHaveValue("lithium dosing");
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("header mode switches return results and mode homes to the shared home", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
 
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
@@ -665,28 +694,32 @@ test.describe("Clinical KB tools launcher", () => {
     await waitForReactEventHandler(formsMode);
     await formsMode.click();
 
-    // Results are on screen, so the pick re-runs that query in the new mode
-    // rather than dropping it and returning to a blank home.
-    await expect(page).toHaveURL(/\/forms\?.*q=13YARN/, { timeout: 20_000 });
+    // Results are cleared and the query becomes an unsubmitted draft on the
+    // universal home. The picker must not open or pre-run the Forms route.
+    await expect(page).toHaveURL(/\/\?mode=forms&q=13YARN$/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
+    await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
+    await expect(page.getByTestId("forms-home")).toHaveCount(0);
+    await expect(page.getByTestId("service-search-results")).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+    await expect(visibleGlobalSearchInput(page)).toHaveValue("13YARN");
 
-    // From a mode home with nothing submitted there is no query to carry, so the
-    // pick returns to the shared home with the new mode preselected.
+    // Re-selecting the current mode from its old home also returns to the shared
+    // home; same-mode picks must not be mistaken for no-ops on deeper routes.
     await gotoLauncher(page, "/forms");
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(visibleByTestId(page, "forms-home")).toBeVisible();
 
     menu = await openAppModeMenu(page, "Forms");
-    const servicesMode = menu.getByRole("menuitemradio", { name: /^Services\b/ });
-    await expect(servicesMode).toBeVisible();
-    await waitForReactEventHandler(servicesMode);
-    await servicesMode.click();
+    const currentFormsMode = menu.getByRole("menuitemradio", { name: /^Forms\b/ });
+    await expect(currentFormsMode).toBeVisible();
+    await waitForReactEventHandler(currentFormsMode);
+    await currentFormsMode.click();
 
-    await expect(page).toHaveURL(/\/\?mode=services\b/, { timeout: 20_000 });
-    await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
+    await expect(page).toHaveURL(/\/\?mode=forms\b/, { timeout: 20_000 });
+    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
-    await expect(page.getByTestId("services-home")).toHaveCount(0);
+    await expect(page.getByTestId("forms-home")).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("");
     await expectNoPageHorizontalOverflow(page);

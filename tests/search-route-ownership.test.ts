@@ -104,15 +104,16 @@ describe("shared-search route ownership", () => {
     expect(shellSource).toContain("isStandaloneModeHomePath(pathname)");
     expect(shellSource).not.toMatch(/searchMode === "services" && pathname === "\/services"/);
     // changeMode must not optimistic-set searchMode before navigation.
-    // The pill no longer opens a mode home: with a query in play it carries that
-    // query into the new mode's search page, and otherwise returns to the shared
-    // home at `/` with the mode preselected. Pending state still guards the push.
+    // The pill always returns to the shared home. A current query is carried only
+    // as a draft, never as `run=1`; pending state still guards the push.
     expect(shellSource).toMatch(
-      /function changeMode\(mode: AppModeId\) \{[\s\S]*?const carriedQuery = query\.trim\(\) \|\| requestedQuery\.trim\(\);\n    if \(carriedQuery\) \{[\s\S]*?router\.push\(appModeHomeHref\(mode, \{ query: carriedQuery, run: true[\s\S]*?\n      return;/,
+      /function changeMode\(mode: AppModeId\) \{[\s\S]*?const carriedQuery = query\.trim\(\) \|\| requestedQuery\.trim\(\);[\s\S]*?const href = appModeSelectionHref\(mode, \{[\s\S]*?query: carriedQuery \|\| undefined,[\s\S]*?router\.push\(href\);\n  \}/,
     );
-    expect(shellSource).toMatch(
-      /function changeMode\(mode: AppModeId\) \{[\s\S]*?const href = appModeSelectionHref\(mode[\s\S]*?router\.push\(href\);\n  \}/,
+    const changeMode = shellSource.slice(
+      shellSource.indexOf("function changeMode("),
+      shellSource.indexOf("function startNewAnswerChat("),
     );
+    expect(changeMode).not.toContain("run: true");
     expect(shellSource).not.toMatch(
       /function changeMode\(mode: AppModeId\) \{[\s\S]*?setSearchMode\(mode\);[\s\S]*?router\.push/,
     );
@@ -243,8 +244,32 @@ describe("shared-search route ownership", () => {
     // URL-sync effect skip, and the pill would never update.
     expect(sharedHomeBranch).not.toContain("modeChangeFromUiRef.current = true");
     expect(sharedHomeBranch).not.toContain("setSearchMode(");
-    // Off the shared home a query in play is carried into the new mode, not dropped.
-    expect(selectSearchMode).toMatch(/crossModeSearch\(mode, carriedQuery\);/);
+    // Off the shared home, the current query becomes a draft on `/`; it is not
+    // submitted into the selected mode until the user explicitly asks.
+    expect(selectSearchMode).toMatch(
+      /const href = appModeSelectionHref\(mode, \{[\s\S]*?query: carriedQuery \|\| undefined/,
+    );
+    // Returning home must invalidate the in-flight search before clearing UI —
+    // the dashboard stays mounted, so a late applySearchResult would otherwise
+    // restore the old answer and rewrite run=1 over the draft home.
+    const leaveResultsBranch = selectSearchMode.slice(
+      selectSearchMode.indexOf("// Outside the shared home"),
+      selectSearchMode.indexOf("function stageAnswerFollowUpDraft"),
+    );
+    expect(leaveResultsBranch).toMatch(/stopSearch\(\);\s*clearModeResultState\(\);/);
+    expect(selectSearchMode.slice(0, selectSearchMode.indexOf("function stageAnswerFollowUpDraft"))).not.toContain(
+      "crossModeSearch(mode, carriedQuery)",
+    );
+    expect(dashboardSource).toContain('if (pathname === "/" && !submittedUrlRunRequested) return;');
+    expect(dashboardSource).toContain("if (modeChangeFromUiRef.current && !submittedUrlModeMatchesActive) return;");
+    // Ask-this / cross-mode into Answer must not depend solely on auto-run: the
+    // dashboard stays mounted, so submit explicitly after pushing run=1.
+    expect(dashboardSource).toMatch(
+      /if \(mode === "answer" \|\| mode === "documents"\) \{[\s\S]*?void executeSearch\(crossQuery, mode/,
+    );
+    expect(dashboardSource).toMatch(
+      /const showSharedHome =\s*isHomeRoute &&\s*!submittedUrlRunRequested &&[\s\S]*?!submittedAnswerSearchActive;/,
+    );
   });
 
   it("routes a submitted shared-composer search to the selected mode's own surface", () => {
