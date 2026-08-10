@@ -12,6 +12,7 @@ import { dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
 import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
 import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
+import { analyzeMedicationCatalogQuery } from "@/lib/medication-query";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
 import { loadOwnerCatalogue } from "@/lib/owner-catalogue-cache";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
@@ -257,7 +258,19 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
           })
         ).map(rowToMedicationRecord)
       : defaultMedicationRecords();
-  return rankMedicationRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
+  // Catalog-local typo/brand understanding (not clinical-search / RAG analysis).
+  // Prefer catalog corrections when they change the query; otherwise keep the
+  // shared clinical-search correction (e.g. monitring → monitoring) and its
+  // expansions so the medications domain does not ignore the federated base.
+  const catalogAnalysis = analyzeMedicationCatalogQuery(args.query, records);
+  const catalogCorrected =
+    catalogAnalysis.corrections.length > 0 &&
+    catalogAnalysis.correctedQuery.trim().toLowerCase() !== catalogAnalysis.originalQuery.trim().toLowerCase()
+      ? catalogAnalysis.correctedQuery
+      : "";
+  const rankingQuery = catalogCorrected || args.baseQuery;
+  const rankingExpansions = Array.from(new Set([...catalogAnalysis.expansions, ...args.expansions]));
+  return rankMedicationRecords(records, rankingQuery, args.limitPerDomain, rankingExpansions).map((match) =>
     medicationItem(match.medication, match.score),
   );
 }

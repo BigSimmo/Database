@@ -254,6 +254,9 @@ try {
       {
         extends: "../../tsconfig.json",
         compilerOptions: {
+          // TypeScript 6 deprecates baseUrl (TS5101). Next 16.3+ typechecks this
+          // isolated config during `next build`, so silence until paths migrate.
+          ignoreDeprecations: "6.0",
           baseUrl: "../..",
           paths: { "@/*": ["src/*"] },
         },

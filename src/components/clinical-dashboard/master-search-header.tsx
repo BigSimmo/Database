@@ -66,7 +66,7 @@ import { Sheet } from "@/components/ui/sheet";
 import {
   appModeDefinition,
   appModeDefinitions,
-  appModeHomeHref,
+  appModeSelectionHref,
   appModeSearchConfig,
   isSearchableAppMode,
   visibleAppModeDefinitionsForSession,
@@ -866,9 +866,7 @@ export function MasterSearchHeader({
             window.setTimeout(restoreSameModeFocus, 50);
             return;
           }
-          if (!restoreFocusUnlessMoved(modeButtonRef.current)) {
-            modeButtonRef.current?.focus({ preventScroll: true });
-          }
+          restoreFocusUnlessMoved(modeButtonRef.current);
           pendingModeSelectionFocusRef.current = null;
         };
         window.requestAnimationFrame(() => {
@@ -926,15 +924,11 @@ export function MasterSearchHeader({
   // Prefetch only the mode the user is about to choose — the highlighted option
   // on open, then whichever option receives focus/pointer while scanning.
   //
-  // Picking a mode no longer navigates; submitting does. So warm the route the
-  // composer will push to, not the mode home nobody lands on from here any more.
-  // The destination path is query-independent, so a placeholder query resolves
-  // the right route (/dsm/search, /factsheets/search, /tools, …) without pinning
-  // the payload for one specific query.
-  function prefetchModeDestination(modeId: AppModeId) {
+  // A pick always returns to the shared home; warm that exact URL rather than a
+  // mode-owned home or search route the user has not asked to open.
+  function prefetchModeSelection(modeId: AppModeId) {
     if (modeId === searchMode) return;
-    const destination = appModeHomeHref(modeId, { query: "_", run: true });
-    const href = destination.split(/[?#]/, 1)[0] || "/";
+    const href = appModeSelectionHref(modeId);
     if (prefetchedModeHrefsRef.current.has(href)) return;
     prefetchedModeHrefsRef.current.add(href);
     router.prefetch(href, {
@@ -956,7 +950,7 @@ export function MasterSearchHeader({
     closeModeSurfaces();
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
     const highlighted = visibleAppModeOptions[nextIndex];
-    if (highlighted) prefetchModeDestination(highlighted.id);
+    if (highlighted) prefetchModeSelection(highlighted.id);
     const phoneLayout = currentUsesPhoneSearchLayout();
     setUsesPhoneSearchLayout(phoneLayout);
     setModeMenuFocusIndex(nextIndex);
@@ -975,7 +969,7 @@ export function MasterSearchHeader({
       return;
     }
     const highlighted = visibleAppModeOptions[selectedModeIndex];
-    if (highlighted) prefetchModeDestination(highlighted.id);
+    if (highlighted) prefetchModeSelection(highlighted.id);
     setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());
     setModeMenuFocusIndex(selectedModeIndex);
     setModeMenuOpen(true);
@@ -1045,8 +1039,8 @@ export function MasterSearchHeader({
           aria-label={`${mode.label}. ${mode.description}`}
           tabIndex={active ? 0 : -1}
           data-sheet-autofocus={usesPhoneSearchLayout && index === modeMenuFocusIndex ? "true" : undefined}
-          onFocus={() => prefetchModeDestination(mode.id)}
-          onPointerEnter={() => prefetchModeDestination(mode.id)}
+          onFocus={() => prefetchModeSelection(mode.id)}
+          onPointerEnter={() => prefetchModeSelection(mode.id)}
           onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
           onClick={() => selectAppMode(mode)}
           className={cn(

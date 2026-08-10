@@ -653,19 +653,15 @@ function GlobalStandaloneSearchShellBody({
     }
     setLastAppMode(mode);
 
-    // The mode pill retargets the composer; it no longer navigates to a mode home.
-    // From anywhere with a query in play, carry that query into the newly picked
-    // mode's search page rather than dropping it (this is the same transition the
-    // cross-mode chips make). With nothing to carry, return to the shared home at
-    // `/` with the mode preselected — that is now the single starting point.
+    // The mode pill always returns to the shared home. Preserve any current query
+    // as an unsubmitted draft, but omit `run=1`; only an explicit submit may open
+    // the selected mode's dedicated search/results surface.
     const carriedQuery = query.trim() || requestedQuery.trim();
-    if (carriedQuery) {
-      setMobileMenuOpen(false);
-      router.push(appModeHomeHref(mode, { query: carriedQuery, run: true, queryMode, scopeFilters }));
-      return;
-    }
-
-    const href = appModeSelectionHref(mode, { queryMode, scopeFilters });
+    const href = appModeSelectionHref(mode, {
+      query: carriedQuery || undefined,
+      queryMode,
+      scopeFilters,
+    });
     const destination = new URL(href, window.location.origin);
     const destinationSearch = destination.search.startsWith("?") ? destination.search.slice(1) : destination.search;
     const alreadyOnDestination = pathname === destination.pathname && searchParamString === destinationSearch;

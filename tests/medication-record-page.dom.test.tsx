@@ -5,6 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 import { MedicationRecordPage } from "@/components/clinical-dashboard/medication-record-page";
 import type { MedicationRecord } from "@/lib/medications";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/medications/test-med",
+  useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
+}));
+
 // Controllable data-hook mock so each test drives one content-first state.
 const { useMedicationDetail } = vi.hoisted(() => ({ useMedicationDetail: vi.fn() }));
 vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({ useMedicationDetail }));

@@ -452,6 +452,11 @@ export function FormulationBuilderPage({
                 >
                   {formulationTemplates.map((template) => {
                     const active = template.id === templateId;
+                    const selectTemplate = () => {
+                      if (template.id === templateId) return;
+                      setTemplateId(template.id);
+                      setEditedDraft(null);
+                    };
                     return (
                       <label
                         key={template.id}
@@ -461,16 +466,17 @@ export function FormulationBuilderPage({
                             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]"
                             : "border-[color:var(--border)] bg-[color:var(--surface)] hover:bg-[color:var(--surface-subtle)]",
                         )}
+                        // Controlled `sr-only` radios can miss native label activation after
+                        // large scroll-into-view (Production UI shard flake on PR #1788). Drive
+                        // selection from the label click as well as input onChange.
+                        onClick={selectTemplate}
                       >
                         <input
                           type="radio"
                           name="formulation-template"
                           value={template.id}
                           checked={active}
-                          onChange={() => {
-                            setTemplateId(template.id);
-                            setEditedDraft(null);
-                          }}
+                          onChange={selectTemplate}
                           className="peer sr-only"
                         />
                         <span

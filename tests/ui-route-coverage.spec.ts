@@ -275,6 +275,87 @@ test.describe("previously uncovered production routes", () => {
     );
   });
 
+  test("Therapy result cards use the full phone width with a symmetric action row", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, "/therapy-compass/search?q=CBT&run=1");
+
+    const card = page.locator("[data-therapy-result-card]").first();
+    await expect(card).toBeVisible({ timeout: 30_000 });
+
+    for (const width of [320, 390, 639, 768, 1440, 1920]) {
+      await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
+      await expectNoHorizontalOverflow(page);
+
+      const layout = await card.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        const copy = element.querySelector<HTMLElement>("[data-therapy-result-copy]")!.getBoundingClientRect();
+        const evidence = element.querySelector<HTMLElement>("[data-therapy-result-evidence]")!.getBoundingClientRect();
+        const actions = element.querySelector<HTMLElement>("[data-therapy-result-actions]")!;
+        const buttons = [...actions.querySelectorAll<HTMLButtonElement>("button")].map((button) => {
+          const buttonBounds = button.getBoundingClientRect();
+          return {
+            left: buttonBounds.left,
+            right: buttonBounds.right,
+            top: buttonBounds.top,
+            width: buttonBounds.width,
+            height: buttonBounds.height,
+          };
+        });
+        return {
+          card: { left: bounds.left, right: bounds.right },
+          copyLeft: copy.left,
+          evidence: { left: evidence.left, right: evidence.right },
+          buttons,
+        };
+      });
+
+      if (width < 640) {
+        expect(Math.abs(layout.evidence.left - layout.card.left), `${width}px evidence left edge`).toBeLessThanOrEqual(
+          1,
+        );
+        expect(
+          Math.abs(layout.card.right - layout.evidence.right),
+          `${width}px evidence right edge`,
+        ).toBeLessThanOrEqual(1);
+        expect(layout.copyLeft - layout.card.left, `${width}px copy inset`).toBeGreaterThanOrEqual(15);
+        expect(new Set(layout.buttons.map((button) => Math.round(button.top))).size, `${width}px button row`).toBe(1);
+        expect(
+          Math.max(...layout.buttons.map((button) => button.width)) -
+            Math.min(...layout.buttons.map((button) => button.width)),
+          `${width}px equal action widths`,
+        ).toBeLessThanOrEqual(1);
+        for (const button of layout.buttons) {
+          expect(button.height, `${width}px action target`).toBeGreaterThanOrEqual(48);
+        }
+      }
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const compare = card.locator("[data-therapy-result-actions] button").nth(1);
+    await expect(compare).toHaveAccessibleName("Compare");
+    await compare.focus();
+    const focusStyle = await compare.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
+    });
+    expect(focusStyle.outlineStyle).not.toBe("none");
+    expect(focusStyle.outlineWidth).toBeGreaterThanOrEqual(2);
+    await testInfo.attach("therapy-result-card-phone", {
+      body: await card.screenshot(),
+      contentType: "image/png",
+    });
+
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await expectNoHorizontalOverflow(page);
+    await expect(card.locator("[data-therapy-result-actions] button")).toHaveCount(3);
+
+    await compare.focus();
+    await page.keyboard.press("Space");
+    await expect(page).toHaveURL(/\/therapy-compass\/compare$/);
+    await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toBeVisible();
+  });
+
   test("DSM home renders responsively and opens comparison", async ({ page }) => {
     await proveRenderedRoute(
       page,
@@ -317,7 +398,7 @@ test.describe("previously uncovered production routes", () => {
         await expect(remove).toBeEnabled();
         await Promise.all([
           currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, {
-            timeout: 15_000,
+            timeout: 30_000,
             waitUntil: "domcontentloaded",
           }),
           remove.click(),

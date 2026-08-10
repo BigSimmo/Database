@@ -75,7 +75,15 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
-        run: node scripts/ci-change-scope.mjs
+        run: |
+          if [ "${{ github.event.inputs.refresh_lighthouse_baseline }}" = "true" ]; then
+            # A baseline refresh is a focused measurement operation, not a
+            # synthetic full repository change. Keep the trusted workflow/perf
+            # contracts without starting unrelated build, UI, DB or container jobs.
+            node scripts/ci-change-scope.mjs --files .github/actions/setup-lighthouse-chromium/action.yml
+          else
+            node scripts/ci-change-scope.mjs
+          fi
 
   sync-pr-policy-body:
     name: Sync PR policy body
@@ -209,7 +217,8 @@ jobs:
         run: npm run check:pr-mergeability
 
       - name: Focused CI workflow contracts
-        if: needs.changes.outputs.workflow_changed == 'true'
+        # Full coverage already contains these workflow-reading Vitest files.
+        if: needs.changes.outputs.workflow_changed == 'true' && needs.changes.outputs.coverage_changed != 'true'
         run: npm run test:ci-workflows
 
       - name: Codex auto-resolve workflow guard
@@ -247,7 +256,7 @@ jobs:
         run: npm run format:changed
 
       - name: Scheduled full-tree format drift
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.refresh_lighthouse_baseline != 'true')
         run: npm run format:check
 
       # Design-system guards that were previously only in the local verify:cheap
@@ -481,35 +490,7 @@ jobs:
         uses: ./.github/actions/setup-ui-e2e
 
       - name: Chromium @critical journeys
-        env:
-          PLAYWRIGHT_BUILD_ROOT_ID: ci-production
-          PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
         run: npm run test:e2e:critical
-
-      # Run-scoped only: publish the webpack filesystem cache for the dependent
-      # production shards in this workflow run. Do not use actions/cache — the
-      # ~804 MB warm cache was measured as a net CI loss against the shared
-      # 10 GB budget (would evict the Playwright browser cache). Artifacts expire
-      # after one day and never compete with that budget.
-      # continue-on-error: publish is an optimization. A miss must not fail the
-      # critical job after green @critical journeys — shards cold-build instead.
-      - name: Publish isolated Next.js build cache
-        if: success()
-        continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: playwright-next-build-cache-${{ github.run_id }}
-          # Path lives under `.next-playwright/` (dot-directory). upload-artifact
-          # v4.4+ excludes hidden paths unless this is set — without it the
-          # publish is a silent no-op and every shard cold-builds.
-          path: .next-playwright/ci-production/dist/cache
-          include-hidden-files: true
-          # Next's production webpack cache is already uncompressed; leave
-          # compression to the outer transport at level 0 so the critical path
-          # does not pay zlib-6 CPU on ~800 MB.
-          compression-level: 0
-          retention-days: 1
-          if-no-files-found: error
 
       - name: Classify exact failed test identities
         if: failure()
@@ -556,12 +537,11 @@ jobs:
       fail-fast: false
       matrix:
         # THREE explicit duration-aware file groups (scripts/playwright-pr-shards.mjs),
-        # not Playwright `--shard=i/N`. Count-balanced `--shard` packed the slow
-        # phone-scroll family into one runner (measured 9m36 vs 6m54/6m20 on
-        # CI 30530618838). Explicit groups mix slow-per-test specs with faster
-        # mega-specs. `tests/playwright-pr-shards.test.ts` fails closed if any
-        # production e2e:pr file is missing, duplicated, or leaves a shard empty.
-        # Re-measure wall time after suite growth before reshuffling membership:
+        # not Playwright `--shard=i/N`. The first explicit split still measured
+        # 5.5m / 3.7m / 2.4m of tests on CI 31285952061; the current profiles use
+        # those per-file durations and keep both full and post-critical totals
+        # within 30 seconds. Contract tests fail closed on membership or balance
+        # drift. Re-measure after suite growth before reshuffling membership:
         #   node scripts/playwright-pr-shards.mjs --list
         #   node scripts/playwright-pr-shards.mjs --validate
         shard: [1, 2, 3]
@@ -574,24 +554,15 @@ jobs:
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
-      # ui-critical-fast publishes a run-scoped artifact (not actions/cache) so
-      # all three shards can reuse webpack state without competing for the
-      # shared 10 GB cache budget. Server processes and reports stay isolated.
-      # continue-on-error: a missing artifact must not fail the shard — cold build
-      # remains the correct fallback when critical skipped or published nothing.
-      - name: Restore isolated Next.js build cache
-        if: needs.ui-critical-fast.result == 'success'
-        continue-on-error: true
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: playwright-next-build-cache-${{ github.run_id }}
-          path: .next-playwright/ci-production/dist/cache
-
       - name: Chromium production journeys
-        env:
-          PLAYWRIGHT_BUILD_ROOT_ID: ci-production
-          PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
-        run: npm run test:e2e:pr:shard -- --shard ${{ matrix.shard }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "merge_group" ]; then
+            npm run test:e2e:pr:shard -- --shard ${{ matrix.shard }} --exclude-critical
+          else
+            # The fast subset is skipped on main/schedule/manual runs, so these
+            # events retain the complete production set.
+            npm run test:e2e:pr:shard -- --shard ${{ matrix.shard }}
+          fi
 
       - name: Classify exact failed test identities
         if: failure()
@@ -662,7 +633,7 @@ jobs:
   #   - Pixel comparison needs a soak before it can block a merge; this repo has
   #     already paid for a sub-pixel rounding flake (the min-h-11 -> min-h-12 change).
   # Promote to a required check by adding it to `pr-required` once the baselines have
-  # held across a few runs, and drop `continue-on-error` at the same time.
+  # held across a few runs, and drop the pixel-step soft-fail / drift classifier then.
   visual-baseline:
     name: Visual baselines (advisory)
     needs: changes
@@ -670,9 +641,11 @@ jobs:
     # a pixel gate that reports on every UI pull request taxes exactly the work it
     # exists to support. During a redesign the honest result is red on every push,
     # and the baselines cannot be refreshed until a run has produced the new
-    # images, so that red is unavoidable rather than actionable. It never blocked
-    # a merge (`continue-on-error`, and absent from `pr-required`), but a red check
-    # nobody can act on mid-iteration is friction whether or not it gates.
+    # images, so that red is unavoidable rather than actionable. Pixel drift is
+    # soft-failed at the comparison step (and classified) rather than with a
+    # job-level continue-on-error that would also hide setup failures; the job
+    # remains absent from `pr-required`. A red check nobody can act on
+    # mid-iteration is friction whether or not it gates.
     # `merge_group` is excluded for the same reason: queue runs are still
     # pre-merge UI churn, not a post-land refresh point.
     #
@@ -687,7 +660,8 @@ jobs:
     if: >
       needs.changes.outputs.ui_changed == 'true' &&
       contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name)
-    continue-on-error: true
+    # Deliberately NOT continue-on-error at the job: setup / artifact / non-drift
+    # failures must stay red. Only the pixel-comparison step soft-fails below.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -700,7 +674,28 @@ jobs:
         uses: ./.github/actions/setup-ui-e2e
 
       - name: Chromium visual baselines
+        id: visual-comparison
+        # Pixel drift is evidence, not an execution failure. Keeping this at the
+        # step (rather than only the job) prevents GitHub from publishing a red
+        # check for the expected stale-golden case demonstrated by PR #1743.
+        continue-on-error: true
         run: npm run test:e2e:visual
+
+      - name: Report visual differences
+        if: steps.visual-comparison.outcome == 'failure'
+        run: |
+          if ! node scripts/classify-visual-baseline-outcome.mjs; then
+            echo "::error title=Visual baseline non-drift failure::Visual comparison failed for a reason other than pixel drift (missing baseline, setup/runtime, or assertion). See the visual-baseline-${{ github.run_id }} artifact."
+            exit 1
+          fi
+          echo "::warning title=Visual baseline drift::Chromium pixels differ from the committed Linux baseline. Review the visual-baseline-${{ github.run_id }} artifact; this advisory comparison does not block merging."
+          {
+            echo "### Visual baseline drift detected"
+            echo
+            echo "The Chromium comparison found changed pixels. This is advisory: required interaction, accessibility, and style-contract checks remain separate."
+            echo
+            echo "Download \`visual-baseline-${{ github.run_id }}\` and review the expected, actual, and diff images before refreshing the Linux baseline."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # The actual/diff/expected PNGs live here. On a first run these are the images
       # to commit as the baseline; on a later run they are the evidence of what moved.
@@ -1100,7 +1095,19 @@ jobs:
   release-browser-matrix:
     if: >
       always() &&
-      (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) &&
+      (
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.refresh_lighthouse_baseline != 'true') ||
+        github.event_name == 'schedule' ||
+        startsWith(github.ref, 'refs/heads/release/') ||
+        (
+          github.ref == 'refs/heads/main' &&
+          (
+            needs.changes.outputs.ui_changed == 'true' ||
+            needs.changes.outputs.perf_changed == 'true' ||
+            needs.changes.outputs.lockfile_changed == 'true'
+          )
+        )
+      ) &&
       needs.changes.result == 'success' &&
       needs.static-pr.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
@@ -1117,19 +1124,6 @@ jobs:
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
-
-      - name: Restore Next.js build cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: .next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-${{ hashFiles('src/**', 'data/**', 'public/**', 'next.config.ts', 'tsconfig.json', 'postcss.config.mjs') }}
-          restore-keys: |
-            nextjs-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-
-
-      - name: Build
-        env:
-          NEXT_BUILD_CPUS: "4"
-        run: npm run build
 
       - name: Restore browser cache
         id: pw-cache
@@ -1153,7 +1147,15 @@ jobs:
 
       - name: Full browser UI matrix
         id: e2e-matrix
-        run: npm run test:e2e
+        run: |
+          if [ "${{ needs.changes.outputs.ui_changed }}" = "true" ] && [ "${{ needs.ui-critical.result }}" = "success" ]; then
+            # Production Chromium already passed in this run. Keep mockup
+            # Chromium plus the cross-browser backstop without repeating it.
+            npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit
+          else
+            # Fail-safe path for perf/lockfile-only or otherwise skipped UI proof.
+            npm run test:e2e
+          fi
 
       - name: Upload UI diagnostics
         if: failure()

@@ -21,6 +21,7 @@ import {
 import { DiagnosisTermChip, DiagnosisTermInlineList } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import { ContextualBackLink } from "@/components/contextual-back-link";
 import { cn } from "@/components/ui-primitives";
 import { isClinicalHingeLabel, resolveDiagnosisTermSegments } from "@/lib/differential-diagnosis-links";
 import {
@@ -741,25 +742,25 @@ export function DifferentialPresentationWorkflowPage({
       <div className="mx-auto grid w-full max-w-[94rem] gap-5 xl:grid-cols-[minmax(0,1fr)_23.5rem]">
         <div className="min-w-0">
           <div className="mb-4 hidden items-center gap-5 xl:flex">
-            <Link
-              href="/differentials"
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
+            <ContextualBackLink
+              fallbackHref="/differentials"
+              className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Back
-            </Link>
+            </ContextualBackLink>
             <div className="h-8 w-px bg-[color:var(--border)]" aria-hidden />
             <Breadcrumbs />
           </div>
 
           <div className="mb-4 grid gap-3 xl:hidden">
-            <Link
-              href="/differentials"
-              className="inline-flex min-h-10 w-fit items-center gap-2 rounded-lg text-sm font-bold text-[color:var(--clinical-accent)]"
+            <ContextualBackLink
+              fallbackHref="/differentials"
+              className="inline-flex min-h-12 w-fit items-center gap-2 rounded-lg text-sm font-bold text-[color:var(--clinical-accent)]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Back to differentials
-            </Link>
+            </ContextualBackLink>
             <Breadcrumbs />
           </div>
 
