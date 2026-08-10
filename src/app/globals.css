@@ -1741,13 +1741,6 @@ summary::-webkit-details-marker {
     box-shadow: none;
   }
 
-  /* Keep the raised-card treatment from UniversalSearchAlsoMatches on phones —
-     inset from the full-bleed workspace rather than flattening to a strip. */
-  .medication-also-matches {
-    margin-left: max(1rem, calc(var(--safe-area-left) + 0.25rem));
-    margin-right: max(1rem, calc(var(--safe-area-right) + 0.25rem));
-  }
-
   .medication-patient-strip > summary,
   .medication-patient-strip > div {
     padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
@@ -1799,7 +1792,6 @@ summary::-webkit-details-marker {
    then add only the safe-area remainder so text never sits beneath a notch. */
 @media (min-width: 640px) and (max-width: 1023px) {
   .medication-results-inset,
-  .medication-also-matches,
   .medication-filter-strip {
     padding-left: max(0px, calc(var(--safe-area-left) - 1rem));
     padding-right: max(0px, calc(var(--safe-area-right) - 1rem));

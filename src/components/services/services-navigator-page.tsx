@@ -42,7 +42,6 @@ import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "
 import { canCompareServices, serviceNavigatorMetrics } from "@/lib/service-navigator-metrics";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 
 const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
@@ -821,7 +820,6 @@ export function ServicesNavigatorPage() {
               />
             ))}
           </div>
-          <UniversalSearchAlsoMatches modeId="services" query={query} />
         </>
       )}
     </SearchResultsLayout>

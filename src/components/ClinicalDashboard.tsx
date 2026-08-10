@@ -88,7 +88,6 @@ import {
   resolveDashboardVisibleMobileComposerReserve,
   resolveMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
 import { focusComposerInput as scheduleComposerFocus } from "@/components/clinical-dashboard/focus-composer-input";
@@ -3027,17 +3026,6 @@ export function ClinicalDashboard({
     activeModeResultKind === "answer" &&
     answerProgressEvents.length > 0 &&
     (loading || (Boolean(answer) && answerProgressCompleted));
-  const universalAlsoMatchesQuery = activeModeResultKind === "answer" ? (latestAnswerQuery ?? query) : query;
-  // Answer-mode also-matches wait for a completed generation (`answer && !loading`)
-  // so the panel never sits under the drafting skeleton/stepper. Tools/Favourites
-  // still mount on submission. Follow-ups hide the panel while loading so stale
-  // matches for the prior query do not compete with the new Drafting stepper.
-  const showUniversalAlsoMatches =
-    (modeSearchSubmitted || activeModeResultKind === "tools" || activeModeResultKind === "favourites") &&
-    Boolean(universalAlsoMatchesQuery.trim()) &&
-    (activeModeResultKind === "tools" ||
-      activeModeResultKind === "favourites" ||
-      (activeModeResultKind === "answer" && Boolean(answer) && !loading));
   const showDesktopHomeComposer =
     !error &&
     (showSharedHome ||
@@ -3635,10 +3623,6 @@ export function ClinicalDashboard({
                     <SearchProgressBanner message={answerProgress} onStop={stopSearch} />
                   ) : null)}
 
-                {showUniversalAlsoMatches && activeModeResultKind === "tools" ? (
-                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
-                ) : null}
-
                 {showSharedHome ? (
                   // The one home surface, shared by all 13 modes. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
@@ -3798,10 +3782,6 @@ export function ClinicalDashboard({
                       />
                     </>
                   ) : null
-                ) : null}
-
-                {showUniversalAlsoMatches && activeModeResultKind === "answer" ? (
-                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
               </section>
 

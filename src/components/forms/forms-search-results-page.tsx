@@ -41,7 +41,6 @@ import { FormCodeBadge } from "@/components/forms/form-code-badge";
 import { Sheet } from "@/components/ui/sheet";
 import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
 import { useResultSort } from "@/components/use-result-sort";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 type FormsSearchResultsPageProps = {
   query: string;
@@ -891,7 +890,6 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 </div>
               </>
             )}
-            <UniversalSearchAlsoMatches modeId="forms" query={query} />
           </>
         ) : null}
         <div className="hidden lg:block">{supportsPathwayClaims ? <PathwayPanel /> : null}</div>
