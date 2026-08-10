@@ -167,4 +167,33 @@ describe("mode menu destination prefetch", () => {
       expect(trigger).toHaveFocus();
     });
   });
+
+  it("does not steal focus when the user moves elsewhere during same-mode restore", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <MasterSearchHeader {...headerProps()} />
+        <button type="button">Outside control</button>
+      </>,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Mode Answer/i });
+    await user.click(trigger);
+    const answerOption = within(await screen.findByRole("menu", { name: "Choose app mode" })).getByRole(
+      "menuitemradio",
+      { name: /Answer/i },
+    );
+    await user.click(answerOption);
+
+    const outside = screen.getByRole("button", { name: "Outside control" });
+    outside.focus();
+    await vi.waitFor(() => {
+      expect(outside).toHaveFocus();
+    });
+    // Deferred same-mode restore must honor restoreFocusUnlessMoved and leave
+    // deliberately moved focus alone.
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(outside).toHaveFocus();
+    expect(trigger).not.toHaveFocus();
+  });
 });
