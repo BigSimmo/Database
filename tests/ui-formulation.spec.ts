@@ -226,8 +226,14 @@ test("moves a selected mechanism through framework, quality review, and an edita
 
   await draft.fill("Stale edited draft");
   await page.getByRole("button", { name: /Select\s+Mechanisms/ }).click();
+  await expect(page.getByTestId("formulation-builder-select")).toBeVisible();
   await page.getByRole("button", { name: "Clear" }).click();
+  // Clear unmounts the selected-hypotheses strip; wait for that layout settle
+  // before the step-rail click so it is not lost to a mid-reflow miss
+  // (Production UI shard flake on PR #1791).
+  await expect(page.getByRole("heading", { name: "No mechanisms selected" })).toBeVisible();
   await page.getByRole("button", { name: /Draft\s+Formulation/ }).click();
+  await expect(page.getByTestId("formulation-builder-draft")).toBeVisible();
   await expect(draft).not.toHaveValue("Stale edited draft");
   await expect(draft).toHaveValue(/Select mechanisms and add case evidence/);
   await expectNoHorizontalOverflow(page);
