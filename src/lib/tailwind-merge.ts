@@ -17,7 +17,7 @@ import { extendTailwindMerge } from "tailwind-merge";
  *     "text colour" for any `text-<x>` it does not recognise as a font size. Its
  *     built-in font-size scale is t-shirt-shaped, so `text-2xs` / `text-3xs`
  *     happen to survive, but `text-sm-minus`, `text-base-minus`, `text-lg-minus`,
- *     `text-2xl-minus`, `text-2xl-compact`, `text-3xl-minus` and `text-hero` do
+ *     `text-2xl-minus`, `text-3xl-minus` and `text-hero` do
  *     not — each was measured being **deleted** when it met the sibling
  *     `text-[color:var(--text-muted)]` in the same `cn()` call. `eyebrowText` is
  *     exactly that pair. Declaring the scale under `theme.text` moves them into
@@ -47,7 +47,7 @@ export const CLINICAL_TWMERGE_THEME = {
   // globals.css @theme --text-* — size-only steps (no baked leading/tracking).
   // `3xs`/`2xs` already resolve as t-shirt sizes; listed so the scale reads
   // whole and stays correct if that heuristic ever narrows.
-  text: ["3xs", "2xs", "sm-minus", "base-minus", "lg-minus", "2xl-minus", "2xl-compact", "3xl-minus", "hero"],
+  text: ["3xs", "2xs", "sm-minus", "base-minus", "lg-minus", "2xl-minus", "3xl-minus", "hero"],
 
   // globals.css @theme --leading-* — the two steps Tailwind's scale cannot
   // express. Tailwind still owns tight/snug/normal/relaxed.
