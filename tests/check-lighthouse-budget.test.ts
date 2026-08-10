@@ -415,6 +415,15 @@ describe("committed lighthouse-budget.json", () => {
     expect(committed.routes.filter((route) => route.includes("?"))).toEqual([]);
   });
 
+  it("writes an isolated tsconfig that silences TS5101 baseUrl deprecation", () => {
+    const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
+
+    // Same Next 16.3 + TS 6 TS5101 trap as the Playwright runner (#1798).
+    expect(runner).toContain('ignoreDeprecations: "6.0"');
+    expect(runner).toContain('baseUrl: "../.."');
+    expect(runner).toContain('paths: { "@/*": ["src/*"] }');
+  });
+
   it("invokes npm's JavaScript npx CLI through Node when available", () => {
     const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
 

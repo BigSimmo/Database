@@ -733,6 +733,11 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain('["--max-old-space-size=8192", nextBin, "build", "--webpack"]');
     expect(runner).toContain('[nextBin, "start", "--hostname"');
     expect(runner).not.toContain('[nextBin, "dev", "--hostname"');
+    // Next 16.3 typechecks the run-root tsconfig; TS 6 deprecates baseUrl (TS5101).
+    // Keep baseUrl + src-relative paths and silence via ignoreDeprecations (#1798).
+    expect(runner).toContain('ignoreDeprecations: "6.0"');
+    expect(runner).toContain('baseUrl: "../.."');
+    expect(runner).toContain('paths: { "@/*": ["src/*"] }');
     expect(runner).toContain('NODE_ENV: "production"');
     expect(runner).toContain('PLAYWRIGHT_OFFLINE_MODE: "true"');
     expect(runner).toContain('NEXT_PUBLIC_MOCKUPS_ENABLED: mockupProjectRequested ? "true" : "false"');
