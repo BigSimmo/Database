@@ -431,16 +431,16 @@ describe("design-system contract helpers", () => {
   it("reports direct var(--text-*) consumers for the shared unused-step predicate", () => {
     expect(
       findTypeStepCssUsagesInSource(
-        '.a{font-size:var(--text-2xl-compact)}.b{font-size:var(--text-hero, 2rem)}.c{--text-sm-minus:1rem;content:"var(--text-sm-minus)"}',
+        '.a{font-size:var(--text-2xl-minus)}.b{font-size:var(--text-hero, 2rem)}.c{--text-sm-minus:1rem;content:"var(--text-sm-minus)"}',
         "src/probe.css",
       ),
-    ).toEqual(["2xl-compact", "hero"]);
+    ).toEqual(["2xl-minus", "hero"]);
     expect(
       findTypeStepCssUsagesInSource(
-        'const style = { fontSize: "var(--text-2xl-compact)" };\n// var(--text-hero)\n',
+        'const style = { fontSize: "var(--text-2xl-minus)" };\n// var(--text-hero)\n',
         "src/probe.tsx",
       ),
-    ).toEqual(["2xl-compact"]);
+    ).toEqual(["2xl-minus"]);
   });
 
   it("rejects debt moved to a new path even when its global total is unchanged", () => {
