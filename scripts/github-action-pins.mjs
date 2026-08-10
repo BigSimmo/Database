@@ -21,6 +21,11 @@ const reviewedActionPins = new Map([
       ["af0559ee4f514d1ef21826982bed13f7edc3c35e", "v1.0.178"],
       ["b76a0776ae74036e77cd11018083743453d7ad35", "v1.0.179"],
       ["be7b93b1907a4abad570368f3c74b6fe3807510b", "v1.0.183"],
+      // Reviewed 2026-08-10 for PR #1794: annotated tag v1.0.187 peels to this
+      // commit; release notes cover credential-pattern redaction in published
+      // run output, config-snapshot scoping to the working tree, and checkout
+      // auth cleanup when API commit signing is enabled.
+      ["1623c36729ac1cd5895198cded705a287de7db79", "v1.0.187"],
     ]),
   ],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
