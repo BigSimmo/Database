@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { ContextualBackLink } from "@/components/contextual-back-link";
 import { pageContainer } from "@/components/ui-primitives";
 
 import { useTcBindings } from "../bindings";
@@ -34,14 +35,13 @@ export function DetailScreen() {
 
   return (
     <section data-screen-label="Detail" className={pageContainer}>
-      <button
-        type="button"
-        className={`${therapyBtn} flex items-center gap-2 mb-4 py-1.5 px-1 border-0 bg-transparent text-[color:var(--clinical-accent)] text-sm font-semibold cursor-pointer`}
-        onClick={b.goSearch}
+      <ContextualBackLink
+        fallbackHref="/therapy-compass/search"
+        className={`${therapyBtn} flex min-h-12 items-center gap-2 mb-4 py-1.5 px-1 border-0 bg-transparent text-[color:var(--clinical-accent)] text-sm font-semibold cursor-pointer`}
       >
         <ArrowLeftIcon size={18} />
         Back to results
-      </button>
+      </ContextualBackLink>
 
       <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,_1fr)_344px] gap-[22px] items-start">
         <div className="flex flex-col gap-4 min-w-0">

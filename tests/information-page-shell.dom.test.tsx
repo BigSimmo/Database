@@ -1,8 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
 import { isInformationPage } from "@/lib/information-pages";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
+}));
 
 describe("isInformationPage", () => {
   it("recognises catalogue detail routes per mode", () => {

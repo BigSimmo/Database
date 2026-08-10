@@ -1,11 +1,11 @@
 "use client";
 
 import { ArrowLeft, ChevronDown, Ellipsis, type LucideIcon } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
 
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
+import { ContextualBackLink } from "@/components/contextual-back-link";
 import { DocumentSectionList, DocumentSectionTrack } from "@/components/document-viewer/section-nav";
 import { InPageSectionRail } from "@/components/in-page-nav/in-page-section-rail";
 import { toDocumentSections, type PageSection } from "@/components/in-page-nav/page-section-index";
@@ -233,8 +233,8 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
           <div
             className={cn(containerClassName ?? pageContainer, "flex min-h-12 min-w-0 flex-wrap items-center gap-2")}
           >
-            <Link
-              href={back.href}
+            <ContextualBackLink
+              fallbackHref={back.href}
               aria-label={`Back to ${back.label.toLowerCase()}`}
               title={showBackLabel ? undefined : back.label}
               className={cn(
@@ -248,7 +248,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
             >
               <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
               {showBackLabel ? <span className="hidden sm:inline">{back.label}</span> : null}
-            </Link>
+            </ContextualBackLink>
             {rail ? (
               // With a rail, every section is already named in the row below, so
               // from `sm` — where the whole rail fits — the disclosure would open
