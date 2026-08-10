@@ -185,11 +185,6 @@ function SmartRotatingHint({
   const activeExample = examples[activeExampleIndex % examples.length];
 
   useEffect(() => {
-    if (isTickerHeld) return;
-    setHeldTickerExample(activeExample);
-  }, [activeExample, isTickerHeld]);
-
-  useEffect(() => {
     if (isTickerHeld) {
       return;
     }
@@ -210,7 +205,7 @@ function SmartRotatingHint({
     setIsTickerHeld(false);
   }, []);
 
-  const resolvedTickerExample = heldTickerExample ?? activeExample;
+  const resolvedTickerExample = isTickerHeld ? (heldTickerExample ?? activeExample) : activeExample;
 
   if (!activeExample) return null;
 
