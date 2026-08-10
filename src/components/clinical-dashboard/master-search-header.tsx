@@ -1819,7 +1819,7 @@ export function MasterSearchHeader({
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
-          showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome && !isDesktopHomeComposer}
+          showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
