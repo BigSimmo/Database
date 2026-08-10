@@ -23,6 +23,7 @@ matches_staged() {
 sync_sitemap=0
 sync_inventory=0
 check_module_map=0
+sync_design_system_adoption=0
 
 if matches_staged '^(src/app/|mockups/|src/lib/(app-modes|document-flow-routes|differentials|dsm|formulation|forms|services|specifiers|therapies)\.ts$|scripts/generate-site-map\.ts$|docs/site-map\.md$)'; then
   sync_sitemap=1
@@ -33,7 +34,13 @@ fi
 if matches_staged '^(src/app/|src/lib/|supabase/schema\.sql$|docs/codebase-index\.md$)'; then
   check_module_map=1
 fi
-if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ]; then
+# Adoption proof indexes every tests/ + src/components|/src/app import edge.
+# Stale docs/design-system/adoption-manifest.json fails both static-pr and unit
+# coverage (seen on PR #1782 after a DocumentViewer DOM-test change).
+if matches_staged '^(src/app/|src/components/|tests/|docs/design-system/(adoption-contract|adoption-manifest)\.json$|docs/design-system/(ADOPTION|COMPONENTS)\.md$|scripts/generate-design-system-adoption\.mjs$|\.design-sync/)'; then
+  sync_design_system_adoption=1
+fi
+if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ] && [ "$sync_design_system_adoption" = "0" ]; then
   exit 0
 fi
 
@@ -51,6 +58,10 @@ if [ "$check_module_map" = "1" ]; then
   module_inputs=$(printf '%s\n' "$working_files" | grep -E '^(src/app/|src/lib/|supabase/schema\.sql$)' || true)
   mixed_inputs=$(printf '%s\n%s\n' "$mixed_inputs" "$module_inputs" | sed '/^$/d' | sort -u)
 fi
+if [ "$sync_design_system_adoption" = "1" ]; then
+  adoption_inputs=$(printf '%s\n' "$working_files" | grep -E '^(src/app/|src/components/|tests/|docs/design-system/(adoption-contract|adoption-manifest)\.json$|docs/design-system/(ADOPTION|COMPONENTS)\.md$|scripts/generate-design-system-adoption\.mjs$|\.design-sync/)' || true)
+  mixed_inputs=$(printf '%s\n%s\n' "$mixed_inputs" "$adoption_inputs" | sed '/^$/d' | sort -u)
+fi
 if [ -n "$mixed_inputs" ]; then
   echo "[pre-commit] Documentation inputs have unstaged or untracked changes:" >&2
   printf '%s\n' "$mixed_inputs" >&2
@@ -67,6 +78,9 @@ if [ "$sync_inventory" = "1" ]; then
 fi
 if [ "$check_module_map" = "1" ]; then
   docs_to_check="$docs_to_check docs/codebase-index.md"
+fi
+if [ "$sync_design_system_adoption" = "1" ]; then
+  docs_to_check="$docs_to_check docs/design-system/adoption-manifest.json docs/design-system/COMPONENTS.md docs/design-system/ADOPTION.md"
 fi
 
 # Generators rewrite whole files. Refuse before running them when a selected
@@ -108,7 +122,7 @@ fi
 
 # Re-check after dropping a task: an empty docs_to_check would make the trailing
 # unstaged-docs diff match every modified file in the tree.
-if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ]; then
+if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ] && [ "$sync_design_system_adoption" = "0" ]; then
   exit 0
 fi
 
@@ -122,6 +136,22 @@ if [ "$sync_inventory" = "1" ]; then
 fi
 if [ "$check_module_map" = "1" ]; then
   npm run docs:check-index
+fi
+if [ "$sync_design_system_adoption" = "1" ]; then
+  if [ ! -f scripts/generate-design-system-adoption.mjs ]; then
+    if git cat-file -e "HEAD:scripts/generate-design-system-adoption.mjs" 2>/dev/null; then
+      echo "[pre-commit] scripts/generate-design-system-adoption.mjs was removed or renamed by the pending commit; refusing to skip adoption synchronization." >&2
+      exit 1
+    fi
+    echo "[pre-commit] scripts/generate-design-system-adoption.mjs is absent from this worktree - skipping adoption sync." >&2
+    sync_design_system_adoption=0
+    docs_to_check=$(printf '%s\n' $docs_to_check | grep -Ev '^docs/design-system/(adoption-manifest\.json|COMPONENTS\.md|ADOPTION\.md)$' || true)
+    if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ] && [ "$sync_design_system_adoption" = "0" ]; then
+      exit 0
+    fi
+  else
+    npm run design-system:adoption:update
+  fi
 fi
 
 unstaged_docs=$(git diff --name-only -- $docs_to_check)

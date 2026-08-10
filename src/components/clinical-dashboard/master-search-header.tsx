@@ -37,6 +37,7 @@ import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { SearchPinsMenu } from "@/components/clinical-dashboard/search-pins-menu";
@@ -189,6 +190,7 @@ export function MasterSearchHeader({
   onPickComposerFollowUpSuggestion,
   composerFollowUpSuggestionsDisabled = false,
   headerVariant = "default",
+  sharedHomeIdentity = false,
   mobileSearchPlacement = "default",
   mobileBottomSearchVariant = "default",
   desktopSearchPlacement = "default",
@@ -241,6 +243,8 @@ export function MasterSearchHeader({
   onPickComposerFollowUpSuggestion?: (suggestion: string) => void;
   composerFollowUpSuggestionsDisabled?: boolean;
   headerVariant?: "default" | "workflow";
+  /** Keep the product identity stable while `/` retargets between modes. */
+  sharedHomeIdentity?: boolean;
   mobileSearchPlacement?: "default" | "bottom";
   /** "compact" drops the phone footer chip row and hugs the bottom edge so
    *  content keeps maximum screen space. Every phone dock uses it now; the
@@ -486,6 +490,7 @@ export function MasterSearchHeader({
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const pendingModeSelectionFocusRef = useRef<AppModeId | null>(null);
   const prefetchedModeHrefsRef = useRef(new Set<string>());
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -501,6 +506,29 @@ export function MasterSearchHeader({
         .filter((document): document is ClinicalDocument => Boolean(document)),
     [documentById, selectedDocumentIds],
   );
+
+  useEffect(() => {
+    const pendingMode = pendingModeSelectionFocusRef.current;
+    if (modeMenuOpen || pendingMode === null || pendingMode !== searchMode) return undefined;
+
+    let settledFrame: number | null = null;
+    const frame = window.requestAnimationFrame(() => {
+      settledFrame = window.requestAnimationFrame(() => {
+        if (pendingModeSelectionFocusRef.current !== searchMode) return;
+        // Phone Sheet may still mount #app-mode-menu during exit animation.
+        // Leave pending armed so a later searchMode tick (or same-mode retry)
+        // can finish restore instead of giving up on a no-op.
+        if (document.getElementById("app-mode-menu")) return;
+        restoreFocusUnlessMoved(modeButtonRef.current);
+        pendingModeSelectionFocusRef.current = null;
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (settledFrame !== null) window.cancelAnimationFrame(settledFrame);
+    };
+  }, [modeMenuOpen, searchMode]);
   const scopeSummary = selectedDocumentIds.length === 0 ? "All documents" : `${selectedDocumentIds.length} scoped`;
   const scopePreview = useMemo(
     () =>
@@ -822,6 +850,33 @@ export function MasterSearchHeader({
   function selectAppMode(mode: (typeof appModeDefinitions)[number]) {
     setModeMenuOpen(false);
     if (isSearchableAppMode(mode.id)) {
+      // Wait until the URL-owned mode prop settles before returning focus. The
+      // trigger's accessible name changes with that prop; focusing in the click
+      // frame races the shared-home URL sync and can fall through to <body>.
+      //
+      // Same-mode reselect is different: shared-home replaceState keeps an
+      // identical URL, so searchMode never changes and the pending-focus effect
+      // gets only the menu-close tick — which can race phone Sheet teardown.
+      if (mode.id === searchMode) {
+        pendingModeSelectionFocusRef.current = mode.id;
+        onSearchModeChange(mode.id);
+        const restoreSameModeFocus = () => {
+          if (pendingModeSelectionFocusRef.current !== mode.id) return;
+          if (document.getElementById("app-mode-menu")) {
+            window.setTimeout(restoreSameModeFocus, 50);
+            return;
+          }
+          if (!restoreFocusUnlessMoved(modeButtonRef.current)) {
+            modeButtonRef.current?.focus({ preventScroll: true });
+          }
+          pendingModeSelectionFocusRef.current = null;
+        };
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(restoreSameModeFocus);
+        });
+        return;
+      }
+      pendingModeSelectionFocusRef.current = mode.id;
       onSearchModeChange(mode.id);
       return;
     }
@@ -993,10 +1048,7 @@ export function MasterSearchHeader({
           onFocus={() => prefetchModeDestination(mode.id)}
           onPointerEnter={() => prefetchModeDestination(mode.id)}
           onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
-          onClick={() => {
-            selectAppMode(mode);
-            window.requestAnimationFrame(() => modeButtonRef.current?.focus());
-          }}
+          onClick={() => selectAppMode(mode)}
           className={cn(
             "relative grid w-full items-center gap-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             usesPhoneSearchLayout
@@ -2063,7 +2115,19 @@ export function MasterSearchHeader({
           >
             <Menu aria-hidden="true" className="h-5 w-5" />
           </button>
-          {isServicesMode ? (
+          {sharedHomeIdentity ? (
+            <div data-testid="shared-home-brand" className="hidden min-w-0 items-center gap-3 lg:flex">
+              <BrandMark className="h-10 w-10" />
+              <span className="min-w-0">
+                <span className="block truncate text-lg font-extrabold leading-5 text-[color:var(--text-heading)]">
+                  Clinical KB
+                </span>
+                <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">
+                  Source-backed clinical search
+                </span>
+              </span>
+            </div>
+          ) : isServicesMode ? (
             <div className="hidden min-w-0 items-center gap-3 lg:flex">
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
                 <ShieldCheck className="h-5 w-5" aria-hidden />
@@ -2109,7 +2173,7 @@ export function MasterSearchHeader({
               "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               isWorkflowHeader
                 ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
-                : "h-12 w-[min(13rem,calc(100vw-11.5rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
+                : "h-12 w-[min(13rem,calc(100vw-9rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
             )}
             aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}
             aria-expanded={modeMenuOpen}

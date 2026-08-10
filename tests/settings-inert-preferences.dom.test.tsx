@@ -46,7 +46,7 @@ const FUNCTIONAL_ROWS = [
   "settings-row-appearance",
   "settings-row-interface-density",
   "settings-row-reduce-motion",
-  // Wired 2026-07-19: landing → shell mode redirect, recents → AnswerEmptyState
+  // Wired 2026-07-19: landing → shell mode redirect, recents → SharedHomeEmptyState
   // gate, compact citations → source-capsule label.
   "settings-row-default-landing-view",
   "settings-row-recent-searches-on-home",

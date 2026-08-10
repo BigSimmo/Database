@@ -559,30 +559,52 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("mode toggle retargets the shared home instead of opening a mode home", async ({ page }) => {
+  test("shared-home presentation updates in place when the mode changes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     // Asserts the collapsed rail affordance below; explicit for clarity even
     // though collapsed is now the default for new users too.
     await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoLauncher(page, "/?mode=answer");
 
+    const sharedHome = visibleByTestId(page, "shared-home-empty-state");
+    const searchInput = visibleGlobalSearchInput(page);
+    const sharedHomeBrand = page.getByTestId("shared-home-brand");
+    await expect(sharedHomeBrand).toBeVisible();
+    await expect(sharedHomeBrand).toContainText("Clinical KB");
+    await expect(sharedHomeBrand).toContainText("Source-backed clinical search");
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "What can I help with?" })).toBeVisible();
+    await expect(sharedHome.getByText("Ask a source-backed clinical question.", { exact: true })).toBeVisible();
+    await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-sparkles\b/);
+    await searchInput.fill("lithium draft");
+    const historyLengthBefore = await page.evaluate(() => window.history.length);
+
     const answerMenu = await openAppModeMenu(page, "Answer");
     const servicesMode = answerMenu.getByRole("menuitemradio", { name: /^Services\b/ });
     await waitForReactEventHandler(servicesMode);
     await servicesMode.click();
 
-    // `/` is the single home page: picking a mode stays put and only retargets
-    // the composer. It must NOT navigate to /services.
+    // `/` is the single home page: picking a mode stays put while its hero and
+    // composer retarget together. It must NOT navigate to /services.
     await expect(page).toHaveURL(/\/\?mode=services\b/, { timeout: 20_000 });
-    await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
-    await expect(visibleByTestId(page, "answer-empty-state")).toBeVisible();
+    const servicesModeButton = page.getByRole("button", { name: "Mode Services" });
+    await expect(servicesModeButton).toBeVisible();
+    await expect(servicesModeButton).toBeFocused();
+    await expect(sharedHome).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Find a service?" })).toBeVisible();
+    await expect(sharedHome.getByText("Search services and referral pathways.", { exact: true })).toBeVisible();
+    await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-route\b/);
+    await expect(sharedHomeBrand).toContainText("Clinical KB");
+    await expect(page.getByText("Services Navigator", { exact: true })).toHaveCount(0);
     await expect(page.getByTestId("services-home")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     await expect(page.getByTestId("collapsed-account-settings")).toBeVisible();
 
-    // One composer, and the placeholder is the only thing that tracks the mode.
-    await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
-    await expect(visibleGlobalSearchInput(page)).toHaveAttribute("placeholder", "Search services...");
+    // One composer stays mounted with its draft while every visible mode cue
+    // updates from the same URL-owned searchMode.
+    await expect(searchInput).toHaveCount(1);
+    await expect(searchInput).toHaveAttribute("placeholder", "Search services...");
+    await expect(searchInput).toHaveValue("lithium draft");
+    expect(await page.evaluate(() => window.history.length)).toBe(historyLengthBefore);
 
     const servicesMenu = await openAppModeMenu(page, "Services");
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Answer\b/ })).toBeVisible();
@@ -596,10 +618,16 @@ test.describe("Clinical KB tools launcher", () => {
     await waitForReactEventHandler(formsMode);
     await formsMode.click();
     await expect(page).toHaveURL(/\/\?mode=forms\b/, { timeout: 20_000 });
-    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(visibleByTestId(page, "answer-empty-state")).toBeVisible();
+    const formsModeButton = page.getByRole("button", { name: "Mode Forms" });
+    await expect(formsModeButton).toBeVisible();
+    await expect(formsModeButton).toBeFocused();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Find a form?" })).toBeVisible();
+    await expect(sharedHome.getByText("Search clinical forms and pathways.", { exact: true })).toBeVisible();
+    await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-file-pen-line\b/);
     await expect(page.getByTestId("forms-home")).toHaveCount(0);
-    await expect(visibleGlobalSearchInput(page)).toHaveAttribute("placeholder", "Search forms...");
+    await expect(searchInput).toHaveAttribute("placeholder", "Search forms...");
+    await expect(searchInput).toHaveValue("lithium draft");
+    expect(await page.evaluate(() => window.history.length)).toBe(historyLengthBefore);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -626,6 +654,8 @@ test.describe("Clinical KB tools launcher", () => {
 
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
+    await expect(page.getByText("Services Navigator", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("shared-home-brand")).toHaveCount(0);
     await expect(page.getByTestId("service-search-results")).toBeVisible();
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
@@ -655,48 +685,157 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page).toHaveURL(/\/\?mode=services\b/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
-    await expect(visibleByTestId(page, "answer-empty-state")).toBeVisible();
+    await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
     await expect(page.getByTestId("services-home")).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("");
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("phone keeps the answer home search centered in the hero with the privacy notice", async ({ page }) => {
+  test("phone shared-home presentation stays accessible and centered after a mode change", async ({ page }) => {
     await mockAnswerDashboardApi(page);
-    await page.setViewportSize({ width: 390, height: 820 });
+    await page.setViewportSize({ width: 390, height: 844 });
 
     await gotoLauncher(page, "/?mode=answer");
-    await expect(page.getByTestId("answer-empty-state")).toBeVisible();
+    const sharedHome = page.getByTestId("shared-home-empty-state");
+    await expect(sharedHome).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
 
-    const heroSearch = page.getByTestId("answer-empty-state").getByTestId("global-search-input");
-    await expect(heroSearch).toBeVisible();
+    const answerMenu = await openAppModeMenu(page, "Answer");
+    const specifiersMode = answerMenu.getByRole("menuitemradio", { name: /^Specifiers\b/ });
+    await waitForReactEventHandler(specifiersMode);
+    await specifiersMode.focus();
+    await specifiersMode.press("Enter");
 
-    const searchBox = await heroSearch.boundingBox();
-    const headingBox = await page.getByRole("heading", { level: 2, name: "How can I help?" }).boundingBox();
-    const mainBox = await page.locator("#main-content").boundingBox();
-    expect(searchBox).not.toBeNull();
-    expect(headingBox).not.toBeNull();
-    expect(mainBox).not.toBeNull();
-    expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-    // The home centres its hero+search block in the scrollable main pane on
-    // phones (below the sticky header), not necessarily the full viewport.
-    const searchMidpoint = (searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2;
-    const mainTop = mainBox?.y ?? 0;
-    const mainHeight = mainBox?.height ?? 820;
-    expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
-    expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.08);
-    const metrics = await globalSearchComposerMetrics(page, "answer-empty-state");
-    expect(metrics).not.toBeNull();
-    expect(metrics?.position).not.toBe("fixed");
-    expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390 - 16);
-    expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
-    expect(metrics?.homeCenterX).not.toBeNull();
-    expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
+    await expect(page).toHaveURL(/\/\?mode=specifiers\b/, { timeout: 20_000 });
+    const specifiersModeButton = page.getByRole("button", { name: "Mode Specifiers" });
+    await expect(specifiersModeButton).toBeVisible();
+    await expect(specifiersModeButton).toBeFocused();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Which specifier fits?" })).toBeVisible();
+    await expect(
+      sharedHome.getByText("Refine diagnostic wording and episode patterns.", { exact: true }),
+    ).toBeVisible();
+    await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-tags\b/);
+
+    const heroSearch = sharedHome.getByTestId("global-search-input");
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+    await expect(heroSearch).toBeVisible();
+    await expect(heroSearch).toHaveAttribute("placeholder", "Describe the presentation or search a specifier...");
+    await expect(page.getByTestId("specifiers-home")).toHaveCount(0);
+
+    const expectSoundPhoneGeometry = async () => {
+      const searchBox = await heroSearch.boundingBox();
+      const headingBox = await page.getByRole("heading", { level: 2, name: "Which specifier fits?" }).boundingBox();
+      const mainBox = await page.locator("#main-content").boundingBox();
+      expect(searchBox).not.toBeNull();
+      expect(headingBox).not.toBeNull();
+      expect(mainBox).not.toBeNull();
+      expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
+      // The home centres its hero+search block in the scrollable main pane on
+      // phones (below the sticky header), not necessarily the full viewport.
+      const searchMidpoint = (searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2;
+      const mainTop = mainBox?.y ?? 0;
+      const mainHeight = mainBox?.height ?? 844;
+      expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
+      expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.08);
+      const metrics = await globalSearchComposerMetrics(page, "shared-home-empty-state");
+      expect(metrics).not.toBeNull();
+      expect(metrics?.position).not.toBe("fixed");
+      expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390 - 16);
+      expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
+      expect(metrics?.homeCenterX).not.toBeNull();
+      expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
+      await expectNoPageHorizontalOverflow(page);
+    };
+
+    await expectSoundPhoneGeometry();
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "none" });
+    await expectSoundPhoneGeometry();
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "active" });
+    await expectSoundPhoneGeometry();
     await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
     // The home hero is the only phone surface with the APP-5 privacy notice.
     await expect(page.getByTestId("answer-composer-privacy-warning")).toBeVisible();
+  });
+
+  test("320px shared-home presentation wraps the longest mode copy without overflow", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
+    await page.setViewportSize({ width: 320, height: 720 });
+
+    await gotoLauncher(page, "/?mode=answer");
+    const sharedHome = page.getByTestId("shared-home-empty-state");
+    const historyLengthBefore = await page.evaluate(() => window.history.length);
+    await expect(sharedHome).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
+
+    const answerMenu = await openAppModeMenu(page, "Answer");
+    const specifiersMode = answerMenu.getByRole("menuitemradio", { name: /^Specifiers\b/ });
+    await waitForReactEventHandler(specifiersMode);
+    await specifiersMode.focus();
+    await specifiersMode.press("Enter");
+
+    await expect(page).toHaveURL(/\/\?mode=specifiers\b/, { timeout: 20_000 });
+    const specifiersModeButton = page.getByRole("button", { name: "Mode Specifiers" });
+    await expect(specifiersModeButton).toBeFocused();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Which specifier fits?" })).toBeVisible();
+    await expect(
+      sharedHome.getByText("Refine diagnostic wording and episode patterns.", { exact: true }),
+    ).toBeVisible();
+    await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-tags\b/);
+    await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
+      "placeholder",
+      "Describe the presentation or search a specifier...",
+    );
+    await expect(page.getByTestId("specifiers-home")).toHaveCount(0);
+
+    const specifiersHeadingBox = await sharedHome
+      .getByRole("heading", { level: 2, name: "Which specifier fits?" })
+      .boundingBox();
+    expect(specifiersHeadingBox).not.toBeNull();
+    expect((specifiersHeadingBox?.x ?? 0) + (specifiersHeadingBox?.width ?? 0)).toBeLessThanOrEqual(320);
+    let metrics = await globalSearchComposerMetrics(page, "shared-home-empty-state");
+    expect(metrics).not.toBeNull();
+    expect(metrics?.position).not.toBe("fixed");
+    expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(320 - 16);
+    const specifiersComposerTop = metrics?.formTop ?? 0;
+    await expectNoPageHorizontalOverflow(page);
+
+    const specifiersMenu = await openAppModeMenu(page, "Specifiers");
+    const formulationMode = specifiersMenu.getByRole("menuitemradio", { name: /^Formulation\b/ });
+    await waitForReactEventHandler(formulationMode);
+    await formulationMode.focus();
+    await formulationMode.press("Enter");
+
+    await expect(page).toHaveURL(/\/\?mode=formulation\b/, { timeout: 20_000 });
+    const formulationModeButton = page.getByRole("button", { name: "Mode Formulation" });
+    await expect(formulationModeButton).toBeFocused();
+    const formulationModeLabel = formulationModeButton.getByText("Formulation", { exact: true });
+    await expect(formulationModeLabel).toBeVisible();
+    expect(
+      await formulationModeLabel.evaluate((label) => label.scrollWidth <= label.clientWidth),
+      "the full 320px mode label should fit without visual truncation",
+    ).toBe(true);
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "What explains the pattern?" })).toBeVisible();
+    await expect(sharedHome.getByText("Explore mechanisms behind the presentation.", { exact: true })).toBeVisible();
+    await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-network\b/);
+    await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
+      "placeholder",
+      "Describe a pattern or clinical clue...",
+    );
+    await expect(page.getByTestId("formulation-home")).toHaveCount(0);
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+    expect(await page.evaluate(() => window.history.length)).toBe(historyLengthBefore);
+
+    const formulationHeadingBox = await sharedHome
+      .getByRole("heading", { level: 2, name: "What explains the pattern?" })
+      .boundingBox();
+    expect(formulationHeadingBox).not.toBeNull();
+    expect((formulationHeadingBox?.x ?? 0) + (formulationHeadingBox?.width ?? 0)).toBeLessThanOrEqual(320);
+    metrics = await globalSearchComposerMetrics(page, "shared-home-empty-state");
+    expect(metrics).not.toBeNull();
+    expect(metrics?.position).not.toBe("fixed");
+    expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(320 - 16);
+    expect(Math.abs((metrics?.formTop ?? 0) - specifiersComposerTop)).toBeLessThanOrEqual(1);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -762,7 +901,7 @@ test.describe("Clinical KB tools launcher", () => {
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
     for (const home of [
-      { path: "/?mode=answer", testId: "answer-empty-state" },
+      { path: "/?mode=answer", testId: "shared-home-empty-state" },
       { path: "/services", testId: "services-home" },
     ] as const) {
       test(`mode home search composer is present at ${viewport.name} width on ${home.path} @critical`, async ({
@@ -808,7 +947,7 @@ test.describe("Clinical KB tools launcher", () => {
   });
 
   for (const home of [
-    { path: "/?mode=answer", testId: "answer-empty-state", heroTestId: "answer-empty-state" },
+    { path: "/?mode=answer", testId: "shared-home-empty-state", heroTestId: "shared-home-empty-state" },
     { path: "/documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
     { path: "/medications", testId: "medication-home", heroTestId: "medication-home" },
     { path: "/tools", testId: "tools-home", heroTestId: "tools-home" },
@@ -928,7 +1067,12 @@ test.describe("Clinical KB tools launcher", () => {
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
     for (const home of [
-      { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
+      {
+        path: "/?mode=answer",
+        testId: "shared-home-empty-state",
+        heading: "What can I help with?",
+        headingLevel: 2,
+      },
       { path: "/documents", testId: "document-search-empty-state", heading: "Documents", headingLevel: 2 },
       {
         path: "/medications",
@@ -1466,19 +1610,19 @@ test.describe("Clinical KB tools launcher", () => {
     await menu.getByRole("menuitemradio", { name: /^Forms\b/ }).click();
 
     // Picking a mode must not move the page or the composer: the hero stays put
-    // and only the placeholder changes. A geometry shift here is the reserve flip
-    // the pathname-gated hero rule exists to prevent.
+    // while its presentation and placeholder update in place. A geometry shift
+    // here is the reserve flip the pathname-gated hero rule exists to prevent.
     await expect(page).toHaveURL(/\/\?mode=forms\b/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(visibleByTestId(page, "answer-empty-state")).toBeVisible();
+    await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
     await expect(page.getByTestId("forms-home")).toHaveCount(0);
     await expect(page.getByTestId("services-home")).toHaveCount(0);
 
-    const heroSearch = visibleByTestId(page, "answer-empty-state").getByTestId("global-search-input");
+    const heroSearch = visibleByTestId(page, "shared-home-empty-state").getByTestId("global-search-input");
     await expect(heroSearch).toBeVisible();
     await expect(heroSearch).toHaveAttribute("placeholder", "Search forms...");
     const searchBox = await heroSearch.boundingBox();
-    const headingBox = await page.getByRole("heading", { level: 2, name: "How can I help?" }).boundingBox();
+    const headingBox = await page.getByRole("heading", { level: 2, name: "Find a form?" }).boundingBox();
     expect(searchBox).not.toBeNull();
     expect(headingBox).not.toBeNull();
     expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);

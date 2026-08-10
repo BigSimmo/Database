@@ -40,6 +40,74 @@ export function summarise(text: string | null, sentences = 1): string {
   return parts.slice(0, sentences).join(" ").trim();
 }
 
+/**
+ * True when a sentence is only a therapy-name restatement, or starts with that
+ * name before a word boundary (alias suffixes like `(CT)` / `, DT`, or prose
+ * such as "Behavioural activation is…"). Prefix-sharing words without a
+ * boundary ("Behavioural activationism") stay.
+ */
+function isExcludedTitleSentence(part: string, exclude: string): boolean {
+  if (!exclude) return false;
+  const normalized = part.toLowerCase().replace(/[.]+$/, "").trim();
+  if (!normalized) return false;
+  if (normalized === exclude) return true;
+  const escaped = exclude.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${escaped}\\b`).test(normalized);
+}
+
+/**
+ * Compact card copy: skip a leading sentence that merely restates the therapy
+ * name (common in clinicalSummary), then return up to `maxSentences` of the
+ * remainder. Empty when nothing useful remains.
+ */
+export function cardPreviewText(
+  text: string | null | undefined,
+  options: { exclude?: string | null; maxSentences?: number } = {},
+): string {
+  if (!text) return "";
+  const maxSentences = options.maxSentences ?? 1;
+  const exclude = (options.exclude ?? "").trim().toLowerCase().replace(/[.]+$/, "");
+  const parts = text
+    .split(/(?<=\.)\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const useful = parts.filter((part) => !isExcludedTitleSentence(part, exclude));
+
+  return useful.slice(0, maxSentences).join(" ").trim();
+}
+
+/**
+ * Surface filter/query-relevant tags first so a one-row TagRow shows what
+ * matched the search rather than the catalogue's domain prefix.
+ */
+export function prioritiseTherapyTags(
+  tags: string[],
+  options: { query?: string; activeTags?: string[] } = {},
+): string[] {
+  if (!tags.length) return tags;
+  const active = new Set((options.activeTags ?? []).map((tag) => tag.toLowerCase()));
+  const tokens = (options.query ?? "")
+    .toLowerCase()
+    .split(/[^a-z0-9/+-]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+
+  const rank = (tag: string) => {
+    const lower = tag.toLowerCase();
+    if (active.has(lower)) return 0;
+    if (tokens.some((token) => lower === token || lower.includes(token) || token.includes(lower))) {
+      return 1;
+    }
+    return 2;
+  };
+
+  return tags
+    .map((tag, index) => ({ tag, index, rank: rank(tag) }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((entry) => entry.tag);
+}
+
 export function reviewStatusMeta(status: string): { label: string; tone: "warning" | "success" | "neutral" } {
   if (status === "reviewed") return { label: "Reviewed", tone: "success" };
   if (status === "needs_review") return { label: "Needs source review", tone: "warning" };
