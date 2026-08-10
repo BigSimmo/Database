@@ -195,6 +195,7 @@ export function MasterSearchHeader({
   mobileBottomSearchVariant = "default",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
+  showPhoneSuggestionTickerOnHome = false,
   desktopHomeComposerSlotId,
   desktopPageComposerSlotId,
   heroComposerBreakpoint = "all",
@@ -250,6 +251,8 @@ export function MasterSearchHeader({
    *  content keeps maximum screen space. Every phone dock uses it now; the
    *  "default" value remains for hosts that need the taller legacy dock. */
   mobileBottomSearchVariant?: "default" | "compact";
+  /** Show the compact phone suggestion ticker only for standalone-mode homes. */
+  showPhoneSuggestionTickerOnHome?: boolean;
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
   /** Mode-home slot the composer portals into so the search pill sits in the
@@ -1816,7 +1819,7 @@ export function MasterSearchHeader({
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
-          showPhoneSuggestionTicker={!isDesktopHomeComposer}
+          showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome && !isDesktopHomeComposer}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
