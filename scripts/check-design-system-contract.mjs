@@ -141,10 +141,13 @@ const recordDebt = (metric, relativePath, count) => {
  * change rather than riding along with a gate. Anything listed here is recorded
  * debt with a ledger row, not a permanent licence — an entry should leave this
  * list by being deleted from `globals.css`, not by being forgotten.
+ *
+ * Empty since `--text-2xl-compact` — the one entry this list ever carried, and
+ * the step the gate found on the day it landed — was retired from `@theme`
+ * (outstanding-issues `#297`). Empty is the intended resting state: an addition
+ * here needs a ledger row saying when it leaves again.
  */
-const UNUSED_TYPE_STEP_EXEMPTIONS = new Map([
-  ["2xl-compact", "no consumer since it was added; retirement tracked as docs/outstanding-issues.md #297"],
-]);
+const UNUSED_TYPE_STEP_EXEMPTIONS = new Map([]);
 
 const densityOverrideFindings = [];
 const typeStepUsage = new Set();

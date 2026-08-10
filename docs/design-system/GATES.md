@@ -45,10 +45,12 @@ flagged.
 **Partly enforced, corrected 9 Aug 2026.** The decidable half of step _selection_ now ships
 inside `check:design-system-contract`: a step declared in the `globals.css` `@theme` block
 that no production surface selects fails the build, naming the step. It found one on the day
-it landed — `--text-2xl-compact`, zero consumers, carried as a documented exemption with its
-retirement tracked as `#297`. The exemption itself is gated: the build also fails if an
-exempted step stops being declared or gains a consumer (class utility or direct
-`var(--text-*)` across walked production sources), so the list cannot rot.
+it landed — `--text-2xl-compact`, zero consumers — which was carried as a documented exemption
+with its retirement tracked as `#297`, and **retired from `@theme` on 10 Aug 2026**, closing
+that row. The exemption list is empty now and that is its intended resting state; it is still
+gated from both sides, so the build fails if an exempted step stops being declared or gains a
+consumer (class utility or direct `var(--text-*)` across walked production sources), and the
+list cannot rot.
 
 **Still not enforced:** which of the _existing_ steps a component picks. Nothing stops a
 surface choosing `text-sm-minus` over `text-sm`, and nothing mechanical can — that is a
@@ -58,11 +60,13 @@ already ships.
 
 ⚠️ **The "1 318 call sites" figure this section used to quote was a repo-wide grep including
 `src/app/mockups/**`, which every one of these gates excludes** — 1 360 at `7aaf9349c`.
-Production consumers of the nine non-standard steps total **705** **[verified: AST class-root
+Production consumers of the eight non-standard steps total **705** **[verified: AST class-root
 pass over the contract check's own walk, 9 Aug 2026]**: `text-2xs` 421, `sm-minus` 160,
-`base-minus` 57, `3xs` 42, `2xl-minus` 9, `3xl-minus` 9, `lg-minus` 6, `hero` 1,
-`2xl-compact` 0. A third figure of 733 has also circulated; that one counts the `@theme`
-declarations and doc comments as if they were usages. Nine steps, not eight.
+`base-minus` 57, `3xs` 42, `2xl-minus` 9, `3xl-minus` 9, `lg-minus` 6, `hero` 1. A third
+figure of 733 has also circulated; that one counts the `@theme` declarations and doc comments
+as if they were usages. The count was nine steps until 10 Aug 2026, when the ninth —
+`2xl-compact`, the one with 0 consumers — was retired; the total is unchanged precisely
+because it contributed nothing.
 
 ## 2 · The twelve system gates, labelled
 
