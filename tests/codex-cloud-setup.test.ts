@@ -153,6 +153,13 @@ describe("Codex Cloud environment contract", () => {
     expect(result.stdout).toContain("[Codex Cloud Check] PASS: static Cloud contracts match.");
   });
 
+  it("keeps the Cloud npm install locked, cache-friendly, and free of unrelated network calls", () => {
+    const setup = readFileSync(new URL("../scripts/setup-codex-cloud.sh", import.meta.url), "utf8");
+
+    expect(setup).toContain("npm ci --include=dev --prefer-offline --no-audit --no-fund");
+    expect(setup).not.toMatch(/^npm (?:install|i|ci)(?:\s|$).*--(?:force|legacy-peer-deps)\b/mu);
+  });
+
   it("reports sensitive and proxy variable names without exposing values", () => {
     const env: NodeJS.ProcessEnv = {
       NODE_ENV: "test",

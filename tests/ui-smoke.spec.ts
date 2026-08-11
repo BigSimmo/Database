@@ -4326,6 +4326,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
   test("document viewer puts the PDF preview first with pinned evidence after it on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
+    // iOS Safari cannot fullscreen a plain document element, so production
+    // takes the fixed in-app fallback there. Exercise that exact path instead
+    // of letting Chromium's native fullscreen top layer hide stacking bugs.
+    await page.addInitScript(() => {
+      Object.defineProperty(Element.prototype, "requestFullscreen", {
+        configurable: true,
+        value: () => Promise.reject(new Error("fullscreen blocked by test")),
+      });
+    });
     await mockDemoApi(page);
     await gotoApp(
       page,
@@ -4437,17 +4446,57 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(pdfScroller).toBeVisible();
     await openOverflow();
     await overflow.getByRole("button", { name: "Fullscreen" }).click();
-    await openOverflow();
-    await expect(overflow.getByRole("button", { name: "Exit fullscreen" })).toBeVisible();
     const fullscreenRootStyles = await page.getByTestId("document-frame").evaluate((element) => {
       const style = window.getComputedStyle(element);
+      const bounds = element.getBoundingClientRect();
+      const topOwner = document.elementFromPoint(window.innerWidth / 2, 1);
       return {
         position: style.position,
         height: style.height,
+        bounds: {
+          left: Math.round(bounds.left),
+          top: Math.round(bounds.top),
+          right: Math.round(bounds.right),
+          bottom: Math.round(bounds.bottom),
+        },
+        ownsTopEdge: Boolean(topOwner && element.contains(topOwner)),
       };
     });
     expect(fullscreenRootStyles.position).toBe("fixed");
-    await overflow.getByRole("button", { name: "Exit fullscreen" }).click();
+    expect(fullscreenRootStyles.bounds).toEqual({ left: 0, top: 0, right: 320, bottom: 720 });
+    expect(fullscreenRootStyles.ownsTopEdge).toBe(true);
+    await expect(page.locator("#search")).toHaveCSS("visibility", "hidden");
+    const exitFullscreen = page.getByRole("button", { name: "Exit fullscreen document view" });
+    await expect(exitFullscreen).toBeVisible();
+    await expect(exitFullscreen).toBeFocused();
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await expect(exitFullscreen).toBeVisible();
+    await expect(page.locator("#search")).toHaveCSS("visibility", "hidden");
+    await exitFullscreen.click();
+    await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
+
+    // A rejected desktop Fullscreen API request uses the same fallback. It must
+    // still suppress app chrome, cover the resized viewport, and leave through
+    // the keyboard Escape path without requiring the phone overflow menu.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const enterFullscreen = page.getByRole("button", { name: "Enter fullscreen document view" });
+    await expect(enterFullscreen).toBeVisible();
+    await enterFullscreen.click();
+    await expect(page.locator("#search")).toHaveCSS("visibility", "hidden");
+    await expect(page.getByTestId("document-frame")).toHaveAttribute("data-fullscreen-fallback", "on");
+    await expect(page.getByTestId("document-frame")).toHaveCSS("position", "fixed");
+    const fullscreenBounds = await page.getByTestId("document-frame").boundingBox();
+    expect(fullscreenBounds).not.toBeNull();
+    expect({
+      x: Math.round(fullscreenBounds!.x),
+      y: Math.round(fullscreenBounds!.y),
+      width: Math.round(fullscreenBounds!.width),
+      height: Math.round(fullscreenBounds!.height),
+    }).toEqual({ x: 0, y: 0, width: 1280, height: 900 });
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("document-frame")).not.toHaveAttribute("data-fullscreen");
+    await expect(page.locator("#search")).not.toHaveCSS("visibility", "hidden");
+    await page.setViewportSize({ width: 320, height: 720 });
 
     const fitWidthScrollStyles = await pdfScroller.evaluate((element) => {
       const style = window.getComputedStyle(element);
