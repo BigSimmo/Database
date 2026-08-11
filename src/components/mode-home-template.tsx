@@ -78,28 +78,32 @@ export function ModeHomeHero({
   // hero still fits a phone viewport without scrolling.
   return (
     <section
-      className="grid justify-items-center gap-1.5 px-4 sm:gap-3 sm:px-0"
+      className="grid justify-items-center gap-3 px-4 sm:px-0 lg:gap-4"
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
-      <span className="mode-home-icon grid h-tap w-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-2xl">
-        <Icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7" aria-hidden="true" />
+      <span className="mode-home-icon grid size-hero-medallion place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+        {/* 1.75 rather than lucide's default 2: the medallion glyph is the
+            largest on the surface, and a flat stroke width makes absolute
+            weight swing with the box (2.33px at the old lg 28px against
+            1.17px on a 14px glyph elsewhere in the header). */}
+        <Icon className="size-icon-xl" strokeWidth={1.75} aria-hidden="true" />
       </span>
-      <div className="grid gap-1 sm:gap-1.5">
+      {/* The phone copy reserve belongs to the pair, not to each half of it —
+          see --mode-home-copy-reserve in globals.css. Reserved per element it
+          collected its slack between the title and the subtitle. */}
+      <div
+        className={cn(
+          "grid gap-1 sm:gap-1.5",
+          stabilizePhoneCopy && "max-sm:min-h-[var(--mode-home-copy-reserve)] max-sm:content-center",
+        )}
+      >
         <Heading
           id={`${testId ?? "mode-home"}-title`}
-          className={cn(
-            "text-balance text-hero font-extrabold leading-display tracking-normal text-[color:var(--text-heading)]",
-            stabilizePhoneCopy && "max-sm:grid max-sm:min-h-[2lh] max-sm:place-items-center",
-          )}
+          className="text-balance text-hero font-extrabold leading-display tracking-normal text-[color:var(--text-heading)]"
         >
           {title}
         </Heading>
-        <p
-          className={cn(
-            "mx-auto max-w-2xl text-pretty text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-5 lg:text-base lg:leading-6",
-            stabilizePhoneCopy && "max-sm:grid max-sm:min-h-[2lh] max-sm:place-items-center",
-          )}
-        >
+        <p className="mx-auto max-w-2xl text-pretty text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-5 lg:text-base lg:leading-6">
           {subtitle}
         </p>
       </div>
@@ -278,7 +282,7 @@ export function ModeHomeTemplate({
     <div
       data-testid={testId}
       className={cn(
-        "mode-home-template mx-auto box-border flex w-full max-w-none flex-col items-center justify-center gap-3.5 px-0 text-center sm:max-w-[60rem] sm:gap-4 lg:gap-5",
+        "mode-home-template mx-auto box-border flex w-full max-w-none flex-col items-center justify-center gap-4 px-0 text-center sm:max-w-[60rem] sm:gap-5 lg:gap-6",
         className,
       )}
     >

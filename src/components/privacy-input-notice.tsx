@@ -31,11 +31,23 @@ export function PrivacyInputNotice({
         className,
       )}
     >
-      <ShieldAlert className="h-3 w-3 shrink-0 text-[color:var(--warning)]" aria-hidden />
+      <ShieldAlert className="size-icon-xs shrink-0 text-[color:var(--warning)]" aria-hidden />
       <span>Do not enter patient-identifiable information.</span>
       <Link
         href={returnMode ? `/privacy?from=${returnMode}` : "/privacy"}
-        className="inline-flex min-h-tap items-center rounded-sm font-medium underline decoration-[color:var(--border-strong)] underline-offset-2 transition-colors hover:text-[color:var(--clinical-accent)] hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-0"
+        // min-h-tap stays: ui-accessibility.spec.ts measures this link's own
+        // border box and requires >=44x44, so the 48px target is load-bearing
+        // and a pseudo-element expander would not satisfy it. On a phone the
+        // link wraps onto its own line, where that 48px box turned a 16px line
+        // of text into a 48px row.
+        //
+        // The negative margin is bottom-only on purpose. Split symmetrically
+        // (-my-2) the box overhangs the line above by 8px, and because that
+        // line is only 16px tall the overhang reaches its centre: tapping the
+        // "Do not enter patient-identifiable information." sentence then
+        // navigated to /privacy. Pulling only from the bottom keeps the full
+        // 48px target, reclaims the same 16px, and leaves the sentence inert.
+        className="-mb-4 inline-flex min-h-tap items-center rounded-sm font-medium underline decoration-[color:var(--border-strong)] underline-offset-2 transition-colors hover:text-[color:var(--clinical-accent)] hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:mb-0 sm:min-h-0"
       >
         Privacy and data processing
       </Link>

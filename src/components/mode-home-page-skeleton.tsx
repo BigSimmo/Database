@@ -3,12 +3,14 @@ import { Skeleton } from "@/components/ui-primitives";
 export function ModeHomePageSkeleton() {
   return (
     <div
-      className="mx-auto grid w-full max-w-[60rem] justify-items-center gap-3.5 px-4 py-8 sm:gap-6 animate-fade-in motion-reduce:animate-none"
+      className="mx-auto grid w-full max-w-[60rem] justify-items-center gap-4 px-4 py-8 sm:gap-6 animate-fade-in motion-reduce:animate-none"
       role="status"
       aria-label="Loading"
     >
-      <Skeleton className="h-tap w-tap rounded-2xl sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
-      <div className="grid w-full justify-items-center gap-2">
+      {/* Mirrors ModeHomeHero: same medallion token, same copy gap, so the
+          skeleton does not resize the hero when the real content mounts. */}
+      <Skeleton className="size-hero-medallion rounded-2xl" />
+      <div className="grid w-full justify-items-center gap-1">
         <Skeleton className="h-7 w-2/3 max-w-sm sm:h-9 lg:h-10" />
         <Skeleton className="h-5 w-1/2 max-w-xs" />
       </div>

@@ -63,8 +63,21 @@
      client host adopts them. Without this structural reserve, Therapy moved the
      entire action stack when hydration relocated the composer (CLS 0.248).
      These are layout tokens, not a second v2 colour/theme source. */
-  --spacing-mode-home-composer-phone: 7.625rem;
+  /* Re-measured after the privacy notice stopped spending a full 48px tap box
+     on its own wrapped line: the settled phone composer block is 106px, so the
+     old 7.625rem (122px) left a 16px empty band under it. The wide value was
+     already exact (88px) and the notice is a single 16px line from sm up. */
+  --spacing-mode-home-composer-phone: 6.625rem;
   --spacing-mode-home-composer-wide: 5.5rem;
+
+  /* Hero medallion. Scales continuously with the viewport the way --text-hero
+     does, instead of stepping 48→48→56 at sm/lg: the old steps served the
+     768–1023px tablet band the phone size while the heading beside it had
+     already grown to 34.56px. The 3rem floor is load-bearing — it must still
+     resolve to exactly 48px at 390px, where ui-tools.spec.ts pins the tile
+     across seven mode homes — and it holds that floor through 430px. The cap
+     is reached at 800px. */
+  --spacing-hero-medallion: clamp(3rem, 1.5rem + 4vw, 3.5rem);
 
   /* Icon glyph size scale. Named spacing tokens so icon sizing is a documented
      scale (size-icon-md is the 16px default) instead of raw `h-4 w-4` literals,
@@ -878,6 +891,46 @@ summary::-webkit-details-marker {
   }
 }
 
+/* Shared-home hero copy reserve.
+ *
+ * The mode toggle rewrites the title and subtitle in place, so the copy block
+ * must already be as tall as the tallest copy any of the 13 modes can produce
+ * or the composer below it jumps. That reserve used to sit on the heading and
+ * the subtitle *individually* (`min-h-[2lh]` on each), which is why the pair
+ * read as two unrelated lines: with a one-line title, half of each element's
+ * unused reserve collected between them. Measured at 393px, the heading sat
+ * 27.1px from its own subtitle while the medallion sat 6px away — the small
+ * text was further from the large text than the group boundary above it.
+ *
+ * Reserving once, on the wrapping group, keeps the pair at its declared 4px
+ * and moves the slack to the outside of the pair where it belongs.
+ *
+ * The bands are measured, not estimated — every title/subtitle pair in
+ * src/lib/ui-copy.ts rendered in this hero across 320–440px:
+ *   ≤322px    2 title lines + 2 subtitle lines ("Which specifier fits?")
+ *   323–411   2 title lines + 1 subtitle line  ("What explains the pattern?")
+ *   ≥412      1 + 1 — every mode fits on one line
+ * A single flat reserve therefore had to assume the 320px worst case at every
+ * phone width, which spent 20px of dead space at 393px and 49px at 430px for
+ * no stability gain. tests/shared-home-empty-state.dom.test.tsx pins the band
+ * structure so a copy edit that pushes a mode onto another line fails loudly
+ * rather than silently reintroducing the jump. */
+:root {
+  --mode-home-copy-reserve: calc(2 * var(--text-hero) * var(--leading-display) + 0.25rem + 1.25rem);
+}
+
+@media (max-width: 322px) {
+  :root {
+    --mode-home-copy-reserve: calc(2 * var(--text-hero) * var(--leading-display) + 0.25rem + 2 * 1.25rem);
+  }
+}
+
+@media (min-width: 412px) {
+  :root {
+    --mode-home-copy-reserve: calc(var(--text-hero) * var(--leading-display) + 0.25rem + 1.25rem);
+  }
+}
+
 .mode-home-composer-slot {
   width: min(100%, clamp(19rem, 90vw, 52rem));
   max-width: calc(100vw - 1rem - var(--safe-area-left) - var(--safe-area-right));
@@ -1572,10 +1625,16 @@ summary::-webkit-details-marker {
     min-width: 2.75rem;
   }
 
+  /* 1.1rem was 17.6px: lucide draws on a 24-unit grid with a 2px stroke, so a
+     fractional box lands every stroke on a sub-pixel boundary and the "+" and
+     send glyphs render visibly soft. --spacing-icon-lg is 20px — integer, on
+     the icon scale, and the same size these glyphs already use from 431px up.
+     20px inside the 44px button leaves the pinned tap target and the dock
+     height this block exists to protect untouched. */
   .chat-composer-icon-button svg,
   .chat-send-button svg {
-    height: 1.1rem;
-    width: 1.1rem;
+    height: var(--spacing-icon-lg);
+    width: var(--spacing-icon-lg);
   }
 }
 @media (prefers-reduced-motion: no-preference) {
