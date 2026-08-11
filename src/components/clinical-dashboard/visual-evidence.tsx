@@ -6,6 +6,7 @@ import {
   CircleAlert,
   BookOpen,
   CircleCheck,
+  CircleDashed,
   ChevronDown,
   Copy,
   ExternalLink,
@@ -348,7 +349,9 @@ const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
 
 function supportLabel(supportLevel: string) {
   const normalized = supportLevel.toLowerCase();
-  if (normalized.includes("unsupported") || normalized.includes("none")) return "Unsupported";
+  if (normalized.includes("unsupported") || normalized.includes("not classified") || normalized.includes("none")) {
+    return "Unsupported";
+  }
   if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby"))
     return "Partial";
   return "Direct";
@@ -356,7 +359,7 @@ function supportLabel(supportLevel: string) {
 
 function SupportStatusIcon({ supportLevel }: { supportLevel: string }) {
   const label = supportLabel(supportLevel);
-  const Icon = label === "Direct" ? CircleCheck : CircleAlert;
+  const Icon = label === "Direct" ? CircleCheck : label === "Partial" ? CircleDashed : CircleAlert;
 
   return (
     <span
@@ -382,10 +385,9 @@ function claimRowsForEvidencePanel(rows: AnswerEvidenceMapRow[], renderModel: An
     id: source.id,
     section: source.label || cleanDisplayTitle(source.title || source.file_name) || `Source ${index + 1}`,
     detail: source.snippet || source.reason || "Open source passage to review the cited evidence.",
-    supportLevel: source.sourceStrength === "none" ? "partial" : source.sourceStrength,
+    supportLevel: supportLabel(source.sourceStrength ?? "not classified"),
     citationCount: 1,
-    sourceStatus:
-      source.sourceStrength === "none" ? "Source requires review" : `${source.sourceStrength} source support`,
+    sourceStatus: source.sourceStrength ? `${source.sourceStrength} source support` : "Source requires review",
     bestSourceLabel: source.label,
     bestLinkedPassage: source.snippet || source.reason,
     href: source.href,
@@ -397,7 +399,7 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
   const directCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Direct").length;
   const partialCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Partial").length;
   const claimRowClassName =
-    "grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-2.5 text-left last:border-b-0";
+    "grid min-h-18 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-2.5 text-left last:border-b-0";
 
   if (!claimRows.length) {
     return (
@@ -475,7 +477,7 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
                 claimRowClassName,
                 "transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
               )}
-              aria-label={`Open source for ${row.section}`}
+              aria-label={`${supportLabel(row.supportLevel)} support. Open source for ${row.section}`}
             >
               {content}
             </Link>
