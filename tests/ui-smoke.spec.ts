@@ -943,6 +943,38 @@ async function expectMobileSettingsLayout(settings: Locator) {
   expect(controlBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height + 8);
   expect(controlBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
   expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
+
+  for (const groupLabel of ["Answer style", "Appearance", "Interface density", "Default landing view"]) {
+    const row = settings.getByTestId(`settings-row-${groupLabel.toLowerCase().replaceAll(" ", "-")}`);
+    const radios = row.getByRole("radiogroup", { name: groupLabel }).getByRole("radio");
+    const radioBoxes = await radios.evaluateAll((elements) =>
+      elements.map((element) => {
+        const box = element.getBoundingClientRect();
+        const text = element.querySelector("span");
+        return {
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height,
+          textFits: text ? text.scrollWidth <= text.clientWidth + 1 : true,
+        };
+      }),
+    );
+
+    expect(radioBoxes).toHaveLength(3);
+    expect(
+      Math.max(...radioBoxes.map((box) => box.y)) - Math.min(...radioBoxes.map((box) => box.y)),
+    ).toBeLessThanOrEqual(1);
+    expect(radioBoxes.every((box) => box.height >= 48)).toBe(true);
+    expect(radioBoxes.every((box) => box.textFits)).toBe(true);
+    expect(radioBoxes[0].x + radioBoxes[0].width).toBeLessThanOrEqual(radioBoxes[1].x);
+    expect(radioBoxes[1].x + radioBoxes[1].width).toBeLessThanOrEqual(radioBoxes[2].x);
+  }
+
+  const switchBox = await settings.getByTestId("settings-row-reduce-motion").getByRole("switch").boundingBox();
+  expect(switchBox).not.toBeNull();
+  expect(switchBox!.width).toBeGreaterThanOrEqual(48);
+  expect(switchBox!.height).toBeGreaterThanOrEqual(48);
   await expect(settings.getByRole("button", { name: "Close settings" })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Back from settings" })).toHaveCount(0);
 }
@@ -950,13 +982,15 @@ async function expectMobileSettingsLayout(settings: Locator) {
 async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
   await expect(setup.getByLabel("Email address")).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Apple sign-in unavailable" })).toBeDisabled();
-  await expect(setup.getByRole("button", { name: "Google sign-in unavailable" })).toBeDisabled();
-  await expect(setup.getByRole("button", { name: "Microsoft sign-in unavailable" })).toBeDisabled();
-  await expect(setup.getByRole("heading", { name: "What your account saves" })).toBeVisible();
-  await expect(setup.getByText(/Recent questions stay in this browser session/i)).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Security summary" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue with email" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+  await expect(setup.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
+  await expect(setup.getByRole("button", { name: /Apple/i })).toHaveCount(0);
+  await expect(setup.getByText("Apple sign-in is not available yet.")).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Saved to your account" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Stays on this device" })).toBeVisible();
+  await expect(setup.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
   await expect(setup.getByText("No PHI required")).toBeVisible();
   await expect(setup).toContainText("Do not enter patient-identifying information.");
 }
@@ -1015,7 +1049,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await waitForDemoDashboardReady(page);
 
       await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
-      await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
       await expect(visibleQuestionInput(page)).toBeVisible();
       await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
       const headerHeight = await page.locator("#search").evaluate((element) => element.getBoundingClientRect().height);
@@ -1211,7 +1245,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/\?mode=answer$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
-    await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
   });
 
   test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
@@ -1498,6 +1532,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
 
+    await page.setViewportSize({ width: 320, height: 820 });
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 390, height: 820 });
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
     await page.setViewportSize({ width: 430, height: 820 });
     await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
@@ -1517,10 +1559,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(accountMenu).toHaveCount(0);
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
+    await expect(setup.getByLabel("Email address")).toBeFocused();
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
     expect(setupBox!.x).toBeGreaterThanOrEqual(-1);
     expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 320, height: 700 });
+    const setupClose = setup.getByRole("button", { name: "Close account setup" });
+    await expect(setup.getByLabel("Email address")).toBeInViewport();
+    await expect(setup.getByRole("button", { name: "Continue with email" })).toBeInViewport();
+    await expect(setupClose).toBeInViewport();
+    await expectNoPageHorizontalOverflow(page);
+
+    const setupScrollPort = setup.locator(".polished-scroll");
+    await setupScrollPort.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect(setup.getByText("No PHI required")).toBeInViewport();
+    await expect(setupClose).toBeInViewport();
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    expect(await setup.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+    expect(
+      await setup.getByRole("button", { name: "Continue with Google" }).evaluate((element) => {
+        return getComputedStyle(element).borderStyle;
+      }),
+    ).not.toBe("none");
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await expect(setupClose).toBeInViewport();
     await expectNoPageHorizontalOverflow(page);
   });
 
