@@ -109,7 +109,17 @@ export const CLINICAL_TWMERGE_THEME = {
   ease: ["out-soft", "spring"],
 
   // globals.css @theme --animate-*.
-  animate: ["fade-up", "overlay-in", "sheet-up", "sheet-left", "pop-in", "dialog-rise", "action-tray-in", "shimmer"],
+  animate: [
+    "fade-up",
+    "overlay-in",
+    "sheet-up",
+    "sheet-left",
+    "pop-in",
+    "dialog-rise",
+    "action-tray-in",
+    "shimmer",
+    "answer-ecg",
+  ],
 } as const;
 
 export const twMergeClinical = extendTailwindMerge({
