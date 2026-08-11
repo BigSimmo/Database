@@ -36,8 +36,9 @@ import { extendTailwindMerge } from "tailwind-merge";
  * against `spacing` below.
  *
  * Radius (`--radius-xs … --radius-2xl`) and the font families reuse Tailwind's own
- * names, so they need no entry. `--shadow-*` are plain custom properties consumed
- * as `shadow-[var(--shadow-tight)]`; they generate no `shadow-<name>` utility and
+ * names, so they need no entry. The elevation ladder (`--e0 … --e4`) and the
+ * remaining `--shadow-*` roles are plain custom properties consumed as
+ * `shadow-[var(--e1)]`; they generate no `shadow-<name>` utility and
  * stock twMerge already groups the arbitrary form correctly. `--spring-*` sit
  * outside a Tailwind namespace and generate nothing.
  *
