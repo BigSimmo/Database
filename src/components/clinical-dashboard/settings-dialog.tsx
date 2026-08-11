@@ -836,7 +836,11 @@ export function SettingsDialog({
                 <SettingsField
                   icon={Palette}
                   label="Appearance"
-                  description={`Following ${themePreference === "system" ? `your device (${theme})` : themePreference}.`}
+                  description={
+                    themePreference === "system"
+                      ? `Matches your device (currently ${theme}).`
+                      : `Always using ${themePreference} mode.`
+                  }
                   labelId="settings-appearance-label"
                   stacked
                 >
@@ -1112,8 +1116,8 @@ function SettingsField({
     <div
       data-testid={settingsRowTestId(label)}
       className={cn(
-        "flex gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3.5 last:border-b-0",
-        stacked ? "flex-col" : "flex-col lg:flex-row lg:items-center lg:justify-between",
+        "flex border-b border-[color:var(--border)]/70 px-3.5 last:border-b-0",
+        stacked ? "flex-col gap-2.5 py-3" : "flex-col gap-3 py-3.5 lg:flex-row lg:items-center lg:justify-between",
       )}
     >
       <div className="flex min-w-0 items-start gap-3">
@@ -1132,7 +1136,7 @@ function SettingsField({
         </div>
       </div>
       {children ? (
-        <div className={cn(stacked ? "w-full pt-0.5" : "w-full lg:w-auto lg:shrink-0")}>{children}</div>
+        <div className={cn(stacked ? "w-full" : "w-full lg:w-auto lg:shrink-0")}>{children}</div>
       ) : valueText ? (
         <span className="shrink-0 pl-12 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] lg:pl-0 lg:text-right">
           {valueText}
@@ -1248,21 +1252,25 @@ function Switch({
       aria-label={ariaLabel}
       aria-describedby={describedBy}
       onClick={() => onChange(!checked)}
-      className={cn(
-        "relative inline-flex h-6 w-tap shrink-0 items-center rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-        checked
-          ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)]"
-          : "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)]",
-      )}
+      className="relative -my-3 inline-grid size-tap shrink-0 place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
     >
       <span
         className={cn(
-          toggleThumbSurface,
-          "grid h-[18px] w-[18px] place-items-center rounded-full border border-[color:var(--border)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition-transform",
-          checked ? "translate-x-[22px]" : "translate-x-0.5",
+          "relative inline-flex h-6 w-tap items-center rounded-full border transition motion-reduce:transition-none",
+          checked
+            ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)]"
+            : "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)]",
         )}
       >
-        {checked ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
+        <span
+          className={cn(
+            toggleThumbSurface,
+            "grid h-[18px] w-[18px] place-items-center rounded-full border border-[color:var(--border)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition-transform motion-reduce:transition-none",
+            checked ? "translate-x-[22px]" : "translate-x-0.5",
+          )}
+        >
+          {checked ? <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} /> : null}
+        </span>
       </span>
     </button>
   );
