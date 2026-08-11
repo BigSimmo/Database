@@ -308,6 +308,10 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   "answer-suggestion-label": "answer suggestion rail — no effect contract yet (#094)",
   "smart-search-rotating-query": "rotating placeholder — reduced-motion behaviour covered by ui-accessibility",
   "smart-search-rotating-text": "rotating placeholder — reduced-motion behaviour covered by ui-accessibility",
+  "smart-search-phone-ticker":
+    "smart search home ticker — reserve/overlay and chrome behaviour covered by phone compose",
+  "smart-search-phone-ticker-kicker": "smart search home ticker — text treatment covered by phone compose",
+  "smart-search-phone-ticker-action": "smart search home ticker — CTA treatment covered by phone compose",
 
   // Mode switcher.
   "mode-action-surface": "mode menu surface — dismissal/focus covered by ui-accessibility, effect not contracted",

@@ -41,7 +41,6 @@ import { FormCodeBadge } from "@/components/forms/form-code-badge";
 import { Sheet } from "@/components/ui/sheet";
 import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
 import { useResultSort } from "@/components/use-result-sort";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 type FormsSearchResultsPageProps = {
   query: string;
@@ -520,7 +519,7 @@ function MobileExactMatchHero({ match, code }: CodedFormMatch) {
     <section
       aria-label="Exact form code match"
       data-testid="form-search-mobile-exact-match"
-      className="overflow-hidden rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)] forced-colors:border"
+      className="overflow-hidden rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] shadow-[var(--e1)] forced-colors:border"
     >
       <p
         className={cn(
@@ -563,7 +562,7 @@ function MobileExactMatchHero({ match, code }: CodedFormMatch) {
           href={`/forms/${form.slug}`}
           className={cn(
             "flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4",
-            "text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition",
+            "text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition",
             "hover:bg-[color:var(--clinical-accent-hover)] forced-colors:border",
             searchFocusRing,
           )}
@@ -891,7 +890,6 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 </div>
               </>
             )}
-            <UniversalSearchAlsoMatches modeId="forms" query={query} />
           </>
         ) : null}
         <div className="hidden lg:block">{supportsPathwayClaims ? <PathwayPanel /> : null}</div>

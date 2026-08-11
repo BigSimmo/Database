@@ -332,7 +332,7 @@ function Pill({
 
 function BestMatchBadge() {
   return (
-    <span className="inline-flex min-h-6 shrink-0 items-center gap-1 self-start rounded-full bg-[color:var(--clinical-accent)] px-2.5 text-2xs font-bold uppercase tracking-[0.04em] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+    <span className="inline-flex min-h-6 shrink-0 items-center gap-1 self-start rounded-full bg-[color:var(--clinical-accent)] px-2.5 text-2xs font-bold uppercase tracking-[0.04em] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
       <Sparkles className="h-3 w-3" aria-hidden="true" />
       Best match
     </span>
@@ -1046,7 +1046,7 @@ function EvidenceCard({
       href={evidenceHref(document, evidence, query)}
       aria-label={`Open evidence ${evidence.label} ${evidence.title}`}
       className={cn(
-        "grid gap-2 rounded-lg border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] transition hover:-translate-y-px hover:shadow-[var(--shadow-tight)]",
+        "grid gap-2 rounded-lg border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] transition hover:-translate-y-px hover:shadow-[var(--e1)]",
         focusRing,
         selected
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/20"

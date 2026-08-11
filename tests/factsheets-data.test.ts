@@ -69,6 +69,7 @@ describe("factsheet library", () => {
     expect(filterFactsheets("sertraline").map((sheet) => sheet.slug)).toContain("sertraline");
     // Brand suffix ("(Zoloft)") is indexed even though it is stored separately from the title.
     expect(filterFactsheets("Zoloft").map((sheet) => sheet.slug)).toContain("sertraline");
+    expect(filterFactsheets("sertralne").map((sheet) => sheet.slug)).toContain("sertraline");
     const conditions = filterFactsheets("", "Conditions");
     expect(conditions.length).toBeGreaterThan(0);
     expect(conditions.every((sheet) => sheet.category === "Conditions")).toBe(true);

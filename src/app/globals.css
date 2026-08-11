@@ -411,8 +411,8 @@
   --e4: 0 4px 8px rgb(11 42 56 / 5%), 0 24px 48px -12px rgb(11 42 56 / 15%);
 
   /* Role aliases onto the ladder. Keep these pointing AT a tier — the previous
-     hand-tuned values produced five effects that did not sort by name. */
-  --shadow-tight: var(--e1);
+     hand-tuned values produced five effects that did not sort by name. The
+     resting-hairline role is gone: its call sites reach for --e1 directly. */
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
   --shadow-hover: var(--e3);
@@ -653,7 +653,6 @@
   --e3: inset 0 1px 0 rgb(255 255 255 / 6%), 0 8px 20px -6px rgb(0 0 0 / 55%);
   --e4: inset 0 1px 0 rgb(255 255 255 / 7%), 0 20px 40px -12px rgb(0 0 0 / 62%);
 
-  --shadow-tight: var(--e1);
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
   --shadow-hover: var(--e3);
@@ -845,7 +844,7 @@ summary::-webkit-details-marker {
   .universal-header-mode-button {
     border-color: var(--border);
     background: var(--surface);
-    box-shadow: var(--shadow-tight);
+    box-shadow: var(--e1);
   }
 
   .universal-header-icon-control {
@@ -860,7 +859,7 @@ summary::-webkit-details-marker {
   }
 
   .dark .universal-header-mode-button {
-    box-shadow: var(--shadow-tight);
+    box-shadow: var(--e1);
   }
 
   .dark .universal-header-icon-control {
@@ -1741,13 +1740,6 @@ summary::-webkit-details-marker {
     box-shadow: none;
   }
 
-  /* Keep the raised-card treatment from UniversalSearchAlsoMatches on phones —
-     inset from the full-bleed workspace rather than flattening to a strip. */
-  .medication-also-matches {
-    margin-left: max(1rem, calc(var(--safe-area-left) + 0.25rem));
-    margin-right: max(1rem, calc(var(--safe-area-right) + 0.25rem));
-  }
-
   .medication-patient-strip > summary,
   .medication-patient-strip > div {
     padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
@@ -1799,7 +1791,6 @@ summary::-webkit-details-marker {
    then add only the safe-area remainder so text never sits beneath a notch. */
 @media (min-width: 640px) and (max-width: 1023px) {
   .medication-results-inset,
-  .medication-also-matches,
   .medication-filter-strip {
     padding-left: max(0px, calc(var(--safe-area-left) - 1rem));
     padding-right: max(0px, calc(var(--safe-area-right) - 1rem));
@@ -1828,7 +1819,67 @@ summary::-webkit-details-marker {
   display: none;
 }
 
-@media (min-width: 1024px) {
+.smart-search-phone-ticker {
+  display: grid;
+  width: 100%;
+  --smart-search-phone-ticker-gap: 0.5rem;
+  --smart-search-phone-ticker-inline-padding: 0.625rem;
+  --smart-search-phone-ticker-vertical-padding: 0.5rem;
+  min-height: var(--spacing-tap);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--smart-search-phone-ticker-gap);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--clinical-accent) 18%, var(--border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--clinical-accent-soft) 42%, var(--surface));
+  padding-block: var(--smart-search-phone-ticker-vertical-padding);
+  padding-inline: var(--smart-search-phone-ticker-inline-padding);
+  color: var(--text-heading);
+  text-align: left;
+  box-shadow: var(--shadow-inset);
+}
+
+.smart-search-phone-ticker-kicker {
+  display: inline-flex;
+  align-items: center;
+  --smart-search-phone-ticker-kicker-gap: 0.25rem;
+  gap: var(--smart-search-phone-ticker-kicker-gap);
+  color: var(--clinical-accent);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.smart-search-phone-ticker-query {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 700;
+  --smart-search-phone-ticker-line-height: 1.1rem;
+  line-height: var(--smart-search-phone-ticker-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-search-phone-ticker-action {
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.smart-search-phone-ticker:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (min-width: 640px) {
+  .smart-search-phone-ticker {
+    display: none;
+  }
+
   .smart-search-rotating-text {
     display: flex;
   }
@@ -3058,18 +3109,18 @@ td,
   .source-capsule-hit:hover .source-capsule-face {
     transform: translateY(-1px);
     border-color: var(--clinical-accent-border);
-    box-shadow: var(--shadow-tight);
+    box-shadow: var(--e1);
   }
 
   .source-capsule-hit[aria-expanded="true"] .source-capsule-face {
     border-color: var(--clinical-accent);
-    box-shadow: var(--shadow-tight), var(--shadow-inset);
+    box-shadow: var(--e1), var(--shadow-inset);
   }
 
   .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: translateY(-1px);
     border-color: var(--clinical-accent);
-    box-shadow: var(--shadow-tight), var(--shadow-inset);
+    box-shadow: var(--e1), var(--shadow-inset);
   }
 
   .source-capsule-hit:focus-visible .source-capsule-face {
@@ -3287,7 +3338,6 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --e3: none;
     --e4: none;
     --shadow-soft: none;
-    --shadow-tight: none;
     --shadow-card: none;
     --shadow-hover: none;
     --shadow-elevated: none;
@@ -3757,7 +3807,7 @@ html.theme-transitioning *:after {
   height: 18px;
   border-radius: 50%;
   background: var(--surface-raised);
-  box-shadow: var(--shadow-tight);
+  box-shadow: var(--e1);
   transform: translate(0, -50%);
   transition: transform 150ms var(--ease-spring);
 }

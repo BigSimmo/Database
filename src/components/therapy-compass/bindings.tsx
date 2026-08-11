@@ -212,7 +212,7 @@ function segStyle(active: boolean): string {
   return [
     "inline-flex min-h-tap items-center justify-center rounded-md border-0 bg-transparent px-4 py-[7px] text-sm-minus font-semibold text-[color:var(--text-muted)]",
     "hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
-    active ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent-hover)] shadow-[var(--shadow-tight)]" : "",
+    active ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent-hover)] shadow-[var(--e1)]" : "",
   ]
     .filter(Boolean)
     .join(" ");

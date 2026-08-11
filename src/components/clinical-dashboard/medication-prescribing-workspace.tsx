@@ -27,7 +27,6 @@ import {
   ResultFilterTrigger,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
@@ -721,8 +720,6 @@ function MedicationResults({
           );
         })}
       </div>
-
-      <UniversalSearchAlsoMatches modeId="prescribing" query={query} className="medication-also-matches" />
 
       <StatusNotice
         realDataReady={realDataReady}

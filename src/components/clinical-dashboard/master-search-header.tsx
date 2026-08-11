@@ -195,6 +195,7 @@ export function MasterSearchHeader({
   mobileBottomSearchVariant = "default",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
+  showPhoneSuggestionTickerOnHome = false,
   desktopHomeComposerSlotId,
   desktopPageComposerSlotId,
   heroComposerBreakpoint = "all",
@@ -250,6 +251,8 @@ export function MasterSearchHeader({
    *  content keeps maximum screen space. Every phone dock uses it now; the
    *  "default" value remains for hosts that need the taller legacy dock. */
   mobileBottomSearchVariant?: "default" | "compact";
+  /** Show the compact phone suggestion ticker only for standalone-mode homes. */
+  showPhoneSuggestionTickerOnHome?: boolean;
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
   /** Mode-home slot the composer portals into so the search pill sits in the
@@ -1816,6 +1819,7 @@ export function MasterSearchHeader({
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
+          showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -2123,7 +2127,7 @@ export function MasterSearchHeader({
             </div>
           ) : isServicesMode ? (
             <div className="hidden min-w-0 items-center gap-3 lg:flex">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
                 <ShieldCheck className="h-5 w-5" aria-hidden />
               </span>
               <span className="min-w-0">
@@ -2174,7 +2178,7 @@ export function MasterSearchHeader({
             aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
             aria-label={`Mode ${selectedAppMode.label}`}
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
               <SelectedAppModeIcon aria-hidden="true" className="h-3.5 w-3.5" />
             </span>
             <span className="min-w-0">
