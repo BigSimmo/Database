@@ -1049,7 +1049,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await waitForDemoDashboardReady(page);
 
       await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
-      await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
       await expect(visibleQuestionInput(page)).toBeVisible();
       await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
       const headerHeight = await page.locator("#search").evaluate((element) => element.getBoundingClientRect().height);
@@ -1245,7 +1245,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/\?mode=answer$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
-    await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
   });
 
   test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
