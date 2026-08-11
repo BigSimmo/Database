@@ -255,11 +255,6 @@ function FormulationResults({ query }: { query: string }) {
         footerNote={`${results.length} showing`}
       />
 
-      <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-        Matches use patient language, clinical clues, domains, symptoms, and formulation context. Open a mechanism to
-        test fit and competing explanations.
-      </p>
-
       {results.length === 0 && rankingReady ? (
         <EmptySearchResults query={query} />
       ) : results.length === 0 ? null : (
@@ -267,37 +262,43 @@ function FormulationResults({ query }: { query: string }) {
           {results.map(({ mechanism }, index) => (
             <article
               key={mechanism.id}
+              data-testid={index === 0 ? "formulation-top-match" : undefined}
               className={cn(
                 formulationCard,
                 "group overflow-hidden transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
-                index === 0 && "border-l-[3px] border-l-[color:var(--clinical-accent)]",
+                index === 0 &&
+                  "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/20 shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--clinical-accent)]/10",
               )}
             >
-              <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,0.58fr)_auto] sm:items-center sm:p-5">
+              {index === 0 ? (
+                <div className="flex items-center gap-2 border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:px-5">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)]">
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                  </span>
+                  <span>Top match for your search</span>
+                  <span className="ml-auto hidden font-semibold text-[color:var(--text-muted)] sm:inline">
+                    Review fit and alternatives
+                  </span>
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.5fr)_auto] sm:items-center sm:gap-4 sm:p-5">
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/formulation/${mechanism.id}`}
-                      className="text-lg font-extrabold text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)] sm:text-xl"
-                    >
-                      {mechanism.name}
-                    </Link>
-                    {index === 0 ? (
-                      <span className="inline-flex min-h-6 items-center gap-1 rounded-full bg-[color:var(--success-soft)] px-2 text-2xs font-extrabold text-[color:var(--success)]">
-                        <CheckCircle2 className="h-3 w-3" aria-hidden />
-                        Closest text match
-                      </span>
-                    ) : null}
-                  </div>
+                  <Link
+                    href={`/formulation/${mechanism.id}`}
+                    className="text-lg font-extrabold tracking-tight text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)] sm:text-xl"
+                  >
+                    {mechanism.name}
+                  </Link>
                   <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                     {mechanism.summary}
                   </p>
-                  <div className="mt-3">
+                  <div className="mt-2.5">
                     <MechanismDomainChips values={mechanism.domains} limit={3} />
                   </div>
                 </div>
 
-                <div className="grid gap-2 border-t border-[color:var(--border)] pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+                <div className="grid gap-1 border-t border-[color:var(--border)] pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
                   <p className={eyebrowText}>Look for</p>
                   <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                     {mechanism.clinicalClues[0]}
@@ -307,7 +308,12 @@ function FormulationResults({ query }: { query: string }) {
                 <Link
                   href={`/formulation/${mechanism.id}`}
                   aria-label={`Open ${mechanism.name}`}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--text)] transition hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-tap sm:px-0"
+                  className={cn(
+                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border px-3 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-tap sm:px-0",
+                    index === 0
+                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--clinical-accent-strong)]"
+                      : "border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] text-[color:var(--text)] hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent)]",
+                  )}
                 >
                   <span className="sm:sr-only">Open</span>
                   <ArrowRight
@@ -317,13 +323,13 @@ function FormulationResults({ query }: { query: string }) {
                 </Link>
               </div>
               <div className="grid border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)]/55 sm:grid-cols-2">
-                <div className="px-4 py-3 sm:px-5">
+                <div className="px-4 py-2.5 sm:px-5 sm:py-3">
                   <p className={eyebrowText}>Patient language</p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
                     “{mechanism.patientPhrases[0]}”
                   </p>
                 </div>
-                <div className="border-t border-[color:var(--border)] px-4 py-3 sm:border-l sm:border-t-0 sm:px-5">
+                <div className="border-t border-[color:var(--border)] px-4 py-2.5 sm:border-l sm:border-t-0 sm:px-5 sm:py-3">
                   <p className={eyebrowText}>Formulation use</p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
                     {mechanism.formulationUse}

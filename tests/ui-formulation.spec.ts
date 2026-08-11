@@ -110,6 +110,10 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await expect(queryRibbon.getByRole("heading", { level: 1, name: "What if something goes wrong" })).toBeVisible();
   await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Worry", exact: true })).toBeVisible();
+  await expect(page.getByText("Matches use patient language", { exact: false })).toHaveCount(0);
+  const topMatch = page.getByTestId("formulation-top-match");
+  await expect(topMatch.getByText("Top match for your search", { exact: true })).toBeVisible();
+  await expect(topMatch.getByRole("link", { name: "Worry", exact: true })).toBeVisible();
   // Both dimensions used to be side-by-side selects in the ribbon; they are now
   // one compact trigger opening a sheet that holds both groups.
   const filterTrigger = queryRibbon.getByTestId("formulation-filter-trigger-phone");
