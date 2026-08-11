@@ -2033,7 +2033,7 @@ summary::-webkit-details-marker {
 }
 
 .home-recent-searches .answer-suggestion-label {
-  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+  color: var(--text-heading);
   font-size: var(--text-3xs);
   font-weight: 650;
   letter-spacing: 0.025em;

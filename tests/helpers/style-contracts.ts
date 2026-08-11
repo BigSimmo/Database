@@ -1,3 +1,6 @@
+import { guestAnswerThreadOwnerId } from "@/lib/answer-thread-storage";
+import { demoRecentQueryOwnerId, recentQueryStorageKey } from "@/lib/recent-query-storage";
+
 /**
  * The cascade-layer inertness registry (ledger #094).
  *
@@ -53,6 +56,13 @@ export type UnlayeredVisualClass = {
    * component rule past the coverage gate.
    */
   readonly unmediated: boolean;
+};
+
+type StyleContractSessionBootstrap = {
+  readonly sessionStorage?: ReadonlyArray<{
+    readonly key: string;
+    readonly value: readonly string[];
+  }>;
 };
 
 /**
@@ -164,6 +174,7 @@ export type StyleEffectContract = {
   readonly route: string;
   /** Playwright selector for an element carrying `className`. */
   readonly selector: string;
+  readonly bootstrap?: StyleContractSessionBootstrap;
   /** Computed values that must match exactly. */
   readonly computed: Readonly<Record<string, string>>;
   /** A computed colour that must resolve to the named CSS custom-property token. */
@@ -178,6 +189,15 @@ export type StyleEffectContract = {
    * so this catches inertness even where the exact token value is theme-dependent.
    */
   readonly nonInert?: readonly string[];
+};
+
+const HOME_RECENT_QUERIES = ["clozapine monitoring schedule"] as const;
+const HOME_RECENT_QUERY_STORAGE_KEYS = [
+  `${recentQueryStorageKey}:${guestAnswerThreadOwnerId}`,
+  `${recentQueryStorageKey}:${demoRecentQueryOwnerId}`,
+] as const;
+const homeRecentQueriesContractBootstrap: StyleContractSessionBootstrap = {
+  sessionStorage: HOME_RECENT_QUERY_STORAGE_KEYS.map((key) => ({ key, value: HOME_RECENT_QUERIES })),
 };
 
 /**
@@ -260,6 +280,28 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
     nonInert: ["color"],
     colorToken: { property: "color", token: "--text-heading" },
   },
+  {
+    className: "home-recent-searches",
+    description: "home recent-searches surface keeps compact desktop gap and phone-first mobile column flow",
+    route: "/",
+    selector: '[data-testid="shared-home-recent-queries"]',
+    bootstrap: homeRecentQueriesContractBootstrap,
+    computed: {
+      rowGap: "6px",
+      columnGap: "10px",
+      display: "flex",
+    },
+  },
+  {
+    className: "answer-suggestion-label",
+    description: "home recent-search labels use readable text contrast when nested under compact rail",
+    route: "/",
+    selector: '[data-testid="shared-home-recent-queries"] .answer-suggestion-label',
+    bootstrap: homeRecentQueriesContractBootstrap,
+    computed: {},
+    nonInert: ["color"],
+    colorToken: { property: "color", token: "--text-heading" },
+  },
 ];
 
 /**
@@ -275,8 +317,6 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Not component effects.
   dark: "theme root selector, not a component class; token values are asserted by the dark-mode journeys",
   "touch-card": "sets outline/touch-action only; the shared focus treatment is asserted by ui-accessibility",
-  "home-recent-searches":
-    "session-seeded answer-home history variant; its desktop/phone layout and activation are covered by the focused ui-smoke recent-search journey",
 
   // Phone/answer composer chrome. Covered behaviourally by verify:phone-chrome and
   // the chrome-scroll/overlap journeys, but not yet by computed-effect assertions.

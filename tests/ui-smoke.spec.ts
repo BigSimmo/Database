@@ -2567,6 +2567,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("plain-answer-response")).toBeVisible();
     expect(answerRequests).toContain(recent);
     await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const homeRecentSearches = recentChips.locator(".home-recent-searches");
+    await expect(homeRecentSearches).toBeVisible();
+    const homeRecentDirection = await homeRecentSearches.evaluate((node) => getComputedStyle(node).flexDirection);
+    expect(homeRecentDirection, "home recent-searches should stack on phone width").toBe("column");
+
+    const chipsGroup = recentChips.locator(".answer-suggestion-chips");
+    const mobileJustify = await chipsGroup.evaluate((node) => getComputedStyle(node).justifyContent);
+    expect(mobileJustify, "phone home recent-search chips should align to flex-start").toBe("flex-start");
   });
 
   test("legacy unscoped recent-query storage is purged and never displayed @critical", async ({ page }) => {
