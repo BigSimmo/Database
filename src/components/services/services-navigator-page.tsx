@@ -2,27 +2,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  ArrowRight,
-  Bookmark,
-  Check,
-  CircleAlert,
-  CircleCheck,
-  CircleX,
-  DollarSign,
-  ExternalLink,
-  Phone,
-  ShieldCheck,
-  SlidersHorizontal,
-  Sparkles,
-  Users,
-  X,
-  type LucideIcon,
-} from "lucide-react";
-import { useId, useMemo, useState, useDeferredValue } from "react";
+import { ArrowRight, Check, ExternalLink, GitCompareArrows, ListChecks, ShieldCheck, X } from "lucide-react";
+import { useDeferredValue, useId, useMemo, useState } from "react";
 
-import { cn } from "@/components/ui-primitives";
-import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
   SearchResultsEmptyState,
@@ -35,37 +18,41 @@ import {
   ResultFilterTrigger,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
-import { appModeHomeHref } from "@/lib/app-modes";
-import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { compactBestUseTitle } from "@/lib/compact-best-use-title";
-import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
-import { canCompareServices, serviceNavigatorMetrics } from "@/lib/service-navigator-metrics";
-import { useRegistryRecords } from "@/lib/use-registry-records";
-import { sortResultItems } from "@/lib/result-sort";
+import { ServiceGroupNav } from "@/components/services/service-group-nav";
+import { ServiceReferralFlow } from "@/components/services/service-referral-flow";
+import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
+import { cn } from "@/components/ui-primitives";
 import { useResultSort } from "@/components/use-result-sort";
+import { compactBestUseTitle } from "@/lib/compact-best-use-title";
+import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import {
+  readServiceCoreGroup,
+  serviceCoreGroupLabel,
+  serviceCoreGroups,
+  serviceMatchesCoreGroup,
+  type ServiceCoreGroupId,
+} from "@/lib/service-core-groups";
+import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
+import { sortResultItems } from "@/lib/result-sort";
+import { useRegistryRecords } from "@/lib/use-registry-records";
 
-const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
-const SERVICE_CARD_SUBTITLE_MAX = 120;
-const SERVICE_CARD_METRIC_MAX = 80;
+const bestFitQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
 const serviceQuickFilters = [
-  { label: "Best fit", query: defaultQuery },
+  { label: "Best fit", query: bestFitQuery },
   { label: "Crisis", query: "crisis" },
   { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
   { label: "Phone referral", query: "phone referral" },
   { label: "Free", query: "free" },
   { label: "WA", query: "WA" },
-];
+] as const;
 
-function text(value: string | null | undefined, fallback = "Confirm locally") {
+function displayText(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
 }
 
-/** Compact pipe-joined catalog blobs for search-card display without mutating ranking fields. */
-function compactCardText(value: string | null | undefined, maxLength: number, fallback: string) {
+function compactText(value: string | null | undefined, maxLength: number, fallback: string) {
   const trimmed = value?.trim();
-  if (!trimmed) return fallback;
-  return compactBestUseTitle(trimmed, maxLength);
+  return trimmed ? compactBestUseTitle(trimmed, maxLength) : fallback;
 }
 
 function chipTone(tone: ServiceStatusChip["tone"] | undefined | null): ChipStatusTone {
@@ -74,86 +61,10 @@ function chipTone(tone: ServiceStatusChip["tone"] | undefined | null): ChipStatu
 }
 
 function serviceChipLabel(chip: ServiceStatusChip) {
-  const label = text(chip.label, "Status");
-  if (label.toLowerCase().includes("aboriginal and torres strait islander")) {
-    return "Aboriginal and Torres Strait Islander-specific";
-  }
-  return label;
-}
-
-function Stepper() {
-  return (
-    <div className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--e1)] lg:grid lg:grid-cols-4 lg:gap-3">
-      {[
-        ["1", "Search", "Find services"],
-        ["2", "Shortlist", "Pick best options"],
-        ["3", "Compare", "Review side by side"],
-        ["4", "Refer", "Send with confidence"],
-      ].map(([number, title, body], index) => (
-        <div key={number} className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-2">
-          <span
-            className={cn(
-              "grid h-9 w-9 place-items-center rounded-full border text-sm font-bold",
-              index === 0
-                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-            )}
-          >
-            {number}
-          </span>
-          <span className="min-w-0">
-            <span
-              className={cn(
-                "block text-sm font-bold",
-                index === 0 ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]",
-              )}
-            >
-              {title}
-            </span>
-            <span className="block truncate text-2xs font-semibold text-[color:var(--text-muted)]">{body}</span>
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Chip({ chip }: { chip: ServiceStatusChip }) {
-  return (
-    <DesignChip size="compact" appearance={{ kind: "status", tone: chipTone(chip.tone) }} dot>
-      {serviceChipLabel(chip)}
-    </DesignChip>
-  );
-}
-
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  detail,
-  className,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  detail: string;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "grid min-h-[66px] min-w-0 grid-cols-[1.8rem_minmax(0,1fr)] items-center gap-2 overflow-hidden border-l border-t border-[color:var(--border)] px-3 py-2",
-        className,
-      )}
-    >
-      <Icon className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
-      <span className="min-w-0">
-        <span className="block text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">{label}</span>
-        <span className="block truncate text-sm font-bold leading-5 text-[color:var(--text-heading)]">{value}</span>
-        <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)]">{detail}</span>
-      </span>
-    </div>
-  );
+  const label = displayText(chip.label, "Status");
+  return label.toLowerCase().includes("aboriginal and torres strait islander")
+    ? "Aboriginal and Torres Strait Islander-specific"
+    : label;
 }
 
 function ServiceCard({
@@ -169,386 +80,195 @@ function ServiceCard({
   selected: boolean;
   onToggleSelected: (slug: string) => void;
 }) {
-  const rank = index + 1;
-  const tags = [...(service.catchments ?? []), ...(service.tags ?? [])].slice(0, 4);
-  const showRelevanceCues = relevanceRank !== null && relevanceRank <= 2;
+  const showBestFit = relevanceRank !== null && relevanceRank <= 2;
+  const catchment = service.catchments?.slice(0, 2).join(" · ") || service.location;
 
   return (
     <article
       data-testid={`service-search-result-${service.slug}`}
       className={cn(
-        "rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--e1)]",
-        showRelevanceCues
+        "rounded-xl border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4",
+        selected || showBestFit
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent-border)]/35"
           : "border-[color:var(--border)]",
       )}
     >
-      <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-3">
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)]">
-          {rank}
+      <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]">
+        <span
+          className={cn(
+            "grid h-9 w-9 place-items-center rounded-lg border text-sm font-extrabold",
+            selected
+              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+              : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+          )}
+          aria-label={`Result ${index + 1}${selected ? ", shortlisted" : ""}`}
+        >
+          {selected ? <Check className="h-4 w-4" aria-hidden /> : index + 1}
         </span>
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="min-w-0 text-lg font-bold leading-tight text-[color:var(--text-heading)] max-sm:text-base">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <h2 className="text-base font-bold leading-5 text-[color:var(--text-heading)] sm:text-lg">
               {service.title}
-            </h3>
-            {showRelevanceCues ? (
-              <span className="rounded-full bg-[color:var(--clinical-accent)] px-2.5 py-1 text-2xs font-bold text-[color:var(--clinical-accent-contrast)]">
+            </h2>
+            {showBestFit ? (
+              <span className="rounded-full bg-[color:var(--clinical-accent)] px-2 py-0.5 text-2xs font-bold text-[color:var(--clinical-accent-contrast)]">
                 Best fit
               </span>
             ) : null}
           </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {(service.statusChips ?? []).slice(0, 3).map((chip) => (
-              <Chip key={`${service.slug}-${chip.label}`} chip={chip} />
-            ))}
-          </div>
-          <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            {compactCardText(
-              service.subtitle ?? service.bestUse,
-              SERVICE_CARD_SUBTITLE_MAX,
-              "Open the record for referral details.",
+          <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+            {compactText(
+              service.bestUse ?? service.subtitle,
+              150,
+              "Open the record to review service fit and referral details.",
             )}
           </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(service.statusChips ?? []).slice(0, 3).map((chip) => (
+              <DesignChip
+                key={`${service.slug}-${chip.label}`}
+                size="compact"
+                appearance={{ kind: "status", tone: chipTone(chip.tone) }}
+                dot
+              >
+                {serviceChipLabel(chip)}
+              </DesignChip>
+            ))}
+          </div>
         </div>
+        <span className="hidden items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--text-muted)] sm:inline-flex">
+          <ShieldCheck className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
+          {service.verification?.confidence ?? "Unknown"} confidence
+        </span>
+      </div>
+
+      <dl className="mt-3 grid min-w-0 grid-cols-1 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] sm:grid-cols-3">
+        {[
+          ["Catchment", compactText(catchment, 72, "Confirm locally")],
+          ["Eligibility", compactText(service.eligibility, 86, "Review criteria")],
+          ["Cost", compactText(service.cost, 72, "Confirm fees")],
+        ].map(([label, value], itemIndex) => (
+          <div
+            key={label}
+            className={cn(
+              "min-w-0 px-3 py-2.5",
+              itemIndex > 0 && "border-t border-[color:var(--border)] sm:border-l sm:border-t-0",
+            )}
+          >
+            <dt className="text-2xs font-semibold text-[color:var(--text-muted)]">{label}</dt>
+            <dd className="mt-0.5 line-clamp-2 text-xs font-bold leading-4 text-[color:var(--text-heading)]">
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+        <Link
+          href={`/services/${service.slug}`}
+          aria-label={`Review referral for ${service.title}`}
+          className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+        >
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+          Review referral
+        </Link>
         <button
           type="button"
           onClick={() => onToggleSelected(service.slug)}
-          className="grid min-h-tap min-w-tap place-items-center rounded-lg text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:h-9 sm:min-h-0 sm:w-9 sm:min-w-0"
-          aria-label={selected ? `Remove ${service.title} from comparison` : `Add ${service.title} to comparison`}
           aria-pressed={selected}
+          aria-label={selected ? `Remove ${service.title} from shortlist` : `Add ${service.title} to shortlist`}
+          className={cn(
+            "inline-flex min-h-12 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
+            selected
+              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+              : "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] hover:bg-[color:var(--clinical-accent-hover)]",
+          )}
         >
-          <Bookmark
-            className={cn(
-              "h-5 w-5",
-              selected && "fill-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]",
-            )}
-            aria-hidden
-          />
+          {selected ? <Check className="h-4 w-4" aria-hidden /> : <ListChecks className="h-4 w-4" aria-hidden />}
+          {selected ? "Shortlisted" : "Add to shortlist"}
         </button>
-      </div>
-      <div className="mt-3 grid min-w-0 grid-cols-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] md:grid-cols-4">
-        <Metric
-          icon={Phone}
-          label="Route / contact"
-          value={text(service.primaryContact?.value)}
-          detail={text(service.primaryContact?.detail ?? service.route, "Referral route pending")}
-          className="border-l-0 border-t-0"
-        />
-        <Metric
-          icon={Users}
-          label="Eligibility"
-          value={compactCardText(service.eligibility, SERVICE_CARD_METRIC_MAX, "Eligibility pending")}
-          detail="See details"
-          className="border-t-0"
-        />
-        <Metric
-          icon={ShieldCheck}
-          label="Confidence"
-          value={text(service.verification?.confidence, "Unknown")}
-          detail={text(service.source?.status, "Source pending")}
-          className="border-l-0 md:border-l md:border-t-0"
-        />
-        <Metric
-          icon={DollarSign}
-          label="Cost"
-          value={compactCardText(service.cost, SERVICE_CARD_METRIC_MAX, "Cost pending")}
-          detail={(service.cost ?? "").toLowerCase().includes("free") ? "No cost" : "Confirm fees"}
-          className="md:border-t-0"
-        />
-      </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap gap-1.5">
-          {tags.map((tag, tagIndex) => (
-            <span
-              key={`${service.slug}-${tag}`}
-              className={cn(
-                "rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--text-muted)]",
-                tagIndex > 2 ? "max-sm:hidden" : "",
-              )}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Link
-            href={`/services/${service.slug}`}
-            aria-label={`Open ${service.title}`}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          >
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-            Open
-          </Link>
-          <button
-            type="button"
-            onClick={() => onToggleSelected(service.slug)}
-            className="inline-flex min-h-tap min-w-[94px] items-center justify-center gap-1.5 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:h-9 sm:min-h-0"
-            aria-label={selected ? `Remove ${service.title} from comparison` : `Add ${service.title} to comparison`}
-            aria-pressed={selected}
-          >
-            <Check className="h-4 w-4" aria-hidden />
-            {selected ? "Selected" : "Select"}
-          </button>
-        </div>
       </div>
     </article>
   );
 }
 
-function RightRail({
-  matches,
-  selected,
-  onClearSelected,
-  onToggleSelected,
+function ComparisonPanel({
+  services,
+  onRemove,
+  onClose,
 }: {
-  matches: ServiceRecord[];
-  selected: ServiceRecord[];
-  onClearSelected: () => void;
-  onToggleSelected: (slug: string) => void;
+  services: ServiceRecord[];
+  onRemove: (slug: string) => void;
+  onClose: () => void;
 }) {
-  const [showChecklistDetails, setShowChecklistDetails] = useState(false);
-  const [showConfidenceDetails, setShowConfidenceDetails] = useState(false);
-  const [showComparison, setShowComparison] = useState(false);
-  const counts = serviceNavigatorMetrics(matches);
-  const comparisonAvailable = canCompareServices(selected);
-  const checklistExpanded = showChecklistDetails && selected.length > 0;
-  const confidenceExpanded = showConfidenceDetails && matches.length > 0;
-  const comparisonExpanded = showComparison && comparisonAvailable;
-  const confidenceTotal = counts.high + counts.medium + counts.low + counts.unknown;
-
-  const rows: Array<[string, number, LucideIcon, string]> = [
-    ["Meets", counts.meets, CircleCheck, "text-[color:var(--success)]"],
-    ["Caution", counts.cautions, CircleAlert, "text-[color:var(--warning)]"],
-    ["Does not meet", counts.rejects, CircleX, "text-[color:var(--danger)]"],
-    ["Source verified", counts.verified, CircleCheck, "text-[color:var(--success)]"],
-    ["Local confirmation", counts.localConfirmation, CircleAlert, "text-[color:var(--warning)]"],
-  ];
-
-  function clearSelectedServices() {
-    setShowChecklistDetails(false);
-    setShowComparison(false);
-    onClearSelected();
-  }
-
-  function removeSelectedService(slug: string) {
-    const remainingCount = selected.length - 1;
-    if (remainingCount === 0) setShowChecklistDetails(false);
-    if (remainingCount < 2) setShowComparison(false);
-    onToggleSelected(slug);
-  }
-
   return (
-    <div className="space-y-4">
-      <section
-        data-testid="services-referral-decision"
-        className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
-          <button
-            className="inline-flex min-h-tap items-center text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
-            type="button"
-            data-testid="services-clear-selected"
-            onClick={clearSelectedServices}
-            disabled={selected.length === 0}
-            title={selected.length === 0 ? "No selected services to clear" : "Clear selected services"}
-          >
-            Clear
-          </button>
-        </div>
-        <p data-testid="services-selected-count" className="mt-3 text-sm font-bold text-[color:var(--text-heading)]">
-          Selected services ({selected.length})
-        </p>
-        <div className="mt-3 grid gap-2">
-          {selected.map((service, index) => (
-            <button
-              key={service.slug}
-              type="button"
-              onClick={() => removeSelectedService(service.slug)}
-              aria-label={`Remove ${service.title} from comparison`}
-              className="grid min-h-16 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            >
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-bold text-[color:var(--clinical-accent-contrast)]">
-                {index + 1}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
-                  {service.title}
-                </span>
-                <span className="block truncate text-2xs font-semibold text-[color:var(--text-muted)]">
-                  {text(service.cost, "Cost pending")} - {text(service.source?.status, "Source pending")}
-                </span>
-              </span>
-              <X className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
-            </button>
-          ))}
-        </div>
-      </section>
-      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Checklist</h3>
-          <span className="text-xs font-semibold text-[color:var(--text-muted)]">Edit via result controls</span>
-        </div>
-        <div className="mt-4 grid gap-3 text-sm font-semibold text-[color:var(--text-muted)]">
-          {rows.map(([label, count, Icon, color]) => (
-            <div key={label} className="flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2">
-                <Icon className={cn("h-4 w-4", color)} aria-hidden />
-                {label}
-              </span>
-              <span className="font-bold text-[color:var(--text-heading)]">{count}</span>
-            </div>
-          ))}
+    <section
+      data-testid="services-comparison"
+      aria-labelledby="services-comparison-title"
+      className="rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] p-3 sm:p-4"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
+            Step 3
+          </p>
+          <h2 id="services-comparison-title" className="mt-0.5 text-xl font-bold text-[color:var(--text-heading)]">
+            Compare shortlisted services
+          </h2>
+          <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+            Check service fit and local details before choosing a referral route.
+          </p>
         </div>
         <button
-          className="mt-4 inline-flex min-h-tap scroll-mt-40 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:scroll-mt-44 lg:scroll-mt-20"
           type="button"
-          onClick={() => setShowChecklistDetails((current) => !current)}
-          disabled={selected.length === 0}
-          aria-expanded={checklistExpanded}
-          aria-controls={checklistExpanded ? "service-checklist-details" : undefined}
+          onClick={onClose}
+          aria-label="Close service comparison"
+          className="grid size-12 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:size-10"
         >
-          {checklistExpanded ? "Hide details" : "Review details"} <ArrowRight className="h-4 w-4" aria-hidden />
+          <X className="h-4 w-4" aria-hidden />
         </button>
-        {checklistExpanded ? (
-          <div id="service-checklist-details" className="mt-3 grid gap-3 border-t border-[color:var(--border)] pt-3">
-            {selected.map((service) => (
-              <div key={service.slug}>
-                <p className="text-xs font-bold text-[color:var(--text-heading)]">{service.title}</p>
-                <ul className="mt-1 grid gap-1 text-xs font-medium text-[color:var(--text-muted)]">
-                  {(service.criteria ?? []).map((criterion) => (
-                    <li key={criterion.label}>• {criterion.label}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </section>
-      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Source confidence</h3>
-          <button
-            className="inline-flex min-h-tap items-center text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
-            type="button"
-            onClick={() => setShowConfidenceDetails((current) => !current)}
-            disabled={matches.length === 0}
-            aria-expanded={confidenceExpanded}
-            aria-controls={confidenceExpanded ? "service-confidence-details" : undefined}
+      </div>
+      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {services.map((service) => (
+          <article
+            key={service.slug}
+            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
           >
-            {confidenceExpanded ? "Hide details" : "View details"}
-          </button>
-        </div>
-        <div
-          className="mt-4 flex h-3 overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
-          role="img"
-          aria-label={`Source confidence: ${counts.high} high, ${counts.medium} medium, ${counts.low} low, ${counts.unknown} unknown`}
-        >
-          {confidenceTotal > 0 ? (
-            <>
-              {counts.high ? <span className="bg-[color:var(--success)]" style={{ flexGrow: counts.high }} /> : null}
-              {counts.medium ? (
-                <span className="bg-[color:var(--warning)]" style={{ flexGrow: counts.medium }} />
-              ) : null}
-              {counts.low ? <span className="bg-[color:var(--danger)]" style={{ flexGrow: counts.low }} /> : null}
-              {counts.unknown ? (
-                <span className="bg-[color:var(--border-strong)]" style={{ flexGrow: counts.unknown }} />
-              ) : null}
-            </>
-          ) : null}
-        </div>
-        <div className="mt-3 grid grid-cols-4 text-center text-xs font-semibold text-[color:var(--text-muted)]">
-          <span>
-            High
-            <br />
-            <b className="text-[color:var(--text-heading)]">{counts.high}</b>
-          </span>
-          <span>
-            Medium
-            <br />
-            <b className="text-[color:var(--text-heading)]">{counts.medium}</b>
-          </span>
-          <span>
-            Low
-            <br />
-            <b className="text-[color:var(--text-heading)]">{counts.low}</b>
-          </span>
-          <span>
-            Unknown
-            <br />
-            <b className="text-[color:var(--text-heading)]">{counts.unknown}</b>
-          </span>
-        </div>
-        {confidenceExpanded ? (
-          <div id="service-confidence-details" className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3">
-            {matches.slice(0, 8).map((service) => (
-              <div key={service.slug} className="flex items-start justify-between gap-3 text-xs">
-                <span className="font-semibold text-[color:var(--text-heading)]">{service.title}</span>
-                <span className="shrink-0 text-[color:var(--text-muted)]">
-                  {service.verification?.confidence ?? "Unknown"}
-                </span>
-              </div>
-            ))}
-            {matches.length > 8 ? (
-              <p className="text-xs font-medium text-[color:var(--text-muted)]">+{matches.length - 8} more results</p>
-            ) : null}
-          </div>
-        ) : null}
-      </section>
-      <button
-        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
-        type="button"
-        data-testid="services-compare-selected"
-        disabled={!comparisonAvailable}
-        title={comparisonAvailable ? "Compare selected services" : "Select at least two services before comparing"}
-        aria-label={
-          comparisonAvailable
-            ? `Compare selected services (${selected.length})`
-            : "Select at least two services before comparing"
-        }
-        onClick={() => setShowComparison((current) => !current)}
-        aria-expanded={comparisonExpanded}
-        aria-controls={comparisonExpanded ? "selected-services-comparison" : undefined}
-      >
-        {comparisonExpanded ? "Hide comparison" : "Compare selected"} ({selected.length})
-      </button>
-      {comparisonExpanded ? (
-        <section
-          id="selected-services-comparison"
-          aria-label="Selected service comparison"
-          className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]"
-        >
-          {selected.map((service) => (
-            <article key={service.slug} className="rounded-lg border border-[color:var(--border)] p-3">
-              <div className="flex items-start justify-between gap-2">
-                <h4 className="text-sm font-bold text-[color:var(--text-heading)]">{service.title}</h4>
-                <Link
-                  href={`/services/${service.slug}`}
-                  className="inline-flex min-h-tap items-center text-xs font-bold text-[color:var(--clinical-accent)] sm:min-h-0"
-                >
-                  Open
-                </Link>
-              </div>
-              <dl className="mt-2 grid gap-2 text-xs">
-                {[
-                  ["Contact", text(service.primaryContact?.value)],
-                  ["Eligibility", text(service.eligibility, "Eligibility pending")],
-                  ["Cost", text(service.cost, "Cost pending")],
-                  ["Source", text(service.source?.status, "Source pending")],
-                  ["Confidence", text(service.verification?.confidence, "Unknown")],
-                ].map(([label, value]) => (
-                  <div key={label} className="grid grid-cols-[5rem_minmax(0,1fr)] gap-2">
-                    <dt className="font-semibold text-[color:var(--text-muted)]">{label}</dt>
-                    <dd className="font-medium text-[color:var(--text-muted)]">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </article>
-          ))}
-        </section>
-      ) : null}
-    </div>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-bold leading-5 text-[color:var(--text-heading)]">{service.title}</h3>
+              <button
+                type="button"
+                onClick={() => onRemove(service.slug)}
+                aria-label={`Remove ${service.title} from comparison`}
+                className="grid size-10 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+            <dl className="mt-2 grid gap-2 text-xs">
+              {[
+                ["Best use", compactText(service.bestUse, 105, "Assess service fit")],
+                ["Eligibility", compactText(service.eligibility, 105, "Confirm locally")],
+                ["Referral", compactText(service.referral ?? service.route, 105, "Confirm route")],
+                ["Cost", compactText(service.cost, 80, "Confirm fees")],
+              ].map(([label, value]) => (
+                <div key={label} className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-2">
+                  <dt className="font-semibold text-[color:var(--text-muted)]">{label}</dt>
+                  <dd className="font-medium text-[color:var(--text-heading)]">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <Link
+              href={`/services/${service.slug}`}
+              className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+            >
+              Review referral
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -557,68 +277,98 @@ export function ServicesNavigatorPage() {
   const searchParams = useSearchParams();
   const [sortValue, setSortValue] = useResultSort();
   const urlQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
-  const initialQuery = urlQuery || defaultQuery;
-  const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
-  const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
+  const activeGroup = readServiceCoreGroup(searchParams.get("group"));
+  const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: urlQuery }));
+  const query = localQuery.urlQuery === urlQuery ? localQuery.value : urlQuery;
   const deferredQuery = useDeferredValue(query);
   const registry = useRegistryRecords("service");
   const registryLoading = registry.status === "loading";
   const registryReady = registry.status === "ready" || registry.status === "refetching";
-  // Demo mode is served by the registry API as status "ready" with fixture
-  // records, so unauthorized/error must not silently fall back to fixtures —
-  // the home and detail pages surface the same conditions as notices.
   const registryBlocked = registry.status === "unauthorized" || registry.status === "error";
   const searchableRecords = useMemo(() => (registryReady ? registry.records : []), [registry.records, registryReady]);
-  const matches = useMemo(() => {
-    // Cleared live query should restore the full catalogue immediately, even if
-    // deferredQuery still holds the previous term for a frame.
+  const rankedMatches = useMemo(() => {
     if (!query.trim()) return searchableRecords;
     const ranked = rankServiceRecords(searchableRecords, deferredQuery);
     if (ranked.length) return ranked.map((match) => match.service);
-    // Deferred empty while the live query has text means ranking is lagging —
-    // never dump the full catalogue as if the box were cleared.
     return [];
   }, [deferredQuery, query, searchableRecords]);
+  const groupedMatches = useMemo(
+    () => rankedMatches.filter((service) => serviceMatchesCoreGroup(service, activeGroup)),
+    [activeGroup, rankedMatches],
+  );
   const displayedMatches = useMemo(
-    () => sortResultItems(matches, sortValue, (service) => service.title),
-    [matches, sortValue],
+    () => sortResultItems(groupedMatches, sortValue, (service) => service.title),
+    [groupedMatches, sortValue],
   );
   const relevanceRankMap = useMemo(() => {
     const map = new Map<string, number>();
-    matches.forEach((service, index) => {
-      map.set(service.slug, index + 1);
-    });
+    rankedMatches.forEach((service, index) => map.set(service.slug, index + 1));
     return map;
-  }, [matches]);
-  const [selectedSlugs, setSelectedSlugs] = useState<string[] | null>(null);
-  const effectiveSelectedSlugs = selectedSlugs ?? searchableRecords.slice(0, 2).map((service) => service.slug);
-  const selected = searchableRecords.filter((service) => effectiveSelectedSlugs.includes(service.slug));
+  }, [rankedMatches]);
+  const groupCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        serviceCoreGroups.map((group) => [
+          group.id,
+          rankedMatches.filter((service) => serviceMatchesCoreGroup(service, group.id)).length,
+        ]),
+      ) as Record<ServiceCoreGroupId, number>,
+    [rankedMatches],
+  );
+  const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
+  const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
+  const [showComparison, setShowComparison] = useState(false);
+  const activeQuickFilter = serviceQuickFilters.find(
+    (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
+  );
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
+  const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
+  const activeStage = showComparison ? "compare" : selected.length ? "shortlist" : "search";
+
+  function updateParams(mutator: (params: URLSearchParams) => void, replace = false) {
+    const params = new URLSearchParams(searchParams.toString());
+    mutator(params);
+    params.set("run", "1");
+    const href = `/services?${params.toString()}`;
+    if (replace) router.replace(href, { scroll: false });
+    else router.push(href, { scroll: false });
+  }
 
   function toggleSelected(slug: string) {
     setSelectedSlugs((current) => {
-      const selected = current ?? effectiveSelectedSlugs;
-      return selected.includes(slug) ? selected.filter((item) => item !== slug) : [slug, ...selected].slice(0, 5);
+      const next = current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug].slice(0, 5);
+      if (next.length < 2) setShowComparison(false);
+      return next;
     });
   }
 
   function applyServiceQuery(nextQuery: string) {
     const trimmedQuery = nextQuery.trim();
     setLocalQuery({ urlQuery, value: trimmedQuery });
-    if (trimmedQuery) {
-      router.push(appModeHomeHref("services", { query: trimmedQuery, focus: true, run: true }));
-    }
+    updateParams((params) => {
+      params.delete("query");
+      if (trimmedQuery) params.set("q", trimmedQuery);
+      else params.delete("q");
+    });
   }
 
   function clearServiceQuery() {
     setLocalQuery({ urlQuery, value: "" });
-    router.replace(appModeHomeHref("services"), { scroll: false });
+    updateParams((params) => {
+      params.delete("q");
+      params.delete("query");
+      params.delete("focus");
+    }, true);
   }
 
-  const activeQuickFilter = serviceQuickFilters.find(
-    (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
-  );
-  const filterPanelId = useId();
-  const [filterOpen, setFilterOpen] = useState(false);
+  function hrefForGroup(group: ServiceCoreGroupId | null) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("run", "1");
+    if (group) params.set("group", group);
+    else params.delete("group");
+    return `/services?${params.toString()}`;
+  }
 
   return (
     <SearchResultsLayout
@@ -631,14 +381,49 @@ export function ServicesNavigatorPage() {
             id={modeHomeDesktopComposerSlotId}
             className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />
-          <Stepper />
+
+          {selected.length ? (
+            <section
+              data-testid="services-shortlist-bar"
+              aria-label="Service shortlist"
+              className="flex min-h-14 flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2 sm:px-4"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]">
+                <ListChecks className="h-4 w-4" aria-hidden />
+                {selected.length} shortlisted
+              </span>
+              <span className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowComparison(true)}
+                  disabled={selected.length < 2}
+                  title={
+                    selected.length < 2 ? "Shortlist at least two services to compare" : "Compare shortlisted services"
+                  }
+                  className="inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10"
+                >
+                  <GitCompareArrows className="h-4 w-4" aria-hidden />
+                  Compare
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSlugs([]);
+                    setShowComparison(false);
+                  }}
+                  className="inline-flex min-h-12 items-center rounded-lg px-3 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] sm:min-h-10"
+                >
+                  Clear
+                </button>
+              </span>
+            </section>
+          ) : null}
+
           <SearchResultsHeaderBand
             modeId="services"
-            query={query}
+            query={heading}
             matchCount={displayedMatches.length}
-            // A blocked registry must not reach the band as "0 matches" — on this
-            // page that would assert there are no crisis services when the search
-            // never ran. The band renders no count while faulted.
+            headingLevel={1}
             status={
               registryBlocked
                 ? registry.status === "unauthorized"
@@ -661,7 +446,7 @@ export function ServicesNavigatorPage() {
               registry.status === "unauthorized" ? (
                 <Link
                   href="/"
-                  className="inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] sm:min-h-10"
                 >
                   Open account setup
                 </Link>
@@ -669,8 +454,6 @@ export function ServicesNavigatorPage() {
             }
             sortValue={sortValue}
             onSortChange={setSortValue}
-            filterLabel="Quick service filters"
-            // A compact badged trigger, so it shares the count line.
             mobileControlsPlacement="inline"
             mobileControls={
               <ResultFilterTrigger
@@ -682,68 +465,48 @@ export function ServicesNavigatorPage() {
                 onToggle={() => setFilterOpen((current) => !current)}
               />
             }
-            filterControls={
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)] sm:inline-flex">
-                  <SlidersHorizontal className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
-                  Quick filters
-                </span>
-                <div className="polished-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
-                  {serviceQuickFilters.map((filter) => (
-                    <button
-                      key={filter.label}
-                      type="button"
-                      onClick={() => applyServiceQuery(filter.query)}
-                      aria-pressed={query.trim().toLowerCase() === filter.query.toLowerCase()}
-                      className={cn(
-                        "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-2.5 text-2xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9 sm:text-xs",
-                        query.trim().toLowerCase() === filter.query.toLowerCase()
-                          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                      )}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={clearServiceQuery}
-                  aria-label="Clear quick filters"
-                  className="inline-flex min-h-tap shrink-0 items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-9"
-                >
-                  Clear
-                </button>
-              </div>
+            utilityControls={
+              <span className="hidden sm:inline-flex">
+                <ResultFilterTrigger
+                  panelId={filterPanelId}
+                  testId="service-filter-trigger-desktop"
+                  title="Filter services"
+                  open={filterOpen}
+                  activeCount={activeQuickFilter ? 1 : 0}
+                  onToggle={() => setFilterOpen((current) => !current)}
+                />
+              </span>
             }
           />
-          {/* Phone-only by construction: the trigger that opens it lives in the
-              ribbon's `mobileControls` slot, which the band hides from `sm` up.
-              A quick filter rewrites the query rather than narrowing a result
-              set, so applying one closes the sheet — the list underneath is a
-              different search by the time it settles. */}
+
+          <section className="grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4">
+            <ServiceReferralFlow active={activeStage} />
+            <ServiceGroupNav
+              activeGroup={activeGroup}
+              hrefForGroup={hrefForGroup}
+              counts={{ ...groupCounts, all: rankedMatches.length }}
+            />
+          </section>
+
           <ResultFilterSheet
             open={filterOpen}
             onClose={() => setFilterOpen(false)}
             panelId={filterPanelId}
             testId="service-filter-panel"
             title="Filter services"
-            description="Quick filters run a new service search."
+            description="Quick filters run a focused search within the selected service group."
             groups={[
               resultFilterGroup({
                 id: "quick-filter",
                 label: "Quick filters",
                 value: activeQuickFilter?.query ?? "current",
                 options: [
-                  // The placeholder is only offered while nothing is applied, and
-                  // it is `disabled` so it cannot be chosen — it names the state
-                  // the reader is already in rather than an action.
                   ...(activeQuickFilter
                     ? []
                     : [
                         {
-                          value: "current",
-                          label: query.trim() ? "Current search" : "All services",
+                          value: "current" as const,
+                          label: query.trim() ? "Current search" : serviceCoreGroupLabel(activeGroup),
                           disabled: true,
                         },
                       ]),
@@ -768,52 +531,33 @@ export function ServicesNavigatorPage() {
           />
         </>
       }
-      sidebar={
-        <RightRail
-          key={selected.length === 0 ? "empty" : selected.length === 1 ? "single" : "multiple"}
-          matches={displayedMatches}
-          selected={selected}
-          onClearSelected={() => setSelectedSlugs([])}
-          onToggleSelected={toggleSelected}
-        />
-      }
     >
-      {/* `registryBlocked` renders nothing here: the band above now reports the
-          fault and owns the retry/sign-in action, so repeating it would announce
-          the same failure twice. */}
       {registryLoading ? (
         <SearchResultsSkeleton />
-      ) : registryBlocked ? null : query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
+      ) : registryBlocked ? null : query.trim() && deferredQuery === query && rankedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
           query={query}
           onTryExample={(example) => applyServiceQuery(example)}
         />
+      ) : displayedMatches.length === 0 ? (
+        <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center">
+          <h2 className="text-lg font-bold text-[color:var(--text-heading)]">No services in this group</h2>
+          <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+            Try All services or remove the current quick filter.
+          </p>
+          <Link
+            href={hrefForGroup(null)}
+            className="mt-3 inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+          >
+            Show all services
+          </Link>
+        </section>
       ) : (
         <>
-          <div className="overflow-hidden rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
-            <div className="relative flex min-w-0 items-start justify-between gap-3 bg-[linear-gradient(135deg,var(--surface-chrome),var(--surface)_62%,var(--clinical-accent-soft))] p-4 sm:p-5">
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--clinical-accent),transparent)] opacity-55" />
-              <div className="grid min-w-0 flex-1 grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[3.5rem_minmax(0,1fr)] sm:gap-4">
-                <span className="grid size-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:size-14">
-                  <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
-                    Referral matches
-                  </p>
-                  <h1 className="mt-0.5 text-2xl-minus font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-                    {displayedMatches.length} referral {displayedMatches.length === 1 ? "match" : "matches"}
-                  </h1>
-                  <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[color:var(--text-muted)] max-sm:max-w-[15rem]">
-                    {sortValue === "alpha"
-                      ? "Sorted A–Z for quick known-service lookup."
-                      : "Prioritised for crisis support, culturally safe access, and phone referral."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+          {showComparison && selected.length >= 2 ? (
+            <ComparisonPanel services={selected} onRemove={toggleSelected} onClose={() => setShowComparison(false)} />
+          ) : null}
           <div data-testid="service-search-results" className="grid gap-3">
             {displayedMatches.map((service, index) => (
               <ServiceCard
@@ -821,12 +565,12 @@ export function ServicesNavigatorPage() {
                 service={service}
                 index={index}
                 relevanceRank={sortValue === "alpha" ? null : (relevanceRankMap.get(service.slug) ?? null)}
-                selected={effectiveSelectedSlugs.includes(service.slug)}
+                selected={selectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
               />
             ))}
           </div>
-          <UniversalSearchAlsoMatches modeId="services" query={query} />
+          {query ? <UniversalSearchAlsoMatches modeId="services" query={query} /> : null}
         </>
       )}
     </SearchResultsLayout>

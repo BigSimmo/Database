@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { compactBestUseTitle, compactCatalogField, parseLabeledReferralDetails } from "@/lib/compact-best-use-title";
 import { catalogToServiceRecord, mapCatalogToServiceRecords } from "@/lib/service-catalog-mapper";
 import { loadServicesSnapshot, normalizeCatalogServices } from "@/lib/service-catalog";
+import { readServiceCoreGroup, serviceCoreGroupIds, serviceMatchesCoreGroup } from "@/lib/service-core-groups";
 import {
   getServiceRecord,
   loadServiceRecords,
@@ -205,6 +206,22 @@ describe("services catalogue", () => {
     expect(matches.length).toBeGreaterThan(0);
     expect(matches[0]?.service.slug).toBe("13yarn");
     expect(searchServiceRecords("13YARN")[0]?.service.slug).toBe("13yarn");
+  });
+
+  it("maps representative services into the four browse groups", () => {
+    const records = loadServiceRecords();
+    const yarn = records.find((service) => service.slug === "13yarn");
+    const cityEast = records.find((service) => service.slug === "city-east-community-mental-health-service");
+    const cads = records.find((service) => service.slug === "community-alcohol-and-drug-services-cads-network");
+    const residential = records.find((service) => service.slug === "community-supported-residential-units");
+
+    expect(yarn && serviceCoreGroupIds(yarn)).toContain("urgent");
+    expect(cityEast && serviceCoreGroupIds(cityEast)).toContain("public");
+    expect(cads && serviceCoreGroupIds(cads)).toContain("aod");
+    expect(residential && serviceCoreGroupIds(residential)).toContain("community");
+    expect(readServiceCoreGroup("unknown")).toBeNull();
+
+    expect(yarn && serviceMatchesCoreGroup(yarn, null)).toBe(true);
   });
 
   it("normalizes service lookup", () => {

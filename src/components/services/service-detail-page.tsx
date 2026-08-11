@@ -30,7 +30,6 @@ import { useState, type ReactNode } from "react";
 
 import {
   cn,
-  ignoreUnavailableActivation,
   metadataPillDensity,
   textMuted,
   toneDanger,
@@ -44,9 +43,11 @@ import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
+import { ServiceReferralFlow } from "@/components/services/service-referral-flow";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { compactCatalogField } from "@/lib/compact-best-use-title";
+import { serviceCoreGroupIds, serviceCoreGroups } from "@/lib/service-core-groups";
 import {
   serviceNavigatorQuery,
   type ServiceContact,
@@ -491,8 +492,16 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   const summaryCards = summaryCardsFor(service);
   const referralRows = referralRowsFor(service, primaryContact);
   const callHref = contactHref(primaryContact);
+  const actionableContact = Boolean(
+    primaryContact && ["phone", "email", "web"].includes(primaryContact.kind) && callHref,
+  );
+  const sourceHref =
+    hasText(service.source?.url) && /^https?:\/\//i.test(service.source.url) ? service.source.url : undefined;
+  const ContactActionIcon = primaryContact?.kind === "email" ? Mail : primaryContact?.kind === "web" ? Globe2 : Phone;
+  const contactActionLabel =
+    primaryContact?.kind === "email" ? "Email" : primaryContact?.kind === "web" ? "Open website" : "Call";
   const verified = service.verification?.locallyVerified === true;
-  const preferredCardOrder = ["route", "best-use", "eligibility", "cost"] as const;
+  const preferredCardOrder = ["best-use", "eligibility", "route", "cost"] as const;
   const summaryCardById = new Map(summaryCards.map((card) => [card.id, card]));
   const compactSummaryCards = preferredCardOrder
     .map((id) => summaryCardById.get(id))
@@ -512,6 +521,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   const meetCount = criteria.filter((item) => item.tone === "meet").length;
   const cautionCount = criteria.filter((item) => item.tone !== "meet").length;
   const contactLabel = contactDisplayValue(primaryContact);
+  const recordGroups = serviceCoreGroupIds(service);
   const localConfirmationDetail =
     service.verification?.notes?.find((note) => /hour/i.test(note)) ??
     service.verification?.notes?.find((note) => /local|confirm/i.test(note)) ??
@@ -584,17 +594,19 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               )}
               {saved ? "Remove saved service" : "Save service"}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                close();
-                void copyValue(primaryContact?.value, "Contact copied");
-              }}
-              className={inPageActionRowClass}
-            >
-              <Clipboard className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-              Copy contact
-            </button>
+            {actionableContact ? (
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  void copyValue(primaryContact?.value, "Contact copied");
+                }}
+                className={inPageActionRowClass}
+              >
+                <Clipboard className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+                Copy contact
+              </button>
+            ) : null}
             {callHref ? (
               <a
                 href={callHref}
@@ -603,25 +615,21 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                 onClick={close}
                 className={inPageActionRowClass}
               >
-                <Phone className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-                Call
+                <ContactActionIcon className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+                {contactActionLabel}
               </a>
-            ) : (
-              <button
-                type="button"
-                aria-disabled="true"
-                onClick={ignoreUnavailableActivation}
-                title="Call — no contact number listed for this service"
-                aria-describedby="service-call-unavailable"
+            ) : sourceHref ? (
+              <a
+                href={sourceHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={close}
                 className={inPageActionRowClass}
               >
-                <Phone className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
-                Call
-                <span id="service-call-unavailable" className="sr-only">
-                  No contact number is listed for this service.
-                </span>
-              </button>
-            )}
+                <Globe2 className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+                Open source
+              </a>
+            ) : null}
             <button
               type="button"
               onClick={() => {
@@ -684,6 +692,19 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                       ))}
                     </div>
                   ) : null}
+                  <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Service groups">
+                    {recordGroups.map((groupId) => {
+                      const group = serviceCoreGroups.find((item) => item.id === groupId);
+                      return group ? (
+                        <span
+                          key={group.id}
+                          className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--text-muted)]"
+                        >
+                          {group.label}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
                   {compactedSubtitle ? (
                     <p className="mt-3 max-w-4xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                       {compactedSubtitle}
@@ -693,27 +714,31 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               </div>
             </section>
 
-            <section className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.85fr)]">
+            <ServiceReferralFlow active="refer" />
+
+            <section
+              id="service-referral-readiness"
+              aria-label="Referral readiness"
+              className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.8fr)]"
+            >
               <div className="flex min-w-0 gap-3">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
-                  <Phone className="h-5 w-5" aria-hidden />
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                  <Navigation className="h-5 w-5" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-[color:var(--text-muted)]">Contact</p>
-                  <h2 className="mt-1 break-words text-xl font-semibold text-[color:var(--text-heading)]">
-                    {contactLabel
-                      ? primaryContact?.kind === "web" || /^https?:\/\//i.test(primaryContact?.value ?? "")
-                        ? contactLabel
-                        : `Contact: ${contactLabel}`
-                      : "Contact not listed"}
+                  <p className="text-xs font-semibold text-[color:var(--text-muted)]">Referral route</p>
+                  <h2 className="mt-0.5 break-words text-base font-semibold leading-5 text-[color:var(--text-heading)]">
+                    {hasText(service.referral) || hasText(service.route)
+                      ? compactCatalogField(service.referral ?? service.route ?? "", 150)
+                      : "Confirm referral route"}
                   </h2>
-                  {hasText(primaryContact?.detail) || hasText(service.route) ? (
-                    <p className={cn("mt-1 text-sm leading-5", textMuted)}>
-                      {hasText(primaryContact?.detail)
-                        ? compactCatalogField(primaryContact.detail, 120)
-                        : compactCatalogField(service.route, 120)}
-                    </p>
-                  ) : null}
+                  <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                    {actionableContact && contactLabel
+                      ? `${primaryContact?.label ?? "Contact"}: ${contactLabel}`
+                      : sourceHref
+                        ? "Use the source service page to confirm current contact details."
+                        : "Service-specific contact details require local confirmation."}
+                  </p>
                 </div>
               </div>
               <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
@@ -732,12 +757,9 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                 <span className={cn(metadataPillDensity.standard, "mt-2 inline-flex rounded-full", toneWarning)}>
                   {service.verification?.confidence ?? "Unknown"}
                 </span>
-              </div>
-              <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-                <div className="flex min-h-10 items-center gap-2 text-sm font-medium text-[color:var(--text-heading)]">
-                  <Bookmark className="h-5 w-5 shrink-0 text-[color:var(--text-heading)]" aria-hidden />
-                  <span>{service.catalogueLabel ?? "Catalogue service"}</span>
-                </div>
+                <p className="mt-1 text-2xs leading-4 text-[color:var(--text-muted)]">
+                  {service.source?.status ?? "Source status pending"}
+                </p>
               </div>
             </section>
 

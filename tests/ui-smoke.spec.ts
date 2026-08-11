@@ -4124,7 +4124,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("services decision rail exposes only functional review and comparison actions", async ({ page }) => {
+  test("services shortlist exposes comparison only when requested", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/services?q=mental%20health&focus=1&run=1");
@@ -4132,35 +4132,23 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const navigator = page.getByRole("main");
     await expect(navigator).toBeVisible();
     await expect(navigator.getByRole("button", { name: "Edit" })).toHaveCount(0);
-    // Sticky-stack search stays pinned above phones. Playwright's default
-    // scroll-into-view parks rail controls under that composer (Clear search
-    // intercepts). Center the control first so the click hits the rail.
-    const clickRailControl = async (locator: Locator) => {
-      await locator.evaluate((element) => {
-        element.scrollIntoView({ block: "center", inline: "nearest" });
-      });
-      await locator.click();
-    };
-    const reviewDetails = navigator.getByRole("button", { name: "Review details" });
-    await expect(reviewDetails).toBeEnabled();
-    await clickRailControl(reviewDetails);
-    await expect(navigator.locator("#service-checklist-details")).toBeVisible();
-    const viewDetails = navigator.getByRole("button", { name: "View details" });
-    await expect(viewDetails).toBeEnabled();
-    await clickRailControl(viewDetails);
-    await expect(navigator.locator("#service-confidence-details")).toBeVisible();
-    const compare = navigator.getByTestId("services-compare-selected");
-    await expect(compare).toBeEnabled();
-    await clickRailControl(compare);
-    await expect(navigator.getByRole("region", { name: "Selected service comparison" })).toBeVisible();
-    // Prefer the decision-rail clear control — the results pane also exposes a
-    // "Clear" for quick filters, and a first-match click leaves selection intact.
-    const clear = navigator.getByTestId("services-clear-selected");
-    await expect(clear).toBeEnabled();
-    await clickRailControl(clear);
-    await expect(navigator.getByTestId("services-selected-count")).toHaveText("Selected services (0)");
-    // RightRail remounts when selection empties (`key` swaps to "empty").
-    await expect(navigator.getByTestId("services-compare-selected")).toBeDisabled();
+    await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
+    await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
+
+    const addButtons = navigator.getByRole("button", { name: /Add .* to shortlist/ });
+    await addButtons.nth(0).click();
+    const shortlist = navigator.getByTestId("services-shortlist-bar");
+    await expect(shortlist).toContainText("1 shortlisted");
+    await expect(shortlist.getByRole("button", { name: "Compare" })).toBeDisabled();
+
+    await addButtons.nth(1).click();
+    await expect(shortlist).toContainText("2 shortlisted");
+    await shortlist.getByRole("button", { name: "Compare" }).click();
+    await expect(navigator.getByTestId("services-comparison")).toBeVisible();
+
+    await shortlist.getByRole("button", { name: "Clear" }).click();
+    await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
+    await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
   });
 
   test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {
