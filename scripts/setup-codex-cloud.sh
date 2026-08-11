@@ -257,7 +257,7 @@ source "$runtime_profile"
 
 log "Installing locked Node dependencies."
 setup_step="node-dependencies"
-npm ci --include=dev
+npm ci --include=dev --prefer-offline --no-audit --no-fund
 
 setup_step="codex-cli"
 install_npm_cli "@openai/codex" "$codex_cli_version" "codex"
