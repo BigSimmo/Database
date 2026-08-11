@@ -97,7 +97,7 @@ test("searches clinical language without provenance fields and carries a result 
   await expect(page.locator("#what-matters-now")).toBeVisible();
 
   await page.getByRole("link", { name: "Use in builder", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Build the diagnosis in the right order" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Build diagnostic wording" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Specifier wording pathway" })).toBeVisible();
   await expect(page.getByText(/Start with the base diagnosis/i)).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: /Mixed features/ })).toBeChecked();
@@ -175,7 +175,9 @@ test("keeps the builder pathway readable without horizontal overflow on phone", 
   await expect(pathway.getByText("Episode features", { exact: true })).toBeVisible();
   await expect(pathway.getByText("Course and onset", { exact: true })).toBeVisible();
   await expect(pathway.getByText("Severity or remission", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Build the diagnosis in the right order" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Build diagnostic wording" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+  await expect(page.getByText("Structured diagnostic language", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/Start with the base diagnosis/i)).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
