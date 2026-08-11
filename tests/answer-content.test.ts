@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { primaryAnswerDisplayText } from "../src/components/clinical-dashboard/answer-content";
+import { sourceQuoteDisplayText } from "../src/components/clinical-dashboard/display-text";
 
 describe("primaryAnswerDisplayText", () => {
   it("keeps a safety cue in a long leading fragment beyond the compact word budget", () => {
@@ -59,5 +60,20 @@ describe("primaryAnswerDisplayText", () => {
   it("is unchanged for a short answer with no safety signal", () => {
     const answer = "Offer simple analgesia and reassess in one hour.";
     expect(primaryAnswerDisplayText(answer)).toBe(answer);
+  });
+});
+
+describe("sourceQuoteDisplayText", () => {
+  it("removes PDF navigation, footnote, and list artifacts from a cited passage", () => {
+    const extracted =
+      "Section: Consent > Consent requirements | Page: 9 | o for maintenance ECT consent must be obtained after 12 treatments or every three (3) months, whichever comes first 13 [Level GPP] • complete baseline pathology investigations and ECG.";
+
+    expect(sourceQuoteDisplayText(extracted)).toBe(
+      "Consent requirements. For maintenance ECT consent must be obtained after 12 treatments or every three (3) months, whichever comes first. Complete baseline pathology investigations and ECG.",
+    );
+  });
+
+  it("preserves clinically meaningful comparison symbols and numbers", () => {
+    expect(sourceQuoteDisplayText("Page: 4 | • Withhold if ANC < 1.0 ×10⁹/L.")).toBe("Withhold if ANC < 1.0 ×10⁹/L.");
   });
 });
