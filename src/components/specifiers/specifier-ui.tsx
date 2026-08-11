@@ -15,6 +15,25 @@ export function SpecifierPageShell({ children, className }: { children: ReactNod
   return <InformationPageShell className={className}>{children}</InformationPageShell>;
 }
 
+export function SpecifierToolHeader({
+  icon: Icon,
+  title,
+}: {
+  icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  title: string;
+}) {
+  return (
+    <header className="flex items-center gap-3 border-b border-[color:var(--border)] pb-4 sm:gap-4 sm:pb-5">
+      <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] ring-1 ring-inset ring-[color:var(--clinical-accent-border)] sm:size-12">
+        <Icon className="size-icon-lg" aria-hidden />
+      </span>
+      <h1 className="text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
+        {title}
+      </h1>
+    </header>
+  );
+}
+
 export function SpecifierBreadcrumbs({ current }: { current?: string }) {
   return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers" }} current={current} />;
 }
@@ -54,7 +73,7 @@ export function SpecifierWordingPathway() {
 }
 
 const familyChipBase =
-  "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
+  "inline-flex min-h-12 shrink-0 items-center rounded-lg border px-3 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
 const familyChipActive =
   "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 const familyChipIdle =
@@ -105,7 +124,7 @@ export function SpecifierDiagnosisFilter({
     <label
       className={cn(
         // Content-sized control: wide enough for “All diagnoses” without becoming a full-width field.
-        "relative inline-flex min-h-tap w-auto max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
+        "relative inline-flex min-h-12 w-auto max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
       )}
     >
