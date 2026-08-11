@@ -3641,7 +3641,6 @@ export function ClinicalDashboard({
 
                 {showUniversalAlsoMatches &&
                 (activeModeResultKind === "tools" ||
-                  activeModeResultKind === "favourites" ||
                   activeModeResultKind === "documents" ||
                   activeModeResultKind === "services" ||
                   activeModeResultKind === "forms") ? (

@@ -428,6 +428,7 @@
      resting-hairline role is gone: its call sites reach for --e1 directly. */
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
+  --shadow-tight: var(--e1);
   --shadow-hover: var(--e3);
   --shadow-elevated: var(--e4);
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 90%), var(--e4);
@@ -667,6 +668,7 @@
 
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
+  --shadow-tight: var(--e1);
   --shadow-hover: var(--e3);
   --shadow-elevated: var(--e4);
   --shadow-lux: var(--e4);

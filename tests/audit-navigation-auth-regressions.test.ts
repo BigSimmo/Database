@@ -268,7 +268,7 @@ describe("audit navigation and auth regressions", () => {
   it("leaves favourites universal matches to the favourites hub", () => {
     const universalMatchesContract = sourceSegment(
       clinicalDashboardSource,
-      '{showUniversalAlsoMatches && activeModeResultKind === "tools"',
+      "{showUniversalAlsoMatches &&",
       // The shared home now opens the mode-content chain, ahead of differentials.
       "{showSharedHome ?",
     );
