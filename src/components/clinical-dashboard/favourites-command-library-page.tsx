@@ -44,6 +44,7 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
@@ -1248,6 +1249,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 onSelectItem={setSelectedItemId}
               />
             )}
+            <UniversalSearchAlsoMatches modeId="favourites" query={query} />
           </div>
         </div>
         {selectedItem ? (
