@@ -943,6 +943,38 @@ async function expectMobileSettingsLayout(settings: Locator) {
   expect(controlBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height + 8);
   expect(controlBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
   expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
+
+  for (const groupLabel of ["Answer style", "Appearance", "Interface density", "Default landing view"]) {
+    const row = settings.getByTestId(`settings-row-${groupLabel.toLowerCase().replaceAll(" ", "-")}`);
+    const radios = row.getByRole("radiogroup", { name: groupLabel }).getByRole("radio");
+    const radioBoxes = await radios.evaluateAll((elements) =>
+      elements.map((element) => {
+        const box = element.getBoundingClientRect();
+        const text = element.querySelector("span");
+        return {
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height,
+          textFits: text ? text.scrollWidth <= text.clientWidth + 1 : true,
+        };
+      }),
+    );
+
+    expect(radioBoxes).toHaveLength(3);
+    expect(
+      Math.max(...radioBoxes.map((box) => box.y)) - Math.min(...radioBoxes.map((box) => box.y)),
+    ).toBeLessThanOrEqual(1);
+    expect(radioBoxes.every((box) => box.height >= 48)).toBe(true);
+    expect(radioBoxes.every((box) => box.textFits)).toBe(true);
+    expect(radioBoxes[0].x + radioBoxes[0].width).toBeLessThanOrEqual(radioBoxes[1].x);
+    expect(radioBoxes[1].x + radioBoxes[1].width).toBeLessThanOrEqual(radioBoxes[2].x);
+  }
+
+  const switchBox = await settings.getByTestId("settings-row-reduce-motion").getByRole("switch").boundingBox();
+  expect(switchBox).not.toBeNull();
+  expect(switchBox!.width).toBeGreaterThanOrEqual(48);
+  expect(switchBox!.height).toBeGreaterThanOrEqual(48);
   await expect(settings.getByRole("button", { name: "Close settings" })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Back from settings" })).toHaveCount(0);
 }
@@ -1495,6 +1527,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(settingsBox!.y).toBeLessThanOrEqual(fullscreenTolerance);
     expect(settingsBox!.width + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.width);
     expect(settingsBox!.height + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.height);
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 320, height: 820 });
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 390, height: 820 });
     await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
 

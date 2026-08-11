@@ -197,6 +197,7 @@
   --animate-dialog-rise: dialog-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-action-tray-in: action-tray-in var(--swipe-duration, 160ms) cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-answer-ecg: answer-ecg-sweep 2.6s linear infinite;
 }
 
 /* Theme tokens */
@@ -2861,6 +2862,12 @@ td,
   }
 }
 
+@keyframes answer-ecg-sweep {
+  to {
+    stroke-dashoffset: -320;
+  }
+}
+
 /*
  * Helper classes with no same-property utility conflicts at any call site
  * live in @layer components so Tailwind utilities can override them.
@@ -2874,6 +2881,14 @@ td,
  * those unlayered classes, check the class body first; the class wins.
  */
 @layer components {
+  .answer-activity-trace {
+    contain: paint;
+  }
+
+  .answer-activity-trace__sweep {
+    animation: var(--animate-answer-ecg);
+  }
+
   .app-edge-backdrop {
     background: var(--background);
   }
@@ -3178,6 +3193,18 @@ td,
   .polished-scroll::-webkit-scrollbar-thumb:active {
     background-color: color-mix(in srgb, var(--clinical-accent) 60%, var(--border-strong));
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .answer-activity-trace__sweep {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+html[data-motion="reduced"] .answer-activity-trace__sweep {
+  animation: none;
+  opacity: 0;
 }
 
 /* IMP-04: Compositor-thread sweep used by .animate-skeleton-shimmer::after. */
