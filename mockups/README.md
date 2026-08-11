@@ -74,3 +74,32 @@ Three sticky header directions for record pages that use `InformationPageBreadcr
 **Outcome: direction 02 shipped**, as the breadcrumb shape of the existing `InPageNavHeader` rather than a new component — omitting `sections` drops the disclosure and the track, and `primaryAction` / `mode` / `showBackLabel` shape the row. Adopted first on `/factsheets/<slug>`, where the reading level rides the `mode` slot. Contract: `docs/search-chrome-behaviour.md` ("The breadcrumb shape").
 
 **The runnable `/mockups/breadcrumb-header` route was removed once 02 shipped.** It was not deleted for tidiness: `check:bundle-budget` totals every built chunk, mockups included, and `main` sits at roughly +9.4% against a 10% tolerance, so the study's two scratch chunks (~9.8 KiB gzip) alone pushed the repo to +10.1% and failed `Build` — the same failure PR #1580 hit, at the same number. A design-scratch route that 404s in production is the wrong thing to spend the last of that headroom on. The table above is the durable record; recover the route from history if the alternatives need re-reading.
+
+## Services filter surface (2026-08-11)
+
+Runnable study at [`/mockups/services-filter-refined`](../src/app/mockups/services-filter-refined/page.tsx): three
+directions for the sheet reached from the **Filter** control in the services results band, each shown at desktop and
+phone, plus a reproduction of what ships today with its defects annotated.
+
+The finding that drove the study is not cosmetic. The sheet is titled "Filter services" and nothing in it filters —
+every chip calls `applyServiceQuery()`, which pushes a new route and **replaces the query**, so choosing "Crisis" while
+reading "16 services · lithium level timing" discards that search and its results. It is a preset switcher wearing a
+funnel icon. Secondary defects: no per-option counts, four unrelated categories in one flat chip row, a dead band below
+the fold, "Done" as a low-emphasis outlined button doing the primary job, and a phone `role="radiogroup"` contradicting
+the desktop rail's `aria-pressed` toggles.
+
+| Direction                 | Shape                                                        | Blast radius                                                                |
+| ------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| A — Refine in place       | Facet groups + separated "Start a new search" block          | Fits current `ResultFilterSheet` props; upgrades all 7 modes, nothing forks |
+| B — Presets/filters split | Two tabs, plus a persistent active-filter row under the band | Tab contract in the shared sheet + a band row other modes inherit           |
+| C — Directory-grade       | Persistent desktop rail; phone find-a-filter + collapse      | New services desktop layout + a services facet index; services-only         |
+
+Every count in the study is real, computed live from the 219 services in `data/services-snapshot.json` via ~1KB of
+base64 facet bitmasks (OR within a group, AND across groups). The tags are already populated and unused by the UI:
+acuity, catchments, age groups, setting flags, substance and housing flags, plus `confidence`.
+
+Three data caveats recorded in the study itself: a **"No cost" facet is not free** (`cost_funding` is 87 distinct
+free-text values; ~69 of 219 match a free-ish pattern, so it is deliberately absent rather than faked);
+`age_groups: mixed` (202/219) and `setting_flags: public` (207/219) are **omitted as facets** because an option that
+never excludes anything is a row of dead pixels; and the radiogroup/`aria-pressed` disagreement must be resolved
+deliberately rather than inherited.
