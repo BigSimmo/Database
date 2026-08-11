@@ -1831,6 +1831,7 @@ summary::-webkit-details-marker {
   --smart-search-phone-ticker-gap: 0.75rem;
   --smart-search-phone-ticker-inline-padding: 0.25rem;
   --smart-search-phone-ticker-vertical-padding: 0.375rem;
+
   min-height: var(--spacing-tap);
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
