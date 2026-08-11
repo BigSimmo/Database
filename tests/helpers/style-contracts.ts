@@ -275,6 +275,8 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Not component effects.
   dark: "theme root selector, not a component class; token values are asserted by the dark-mode journeys",
   "touch-card": "sets outline/touch-action only; the shared focus treatment is asserted by ui-accessibility",
+  "home-recent-searches":
+    "session-seeded answer-home history variant; its desktop/phone layout and activation are covered by the focused ui-smoke recent-search journey",
 
   // Phone/answer composer chrome. Covered behaviourally by verify:phone-chrome and
   // the chrome-scroll/overlap journeys, but not yet by computed-effect assertions.
