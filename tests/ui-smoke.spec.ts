@@ -950,13 +950,15 @@ async function expectMobileSettingsLayout(settings: Locator) {
 async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
   await expect(setup.getByLabel("Email address")).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Apple sign-in unavailable" })).toBeDisabled();
-  await expect(setup.getByRole("button", { name: "Google sign-in unavailable" })).toBeDisabled();
-  await expect(setup.getByRole("button", { name: "Microsoft sign-in unavailable" })).toBeDisabled();
-  await expect(setup.getByRole("heading", { name: "What your account saves" })).toBeVisible();
-  await expect(setup.getByText(/Recent questions stay in this browser session/i)).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Security summary" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue with email" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+  await expect(setup.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
+  await expect(setup.getByRole("button", { name: /Apple/i })).toHaveCount(0);
+  await expect(setup.getByText("Apple sign-in is not available yet.")).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Saved to your account" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Stays on this device" })).toBeVisible();
+  await expect(setup.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
   await expect(setup.getByText("No PHI required")).toBeVisible();
   await expect(setup).toContainText("Do not enter patient-identifying information.");
 }
@@ -1517,10 +1519,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(accountMenu).toHaveCount(0);
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
+    await expect(setup.getByLabel("Email address")).toBeFocused();
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
     expect(setupBox!.x).toBeGreaterThanOrEqual(-1);
     expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 320, height: 700 });
+    const setupClose = setup.getByRole("button", { name: "Close account setup" });
+    await expect(setup.getByLabel("Email address")).toBeInViewport();
+    await expect(setup.getByRole("button", { name: "Continue with email" })).toBeInViewport();
+    await expect(setupClose).toBeInViewport();
+    await expectNoPageHorizontalOverflow(page);
+
+    const setupScrollPort = setup.locator(".polished-scroll");
+    await setupScrollPort.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect(setup.getByText("No PHI required")).toBeInViewport();
+    await expect(setupClose).toBeInViewport();
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    expect(await setup.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+    expect(
+      await setup.getByRole("button", { name: "Continue with Google" }).evaluate((element) => {
+        return getComputedStyle(element).borderStyle;
+      }),
+    ).not.toBe("none");
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await expect(setupClose).toBeInViewport();
     await expectNoPageHorizontalOverflow(page);
   });
 
