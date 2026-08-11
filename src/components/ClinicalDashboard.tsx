@@ -3033,6 +3033,7 @@ export function ClinicalDashboard({
   // still mount on submission. Follow-ups hide the panel while loading so stale
   // matches for the prior query do not compete with the new Drafting stepper.
   const showUniversalAlsoMatches =
+    !showSharedHome &&
     (modeSearchSubmitted || activeModeResultKind === "tools" || activeModeResultKind === "favourites") &&
     Boolean(universalAlsoMatchesQuery.trim()) &&
     (activeModeResultKind === "tools" ||

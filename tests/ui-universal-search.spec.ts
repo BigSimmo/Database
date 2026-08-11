@@ -278,6 +278,14 @@ test.describe("universal search typeahead", () => {
     }
   });
 
+  test("keeps submitted cross-mode matches off the unsubmitted shared home", async ({ page }) => {
+    await mockUniversalSearch(page);
+    const input = await openComposer(page, "/?mode=therapy&focus=1");
+    await input.fill("acamprosate");
+
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+  });
+
   test("keeps compact cross-mode matches visible after submission", async ({ page }) => {
     await mockUniversalSearch(page);
     const universalRequest = page.waitForRequest(/\/api\/search\/universal(?:\?.*)?$/);
