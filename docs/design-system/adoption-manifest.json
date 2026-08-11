@@ -914,6 +914,7 @@
       "directImportFiles": [
         "src/components/ClinicalDashboard.tsx",
         "src/components/DocumentViewer.tsx",
+        "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
@@ -922,6 +923,7 @@
       "productImportFiles": [
         "src/components/ClinicalDashboard.tsx",
         "src/components/DocumentViewer.tsx",
+        "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
@@ -1767,11 +1769,13 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/formulation/formulation-builder-page.tsx"
       ],
       "productImportFiles": [
+        "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/formulation/formulation-builder-page.tsx"
