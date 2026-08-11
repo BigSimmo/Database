@@ -3634,6 +3634,7 @@ export function ClinicalDashboard({
                         startedAt={answerProgressStartedAt}
                         active={loading}
                         onStop={stopSearch}
+                        density={loading && Boolean(answer) ? "compact" : "expanded"}
                       />
                     ) : null
                   ) : loading && answerProgress ? (
