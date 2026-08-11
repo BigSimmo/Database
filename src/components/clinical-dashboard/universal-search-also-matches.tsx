@@ -209,7 +209,7 @@ export function UniversalSearchAlsoMatches({
                 <TargetIcon className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0 flex-1 space-y-1">
-                <span className="block truncate text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+                <span className="block truncate text-2xs font-semibold uppercase tracking-label text-[color:var(--clinical-accent)]">
                   {targetMode.label}
                 </span>
                 {group.items.map((item) => (
