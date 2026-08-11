@@ -475,9 +475,11 @@ test.describe("Clinical KB tools launcher", () => {
         width < 1024
           ? page.getByTestId("application-row-clinical-kb-search")
           : page.getByTestId("application-card-clinical-kb-search");
-      const description = tool.getByText("Ask source-backed clinical questions and move straight to evidence.", {
+      const description = tool
+        .getByText("Ask source-backed clinical questions and move straight to evidence.", {
         exact: true,
-      });
+      })
+        .first();
       await expect(description).toBeVisible();
       const clipping = await description.evaluate((element) => {
         const style = getComputedStyle(element);

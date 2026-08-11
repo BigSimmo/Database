@@ -138,24 +138,31 @@ function readChromeState(page: Page): Promise<ChromeState> {
 
 /** Scrolls in per-frame steps so the reporter sees real directional intent. */
 async function scrollBy(page: Page, totalPx: number, stepPx: number) {
-  await page.evaluate(
-    async ({ total, step }) => {
-      const main = document.getElementById("main-content");
-      const mainScrolls = Boolean(main && main.scrollHeight > main.clientHeight + 1);
-      const steps = Math.max(1, Math.ceil(Math.abs(total) / step));
-      const direction = total < 0 ? -1 : 1;
-      for (let i = 0; i < steps; i += 1) {
-        if (mainScrolls && main) {
-          main.scrollTop += direction * step;
-          main.dispatchEvent(new Event("scroll", { bubbles: true }));
-        } else {
-          window.scrollBy(0, direction * step);
-        }
-        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
-      }
-    },
-    { total: totalPx, step: stepPx },
-  );
+  const useMainScroller = await page.evaluate(() => {
+    const main = document.getElementById("main-content");
+    return Boolean(main && main.scrollHeight > main.clientHeight + 1);
+  });
+
+  const steps = Math.max(1, Math.ceil(Math.abs(totalPx) / stepPx));
+  const direction = totalPx < 0 ? -1 : 1;
+  const stepPxAbs = Math.abs(stepPx);
+  let remaining = Math.abs(totalPx);
+
+  for (let i = 0; i < steps && remaining > 0; i += 1) {
+    const delta = direction * Math.min(stepPxAbs, remaining);
+    if (useMainScroller) {
+      await page.evaluate((nextDelta) => {
+        const main = document.getElementById("main-content");
+        if (!main) return;
+        main.scrollTop += nextDelta;
+        main.dispatchEvent(new Event("scroll", { bubbles: true }));
+      }, delta);
+    } else {
+      await page.mouse.wheel(0, delta);
+    }
+    remaining -= Math.min(stepPxAbs, remaining);
+    await page.waitForTimeout(16);
+  }
 }
 
 /**
