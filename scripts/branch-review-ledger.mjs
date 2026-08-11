@@ -391,7 +391,9 @@ function resolveHead(value, { required = false } = {}) {
   return /^[0-9a-f]{40}$/i.test(cleaned) ? cleaned.toLowerCase() : cleaned;
 }
 
-function parseFlags(argv) {
+const BOOLEAN_FLAGS = new Set(["json", "supersede", "dry-run"]);
+
+export function parseFlags(argv) {
   const flags = {};
   const positional = [];
   for (let i = 0; i < argv.length; i += 1) {
@@ -400,9 +402,18 @@ function parseFlags(argv) {
       positional.push(token);
       continue;
     }
+    const equalsIndex = token.indexOf("=");
+    if (equalsIndex > 2) {
+      flags[token.slice(2, equalsIndex)] = token.slice(equalsIndex + 1);
+      continue;
+    }
     const name = token.slice(2);
+    if (BOOLEAN_FLAGS.has(name)) {
+      flags[name] = true;
+      continue;
+    }
     const next = argv[i + 1];
-    if (next === undefined || next.startsWith("--")) {
+    if (next === undefined) {
       flags[name] = true;
       continue;
     }

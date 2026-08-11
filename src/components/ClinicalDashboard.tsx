@@ -3033,11 +3033,15 @@ export function ClinicalDashboard({
   // still mount on submission. Follow-ups hide the panel while loading so stale
   // matches for the prior query do not compete with the new Drafting stepper.
   const showUniversalAlsoMatches =
-    (modeSearchSubmitted || activeModeResultKind === "tools" || activeModeResultKind === "favourites") &&
+    !showSharedHome &&
     Boolean(universalAlsoMatchesQuery.trim()) &&
     (activeModeResultKind === "tools" ||
       activeModeResultKind === "favourites" ||
-      (activeModeResultKind === "answer" && Boolean(answer) && !loading));
+      (activeModeResultKind === "answer" && Boolean(answer) && !loading) ||
+      ((activeModeResultKind === "documents" ||
+        activeModeResultKind === "services" ||
+        activeModeResultKind === "forms") &&
+        modeSearchSubmitted));
   const showDesktopHomeComposer =
     !error &&
     (showSharedHome ||
@@ -3635,7 +3639,12 @@ export function ClinicalDashboard({
                     <SearchProgressBanner message={answerProgress} onStop={stopSearch} />
                   ) : null)}
 
-                {showUniversalAlsoMatches && activeModeResultKind === "tools" ? (
+                {showUniversalAlsoMatches &&
+                (activeModeResultKind === "tools" ||
+                  activeModeResultKind === "favourites" ||
+                  activeModeResultKind === "documents" ||
+                  activeModeResultKind === "services" ||
+                  activeModeResultKind === "forms") ? (
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 

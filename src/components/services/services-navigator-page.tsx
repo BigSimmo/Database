@@ -29,6 +29,7 @@ import {
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
@@ -42,7 +43,6 @@ import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "
 import { canCompareServices, serviceNavigatorMetrics } from "@/lib/service-navigator-metrics";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 
 const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
@@ -609,6 +609,11 @@ export function ServicesNavigatorPage() {
     }
   }
 
+  function clearServiceQuery() {
+    setLocalQuery({ urlQuery, value: "" });
+    router.replace(appModeHomeHref("services"), { scroll: false });
+  }
+
   const activeQuickFilter = serviceQuickFilters.find(
     (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
   );
@@ -703,7 +708,7 @@ export function ServicesNavigatorPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setLocalQuery({ urlQuery, value: "" })}
+                  onClick={clearServiceQuery}
                   aria-label="Clear quick filters"
                   className="inline-flex min-h-tap shrink-0 items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-9"
                 >
@@ -755,7 +760,7 @@ export function ServicesNavigatorPage() {
               activeQuickFilter
                 ? () => {
                     setFilterOpen(false);
-                    setLocalQuery({ urlQuery, value: "" });
+                    clearServiceQuery();
                   }
                 : undefined
             }

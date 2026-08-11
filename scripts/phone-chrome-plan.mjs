@@ -146,7 +146,7 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
     stages.push(npmStage("docs-links", "documentation links remain valid", "docs:check-links"));
   } else {
     stages.push(
-      npmStage("lock-parity", "critical installed packages match package-lock.json", "check:installed-lock-parity"),
+      npmStage("lock-parity", "the complete installed tree matches package-lock.json", "check:installed-lock-parity"),
     );
   }
 
