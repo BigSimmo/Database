@@ -840,8 +840,7 @@ test.describe("Clinical KB tools launcher", () => {
       await formulationModeLabel.evaluate((label) => label.scrollWidth <= label.clientWidth),
       "the full 320px mode label should fit without visual truncation",
     ).toBe(true);
-    await expect(sharedHome.getByRole("heading", { level: 2, name: "What explains the pattern?" })).toBeVisible();
-    await expect(sharedHome.getByText("Explore mechanisms behind the presentation.", { exact: true })).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Formulation" })).toBeVisible();
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-network\b/);
     await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
       "placeholder",
@@ -852,7 +851,7 @@ test.describe("Clinical KB tools launcher", () => {
     expect(await page.evaluate(() => window.history.length)).toBe(historyLengthBefore);
 
     const formulationHeadingBox = await sharedHome
-      .getByRole("heading", { level: 2, name: "What explains the pattern?" })
+      .getByRole("heading", { level: 2, name: "Clinical Formulation" })
       .boundingBox();
     expect(formulationHeadingBox).not.toBeNull();
     expect((formulationHeadingBox?.x ?? 0) + (formulationHeadingBox?.width ?? 0)).toBeLessThanOrEqual(320);
