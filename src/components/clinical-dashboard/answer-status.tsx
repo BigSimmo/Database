@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { Check, Clipboard, ClipboardCheck, History, Loader2, Square } from "lucide-react";
+import { Activity, Check, Clipboard, ClipboardCheck, History, Loader2, Square } from "lucide-react";
 
 import {
   answerProgressDisplayMessage,
@@ -186,16 +186,69 @@ export function SearchProgressBanner({ message, onStop }: { message: string; onS
   );
 }
 
+type AnswerProgressDensity = "expanded" | "compact";
+
+const answerActivityPath =
+  "M0 24 H46 L52 23 L57 7 L64 37 L72 24 H122 L128 23 L133 4 L141 40 L149 24 H198 L204 23 L209 9 L216 35 L224 24 H272 L278 23 L283 10 L290 34 L298 24 H320";
+
+function AnswerActivityTrace({ density }: { density: AnswerProgressDensity }) {
+  const compact = density === "compact";
+
+  return (
+    <div
+      data-testid="answer-activity-trace"
+      data-density={density}
+      className={cn("answer-activity-trace w-full overflow-hidden", compact ? "h-5" : "h-10 sm:h-12")}
+    >
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        viewBox="0 0 320 44"
+        preserveAspectRatio="none"
+        className="block size-full"
+      >
+        <path
+          data-slot="answer-activity-trace-base"
+          d={answerActivityPath}
+          pathLength="320"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={compact ? 1.25 : 1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+          className="text-[color:var(--clinical-accent)] opacity-25 forced-colors:text-[CanvasText] forced-colors:opacity-100"
+        />
+        <path
+          data-slot="answer-activity-trace-sweep"
+          d={answerActivityPath}
+          pathLength="320"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={compact ? 1.75 : 2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="44 276"
+          vectorEffect="non-scaling-stroke"
+          className="answer-activity-trace__sweep text-[color:var(--clinical-accent)] forced-colors:text-[Highlight]"
+        />
+      </svg>
+    </div>
+  );
+}
+
 export function AnswerProgressStepper({
   events,
   startedAt,
   active,
   onStop,
+  density = "expanded",
 }: {
   events: TimedAnswerProgressUpdate[];
   startedAt: number | null;
   active: boolean;
   onStop: () => void;
+  density?: AnswerProgressDensity;
 }) {
   const latest = events.at(-1) ?? null;
   const finished = latest?.stage === "complete";
@@ -207,6 +260,7 @@ export function AnswerProgressStepper({
   const clientElapsedMs = startedAt ? Math.max(0, (finished ? (latest?.receivedAt ?? now) : now) - startedAt) : 0;
   const elapsedMs = finished && latest?.elapsedMs !== undefined ? latest.elapsedMs : clientElapsedMs;
   const currentMessage = latest ? answerProgressDisplayMessage(latest) : "Preparing the clinical search scope.";
+  const compact = density === "compact" && !finished;
   const stageProgress = currentStep / Math.max(1, answerProgressSteps.length - 1);
   const details = events
     .map((event) => ({ ...event, displayMessage: answerProgressDisplayMessage(event) }))
@@ -217,11 +271,12 @@ export function AnswerProgressStepper({
     <section
       data-testid="answer-progress-stepper"
       data-progress-state={finished ? "complete" : "active"}
+      data-density={finished ? "complete" : density}
       aria-label={finished ? "Answer generation complete" : "Answer generation progress"}
       aria-busy={active && !finished}
       className={cn(
         "border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)]",
-        finished ? "rounded-lg px-3 py-2" : "rounded-xl p-3 sm:p-4",
+        finished ? "rounded-lg px-3 py-2" : compact ? "rounded-lg px-3 py-2.5" : "rounded-xl p-3 sm:p-4",
       )}
     >
       <span role="status" className="sr-only">
@@ -230,20 +285,31 @@ export function AnswerProgressStepper({
           : `Answer generation moved to step ${currentStep + 1} of ${answerProgressSteps.length}: ${answerProgressSteps[currentStep]?.label ?? "Prepare scope"}.`}
       </span>
 
-      <div className={cn("flex", finished ? "min-h-8 items-center gap-2" : "items-start gap-3")}>
+      {compact ? <AnswerActivityTrace density="compact" /> : null}
+
+      <div
+        className={cn(
+          "flex",
+          finished ? "min-h-8 items-center gap-2" : compact ? "mt-1.5 items-start gap-2" : "items-start gap-3",
+        )}
+      >
         {finished ? (
           <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-[color:var(--success)]">
             <Check className="size-icon-sm" aria-hidden />
           </span>
-        ) : (
+        ) : compact ? null : (
           <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] shadow-[var(--e1)]">
-            <Loader2 className="size-icon-lg animate-spin motion-reduce:animate-none" aria-hidden />
+            <Activity className="size-icon-lg" aria-hidden />
           </span>
         )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <p className="text-sm font-semibold sm:text-base">
-              {finished ? `Answer ready in ${elapsedLabel(elapsedMs)}` : "Creating your cited answer"}
+              {finished
+                ? `Answer ready in ${elapsedLabel(elapsedMs)}`
+                : compact
+                  ? "Creating cited answer"
+                  : "Creating your cited answer"}
             </p>
             {!finished ? (
               <span
@@ -255,7 +321,17 @@ export function AnswerProgressStepper({
             ) : null}
           </div>
           {!finished ? (
-            <p className="mt-0.5 text-xs text-[color:var(--text-muted)] sm:text-sm">{currentMessage}</p>
+            <p className={cn("mt-0.5 text-xs text-[color:var(--text-muted)]", compact ? "leading-snug" : "sm:text-sm")}>
+              {compact ? (
+                <>
+                  <span className="font-medium text-[color:var(--text-body)]">
+                    Step {currentStep + 1} of {answerProgressSteps.length} · {answerProgressSteps[currentStep]?.label}
+                  </span>
+                  <span aria-hidden="true"> — </span>
+                </>
+              ) : null}
+              {currentMessage}
+            </p>
           ) : null}
         </div>
         {active && !finished ? (
@@ -274,7 +350,13 @@ export function AnswerProgressStepper({
         ) : null}
       </div>
 
-      {!finished ? (
+      {!finished && !compact ? (
+        <div className="mt-2">
+          <AnswerActivityTrace density="expanded" />
+        </div>
+      ) : null}
+
+      {!finished && !compact ? (
         <div className="relative mt-3">
           <span
             aria-hidden
@@ -348,23 +430,25 @@ export function AnswerProgressStepper({
         </div>
       ) : null}
 
-      <details className={cn("text-xs text-[color:var(--text-muted)]", finished ? "mt-0" : "mt-1")}>
-        <summary
-          className={cn(
-            "cursor-pointer rounded-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-            finished ? "w-fit" : "inline-flex min-h-tap items-center",
-          )}
-        >
-          Processing details
-        </summary>
-        <ol className="mt-2 space-y-1 border-l border-[color:var(--border)] pl-3">
-          {details.map((event, index) => (
-            <li key={`${event.receivedAt}-${event.stage}-${index}`} className="leading-relaxed">
-              {event.displayMessage}
-            </li>
-          ))}
-        </ol>
-      </details>
+      {finished || !compact ? (
+        <details className={cn("text-xs text-[color:var(--text-muted)]", finished ? "mt-0" : "mt-1")}>
+          <summary
+            className={cn(
+              "cursor-pointer rounded-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              finished ? "w-fit" : "inline-flex min-h-tap items-center",
+            )}
+          >
+            Processing details
+          </summary>
+          <ol className="mt-2 space-y-1 border-l border-[color:var(--border)] pl-3">
+            {details.map((event, index) => (
+              <li key={`${event.receivedAt}-${event.stage}-${index}`} className="leading-relaxed">
+                {event.displayMessage}
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
     </section>
   );
 }

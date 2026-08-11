@@ -364,6 +364,28 @@ describe("SegmentedControl", () => {
     expect(screen.getByRole("radio", { name: "Brief" }).tabIndex).toBe(0);
     expect(screen.getByRole("radio", { name: "Standard" }).tabIndex).toBe(-1);
   });
+
+  it("keeps equal segments on one row while fit segments remain wrappable", () => {
+    const { rerender } = render(
+      <SegmentedControl
+        label="Answer style"
+        value="brief"
+        onChange={() => undefined}
+        options={options}
+        layout="equal"
+      />,
+    );
+
+    expect(screen.getByRole("radiogroup", { name: "Answer style" })).toHaveClass("flex-nowrap");
+    for (const radio of screen.getAllByRole("radio")) expect(radio).toHaveClass("flex-1");
+
+    rerender(
+      <SegmentedControl label="Answer style" value="brief" onChange={() => undefined} options={options} layout="fit" />,
+    );
+
+    expect(screen.getByRole("radiogroup", { name: "Answer style" })).toHaveClass("flex-wrap");
+    for (const radio of screen.getAllByRole("radio")) expect(radio).toHaveClass("flex-none");
+  });
 });
 
 describe("OverlayRoot", () => {
