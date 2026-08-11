@@ -977,7 +977,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `FieldHint`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
+| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
 | `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
@@ -1001,7 +1001,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `StageList`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Tabs`                   | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `TextLink`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToastRegion`            | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToggleSwitch`           | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
