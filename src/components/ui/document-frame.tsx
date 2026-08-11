@@ -487,14 +487,13 @@ function DocumentControls({
               Viewing aid
             </button>
             {canFullscreen && !fullscreen ? (
-              <button
-                type="button"
-                className={overflowItem}
-                disabled={controlsDisabled}
-                onClick={() => {
-                  closeOverflow();
-                  if (fullscreen) onExitFullscreen();
-                  else onEnterFullscreen();
+            <button
+              type="button"
+              className={overflowItem}
+              disabled={controlsDisabled}
+              onClick={() => {
+                closeOverflow();
+                onEnterFullscreen();
                 }}
               >
                 <Maximize2 aria-hidden="true" className="size-icon-sm" />

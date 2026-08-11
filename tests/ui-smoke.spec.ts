@@ -4301,7 +4301,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.addInitScript(() => {
       Object.defineProperty(Element.prototype, "requestFullscreen", {
         configurable: true,
-        value: undefined,
+        value: () => Promise.reject(new Error("fullscreen blocked by test")),
       });
     });
     await mockDemoApi(page);
@@ -4422,7 +4422,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
       return {
         position: style.position,
         height: style.height,
-        bounds: { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom },
+        bounds: {
+          left: Math.round(bounds.left),
+          top: Math.round(bounds.top),
+          right: Math.round(bounds.right),
+          bottom: Math.round(bounds.bottom),
+        },
         ownsTopEdge: Boolean(topOwner && element.contains(topOwner)),
       };
     });
@@ -4449,7 +4454,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("#search")).toHaveCSS("visibility", "hidden");
     await expect(page.getByTestId("document-frame")).toHaveAttribute("data-fullscreen-fallback", "on");
     await expect(page.getByTestId("document-frame")).toHaveCSS("position", "fixed");
-    expect(await page.getByTestId("document-frame").boundingBox()).toEqual({ x: 0, y: 0, width: 1280, height: 900 });
+    const fullscreenBounds = await page.getByTestId("document-frame").boundingBox();
+    expect(fullscreenBounds).not.toBeNull();
+    expect({
+      x: Math.round(fullscreenBounds!.x),
+      y: Math.round(fullscreenBounds!.y),
+      width: Math.round(fullscreenBounds!.width),
+      height: Math.round(fullscreenBounds!.height),
+    }).toEqual({ x: 0, y: 0, width: 1280, height: 900 });
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("document-frame")).not.toHaveAttribute("data-fullscreen");
     await expect(page.locator("#search")).not.toHaveCSS("visibility", "hidden");

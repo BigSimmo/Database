@@ -3047,6 +3047,11 @@ td,
     overscroll-behavior: none;
   }
 
+  html:has([data-document-frame][data-fullscreen-fallback="on"]) .phone-scroll-surface {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   html:has([data-document-frame][data-fullscreen-fallback="on"])
     :is(.phone-sticky-header-stack, .universal-header, [data-document-sticky-header], .document-viewer-composer) {
     visibility: hidden;
