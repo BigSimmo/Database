@@ -432,6 +432,7 @@ test.describe("previously uncovered production routes", () => {
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Compare specifiers", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
       },
       async (currentPage) => {
         const selects = currentPage.locator("select");
@@ -453,6 +454,7 @@ test.describe("previously uncovered production routes", () => {
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Specifier map", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
       },
       async (currentPage) => {
         const mixedFeatures = currentPage.getByRole("button", { name: "Mixed features" });
