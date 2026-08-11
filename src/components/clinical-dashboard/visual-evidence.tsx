@@ -346,15 +346,6 @@ const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
   Gaps: CircleAlert,
 };
 
-function supportDotClass(supportLevel: string) {
-  const normalized = supportLevel.toLowerCase();
-  if (normalized.includes("unsupported") || normalized.includes("none")) return "bg-[color:var(--danger)]";
-  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby")) {
-    return "bg-[color:var(--warning)]";
-  }
-  return "bg-[color:var(--clinical-accent)]";
-}
-
 function supportLabel(supportLevel: string) {
   const normalized = supportLevel.toLowerCase();
   if (normalized.includes("unsupported") || normalized.includes("none")) return "Unsupported";
