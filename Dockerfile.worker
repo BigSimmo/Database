@@ -26,6 +26,7 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
+COPY scripts/check-installed-lock-parity.mjs scripts/check-installed-lock-parity.mjs
 # Same install-retry contract as the app Dockerfile (registry ECONNRESET flakes).
 RUN for attempt in 1 2 3; do \
       npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
@@ -42,6 +43,7 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
+COPY scripts/check-installed-lock-parity.mjs scripts/check-installed-lock-parity.mjs
 RUN for attempt in 1 2 3; do \
       npm ci --omit=dev --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
       if [ "$attempt" -eq 3 ]; then exit 1; fi; \
