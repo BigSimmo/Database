@@ -249,12 +249,10 @@ function useFacetCounts(selected: ReadonlySet<string>): FacetCounts {
     const total = popcount(maskForSelection(selected));
     const perFacet: Record<string, number> = {};
     for (const group of FACET_GROUPS) {
-      // Counts for a group are computed against every OTHER group's selection,
-      // so the numbers answer "what would I get if I added this?" rather than
-      // collapsing to zero the moment a sibling in the same group is chosen.
-      const base = maskForSelection(selected, group.id);
       for (const facet of group.facets) {
-        perFacet[facet.id] = popcount(and(base, DECODED[facet.id]));
+        const candidate = new Set(selected);
+        candidate.add(facet.id);
+        perFacet[facet.id] = popcount(maskForSelection(candidate));
       }
     }
     return { total, perFacet };
@@ -456,25 +454,35 @@ function ResultsBand({
 }
 
 function ResultsPreview({ compact, count }: { compact: boolean; count: number }) {
+  const previewCount = compact ? 2 : 3;
+  const visible = Math.min(count, previewCount);
+  const remaining = Math.max(count - previewCount, 0);
+
   return (
     <div className="mt-2 grid content-start gap-1.5">
-      {SAMPLE_RESULTS.slice(0, compact ? 2 : 3).map((result) => (
-        <div
-          key={result.name}
-          className="flex items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-2xs font-bold text-[color:var(--text)]">{result.name}</span>
-            <span className="block truncate text-3xs font-medium text-[color:var(--text-soft)]">{result.meta}</span>
-          </span>
-          <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs font-bold text-[color:var(--text-soft)]">
-            {result.confidence}
-          </span>
-        </div>
-      ))}
-      <span className="px-1 text-3xs font-semibold text-[color:var(--text-soft)]">
-        + {Math.max(count - (compact ? 2 : 3), 0)} more
-      </span>
+      {count === 0 ? (
+        <span className="px-1 py-3 text-center text-3xs font-semibold text-[color:var(--text-soft)]">
+          No services match this filter set.
+        </span>
+      ) : (
+        <>
+          {SAMPLE_RESULTS.slice(0, visible).map((result) => (
+            <div
+              key={result.name}
+              className="flex items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-2xs font-bold text-[color:var(--text)]">{result.name}</span>
+                <span className="block truncate text-3xs font-medium text-[color:var(--text-soft)]">{result.meta}</span>
+              </span>
+              <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs font-bold text-[color:var(--text-soft)]">
+                {result.confidence}
+              </span>
+            </div>
+          ))}
+          <span className="px-1 text-3xs font-semibold text-[color:var(--text-soft)]">+ {remaining} more</span>
+        </>
+      )}
     </div>
   );
 }
