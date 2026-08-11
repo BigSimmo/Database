@@ -43,17 +43,16 @@ export function normalizeDisplayText(value: string) {
  * separately and links to the untouched original PDF.
  */
 export function sourceQuoteDisplayText(value: string) {
-  return sourceTextForClinicalProsePreservingBreaks(value)
+  return normalizeInlineBulletGlyphs(sourceTextForClinicalProsePreservingBreaks(value), { joiner: ". " })
     .replace(/^\s*section\s*:\s*(?:[^|>\n]+>\s*)+/i, "")
     .replace(/^\s*section\s*:\s*[^|\n]+\|\s*/i, "")
     .replace(/(?:^|\s*\|\s*)page\s*:\s*\d+(?:\s+of\s+\d+)?\s*(?:\||$)\s*/gi, " ")
-    .replace(/^\s*o\s+(?=(?:for|to|complete|consider|obtain|ensure|document|perform|check|review)\b)/i, "")
-    .replace(/(^|\s+)[•◦▪‣●]\s*/g, (_match, boundary: string) => (boundary ? ". " : ""))
     .replace(
-      /\s+o\s+(?=(?:[A-Z]|\d|for\b|to\b|complete\b|consider\b|obtain\b|ensure\b|document\b|perform\b|check\b|review\b))/gi,
+      /\s+o\s+(?=(?:for\b|to\b|complete\b|consider\b|obtain\b|ensure\b|document\b|perform\b|check\b|review\b))/gi,
       ". ",
     )
-    .replace(/\s+\d+\s*\[\s*Level\s+[A-Za-z0-9-]+\s*\](?=\s|[.!?]|$)/gi, ". ")
+    .replace(/(^|\s+)[•◦▪‣●]\s*/g, (_match, boundary: string) => (boundary ? ". " : ""))
+    .replace(/\s+(\d+)\s*\[\s*Level\s+[A-Za-z0-9-]+\s*\](?=\s|[.!?]|$)/gi, " $1")
     .replace(/\s*\|\s*/g, ". ")
     .replace(/(^|[.!?]\s+)([a-z])/g, (_match, boundary: string, letter: string) => `${boundary}${letter.toUpperCase()}`)
     .replace(/\s+([,.;:])/g, "$1")

@@ -69,8 +69,25 @@ describe("sourceQuoteDisplayText", () => {
       "Section: Consent > Consent requirements | Page: 9 | o for maintenance ECT consent must be obtained after 12 treatments or every three (3) months, whichever comes first 13 [Level GPP] • complete baseline pathology investigations and ECG.";
 
     expect(sourceQuoteDisplayText(extracted)).toBe(
-      "Consent requirements. For maintenance ECT consent must be obtained after 12 treatments or every three (3) months, whichever comes first. Complete baseline pathology investigations and ECG.",
+      "Consent requirements. For maintenance ECT consent must be obtained after 12 treatments or every three (3) months, whichever comes first 13. Complete baseline pathology investigations and ECG.",
     );
+  });
+
+  it("preserves clinically meaningful O tokens in source quotes", () => {
+    expect(sourceQuoteDisplayText("blood group o positive should be interpreted with Rh status.")).toContain(
+      "Blood group o positive should be interpreted with Rh status.",
+    );
+    expect(sourceQuoteDisplayText("Record temperature at 37 o C and document response.")).toContain(
+      "Record temperature at 37 o C and document response.",
+    );
+  });
+
+  it("removes evidence-grade markers without dropping nearby numeric values", () => {
+    const extracted = "Administer 12 [Level A] as directed and monitor renal function.";
+    const result = sourceQuoteDisplayText(extracted);
+
+    expect(result).toContain("Administer 12");
+    expect(result).not.toContain("[Level");
   });
 
   it("preserves clinically meaningful comparison symbols and numbers", () => {
