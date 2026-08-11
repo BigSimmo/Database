@@ -254,7 +254,8 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/in-page-nav-playwright-contract.test.ts",
         "tests/information-page-shell.dom.test.tsx",
-        "tests/ui-route-coverage.spec.ts"
+        "tests/ui-route-coverage.spec.ts",
+        "tests/ui-specifiers.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
