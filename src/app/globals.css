@@ -3035,6 +3035,29 @@ td,
     }
   }
 
+  /* iOS Safari cannot put a plain document element in the browser fullscreen
+     top layer, so DocumentFrame uses a fixed fallback. Remove every app-owned
+     header/footer layer while that fallback is active: leaving the universal
+     header visible above an otherwise fullscreen reader is both visually false
+     and gives background controls pointer access. The document frame keeps its
+     own compact toolbar and opaque surface, including safe-area padding. */
+  html:has([data-document-frame][data-fullscreen-fallback="on"]),
+  html:has([data-document-frame][data-fullscreen-fallback="on"]) body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  html:has([data-document-frame][data-fullscreen-fallback="on"]) .phone-scroll-surface {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  html:has([data-document-frame][data-fullscreen-fallback="on"])
+    :is(.phone-sticky-header-stack, .universal-header, [data-document-sticky-header], .document-viewer-composer) {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
   .mobile-popover-scroll {
     max-height: min(70svh, 28rem);
   }
