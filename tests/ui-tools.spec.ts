@@ -805,7 +805,7 @@ test.describe("Clinical KB tools launcher", () => {
     const specifiersModeButton = page.getByRole("button", { name: "Mode Specifiers" });
     await expect(specifiersModeButton).toBeFocused();
     await expect(sharedHome.getByRole("heading", { level: 2, name: "Diagnostic Specifiers" })).toBeVisible();
-    await expect(sharedHome.locator("p")).toHaveCount(0);
+    await expect(sharedHome.locator("p")).toHaveCount(1);
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-tags\b/);
     await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
       "placeholder",
