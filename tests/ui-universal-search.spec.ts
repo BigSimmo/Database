@@ -280,6 +280,9 @@ test.describe("universal search typeahead", () => {
 
   test("keeps submitted cross-mode matches off the unsubmitted shared home", async ({ page }) => {
     await mockUniversalSearch(page);
+    await page.goto("/?mode=therapy-compass&q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
+
     const input = await openComposer(page, "/?mode=therapy-compass&focus=1");
     await input.fill("acamprosate");
 
