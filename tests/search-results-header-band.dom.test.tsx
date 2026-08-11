@@ -274,7 +274,7 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).not.toContain("w-full");
   });
 
-  it("makes the inline utilities group refuse to shrink, so the query truncates instead of the controls", () => {
+  it("keeps inline utilities on one row while the query truncates instead of the controls", () => {
     render(
       <SearchResultsHeaderBand
         modeId="documents"
@@ -297,17 +297,11 @@ describe("SearchResultsHeaderBand", () => {
     // Not a substring accident: `shrink-0` contains `shrink`, so the check that
     // matters is that the bare shrinking utility is absent.
     expect(utilities.split(/\s+/)).not.toContain("shrink");
-    // Below 414px one line cannot hold count + query + sort + filter even with
-    // the query fully truncated, so the utilities take their own row there.
-    expect(utilities).toContain("max-[413px]:w-full");
-    expect(utilities).toContain("max-[413px]:basis-full");
-    // `basis-full` is inert without a wrapping parent. Dropping
-    // `max-[413px]:flex-wrap` from the row would leave the band `flex-nowrap`,
-    // push Sort+Filter off-screen inside `overflow-hidden`, and still leave the
-    // child class checks above green — so the parent wrap is part of the same
-    // contract and must move with the child utilities assertions.
+    expect(utilities).not.toContain("max-[413px]:w-full");
+    expect(utilities).not.toContain("max-[413px]:basis-full");
     const rowClass = (screen.getByTestId("search-query-ribbon").firstElementChild as HTMLElement | null)?.className;
-    expect(rowClass).toContain("max-[413px]:flex-wrap");
+    expect(rowClass?.split(/\s+/)).toContain("flex-nowrap");
+    expect(rowClass).not.toContain("max-[413px]:flex-wrap");
   });
 
   it("keeps row geometry while loading even though the page control is gated off", () => {

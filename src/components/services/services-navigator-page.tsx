@@ -608,6 +608,11 @@ export function ServicesNavigatorPage() {
     }
   }
 
+  function clearServiceQuery() {
+    setLocalQuery({ urlQuery, value: "" });
+    router.replace(appModeHomeHref("services"), { scroll: false });
+  }
+
   const activeQuickFilter = serviceQuickFilters.find(
     (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
   );
@@ -702,7 +707,7 @@ export function ServicesNavigatorPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setLocalQuery({ urlQuery, value: "" })}
+                  onClick={clearServiceQuery}
                   aria-label="Clear quick filters"
                   className="inline-flex min-h-tap shrink-0 items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-9"
                 >
@@ -754,7 +759,7 @@ export function ServicesNavigatorPage() {
               activeQuickFilter
                 ? () => {
                     setFilterOpen(false);
-                    setLocalQuery({ urlQuery, value: "" });
+                    clearServiceQuery();
                   }
                 : undefined
             }
