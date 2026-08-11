@@ -7,7 +7,7 @@ import { appModeIds, type AppModeId } from "@/lib/app-modes";
 const expectedPresentations = [
   {
     modeId: "answer",
-    title: "Clinical Guidance",
+    title: "Clinical Answers",
     iconClass: "lucide-sparkles",
   },
   {

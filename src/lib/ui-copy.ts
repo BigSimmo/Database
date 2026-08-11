@@ -20,7 +20,7 @@ export type SharedHomePresentation = {
 
 export const sharedHomePresentation = {
   answer: {
-    title: "Clinical Guidance",
+    title: "Clinical Answers",
   },
   documents: {
     title: "Clinical Documents",

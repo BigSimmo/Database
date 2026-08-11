@@ -574,7 +574,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(sharedHomeBrand).toBeVisible();
     await expect(sharedHomeBrand).toContainText("Clinical KB");
     await expect(sharedHomeBrand).toContainText("Source-backed clinical search");
-    await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Guidance" })).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Answers" })).toBeVisible();
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-sparkles\b/);
     await searchInput.fill("lithium draft");
     const historyLengthBefore = await page.evaluate(() => window.history.length);
@@ -1106,7 +1106,7 @@ test.describe("Clinical KB tools launcher", () => {
       {
         path: "/?mode=answer",
         testId: "shared-home-empty-state",
-        heading: "Clinical Guidance",
+        heading: "Clinical Answers",
         headingLevel: 2,
       },
       { path: "/documents", testId: "document-search-empty-state", heading: "Documents", headingLevel: 2 },
