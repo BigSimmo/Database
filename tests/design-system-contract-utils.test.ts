@@ -9,6 +9,8 @@ import {
   findDebtPathRegressions,
   findCssLayoutTransitionsInSource,
   findDensityRecipeOverridesInSource,
+  findErrorStateCountPropsInSource,
+  findFailedStateResultCountsInSource,
   findHardcodedMotionClassesInSource,
   findInteractiveTapLiteralsInSource,
   findJsxEdgeOwnershipConflictsInSource,
@@ -24,6 +26,44 @@ import {
 } from "../scripts/design-system-contract-utils.mjs";
 
 describe("design-system contract helpers", () => {
+  it("blocks literal and dynamic result counts in ErrorState copy", () => {
+    expect(
+      findErrorStateCountPropsInSource(
+        "src/example.tsx",
+        [
+          'const literal = <ErrorState title="0 matches" />;',
+          "const dynamic = <ErrorState body={`${results.length} results could not load`} />;",
+          'const valid = <ErrorState title="Results unavailable" body="Try again." />;',
+        ].join("\n"),
+      ),
+    ).toEqual(["src/example.tsx:1 (title)", "src/example.tsx:2 (body)"]);
+  });
+
+  it("ignores ErrorState references outside TSX and non-count copy", () => {
+    expect(findErrorStateCountPropsInSource("src/example.ts", 'const component = "ErrorState 0 results";')).toEqual([]);
+    expect(
+      findErrorStateCountPropsInSource(
+        "src/example.tsx",
+        '<ErrorState title="Unable to load results" body="The request failed." />',
+      ),
+    ).toEqual([]);
+  });
+
+  it("blocks result counts rendered by error and failed branches", () => {
+    expect(
+      findFailedStateResultCountsInSource(
+        "src/example.tsx",
+        [
+          "const logical = error && <p>{results.length} results</p>;",
+          'const conditional = status === "error" ? <p>{resultCount} matches</p> : <Results />;',
+          "if (failed) return <Results count={0} />;",
+          "const validError = error && <p>Results unavailable</p>;",
+          "const validSuccess = ready && <p>{results.length} results</p>;",
+        ].join("\n"),
+      ),
+    ).toEqual(["src/example.tsx:1", "src/example.tsx:2", "src/example.tsx:3"]);
+  });
+
   it("detects variant-prefixed tap literals inside composed interactive classes", () => {
     expect(hasLegacyTapClass("sm:h-11")).toBe(true);
     expect(hasLegacyTapClass("dark:md:min-w-11")).toBe(true);

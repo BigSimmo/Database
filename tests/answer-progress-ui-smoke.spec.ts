@@ -169,6 +169,50 @@ async function installTimedAnswerStream(page: Page) {
   );
 }
 
+async function installHoldingAnswerStream(page: Page) {
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const rawUrl = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+      const pathname = new URL(rawUrl, window.location.href).pathname;
+      if (pathname !== "/api/answer/stream") return originalFetch(input, init);
+
+      const encoder = new TextEncoder();
+      const events = [
+        { delay: 0, stage: "scoping", message: "Preparing scope." },
+        { delay: 25, stage: "retrieving", message: "Searching documents." },
+        { delay: 50, stage: "ranking", message: "Selecting evidence." },
+        { delay: 75, stage: "generating", message: "Drafting answer." },
+      ];
+
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            const timers = events.map((event) =>
+              window.setTimeout(() => {
+                controller.enqueue(
+                  encoder.encode(
+                    `event: progress\ndata: ${JSON.stringify({ stage: event.stage, message: event.message })}\n\n`,
+                  ),
+                );
+              }, event.delay),
+            );
+            init?.signal?.addEventListener(
+              "abort",
+              () => {
+                for (const timer of timers) window.clearTimeout(timer);
+                controller.error(new DOMException("The operation was aborted.", "AbortError"));
+              },
+              { once: true },
+            );
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "text/event-stream; charset=utf-8" } },
+      );
+    };
+  });
+}
+
 async function installSuccessfulThenInvalidAnswerStreams(page: Page) {
   const firstAnswer = { ...demoAnswer("Lithium dosing"), demoMode: true };
   await page.addInitScript(
@@ -223,7 +267,7 @@ async function installSuccessfulThenInvalidAnswerStreams(page: Page) {
 }
 
 test("answer progress remains user-safe through fallback and keeps a compact completed state", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 320, height: 820 });
   await mockDashboardApis(page);
   await installTimedAnswerStream(page);
   await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
@@ -233,36 +277,59 @@ test("answer progress remains user-safe through fallback and keeps a compact com
 
   const progress = page.getByTestId("answer-progress-stepper");
   await expect(progress).toBeVisible();
+  await expect(progress).toHaveAttribute("aria-busy", "true");
+  await expect(progress.getByText("Creating your cited answer", { exact: true })).toBeVisible();
   for (const label of ["Prepare scope", "Search sources", "Select evidence", "Draft answer", "Check answer"]) {
     await expect(progress.getByText(label, { exact: true })).toBeVisible();
   }
+  for (const description of [
+    "Interpreting your question",
+    "Scanning indexed clinical documents",
+    "Prioritising relevant passages",
+    "Synthesising the response and citations",
+    "Checking citations and clinical details",
+  ]) {
+    await expect(progress.getByText(description, { exact: true })).toBeVisible();
+  }
+  const stop = progress.getByRole("button", { name: "Stop generating answer" });
+  await expect(stop).toBeVisible();
+  expect((await stop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
   await expect(progress).toContainText("Prioritising 4 Australian source passages, including 4 WA", {
     timeout: 3_000,
   });
 
-  await expect(progress).toContainText("Building a source-backed answer", { timeout: 5_000 });
+  await expect(progress).toContainText("Drafting a cited answer from the selected passages", { timeout: 4_000 });
   const stageRail = progress.getByLabel("Answer generation stages");
   const currentStage = stageRail.locator('li[data-state="current"]');
   await expect(currentStage).toContainText("Draft answer");
-  const currentStageGeometry = await stageRail.evaluate((rail) => {
-    const activeStage = rail.querySelector<HTMLElement>('li[data-state="current"]');
-    if (!activeStage) return null;
+  const compactStageGeometry = await stageRail.evaluate((rail) => {
     const railRect = rail.getBoundingClientRect();
-    const stageRect = activeStage.getBoundingClientRect();
+    const stageRects = [...rail.querySelectorAll<HTMLElement>("li")].map((stage) => stage.getBoundingClientRect());
     return {
+      clientWidth: rail.clientWidth,
+      scrollWidth: rail.scrollWidth,
       railLeft: railRect.left,
       railRight: railRect.right,
-      stageLeft: stageRect.left,
-      stageRight: stageRect.right,
+      stageLefts: stageRects.map((stage) => stage.left),
+      stageRights: stageRects.map((stage) => stage.right),
     };
   });
-  expect(currentStageGeometry).not.toBeNull();
-  expect(currentStageGeometry?.stageLeft ?? Number.NEGATIVE_INFINITY).toBeGreaterThanOrEqual(
-    (currentStageGeometry?.railLeft ?? 0) - 1,
-  );
-  expect(currentStageGeometry?.stageRight ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
-    (currentStageGeometry?.railRight ?? 0) + 1,
-  );
+  expect(compactStageGeometry.scrollWidth).toBeLessThanOrEqual(compactStageGeometry.clientWidth + 1);
+  expect(Math.min(...compactStageGeometry.stageLefts)).toBeGreaterThanOrEqual(compactStageGeometry.railLeft - 1);
+  expect(Math.max(...compactStageGeometry.stageRights)).toBeLessThanOrEqual(compactStageGeometry.railRight + 1);
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const wideStageGeometry = await stageRail.evaluate((rail) => {
+    const stageRects = [...rail.querySelectorAll<HTMLElement>("li")].map((stage) => stage.getBoundingClientRect());
+    return {
+      clientWidth: rail.clientWidth,
+      scrollWidth: rail.scrollWidth,
+      stageTops: stageRects.map((stage) => stage.top),
+    };
+  });
+  expect(wideStageGeometry.scrollWidth).toBeLessThanOrEqual(wideStageGeometry.clientWidth + 1);
+  expect(Math.max(...wideStageGeometry.stageTops) - Math.min(...wideStageGeometry.stageTops)).toBeLessThanOrEqual(1);
+  await expect(progress).toContainText("Building a source-backed answer", { timeout: 5_000 });
   // Rolling deployments may still route a new client to an older server that
   // emits provisional token/revising frames. The client must ignore both so
   // unvalidated clinical prose never reaches the page before the final event.
@@ -301,4 +368,42 @@ test("a completion frame cannot mark a previous answer complete when final is in
   await expect(page.locator('[data-progress-state="complete"]')).toHaveCount(0);
   await expect(page.getByText(/Answer ready in/)).toHaveCount(0);
   await expect(page.getByText(/In the synthetic lithium document/i)).toBeVisible();
+});
+
+test("answer progress keeps focus, reduced-motion, and forced-colour behavior intact", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await mockDashboardApis(page);
+  await installHoldingAnswerStream(page);
+  await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+
+  const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
+  await submit.click();
+
+  const progress = page.getByTestId("answer-progress-stepper");
+  const currentStage = progress.getByLabel("Answer generation stages").locator('li[data-state="current"]');
+  await expect(currentStage).toContainText("Draft answer");
+
+  const activeSpinner = currentStage.locator("svg");
+  await expect(activeSpinner).toBeVisible();
+  expect(await activeSpinner.evaluate((spinner) => getComputedStyle(spinner).animationName)).toBe("none");
+
+  const stop = progress.getByRole("button", { name: "Stop generating answer" });
+  const details = progress.getByText("Processing details", { exact: true });
+  await stop.focus();
+  await page.keyboard.press("Tab");
+  await expect(details).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(stop).toBeFocused();
+
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  expect(await activeSpinner.evaluate((spinner) => getComputedStyle(spinner).animationName)).not.toBe("none");
+
+  await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+  await expect(currentStage.locator('[data-slot="answer-progress-stage-marker"]')).toBeVisible();
+  await expect(currentStage.getByText("Draft answer", { exact: true })).toBeVisible();
+  expect(await activeSpinner.evaluate((spinner) => getComputedStyle(spinner).animationName)).toBe("none");
+
+  await stop.press("Enter");
+  await expect(page.getByTestId("answer-cancelled")).toBeVisible();
 });

@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { writeInstalledTreeStamp } from "../scripts/check-installed-lock-parity.mjs";
+
 import {
   findDependencyDonor,
   installationIsComplete,
@@ -39,6 +41,7 @@ function fixture(version = "1.0.0", complete = false) {
         },
       }),
     );
+    writeInstalledTreeStamp(root);
   }
   return root;
 }

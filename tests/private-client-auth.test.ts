@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Session } from "@supabase/supabase-js";
 import {
+  authorizationIdentity,
   authorizationHeadersForAccessToken,
   isDefinitiveAuthValidationError,
   isUsableBrowserSupabaseKey,
@@ -28,6 +29,12 @@ describe("browser auth helpers", () => {
   it("does not create an authorization header without a session token", () => {
     expect(authorizationHeadersForAccessToken(null)).toEqual({});
     expect(authorizationHeadersForAccessToken(undefined)).toEqual({});
+  });
+
+  it("reads authorization identity without depending on header casing", () => {
+    expect(authorizationIdentity({ authorization: "Bearer lower" })).toBe("Bearer lower");
+    expect(authorizationIdentity({ Authorization: "Bearer upper" })).toBe("Bearer upper");
+    expect(authorizationIdentity({})).toBe("");
   });
 
   it("treats missing or placeholder browser Supabase keys as unconfigured", () => {

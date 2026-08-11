@@ -1370,6 +1370,111 @@ export function findTypeStepUsagesInSource(relativePath, sourceText) {
 }
 
 /**
+ * ErrorState represents an unknown result, so its user-facing copy must never
+ * manufacture a numeric result count. Keep this check at the shared component
+ * boundary: callers can still explain what failed, but neither literal copy nor
+ * a count expression can turn a failed request into an empty-result state.
+ */
+export function findErrorStateCountPropsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx") || !sourceText.includes("ErrorState")) return [];
+
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+  const countBearingCopy =
+    /\b\d+\s+(?:items?|matches?|records?|results?|sources?)\b|\b(?:item|match|record|result|source)?counts?\b|\btotal(?:Items?|Matches?|Records?|Results?|Sources?)?\b|\.(?:count|length)\b/i;
+
+  function visit(node) {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tagName = node.tagName.getText(source).split(".").at(-1);
+      if (tagName === "ErrorState") {
+        for (const attribute of node.attributes.properties) {
+          if (!ts.isJsxAttribute(attribute)) continue;
+          const propName = attribute.name.getText(source);
+          if (propName !== "title" && propName !== "body") continue;
+          const copy = attribute.initializer?.getText(source) ?? "";
+          if (countBearingCopy.test(copy)) {
+            const line = source.getLineAndCharacterOfPosition(attribute.getStart(source)).line + 1;
+            findings.push(`${relativePath}:${line} (${propName})`);
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
+/** Find count-bearing JSX rendered directly by an error/failed branch. */
+export function findFailedStateResultCountsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx") || !/error|fail/i.test(sourceText)) return [];
+
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+  const failureSignal =
+    /\b(?:error|failed|failure|hasError|isError|loadError|requestError)\b|["'](?:error|failed)["']/i;
+  const negatedFailureSignal = /!\s*(?:[\w.]*error|failed)|(?:[\w.]*error|failed)\s*={2,3}\s*(?:false|null|undefined)/i;
+  const literalResultCount = /\b\d+\s+(?:items?|matches?|records?|results?|sources?)\b/i;
+  const dynamicCount = String.raw`(?:\b(?:item|match|record|result|source)Counts?\b|\btotal(?:Items?|Matches?|Records?|Results?|Sources?)?\b|\.(?:count|length)\b|\bcount\s*=)`;
+  const resultNoun = String.raw`\b(?:items?|matches?|records?|results?|sources?)\b`;
+  const dynamicResultCount = new RegExp(
+    String.raw`(?:${dynamicCount}[\s\S]{0,80}${resultNoun}|${resultNoun}[\s\S]{0,80}${dynamicCount})`,
+    "i",
+  );
+  const conditionSignalsFailure = (condition) => failureSignal.test(condition) && !negatedFailureSignal.test(condition);
+  const contains = (owner, candidate) =>
+    candidate.getStart(source) >= owner.getStart(source) && candidate.getEnd() <= owner.getEnd();
+
+  function isFailureBranch(node) {
+    let child = node;
+    for (let parent = node.parent; parent; child = parent, parent = parent.parent) {
+      if (
+        ts.isConditionalExpression(parent) &&
+        contains(parent.whenTrue, child) &&
+        conditionSignalsFailure(parent.condition.getText(source))
+      ) {
+        return true;
+      }
+      if (
+        ts.isBinaryExpression(parent) &&
+        parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken &&
+        contains(parent.right, child) &&
+        conditionSignalsFailure(parent.left.getText(source))
+      ) {
+        return true;
+      }
+      if (
+        ts.isIfStatement(parent) &&
+        contains(parent.thenStatement, child) &&
+        conditionSignalsFailure(parent.expression.getText(source))
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function visit(node) {
+    if (
+      (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) &&
+      isFailureBranch(node)
+    ) {
+      const renderedSource = node.getText(source);
+      if (literalResultCount.test(renderedSource) || dynamicResultCount.test(renderedSource)) {
+        const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+        findings.push(`${relativePath}:${line}`);
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
+/**
  * Direct `var(--text-<step>)` consumers in any production source. The unused-step
  * gate and its exemption anti-rot check must share this predicate — a class-only
  * check lets an exemption survive once a CSS consumer appears.

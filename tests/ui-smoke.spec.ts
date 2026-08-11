@@ -3775,11 +3775,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // `overflow-x-auto` and its trailing option was then washed out by the 28px
     // overflow mask.
     //
-    // Swept, not asserted once. This viewport is 390px, where the band gives the
-    // utilities their own row and the rail therefore has width to spare — the
-    // regression is invisible here, and a single-width check at 390 passes
-    // against the code that shipped it (verified by reintroducing `shrink`). It
-    // bites on the one-line widths, so the sweep has to cross 414px. 540 is in
+    // Swept, not asserted once. The band now keeps the phone controls on one
+    // line at every supported width, paying any shortfall out of the truncating
+    // query instead of the controls. The sweep crosses the retired 414px wrap
+    // boundary so that breakpoint cannot silently return. 540 is in
     // the list because a longer query reproduced a 41.9px clip there: width alone
     // never bounded this. Geometry, not a class name — the class that caused it
     // read as correct, and `expectNoPageHorizontalOverflow` cannot see an
@@ -3810,11 +3809,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
           { message: `results-band utility rail clipped its own controls at ${width}px` },
         )
         .toEqual({ overflow: 0, controlClipped: 0, masked: false });
-      // Below 414px the wrap is the active mechanism. Track overflow alone is
-      // blind to wrap failure: if the utilities group is pushed off-screen by
-      // the band's `overflow-hidden`, both `scrollWidth`/`clientWidth` and
-      // `sortClipped` still report zero. Require the group itself to stay in
-      // the viewport at the wrap widths.
+      // Track overflow alone is blind to a group pushed off-screen by the
+      // band's `overflow-hidden`: both scrollWidth/clientWidth and the last
+      // rendered-child measurement can still report zero. Pin the complete
+      // utilities group inside the viewport at the former wrap widths too.
       if (width < 414) {
         const utilitiesBox = await utilitiesGroup.boundingBox();
         expect(utilitiesBox, `utilities clipped off-screen at ${width}px`).not.toBeNull();

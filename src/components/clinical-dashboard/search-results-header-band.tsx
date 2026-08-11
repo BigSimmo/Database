@@ -293,15 +293,12 @@ export function SearchResultsHeaderBand({
       {/* One line. The band was 123px on a phone to say "12 documents", because
           the utility rail dropped to its own row and that row was ~85% empty.
           It wraps only where a page supplies a full-width phone control — see
-          `mobileControlsPlacement` — or below 414px, where one line provably
-          cannot hold count + query + sort + filter even with the query fully
-          truncated (see the utilities group below). */}
+          `mobileControlsPlacement`. Inline phone controls fit beside the
+          truncating query now that Sort and full-width selects are wide-only. */}
       <div
         className={cn(
           "flex min-w-0 items-center gap-x-2 px-3 sm:min-h-[3.75rem] sm:flex-nowrap sm:gap-x-2.5 sm:px-4",
-          inlineControls
-            ? "flex-nowrap min-h-[3.625rem] max-[413px]:flex-wrap max-[413px]:py-2"
-            : "flex-wrap py-2 sm:py-0",
+          inlineControls ? "min-h-[3.625rem] flex-nowrap" : "flex-wrap py-2 sm:py-0",
         )}
       >
         {/* `mr-auto` pins the control group to the right edge below `lg`. At `lg`
@@ -449,12 +446,7 @@ export function SearchResultsHeaderBand({
               // makes the truncating query absorb the shortfall, which is what
               // `truncate` + `min-w-[2rem]` on the heading already exist to do.
               //
-              // Below 414px even a fully-truncated query leaves the line short, so
-              // the utilities take their own full-width row rather than overflow a
-              // band that is `overflow-hidden` and would clip the pinned Filter.
-              inlineControls
-                ? "shrink-0 max-[413px]:w-full max-[413px]:basis-full"
-                : "w-full flex-wrap pb-1 sm:w-auto sm:flex-nowrap sm:pb-0",
+              inlineControls ? "shrink-0" : "w-full flex-wrap pb-1 sm:w-auto sm:flex-nowrap sm:pb-0",
             )}
           >
             {/* Applied scopes have moved to their own labelled shelf below. They are

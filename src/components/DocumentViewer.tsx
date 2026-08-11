@@ -63,6 +63,7 @@ import {
 import { partitionViewerImages } from "@/lib/image-filtering";
 import { isLocalNoAuthMode } from "@/lib/client-env";
 import { isAdministratorUser } from "@/lib/authorization";
+import { authorizationIdentity } from "@/lib/authorization-header";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { DocumentManagementActions } from "@/components/DocumentManagementActions";
@@ -520,8 +521,7 @@ export function DocumentViewer({
     String(canUsePrivateApis),
     String(isConfigured),
     String(initialDetailIdentityStale),
-    // AuthProvider emits lowercase `authorization`; do not read Authorization.
-    authorizationHeader.authorization ?? authorizationHeader.Authorization ?? "",
+    authorizationIdentity(authorizationHeader),
   ].join("|");
 
   useEffect(() => {

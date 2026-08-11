@@ -419,7 +419,6 @@
   --shadow-elevated: var(--e4);
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 90%), var(--e4);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 58%);
-  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent), var(--shadow-soft);
   /* Active left-rail marker (nav/list "current" indicator). One token so the
      accent rail is a consistent 2px everywhere instead of hand-inlined at 2px/3px. */
   --shadow-rail-active: inset 2px 0 0 var(--clinical-accent);
@@ -659,7 +658,6 @@
   --shadow-elevated: var(--e4);
   --shadow-lux: var(--e4);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 4%);
-  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent), var(--shadow-soft);
   /* A drop shadow does not read on a near-black ground, so the lifted control
      is described by an inner top highlight instead. */
   --shadow-lift: inset 0 1px 0 rgb(255 255 255 / 7%), 0 2px 6px rgb(0 0 0 / 45%);
@@ -1469,9 +1467,17 @@ summary::-webkit-details-marker {
   box-shadow: var(--shadow-soft);
 }
 
+/* One focus owner, same as every other control. The retired `--shadow-focus`
+   token painted a 3px accent halo ON TOP of the accent border swap below — the
+   companion ring the shared `:focus-visible` treatment near the top of this file
+   exists to prevent (`#261`). The resting `--shadow-soft` elevation is
+   deliberately not overridden here: `--shadow-focus` carried it as its second
+   layer, so leaving box-shadow alone keeps the pill seated at exactly the same
+   height focused as at rest, and the outline is the only thing that changes. */
 .chat-composer-shell-delta:focus-within {
   border-color: var(--clinical-accent);
-  box-shadow: var(--shadow-focus);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .chat-composer-input {
@@ -1822,22 +1828,22 @@ summary::-webkit-details-marker {
 .smart-search-phone-ticker {
   display: grid;
   width: 100%;
-  --smart-search-phone-ticker-gap: 0.5rem;
-  --smart-search-phone-ticker-inline-padding: 0.625rem;
-  --smart-search-phone-ticker-vertical-padding: 0.5rem;
+  --smart-search-phone-ticker-gap: 0.75rem;
+  --smart-search-phone-ticker-inline-padding: 0.25rem;
+  --smart-search-phone-ticker-vertical-padding: 0.375rem;
+
   min-height: var(--spacing-tap);
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--smart-search-phone-ticker-gap);
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--clinical-accent) 18%, var(--border));
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--clinical-accent-soft) 42%, var(--surface));
+  border: 0;
+  background: transparent;
   padding-block: var(--smart-search-phone-ticker-vertical-padding);
   padding-inline: var(--smart-search-phone-ticker-inline-padding);
   color: var(--text-heading);
   text-align: left;
-  box-shadow: var(--shadow-inset);
+  box-shadow: none;
 }
 
 .smart-search-phone-ticker-kicker {

@@ -4,11 +4,11 @@ export type AnswerProgressUpdate = PublicAnswerProgressEvent;
 export type TimedAnswerProgressUpdate = AnswerProgressUpdate & { receivedAt: number };
 
 export const answerProgressSteps = [
-  { label: "Prepare scope", stage: "scoping" },
-  { label: "Search sources", stage: "retrieving" },
-  { label: "Select evidence", stage: "ranking" },
-  { label: "Draft answer", stage: "generating" },
-  { label: "Check answer", stage: "verifying" },
+  { label: "Prepare scope", description: "Interpreting your question", stage: "scoping" },
+  { label: "Search sources", description: "Scanning indexed clinical documents", stage: "retrieving" },
+  { label: "Select evidence", description: "Prioritising relevant passages", stage: "ranking" },
+  { label: "Draft answer", description: "Synthesising the response and citations", stage: "generating" },
+  { label: "Check answer", description: "Checking citations and clinical details", stage: "verifying" },
 ] as const;
 
 const answerProgressStages = new Set<PublicAnswerProgressStage>([
