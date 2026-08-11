@@ -84,7 +84,7 @@ export function ModeHomeHero({
       <span className="mode-home-icon grid h-tap w-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-2xl">
         <Icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7" aria-hidden="true" />
       </span>
-      <div className="grid gap-1 sm:gap-1.5">
+      <div className="grid gap-0 sm:gap-0.5">
         <Heading
           id={`${testId ?? "mode-home"}-title`}
           className={cn(
