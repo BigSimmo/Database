@@ -480,7 +480,9 @@ function ResultsPreview({ compact, count }: { compact: boolean; count: number })
               </span>
             </div>
           ))}
-          <span className="px-1 text-3xs font-semibold text-[color:var(--text-soft)]">+ {remaining} more</span>
+          {remaining > 0 ? (
+            <span className="px-1 text-3xs font-semibold text-[color:var(--text-soft)]">+ {remaining} more</span>
+          ) : null}
         </>
       )}
     </div>
@@ -1227,8 +1229,14 @@ function DirectionC({
             <div className="grid gap-2">
               <div className="flex items-center gap-1.5 text-3xs font-semibold text-[color:var(--text-soft)]">
                 <span className="nums font-black tabular-nums text-[color:var(--clinical-accent)]">{counts.total}</span>
-                match ·<span className="nums tabular-nums">{counts.perFacet["confidence:High"] ?? 0}</span> high
-                confidence ·<span className="nums tabular-nums">{counts.perFacet["setting:digital_phone"] ?? 0}</span>{" "}
+                match ·
+                <span className="nums tabular-nums">
+                  {popcount(and(maskForSelection(selected), DECODED["confidence:High"]))}
+                </span>{" "}
+                high confidence ·
+                <span className="nums tabular-nums">
+                  {popcount(and(maskForSelection(selected), DECODED["setting:digital_phone"]))}
+                </span>{" "}
                 digital &amp; phone
               </div>
               <CommitButton count={counts.total} compact disabled={counts.total === 0} />
