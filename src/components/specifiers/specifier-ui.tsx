@@ -15,6 +15,25 @@ export function SpecifierPageShell({ children, className }: { children: ReactNod
   return <InformationPageShell className={className}>{children}</InformationPageShell>;
 }
 
+export function SpecifierToolHeader({
+  icon: Icon,
+  title,
+}: {
+  icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  title: string;
+}) {
+  return (
+    <header className="flex items-center gap-3 border-b border-[color:var(--border)] pb-4 sm:gap-4 sm:pb-5">
+      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] ring-1 ring-inset ring-[color:var(--clinical-accent-border)] sm:size-12">
+        <Icon className="size-icon-lg" aria-hidden />
+      </span>
+      <h1 className="text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
+        {title}
+      </h1>
+    </header>
+  );
+}
+
 export function SpecifierBreadcrumbs({ current }: { current?: string }) {
   return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers" }} current={current} />;
 }
