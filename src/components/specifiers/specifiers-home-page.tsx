@@ -150,21 +150,7 @@ function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch
   if (!matches.length) return null;
 
   return (
-    <section aria-labelledby="catalogue-matches-title" className="grid gap-3">
-      <header className="grid gap-1.5 border-t border-[color:var(--border)] pt-5">
-        <p className={eyebrowText}>Full specifier catalogue</p>
-        <h2
-          id="catalogue-matches-title"
-          className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)]"
-        >
-          More across the specifier taxonomy
-        </h2>
-        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Broader matches from the complete catalogue. Definitions are shown only where the source has been verified;
-          the rest are marked pending clinician review.
-        </p>
-      </header>
-
+    <section aria-label="Full specifier catalogue matches">
       <ul className="grid gap-2 sm:grid-cols-2">
         {matches.map(({ item }) => (
           <li key={item.slug}>
