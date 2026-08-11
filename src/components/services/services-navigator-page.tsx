@@ -29,6 +29,7 @@ import {
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
@@ -825,6 +826,7 @@ export function ServicesNavigatorPage() {
               />
             ))}
           </div>
+          <UniversalSearchAlsoMatches modeId="services" query={query} />
         </>
       )}
     </SearchResultsLayout>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useLayoutEffect, useRef, type CSSProperties } from "react";
-import { Check, Circle, Clipboard, ClipboardCheck, History, Loader2, Square } from "lucide-react";
+import type { CSSProperties } from "react";
+import { Check, Clipboard, ClipboardCheck, History, Loader2, Square } from "lucide-react";
 
 import {
   answerProgressDisplayMessage,
@@ -204,26 +204,10 @@ export function AnswerProgressStepper({
     updateInterval: active && !finished && startedAt ? 1_000 : undefined,
   });
   const currentStep = latest ? answerProgressStepIndex(latest.stage) : 0;
-  const stageRailRef = useRef<HTMLDivElement>(null);
-  const currentStageRef = useRef<HTMLLIElement>(null);
-
-  useLayoutEffect(() => {
-    const rail = stageRailRef.current;
-    const currentStage = currentStageRef.current;
-    if (finished || !rail || !currentStage) return;
-
-    const railRect = rail.getBoundingClientRect();
-    const stageRect = currentStage.getBoundingClientRect();
-    const inset = 4;
-    if (stageRect.left < railRect.left + inset) {
-      rail.scrollLeft = Math.max(0, rail.scrollLeft - (railRect.left + inset - stageRect.left));
-    } else if (stageRect.right > railRect.right - inset) {
-      rail.scrollLeft += stageRect.right - (railRect.right - inset);
-    }
-  }, [currentStep, finished]);
-
   const clientElapsedMs = startedAt ? Math.max(0, (finished ? (latest?.receivedAt ?? now) : now) - startedAt) : 0;
   const elapsedMs = finished && latest?.elapsedMs !== undefined ? latest.elapsedMs : clientElapsedMs;
+  const currentMessage = latest ? answerProgressDisplayMessage(latest) : "Preparing the clinical search scope.";
+  const stageProgress = currentStep / Math.max(1, answerProgressSteps.length - 1);
   const details = events
     .map((event) => ({ ...event, displayMessage: answerProgressDisplayMessage(event) }))
     .filter((event, index, all) => index === 0 || event.displayMessage !== all[index - 1]?.displayMessage)
@@ -234,76 +218,129 @@ export function AnswerProgressStepper({
       data-testid="answer-progress-stepper"
       data-progress-state={finished ? "complete" : "active"}
       aria-label={finished ? "Answer generation complete" : "Answer generation progress"}
-      aria-live="polite"
-      className="rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-[color:var(--text-heading)]"
+      aria-busy={active && !finished}
+      className={cn(
+        "border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)]",
+        finished ? "rounded-lg px-3 py-2" : "rounded-xl p-3 sm:p-4",
+      )}
     >
-      <div className="flex min-h-8 items-center gap-2">
+      <span role="status" className="sr-only">
+        {finished
+          ? "Answer generation complete."
+          : `Answer generation moved to step ${currentStep + 1} of ${answerProgressSteps.length}: ${answerProgressSteps[currentStep]?.label ?? "Prepare scope"}.`}
+      </span>
+
+      <div className={cn("flex", finished ? "min-h-8 items-center gap-2" : "items-start gap-3")}>
         {finished ? (
-          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]">
-            <Check className="h-3.5 w-3.5" aria-hidden />
+          <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-[color:var(--success)]">
+            <Check className="size-icon-sm" aria-hidden />
           </span>
         ) : (
-          <Loader2
-            className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)] motion-reduce:animate-none"
-            aria-hidden
-          />
-        )}
-        <p className="min-w-0 flex-1 text-sm font-semibold">
-          {finished
-            ? `Answer ready in ${elapsedLabel(elapsedMs)}`
-            : latest
-              ? answerProgressDisplayMessage(latest)
-              : "Preparing the clinical search scope."}
-        </p>
-        {!finished ? (
-          <span
-            className="shrink-0 text-xs font-medium tabular-nums text-[color:var(--text-muted)]"
-            aria-label={`${Math.max(0, Math.floor(elapsedMs / 1_000))} seconds elapsed`}
-          >
-            {elapsedLabel(elapsedMs)}
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] shadow-[var(--e1)]">
+            <Loader2 className="size-icon-lg animate-spin motion-reduce:animate-none" aria-hidden />
           </span>
-        ) : null}
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <p className="text-sm font-semibold sm:text-base">
+              {finished ? `Answer ready in ${elapsedLabel(elapsedMs)}` : "Creating your cited answer"}
+            </p>
+            {!finished ? (
+              <span
+                className="nums shrink-0 text-xs font-medium text-[color:var(--text-muted)]"
+                aria-label={`${Math.max(0, Math.floor(elapsedMs / 1_000))} seconds elapsed`}
+              >
+                {elapsedLabel(elapsedMs)} elapsed
+              </span>
+            ) : null}
+          </div>
+          {!finished ? (
+            <p className="mt-0.5 text-xs text-[color:var(--text-muted)] sm:text-sm">{currentMessage}</p>
+          ) : null}
+        </div>
         {active && !finished ? (
           <button
             type="button"
             onClick={onStop}
             data-testid="stop-answer"
-            className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition motion-reduce:transition-none hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            aria-label="Stop generating answer"
+            className="group inline-flex min-h-tap shrink-0 items-center justify-center rounded-full outline-none"
           >
-            <Square className="h-3 w-3 shrink-0 fill-current" aria-hidden />
-            Stop
+            <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition group-hover:bg-[color:var(--surface-subtle)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none">
+              <Square className="size-icon-xs shrink-0 fill-current" aria-hidden />
+              Stop
+            </span>
           </button>
         ) : null}
       </div>
 
       {!finished ? (
-        <div ref={stageRailRef} className="mt-2 overflow-x-auto pb-1" aria-label="Answer generation stages">
-          <ol className="grid min-w-[500px] grid-cols-5 gap-1 sm:min-w-0">
+        <div className="relative mt-3">
+          <span
+            aria-hidden
+            className="absolute inset-x-[10%] top-7 hidden h-px overflow-hidden bg-[color:var(--border)] sm:block"
+          >
+            <span
+              className="block h-full w-full origin-left bg-[color:var(--clinical-accent)] transition-transform duration-[var(--duration-base)] motion-reduce:transition-none"
+              style={{ transform: `scaleX(${stageProgress})` }}
+            />
+          </span>
+          <ol className="relative grid gap-1 sm:grid-cols-5 sm:gap-2" aria-label="Answer generation stages">
             {answerProgressSteps.map((step, index) => {
               const complete = index < currentStep;
               const current = index === currentStep;
+              const last = index === answerProgressSteps.length - 1;
               return (
                 <li
-                  ref={current ? currentStageRef : undefined}
                   key={step.stage}
                   data-state={complete ? "complete" : current ? "current" : "pending"}
+                  aria-current={current ? "step" : undefined}
                   className={cn(
-                    "flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-medium",
+                    "relative flex min-w-0 items-start gap-3 rounded-lg px-2 py-2 sm:flex-col sm:items-center sm:gap-2 sm:px-2 sm:py-3 sm:text-center",
                     current
-                      ? "bg-[color:var(--surface-raised)] text-[color:var(--text-heading)]"
+                      ? "animate-fade-up bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] shadow-[var(--e1)] motion-reduce:animate-none"
                       : complete
                         ? "text-[color:var(--clinical-accent-strong)]"
                         : "text-[color:var(--text-muted)]",
                   )}
                 >
-                  {complete ? (
-                    <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  ) : current ? (
-                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
-                  ) : (
-                    <Circle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  )}
-                  <span className="leading-tight">{step.label}</span>
+                  {!last ? (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "absolute -bottom-1 left-6 top-10 w-px sm:hidden",
+                        complete ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border)]",
+                      )}
+                    />
+                  ) : null}
+                  <span
+                    data-slot="answer-progress-stage-marker"
+                    className={cn(
+                      "relative z-5 grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold transition-colors duration-[var(--duration-base)] motion-reduce:transition-none",
+                      complete
+                        ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-strong)]"
+                        : current
+                          ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                          : "border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
+                    )}
+                  >
+                    {complete ? (
+                      <Check className="size-icon-md" aria-hidden />
+                    ) : current ? (
+                      <Loader2 className="size-icon-md animate-spin motion-reduce:animate-none" aria-hidden />
+                    ) : (
+                      <span aria-hidden>{index + 1}</span>
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1 pt-0.5 sm:pt-0">
+                    <span className="sr-only">
+                      {complete ? "Completed. " : current ? "Current step. " : "Not started. "}
+                    </span>
+                    <span className="block text-xs font-semibold leading-tight sm:text-sm">{step.label}</span>
+                    <span className="mt-0.5 block text-xs leading-snug text-[color:var(--text-muted)] sm:hidden lg:block">
+                      {step.description}
+                    </span>
+                  </span>
                 </li>
               );
             })}
@@ -312,7 +349,12 @@ export function AnswerProgressStepper({
       ) : null}
 
       <details className={cn("text-xs text-[color:var(--text-muted)]", finished ? "mt-0" : "mt-1")}>
-        <summary className="w-fit cursor-pointer rounded-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]">
+        <summary
+          className={cn(
+            "cursor-pointer rounded-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            finished ? "w-fit" : "inline-flex min-h-tap items-center",
+          )}
+        >
           Processing details
         </summary>
         <ol className="mt-2 space-y-1 border-l border-[color:var(--border)] pl-3">

@@ -36,6 +36,7 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { ResultFilterTrigger } from "@/components/clinical-dashboard/result-filter-control";
 import { FormCodeBadge } from "@/components/forms/form-code-badge";
 import { Sheet } from "@/components/ui/sheet";
@@ -890,6 +891,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 </div>
               </>
             )}
+            <UniversalSearchAlsoMatches modeId="forms" query={query} />
           </>
         ) : null}
         <div className="hidden lg:block">{supportsPathwayClaims ? <PathwayPanel /> : null}</div>

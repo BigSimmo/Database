@@ -277,6 +277,89 @@ test.describe("universal search typeahead", () => {
       await context.close();
     }
   });
+
+  test("keeps submitted cross-mode matches off the unsubmitted shared home", async ({ page }) => {
+    await mockUniversalSearch(page);
+    await page.goto("/?mode=therapy-compass&q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
+
+    const input = await openComposer(page, "/?mode=therapy-compass&focus=1");
+    await input.fill("acamprosate");
+
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+  });
+
+  test("keeps compact cross-mode matches visible after submission", async ({ page }) => {
+    await mockUniversalSearch(page);
+    const universalRequest = page.waitForRequest(/\/api\/search\/universal(?:\?.*)?$/);
+    await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
+    await expect(page.getByText("Also matches in other modes")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
+    expect(new URL((await universalRequest).url()).searchParams.get("domains")?.split(",")).not.toContain("services");
+  });
+
+  test("places submitted cross-mode matches after the owning mode results", async ({ page }) => {
+    // "13YARN" matches the demo service fixture so service-search-results renders.
+    // Use an inline mock that echoes back the same query so universal-also-matches renders.
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      const url = new URL(route.request().url());
+      const mode = url.searchParams.get("mode") ?? "services";
+      const q = url.searchParams.get("q") ?? "13YARN";
+      await fulfillUniversalSearch(route, {
+        ...universalPayload,
+        query: q,
+        contextMode: mode,
+        preferredDomains: [],
+        domainOrder: universalPayload.groups.map((g) => g.kind),
+      });
+    });
+    await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
+
+    const results = page.getByTestId("service-search-results");
+    const alsoMatches = page.getByTestId("universal-also-matches");
+    await expect(results).toBeVisible();
+    await expect(alsoMatches).toBeVisible();
+    expect(
+      await alsoMatches.evaluate((node) => {
+        const resultNode = document.querySelector('[data-testid="service-search-results"]');
+        return Boolean((resultNode?.compareDocumentPosition(node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING);
+      }),
+      "universal-also-matches panel must appear after primary results in the DOM",
+    ).toBe(true);
+  });
+
+  test("loads submitted cross-mode matches on phones only after expansion", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const universalRequests: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/search/universal") universalRequests.push(request.url());
+    });
+    await mockUniversalSearch(page);
+    await page.goto("/forms?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+
+    const alsoMatches = page.getByTestId("universal-also-matches");
+    await expect(alsoMatches).toBeVisible();
+    await expect(alsoMatches).toHaveCount(1);
+    expect(universalRequests).toHaveLength(0);
+
+    await alsoMatches.getByRole("button", { name: /Also matches in other modes/ }).click();
+    await expect.poll(() => universalRequests.length).toBe(1);
+    await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
+  });
+
+  test("shows submitted cross-mode matches once for Favourites and after a Tools search", async ({ page }) => {
+    await mockUniversalSearch(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/favourites?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(1);
+
+    const input = await openComposer(page, "/tools?focus=1");
+    await input.fill("acamprosate");
+    await input.press("Enter");
+    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
+  });
 });
 
 // Smart affordances: query interpretation banner, pinned best-bet, and the Answer-mode bridge.
@@ -351,6 +434,77 @@ test.describe("universal search smart affordances", () => {
     expect((await answerRequest).postDataJSON()).toMatchObject({ query: "acamprosat" });
     await expect(page.getByRole("main").getByRole("heading", { name: "Answer", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/mode=answer/);
+  });
+
+  test("keeps a completed Answer query eligible for submitted cross-mode matches", async ({ page }) => {
+    await mockSmartSearch(page);
+    const input = await openComposer(page, "/?mode=answer&focus=1");
+    await input.fill("acamprosat");
+    await page.getByRole("button", { name: "Generate source-backed answer" }).click();
+
+    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
+  });
+
+  test("hides Answer-mode also-matches while drafting and shows them after the final answer", async ({ page }) => {
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      await fulfillUniversalSearch(route, smartPayload);
+    });
+
+    await page.addInitScript(
+      ({ payload }) => {
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = async (input, init) => {
+          const rawUrl = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+          const pathname = new URL(rawUrl, window.location.href).pathname;
+          if (pathname !== "/api/answer/stream") return originalFetch(input, init);
+
+          const encoder = new TextEncoder();
+          const events: Array<{ delay: number; event: string; data: unknown }> = [
+            { delay: 0, event: "progress", data: { stage: "scoping", message: "Preparing scope." } },
+            { delay: 80, event: "progress", data: { stage: "retrieving", message: "Searching documents." } },
+            { delay: 160, event: "progress", data: { stage: "ranking", message: "Selecting governed sources." } },
+            {
+              delay: 240,
+              event: "progress",
+              data: { stage: "generating", message: "Drafting a cited answer from the selected passages." },
+            },
+            {
+              delay: 1_800,
+              event: "progress",
+              data: { stage: "complete", message: "Answer ready.", elapsedMs: 1_800 },
+            },
+            { delay: 1_900, event: "final", data: payload },
+          ];
+
+          return new Response(
+            new ReadableStream({
+              start(controller) {
+                for (const item of events) {
+                  window.setTimeout(() => {
+                    controller.enqueue(encoder.encode(`event: ${item.event}\ndata: ${JSON.stringify(item.data)}\n\n`));
+                    if (item.event === "final") controller.close();
+                  }, item.delay);
+                }
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "text/event-stream; charset=utf-8" } },
+          );
+        };
+      },
+      { payload: syntheticAnswer },
+    );
+
+    const input = await openComposer(page, "/?mode=answer&focus=1");
+    await input.fill("acamprosat");
+    await page.getByRole("button", { name: "Generate source-backed answer" }).click();
+
+    const progress = page.getByTestId("answer-progress-stepper");
+    await expect(progress).toBeVisible();
+    await expect(progress).toContainText("Drafting a cited answer from the selected passages.");
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+
+    await expect(page.getByTestId("universal-also-matches")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Also matches in other modes")).toBeVisible();
   });
 
   test("keeps a saved exact match first in Favourites", async ({ page }) => {
