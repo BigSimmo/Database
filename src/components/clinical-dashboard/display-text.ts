@@ -35,6 +35,33 @@ export function normalizeDisplayText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
+/**
+ * Prepares an extracted source passage for the answer preview without changing
+ * the stored evidence. PDF navigation labels, list glyphs, and trailing
+ * guideline-reference markers are useful to the retrieval pipeline but make a
+ * short passage difficult to read. The source card continues to show the page
+ * separately and links to the untouched original PDF.
+ */
+export function sourceQuoteDisplayText(value: string) {
+  return normalizeInlineBulletGlyphs(sourceTextForClinicalProsePreservingBreaks(value), { joiner: ". " })
+    .replace(/^\s*section\s*:\s*(?:[^|>\n]+>\s*)+/i, "")
+    .replace(/^\s*section\s*:\s*[^|\n]+\|\s*/i, "")
+    .replace(/(?:^|\s*\|\s*)page\s*:\s*\d+(?:\s+of\s+\d+)?\s*(?:\||$)\s*/gi, " ")
+    .replace(
+      /\s+o\s+(?=(?:for\b|to\b|complete\b|consider\b|obtain\b|ensure\b|document\b|perform\b|check\b|review\b))/gi,
+      ". ",
+    )
+    .replace(/(^|\s+)[•◦▪‣●]\s*/g, (_match, boundary: string) => (boundary ? ". " : ""))
+    .replace(/\s+(\d+)\s*\[\s*Level\s+[A-Za-z0-9-]+\s*\](?=\s|[.!?]|$)/gi, " $1")
+    .replace(/\s*\|\s*/g, ". ")
+    .replace(/(^|[.!?]\s+)([a-z])/g, (_match, boundary: string, letter: string) => `${boundary}${letter.toUpperCase()}`)
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/(?:\.\s*){2,}/g, ". ")
+    .replace(/^\.\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function looksLikeDisplayArtifact(value: string) {
   const normalized = normalizeDisplayText(value);
   if (!normalized) return true;
