@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { authorizationIdentity } from "@/lib/authorization-header";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { useAuthSession } from "@/lib/supabase/client";
 
@@ -18,13 +19,6 @@ type SignedUrlResponse = { status: number; data: { url?: string } | null };
  * reset below enforces for painted URLs.
  */
 const inFlightSignedUrlRequests = new Map<string, Promise<SignedUrlResponse>>();
-
-function authorizationIdentity(headers: Record<string, string>) {
-  // AuthProvider emits lowercase `authorization` (Fetch/Headers convention).
-  // Accept either casing so a future uppercase writer cannot collapse every
-  // identity onto the empty key and share one in-flight promise across users.
-  return headers.authorization ?? headers.Authorization ?? "";
-}
 
 function signedUrlRequestKey(endpoint: string, headers: Record<string, string>) {
   return `${endpoint}\u0000${authorizationIdentity(headers)}`;

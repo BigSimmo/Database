@@ -7,7 +7,10 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { installedLockParity } from "./check-installed-lock-parity.mjs";
+import {
+  installedMetadataMatches as fullInstalledMetadataMatches,
+  installedTreeParity,
+} from "./check-installed-lock-parity.mjs";
 
 const logPrefix = "[codex-worktree:setup]";
 
@@ -33,39 +36,14 @@ export function lockDigest(projectRoot) {
     .digest("hex");
 }
 
-function packageEntries(lock) {
-  return Object.entries(lock.packages ?? {}).filter(
-    ([packagePath, entry]) => packagePath.startsWith("node_modules/") && entry?.version,
-  );
-}
-
 export function installedMetadataMatches(projectRoot) {
-  const installedLockPath = path.join(projectRoot, "node_modules", ".package-lock.json");
-  if (!existsSync(installedLockPath)) return false;
-
-  try {
-    const expected = JSON.parse(readFileSync(path.join(projectRoot, "package-lock.json"), "utf8"));
-    const installed = JSON.parse(readFileSync(installedLockPath, "utf8"));
-    const expectedPackages = new Map(packageEntries(expected).map(([packagePath, entry]) => [packagePath, entry]));
-    const installedPackages = new Map(packageEntries(installed).map(([packagePath, entry]) => [packagePath, entry]));
-    return (
-      [...installedPackages].every(
-        ([packagePath, entry]) => expectedPackages.get(packagePath)?.version === entry.version,
-      ) &&
-      [...expectedPackages].every(
-        ([packagePath, entry]) => entry.optional || installedPackages.get(packagePath)?.version === entry.version,
-      )
-    );
-  } catch {
-    return false;
-  }
+  return fullInstalledMetadataMatches(projectRoot);
 }
 
 export function installationIsComplete(projectRoot, packageNames) {
+  void packageNames;
   try {
-    return (
-      installedMetadataMatches(projectRoot) && installedLockParity(projectRoot, packageNames).every((entry) => entry.ok)
-    );
+    return installedTreeParity(projectRoot).ok;
   } catch {
     return false;
   }

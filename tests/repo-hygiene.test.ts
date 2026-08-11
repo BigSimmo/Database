@@ -28,6 +28,7 @@ import {
   headMatches,
   mergeLedgerMarkdown,
   parseLedgerRows,
+  parseFlags,
   rotateLedgerMarkdown,
   sanitizeCell,
 } from "../scripts/branch-review-ledger.mjs";
@@ -386,6 +387,17 @@ describe("branch-review-ledger row parsing", () => {
     expect(parsed.cells).toHaveLength(6);
     expect(parsed.outcome).toBe(String.raw`kept \| escaped`);
     expect(parsed.checks).toBe("npm run test");
+  });
+
+  it("accepts required values that begin with a double-dash token", () => {
+    expect(parseFlags(["--scope", "--shadow-tight migration", "--json"])).toEqual({
+      flags: { scope: "--shadow-tight migration", json: true },
+      positional: [],
+    });
+    expect(parseFlags(["--scope=--shadow-tight migration"])).toEqual({
+      flags: { scope: "--shadow-tight migration" },
+      positional: [],
+    });
   });
 
   it("treats an abbreviated recorded HEAD as the same commit", () => {

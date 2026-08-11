@@ -3,7 +3,12 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { criticalInstalledPackages, installedLockParity } from "../scripts/check-installed-lock-parity.mjs";
+import {
+  criticalInstalledPackages,
+  installedLockParity,
+  installedTreeParity,
+  writeInstalledTreeStamp,
+} from "../scripts/check-installed-lock-parity.mjs";
 
 const temporaryRoots: string[] = [];
 const requireFromTest = createRequire(import.meta.url);
@@ -22,6 +27,30 @@ function fixture(lockedVersion: string, installedVersion?: string) {
       JSON.stringify({ version: installedVersion }),
     );
   }
+  return root;
+}
+
+function treeFixture() {
+  const root = mkdtempSync(path.join(os.tmpdir(), "installed-tree-parity-"));
+  temporaryRoots.push(root);
+  const packages = {
+    "node_modules/direct": { version: "1.0.0" },
+    "node_modules/direct/node_modules/transitive": { version: "2.0.0" },
+  };
+  writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ lockfileVersion: 3, packages }));
+  for (const [packagePath, entry] of Object.entries(packages)) {
+    const packageRoot = path.join(root, ...packagePath.split("/"));
+    mkdirSync(path.join(packageRoot, "types", "internal"), { recursive: true });
+    writeFileSync(path.join(packageRoot, "package.json"), JSON.stringify({ version: entry.version }));
+    writeFileSync(path.join(packageRoot, "types", "index.d.ts"), "export type Public = string;\n");
+    writeFileSync(path.join(packageRoot, "types", "internal", "detail.d.ts"), "export type Detail = number;\n");
+  }
+  mkdirSync(path.join(root, "node_modules"), { recursive: true });
+  writeFileSync(
+    path.join(root, "node_modules", ".package-lock.json"),
+    JSON.stringify({ lockfileVersion: 3, packages }),
+  );
+  writeInstalledTreeStamp(root);
   return root;
 }
 
@@ -50,6 +79,53 @@ describe("installedLockParity", () => {
     expect(installedLockParity(fixture("16.2.11"), ["next"])[0]).toEqual(
       expect.objectContaining({ ok: false, installedVersion: null }),
     );
+  });
+
+  it("validates nested transitive versions against the exact lock location", () => {
+    const root = treeFixture();
+    const transitivePackage = path.join(root, "node_modules", "direct", "node_modules", "transitive", "package.json");
+    writeFileSync(transitivePackage, JSON.stringify({ version: "1.9.0" }));
+
+    expect(installedTreeParity(root)).toEqual(
+      expect.objectContaining({ ok: false, reason: "1 installed package location(s) do not match" }),
+    );
+  });
+
+  it("rejects an incomplete install when a non-entry package file is deleted", () => {
+    const root = treeFixture();
+    rmSync(path.join(root, "node_modules", "direct", "node_modules", "transitive", "types", "internal", "detail.d.ts"));
+
+    expect(installedTreeParity(root)).toEqual(
+      expect.objectContaining({
+        ok: false,
+        reason: "installed file inventory differs from the trusted post-install stamp",
+      }),
+    );
+  });
+
+  it("rejects a zero-byte declaration while package entry points remain intact", () => {
+    const root = treeFixture();
+    writeFileSync(
+      path.join(root, "node_modules", "direct", "node_modules", "transitive", "types", "internal", "detail.d.ts"),
+      "",
+    );
+
+    expect(installedTreeParity(root)).toEqual(
+      expect.objectContaining({
+        ok: false,
+        reason: "installed file inventory differs from the trusted post-install stamp",
+      }),
+    );
+  });
+
+  it("ignores generated tool caches while retaining the package inventory", () => {
+    const root = treeFixture();
+    mkdirSync(path.join(root, "node_modules", ".cache", "eslint"), { recursive: true });
+    mkdirSync(path.join(root, "node_modules", ".vite-temp"), { recursive: true });
+    writeFileSync(path.join(root, "node_modules", ".cache", "eslint", "cache"), "generated");
+    writeFileSync(path.join(root, "node_modules", ".vite-temp", "config.mjs"), "generated");
+
+    expect(installedTreeParity(root)).toEqual(expect.objectContaining({ ok: true }));
   });
 
   it("runs before local, UI, release, and CI test interpretation", () => {

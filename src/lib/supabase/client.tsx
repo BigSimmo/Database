@@ -9,6 +9,8 @@ import { clearRecentQueries } from "@/lib/recent-query-storage";
 import { clearSignedUrlCache } from "@/lib/signed-url-cache";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
+export { authorizationIdentity } from "@/lib/authorization-header";
+
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
 export type OAuthProvider = "google" | "azure";
 

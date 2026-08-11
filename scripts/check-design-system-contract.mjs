@@ -8,6 +8,8 @@ import {
   analyzeClassContractsInSource,
   analyzeCssContractsInSource,
   findDebtPathRegressions,
+  findErrorStateCountPropsInSource,
+  findFailedStateResultCountsInSource,
   findInteractiveTapLiteralsInSource,
   findTextSoftConsumersInSource,
   findTypeStepCssUsagesInSource,
@@ -127,6 +129,8 @@ const metrics = {
   rawLineHeightLiterals: 0,
   layoutTransitionExceptions: 0,
   textSoftConsumers: 0,
+  errorStateCountProps: 0,
+  failedStateResultCounts: 0,
 };
 const debtByPath = Object.fromEntries(Object.keys(metrics).map((metric) => [metric, {}]));
 const recordDebt = (metric, relativePath, count) => {
@@ -160,6 +164,16 @@ const textSoftConsumerFindings = [];
 
 for (const file of files) {
   const source = textAt(file.relativePath);
+  recordDebt(
+    "errorStateCountProps",
+    file.relativePath,
+    findErrorStateCountPropsInSource(file.relativePath, source).length,
+  );
+  recordDebt(
+    "failedStateResultCounts",
+    file.relativePath,
+    findFailedStateResultCountsInSource(file.relativePath, source).length,
+  );
   const fileTextSoftConsumers = findTextSoftConsumersInSource(file.relativePath, source);
   recordDebt("textSoftConsumers", file.relativePath, fileTextSoftConsumers.length);
   textSoftConsumerFindings.push(...fileTextSoftConsumers);
@@ -485,4 +499,6 @@ console.log(
   `Scale ratchets: raw padding literals ${metrics.rawPaddingLiterals}; raw radius literals ${metrics.rawRadiusLiterals}; raw gap literals ${metrics.rawGapLiterals}; raw line-height literals ${metrics.rawLineHeightLiterals}.`,
 );
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
+console.log(`Error-state boundary: count-bearing title/body props ${metrics.errorStateCountProps}.`);
+console.log(`Failed-state boundary: count-bearing result nodes ${metrics.failedStateResultCounts}.`);
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);

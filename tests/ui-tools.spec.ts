@@ -1054,6 +1054,10 @@ test.describe("Clinical KB tools launcher", () => {
     await page.getByRole("radiogroup", { name: "Quick filters" }).getByRole("radio", { name: "Crisis" }).click();
     await expect(page).toHaveURL(/\/services\?.*q=crisis/);
 
+    await quickFilter.click();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect(page).toHaveURL(/\/services$/);
+
     // Phones keep the full search results in the page instead of opening a
     // command sheet over the small viewport.
     await input.click();
