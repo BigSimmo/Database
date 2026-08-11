@@ -153,7 +153,8 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
 - The surviving role names are **aliases onto tiers**, not independent values:
   `--shadow-card` / `--shadow-soft` → `--e2`; `--shadow-hover` → `--e3`; `--shadow-elevated` /
   `--shadow-lux` → `--e4`. `--shadow-tight` is retired — the resting hairline is `--e1` at the
-  call site. `--shadow-inset`, `--shadow-rail-active`, `--shadow-focus` and
+  call site. `--shadow-focus` is retired too — focus is an `outline: 2px solid var(--focus)`,
+  never a companion shadow ring. `--shadow-inset`, `--shadow-rail-active` and
   `--glow-primary/soft` stay bespoke. All are removed under forced-colors, ladder included.
 - No literal `box-shadow` values in components — reach for a tier
   (`shadow-[var(--e2)]`, `hover:shadow-[var(--e3)]`) or a role alias.
