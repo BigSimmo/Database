@@ -263,11 +263,12 @@ function FormulationResults({ query }: { query: string }) {
           {results.map(({ mechanism }, index) => (
             <article
               key={mechanism.id}
-              data-testid={index === 0 ? "formulation-top-match" : undefined}
+              data-testid={index === 0 && hasUniqueTopMatch ? "formulation-top-match" : undefined}
               className={cn(
                 formulationCard,
                 "group overflow-hidden transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-inset)]",
                 index === 0 &&
+                  hasUniqueTopMatch &&
                   "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/20 shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--clinical-accent)]/10",
               )}
             >
@@ -311,7 +312,7 @@ function FormulationResults({ query }: { query: string }) {
                   aria-label={`Open ${mechanism.name}`}
                   className={cn(
                     "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border px-3 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-tap sm:px-0",
-                    index === 0
+                    index === 0 && hasUniqueTopMatch
                       ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--clinical-accent-strong)]"
                       : "border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] text-[color:var(--text)] hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent)]",
                   )}
