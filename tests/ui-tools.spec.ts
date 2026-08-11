@@ -477,8 +477,8 @@ test.describe("Clinical KB tools launcher", () => {
           : page.getByTestId("application-card-clinical-kb-search");
       const description = tool
         .getByText("Ask source-backed clinical questions and move straight to evidence.", {
-        exact: true,
-      })
+          exact: true,
+        })
         .first();
       await expect(description).toBeVisible();
       const clipping = await description.evaluate((element) => {
