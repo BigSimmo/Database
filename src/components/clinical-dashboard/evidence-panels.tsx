@@ -1152,9 +1152,10 @@ export function AnswerFeedbackPanel({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">Answer review</p>
+          <p className="text-sm font-semibold text-[color:var(--text)]">Is the answer supported?</p>
           <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            Capture misses for retrieval and RAG evals without changing the answer.
+            Record whether the linked evidence supports the answer. This sends feedback for review; it does not change
+            the answer.
           </p>
         </div>
         {pending ? (
@@ -1164,7 +1165,7 @@ export function AnswerFeedbackPanel({
           </span>
         ) : null}
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
         {answerFeedbackOptions.map((item) => {
           const Icon = item.icon;
           return (
@@ -1174,7 +1175,7 @@ export function AnswerFeedbackPanel({
               disabled={Boolean(pending)}
               onClick={() => onSubmit(item.type)}
               className={cn(
-                "inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-10",
+                "inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border px-2.5 text-center text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-10",
                 feedbackToneClass(item.tone),
               )}
             >
