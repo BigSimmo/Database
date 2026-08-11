@@ -1017,6 +1017,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   // lost across re-renders and left deep-linked hits collapsed in Production UI.
   const [manualClosedDriver, setManualClosedDriver] = useState<string | null>(null);
   const [compactOpen, setCompactOpen] = useState(false);
+  const previousSearchRef = useRef("");
   // In-document search and an explicit "Inspect indexed text" action keep the
   // panel revealed through exclusive-accordion closes. Citation deep-links alone
   // must not force-open — that stole the first viewport from the PDF.
@@ -1031,6 +1032,11 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     // PDF-first instead of leaving the dump controlled-open.
     setCompactOpen(forceReveal);
   }, [forceReveal]);
+  useEffect(() => {
+    if (previousSearchRef.current === normalizedSearch) return;
+    previousSearchRef.current = normalizedSearch;
+    setActiveHitIndex(0);
+  }, [normalizedSearch]);
   if (previousAutoOpenDriverRef.current !== autoOpenDriver) {
     previousAutoOpenDriverRef.current = autoOpenDriver;
     if (manualClosedDriver !== null) setManualClosedDriver(null);
