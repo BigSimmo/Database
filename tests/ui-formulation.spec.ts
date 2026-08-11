@@ -145,6 +145,15 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await expectNoBlockingAxeViolations(page, testInfo);
 });
 
+test("does not promote a top match when the leading results are tied", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await gotoApp(page, "/formulation?q=sleep&run=1");
+
+  const topMatch = page.getByText("Top match for your search", { exact: true });
+  await expect(topMatch).toHaveCount(0);
+  await expect(topMatch).toBeHidden();
+});
+
 test("keeps long mobile formulation pages inside the active app scroll surface", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoApp(page, "/formulation/builder?mechanism=rumination&template=5Ps");

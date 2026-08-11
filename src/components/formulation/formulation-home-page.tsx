@@ -151,6 +151,7 @@ function FormulationResults({ query }: { query: string }) {
     if (!deferredQuery.trim()) return [];
     return searchFormulationMechanisms(deferredQuery, { domain });
   }, [domain, deferredQuery, query]);
+  const hasUniqueTopMatch = results.length > 0 && (results.length < 2 || results[0].score !== results[1].score);
 
   return (
     <FormulationPageShell>
@@ -270,7 +271,7 @@ function FormulationResults({ query }: { query: string }) {
                   "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/20 shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--clinical-accent)]/10",
               )}
             >
-              {index === 0 ? (
+              {index === 0 && hasUniqueTopMatch ? (
                 <div className="flex items-center gap-2 border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:px-5">
                   <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)]">
                     <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
