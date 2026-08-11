@@ -265,7 +265,7 @@ function FormulationResults({ query }: { query: string }) {
               data-testid={index === 0 ? "formulation-top-match" : undefined}
               className={cn(
                 formulationCard,
-                "group overflow-hidden transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+                "group overflow-hidden transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-inset)]",
                 index === 0 &&
                   "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/20 shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--clinical-accent)]/10",
               )}
