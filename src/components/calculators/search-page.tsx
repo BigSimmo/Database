@@ -177,7 +177,10 @@ function CalculatorComposer({
         />
       ) : null}
 
-      <PrivacyInputNotice className="justify-center" />
+      {/* Cancel the shared notice's phone -mb-4 reclaim: this composer is a
+          fixed dock, and the overhang would clip the link's focus ring below
+          the viewport when safe-area inset is zero. */}
+      <PrivacyInputNotice className="justify-center [&_a]:mb-0" />
     </div>
   );
 }

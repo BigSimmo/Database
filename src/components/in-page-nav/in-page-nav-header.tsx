@@ -2,7 +2,7 @@
 
 import { ArrowLeft, ChevronDown, Ellipsis, type LucideIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 import { ContextualBackLink } from "@/components/contextual-back-link";
@@ -197,6 +197,23 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
   const setActionsOpen = (open: boolean) => setActionsPath(open ? currentPath : null);
   const sectionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  // With a rail, the title disclosure is `sm:hidden`. If the sheet stays open
+  // across that breakpoint (rotation / resize), returning focus to the hidden
+  // trigger drops keyboard focus to the page body. Prefer a visible rail
+  // control when the trigger has no layout box.
+  const resolveSectionReturnFocus = useCallback(() => {
+    const trigger = sectionTriggerRef.current;
+    if (trigger && trigger.getClientRects().length > 0) return trigger;
+    if (rail) {
+      const railRoot = document.querySelector(`[data-testid="${testIdPrefix}-section-rail"]`);
+      const active = railRoot?.querySelector<HTMLElement>('[aria-current="true"]');
+      if (active) return active;
+      const first = railRoot?.querySelector<HTMLElement>("button");
+      if (first) return first;
+    }
+    return trigger;
+  }, [rail, testIdPrefix]);
 
   useInPageChromeMetrics();
 
@@ -395,6 +412,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
           }
           closeLabel="Close section list"
           returnFocusRef={sectionTriggerRef}
+          resolveReturnFocusTarget={resolveSectionReturnFocus}
           testId={`${testIdPrefix}-section-sheet`}
         >
           <DocumentSectionList
