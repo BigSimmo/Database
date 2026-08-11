@@ -4163,7 +4163,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toHaveJSProperty("open", true);
 
-    const sourceSearch = page.getByLabel("Search within indexed source text").last();
+    // The fixed document composer is the single search owner; the indexed-text
+    // disclosure must not duplicate a large search field inside its content.
+    const sourceSearch = page.getByRole("textbox", { name: "Search within this document" });
+    await expect(page.getByLabel("Search within indexed source text")).toHaveCount(0);
     await waitForReactEventHandler(sourceSearch, "onChange");
     await sourceSearch.fill("safety plan include");
     const desktopTextPanel = page.getByTestId("source-chunk-indexed-text-panel");
@@ -4336,14 +4339,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(indexedTextBox!.y).toBeLessThan(imagesBox!.y);
 
     const passageToggle = page.getByTestId("toggle-full-passage").first();
-    await expect(passageToggle).toHaveText("Show full passage");
+    await expect(passageToggle).toHaveText("Full passage");
+    await expect(passageToggle).toHaveAttribute("aria-expanded", "false");
     // Keyboard activation is intentional here: pdf.js can resize the canvas
     // while Firefox is calculating pointer coordinates, but a focused native
     // button must keep its expand/collapse behavior through that layout shift.
     await activateFocusedControl(page, passageToggle);
-    await expect(passageToggle).toHaveText("Show passage preview");
+    await expect(passageToggle).toHaveText("Collapse");
+    await expect(passageToggle).toHaveAttribute("aria-expanded", "true");
     const expandedEvidenceBox = await evidence.boundingBox();
     expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
+    await activateFocusedControl(page, passageToggle);
+    await expect(passageToggle).toHaveText("Full passage");
+    await expect(passageToggle).toHaveAttribute("aria-expanded", "false");
+    const collapsedEvidenceBox = await evidence.boundingBox();
+    expect(collapsedEvidenceBox?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(expandedEvidenceBox!.height);
     await openSection(/PDF preview/);
     await expect(preview).toBeInViewport();
     await openSection(/Indexed source text/);
