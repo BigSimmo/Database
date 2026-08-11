@@ -82,7 +82,8 @@ export function SegmentedControl<T extends string>({
       onKeyDown={onKeyDown}
       data-layout={layout}
       className={cn(
-        "flex w-full min-w-0 flex-wrap gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1 shadow-[var(--shadow-inset)]",
+        "flex w-full min-w-0 gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1 shadow-[var(--shadow-inset)]",
+        layout === "equal" ? "flex-nowrap" : "flex-wrap",
         className,
       )}
     >
@@ -104,8 +105,10 @@ export function SegmentedControl<T extends string>({
             data-segment-value={option.value}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex min-h-tap min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:text-[color:var(--disabled)]",
-              layout === "equal" ? "min-w-[min(100%,8rem)] flex-1" : "flex-none",
+              "flex min-h-tap min-w-0 items-center justify-center whitespace-nowrap rounded-full font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:text-[color:var(--disabled)]",
+              layout === "equal"
+                ? "flex-1 gap-1 px-0 text-2xs tracking-tight min-[360px]:px-1 min-[360px]:text-xs sm:gap-1.5 sm:px-3 sm:tracking-normal"
+                : "flex-none gap-1.5 px-3 text-xs",
               checked
                 ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
