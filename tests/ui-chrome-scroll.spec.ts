@@ -77,85 +77,90 @@ interface ChromeState {
  * both the document-scrolled shell and the `<main>`-scrolled dashboard.
  */
 function readChromeState(page: Page): Promise<ChromeState> {
-  return page.evaluate(() => {
-    const main = document.getElementById("main-content");
-    const mainScrolls = Boolean(main && main.scrollHeight > main.clientHeight + 1);
-    const doc = document.documentElement;
-    // Collapse hosts flip data-scroll-hidden on the top-bar grid wrapper; the
-    // answer view's overlay glass bar flips it on header#search itself.
-    const header = document.querySelector("header#search");
-    const hideTarget = document.querySelector('[data-testid="universal-header-collapse"]') ?? header;
-    const rect = header?.getBoundingClientRect();
-    // Prefer the global search input; fall back to any visible search textbox
-    // so hero-portaled composers still count.
-    const search =
-      document.querySelector<HTMLElement>('[data-testid="global-search-input"]') ??
-      document.querySelector<HTMLElement>('input[type="search"], input[role="combobox"]');
-    const searchRect = search?.getBoundingClientRect();
-    const searchForm = search?.closest("form");
-    const desktopPageSlot = searchForm?.closest<HTMLElement>('[data-testid="desktop-page-search-composer-slot"]');
-    const followingContent = desktopPageSlot
-      ? Array.from(desktopPageSlot.parentElement?.children ?? [])
-          .slice(Array.from(desktopPageSlot.parentElement?.children ?? []).indexOf(desktopPageSlot) + 1)
-          .find((element) => {
-            const candidateRect = element.getBoundingClientRect();
-            return candidateRect.width > 0 && candidateRect.height > 0;
-          })
-      : null;
-    let searchHasStickyAncestor = false;
-    for (let node = searchForm?.parentElement ?? null; node && !searchHasStickyAncestor; node = node.parentElement) {
-      searchHasStickyAncestor = window.getComputedStyle(node).position === "sticky";
-    }
-    const searchOnScreen = Boolean(
-      searchRect &&
-      searchRect.width > 0 &&
-      searchRect.height > 0 &&
-      searchRect.bottom > 0 &&
-      searchRect.top < window.innerHeight,
+  return page
+    .evaluate(() => {
+      // Collapse hosts flip data-scroll-hidden on the top-bar grid wrapper; the
+      // answer view's overlay glass bar flips it on header#search itself.
+      const header = document.querySelector("header#search");
+      const hideTarget = document.querySelector('[data-testid="universal-header-collapse"]') ?? header;
+      const rect = header?.getBoundingClientRect();
+      // Prefer the global search input; fall back to any visible search textbox
+      // so hero-portaled composers still count.
+      const search =
+        document.querySelector<HTMLElement>('[data-testid="global-search-input"]') ??
+        document.querySelector<HTMLElement>('input[type="search"], input[role="combobox"]');
+      const searchRect = search?.getBoundingClientRect();
+      const searchForm = search?.closest("form");
+      const desktopPageSlot = searchForm?.closest<HTMLElement>('[data-testid="desktop-page-search-composer-slot"]');
+      const followingContent = desktopPageSlot
+        ? Array.from(desktopPageSlot.parentElement?.children ?? [])
+            .slice(Array.from(desktopPageSlot.parentElement?.children ?? []).indexOf(desktopPageSlot) + 1)
+            .find((element) => {
+              const candidateRect = element.getBoundingClientRect();
+              return candidateRect.width > 0 && candidateRect.height > 0;
+            })
+        : null;
+      let searchHasStickyAncestor = false;
+      for (let node = searchForm?.parentElement ?? null; node && !searchHasStickyAncestor; node = node.parentElement) {
+        searchHasStickyAncestor = window.getComputedStyle(node).position === "sticky";
+      }
+      const searchOnScreen = Boolean(
+        searchRect &&
+        searchRect.width > 0 &&
+        searchRect.height > 0 &&
+        searchRect.bottom > 0 &&
+        searchRect.top < window.innerHeight,
+      );
+      return {
+        hidden: hideTarget?.getAttribute("data-scroll-hidden") === "true",
+        headerTop: rect ? Math.round(rect.top) : Number.NaN,
+        headerBottom: rect ? Math.round(rect.bottom) : Number.NaN,
+        searchTop: searchRect ? Math.round(searchRect.top) : Number.NaN,
+        searchBottom: searchRect ? Math.round(searchRect.bottom) : Number.NaN,
+        searchVisible: searchOnScreen,
+        searchPlacement: searchForm?.dataset.composerPlacement ?? null,
+        searchInsideDesktopPageSlot: Boolean(searchForm?.closest('[data-testid="desktop-page-search-composer-slot"]')),
+        searchHasStickyAncestor,
+        desktopPageSearchClearsFollowingContent:
+          desktopPageSlot && followingContent
+            ? desktopPageSlot.getBoundingClientRect().bottom <= followingContent.getBoundingClientRect().top + 1
+            : null,
+        hiddenBottomComposers: document.querySelectorAll('form[data-scroll-hidden="true"]').length,
+      };
+    })
+    .then((state) =>
+      readPrimaryScrollGeometry(page).then((geometry) => ({
+        ...state,
+        offset: Math.round(geometry.scrollTop),
+        maxOffset: Math.round(geometry.maxScrollTop),
+      })),
     );
-    return {
-      offset: Math.round(mainScrolls && main ? main.scrollTop : window.scrollY),
-      maxOffset: Math.round(
-        mainScrolls && main ? main.scrollHeight - main.clientHeight : doc.scrollHeight - window.innerHeight,
-      ),
-      hidden: hideTarget?.getAttribute("data-scroll-hidden") === "true",
-      headerTop: rect ? Math.round(rect.top) : Number.NaN,
-      headerBottom: rect ? Math.round(rect.bottom) : Number.NaN,
-      searchTop: searchRect ? Math.round(searchRect.top) : Number.NaN,
-      searchBottom: searchRect ? Math.round(searchRect.bottom) : Number.NaN,
-      searchVisible: searchOnScreen,
-      searchPlacement: searchForm?.dataset.composerPlacement ?? null,
-      searchInsideDesktopPageSlot: Boolean(searchForm?.closest('[data-testid="desktop-page-search-composer-slot"]')),
-      searchHasStickyAncestor,
-      desktopPageSearchClearsFollowingContent:
-        desktopPageSlot && followingContent
-          ? desktopPageSlot.getBoundingClientRect().bottom <= followingContent.getBoundingClientRect().top + 1
-          : null,
-      hiddenBottomComposers: document.querySelectorAll('form[data-scroll-hidden="true"]').length,
-    };
-  });
 }
 
 /** Scrolls in per-frame steps so the reporter sees real directional intent. */
 async function scrollBy(page: Page, totalPx: number, stepPx: number) {
-  await page.evaluate(
-    async ({ total, step }) => {
-      const main = document.getElementById("main-content");
-      const mainScrolls = Boolean(main && main.scrollHeight > main.clientHeight + 1);
-      const steps = Math.max(1, Math.ceil(Math.abs(total) / step));
-      const direction = total < 0 ? -1 : 1;
-      for (let i = 0; i < steps; i += 1) {
-        if (mainScrolls && main) {
-          main.scrollTop += direction * step;
-          main.dispatchEvent(new Event("scroll", { bubbles: true }));
-        } else {
-          window.scrollBy(0, direction * step);
-        }
-        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
-      }
-    },
-    { total: totalPx, step: stepPx },
-  );
+  const { owner } = await readPrimaryScrollGeometry(page);
+
+  const steps = Math.max(1, Math.ceil(Math.abs(totalPx) / stepPx));
+  const direction = totalPx < 0 ? -1 : 1;
+  const stepPxAbs = Math.abs(stepPx);
+  let remaining = Math.abs(totalPx);
+
+  for (let i = 0; i < steps && remaining > 0; i += 1) {
+    const delta = direction * Math.min(stepPxAbs, remaining);
+    if (owner === "main") {
+      await page.evaluate((nextDelta) => {
+        const main = document.getElementById("main-content");
+        if (!main) return;
+        main.scrollTop += nextDelta;
+        main.dispatchEvent(new Event("scroll", { bubbles: true }));
+      }, delta);
+    } else {
+      await page.mouse.wheel(0, delta);
+    }
+    remaining -= Math.min(stepPxAbs, remaining);
+    await page.waitForTimeout(16);
+  }
 }
 
 /**

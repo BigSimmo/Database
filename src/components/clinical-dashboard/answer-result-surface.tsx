@@ -393,7 +393,7 @@ function StagedAnswerResultSurfaceImpl({
             open={evidenceOpen}
             onClose={closeEvidenceReview}
             title="Evidence"
-            description="Review by evidence type."
+            description="Check how well sources support this answer."
             titleAccessory={<span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs")}>{evidenceTrustLabel}</span>}
             closeLabel="Close evidence"
             headerLeading={

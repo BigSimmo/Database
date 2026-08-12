@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { memo, useEffect, useRef, useState } from "react";
-import { CircleAlert, CircleCheck, ChevronDown, Copy, ExternalLink, Layers, ShieldCheck, Sparkles } from "lucide-react";
+import { CircleAlert, ChevronDown, Copy, ExternalLink, Layers, ShieldCheck, Sparkles } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
@@ -25,6 +25,7 @@ import {
   cleanDisplayTitle,
   comparableAnswerText,
   sanitizeAnswerDisplayText,
+  sourceQuoteDisplayText,
 } from "@/components/clinical-dashboard/display-text";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
@@ -348,9 +349,6 @@ function SourcePreviewContent({
   showHeader?: boolean;
 }) {
   const primaryPreviewSource = previewSources[0] ?? null;
-  const reviewDueSource = previewSources.find(
-    (source) => source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated",
-  );
 
   return (
     <>
@@ -363,7 +361,7 @@ function SourcePreviewContent({
                 {sourcePreviewPageCountLabel(previewSources)}
               </span>
             </div>
-            <p className={cn("mt-1 text-xs leading-5", textMuted)}>Open the original PDF page.</p>
+            <p className={cn("mt-1 text-xs leading-5", textMuted)}>Check the answer against the cited PDF passage.</p>
           </div>
         </div>
       ) : null}
@@ -444,11 +442,14 @@ function SourcePreviewContent({
         ))}
       </div>
       {quoteText ? (
-        <blockquote className="mt-3 border-l-2 border-[color:var(--clinical-accent)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
-          &ldquo;{quoteText}&rdquo;
-        </blockquote>
+        <section className="mt-3" aria-label="Cited passage">
+          <p className={cn("mb-1.5 text-2xs font-semibold uppercase tracking-wide", textMuted)}>Cited passage</p>
+          <blockquote className="border-l-2 border-[color:var(--clinical-accent)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
+            &ldquo;{quoteText}&rdquo;
+          </blockquote>
+        </section>
       ) : null}
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[color:var(--border)] pt-2 sm:flex sm:flex-wrap">
         {primaryPreviewSource ? (
           <Link
             href={primaryPreviewSource.href}
@@ -457,41 +458,14 @@ function SourcePreviewContent({
             aria-label={`Open source page for ${primaryPreviewSource.title}`}
           >
             <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
-            Open source page
+            View original PDF
           </Link>
         ) : null}
         {quoteText ? (
           <button type="button" className={chatMicroAction} onClick={onCopyQuote}>
             <Copy aria-hidden="true" className="h-3.5 w-3.5" />
-            {copiedQuote ? "Copied quote" : "Copy quote"}
+            {copiedQuote ? "Copied passage" : "Copy passage"}
           </button>
-        ) : null}
-      </div>
-      <div className="mt-3 flex min-h-tap flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-2 text-xs font-semibold">
-        <span
-          className={cn(
-            "inline-flex min-h-8 items-center gap-1.5",
-            reviewDueSource ? "text-[color:var(--warning)]" : "text-[color:var(--success)]",
-          )}
-        >
-          {reviewDueSource ? (
-            <CircleAlert aria-hidden="true" className="h-4 w-4" />
-          ) : (
-            <CircleCheck aria-hidden="true" className="h-4 w-4" />
-          )}
-          {reviewDueSource
-            ? `${sourceBadgeLabel(previewSources.indexOf(reviewDueSource))} review due`
-            : "Sources current"}
-        </span>
-        {primaryPreviewSource ? (
-          <Link
-            href={primaryPreviewSource.href}
-            onClick={() => query && logSourceOpen(query, primaryPreviewSource)}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          >
-            Evidence details
-            <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
-          </Link>
         ) : null}
       </div>
     </>
@@ -554,7 +528,9 @@ export function NaturalLanguageAnswer({
   if (!cleaned) return null;
   const capsuleDisplay = sourceCapsuleDisplay({ sourceCount, compact: preferences.compactCitations });
   const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
-  const quoteText = sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet;
+  const rawQuoteText =
+    sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet || "";
+  const quoteText = sourceQuoteDisplayText(rawQuoteText);
   const canOpenSourcePreview = previewSources.length > 0;
   async function copySourceQuote() {
     if (!quoteText) return;
@@ -676,7 +652,7 @@ export function NaturalLanguageAnswer({
           open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}
           onClose={() => setSourcePreviewOpen(false)}
           title="Sources"
-          description="Open the original PDF page."
+          description="Check the answer against the cited PDF passage."
           titleAccessory={
             <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
               {sourcePreviewPageCountLabel(previewSources)}

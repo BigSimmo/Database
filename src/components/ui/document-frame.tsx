@@ -182,7 +182,7 @@ function useFrameFullscreen(controls: DocumentFrameControls | undefined) {
     onFullscreenChange?.(false);
   }, [onFullscreenChange]);
 
-  return { rootRef, active, enter, exit };
+  return { rootRef, active, fallback: nativeFallback, enter, exit };
 }
 
 function PageControls({
@@ -300,7 +300,15 @@ function DocumentControls({
   const canFullscreen = typeof controls.onFullscreenChange === "function";
   const overflowId = useId();
   const overflowRef = useRef<HTMLDetailsElement>(null);
+  const fullscreenButtonRef = useRef<HTMLButtonElement>(null);
   const closeOverflow = () => overflowRef.current?.removeAttribute("open");
+
+  // Phone fullscreen is entered from the overflow menu. Once that menu closes,
+  // put focus on the now-visible Exit control so the user is never trapped in a
+  // canvas with the only escape action hidden in a second menu.
+  useEffect(() => {
+    if (fullscreen) fullscreenButtonRef.current?.focus({ preventScroll: true });
+  }, [fullscreen]);
 
   const zoomTo = (next: number) => controls.onZoomChange(Number(boundedZoom(next, minimum, maximum).toFixed(3)));
 
@@ -387,8 +395,9 @@ function DocumentControls({
         {viewingAidButton("hidden sm:inline-flex")}
         {canFullscreen ? (
           <button
+            ref={fullscreenButtonRef}
             type="button"
-            className={cn(frameControl, "hidden sm:inline-flex")}
+            className={cn(frameControl, fullscreen ? "inline-flex" : "hidden sm:inline-flex")}
             aria-label={fullscreen ? "Exit fullscreen document view" : "Enter fullscreen document view"}
             disabled={controlsDisabled}
             onClick={fullscreen ? onExitFullscreen : onEnterFullscreen}
@@ -477,23 +486,18 @@ function DocumentControls({
               <Eye aria-hidden="true" className="size-icon-sm" />
               Viewing aid
             </button>
-            {canFullscreen ? (
+            {canFullscreen && !fullscreen ? (
               <button
                 type="button"
                 className={overflowItem}
                 disabled={controlsDisabled}
                 onClick={() => {
                   closeOverflow();
-                  if (fullscreen) onExitFullscreen();
-                  else onEnterFullscreen();
+                  onEnterFullscreen();
                 }}
               >
-                {fullscreen ? (
-                  <Minimize2 aria-hidden="true" className="size-icon-sm" />
-                ) : (
-                  <Maximize2 aria-hidden="true" className="size-icon-sm" />
-                )}
-                {fullscreen ? "Exit fullscreen" : "Fullscreen"}
+                <Maximize2 aria-hidden="true" className="size-icon-sm" />
+                Fullscreen
               </button>
             ) : null}
           </div>
@@ -527,7 +531,7 @@ export function DocumentFrame({
       ? Math.max(sourcePage ?? 1, Math.trunc(src.pageCount))
       : undefined;
   const viewingAidActive = Boolean(controls?.viewingAid && controls.fitWidth && !controls.disabled);
-  const { rootRef, active: fullscreenActive, enter, exit } = useFrameFullscreen(controls);
+  const { rootRef, active: fullscreenActive, fallback: fullscreenFallback, enter, exit } = useFrameFullscreen(controls);
   // Page navigation belongs to the toolbar only when the source is paged and the
   // owner supplied a handler; the readout otherwise stays out of the row.
   const toolbarPage = typeof controls?.page === "number" ? controls.page : sourcePage;
@@ -545,6 +549,7 @@ export function DocumentFrame({
       data-state={state}
       data-viewing-aid={viewingAidActive ? "on" : "off"}
       data-fullscreen={fullscreenActive ? "on" : undefined}
+      data-fullscreen-fallback={fullscreenFallback ? "on" : undefined}
       className={cn(
         "min-w-0 overflow-hidden bg-[color:var(--surface-raised)]",
         fullscreenActive && "fixed inset-0 z-[80] flex flex-col bg-[color:var(--surface)]",
@@ -554,7 +559,11 @@ export function DocumentFrame({
       {controls ? (
         <div
           data-print-hide
-          className="flex min-w-0 shrink-0 flex-col gap-2 border-b border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] p-2 shadow-[var(--e1)] sm:flex-row sm:items-center sm:justify-between sm:p-3"
+          className={cn(
+            "flex min-w-0 shrink-0 flex-col gap-2 border-b border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] p-2 shadow-[var(--e1)] sm:flex-row sm:items-center sm:justify-between sm:p-3",
+            fullscreenActive &&
+              "pt-[max(0.5rem,var(--safe-area-top))] pr-[max(0.5rem,var(--safe-area-right))] pl-[max(0.5rem,var(--safe-area-left))]",
+          )}
         >
           <DocumentControls
             controls={controls}
