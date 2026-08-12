@@ -960,7 +960,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ConfirmDialog`          | layout   | yes   | yes                | no                    | yes            | no                 |               0 |

@@ -1,13 +1,12 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ShieldAlert } from "lucide-react";
 import { Suspense, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
-import { ClinicalBadge } from "@/components/clinical-dashboard/clinical-badge";
+import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { NavigationBackButton } from "@/components/navigation-back-button";
 import { PrivacyPageBackButton } from "@/components/privacy-page-back-button";
-import { Chip } from "@/components/ui/chip";
-import { cn, eyebrowText, searchPageCanvas, searchPageContainer, searchFocusRing } from "@/components/ui-primitives";
+import { cn, eyebrowText, searchPageCanvas, searchFocusRing } from "@/components/ui-primitives";
 import {
   PRIVACY_DRAFT_DISCLAIMER,
   PRIVACY_IMPORTANT_FULL,
@@ -20,56 +19,93 @@ import { privacyCopy } from "@/lib/ui-copy";
 /**
  * Quiet Signal — production privacy page.
  *
- * Live Signal DNA without phone number-chip navigation:
- * - Sticky header + full-bleed amber Important (Full / Less)
- * - Quiet processing map
- * - Accordion with scannable gists (primary phone map)
- * - Desktop Signal Index with expand-all
+ * Quiet-scroll mockup DNA (`privacy-live-signal-variants`):
+ * - Sticky chrome = header + full-bleed amber Important only (no phone chips)
+ * - Back + BrandMark + Quiet signal badge; Draft on the right
+ * - Processing map: 3-col instrument on lg+, compact pills below
+ * - Denser accordion with gists; desktop Signal Index
  *
- * Amber is reserved for the obligation. Governance copy is shared via
- * `privacy-page-content` and pinned by `tests/privacy-ui.test.ts`.
+ * Governance copy stays in `privacy-page-content` (pinned by privacy-ui tests).
  */
 
 const atmosphere =
-  "bg-[radial-gradient(ellipse_at_8%_-8%,color-mix(in_srgb,var(--warning-bg)_72%,transparent),transparent_36%),radial-gradient(ellipse_at_94%_2%,color-mix(in_srgb,var(--clinical-accent-soft)_40%,transparent),transparent_44%),linear-gradient(180deg,color-mix(in_srgb,var(--surface)_50%,transparent),transparent_16rem),var(--background)]";
+  "bg-[radial-gradient(ellipse_at_8%_-8%,color-mix(in_srgb,var(--warning-bg)_78%,transparent),transparent_34%),radial-gradient(ellipse_at_92%_4%,color-mix(in_srgb,var(--clinical-accent-soft)_48%,transparent),transparent_42%),linear-gradient(180deg,color-mix(in_srgb,var(--surface)_55%,transparent),transparent_18rem),var(--background)]";
 
-const shellPadX = "px-3 sm:px-5 lg:px-6";
-const shellPadTop = "pt-[max(0.75rem,var(--safe-area-top))] sm:pt-[max(1.25rem,var(--safe-area-top))]";
+/** Content measure aligned to Quiet Signal comps (80rem), not the 1500px search shell. */
+const quietContainer = "mx-auto w-full max-w-[80rem]";
+const quietPadX = "px-3 sm:px-5 lg:px-8";
+const quietPadTop = "pt-[max(0.75rem,var(--safe-area-top))] sm:pt-[max(1.25rem,var(--safe-area-top))]";
 
-function ProcessingMap() {
+function LiveDot() {
   return (
-    <section aria-label="Where processing happens" className="space-y-2.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-3xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+    <span className="relative inline-flex h-1.5 w-1.5 shrink-0">
+      <span className="absolute inset-0 animate-ping rounded-full bg-[color:var(--warning)] opacity-45 motion-reduce:animate-none" />
+      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[color:var(--warning)]" />
+    </span>
+  );
+}
+
+function ProcessingMap({ compact }: { compact: boolean }) {
+  return (
+    <section aria-label="Where processing happens" className="space-y-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-3xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--text-soft)]">
           Processing map
         </p>
-        <p className="text-3xs font-medium text-[color:var(--text-soft)]">Operator must verify regions</p>
+        {!compact ? (
+          <p className="text-3xs font-medium text-[color:var(--text-soft)]">Operator must verify regions</p>
+        ) : null}
       </div>
-      <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] sm:grid-cols-3">
-        {PRIVACY_PROCESSING_MAP.map((cell, index) => (
-          <div
-            key={cell.place}
-            className={cn(
-              "min-w-0 px-4 py-3.5",
-              index > 0 && "border-t border-[color:var(--border)] sm:border-t-0 sm:border-l",
-            )}
-          >
-            <p
-              className={cn(
-                "text-2xs font-extrabold uppercase tracking-[0.12em]",
-                cell.tone === "accent" && "text-[color:var(--clinical-accent)]",
-                cell.tone === "warn" && "text-[color:var(--warning-text)]",
-                cell.tone === "neutral" && "text-[color:var(--text-muted)]",
-              )}
+      {compact ? (
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {PRIVACY_PROCESSING_MAP.map((cell) => {
+            const shortRole =
+              cell.place === "Sydney" ? "Storage" : cell.place === "Singapore" ? "App + worker" : "OpenAI";
+            return (
+              <span
+                key={cell.place}
+                title={`${cell.place} · ${cell.role}`}
+                className={cn(
+                  "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-3xs font-semibold",
+                  cell.tone === "accent" &&
+                    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+                  cell.tone === "warn" &&
+                    "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]",
+                  cell.tone === "neutral" &&
+                    "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
+                )}
+              >
+                <span className="font-extrabold uppercase tracking-[0.08em]">{cell.place}</span>
+                <span className="opacity-40">·</span>
+                <span>{shortRole}</span>
+              </span>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]">
+          {PRIVACY_PROCESSING_MAP.map((cell, index) => (
+            <div
+              key={cell.place}
+              className={cn("min-w-0 px-4 py-3.5", index > 0 && "border-l border-[color:var(--border)]")}
             >
-              {cell.place}
-            </p>
-            <p className="mt-1 text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
-              {cell.role}
-            </p>
-          </div>
-        ))}
-      </div>
+              <p
+                className={cn(
+                  "text-2xs font-extrabold uppercase tracking-[0.12em]",
+                  cell.tone === "accent" && "text-[color:var(--clinical-accent)]",
+                  cell.tone === "warn" && "text-[color:var(--warning-text)]",
+                  cell.tone === "neutral" && "text-[color:var(--text-muted)]",
+                )}
+              >
+                {cell.place}
+              </p>
+              <p className="mt-1 truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
+                {cell.role}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -92,7 +128,7 @@ function SectionAccordion({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]",
+        "overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]",
         "print:overflow-visible",
       )}
     >
@@ -117,9 +153,10 @@ function SectionAccordion({
                 aria-expanded={expanded}
                 aria-controls={panelId}
                 className={cn(
-                  "group relative flex min-h-tap w-full items-start gap-3 px-3.5 py-3.5 text-left transition duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] sm:min-h-[4.25rem] sm:px-5",
+                  "group relative flex w-full items-start gap-3 px-3.5 py-3 text-left transition duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] lg:px-5",
                   searchFocusRing,
-                  expanded && "bg-[color:var(--clinical-accent-soft)]/40",
+                  "min-h-tap lg:min-h-[3.75rem]",
+                  expanded && "bg-[color:var(--clinical-accent-soft)]/45",
                 )}
               >
                 {expanded ? (
@@ -140,13 +177,13 @@ function SectionAccordion({
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold tracking-[-0.015em] text-[color:var(--text-heading)] sm:text-base-minus">
+                  <span className="block text-sm font-semibold tracking-[-0.015em] text-[color:var(--text-heading)] lg:text-base-minus">
                     {section.heading}
                   </span>
                   {!expanded ? (
                     <span
                       aria-hidden="true"
-                      className="mt-1 block text-2xs leading-4 text-[color:var(--text-muted)] sm:text-xs sm:leading-5"
+                      className="mt-1 block text-2xs leading-4 text-[color:var(--text-muted)] lg:text-xs lg:leading-5"
                     >
                       {section.gist}
                     </span>
@@ -171,7 +208,7 @@ function SectionAccordion({
               aria-labelledby={triggerId}
               hidden={!expanded}
               className={cn(
-                "border-t border-[color:var(--clinical-accent-border)]/50 bg-[color:var(--surface-wash)] px-3.5 py-3.5 sm:px-5 sm:py-4 sm:pl-[3.75rem]",
+                "border-t border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--surface-wash)] px-3.5 py-3.5 lg:px-5 lg:py-4 lg:pl-[3.75rem]",
                 "print:block",
               )}
             >
@@ -238,85 +275,85 @@ export function PrivacyQuietSignalPage() {
       className={cn(
         searchPageCanvas,
         atmosphere,
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
+        "min-h-dvh focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
       )}
     >
-      {/* Sticky chrome: header + Important only (Quiet Signal — no phone number chips). */}
       <div
         ref={stickyChromeRef}
         className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)]/95 shadow-[var(--shadow-tight)] backdrop-blur-xl"
       >
-        <div className={cn(shellPadX, shellPadTop, "pb-3")}>
-          <div className={cn(searchPageContainer, "flex min-h-tap items-center gap-3")}>
+        <div className={cn(quietPadX, quietPadTop)}>
+          <div className={cn(quietContainer, "flex min-h-12 items-center gap-3")}>
             <Suspense fallback={<NavigationBackButton fallbackHref="/" />}>
               <PrivacyPageBackButton />
             </Suspense>
+            <BrandMark className="h-10 w-10 shrink-0 lg:h-11 lg:w-11" />
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className={eyebrowText}>{privacyCopy.pageEyebrow}</p>
-                <Chip appearance={{ kind: "information", tone: "quiet" }} size="compact">
-                  Draft
-                </Chip>
+              <div className="flex flex-nowrap items-center gap-2 overflow-hidden">
+                <p className={cn(eyebrowText, "shrink-0")}>{privacyCopy.pageEyebrow}</p>
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-2 py-0.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--warning-text)]">
+                  <LiveDot />
+                  Quiet signal
+                </span>
               </div>
-              <h1 className="truncate text-base font-semibold tracking-[-0.025em] text-[color:var(--text-heading)] sm:text-xl">
+              <h1 className="truncate text-base-minus font-semibold tracking-[-0.025em] text-[color:var(--text-heading)] lg:text-xl">
                 {privacyCopy.pageTitle}
               </h1>
             </div>
+            <span className="shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-3xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+              Draft
+            </span>
           </div>
         </div>
 
-        {/* Full-bleed fused obligation — amber only; ClinicalBadge carries the warning icon. */}
-        <div className="border-y border-[color:var(--warning-border)] bg-[color:var(--warning-bg)]">
-          <div className={cn(shellPadX, "py-2.5 sm:py-3")}>
-            <div className={cn(searchPageContainer, "flex items-start gap-2 sm:gap-3")}>
+        <div className="mt-3 border-y border-[color:var(--warning-border)] bg-[color:var(--warning-bg)]">
+          <div className={cn(quietPadX, "py-2.5 lg:py-3")}>
+            <div className={cn(quietContainer, "flex items-start gap-3")}>
               <span
                 aria-hidden="true"
                 className="mt-0.5 w-1 shrink-0 self-stretch rounded-full bg-[color:var(--warning)]"
               />
+              <ShieldAlert className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--warning)]" aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <ClinicalBadge tone="warning" label="Important" />
-                  {/* Compact face + tap-sized hit (same pattern as source capsules). */}
-                  <button
-                    type="button"
-                    onClick={() => setNoticeOpen((value) => !value)}
-                    aria-expanded={noticeOpen}
-                    aria-controls={noticeId}
-                    className={cn(
-                      "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center self-start rounded-lg",
-                      searchFocusRing,
-                    )}
-                  >
-                    <span className="inline-flex items-center gap-1 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-2.5 py-1 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)] shadow-[var(--shadow-inset)]">
-                      {noticeOpen ? "Less" : "Full"}
-                      <ChevronDown
-                        aria-hidden="true"
-                        className={cn(
-                          "size-icon-xs transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
-                          noticeOpen && "rotate-180",
-                        )}
-                      />
-                    </span>
-                  </button>
-                </div>
-                <p className="mt-1.5 max-w-[68ch] text-xs font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm sm:leading-6">
+                <p className="text-2xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--warning-text)]">
+                  Important
+                </p>
+                <p className="mt-0.5 text-xs font-semibold leading-5 text-[color:var(--text-heading)] lg:text-sm lg:leading-6">
                   {PRIVACY_IMPORTANT_SHORT}
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setNoticeOpen((value) => !value)}
+                aria-expanded={noticeOpen}
+                aria-controls={noticeId}
+                className={cn(
+                  "inline-flex min-h-tap shrink-0 items-center gap-1 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-2.5 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-bg)]",
+                  searchFocusRing,
+                )}
+              >
+                {noticeOpen ? "Less" : "Full"}
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cn(
+                    "size-icon-xs transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+                    noticeOpen && "rotate-180",
+                  )}
+                />
+              </button>
             </div>
           </div>
-          {/* Keep mounted (hidden) so aria-controls IDREF stays valid when collapsed. */}
           <div
             id={noticeId}
             hidden={!noticeOpen}
             className={cn(
-              "border-t border-[color:var(--warning-border)] bg-[color-mix(in_srgb,var(--surface-raised)_88%,var(--warning-bg))]",
-              shellPadX,
-              "py-3 sm:py-3.5",
+              "border-t border-[color:var(--warning-border)] bg-[color:var(--surface-raised)]",
+              quietPadX,
+              "py-3 lg:py-3.5",
               "print:block",
             )}
           >
-            <div className={searchPageContainer}>
+            <div className={quietContainer}>
               <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-heading)]">
                 {PRIVACY_IMPORTANT_FULL}
               </p>
@@ -325,19 +362,14 @@ export function PrivacyQuietSignalPage() {
         </div>
       </div>
 
-      <div className={cn(shellPadX, "pb-8 pt-5 sm:pb-10 sm:pt-7")}>
-        <div
-          className={cn(
-            searchPageContainer,
-            "grid gap-6 lg:grid-cols-[15.5rem_minmax(0,1fr)] lg:gap-8 xl:grid-cols-[16.5rem_minmax(0,1fr)]",
-          )}
-        >
+      <div className={cn(quietPadX, "py-4 lg:py-8")}>
+        <div className={cn(quietContainer, "grid grid-cols-1 gap-8 lg:grid-cols-[16.5rem_minmax(0,1fr)]")}>
           <aside
-            className="hidden h-fit rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2.5 shadow-[var(--shadow-inset)] lg:sticky lg:block"
+            className="hidden h-fit rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2.5 shadow-[var(--shadow-inset)] lg:sticky lg:block"
             style={{ top: stickyChromeHeightPx + 12 }}
           >
-            <div className="mb-1.5 flex items-center justify-between gap-2 px-2.5 pt-1.5">
-              <p className="text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+            <div className="mb-1.5 flex items-center justify-between px-2.5 pt-1.5">
+              <p className="text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
                 Signal index
               </p>
               <button
@@ -347,7 +379,7 @@ export function PrivacyQuietSignalPage() {
                   if (expandAll) setOpenId(PRIVACY_SECTIONS[0]?.heading ?? "");
                 }}
                 className={cn(
-                  "min-h-tap rounded-md px-2 text-3xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-8",
+                  "min-h-tap rounded-md px-1.5 text-3xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-8 sm:py-1",
                   searchFocusRing,
                 )}
               >
@@ -363,7 +395,7 @@ export function PrivacyQuietSignalPage() {
                     type="button"
                     onClick={() => selectSection(section.heading)}
                     className={cn(
-                      "relative flex min-h-tap items-center gap-2.5 rounded-lg px-2.5 text-left transition",
+                      "relative flex min-h-12 items-center gap-2.5 rounded-xl px-2.5 text-left transition",
                       searchFocusRing,
                       active
                         ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -401,7 +433,12 @@ export function PrivacyQuietSignalPage() {
 
           <div className="min-w-0 space-y-5">
             <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">{PRIVACY_DRAFT_DISCLAIMER}</p>
-            <ProcessingMap />
+            <div className="lg:hidden">
+              <ProcessingMap compact />
+            </div>
+            <div className="hidden lg:block">
+              <ProcessingMap compact={false} />
+            </div>
             <SectionAccordion
               idPrefix={sectionIdPrefix}
               openId={openId}
