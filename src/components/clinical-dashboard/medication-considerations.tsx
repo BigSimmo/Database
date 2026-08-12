@@ -93,6 +93,7 @@ export function verdictSummaryBadge(verdict: MedicationVerdict): ClinicalBadgeIt
     if (verdict.considerationCount > 0) {
       parts.push(`${verdict.considerationCount} alert${verdict.considerationCount === 1 ? "" : "s"}`);
     }
+    if (verdict.incomplete) parts.push("Needs manual review");
     return {
       id: "patient-verdict",
       label: parts.join(" · "),
