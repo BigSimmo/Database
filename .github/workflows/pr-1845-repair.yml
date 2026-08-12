@@ -1,0 +1,157 @@
+name: PR 1845 repair
+
+on:
+  push:
+    branches:
+      - codex/investigate-navigation-changes-in-services
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-1845-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: codex/investigate-navigation-changes-in-services
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Merge current main and apply focused repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin main
+
+          set +e
+          git merge --no-commit --no-ff origin/main
+          merge_status=$?
+          set -e
+
+          if [ "$merge_status" -ne 0 ]; then
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            unexpected="$(printf '%s\n' "$conflicts" | grep -v '^docs/branch-review-ledger.md$' || true)"
+            if [ -n "$unexpected" ]; then
+              printf 'Unexpected merge conflicts:\n%s\n' "$unexpected" >&2
+              exit 1
+            fi
+            if printf '%s\n' "$conflicts" | grep -qx 'docs/branch-review-ledger.md'; then
+              git checkout --theirs -- docs/branch-review-ledger.md
+              git add docs/branch-review-ledger.md
+            fi
+            if git diff --name-only --diff-filter=U | grep -q .; then
+              echo 'Unresolved merge conflicts remain.' >&2
+              exit 1
+            fi
+          fi
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          page_path = Path("src/app/(search-app)/services/page.tsx")
+          page = page_path.read_text()
+
+          import_anchor = 'import { Suspense } from "react";'
+          if 'import { redirect } from "next/navigation";' not in page:
+              if page.count(import_anchor) != 1:
+                  raise SystemExit("Could not locate the Services route import anchor")
+              page = page.replace(
+                  import_anchor,
+                  'import { redirect } from "next/navigation";\nimport { Suspense } from "react";',
+                  1,
+              )
+
+          helper_anchor = '''function readFirstSearchParam(value: string | string[] | undefined) {
+            return Array.isArray(value) ? value[0] : value;
+          }
+          '''
+          helper = '''function readFirstSearchParam(value: string | string[] | undefined) {
+            return Array.isArray(value) ? value[0] : value;
+          }
+
+          function toURLSearchParams(params: Awaited<ServicesSearchParams>) {
+            const normalized = new URLSearchParams();
+            for (const [key, value] of Object.entries(params)) {
+              if (Array.isArray(value)) {
+                value.forEach((item) => normalized.append(key, item));
+              } else if (value !== undefined) {
+                normalized.set(key, value);
+              }
+            }
+            return normalized;
+          }
+          '''
+          if "function toURLSearchParams" not in page:
+              if page.count(helper_anchor) != 1:
+                  raise SystemExit("Could not locate the Services search-param helper anchor")
+              page = page.replace(helper_anchor, helper, 1)
+
+          route_anchor = '''  const resolvedSearchParams = await searchParams;
+            const hasSubmittedSearch = readFirstSearchParam(resolvedSearchParams.run) === "1";
+
+            if (!hasSubmittedSearch) {
+          '''
+          route_replacement = '''  const resolvedSearchParams = await searchParams;
+            const hasSubmittedSearch = readFirstSearchParam(resolvedSearchParams.run) === "1";
+            const primaryQuery = readFirstSearchParam(resolvedSearchParams.q)?.trim();
+            const legacyQuery = readFirstSearchParam(resolvedSearchParams.query)?.trim();
+
+            if (hasSubmittedSearch && !primaryQuery && legacyQuery) {
+              const canonicalSearchParams = toURLSearchParams(resolvedSearchParams);
+              canonicalSearchParams.set("q", legacyQuery);
+              canonicalSearchParams.delete("query");
+              redirect(`/services?${canonicalSearchParams.toString()}`);
+            }
+
+            if (!hasSubmittedSearch) {
+          '''
+          if "const canonicalSearchParams" not in page:
+              if page.count(route_anchor) != 1:
+                  raise SystemExit("Could not locate the Services route body anchor")
+              page = page.replace(route_anchor, route_replacement, 1)
+
+          page_path.write_text(page)
+
+          test_path = Path("tests/ui-tools.spec.ts")
+          tests = test_path.read_text()
+          old = '''    await page.getByTestId("service-filter-panel").getByRole("button", { name: "Clear all" }).click();'''
+          new = '''    await page.getByTestId("service-filter-panel-clear").click();'''
+          if old in tests:
+              if tests.count(old) != 1:
+                  raise SystemExit("Expected one stale Services clear-filter locator")
+              tests = tests.replace(old, new, 1)
+          elif new not in tests:
+              raise SystemExit("Could not locate the Services clear-filter assertion")
+          test_path.write_text(tests)
+
+          ledger_path = Path("docs/branch-review-ledger.md")
+          ledger = ledger_path.read_text()
+          marker = "| 2026-08-13 | PR-1845 |"
+          if marker not in ledger:
+              if not ledger.endswith("\n"):
+                  ledger += "\n"
+              ledger += (
+                  "| 2026-08-13 | PR-1845 | 20d71eea01969330fcd3b356227abc7e85a8e1b7 | "
+                  "current-main merge, CI repair, and open-comment review | preserved the current-main ledger; "
+                  "canonicalized whitespace-only q to the non-empty legacy query; replaced the stale clear-filter "
+                  "Playwright locator; no unresolved review threads remained | pending fresh GitHub CI |\n"
+              )
+          ledger_path.write_text(ledger)
+          PY
+
+          git diff --check
+          git status --short
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/'(search-app)'/services/page.tsx tests/ui-tools.spec.ts docs/branch-review-ledger.md
+          git commit -m 'fix(services): merge main and repair PR 1845 CI'
+          git push origin HEAD:codex/investigate-navigation-changes-in-services
