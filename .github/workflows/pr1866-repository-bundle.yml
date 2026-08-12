@@ -1,4 +1,4 @@
-name: PR 1866 merge and review repair
+name: PR 1866 repository bundle
 
 on:
   push:
@@ -6,265 +6,45 @@ on:
       - claude/plan-implementation-3t2vl5
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: pr1866-repair-deepened
+  group: pr1866-repository-bundle-v2
   cancel-in-progress: false
 
 jobs:
-  repair:
-    name: Merge main, fix review defect, verify, and push
-    if: contains(github.event.head_commit.message, '[repair-pr1866]')
+  bundle:
+    name: Export exact PR and main refs
+    if: contains(github.event.head_commit.message, '[bundle-pr1866-v2]')
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 15
     steps:
-      - name: Checkout PR branch with bounded history
+      - name: Checkout full history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 512
-          persist-credentials: true
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Setup UI e2e environment
-        uses: ./.github/actions/setup-ui-e2e
-
-      - name: Merge current main and apply the reviewed fixes
+      - name: Create verified repository bundle
         shell: bash
         env:
           BRANCH_NAME: claude/plan-implementation-3t2vl5
-          RED_RUN_ID: "31628359542"
         run: |
           set -euo pipefail
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config merge.ledger.driver 'node scripts/merge-branch-review-ledger.mjs %O %A %B'
-
-          git fetch --no-tags --depth=512 origin \
+          git fetch --no-tags origin \
             "+refs/heads/main:refs/remotes/origin/main" \
             "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
-
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
-          test "$(git rev-parse "refs/remotes/origin/${BRANCH_NAME}")" = "${GITHUB_SHA}"
-          if ! git merge-base HEAD refs/remotes/origin/main >/dev/null; then
-            echo "Merge base was outside the initial bounded history; deepening both refs."
-            git fetch --no-tags --deepen=2048 origin \
-              "+refs/heads/main:refs/remotes/origin/main" \
-              "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
-          fi
-          git merge-base HEAD refs/remotes/origin/main >/dev/null
-          MERGED_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
-          echo "Merging main ${MERGED_MAIN_SHA} into PR head ${GITHUB_SHA}."
+          git bundle create pr1866.bundle \
+            refs/remotes/origin/main \
+            "refs/remotes/origin/${BRANCH_NAME}"
+          git bundle verify pr1866.bundle
+          git bundle list-heads pr1866.bundle
 
-          set +e
-          git merge --no-commit --no-ff refs/remotes/origin/main
-          merge_status=$?
-          set -e
-
-          mapfile -t unmerged < <(git diff --name-only --diff-filter=U)
-          for path in "${unmerged[@]}"; do
-            case "$path" in
-              docs/outstanding-issues.md|src/components/clinical-dashboard/result-filter-control.tsx)
-                ;;
-              *)
-                echo "Unexpected merge conflict: $path"
-                exit 1
-                ;;
-            esac
-          done
-          if [ "$merge_status" -ne 0 ] && [ "${#unmerged[@]}" -eq 0 ]; then
-            echo "Merge failed without a resolvable content conflict."
-            exit "$merge_status"
-          fi
-
-          if printf '%s\n' "${unmerged[@]}" | grep -Fxq docs/outstanding-issues.md; then
-            git checkout --theirs -- docs/outstanding-issues.md
-          fi
-          if printf '%s\n' "${unmerged[@]}" | grep -Fxq src/components/clinical-dashboard/result-filter-control.tsx; then
-            git checkout --ours -- src/components/clinical-dashboard/result-filter-control.tsx
-          fi
-
-          python3 - <<'PY'
-          from pathlib import Path
-
-          issues_path = Path("docs/outstanding-issues.md")
-          issues_lines = issues_path.read_text().splitlines()
-          replacement = """| #170 | P2 | task | Phone filter sheets exist for documents and therapy; shared-band adoption remains | **Outcome:** phone filtering opens the repo's own bottom sheet instead of competing for width in the utilities rail, and both breakpoints agree on what each dimension means. **Current state (2026-08-13):** the shared contract landed in PR #1847, SegmentedControl gained option hints in PR #1848, the four lens modes adopted one shared option model in PR #1857, and formulation became the first real facet consumer in PR #1858. **Services is implemented in PR #1866:** `catalogToServiceRecord` now carries the typed catalogue payload; five derived facets and the substance lens round-trip through the URL; the result-scope segment distinguishes query/group matches from all catalogue items; quick filters are now suggested searches; and Clear filters preserves the query. Services also exercises the separate >3 facet-group density rule, so its sheet gains find-a-filter and collapse-by-default. **Still open:** #309 remains valid because formulation's single nine-option facet group still renders as chips rather than the documented 6-20 dense list; services' >3-group chrome does not solve that renderer band. The remaining mode conversions are factsheets, therapy-compass and documents, with documents last so its existing dense-list implementation can be ported into the shared component. **Stop:** do not ship a mode conversion without browser proof at 390px and 320px, and do not treat #309 as closed until a nine-option facet group renders through the shared dense tier. | Round-7 design study; PRs #1847, #1848, #1857, #1858 and #1866; `docs/filter-contract.md`; `src/lib/service-facets.ts` | 2026-07-31 |"""
-          matching = [index for index, line in enumerate(issues_lines) if line.startswith("| #170 |")]
-          if len(matching) != 1:
-              raise SystemExit(f"expected one #170 row, found {len(matching)}")
-          issues_lines[matching[0]] = replacement
-          issues_path.write_text("\n".join(issues_lines) + "\n")
-
-          control_path = Path("src/components/clinical-dashboard/result-filter-control.tsx")
-          control = control_path.read_text()
-
-          old_signature = """  onToggle: (value: Value) => void;
-          }): ResultFilterGroup {"""
-          new_signature = """  onToggle: (value: Value) => void;
-            // Returns the narrow facet type, not the union: a mode hands the same group
-            // to `ResultFilterSheet` (which takes the union) and to
-            // `ResultFilterFacetChips` for its desktop rail (which does not).
-          }): ResultFilterFacetGroup {"""
-          if new_signature not in control:
-              if control.count(old_signature) != 1:
-                  raise SystemExit("could not apply the narrow facet return type")
-              control = control.replace(old_signature, new_signature, 1)
-
-          old_doc = """/**
-           * A multi-select facet group.
-           *
-          """
-          new_doc = """/**
-           * A multi-select facet group, exported so a mode renders the SAME control in
-           * its desktop rail as in its phone sheet.
-           *
-           * The lens modes converge on `SegmentedControl` at both breakpoints; facets had
-           * no such primitive, and the alternative was a second hand-rolled chip row per
-           * mode — which is exactly how the breakpoints came to disagree in the first
-           * place. `idPrefix` scopes the labelling ids, so the two copies can coexist in
-           * one page without colliding.
-           *
-          """
-          if new_doc not in control:
-              if control.count(old_doc) != 1:
-                  raise SystemExit("could not preserve the exported facet documentation")
-              control = control.replace(old_doc, new_doc, 1)
-
-          wrapper = """export function ResultFilterFacetChips({
-            group,
-            idPrefix,
-          }: {
-            group: ResultFilterFacetGroup;
-            idPrefix: string;
-          }) {
-            return <FilterFacetGroup group={group} panelId={idPrefix} />;
-          }
-
-          """
-          sheet_marker = """/**
-           * A single-choice filter sheet"""
-          if wrapper not in control:
-              if control.count(sheet_marker) != 1:
-                  raise SystemExit("could not insert ResultFilterFacetChips")
-              control = control.replace(sheet_marker, wrapper + sheet_marker, 1)
-
-          required_density_markers = [
-              "const dense = facetGroupCount > 3;",
-              'placeholder="Find a filter…"',
-              "dense && !activeNeedle",
-          ]
-          missing_density = [marker for marker in required_density_markers if marker not in control]
-          if missing_density:
-              raise SystemExit(f"lost branch density behaviour: {missing_density}")
-          control_path.write_text(control)
-
-          page_path = Path("src/components/services/services-navigator-page.tsx")
-          page = page_path.read_text()
-          old_empty_branch = """      ) : query.trim() && deferredQuery === query && rankedMatches.length === 0 ? (
-          """
-          new_empty_branch = """      ) : resultScope === "results" &&
-                query.trim() &&
-                deferredQuery === query &&
-                rankedMatches.length === 0 ? (
-          """
-          if new_empty_branch not in page:
-              if page.count(old_empty_branch) != 1:
-                  raise SystemExit("could not locate the query-empty rendering branch")
-              page = page.replace(old_empty_branch, new_empty_branch, 1)
-          page_path.write_text(page)
-
-          test_path = Path("tests/ui-tools.spec.ts")
-          tests = test_path.read_text()
-          test_name = "services All items scope replaces an unmatched-query empty state with catalogue cards"
-          regression = '''  test("services All items scope replaces an unmatched-query empty state with catalogue cards", async ({ page }) => {
-            await page.setViewportSize({ width: 1280, height: 900 });
-            await gotoLauncher(page, "/services?q=no-service-could-match-this-query&run=1");
-
-            const noMatches = page.getByText('No matches for “no-service-could-match-this-query”', { exact: true });
-            await expect(noMatches).toBeVisible();
-            await expect(page.getByTestId("service-search-results")).toHaveCount(0);
-
-            await page.getByTestId("service-filter-trigger-desktop").click();
-            const resultScope = page.getByRole("radiogroup", { name: "Result scope" });
-            const allItems = resultScope.getByRole("radio", { name: /^All items/ });
-            await expect(allItems).toBeVisible();
-            await waitForReactEventHandler(allItems);
-            await allItems.click();
-
-            await expect(page).toHaveURL(/(?:[?&])scope=all(?:&|$)/);
-            await expect(page.getByTestId("service-search-results")).toBeVisible();
-            await expect(noMatches).toHaveCount(0);
-            await expect(page.locator('[data-testid^="service-search-result-"]').first()).toBeVisible();
-            await expectNoPageHorizontalOverflow(page);
-          });
-
-          '''
-          test_marker = '  test("services query param fallback ignores whitespace-only q values", async ({ page }) => {\n'
-          if test_name not in tests:
-              if tests.count(test_marker) != 1:
-                  raise SystemExit("could not locate services test insertion point")
-              tests = tests.replace(test_marker, regression + test_marker, 1)
-          test_path.write_text(tests)
-          PY
-
-          git rm -- .github/workflows/pr1866-repository-bundle.yml
-          npx prettier --write \
-            docs/outstanding-issues.md \
-            src/components/clinical-dashboard/result-filter-control.tsx \
-            src/components/services/services-navigator-page.tsx \
-            tests/ui-tools.spec.ts
-
-          git add docs/outstanding-issues.md \
-            src/components/clinical-dashboard/result-filter-control.tsx \
-            src/components/services/services-navigator-page.tsx \
-            tests/ui-tools.spec.ts \
-            docs/branch-review-ledger.md
-
-          if git diff --name-only --diff-filter=U | grep -q .; then
-            echo "Unresolved merge conflicts remain."
-            git diff --name-only --diff-filter=U
-            exit 1
-          fi
-          if git grep -nE '^(<<<<<<<|=======|>>>>>>>)' -- ':!package-lock.json'; then
-            echo "Conflict markers remain in the worktree."
-            exit 1
-          fi
-          git diff --check --cached
-
-          git commit -m "fix: resolve PR 1866 merge and All items rendering"
-          CODE_SHA="$(git rev-parse HEAD)"
-          echo "Code merge commit: ${CODE_SHA}"
-
-          npm run test:e2e -- tests/ui-tools.spec.ts --project=chromium --grep "services All items scope replaces"
-          npm run verify:pr-local
-
-          npm run ledger:append -- \
-            --ref "PR #1866 / ${BRANCH_NAME}" \
-            --head "${CODE_SHA}" \
-            --scope "PR #1866 conflict, CI and review remediation" \
-            --outcome "Merged current main with the custom ledger driver; preserved #309; fixed scope=all rendering; added browser regression; removed the temporary repair workflow." \
-            --checks "RED workflow ${RED_RUN_ID}; targeted Playwright PASS; verify:pr-local PASS; git diff --check PASS"
-          npm run check:branch-review-ledger
-          git add docs/branch-review-ledger.md
-          git diff --check --cached
-          git commit -m "docs: record PR 1866 remediation review"
-
-          test -z "$(git status --porcelain)"
-          git fetch --no-tags --depth=512 origin \
-            "+refs/heads/main:refs/remotes/origin/main" \
-            "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
-          test "$(git rev-parse "refs/remotes/origin/${BRANCH_NAME}")" = "${GITHUB_SHA}"
-
-          LATEST_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
-          if [ "$LATEST_MAIN_SHA" != "$MERGED_MAIN_SHA" ]; then
-            echo "Main advanced from ${MERGED_MAIN_SHA} to ${LATEST_MAIN_SHA}; checking the new merge tree."
-          fi
-          if ! git merge-tree --write-tree HEAD refs/remotes/origin/main >/tmp/pr1866-merge-tree.txt; then
-            cat /tmp/pr1866-merge-tree.txt
-            echo "Current main would reintroduce a conflict; refusing to publish a stale repair."
-            exit 1
-          fi
-          echo "Current main merge tree is clean: $(head -n 1 /tmp/pr1866-merge-tree.txt)"
-
-          git push origin "HEAD:refs/heads/${BRANCH_NAME}"
+      - name: Upload repository bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pr1866-repository-bundle-v2-${{ github.run_id }}
+          path: pr1866.bundle
+          if-no-files-found: error
+          retention-days: 1
