@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|ui-(?:smoke|stress|accessibility|document-canvas|tools|overlap|universal-search|specifiers|formulation|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|ui-(?:smoke|stress|accessibility|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * One source of truth for shard membership and its latest hosted timing sample.
@@ -45,6 +45,7 @@ export const prUiSpecProfiles = Object.freeze([
   { file: "tests/ui-overlap.spec.ts", shard: 3, fullSeconds: 7.6, criticalSeconds: 0 },
   { file: "tests/ui-stress.spec.ts", shard: 3, fullSeconds: 7.6, criticalSeconds: 0 },
   { file: "tests/ui-specifiers.spec.ts", shard: 3, fullSeconds: 7.3, criticalSeconds: 0 },
+  { file: "tests/ui-formulation-result-cards.spec.ts", shard: 3, fullSeconds: 8.0, criticalSeconds: 0 },
   { file: "tests/ui-style-contract.spec.ts", shard: 3, fullSeconds: 6.3, criticalSeconds: 0 },
   { file: "tests/ui-hydration.spec.ts", shard: 3, fullSeconds: 4.5, criticalSeconds: 0 },
   { file: "tests/ui-pwa.spec.ts", shard: 3, fullSeconds: 3.8, criticalSeconds: 0 },
