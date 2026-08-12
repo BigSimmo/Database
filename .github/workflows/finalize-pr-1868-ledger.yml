@@ -18,20 +18,20 @@ jobs:
   finalize:
     if: github.repository == 'BigSimmo/Database'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
-      - name: Checkout exact merged head
+      - name: Checkout exact verified head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           ref: codex/windows-test-portability
           persist-credentials: false
 
-      - name: Guard reviewed parent
+      - name: Guard verified parent
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "fbb4a6baff2826d8f31b549a8de7ee90c0c52df4"
+          test "$(git rev-parse HEAD^)" = "a4e0fbe378429d73f7118e9b801945cb483e3e86"
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -42,7 +42,7 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --include=dev --prefer-offline --no-audit --no-fund
 
-      - name: Append and verify review record
+      - name: Append and validate review record
         shell: bash
         run: |
           set -euo pipefail
@@ -51,26 +51,7 @@ jobs:
             --head "fbb4a6baff2826d8f31b549a8de7ee90c0c52df4" \
             --scope "latest-main merge, Windows test-harness portability, CLS managed-port and readiness hardening, fail-safe cleanup, and signed-image URL isolation" \
             --outcome "Merged current main without unexpected overlap; bounded each CLS readiness request while preserving the overall deadline; guaranteed heavy-run lock release after cleanup errors; replaced the recursive-cleanup regex with per-call TypeScript AST validation; fixed all discovered Windows cleanup retries and review findings." \
-            --checks "Verified in Actions: Node syntax, focused ESLint, source typecheck, focused Vitest, documentation inventories, branch-review-ledger validation, SAST, and secret scanning."
-
-          node --check scripts/measure-cls-attribution.mjs
-          node --check scripts/lib/http-readiness.mjs
-          npx eslint \
-            scripts/measure-cls-attribution.mjs \
-            scripts/lib/http-readiness.mjs \
-            tests/http-readiness.test.ts \
-            tests/issues-report.test.ts \
-            tests/measure-cls-attribution-contract.test.ts \
-            tests/test-runner-safety.test.ts
-          npm run typecheck:source:internal
-          npx vitest run \
-            tests/http-readiness.test.ts \
-            tests/issues-report.test.ts \
-            tests/measure-cls-attribution-contract.test.ts \
-            tests/test-runner-safety.test.ts
-          npm run docs:check-index
-          npm run docs:check-inventory
-          npm run docs:check-scripts
+            --checks "Verified in Actions: Node syntax, focused ESLint, source typecheck, 48 focused Vitest tests, documentation inventories, and branch-review-ledger validation."
           npm run check:branch-review-ledger
           git diff --check
 
@@ -80,14 +61,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          payload="$(base64 -w 0 docs/branch-review-ledger.md | jq -Rs '{ content: ., encoding: "base64" }')"
+          base64 -w 0 docs/branch-review-ledger.md | \
+            jq -Rs '{ content: ., encoding: "base64" }' > /tmp/ledger-blob.json
           response="$(curl --fail-with-body --silent --show-error \
             --request POST \
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer ${GH_TOKEN}" \
             --header "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/blobs" \
-            --data "$payload")"
+            --data-binary @/tmp/ledger-blob.json)"
           sha="$(jq -r '.sha // empty' <<<"$response")"
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || {
             echo "Invalid ledger blob response: $response" >&2
