@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 
 const zeroSha = /^0{40}$/;
 
@@ -34,7 +34,7 @@ const outputs = [
   "codex_autofix_changed",
   "build_changed",
   "lockfile_changed",
-  "pr_policy_body_present",
+  "pr_policy_body_changed",
 ];
 
 function normalizePath(filePath) {
@@ -362,7 +362,7 @@ function isRecognisedLightPath(filePath) {
 // drive both the empty and non-empty cases without touching the real file.
 const readFlakeLedger = () => readFileSync("tests/flake-ledger.json", "utf8");
 
-function classify(files, { readLedger = readFlakeLedger, prPolicyBodyPresent = existsSync("PR_POLICY_BODY.md") } = {}) {
+function classify(files, { readLedger = readFlakeLedger } = {}) {
   const normalized = [...new Set(files.map(normalizePath).filter(Boolean))].sort();
   const docsChanged = normalized.some((file) => pathMatches(file, docPatterns));
   const sourceChanged = normalized.some((file) => pathMatches(file, [...sourcePatterns, ...staticConfigPatterns]));
@@ -376,6 +376,7 @@ function classify(files, { readLedger = readFlakeLedger, prPolicyBodyPresent = e
   const workflowChanged = normalized.some((file) => pathMatches(file, workflowPatterns));
   const codexAutofixChanged = normalized.some((file) => pathMatches(file, codexAutofixPatterns));
   const lockfileChanged = normalized.some((file) => pathMatches(file, lockfilePatterns));
+  const prPolicyBodyChanged = normalized.includes("PR_POLICY_BODY.md");
   const buildChanged = normalized.some((file) => pathMatches(file, buildPatterns)) || containerChanged;
   // Only two categories are allowed to take the lightweight path: recognised
   // documentation and recognised non-executable workflow/policy surfaces.
@@ -415,7 +416,7 @@ function classify(files, { readLedger = readFlakeLedger, prPolicyBodyPresent = e
     codex_autofix_changed: codexAutofixChanged,
     build_changed: buildChanged,
     lockfile_changed: lockfileChanged,
-    pr_policy_body_present: prPolicyBodyPresent,
+    pr_policy_body_changed: prPolicyBodyChanged,
   };
 }
 
@@ -1172,12 +1173,12 @@ function selfTest() {
     static_heavy_changed: true,
     coverage_changed: true,
   });
-  assertScope(
-    "pr-policy-body-presence-is-routed-without-a-second-checkout",
-    ["PR_POLICY_BODY.md"],
-    { pr_policy_body_present: true },
-    { prPolicyBodyPresent: true },
-  );
+  assertScope("pr-policy-body-change-is-routed-from-the-pr-diff", ["PR_POLICY_BODY.md"], {
+    pr_policy_body_changed: true,
+  });
+  assertScope("inherited-pr-policy-body-does-not-sync", ["docs/testing.md"], {
+    pr_policy_body_changed: false,
+  });
   console.log("CI change scope self-test passed.");
 }
 
