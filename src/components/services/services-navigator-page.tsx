@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Check, ExternalLink, GitCompareArrows, ListChecks, ShieldCheck, X } from "lucide-react";
-import { useDeferredValue, useId, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
 
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
@@ -370,61 +370,65 @@ export function ServicesNavigatorPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
 
-  function updateParams(mutator: (params: URLSearchParams) => void, replace = false) {
-    const params = new URLSearchParams(searchParams.toString());
-    mutator(params);
-    params.set("run", "1");
-    const href = `/services?${params.toString()}`;
-    if (replace) router.replace(href, { scroll: false });
-    else router.push(href, { scroll: false });
-  }
+  const updateParams = useCallback(
+    (mutator: (params: URLSearchParams) => void, replace = false) => {
+      const params = new URLSearchParams(searchParams.toString());
+      mutator(params);
+      params.set("run", "1");
+      const href = `/services?${params.toString()}`;
+      if (replace) router.replace(href, { scroll: false });
+      else router.push(href, { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   // Facet/lens/scope toggles replace (not push) — a reader ticking several
   // chips should not spam the back-button history the way submitting a new
   // search does.
-  function toggleFacetValue(dimension: ServiceFacetDimension, value: string) {
-    updateParams((params) => {
-      const current = serviceFacetSelectionFromParams(params);
-      const next = new Set(current[dimension]);
-      if (!next.delete(value)) next.add(value);
-      writeServiceFacetSelectionToParams(params, { ...current, [dimension]: next });
-    }, true);
-  }
+  const toggleFacetValue = useCallback(
+    (dimension: ServiceFacetDimension, value: string) => {
+      updateParams((params) => {
+        const current = serviceFacetSelectionFromParams(params);
+        const next = new Set(current[dimension]);
+        if (!next.delete(value)) next.add(value);
+        writeServiceFacetSelectionToParams(params, { ...current, [dimension]: next });
+      }, true);
+    },
+    [updateParams],
+  );
 
-  function setSubstanceLensValue(value: string) {
-    updateParams((params) => {
-      if (value === "all") params.delete("substance");
-      else params.set("substance", value);
-    }, true);
-  }
+  const setSubstanceLensValue = useCallback(
+    (value: string) => {
+      updateParams((params) => {
+        if (value === "all") params.delete("substance");
+        else params.set("substance", value);
+      }, true);
+    },
+    [updateParams],
+  );
 
-  function setResultScopeValue(value: ServiceResultScope) {
-    updateParams((params) => {
-      if (value === "all") params.set("scope", "all");
-      else params.delete("scope");
-    }, true);
-  }
+  const setResultScopeValue = useCallback(
+    (value: ServiceResultScope) => {
+      updateParams((params) => {
+        if (value === "all") params.set("scope", "all");
+        else params.delete("scope");
+      }, true);
+    },
+    [updateParams],
+  );
 
   // Never touches `q`/`query`/`group` — docs/filter-contract.md section 6:
   // clearing filters and clearing a search are different intentions. The
   // quick filters this sheet used to hold DID conflate the two (clearing
   // them wiped the search box); moving them to suggestion chips below the
   // band removes that conflation rather than papering over it here.
-  function clearAllFilters() {
+  const clearAllFilters = useCallback(() => {
     updateParams((params) => {
       for (const dimension of serviceFacetDimensions) params.delete(dimension);
       params.delete("substance");
       params.delete("scope");
     }, true);
-  }
-
-  function toggleSelected(slug: string) {
-    setSelectedSlugs((current) => {
-      const next = current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug].slice(0, 5);
-      if (next.length < 2) setShowComparison(false);
-      return next;
-    });
-  }
+  }, [updateParams]);
 
   function applyServiceQuery(nextQuery: string) {
     const trimmedQuery = nextQuery.trim();
