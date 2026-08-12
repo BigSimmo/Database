@@ -472,7 +472,7 @@ export function ServicesNavigatorPage() {
         ],
         onChange: setSubstanceLensValue,
       }),
-    [facetBaseMatches, facetSelection, searchParams, substanceLens, substanceOptionValues],
+    [facetBaseMatches, facetSelection, searchParams, setSubstanceLensValue, substanceLens, substanceOptionValues],
   );
 
   // Keep the option lists and handlers stable while unrelated page state
@@ -502,7 +502,7 @@ export function ServicesNavigatorPage() {
           onToggle: (value) => toggleFacetValue(dimension, value),
         }),
       ),
-    [facetBaseMatches, facetSelection, searchableRecords, searchParams, substanceLens],
+    [facetBaseMatches, facetSelection, searchableRecords, searchParams, substanceLens, toggleFacetValue],
   );
 
   return (
