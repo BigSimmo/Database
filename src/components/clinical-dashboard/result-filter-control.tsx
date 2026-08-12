@@ -337,6 +337,13 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
               type="button"
               role="radio"
               aria-checked={selected}
+              // Without this the label and hint spans concatenate to "All8" in
+              // the accessible name — the name computation normalises the
+              // inter-element whitespace away, so a text-node separator cannot
+              // fix it. Same defect and same fix as SegmentedControl, which is
+              // what lets one shared option array announce identically on the
+              // desktop rail and in this sheet.
+              aria-label={option.hint ? `${option.label} (${option.hint})` : undefined}
               // `aria-disabled` rather than `disabled`: a real disabled
               // button leaves the tab order, so a keyboard or screen-reader
               // user loses the option entirely and never learns why. Kept
@@ -446,6 +453,9 @@ export function ResultFilterFacetChips({ group, idPrefix }: { group: ResultFilte
               aria-pressed={selected}
               aria-disabled={deadEnd || undefined}
               aria-describedby={deadEnd ? deadEndDescId : undefined}
+              // Same concatenation defect as the lens chips above: a facet
+              // count would otherwise be announced as "Crisis12".
+              aria-label={option.hint ? `${option.label} (${option.hint})` : undefined}
               onClick={() => {
                 if (deadEnd) return;
                 group.onToggle(option.value);
