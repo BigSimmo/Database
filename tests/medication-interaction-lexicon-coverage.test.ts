@@ -63,10 +63,19 @@ describe("interaction lexicon coverage", () => {
   });
 
   it("marks a row unresolved when its only counterparty is an unenumerable mechanism", () => {
-    const unresolved = Object.values(index.bySlug)
+    const mechanismIds = new Set(
+      INTERACTION_LEXICON.filter((item) => item.kind === "mechanism").map((item) => item.id),
+    );
+    const mechanismOnly = Object.values(index.bySlug)
       .flatMap((entry) => entry.rows)
-      .filter((row) => !row.resolved);
-    expect(unresolved.length).toBeGreaterThan(0);
+      .filter(
+        (row) =>
+          row.termIds.length > 0 &&
+          row.counterparties.length === 0 &&
+          row.termIds.every((id) => mechanismIds.has(id)),
+      );
+    expect(mechanismOnly.length).toBeGreaterThan(0);
+    expect(mechanismOnly.every((row) => !row.resolved)).toBe(true);
   });
 
   it("addresses a real catalogue row from every rowIndex it emits", () => {
