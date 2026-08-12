@@ -39,37 +39,40 @@ jobs:
 
           path = Path("tests/ui-specifiers.spec.ts")
           text = path.read_text()
-          old = '''  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("mdd-recurrent");
-          await expect(page.getByText("Major depressive disorder, recurrent, mild", { exact: true })).toBeVisible();
-          await expect(page.getByText(/severe, mild|moderate, mild/i)).toHaveCount(0);
 
-          const anxiousDistress = page.getByRole("checkbox", { name: /Anxious distress/ });
-          await page.getByText("Anxious distress", { exact: true }).click();
-          await expect(anxiousDistress).toBeChecked();
-          await expect(
-            page.getByText("Major depressive disorder, recurrent, with anxious distress, mild", { exact: true }),
-          ).toBeVisible();'''
-          new = '''  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("mdd-recurrent");
-          const workingDiagnosis = page.locator("aside:visible > section").filter({ hasText: "Working diagnosis" });
-          await expect(workingDiagnosis).toHaveCount(1);
-          await expect(
-            workingDiagnosis.getByText("Major depressive disorder, recurrent, mild", { exact: true }),
-          ).toBeVisible();
-          await expect(page.getByText(/severe, mild|moderate, mild/i)).toHaveCount(0);
+          anchor = '  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("mdd-recurrent");\n'
+          insertion = (
+              '  const workingDiagnosis = page.locator("aside:visible > section").filter({ hasText: "Working diagnosis" });\n'
+              '  await expect(workingDiagnosis).toHaveCount(1);\n'
+          )
+          if insertion not in text:
+              if text.count(anchor) != 1:
+                  raise SystemExit(f"Expected one diagnostic phrase anchor, found {text.count(anchor)}")
+              text = text.replace(anchor, anchor + insertion)
 
-          const anxiousDistress = page.getByRole("checkbox", { name: /Anxious distress/ });
-          await page.getByText("Anxious distress", { exact: true }).click();
-          await expect(anxiousDistress).toBeChecked();
-          await expect(
-            workingDiagnosis.getByText("Major depressive disorder, recurrent, with anxious distress, mild", {
-              exact: true,
-            }),
-          ).toBeVisible();'''
-          count = text.count(old)
-          if count == 1:
-              path.write_text(text.replace(old, new))
-          elif new not in text:
-              raise SystemExit(f"Expected one specifier assertion block, found {count}")
+          first_old = '  await expect(page.getByText("Major depressive disorder, recurrent, mild", { exact: true })).toBeVisible();\n'
+          first_new = (
+              '  await expect(\n'
+              '    workingDiagnosis.getByText("Major depressive disorder, recurrent, mild", { exact: true }),\n'
+              '  ).toBeVisible();\n'
+          )
+          if first_new not in text:
+              if text.count(first_old) != 1:
+                  raise SystemExit(f"Expected one initial wording assertion, found {text.count(first_old)}")
+              text = text.replace(first_old, first_new)
+
+          second_old = '    page.getByText("Major depressive disorder, recurrent, with anxious distress, mild", { exact: true }),\n'
+          second_new = (
+              '    workingDiagnosis.getByText("Major depressive disorder, recurrent, with anxious distress, mild", {\n'
+              '      exact: true,\n'
+              '    }),\n'
+          )
+          if second_new not in text:
+              if text.count(second_old) != 1:
+                  raise SystemExit(f"Expected one updated wording assertion, found {text.count(second_old)}")
+              text = text.replace(second_old, second_new)
+
+          path.write_text(text)
           PY
           npx prettier --write tests/ui-specifiers.spec.ts
           git rm .github/workflows/pr-1869-scope-specifier-output.yml
