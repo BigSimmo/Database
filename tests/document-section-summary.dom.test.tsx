@@ -154,6 +154,65 @@ describe("IndexedTextPanel citation landing", () => {
     expect(screen.getByText("Hit 1 of 1")).toBeVisible();
   });
 
+  it("resets the active hit index when the search query changes", async () => {
+    const props = {
+      loading: false,
+      selectedPage: basePage,
+      chunks: [
+        baseChunk,
+        {
+          ...baseChunk,
+          id: "chunk-2",
+          chunk_index: 1,
+          content: "Lithium levels are checked 5 to 7 days after initiation",
+        },
+      ],
+      search: "vom",
+      documentSearchResults: [
+        {
+          id: "chunk-1",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: "Monitoring",
+          snippet: "Escalate review when there is vomiting",
+          matched_terms: ["vom"],
+          image_ids: [],
+          score: 1,
+        },
+        {
+          id: "chunk-2",
+          page_number: 1,
+          chunk_index: 1,
+          section_heading: "Monitoring",
+          snippet: "Lithium levels are checked 5 to 7 days after initiation",
+          matched_terms: ["vom"],
+          image_ids: [],
+          score: 1,
+        },
+      ],
+      searchingDocument: false,
+      documentSearchError: null,
+      idPrefix: "source-chunk",
+      sectionId: "source-text" as const,
+      onSearchChange: vi.fn(),
+      compact: true,
+    };
+    const { rerender } = render(<IndexedTextPanel {...props} />);
+
+    expect(screen.getByText("Hit 1 of 2")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Next document search hit" }));
+    expect(screen.getByText("Hit 2 of 2")).toBeVisible();
+
+    rerender(
+      <IndexedTextPanel
+        {...props}
+        search="head"
+        documentSearchResults={[props.documentSearchResults[1], props.documentSearchResults[0]]}
+      />,
+    );
+    expect(screen.getByText("Hit 1 of 2")).toBeVisible();
+  });
+
   it("keeps the deep-linked nested chunk disclosure open under an inspect reveal", async () => {
     const props = {
       loading: false,
