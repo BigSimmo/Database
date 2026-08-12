@@ -372,7 +372,6 @@ function StagedAnswerResultSurfaceImpl({
             contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-md"
             bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
             returnFocusRef={clinicalNotesTriggerRef}
-            portal
           >
             <ClinicalNotesChecklistPanel
               answer={answer}
@@ -404,7 +403,6 @@ function StagedAnswerResultSurfaceImpl({
             contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-3xl"
             bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
             returnFocusRef={evidenceTriggerRef}
-            portal
           >
             <MobileEvidenceSheetContent
               answer={answer}
@@ -447,7 +445,6 @@ function StagedAnswerResultSurfaceImpl({
             contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
             bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
             returnFocusRef={safetyTriggerRef}
-            portal
           >
             <SafetyFindingsListContent findings={safetyFindings} />
           </Sheet>
