@@ -22,6 +22,8 @@ const ACTIONS = new Set(["add", "done", "update", "cancel"]);
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECONCILE_LOCK_NAME = "outstanding-issues-reconcile.lock";
 const OWNERLESS_LOCK_GRACE_MS = 5 * 60 * 1000;
+const RECONCILE_TRANSACTION_NAME = "transaction.json";
+const RECONCILE_BACKUP_NAME = "ledger.before";
 
 function date() {
   return new Date().toISOString().slice(0, 10);
@@ -218,6 +220,26 @@ function reconcileLockPath() {
   return path.join(commonDir, RECONCILE_LOCK_NAME);
 }
 
+function recoverReconcileTransaction(lockPath) {
+  const transactionPath = path.join(lockPath, RECONCILE_TRANSACTION_NAME);
+  if (!existsSync(transactionPath)) return false;
+  const journal = JSON.parse(readFileSync(transactionPath, "utf8"));
+  const backupPath = path.join(lockPath, journal.backup ?? RECONCILE_BACKUP_NAME);
+  if (!existsSync(backupPath) || !Array.isArray(journal.pending)) {
+    throw new Error(`incomplete reconciliation journal at ${transactionPath}; refusing automatic recovery`);
+  }
+
+  writeFileSync(path.join(ROOT, ISSUES_PATH), readFileSync(backupPath, "utf8"), "utf8");
+  for (const relative of journal.pending) {
+    const pendingPath = path.join(ROOT, relative);
+    const appliedPath = path.join(ROOT, APPLIED_DIR, path.basename(relative));
+    if (!existsSync(pendingPath) && existsSync(appliedPath)) renameSync(appliedPath, pendingPath);
+  }
+  rmSync(transactionPath, { force: true });
+  rmSync(backupPath, { force: true });
+  return true;
+}
+
 function acquireReconcileLock() {
   const lockPath = reconcileLockPath();
   const attempt = () => {
@@ -255,6 +277,11 @@ function acquireReconcileLock() {
       throw new Error(
         `another reconciliation is active at ${lockPath}${owner?.pid ? ` (PID ${owner.pid})` : ""}; retry after it completes`,
       );
+    }
+    try {
+      recoverReconcileTransaction(lockPath);
+    } catch (recoveryError) {
+      throw new Error(`stale reconciliation requires recovery before retry: ${recoveryError.message}`);
     }
     rmSync(lockPath, { recursive: true, force: true });
     try {
@@ -371,58 +398,50 @@ function reconcile(argv) {
   );
   if (dryRun) return;
   const release = acquireReconcileLock();
+  const lockPath = reconcileLockPath();
+  const transactionPath = path.join(lockPath, RECONCILE_TRANSACTION_NAME);
+  let transactionOpen = false;
   try {
     if (!canonicalLedgerIsClean())
       throw new Error(`${ISSUES_PATH} changed while reconciliation was waiting for its lock`);
     pendingRequestsAreTrackedAndClean(pending);
     assertFreshReconciliationBase();
     result = apply();
+
+    const current = readFileSync(path.join(ROOT, ISSUES_PATH), "utf8");
+    writeFileSync(path.join(lockPath, RECONCILE_BACKUP_NAME), current, "utf8");
+    writeFileSync(
+      transactionPath,
+      `${JSON.stringify({
+        backup: RECONCILE_BACKUP_NAME,
+        pending: pending.map((entry) => entry.relative),
+      })}\n`,
+      "utf8",
+    );
+    transactionOpen = true;
     writeFileSync(path.join(ROOT, ISSUES_PATH), result.markdown, "utf8");
     mkdirSync(path.join(ROOT, APPLIED_DIR), { recursive: true });
     for (const entry of pending)
       renameSync(path.join(ROOT, entry.relative), path.join(ROOT, APPLIED_DIR, path.basename(entry.relative)));
+    rmSync(transactionPath, { force: true });
+    rmSync(path.join(lockPath, RECONCILE_BACKUP_NAME), { force: true });
+    transactionOpen = false;
     console.log(`Applied ${pending.length} request(s); their immutable audit records are under ${APPLIED_DIR}.`);
   } catch (error) {
+    if (transactionOpen) {
+      try {
+        recoverReconcileTransaction(lockPath);
+        transactionOpen = false;
+      } catch (recoveryError) {
+        console.error(`reconciliation recovery is required: ${recoveryError.message}`);
+      }
+    }
     console.error(`refusing to reconcile: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
   } finally {
-    release();
+    if (!transactionOpen) release();
   }
-}
-
-function selfTest() {
-  const base = [
-    "<!-- issues:next-id=2 -->",
-    "",
-    "## Recommended execution queue",
-    "",
-    "<!-- prettier-ignore -->",
-    "",
-    "| Order | ID(s) |",
-    "| --- | --- |",
-    "| 1 | `#001` |",
-    "",
-    "## Open items",
-    "",
-    "<!-- prettier-ignore -->",
-    "",
-    "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
-    "| #001 | P2 | issue | one | d | s | 2026-01-01 |",
-    "",
-    "## Resolved / archive",
-    "",
-    "<!-- prettier-ignore -->",
-    "",
-    "| ID | Type | Summary | Outcome | Resolved |",
-    "| ---- | ---- | ---- | ---- | ---- |",
-    "| #000 | issue | old | done | 2026-01-01 |",
-    "",
-  ].join("\n");
-  const add = {
-    version: 1,
-    id: "11111111-1111-4111-8111-111111111111",
-    createdOn: "2026-08-13",
+}  createdOn: "2026-08-13",
     action: "add",
     payload: { pri: "P2", type: "issue", summary: "two" },
   };
