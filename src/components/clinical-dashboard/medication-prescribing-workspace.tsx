@@ -42,6 +42,7 @@ import {
 import { medicationIdentityBadges, type MedicationRecord } from "@/lib/medications";
 import { SEMANTIC_TONE_META } from "@/lib/semantic-tone";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
+import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { cn, EmptyState, pageContainer } from "@/components/ui-primitives";
 
 type MedicationPrescribingWorkspaceProps = {
@@ -262,50 +263,6 @@ function resultMatchesFilter(result: MedicationResult, filter: MedicationResultF
   );
 }
 
-function FilterStrip({
-  activeFilter,
-  counts,
-  onFilterChange,
-}: {
-  activeFilter: MedicationResultFilter;
-  counts: Record<MedicationResultFilter, number>;
-  onFilterChange: (filter: MedicationResultFilter) => void;
-}) {
-  return (
-    <div
-      className="medication-filter-strip answer-suggestion-row-scroll flex gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]"
-      aria-label="Medication result filters"
-    >
-      {medicationResultFilters.map((filter) => {
-        const active = activeFilter === filter.id;
-        const Icon = filter.icon;
-        return (
-          <button
-            key={filter.id}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onFilterChange(filter.id)}
-            className={cn(
-              "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-2xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-xs",
-              active
-                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            {filter.label}
-            <span
-              className={cn("nums text-2xs font-semibold", active ? "opacity-80" : "text-[color:var(--text-muted)]")}
-            >
-              {counts[filter.id]}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function ResultToneIcon({ result, accent }: { result: MedicationResult; accent?: string }) {
   const tone = result.tone === "teal" ? "teal" : result.tone === "blue" ? "blue" : "slate";
   if (accent) {
@@ -455,6 +412,18 @@ function MedicationResults({
     };
   }, [activeFilter, catalog.data, profile, profileEmpty]);
   const resultCount = rows.length;
+  // One array feeds the desktop rail and the phone sheet, so the counts cannot
+  // drift between them and the dimension states one-of-N at both breakpoints.
+  const filterOptions = useMemo<ReadonlyArray<SegmentedControlOption<MedicationResultFilter>>>(
+    () =>
+      medicationResultFilters.map((filter) => ({
+        value: filter.id,
+        label: filter.label,
+        icon: filter.icon,
+        hint: String(counts[filter.id]),
+      })),
+    [counts],
+  );
   // The match-quality badge only earns its slot when it differentiates: hide it on
   // "Exact clinical fit" rows when every visible row says the same thing.
   const showMatchBadge = useMemo(() => new Set(rows.map((row) => row.result.match)).size > 1, [rows]);
@@ -485,7 +454,17 @@ function MedicationResults({
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
-        filterControls={<FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />}
+        filterControls={
+          <SegmentedControl
+            value={activeFilter}
+            onChange={setActiveFilter}
+            options={filterOptions}
+            label="Medication result filters"
+            // `.medication-filter-strip` is load-bearing: ui-stress.spec.ts
+            // measures this row's first button for tap height and left inset.
+            className="medication-filter-strip"
+          />
+        }
       />
       {/* Phone-only by construction: the trigger that opens it lives in the
           ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
@@ -500,11 +479,7 @@ function MedicationResults({
             id: "result-filter",
             label: "Show",
             value: activeFilter,
-            options: medicationResultFilters.map((filter) => ({
-              value: filter.id,
-              label: filter.label,
-              hint: String(counts[filter.id]),
-            })),
+            options: filterOptions,
             onChange: setActiveFilter,
           }),
         ]}
