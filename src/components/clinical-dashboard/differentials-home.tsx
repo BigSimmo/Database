@@ -28,8 +28,10 @@ import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
+  type ResultFilterOption,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
@@ -250,73 +252,6 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
 }
 
 type KindFilter = "all" | "presentation" | "diagnosis";
-
-const resultTypeTabFocusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-
-function ResultTypeTabs({
-  activeFilter,
-  onFilterChange,
-  allCount,
-  presentationCount,
-  diagnosisCount,
-}: {
-  activeFilter: KindFilter;
-  onFilterChange: (filter: KindFilter) => void;
-  allCount: number;
-  presentationCount: number;
-  diagnosisCount: number;
-}) {
-  const tabs = [
-    { id: "all" as const, label: "All", count: allCount },
-    { id: "presentation" as const, label: "Presentations", count: presentationCount },
-    { id: "diagnosis" as const, label: "Diagnoses", count: diagnosisCount },
-  ];
-
-  // Single-select filters over one results list — modeled as a toggle group
-  // (role="group" + aria-pressed), not ARIA tabs (which would need tabpanels,
-  // aria-controls, and roving tabindex for content that does not exist here).
-  return (
-    <div
-      data-testid="differential-result-type-tabs"
-      role="group"
-      aria-label="Result type"
-      className="polished-scroll flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {tabs.map((tab) => {
-        const active = activeFilter === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            aria-pressed={active}
-            aria-label={`${tab.label} (${tab.count})`}
-            onClick={() => onFilterChange(tab.id)}
-            className={cn(
-              "inline-flex min-h-tap shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-bold min-[390px]:text-sm",
-              resultTypeTabFocusRing,
-              active
-                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-            )}
-          >
-            {tab.label}
-            <span
-              className={cn(
-                "nums rounded-full px-1.5 text-2xs leading-tight",
-                active
-                  ? "bg-[color:var(--clinical-accent-contrast)]/15 text-[color:var(--clinical-accent-contrast)]"
-                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-              )}
-            >
-              {tab.count}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 function MatchBadge({ label }: { label: string }) {
   // Match quality is a relevance signal, not a safety one — keep it in the
@@ -870,6 +805,18 @@ function SearchResultsView({
 
   const presentationCount = results.filter((result) => result.kind === "presentation").length;
   const diagnosisCount = results.length - presentationCount;
+  // One array feeds both breakpoints. The counts used to be declared twice —
+  // as `count` on the desktop rail and again as `hint` in the sheet — which is
+  // how the two could drift, and how the same dimension came to claim one-of-N
+  // in the sheet (`role="radiogroup"`) and many-of-N on the rail (`aria-pressed`).
+  const kindFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<KindFilter>>>(
+    () => [
+      { value: "all", label: "All", hint: String(results.length) },
+      { value: "presentation", label: "Presentations", hint: String(presentationCount) },
+      { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
+    ],
+    [diagnosisCount, presentationCount, results.length],
+  );
   const visibleResults = useMemo(
     () =>
       sortResultItems(
@@ -1009,12 +956,11 @@ function SearchResultsView({
           />
         }
         filterControls={
-          <ResultTypeTabs
-            activeFilter={kindFilter}
-            onFilterChange={setKindFilter}
-            allCount={results.length}
-            presentationCount={presentationCount}
-            diagnosisCount={diagnosisCount}
+          <SegmentedControl
+            value={kindFilter}
+            onChange={setKindFilter}
+            options={kindFilterOptions}
+            label="Result type"
           />
         }
       />
@@ -1031,11 +977,7 @@ function SearchResultsView({
             id: "result-type",
             label: "Show",
             value: kindFilter,
-            options: [
-              { value: "all", label: "All", hint: String(results.length) },
-              { value: "presentation", label: "Presentations", hint: String(presentationCount) },
-              { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
-            ],
+            options: kindFilterOptions,
             onChange: setKindFilter,
           }),
         ]}

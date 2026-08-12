@@ -116,6 +116,13 @@ if (!syncJob) {
     if (!applyStep.includes("existingCheckedItems")) {
       failures.push("sync-pr-policy-body must preserve existing governance attestations.");
     }
+    if (
+      !applyStep.includes("github.rest.pulls.listFiles") ||
+      !applyStep.includes('file.filename === "PR_POLICY_BODY.md"') ||
+      !applyStep.includes('file.status === "added"')
+    ) {
+      failures.push("sync-pr-policy-body must run only when PR_POLICY_BODY.md was added by the current PR diff.");
+    }
     if (/map\(\(item\) => `\s*-\s*\[x\]/i.test(applyStep)) {
       failures.push("sync-pr-policy-body must not synthesize completed Clinical Governance Preflight items.");
     }

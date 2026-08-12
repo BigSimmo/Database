@@ -4,8 +4,7 @@ import { ArrowRight, CheckCircle2, ChevronsUpDown, Info, Minus, ShieldAlert, Tag
 
 import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
 import { cn, eyebrowText } from "@/components/ui-primitives";
-import type { SpecifierFamily, SpecifierRecord } from "@/lib/specifiers";
-import { specifierFamilies } from "@/lib/specifiers";
+import type { SpecifierRecord } from "@/lib/specifiers";
 import type { SpecifierSourceStatus } from "@/lib/specifiers-search-index";
 
 export const specifierCard =
@@ -50,45 +49,6 @@ export function SpecifierWordingPathway() {
         </div>
       ))}
     </section>
-  );
-}
-
-const familyChipBase =
-  "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
-const familyChipActive =
-  "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
-const familyChipIdle =
-  "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]";
-
-export function SpecifierFamilyFilterChips({
-  value,
-  onChange,
-}: {
-  value: "all" | SpecifierFamily;
-  onChange: (value: "all" | SpecifierFamily) => void;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label="Filter by specifier family"
-      className="polished-scroll flex w-full min-w-0 gap-1.5 overflow-x-auto sm:flex-1"
-    >
-      {specifierFamilies.map((option) => {
-        const active = value === option.id;
-        return (
-          <button
-            key={option.id}
-            type="button"
-            onClick={() => onChange(option.id)}
-            aria-pressed={active}
-            className={cn(familyChipBase, active ? familyChipActive : familyChipIdle)}
-          >
-            <span className="sm:hidden">{option.shortLabel}</span>
-            <span className="hidden sm:inline">{option.label}</span>
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
