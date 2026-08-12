@@ -75,6 +75,26 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  test("desktop details use inline semantics and preserve visible programmatic focus", async ({ page }) => {
+    const mockup = await gotoMockup(page, 1440);
+    const details = mockup.getByRole("button", { name: "View details for Differentials" });
+
+    expect(await details.getAttribute("aria-haspopup")).toBeNull();
+    await details.click();
+
+    const panel = mockup.locator("aside");
+    await expect(panel).toBeFocused();
+    const outline = await panel.evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      return {
+        style: style.outlineStyle,
+        width: Number.parseFloat(style.outlineWidth),
+      };
+    });
+    expect(outline.style).not.toBe("none");
+    expect(outline.width).toBeGreaterThanOrEqual(2);
+  });
+
   test("matches the exact displayed tool title after normalising punctuation", async ({ page }) => {
     const mockup = await gotoMockup(page, 1440);
     await page.locator('[data-testid="global-search-input"]:visible').fill("Risk & Safety");
