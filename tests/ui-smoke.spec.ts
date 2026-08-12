@@ -3287,7 +3287,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const origin = new URL(page.url());
     await visibleByTestId(page, "differentials-search-results")
-      .getByRole("link", { name: "Open page" })
+      .locator('a[href^="/differentials/diagnoses/"], a[href^="/differentials/presentations/"]')
+      .filter({ visible: true })
       .first()
       .click();
     await expect(page).toHaveURL(/\/differentials\/(diagnoses|presentations)\//, { timeout: 30_000 });
@@ -3582,6 +3583,45 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     await expectSingleMedicationPage(page);
     await expect(page.getByRole("link", { name: "Back to medications" }).filter({ visible: true })).toBeVisible();
+
+    // Regression guard for #1802: medication sections use the same priority
+    // menu as the mode home, not the older horizontally scrolling tab strip.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const medicationRail = page.getByTestId("medication-section-rail");
+    await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeVisible();
+    await expect(medicationRail.getByRole("button", { name: /^Dosing/ })).toBeVisible();
+    await expect(medicationRail.getByRole("button", { name: /^Safety/ })).toBeHidden();
+    await expect(page.getByTestId("medication-section-overflow")).toBeVisible();
+    const railGeometry = await medicationRail.evaluate((rail) => ({
+      clientWidth: rail.clientWidth,
+      scrollWidth: rail.scrollWidth,
+      overflowX: getComputedStyle(rail).overflowX,
+    }));
+    expect(railGeometry.scrollWidth).toBeLessThanOrEqual(railGeometry.clientWidth + 1);
+    expect(railGeometry.overflowX).not.toMatch(/auto|scroll/);
+
+    // At the generic four-slot boundary the medication labels still need a
+    // little more room for their icons and count badges, so the tail remains
+    // folded instead of clipping every visible label.
+    await page.setViewportSize({ width: 552, height: 844 });
+    await expect(page.getByTestId("medication-section-overflow")).toBeVisible();
+    await expect(medicationRail.getByRole("button", { name: /^Additional/ })).toBeHidden();
+    const clippedLabelsAtBoundary = await medicationRail
+      .locator("button:visible .mode-nav__ink > span.truncate")
+      .evaluateAll((labels) =>
+        labels.filter((label) => label.scrollWidth > label.clientWidth + 1).map((label) => label.textContent),
+      );
+    expect(clippedLabelsAtBoundary).toEqual([]);
+
+    await page.setViewportSize({ width: 736, height: 844 });
+    await expect(medicationRail.getByRole("button", { name: /^Additional/ })).toBeVisible();
+    await expect(page.getByTestId("medication-section-overflow")).toBeHidden();
+    const clippedLabelsAtWideBand = await medicationRail
+      .locator("button:visible .mode-nav__ink > span.truncate")
+      .evaluateAll((labels) =>
+        labels.filter((label) => label.scrollWidth > label.clientWidth + 1).map((label) => label.textContent),
+      );
+    expect(clippedLabelsAtWideBand).toEqual([]);
 
     expect(parentNodeErrors).toEqual([]);
   });
