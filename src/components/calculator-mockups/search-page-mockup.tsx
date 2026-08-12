@@ -108,7 +108,7 @@ function MockupSearchResultsLayout({
     <main data-testid={testId} className="mx-auto grid w-full max-w-7xl gap-5 px-4 pb-40 pt-5 sm:px-6 lg:px-8">
       <header
         aria-label={`${resultsLabel} search`}
-        className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]"
+        className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]"
       >
         {header}
       </header>
@@ -360,7 +360,7 @@ function ResultsHeaderBand({
   onDensity: (next: Density) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e1)]">
+    <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
       <div className="flex items-start justify-between gap-3 bg-[color:var(--surface-chrome)] p-3 sm:p-4">
         <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 sm:grid-cols-[3.25rem_minmax(0,1fr)]">
           <span className="hidden size-12 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:grid">
@@ -439,7 +439,7 @@ function DomainNav({
   ];
 
   return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--e1)]">
+    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)]">
       <h2 className={cn(eyebrowText, "px-1 pb-2 text-[color:var(--text-muted)]")}>Browse by domain</h2>
       <div className="grid gap-1">
         {rows.map((row) => {
@@ -493,7 +493,7 @@ function ContinuePanel({
 }) {
   if (!inProgress.length) return null;
   return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]">
+    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
       <h2 className={cn(eyebrowText, "flex items-center gap-1.5 pb-3 text-[color:var(--text-muted)]")}>
         <History className="size-icon-xs" aria-hidden="true" />
         Continue this session
@@ -659,7 +659,7 @@ export function CalculatorsSearchPageMockup() {
                       className={cn(
                         "inline-flex min-h-9 shrink-0 items-center rounded-full border px-3 text-xs font-bold transition",
                         active
-                          ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]"
+                          ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                           : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                         focusRing,
                       )}
@@ -729,7 +729,7 @@ export function CalculatorsSearchPageMockup() {
                 setDomain("all");
               }}
               className={cn(
-                "mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm-minus font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--clinical-accent-hover)]",
+                "mt-1 inline-flex min-h-10 items-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm-minus font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)]",
                 focusRing,
               )}
             >

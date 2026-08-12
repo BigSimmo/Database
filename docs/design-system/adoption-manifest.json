@@ -253,9 +253,7 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/in-page-nav-playwright-contract.test.ts",
-        "tests/information-page-shell.dom.test.tsx",
-        "tests/ui-route-coverage.spec.ts",
-        "tests/ui-specifiers.spec.ts"
+        "tests/information-page-shell.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1522,7 +1520,6 @@
         "tests/factsheet-save.dom.test.tsx",
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
-        "tests/in-page-nav-route-sections.dom.test.tsx",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",

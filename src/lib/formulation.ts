@@ -1,5 +1,4 @@
 import formulationContentJson from "@/data/formulation-content.json";
-import { fuzzySearchTokenCount } from "@/lib/catalog-search";
 
 export type FormulationMechanism = {
   id: string;
@@ -229,7 +228,6 @@ export function searchFormulationMechanisms(query: string, options: { domain?: s
           if (clues.includes(token)) score += 8;
           if (haystack.includes(token)) score += 3;
         }
-        if (score === 0) score += fuzzySearchTokenCount(normalizedQuery, haystack) * 2;
       }
 
       return score > 0 ? { mechanism, score } : null;

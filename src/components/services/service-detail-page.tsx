@@ -695,7 +695,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
 
             <section className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,0.7fr)_minmax(0,0.85fr)]">
               <div className="flex min-w-0 gap-3">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
                   <Phone className="h-5 w-5" aria-hidden />
                 </span>
                 <div className="min-w-0">

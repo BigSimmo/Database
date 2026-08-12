@@ -3366,7 +3366,6 @@ export function ClinicalDashboard({
           composerFollowUpSuggestions={searchMode === "answer" ? answerFollowUpSuggestions : undefined}
           onPickComposerFollowUpSuggestion={handlePickFollowUpSuggestion}
           composerFollowUpSuggestionsDisabled={loading}
-          showPhoneSuggestionTickerOnHome={showSharedHome}
           sharedHomeIdentity={showSharedHome}
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
@@ -3643,7 +3642,6 @@ export function ClinicalDashboard({
 
                 {showUniversalAlsoMatches &&
                 (activeModeResultKind === "tools" ||
-                  activeModeResultKind === "favourites" ||
                   activeModeResultKind === "documents" ||
                   activeModeResultKind === "services" ||
                   activeModeResultKind === "forms") ? (

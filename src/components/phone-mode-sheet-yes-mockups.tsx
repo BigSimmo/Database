@@ -647,7 +647,7 @@ function IconDeckSheet() {
                           "relative flex min-h-[6.5rem] flex-col items-start gap-2 rounded-2xl border p-3 text-left transition",
                           focusRing,
                           isActive
-                            ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--e1)]"
+                            ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-tight)]"
                             : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
                         )}
                       >

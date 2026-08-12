@@ -138,7 +138,7 @@ export function DetailScreen() {
             {t.patientSheetAvailable ? (
               <button
                 type="button"
-                className={`${therapyBtn} inline-flex items-center gap-[9px] h-[46px] py-0 px-5 border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm font-semibold shadow-[var(--e1)] cursor-pointer`}
+                className={`${therapyBtn} inline-flex items-center gap-[9px] h-[46px] py-0 px-5 border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm font-semibold shadow-[var(--shadow-tight)] cursor-pointer`}
                 onClick={() => b.openSheet(t.slug)}
               >
                 <FileTextIcon size={17} />

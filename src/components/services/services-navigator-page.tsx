@@ -83,7 +83,7 @@ function serviceChipLabel(chip: ServiceStatusChip) {
 
 function Stepper() {
   return (
-    <div className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--e1)] lg:grid lg:grid-cols-4 lg:gap-3">
+    <div className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)] lg:grid lg:grid-cols-4 lg:gap-3">
       {[
         ["1", "Search", "Find services"],
         ["2", "Shortlist", "Pick best options"],
@@ -177,7 +177,7 @@ function ServiceCard({
     <article
       data-testid={`service-search-result-${service.slug}`}
       className={cn(
-        "rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--e1)]",
+        "rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]",
         showRelevanceCues
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent-border)]/35"
           : "border-[color:var(--border)]",
@@ -283,7 +283,7 @@ function ServiceCard({
           <button
             type="button"
             onClick={() => onToggleSelected(service.slug)}
-            className="inline-flex min-h-tap min-w-[94px] items-center justify-center gap-1.5 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:h-9 sm:min-h-0"
+            className="inline-flex min-h-tap min-w-[94px] items-center justify-center gap-1.5 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:h-9 sm:min-h-0"
             aria-label={selected ? `Remove ${service.title} from comparison` : `Add ${service.title} to comparison`}
             aria-pressed={selected}
           >
@@ -342,7 +342,7 @@ function RightRail({
     <div className="space-y-4">
       <section
         data-testid="services-referral-decision"
-        className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]"
+        className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]"
       >
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
@@ -385,7 +385,7 @@ function RightRail({
           ))}
         </div>
       </section>
-      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]">
+      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Checklist</h3>
           <span className="text-xs font-semibold text-[color:var(--text-muted)]">Edit via result controls</span>
@@ -426,7 +426,7 @@ function RightRail({
           </div>
         ) : null}
       </section>
-      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]">
+      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Source confidence</h3>
           <button
@@ -497,7 +497,7 @@ function RightRail({
         ) : null}
       </section>
       <button
-        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
         data-testid="services-compare-selected"
         disabled={!comparisonAvailable}
@@ -517,7 +517,7 @@ function RightRail({
         <section
           id="selected-services-comparison"
           aria-label="Selected service comparison"
-          className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]"
+          className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]"
         >
           {selected.map((service) => (
             <article key={service.slug} className="rounded-lg border border-[color:var(--border)] p-3">

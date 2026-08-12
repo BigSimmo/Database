@@ -25,8 +25,6 @@ function nodeMajor(): number {
   return Number(process.versions.node.split(".")[0]);
 }
 
-const ALLOWED_NODE_MAJOR_VERSIONS = [24, 26];
-
 function npmMajor(): number | null {
   const userAgent = process.env.npm_config_user_agent ?? "";
   const match = userAgent.match(/\bnpm\/(\d+\.\d+\.\d+)/);
@@ -68,9 +66,8 @@ export async function validateRuntime(options: ValidateRuntimeOptions = {}): Pro
     errors,
   };
 
-  if (!ALLOWED_NODE_MAJOR_VERSIONS.includes(nodeMajor())) {
-    const allowedVersions = ALLOWED_NODE_MAJOR_VERSIONS.map((major) => `${major}.x`).join(" or ");
-    errors.push(`Expected Node ${allowedVersions}, got ${process.versions.node}`);
+  if (nodeMajor() !== 24) {
+    errors.push(`Expected Node 24.x, got ${process.versions.node}`);
   }
 
   const npmMaj = npmMajor();

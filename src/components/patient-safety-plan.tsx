@@ -727,7 +727,7 @@ export function PatientSafetyPlan() {
               className={cn(
                 "min-h-10 rounded-md px-3 text-sm-minus font-bold transition",
                 mobileTab === tab
-                  ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--e1)]"
+                  ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--shadow-tight)]"
                   : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
                 focusRing,
               )}
@@ -985,7 +985,7 @@ export function PatientSafetyPlan() {
               <a
                 href="tel:000"
                 className={cn(
-                  "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 py-3 text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--clinical-accent-hover)]",
+                  "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 py-3 text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
                   focusRing,
                 )}
               >
