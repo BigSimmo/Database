@@ -3,19 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Info, LayoutGrid, List, SearchX } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
   resultFilterGroup,
+  type ResultFilterOption,
 } from "@/components/clinical-dashboard/result-filter-control";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
   categoryTheme,
   factsheetCategories,
+  filterFactsheets,
   type Factsheet,
-  type FactsheetCategory,
 } from "@/components/factsheets/factsheets-data";
 import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
 import { cn } from "@/components/ui-primitives";
@@ -29,11 +31,6 @@ function searchHref(query: string, category?: string) {
   const suffix = params.toString();
   return suffix ? `/factsheets/search?${suffix}` : "/factsheets/search";
 }
-
-const filterChips: Array<{ key?: FactsheetCategory; label: string }> = [
-  { key: undefined, label: "All" },
-  ...factsheetCategories.map((category) => ({ key: category, label: category })),
-];
 
 export function FactsheetsSearchPage({
   query,
@@ -49,6 +46,31 @@ export function FactsheetsSearchPage({
   const activeCategory = factsheetCategories.find((entry) => entry === category);
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
+
+  // Category genuinely narrows within the current search — `filterFactsheets`
+  // ANDs query and category — unlike services' quick filters or formulation's
+  // old pattern presets, which replaced the query outright. So this is a real
+  // lens (docs/filter-contract.md section 1), not something to evict.
+  //
+  // Query-matched, category-UNfiltered, so a hint answers "how many for this
+  // category, at the current query" for every option — including the ones not
+  // currently active — the same predicate section 3 requires for a count.
+  const queryMatches = useMemo(() => filterFactsheets(query), [query]);
+  const categoryOptions = useMemo<ReadonlyArray<ResultFilterOption<string>>>(
+    () => [
+      { value: "all", label: "All", hint: String(queryMatches.length) },
+      ...factsheetCategories.map((entry) => ({
+        value: entry,
+        label: entry,
+        hint: String(queryMatches.filter((sheet) => sheet.category === entry).length),
+      })),
+    ],
+    [queryMatches],
+  );
+  const applyCategory = (value: string) => {
+    setFilterOpen(false);
+    router.push(searchHref(query, value === "all" ? undefined : value));
+  };
 
   return (
     <div
@@ -78,30 +100,17 @@ export function FactsheetsSearchPage({
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
+        // The same control the sheet renders below, sharing `categoryOptions` —
+        // the two breakpoints used to disagree on renderer (raw `<Link>` chips
+        // here, a real radiogroup in the sheet) even though the VALUES already
+        // agreed. One shared array is what stops that drifting again.
         filterControls={
-          <div className="polished-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto">
-            <span className="hidden shrink-0 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)] sm:inline">
-              Category
-            </span>
-            {filterChips.map((chip) => {
-              const isActive = chip.key ? activeCategory === chip.key : !activeCategory;
-              return (
-                <Link
-                  key={chip.label}
-                  href={searchHref(query, chip.key)}
-                  aria-current={isActive ? "true" : undefined}
-                  className={cn(
-                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-2.5 text-2xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9 sm:text-xs",
-                    isActive
-                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                  )}
-                >
-                  {chip.label}
-                </Link>
-              );
-            })}
-          </div>
+          <SegmentedControl
+            label="Category"
+            value={activeCategory ?? "all"}
+            onChange={applyCategory}
+            options={categoryOptions}
+          />
         }
       />
 
@@ -155,21 +164,11 @@ export function FactsheetsSearchPage({
             id: "category",
             label: "Category",
             value: activeCategory ?? "all",
-            options: filterChips.map((chip) => ({ value: chip.key ?? "all", label: chip.label })),
-            onChange: (value) => {
-              setFilterOpen(false);
-              router.push(searchHref(query, value === "all" ? undefined : value));
-            },
+            options: categoryOptions,
+            onChange: applyCategory,
           }),
         ]}
-        onClearAll={
-          activeCategory
-            ? () => {
-                setFilterOpen(false);
-                router.push(searchHref(query));
-              }
-            : undefined
-        }
+        onClearAll={activeCategory ? () => applyCategory("all") : undefined}
         footerNote={`${results.length} showing`}
       />
 

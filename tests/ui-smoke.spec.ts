@@ -3198,7 +3198,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
         await expect(categoryTrigger).toHaveAccessibleName(/No filters active/);
         await categoryTrigger.click();
         const categoryGroup = page.getByRole("radiogroup", { name: "Category" });
-        await expect(categoryGroup.getByRole("radio", { name: "All" })).toBeChecked();
+        // Counted, like every other converged lens dimension — "sertraline"
+        // matches exactly one factsheet (Medications), so "All" and
+        // "Medications" both read 1 and the other three categories read 0.
+        await expect(categoryGroup.getByRole("radio", { name: "All (1)" })).toBeChecked();
         await page.getByTestId("factsheet-filter-panel-done").click();
         await expect(categoryGroup).toBeHidden();
       } else {
