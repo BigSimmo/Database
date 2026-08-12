@@ -448,58 +448,57 @@ export function ServicesNavigatorPage() {
   // services carry exactly one of general/aod) — a lens, not a facet. See
   // src/lib/service-facets.ts for the full measurement note.
   const substanceOptionValues = useMemo(() => deriveSubstanceLensOptions(searchableRecords), [searchableRecords]);
-  const substanceGroup = resultFilterGroup({
-    id: "substance",
-    label: "Program type",
-    value: substanceLens,
-    options: [
-      {
-        value: "all",
-        label: "All programs",
-        hint: String(serviceSubstanceLensOptionCount(facetBaseMatches, facetSelection, "all")),
-      },
-      ...substanceOptionValues.map((value) => ({
-        value,
-        label: serviceSubstanceLensValueLabel(value),
-        hint: String(serviceSubstanceLensOptionCount(facetBaseMatches, facetSelection, value)),
-      })),
-    ],
-    onChange: setSubstanceLensValue,
-  });
-
-  // Options are derived from the whole ready catalogue, not the
-  // query/group/scope-narrowed `facetBaseMatches` — the option LIST must not
-  // shrink as a reader types (that would restructure the sheet mid-search);
-  // only each option's union COUNT narrows, via `serviceFacetOptionCount`
-  // against `facetBaseMatches`. See docs/filter-contract.md section 3 and
-  // the same split in formulation's `formulationDomainsInUse` (static list)
-  // versus its per-query union counts.
-  const facetGroups = serviceFacetDimensions.map((dimension) =>
-    resultFilterFacetGroup({
-      id: dimension,
-      label: serviceFacetDimensionLabels[dimension],
-      selected: facetSelection[dimension],
-      options: deriveServiceFacetOptions(searchableRecords, dimension).map((value) => {
-        const withCandidate = serviceFacetOptionCount(
-          facetBaseMatches,
-          facetSelection,
-          substanceLens,
-          dimension,
-          value,
-        );
-        return {
-          value,
-          label: serviceFacetValueLabel(dimension, value),
-          hint: String(withCandidate),
-          // A zero here is a consequence of the current query/group/scope and
-          // other facet selections, never a permanently empty option — the
-          // derived list above already excludes those. Never applied to an
-          // already-selected value: that would strand a live constraint.
-          disabled: withCandidate === 0 && !facetSelection[dimension].has(value),
-        };
+  const substanceGroup = useMemo(
+    () =>
+      resultFilterGroup({
+        id: "substance",
+        label: "Program type",
+        value: substanceLens,
+        options: [
+          {
+            value: "all",
+            label: "All programs",
+            hint: String(serviceSubstanceLensOptionCount(facetBaseMatches, facetSelection, "all")),
+          },
+          ...substanceOptionValues.map((value) => ({
+            value,
+            label: serviceSubstanceLensValueLabel(value),
+            hint: String(serviceSubstanceLensOptionCount(facetBaseMatches, facetSelection, value)),
+          })),
+        ],
+        onChange: setSubstanceLensValue,
       }),
-      onToggle: (value) => toggleFacetValue(dimension, value),
-    }),
+    [facetBaseMatches, facetSelection, searchParams, substanceLens, substanceOptionValues],
+  );
+
+  // Keep the option lists and handlers stable while unrelated page state
+  // changes (for example opening the sheet or updating the shortlist).
+  const facetGroups = useMemo(
+    () =>
+      serviceFacetDimensions.map((dimension) =>
+        resultFilterFacetGroup({
+          id: dimension,
+          label: serviceFacetDimensionLabels[dimension],
+          selected: facetSelection[dimension],
+          options: deriveServiceFacetOptions(searchableRecords, dimension).map((value) => {
+            const withCandidate = serviceFacetOptionCount(
+              facetBaseMatches,
+              facetSelection,
+              substanceLens,
+              dimension,
+              value,
+            );
+            return {
+              value,
+              label: serviceFacetValueLabel(dimension, value),
+              hint: String(withCandidate),
+              disabled: withCandidate === 0 && !facetSelection[dimension].has(value),
+            };
+          }),
+          onToggle: (value) => toggleFacetValue(dimension, value),
+        }),
+      ),
+    [facetBaseMatches, facetSelection, searchableRecords, searchParams, substanceLens],
   );
 
   return (
