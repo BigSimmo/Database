@@ -91,8 +91,8 @@ type GeneratedAnswerPayload = {
 async function answerFromTextSources(
   query: string,
   sources: SearchResult[],
-  generatedAnswer?: GeneratedAnswerPayload | Error,
-  options: { sourceOnly?: boolean } = {},
+  generatedAnswer?: GeneratedAnswerPayload | Error | Array<GeneratedAnswerPayload | Error>,
+  options: { sourceOnly?: boolean; onGenerate?: (input: string, index: number) => void } = {},
 ) {
   // `src/lib/env.ts` freezes process.env at module load. The offline vitest wrapper
   // starts every worker as RAG_PROVIDER_MODE=offline with a blank OpenAI key, so we
@@ -116,11 +116,16 @@ async function answerFromTextSources(
       from: vi.fn(() => new EmptyQuery()),
     }),
   }));
-  const generateStructuredTextResult = vi.fn(async () => {
-    if (generatedAnswer instanceof Error) throw generatedAnswer;
+  const generatedAnswers = Array.isArray(generatedAnswer) ? generatedAnswer : [generatedAnswer];
+  let generatedAnswerIndex = 0;
+  const generateStructuredTextResult = vi.fn(async (input: string) => {
+    options.onGenerate?.(input, generatedAnswerIndex);
+    const currentGeneratedAnswer = generatedAnswers[Math.min(generatedAnswerIndex, generatedAnswers.length - 1)];
+    generatedAnswerIndex += 1;
+    if (currentGeneratedAnswer instanceof Error) throw currentGeneratedAnswer;
     return {
       text: JSON.stringify(
-        generatedAnswer ?? {
+        currentGeneratedAnswer ?? {
           answer: "No current source with specific guidance for this query was found.",
           grounded: false,
           confidence: "unsupported",
@@ -165,6 +170,59 @@ afterEach(() => {
 });
 
 describe("RAG structured-output fallback", () => {
+  it("repairs an unsupported fast-answer figure with the existing strong retry", async () => {
+    const answer = await answerFromTextSources(
+      "Lithium dosing?",
+      [
+        source({
+          id: "lithium-dose-source",
+          document_id: "lithium-guideline",
+          title: "Medication guideline",
+          file_name: "medication-guideline.pdf",
+          section_heading: "Lithium initiation",
+          content: "Start lithium carbonate at 250 mg once daily and review tolerability.",
+          similarity: 0.94,
+          hybrid_score: 0.94,
+          text_rank: 0.09,
+        }),
+      ],
+      [
+        {
+          answer: "Start lithium carbonate at 500 mg once daily.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [],
+          citations: [{ chunk_id: "lithium-dose-source" }],
+          quoteCards: [],
+          conflictsOrGaps: [],
+        },
+        {
+          answer: "Start lithium carbonate at 250 mg once daily.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [],
+          citations: [{ chunk_id: "lithium-dose-source" }],
+          quoteCards: [],
+          conflictsOrGaps: [],
+        },
+      ],
+      {
+        onGenerate: (input, index) => {
+          if (index !== 1) return;
+          expect(input).toContain("numeric_faithfulness_gap");
+          expect(input).toContain("exact digits and unit appear in the cited source excerpt");
+        },
+      },
+    );
+
+    expect(answer.routingMode).toBe("strong");
+    expect(answer.routingReason).toContain("fast_numeric_faithfulness_retry_strong");
+    expect(answer.routingReason).not.toContain("generation_fallback");
+    expect(answer.answer.replace(/\*\*/g, "")).toContain("250 mg");
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(answer.openAIRequestIds).toEqual(["req_answer_from_text_sources", "req_answer_from_text_sources"]);
+  });
+
   it("recovers a cited provider source gap instead of treating nearby citations as a grounded answer", async () => {
     const dischargeSources = [
       source({
@@ -1510,13 +1568,13 @@ describe("RAG structured-output fallback", () => {
           text_rank: 1,
         }),
       ],
-      new Error("OpenAI generation quality gate failed: labelled numeric band conflict"),
+      new Error("OpenAI generation quality gate failed: numeric_band_coherence_gap"),
     );
     const deliveredText =
       `${answer.answer} ${(answer.answerSections ?? []).map((section) => section.body).join(" ")}`.replace(/\*\*/g, "");
 
     expect(answer.grounded).toBe(true);
-    expect(answer.routingReason).toContain("generation_fallback:generation_quality_failed");
+    expect(answer.routingReason).toContain("generation_fallback:generation_quality_failed_numeric_band_coherence_gap");
     expect(answer.routingReason).toContain("source_backed_extractive_fallback");
     expect(deliveredText).toMatch(
       /any side effect which is causing distress irrespective of score should be escalated to the treating doctor and reviewed/i,

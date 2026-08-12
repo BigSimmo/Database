@@ -3276,6 +3276,7 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
     return "missing_query_overlap";
   }
   if (hasInvalidModelEvidenceIds(answer)) return "invalid_model_evidence_ids";
+  if (answer.unverifiedNumericTokens?.length) return "numeric_faithfulness_gap";
   const broadDocumentCoverageRequested =
     queryClass === "document_lookup" &&
     /(?:\b(?:what|which)\b.{0,100}\b(?:include|included|require|required|requirements?)\b|\b(?:process|procedure)\b|\bhow\b.{0,80}\b(?:handled|managed|performed|completed)\b)/i.test(

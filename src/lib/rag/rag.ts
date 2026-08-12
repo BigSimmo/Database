@@ -36,6 +36,7 @@ import {
   isSourceOnlyMode,
   sourceOnlyReason,
 } from "@/lib/rag/rag-provider";
+import { generationQualityRetryInstruction, summarizeGenerationFailureReason } from "@/lib/rag/rag-generation-failure";
 import { allowedChunkMap, citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
 import { assessAndEnforceClaimSupport, enforceLabelledNumericBandCoherence } from "@/lib/rag/rag-claim-support";
 import {
@@ -3375,6 +3376,7 @@ ${qualityRetryInstruction}`
       "fast_unusable_retry_strong",
       "fast_template_retry_strong",
       "fast_quality_retry_strong",
+      "fast_numeric_faithfulness_retry_strong",
     ]);
     const eligibleForRoutineExtractiveRecovery =
       route.mode === "fast" &&
@@ -3397,25 +3399,6 @@ ${qualityRetryInstruction}`
       results: answerInputResults,
       routeReason: `${route.reason}; source_backed_extractive_recovery:${retryReason}`,
     });
-  }
-
-  /** Summarize generation failure reason. */
-  function summarizeGenerationFailureReason(error: unknown) {
-    const message = (error instanceof Error ? error.message : typeof error === "string" ? error : "").trim();
-    const normalized = message.toLowerCase();
-    const sourceBackedRecovery = normalized.match(/\bsource_backed_extractive_recovery:([a-z0-9_]+)/);
-
-    if (sourceBackedRecovery) return `source_backed_extractive_recovery_${sourceBackedRecovery[1]}`;
-    if (!normalized) return "generation_failed";
-    if (/\bprovider_source_gap\b/.test(normalized)) return "provider_source_gap";
-    if (/\bmax_output_tokens\b/.test(normalized)) return "provider_incomplete_max_output_tokens";
-    if (/\bincomplete\b/.test(normalized)) return "provider_incomplete";
-    if (/\brate limit|rate_limited|429\b/.test(normalized)) return "provider_rate_limited";
-    if (/\btimeout|timed out|deadline|aborted|etimedout\b/.test(normalized)) return "provider_timeout";
-    if (/\bauthentication|api key|unauthori[sz]ed|401|403\b/.test(normalized)) return "provider_auth_failed";
-    if (/\bvalidation|quality gate|schema|parse|json\b/.test(normalized)) return "generation_quality_failed";
-    if (/\bopenai|provider|model\b/.test(normalized)) return "provider_generation_failed";
-    return "generation_failed";
   }
 
   /** Build generation fallback answer. */
@@ -3598,12 +3581,13 @@ ${qualityRetryInstruction}`
       !fastSourceGap &&
       !fastAnswerWasTemplateLike &&
       shouldRetryWithStrongAfterFast({ route, answer, results: answerInputResults });
-    const fastAnswerFailedQualityGate =
+    const fastQualityFailureReason =
       route.mode === "fast" &&
       !fastAnswerWasUnusable &&
       !fastAnswerWasTemplateLike &&
       !fastAnswerWasOverExpanded &&
-      Boolean(generatedAnswerQualityFailureReason(answer, args.query, queryClass));
+      generatedAnswerQualityFailureReason(answer, args.query, queryClass);
+    const fastAnswerFailedQualityGate = Boolean(fastQualityFailureReason);
     if (
       fastAnswerHadInvalidEvidenceIds ||
       fastSourceGap ||
@@ -3613,19 +3597,22 @@ ${qualityRetryInstruction}`
       fastAnswerWasOverExpanded ||
       fastAnswerFailedQualityGate
     ) {
-      const retryReason = fastAnswerHadInvalidEvidenceIds
-        ? "fast_invalid_evidence_retry_strong"
-        : fastSourceGap
-          ? "fast_source_gap_retry_strong"
-          : fastAnswerWasUnsupported
-            ? "fast_unsupported_retry_strong"
-            : fastAnswerWasUnusable
-              ? "fast_unusable_retry_strong"
-              : fastAnswerWasTemplateLike
-                ? "fast_template_retry_strong"
-                : fastAnswerWasOverExpanded
-                  ? "fast_overexpanded_simple_retry_strong"
-                  : "fast_quality_retry_strong";
+      const retryReason =
+        fastQualityFailureReason === "numeric_faithfulness_gap"
+          ? "fast_numeric_faithfulness_retry_strong"
+          : fastAnswerHadInvalidEvidenceIds
+            ? "fast_invalid_evidence_retry_strong"
+            : fastSourceGap
+              ? "fast_source_gap_retry_strong"
+              : fastAnswerWasUnsupported
+                ? "fast_unsupported_retry_strong"
+                : fastAnswerWasUnusable
+                  ? "fast_unusable_retry_strong"
+                  : fastAnswerWasTemplateLike
+                    ? "fast_template_retry_strong"
+                    : fastAnswerWasOverExpanded
+                      ? "fast_overexpanded_simple_retry_strong"
+                      : "fast_quality_retry_strong";
       if (shouldRecoverFastFailureExtractively(retryReason)) {
         answerRetryCount += 1;
         answerRetryReasons.push(`fast_source_backed_extractive_recovery:${retryReason}`);
@@ -3639,19 +3626,21 @@ ${qualityRetryInstruction}`
       await args.onProgress?.({
         stage: "retrying",
         message:
-          retryReason === "fast_invalid_evidence_retry_strong"
-            ? "Fast answer cited invalid evidence IDs, retrying with the strong model."
-            : retryReason === "fast_source_gap_retry_strong"
-              ? "Fast answer returned a source gap despite strong retrieval, retrying with the strong model."
-              : retryReason === "fast_unsupported_retry_strong"
-                ? "Fast answer was unsupported, retrying with the strong model."
-                : retryReason === "fast_unusable_retry_strong"
-                  ? "Fast answer was not usable, retrying with the strong model."
-                  : retryReason === "fast_template_retry_strong"
-                    ? "Fast answer was too template-like, retrying with the strong model."
-                    : retryReason === "fast_overexpanded_simple_retry_strong"
-                      ? "Fast answer over-expanded a simple question, retrying with the strong model."
-                      : "Fast answer failed quality checks, retrying with the strong model.",
+          retryReason === "fast_numeric_faithfulness_retry_strong"
+            ? "Fast answer included an unverified figure, retrying with exact numeric-grounding instructions."
+            : retryReason === "fast_invalid_evidence_retry_strong"
+              ? "Fast answer cited invalid evidence IDs, retrying with the strong model."
+              : retryReason === "fast_source_gap_retry_strong"
+                ? "Fast answer returned a source gap despite strong retrieval, retrying with the strong model."
+                : retryReason === "fast_unsupported_retry_strong"
+                  ? "Fast answer was unsupported, retrying with the strong model."
+                  : retryReason === "fast_unusable_retry_strong"
+                    ? "Fast answer was not usable, retrying with the strong model."
+                    : retryReason === "fast_template_retry_strong"
+                      ? "Fast answer was too template-like, retrying with the strong model."
+                      : retryReason === "fast_overexpanded_simple_retry_strong"
+                        ? "Fast answer over-expanded a simple question, retrying with the strong model."
+                        : "Fast answer failed quality checks, retrying with the strong model.",
         mode: "strong",
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
@@ -3663,6 +3652,10 @@ ${qualityRetryInstruction}`
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
         maxOutputTokensOverride: strongRetryMaxOutputTokens,
+        qualityRetryInstruction:
+          fastQualityFailureReason === "numeric_faithfulness_gap"
+            ? generationQualityRetryInstruction(fastQualityFailureReason)
+            : undefined,
       });
       retrievalDiagnostics.routeMode = "strong";
       if (generated.truncated) {
@@ -3697,7 +3690,7 @@ ${qualityRetryInstruction}`
       // valid (if imperfect) cited strong answer instead of spending a third generation
       // and risking a truncation -> unsupported tail. Recorded for observability.
       answerRetryReasons.push(`strong_quality_repair_skipped_time_budget:${strongQualityFailureReason}`);
-    } else if (answerNeedsStrongQualityRepair) {
+    } else if (strongQualityFailureReason) {
       routingReason = `${routingReason}; strong_quality_retry`;
       answerRetryCount += 1;
       answerRetryReasons.push("strong_quality_retry");
@@ -3711,7 +3704,7 @@ ${qualityRetryInstruction}`
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
         maxOutputTokensOverride: strongRetryMaxOutputTokens,
-        qualityRetryInstruction: `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Within one named scale and source, if differently labelled intervals overlap or a range is reversed, omit the entire affected band set; do not quote, repair, or infer any label or value. If a separate sentence or clause states a nonnumeric condition and action independent of the score, answer only with that independently supported condition and action, cite the smallest sufficient directly supporting chunk set, and add a conflict entry; otherwise return a source gap. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
+        qualityRetryInstruction: generationQualityRetryInstruction(strongQualityFailureReason),
       });
       retrievalDiagnostics.routeMode = "strong";
       if (generated.truncated) {
