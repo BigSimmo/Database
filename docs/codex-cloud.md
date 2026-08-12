@@ -204,9 +204,12 @@ review threads. A failed-job rerun is limited to one still-failed run at the exa
 
 The operator never merges or closes a PR, updates a protected branch, deletes or renames a branch,
 force-pushes, rebases, deploys, accesses Supabase/production data, or makes GitHub credentials
-available to Codex. It also refuses publication when the repair changes `.github/**`, environment
-or key files, more than 100 paths, or more than 1 MiB of diff. `OPENAI_API_KEY` and `GH_TOKEN` stay
-in GitHub Actions secrets; never copy either value into Codex Cloud settings or repository files.
+available to Codex. It also refuses publication when the agent-authored delta changes workflow,
+agent-policy, environment, credential, key, or `supabase/**` paths; introduces a symlink or
+submodule; exceeds 100 paths; or exceeds 1 MiB of diff. A trusted normal merge from the recorded
+base is accounted separately, so base-owned policy files do not make an otherwise safe branch sync
+look like an agent-authored policy change. `OPENAI_API_KEY` and `GH_TOKEN` stay in GitHub Actions
+secrets; never copy either value into Codex Cloud settings or repository files.
 This fallback becomes usable only after its reviewed workflow PR is merged. It is a manual GitHub
 operator bridge, not proof that a Codex Cloud task gained native GitHub tools. The first real
 invocation is the capability proof: verify
