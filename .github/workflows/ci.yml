@@ -121,6 +121,19 @@ jobs:
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/trusted-policy/scripts/pr-policy.mjs`).href;
             const { collectSatisfiedGovernanceItems, requiredClinicalGovernanceItems, section } = await import(moduleUrl);
             const pr = context.payload.pull_request;
+            const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const bodyTemplateWasAdded = changedFiles.some(
+              (file) => file.filename === "PR_POLICY_BODY.md" && file.status === "added",
+            );
+            if (!bodyTemplateWasAdded) {
+              core.info("PR_POLICY_BODY.md was not added by this PR; skipping PR body sync.");
+              return;
+            }
             const existingBody = pr.body || "";
             const existingCheckedItems = new Set();
             const govSection = section(existingBody, "Clinical Governance Preflight");

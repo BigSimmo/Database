@@ -332,6 +332,15 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     }
   }
 
+  if (classification.operationalRisk && (classification.clinicalRisk || classification.ui)) {
+    const mixedClasses = [classification.clinicalRisk ? "clinical" : null, classification.ui ? "UI" : null]
+      .filter(Boolean)
+      .join(" and ");
+    warnings.push(
+      `Operational-risk changes are bundled with ${mixedClasses} changes. Split the PR where practical so each risk class remains independently revertible.`,
+    );
+  }
+
   return { classification, errors, warnings, ok: errors.length === 0 };
 }
 
@@ -539,6 +548,23 @@ function selfTest() {
   // Answer synthesis is clinical-risk but NOT rag-ranking (retrieval ordering is the
   // protected axis here; generation keeps the governance gate only).
   assert.equal(classifyPullRequestFiles(["src/lib/answer-synthesis.ts"]).ragRanking, false);
+  const mixedOperationalRisk = evaluatePullRequestPolicy({
+    title: "ci: update clinical deployment policy",
+    body: completeBody,
+    headRef: "codex/clinical-ci-policy",
+    files: [".github/workflows/ci.yml", "src/lib/answer-synthesis.ts", "src/components/search.tsx"],
+  });
+  assert.equal(mixedOperationalRisk.ok, true, "mixed-risk signaling is advisory, not a new hard block");
+  assert.match(mixedOperationalRisk.warnings.join(" "), /Operational-risk changes are bundled with clinical and UI/);
+  assert.doesNotMatch(
+    evaluatePullRequestPolicy({
+      title: "ci: update deployment policy",
+      body: completeBody,
+      headRef: "codex/ci-policy",
+      files: [".github/workflows/ci.yml"],
+    }).warnings.join(" "),
+    /Operational-risk changes are bundled/,
+  );
   // ...but privacy/access-control UI surfaces stay gated.
   assert.equal(classifyPullRequestFiles(["src/components/privacy-input-notice.tsx"]).clinicalRisk, true);
   // ...and clinical behavior in the library layer stays gated.
