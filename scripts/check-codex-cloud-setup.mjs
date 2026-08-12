@@ -744,6 +744,63 @@ export function pythonWorkerVersionLine(pythonCommand, run = spawnSync) {
     : "python.worker_versions=unavailable";
 }
 
+export function validateCloudNpmInstallContract(setupText) {
+  const errors = [];
+  const setup = setupText.replace(/\\\r?\n[\t ]*/gu, " ");
+  const logicalLines = setup
+    .split(/\r?\n/gu)
+    .map((line, index) => ({ text: line.trim(), index }))
+    .filter(({ text }) => text && !text.startsWith("#"));
+  const installCommands = logicalLines.filter(({ text }) => /\bnpm\s+(?:ci|install|i)(?:\s|$)/u.test(text));
+  const projectInstallCommands = installCommands.filter(({ text }) => {
+    const tokens = text.split(/\s+/u);
+    return !tokens.includes("--global") && !tokens.includes("-g");
+  });
+
+  if (projectInstallCommands.length !== 1) {
+    errors.push(
+      `Cloud setup must contain exactly one project dependency install; found ${projectInstallCommands.length}.`,
+    );
+    return errors;
+  }
+
+  const command = projectInstallCommands[0];
+  const nodeDependenciesStart = logicalLines.findIndex(({ text }) => text === 'setup_step="node-dependencies"');
+  const nextStep = logicalLines.findIndex(
+    ({ text }, index) => index > nodeDependenciesStart && /^setup_step=/u.test(text),
+  );
+  const commandPosition = logicalLines.indexOf(command);
+  if (
+    nodeDependenciesStart === -1 ||
+    commandPosition <= nodeDependenciesStart ||
+    (nextStep !== -1 && commandPosition >= nextStep)
+  ) {
+    errors.push('Cloud project dependency install must run inside the "node-dependencies" setup step.');
+  }
+
+  if (/[;&|`$()]/u.test(command.text)) {
+    errors.push("Cloud project dependency install must be a direct, unchained command without expansion.");
+    return errors;
+  }
+
+  const tokens = command.text.split(/\s+/u);
+  const expectedFlags = ["--include=dev", "--prefer-offline", "--no-audit", "--no-fund"];
+  const actualFlags = tokens.slice(2);
+  if (
+    tokens[0] !== "npm" ||
+    tokens[1] !== "ci" ||
+    actualFlags.length !== expectedFlags.length ||
+    expectedFlags.some((flag) => !actualFlags.includes(flag)) ||
+    new Set(actualFlags).size !== expectedFlags.length
+  ) {
+    errors.push(
+      `Cloud project dependency install must be npm ci with exactly these flags: ${expectedFlags.join(" ")}.`,
+    );
+  }
+
+  return errors;
+}
+
 export function validateCodexCloudSetup() {
   const errors = [];
   const packageJson = JSON.parse(read("package.json"));
@@ -788,7 +845,6 @@ export function validateCodexCloudSetup() {
       /node_version_supported "\$actual_node_version" \|\| fail/,
       "Cloud setup must fail closed if provisioning does not satisfy the Node engine range.",
     ],
-    [/npm ci --include=dev/, "Cloud setup must install the exact lockfile with dev dependencies."],
     [/deno@2/, "Cloud setup must install Deno 2.x."],
     [/worker\/python\/requirements-cloud\.txt/, "Cloud setup must install the Python 3.12 Cloud worker lock."],
     [/CODEX_CLOUD_OCR_PYTHON/, "Cloud setup must expose the Python worker environment."],
@@ -818,6 +874,7 @@ export function validateCodexCloudSetup() {
   ]) {
     requireMatch(errors, setup, pattern, message);
   }
+  errors.push(...validateCloudNpmInstallContract(setup));
   if (!setup.includes(`codex_cli_version="${expectedCloudCliVersions.codex}"`)) {
     errors.push("Cloud setup Codex CLI version must match the checked runtime contract.");
   }

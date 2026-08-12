@@ -23,6 +23,7 @@ import {
   pythonWorkerImports,
   sanitizedCloudCapabilityLines,
   validateCodexCloudEnvironment,
+  validateCloudNpmInstallContract,
   validateCodexProjectMcpConfiguration,
   validateHostedAppInventory,
   validateHostedAppInventoryArguments,
@@ -153,11 +154,62 @@ describe("Codex Cloud environment contract", () => {
     expect(result.stdout).toContain("[Codex Cloud Check] PASS: static Cloud contracts match.");
   });
 
-  it("keeps the Cloud npm install locked, cache-friendly, and free of unrelated network calls", () => {
+  it("keeps the Cloud npm install locked, cache-friendly, and lifecycle-capable", () => {
     const setup = readFileSync(new URL("../scripts/setup-codex-cloud.sh", import.meta.url), "utf8");
 
-    expect(setup).toContain("npm ci --include=dev --prefer-offline --no-audit --no-fund");
-    expect(setup).not.toMatch(/^npm (?:install|i|ci)(?:\s|$).*--(?:force|legacy-peer-deps)\b/mu);
+    expect(validateCloudNpmInstallContract(setup)).toEqual([]);
+    expect(setup).toContain("require_npm_config ignore-scripts false");
+    expect(setup).toContain("require_npm_config package-lock true");
+  });
+
+  it.each([
+    [
+      "reordered flags",
+      'setup_step="node-dependencies"\n  npm ci --no-fund --include=dev --no-audit --prefer-offline\nsetup_step="next"',
+      true,
+    ],
+    [
+      "shell continuation",
+      'setup_step="node-dependencies"\n  npm ci --include=dev \\\n    --prefer-offline --no-audit --no-fund\nsetup_step="next"',
+      true,
+    ],
+    [
+      "unrelated global installs",
+      'npm install --global tool@1\nsetup_step="node-dependencies"\nnpm ci --include=dev --prefer-offline --no-audit --no-fund\nsetup_step="next"\nnpm i -g other@1',
+      true,
+    ],
+    [
+      "unsafe force flag",
+      'setup_step="node-dependencies"\nnpm ci --include=dev --prefer-offline --no-audit --no-fund --force\nsetup_step="next"',
+      false,
+    ],
+    [
+      "unsafe legacy peer flag",
+      'setup_step="node-dependencies"\nnpm ci --include=dev --prefer-offline --no-audit --no-fund --legacy-peer-deps\nsetup_step="next"',
+      false,
+    ],
+    [
+      "mutable local install",
+      'setup_step="node-dependencies"\nnpm install --include=dev --prefer-offline --no-audit --no-fund\nsetup_step="next"',
+      false,
+    ],
+    [
+      "duplicate project installs",
+      'setup_step="node-dependencies"\nnpm ci --include=dev --prefer-offline --no-audit --no-fund\nnpm ci --include=dev --prefer-offline --no-audit --no-fund\nsetup_step="next"',
+      false,
+    ],
+    [
+      "variable-expanded command",
+      'setup_step="node-dependencies"\n$npm_command ci --include=dev --prefer-offline --no-audit --no-fund\nsetup_step="next"',
+      false,
+    ],
+    [
+      "chained command",
+      'setup_step="node-dependencies"\nprepare && npm ci --include=dev --prefer-offline --no-audit --no-fund\nsetup_step="next"',
+      false,
+    ],
+  ])("validates the Cloud npm install contract: %s", (_name, setup, valid) => {
+    expect(validateCloudNpmInstallContract(setup as string).length === 0).toBe(valid);
   });
 
   it("reports sensitive and proxy variable names without exposing values", () => {
