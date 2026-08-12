@@ -16,12 +16,12 @@ import {
   CategoryTag,
   ReviewStatusBadge,
   SpecifierDiagnosisFilter,
-  SpecifierFamilyFilterChips,
   SpecifierMatchCard,
   SpecifierPageShell,
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -197,6 +197,14 @@ function SpecifierResults({ query }: { query: string }) {
   // shows "0 matches" with an empty-state banner above real results.
   const catalogueMatches = useMemo(() => searchSpecifierCatalog(query).slice(0, CATALOGUE_RESULT_LIMIT), [query]);
   const totalMatches = results.length + catalogueMatches.length;
+  // One array for the desktop rail and the phone sheet. The full label is safe
+  // at both: the band hides `filterControls` below `sm` whenever a page also
+  // supplies `mobileControls`, so the chips' phone-only short label could never
+  // render and the two breakpoints never showed different text.
+  const familyOptions = useMemo(
+    () => specifierFamilies.map((option) => ({ value: option.id, label: option.label })),
+    [],
+  );
 
   return (
     <SpecifierPageShell>
@@ -221,7 +229,13 @@ function SpecifierResults({ query }: { query: string }) {
         }
         filterControls={
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5">
-            <SpecifierFamilyFilterChips value={family} onChange={setFamily} />
+            <SegmentedControl
+              value={family}
+              onChange={setFamily}
+              options={familyOptions}
+              label="Filter by specifier family"
+              className="sm:flex-1"
+            />
             <SpecifierDiagnosisFilter value={diagnosis} onChange={setDiagnosis} options={diagnosisOptions} />
           </div>
         }
@@ -241,7 +255,7 @@ function SpecifierResults({ query }: { query: string }) {
             id: "family",
             label: "Family",
             value: family,
-            options: specifierFamilies.map((option) => ({ value: option.id, label: option.shortLabel })),
+            options: familyOptions,
             onChange: setFamily,
           }),
           resultFilterGroup({
@@ -260,7 +274,11 @@ function SpecifierResults({ query }: { query: string }) {
                 setDiagnosis("");
               }
         }
-        footerNote={`${totalMatches} showing`}
+        // `results`, not `totalMatches`. Both groups narrow only the curated
+        // list; `catalogueMatches` keys on the query alone, so reporting the sum
+        // claimed the sheet scoped a total its filters could not move — the
+        // count sat still while a filter visibly changed the list.
+        footerNote={`${results.length} showing`}
       />
 
       {totalMatches === 0 ? (
