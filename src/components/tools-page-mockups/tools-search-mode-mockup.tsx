@@ -16,7 +16,7 @@ import {
   Waves,
   type LucideIcon,
 } from "lucide-react";
-import { type ReactNode, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import {
   ResultFilterSheet,
@@ -28,6 +28,7 @@ import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-
 import { cn, controlBase, floatingControl } from "@/components/ui-primitives";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
+import { normalizeSearchText } from "@/lib/catalog-search";
 import { toolCatalogRecords, toolSearchText, type ToolCatalogArea, type ToolCatalogRecord } from "@/lib/tools-catalog";
 
 const focusRing =
@@ -232,8 +233,18 @@ export function ToolsSearchModeMockup() {
   const detailReturnFocusRef = useRef<HTMLElement | null>(null);
   const desktopPanelRef = useRef<HTMLElement>(null);
 
+  useEffect(() => {
+    const desktopMedia = window.matchMedia("(min-width: 1024px)");
+    const closePhoneDetailOnDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) setPhoneDetailOpen(false);
+    };
+
+    desktopMedia.addEventListener("change", closePhoneDetailOnDesktop);
+    return () => desktopMedia.removeEventListener("change", closePhoneDetailOnDesktop);
+  }, []);
+
   const queryMatchedTools = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const normalized = normalizeSearchText(query);
     return toolCatalogRecords.filter(
       (tool) => (!normalized || toolSearchText(tool).includes(normalized)) && tool.id !== "favourites",
     );
@@ -342,7 +353,7 @@ export function ToolsSearchModeMockup() {
 
           <section aria-label="Tool results" className="mt-4 grid gap-3">
             {filteredTools.length ? (
-              filteredTools.slice(0, 4).map((tool) => (
+              filteredTools.map((tool) => (
                 <article
                   key={tool.id}
                   className={cn(
