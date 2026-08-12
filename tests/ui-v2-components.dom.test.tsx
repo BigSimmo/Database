@@ -1255,7 +1255,7 @@ describe("Disclosure — print", () => {
     expect(panel).toHaveAttribute("data-open", "false");
     // On paper there is no control to open, so a collapsed section would print
     // as though the guideline never mentioned it — undetectably.
-    expect(panel?.className).toContain("print:block");
+    expect(panel?.className).toContain("print:!block");
   });
 
   it("keeps an open panel visible and still print-expanded", () => {
