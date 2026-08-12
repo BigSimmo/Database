@@ -1,0 +1,108 @@
+name: PR 1852 package-lock-only fix
+
+on:
+  push:
+    branches:
+      - codex/cloud-parity-repair-20260812
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-1852-package-lock-only-fix
+  cancel-in-progress: true
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: codex/cloud-parity-repair-20260812
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            .node-version
+            .nvmrc
+            package.json
+            package-lock.json
+            scripts
+            tests/codex-cloud-setup.test.ts
+          sparse-checkout-cone-mode: false
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --include=dev --prefer-offline --no-audit --no-fund
+
+      - name: Add failing regression test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/codex-cloud-setup.test.ts')
+          text = path.read_text()
+          before = '''    expect(setup).toContain("require_npm_config package-lock true");
+              expect(setup).toContain("require_npm_config dry-run false");'''
+          after = '''    expect(setup).toContain("require_npm_config package-lock true");
+              expect(setup).toContain("require_npm_config package-lock-only false");
+              expect(setup).toContain("require_npm_config dry-run false");'''
+          if before not in text:
+              raise SystemExit('Expected Cloud npm assertion block was not found.')
+          path.write_text(text.replace(before, after, 1))
+          PY
+
+          set +e
+          node scripts/run-vitest.mjs run tests/codex-cloud-setup.test.ts \
+            -t 'keeps the Cloud npm install locked, cache-friendly, and lifecycle-capable' \
+            --reporter=dot 2>&1 | tee /tmp/pr-1852-red.log
+          red_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$red_status" -eq 0 ]; then
+            echo 'Regression test unexpectedly passed before the production fix.' >&2
+            exit 1
+          fi
+          grep -F 'require_npm_config package-lock-only false' /tmp/pr-1852-red.log >/dev/null
+
+      - name: Implement fail-closed package-lock-only guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/setup-codex-cloud.sh')
+          text = path.read_text()
+          before = '''require_npm_config package-lock true
+          require_npm_config offline false'''
+          after = '''require_npm_config package-lock true
+          require_npm_config package-lock-only false
+          require_npm_config offline false'''
+          if before not in text:
+              raise SystemExit('Expected Cloud npm config guard block was not found.')
+          path.write_text(text.replace(before, after, 1))
+          PY
+
+      - name: Verify green and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/run-vitest.mjs run tests/codex-cloud-setup.test.ts \
+            -t 'keeps the Cloud npm install locked, cache-friendly, and lifecycle-capable' \
+            --reporter=dot
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/setup-codex-cloud.sh tests/codex-cloud-setup.test.ts
+          git commit -m 'fix(cloud): reject package-lock-only installs'
+          git push origin HEAD:codex/cloud-parity-repair-20260812
