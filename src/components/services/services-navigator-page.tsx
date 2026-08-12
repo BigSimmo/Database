@@ -370,6 +370,14 @@ export function ServicesNavigatorPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
 
+  function toggleSelected(slug: string) {
+    setSelectedSlugs((current) => {
+      const next = current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug].slice(0, 5);
+      if (next.length < 2) setShowComparison(false);
+      return next;
+    });
+  }
+
   const updateParams = useCallback(
     (mutator: (params: URLSearchParams) => void, replace = false) => {
       const params = new URLSearchParams(searchParams.toString());
