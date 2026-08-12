@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "140c8e58378435aea2a23fb0ee296ec9a33b2dcc"
+          test "$(git rev-parse HEAD^)" = "aa49af34c0089cb3ef08c913d5c1853afa5a6dbb"
 
           python <<'PY'
           from pathlib import Path
@@ -417,6 +417,108 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --include=dev --prefer-offline --no-audit --no-fund
 
+      - name: Add bounded retries to recursive test cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+          import path from "node:path";
+          import ts from "typescript";
+
+          function sourceFiles(directory) {
+            return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+              const filePath = path.join(directory, entry.name);
+              if (entry.isDirectory()) return sourceFiles(filePath);
+              return /\.(?:test|spec)\.[jt]sx?$/.test(entry.name) ? [filePath] : [];
+            });
+          }
+
+          function scriptKindFor(filePath) {
+            switch (path.extname(filePath)) {
+              case ".js":
+                return ts.ScriptKind.JS;
+              case ".jsx":
+                return ts.ScriptKind.JSX;
+              case ".tsx":
+                return ts.ScriptKind.TSX;
+              default:
+                return ts.ScriptKind.TS;
+            }
+          }
+
+          function propertyAssignment(objectLiteral, name) {
+            return objectLiteral.properties.find(
+              (property) =>
+                ts.isPropertyAssignment(property) &&
+                (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
+                property.name.text === name,
+            );
+          }
+
+          function isRmSyncCall(expression) {
+            return (
+              (ts.isIdentifier(expression) && expression.text === "rmSync") ||
+              (ts.isPropertyAccessExpression(expression) && expression.name.text === "rmSync")
+            );
+          }
+
+          let totalFixes = 0;
+          for (const filePath of sourceFiles("tests")) {
+            const sourceText = readFileSync(filePath, "utf8");
+            const sourceFile = ts.createSourceFile(
+              filePath,
+              sourceText,
+              ts.ScriptTarget.Latest,
+              true,
+              scriptKindFor(filePath),
+            );
+            const insertions = [];
+
+            const visit = (node) => {
+              if (ts.isCallExpression(node) && isRmSyncCall(node.expression)) {
+                const options = node.arguments[1];
+                if (options && ts.isObjectLiteralExpression(options)) {
+                  const recursive = propertyAssignment(options, "recursive");
+                  if (recursive?.initializer.kind === ts.SyntaxKind.TrueKeyword) {
+                    const retries = propertyAssignment(options, "maxRetries");
+                    if (retries) {
+                      const retryCount = ts.isNumericLiteral(retries.initializer)
+                        ? Number(retries.initializer.text)
+                        : Number.NaN;
+                      if (!Number.isFinite(retryCount) || retryCount <= 0) {
+                        throw new Error(`${filePath}: invalid maxRetries requires manual review: ${node.getText(sourceFile)}`);
+                      }
+                    } else {
+                      const closeBrace = options.end - 1;
+                      const beforeClose = sourceText.slice(options.getStart(sourceFile) + 1, closeBrace).trimEnd();
+                      const separator = beforeClose.length === 0 || beforeClose.endsWith(",") ? " " : ", ";
+                      insertions.push({
+                        offset: closeBrace,
+                        text: `${separator}maxRetries: 5, retryDelay: 100`,
+                      });
+                    }
+                  }
+                }
+              }
+              ts.forEachChild(node, visit);
+            };
+
+            visit(sourceFile);
+            if (insertions.length === 0) continue;
+            let updated = sourceText;
+            for (const insertion of insertions.sort((left, right) => right.offset - left.offset)) {
+              updated = `${updated.slice(0, insertion.offset)}${insertion.text}${updated.slice(insertion.offset)}`;
+            }
+            writeFileSync(filePath, updated, "utf8");
+            totalFixes += insertions.length;
+            console.log(`[recursive-cleanup] ${filePath}: added retries to ${insertions.length} call(s)`);
+          }
+
+          if (totalFixes === 0) throw new Error("Expected at least one recursive test cleanup call to repair.");
+          console.log(`[recursive-cleanup] repaired ${totalFixes} call(s) in total`);
+          NODE
+
       - name: Refresh generated inventory and format changed files
         shell: bash
         run: |
@@ -428,13 +530,12 @@ jobs:
             tests/http-readiness.test.ts \
             tests/measure-cls-attribution-contract.test.ts \
             tests/test-runner-safety.test.ts \
-            docs/scripts-index.md
-          git add \
+            docs/scripts-index.md \
+            $(git diff --name-only -- tests)
+          git add -A -- \
             scripts/measure-cls-attribution.mjs \
             scripts/lib/http-readiness.mjs \
-            tests/http-readiness.test.ts \
-            tests/measure-cls-attribution-contract.test.ts \
-            tests/test-runner-safety.test.ts \
+            tests \
             docs/scripts-index.md
 
       - name: Verify focused fixes
@@ -443,16 +544,25 @@ jobs:
           set -euo pipefail
           node --check scripts/measure-cls-attribution.mjs
           node --check scripts/lib/http-readiness.mjs
-          npx eslint \
-            scripts/measure-cls-attribution.mjs \
-            scripts/lib/http-readiness.mjs \
-            tests/http-readiness.test.ts \
-            tests/measure-cls-attribution-contract.test.ts \
-            tests/test-runner-safety.test.ts
-          npx vitest run \
-            tests/http-readiness.test.ts \
-            tests/measure-cls-attribution-contract.test.ts \
-            tests/test-runner-safety.test.ts
+
+          mapfile -t changed_code < <(
+            git diff --cached --name-only --diff-filter=ACM |
+              grep -E '\.(?:[cm]?[jt]s|[jt]sx)$' || true
+          )
+          if [[ ${#changed_code[@]} -gt 0 ]]; then
+            npx eslint "${changed_code[@]}"
+          fi
+
+          mapfile -t changed_tests < <(
+            git diff --cached --name-only --diff-filter=ACM |
+              grep -E '^tests/.*\.(?:test|spec)\.[jt]sx?$' || true
+          )
+          if [[ ${#changed_tests[@]} -eq 0 ]]; then
+            echo "No changed tests were selected." >&2
+            exit 1
+          fi
+          npx vitest run "${changed_tests[@]}"
+
           npm run docs:check-index
           npm run docs:check-inventory
           npm run docs:check-scripts
@@ -484,9 +594,11 @@ jobs:
             echo "VERIFIED_BLOB $file $sha"
           }
 
-          create_blob scripts/measure-cls-attribution.mjs
-          create_blob scripts/lib/http-readiness.mjs
-          create_blob tests/http-readiness.test.ts
-          create_blob tests/measure-cls-attribution-contract.test.ts
-          create_blob tests/test-runner-safety.test.ts
-          create_blob docs/scripts-index.md
+          mapfile -t changed_files < <(git diff --cached --name-only --diff-filter=ACM)
+          if [[ ${#changed_files[@]} -eq 0 ]]; then
+            echo "No verified files were staged." >&2
+            exit 1
+          fi
+          for file in "${changed_files[@]}"; do
+            create_blob "$file"
+          done
