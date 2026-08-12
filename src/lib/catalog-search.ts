@@ -25,10 +25,12 @@ export function compactSearchText(value: string) {
 }
 
 function typoDistanceLimit(term: string) {
-  if (term.length >= 8) return 2;
+  // One edit recovers common clinical typos without allowing exact long drug
+  // names to cross-match distinct catalogue entries (for example fluoxetine
+  // and duloxetine, or prednisone and prednisolone).
+  if (term.length >= 5) return 1;
   // Four-character clinical abbreviations (SSRI/SNRI, ADHD/ODD, etc.) are
   // often one edit apart; require five characters before allowing a typo.
-  if (term.length >= 5) return 1;
   return 0;
 }
 
