@@ -417,7 +417,6 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
   const [familyMode, setFamilyMode] = useState(false);
   const [browseGrouping, setBrowseGrouping] = useState<BrowseGrouping>("urgency");
   const [presentationPriority, setPresentationPriority] = useState<PresentationPriority>("all");
-  const [pendingScrollSlug, setPendingScrollSlug] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [filterOpen, setFilterOpen] = useState(false);
   const filterPanelId = useId();
@@ -465,22 +464,16 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
       : model.chapters;
 
   function scrollToSlug(slug: string) {
+    setFocusedSlug(slug);
     setFamilyMode(false);
     setPresentationPriority("all");
-    setPendingScrollSlug(slug);
+    window.requestAnimationFrame(() => {
+      const node = document.getElementById(`differential-stream-card-${slug}`);
+      if (!node) return;
+      const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      node.scrollIntoView({ behavior, block: "center" });
+    });
   }
-
-  useEffect(() => {
-    if (!pendingScrollSlug) return;
-    if (!visibleItems.some((item) => item.slug === pendingScrollSlug)) return;
-
-    const node = document.getElementById(`differential-stream-card-${pendingScrollSlug}`);
-    if (!node) return;
-    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-    node.scrollIntoView({ behavior, block: "center" });
-    setFocusedSlug(pendingScrollSlug);
-    setPendingScrollSlug(null);
-  }, [pendingScrollSlug, visibleItems]);
 
   useEffect(() => {
     const target = initialFocus.trim().toLowerCase();
