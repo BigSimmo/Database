@@ -6,10 +6,10 @@ import { useState } from "react";
 
 import {
   DiagnosisChips,
+  SpecifierBreadcrumbs,
   SpecifierFamilyBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierToolHeader,
   SpecifierWordingPathway,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
@@ -22,7 +22,18 @@ export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
 
   return (
     <SpecifierPageShell>
-      <SpecifierToolHeader icon={Waypoints} title="Specifier map" />
+      <SpecifierBreadcrumbs current="Map" />
+
+      <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
+        <p className={eyebrowText}>Diagnostic architecture</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
+          Specifier map
+        </h1>
+        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+          Browse by the job each specifier performs. The sequence keeps diagnostic wording clear without implying that
+          every diagnosis uses every category.
+        </p>
+      </header>
 
       <SpecifierWordingPathway />
 

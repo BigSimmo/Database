@@ -1,4 +1,4 @@
-import { appModeHomeHref, appModeSelectionHref, type AppModeId } from "@/lib/app-modes";
+import { appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 
 export type ModeSecondaryNavigationEntry = {
   id: string;
@@ -34,23 +34,23 @@ export const modeSecondaryNavigationRegistry = {
   forms: [],
   favourites: [],
   differentials: [
-    { id: "search", label: "Search", href: appModeSelectionHref("differentials", { focus: true }) },
+    { id: "search", label: "Search", href: appModeHomeHref("differentials", { focus: true }) },
     { id: "diagnoses", label: "Diagnoses", href: "/differentials/diagnoses" },
     { id: "presentations", label: "Presentations", href: "/differentials/presentations" },
     { id: "compare", label: "Compare", href: "/differentials/compare" },
   ],
   dsm: [
-    { id: "search", label: "Search", href: appModeSelectionHref("dsm", { focus: true }) },
+    { id: "search", label: "Search", href: appModeHomeHref("dsm", { focus: true }) },
     { id: "compare", label: "Compare", href: "/dsm/compare" },
   ],
   specifiers: [
-    { id: "search", label: "Find", href: appModeSelectionHref("specifiers", { focus: true }) },
+    { id: "search", label: "Find", href: appModeHomeHref("specifiers", { focus: true }) },
     { id: "builder", label: "Build", href: "/specifiers/builder" },
     { id: "compare", label: "Compare", href: "/specifiers/compare" },
     { id: "map", label: "Map", href: "/specifiers/map" },
   ],
   formulation: [
-    { id: "search", label: "Find", href: appModeSelectionHref("formulation", { focus: true }) },
+    { id: "search", label: "Find", href: appModeHomeHref("formulation", { focus: true }) },
     { id: "builder", label: "Build", href: "/formulation/builder" },
     { id: "compare", label: "Compare", href: "/formulation/compare" },
     { id: "map", label: "Map", href: "/formulation/map" },
@@ -252,9 +252,10 @@ export function modeSecondaryNavigationHref(params: {
 
   if (modeId === "differentials") {
     const entries: Array<readonly [string, string]> = query ? [["q", query]] : [];
-    // Search now returns to the shared universal composer. Keep a prior query as
-    // an editable draft, but deliberately drop `run=1`: that flag would submit
-    // immediately and the legacy redirect would send the user back here.
+    // Returning to Search with a carried query must reopen the results view
+    // (`run=1`), not the empty mode home — even when the previous tab lacked run.
+    if (itemId === "search" && query) entries.push(["run", "1"]);
+    else if (itemId === "search" && currentSearchParams.get("run") === "1") entries.push(["run", "1"]);
     // Compare (and other in-mode tabs) reuse URL-backed selection so ticks on
     // search survive ModeNav handoff without a second client store.
     if (currentSearchParams.get("ids")) {
@@ -266,7 +267,7 @@ export function modeSecondaryNavigationHref(params: {
   if (modeId === "dsm") {
     if (itemId === "search" && query) {
       return navigationHrefWithParams(
-        appModeSelectionHref("dsm", { query, focus: true }),
+        appModeHomeHref("dsm", { query, focus: true, run: currentSearchParams.get("run") === "1" }),
         currentSearchParams.get("ids") ? [["ids", currentSearchParams.get("ids") ?? ""]] : [],
       );
     }

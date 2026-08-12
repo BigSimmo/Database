@@ -288,7 +288,6 @@ test.describe("universal search typeahead", () => {
 
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
   });
-
   test("keeps compact cross-mode matches visible after submission", async ({ page }) => {
     await mockUniversalSearch(page);
     const universalRequest = page.waitForRequest(/\/api\/search\/universal(?:\?.*)?$/);

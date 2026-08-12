@@ -250,7 +250,7 @@ function ActionLink({ href, children }: { href: string; children: ReactNode }) {
     <Link
       href={href}
       className={cn(
-        "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--command-hover)]",
+        "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]",
         focusRing,
       )}
     >
@@ -308,7 +308,7 @@ function MockupHeader({ variant, children }: { variant: FavouritesPageMockupVari
 
 function SearchControl({ placeholder = "Search favourites, sets, source notes" }: { placeholder?: string }) {
   return (
-    <form className="grid min-h-[3.25rem] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--e1)]">
+    <form className="grid min-h-[3.25rem] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--shadow-tight)]">
       <Search className="ml-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden="true" />
       <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text-soft)]">{placeholder}</span>
       <button

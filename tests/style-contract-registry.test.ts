@@ -125,7 +125,8 @@ describe("parseUnlayeredVisualClasses", () => {
     const css = `.one,\n.two {\n  background: red;\n}\n`;
 
     // The earlier line carries a class the opening line does not. Keying on the
-    // opening line alone would leave `.one` unpoliced.
+    // opening line alone left those unpoliced — `.medication-also-matches` in
+    // globals.css was a real instance.
     expect(parseUnlayeredVisualClasses(css)).toEqual([
       { className: "one", lines: [1], media: [], unmediated: true },
       { className: "two", lines: [2], media: [], unmediated: true },

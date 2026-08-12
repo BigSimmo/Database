@@ -31,10 +31,9 @@ arbitrary-value form — never hardcoded colours:
   `--info-solid`. For a filled non-danger status use `-bg` + `-text`.
 - Elevation: the `--e0` … `--e4` ladder — `shadow-[var(--e2)]`, `hover:shadow-[var(--e3)]`.
   `--e0` flush · `--e1` resting hairline · `--e2` cards/popovers · `--e3` hover/lifted chrome ·
-  `--e4` modals/sheets/drawers. The surviving role names are aliases onto tiers:
-  `--shadow-card`/`--shadow-soft`→`--e2`, `--shadow-hover`→`--e3`,
-  `--shadow-elevated`/`--shadow-lux`→`--e4`. `--shadow-tight` is retired — reach for `--e1`.
-  `--shadow-inset` stays bespoke.
+  `--e4` modals/sheets/drawers. The role names are aliases onto tiers:
+  `--shadow-tight`→`--e1`, `--shadow-card`/`--shadow-soft`→`--e2`, `--shadow-hover`→`--e3`,
+  `--shadow-elevated`/`--shadow-lux`→`--e4`. `--shadow-inset` stays bespoke.
   Never hand-roll a `shadow-[0_…]` literal.
 - Focus ring: `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]`.
   Outline only — never add a companion `focus:ring-*` / `box-shadow`. The shared base rule is one
