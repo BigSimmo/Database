@@ -23,6 +23,17 @@ test.describe("unlayered style rules render their effect", () => {
 
   for (const contract of STYLE_EFFECT_CONTRACTS) {
     test(contract.description, async ({ page }) => {
+      if (contract.bootstrap?.sessionStorage?.length) {
+        await page.addInitScript(
+          ({ sessionStorage }) => {
+            for (const item of sessionStorage ?? []) {
+              window.sessionStorage.setItem(item.key, JSON.stringify(item.value));
+            }
+          },
+          { sessionStorage: contract.bootstrap?.sessionStorage },
+        );
+      }
+
       await page.goto(contract.route, { waitUntil: "domcontentloaded" });
 
       const target = page.locator(contract.selector).first();
