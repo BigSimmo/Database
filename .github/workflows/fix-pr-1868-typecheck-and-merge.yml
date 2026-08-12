@@ -1,0 +1,143 @@
+name: Finish PR 1868 typecheck and main merge
+
+on:
+  push:
+    branches:
+      - codex/windows-test-portability
+    paths:
+      - .github/workflows/fix-pr-1868-typecheck-and-merge.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finish-pr-1868-typecheck-and-merge
+  cancel-in-progress: false
+
+jobs:
+  finish:
+    if: github.repository == 'BigSimmo/Database'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout guarded PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: codex/windows-test-portability
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Patch type and merge reviewed main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "e0c614a9ab9ec529e13793a16a3bf4529f11f3fa"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "c0dec59b21f75a313eb48048d05332415f2ee793"
+
+          set +e
+          git merge --no-ff --no-commit origin/main
+          merge_status=$?
+          set -e
+
+          mapfile -t conflicts < <(git diff --name-only --diff-filter=U | sort)
+          for conflict in "${conflicts[@]}"; do
+            if [[ "$conflict" != "docs/branch-review-ledger.md" ]]; then
+              echo "Unexpected merge conflict: $conflict" >&2
+              exit 1
+            fi
+          done
+          if [[ $merge_status -ne 0 && ${#conflicts[@]} -eq 0 ]]; then
+            echo "Merge failed without an inspectable conflict set." >&2
+            exit 1
+          fi
+
+          if printf '%s\n' "${conflicts[@]}" | grep -Fxq docs/branch-review-ledger.md; then
+            git show :2:docs/branch-review-ledger.md > /tmp/ledger-branch.md
+            git show :3:docs/branch-review-ledger.md > /tmp/ledger-main.md
+            python <<'PY'
+          from pathlib import Path
+
+          branch = Path('/tmp/ledger-branch.md').read_text(encoding='utf-8').splitlines()
+          main = Path('/tmp/ledger-main.md').read_text(encoding='utf-8').splitlines()
+          marker = '| PR #1868 / codex/windows-test-portability |'
+          rows = [line for line in branch if marker in line]
+          if len(rows) != 1:
+              raise SystemExit(f'Expected one PR #1868 ledger row on the branch, found {len(rows)}')
+          existing = [line for line in main if marker in line]
+          if existing and existing != rows:
+              raise SystemExit('Current main contains a conflicting PR #1868 ledger row')
+          merged = main if existing else main + rows
+          Path('docs/branch-review-ledger.md').write_text('\n'.join(merged) + '\n', encoding='utf-8')
+          PY
+            git add docs/branch-review-ledger.md
+          fi
+
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/http-readiness.test.ts')
+          text = path.read_text(encoding='utf-8')
+          old = 'isReady: ({ statusCode, body }) => statusCode === 200 && body === "ready",'
+          new = '''isReady: ({ statusCode, body }: { statusCode?: number; body: string }) =>
+                    statusCode === 200 && body === "ready",'''
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected one untyped readiness callback, found {count}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+          test -z "$(git diff --name-only --diff-filter=U)"
+          grep -Fq '| PR #1868 / codex/windows-test-portability |' docs/branch-review-ledger.md
+
+      - name: Install locked dependencies
+        run: npm ci --include=dev --prefer-offline --no-audit --no-fund
+
+      - name: Format repaired test
+        run: npx prettier --write tests/http-readiness.test.ts
+
+      - name: Verify merged final tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/measure-cls-attribution.mjs
+          node --check scripts/lib/http-readiness.mjs
+          npx eslint \
+            scripts/measure-cls-attribution.mjs \
+            scripts/lib/http-readiness.mjs \
+            tests/http-readiness.test.ts \
+            tests/issues-report.test.ts \
+            tests/measure-cls-attribution-contract.test.ts \
+            tests/test-runner-safety.test.ts
+          npm run typecheck:source:internal
+          npx vitest run \
+            tests/http-readiness.test.ts \
+            tests/issues-report.test.ts \
+            tests/measure-cls-attribution-contract.test.ts \
+            tests/test-runner-safety.test.ts
+          npm run docs:check-index
+          npm run docs:check-inventory
+          npm run docs:check-scripts
+          npm run check:branch-review-ledger
+          git diff --check
+
+      - name: Remove helpers, commit, and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm \
+            .github/workflows/merge-main-pr-1868-final.yml \
+            .github/workflows/fix-pr-1868-typecheck-and-merge.yml
+          git add --all
+          test -z "$(git diff --name-only --diff-filter=U)"
+          git diff --cached --check
+          git commit -m "Merge latest main and finish PR 1868 review fixes"
+          git push origin HEAD:codex/windows-test-portability
