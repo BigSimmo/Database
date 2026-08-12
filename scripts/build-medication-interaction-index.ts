@@ -117,12 +117,16 @@ function main(): void {
 
   const drugSurfaces = records
     .flatMap((record) => {
-      const parts = record.name.split("/").map((part) => part.trim()).filter((part) => part.length >= 4);
+      // Keep three-character catalogue names/acronyms: `mentions` already
+      // enforces alphanumeric boundaries, so dropping them here only creates
+      // avoidable false negatives. Two-character route/form tokens remain below
+      // the floor to avoid indexing abbreviations such as IR/IM/IV as drugs.
+      const parts = record.name.split("/").map((part) => part.trim()).filter((part) => part.length >= 3);
       const surfaces = new Set(parts);
       for (const part of parts) surfaces.add(stripDosageForm(part));
       surfaces.add(stripDosageForm(record.name));
       return Array.from(surfaces)
-        .filter((surface) => surface.length >= 4)
+        .filter((surface) => surface.length >= 3)
         .map((surface) => ({ surface, slug: record.slug, name: record.name }));
     })
     .sort((a, b) => b.surface.length - a.surface.length);
