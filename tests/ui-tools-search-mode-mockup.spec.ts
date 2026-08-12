@@ -75,6 +75,22 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  test("matches the exact displayed tool title after normalising punctuation", async ({ page }) => {
+    const mockup = await gotoMockup(page, 1440);
+    await page.locator('[data-testid="global-search-input"]:visible').fill("Risk & Safety");
+
+    await expect(mockup.getByText("1 tool", { exact: true })).toBeVisible();
+    await expect(mockup.getByRole("heading", { level: 2, name: "Risk & Safety" }).first()).toBeVisible();
+  });
+
+  test("renders every result included in the reported count", async ({ page }) => {
+    const mockup = await gotoMockup(page, 1440);
+    await page.locator('[data-testid="global-search-input"]:visible').fill("");
+
+    await expect(mockup.getByText("12 tools", { exact: true })).toBeVisible();
+    await expect(mockup.locator('section[aria-label="Tool results"] article')).toHaveCount(12);
+  });
+
   test("phone keeps results visible until Details opens the preferred bottom sheet", async ({ page }) => {
     const mockup = await gotoMockup(page, 390, 844);
 
@@ -100,6 +116,21 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await sheet.getByRole("button", { name: "Close Differentials" }).click();
     await expect(details).toBeFocused();
     await expectNoHorizontalOverflow(page);
+  });
+
+  test("closes the phone detail sheet when the viewport enters desktop layout", async ({ page }) => {
+    const mockup = await gotoMockup(page, 390, 844);
+    const sheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
+
+    await mockup.getByRole("button", { name: "View details for Differentials" }).click();
+    await expect(sheet).toBeVisible();
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(sheet).toHaveCount(0);
+    await expect(mockup.locator("aside")).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(sheet).toHaveCount(0);
   });
 
   test("phone filter sheet follows the shared local-filter behavior", async ({ page }) => {
