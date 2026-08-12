@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ServiceDetailPage } from "@/components/services/service-detail-page";
@@ -73,7 +73,7 @@ describe("ServiceDetailPage content cleanup", () => {
       />,
     );
 
-    expect(screen.queryByLabelText("Service quick facts")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Priority facts")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Referral information" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Referral criteria" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Tags & catchments" })).not.toBeInTheDocument();
@@ -96,7 +96,9 @@ describe("ServiceDetailPage content cleanup", () => {
     expect(screen.queryByText(longUrl)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("service-actions-trigger"));
-    expect(screen.getByRole("link", { name: "Open website" })).toHaveAttribute("href", longUrl);
+    expect(
+      within(screen.getByTestId("service-actions-sheet")).getByRole("link", { name: "Open website" }),
+    ).toHaveAttribute("href", longUrl);
   });
 
   it("offers the source instead of a fake contact action when no contact is available", () => {
@@ -115,6 +117,39 @@ describe("ServiceDetailPage content cleanup", () => {
     expect(screen.getByRole("link", { name: "Open source" })).toHaveAttribute("href", sourceUrl);
     expect(screen.queryByRole("button", { name: "Copy contact" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Call" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a distinct verification source available alongside the primary contact", () => {
+    const sourceUrl = "https://example.com/current-service-details";
+    render(
+      <ServiceDetailPage
+        service={baseService({
+          source: { label: "Public source", status: "Source checked", url: sourceUrl },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("service-actions-trigger"));
+    const actions = within(screen.getByTestId("service-actions-sheet"));
+    expect(actions.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:139276");
+    expect(actions.getByRole("link", { name: "Open source" })).toHaveAttribute("href", sourceUrl);
+    expect(screen.getByRole("link", { name: "View service source" })).toHaveAttribute("href", sourceUrl);
+  });
+
+  it("does not expose a non-HTTP website contact as an actionable link", () => {
+    const sourceUrl = "https://example.com/current-service-details";
+    render(
+      <ServiceDetailPage
+        service={baseService({
+          primaryContact: { label: "Website", value: "javascript:alert(1)", kind: "web" },
+          contacts: [{ label: "Website", value: "javascript:alert(1)", kind: "web" }],
+          source: { label: "Public source", status: "Source checked", url: sourceUrl },
+        })}
+      />,
+    );
+
+    expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
+    expect(screen.getByRole("link", { name: "Confirm at source" })).toHaveAttribute("href", sourceUrl);
   });
 
   it("falls back to route when referral is a blank string", () => {
@@ -147,9 +182,38 @@ describe("ServiceDetailPage content cleanup", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Service quick facts")).toBeInTheDocument();
+    expect(screen.getByLabelText("Priority facts")).toBeInTheDocument();
     expect(screen.queryByText(/\|/)).not.toBeInTheDocument();
     expect(screen.getAllByText("Self-referral accepted by phone").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Free/confidential").length).toBeGreaterThan(0);
+  });
+
+  it("keeps referral details compact and exposes no copy controls", () => {
+    render(<ServiceDetailPage service={baseService()} />);
+
+    expect(screen.getByRole("heading", { name: "Priority facts" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Call 13 92 76" })).toHaveAttribute("href", "tel:139276");
+    expect(screen.queryByRole("button", { name: /copy/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("service-actions-trigger"));
+    expect(screen.queryByRole("button", { name: "Copy contact" })).not.toBeInTheDocument();
+  });
+
+  it("shows repeated priority-card supporting text only once", () => {
+    render(
+      <ServiceDetailPage
+        service={baseService({
+          summaryCards: [
+            { id: "best-use", label: "Best use", title: "Crisis support", detail: "Shared audience" },
+            { id: "eligibility", label: "Eligibility", title: "Eligible callers", detail: "Shared audience" },
+            { id: "route", label: "Route", title: "Self phone referral", detail: "Unique route note" },
+          ],
+        })}
+      />,
+    );
+
+    const facts = within(screen.getByLabelText("Priority facts"));
+    expect(facts.getAllByText("Shared audience")).toHaveLength(1);
+    expect(facts.getByText("Unique route note")).toBeInTheDocument();
   });
 });
