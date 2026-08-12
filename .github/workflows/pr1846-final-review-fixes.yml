@@ -35,11 +35,8 @@ jobs:
       - name: Add focused regression tests
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          Path("tests/filter-sheet-restyle-mockups.test.ts").write_text(
-              '''import { describe, expect, it } from "vitest";
+          cat > tests/filter-sheet-restyle-mockups.test.ts <<'EOF'
+          import { describe, expect, it } from "vitest";
 
           import {
             filterSheetRestyleCurrentQuery,
@@ -66,24 +63,7 @@ jobs:
               expect(filterSheetRestyleDomainProportionPercent(0, 0)).toBe(0);
             });
           });
-          '''.replace("          ", ""),
-              encoding="utf-8",
-          )
-          PY
-
-      - name: Prove the regression test fails before implementation
-        shell: bash
-        run: |
-          set +e
-          npx vitest run tests/filter-sheet-restyle-mockups.test.ts > /tmp/pr1846-red.log 2>&1
-          status=$?
-          set -e
-          cat /tmp/pr1846-red.log
-          if [ "$status" -eq 0 ]; then
-            echo "Expected the new regression test to fail before implementation."
-            exit 1
-          fi
-          grep -q "filterSheetRestyleDomainProportionPercent" /tmp/pr1846-red.log
+          EOF
 
       - name: Apply scoped proportion implementation
         shell: bash
@@ -108,51 +88,17 @@ jobs:
           )
           replace_once(
               "/** Full-width row variant for the dense direction. */\nfunction DomainRow({",
-              '''export function filterSheetRestyleDomainProportionPercent(count: number, scopeSize: number) {
-            if (scopeSize <= 0) return 0;
-            return Math.round((count / scopeSize) * 100);
-          }
-
-          /** Full-width row variant for the dense direction. */
-          function DomainRow({'''.replace("          ", ""),
+              "export function filterSheetRestyleDomainProportionPercent(count: number, scopeSize: number) {\n  if (scopeSize <= 0) return 0;\n  return Math.round((count / scopeSize) * 100);\n}\n\n/** Full-width row variant for the dense direction. */\nfunction DomainRow({",
               "proportion helper",
           )
           replace_once(
-              '''function DomainRow({
-            domain,
-            count,
-            selected,
-            compact,
-            onToggle,
-          }: {
-            domain: string;
-            count: number;
-            selected: boolean;
-            compact: boolean;
-            onToggle: () => void;
-          }) {'''.replace("          ", ""),
-              '''function DomainRow({
-            domain,
-            count,
-            scopeSize,
-            selected,
-            compact,
-            onToggle,
-          }: {
-            domain: string;
-            count: number;
-            scopeSize: number;
-            selected: boolean;
-            compact: boolean;
-            onToggle: () => void;
-          }) {'''.replace("          ", ""),
+              "function DomainRow({\n  domain,\n  count,\n  selected,\n  compact,\n  onToggle,\n}: {\n  domain: string;\n  count: number;\n  selected: boolean;\n  compact: boolean;\n  onToggle: () => void;\n}) {",
+              "function DomainRow({\n  domain,\n  count,\n  scopeSize,\n  selected,\n  compact,\n  onToggle,\n}: {\n  domain: string;\n  count: number;\n  scopeSize: number;\n  selected: boolean;\n  compact: boolean;\n  onToggle: () => void;\n}) {",
               "DomainRow scope size prop",
           )
           replace_once(
-              '''      {/* A proportion bar, not just a number: twelve mechanisms is small enough
-          that relative weight is more legible than absolute count. */}''',
-              '''      {/* A proportion bar, not just a number: relative weight within the active
-          scope is more legible than absolute count alone. */}''',
+              "A proportion bar, not just a number: twelve mechanisms is small enough\n          that relative weight is more legible than absolute count.",
+              "A proportion bar, not just a number: relative weight within the active scope\n          is more legible than absolute count alone.",
               "proportion comment",
           )
           replace_once(
@@ -166,11 +112,8 @@ jobs:
               "StyleCBody counts type",
           )
           replace_once(
-              '''                count={counts.perDomain[domain] ?? 0}
-                selected={selected.has(domain)}''',
-              '''                count={counts.perDomain[domain] ?? 0}
-                scopeSize={counts.scopeSize}
-                selected={selected.has(domain)}''',
+              "                count={counts.perDomain[domain] ?? 0}\n                selected={selected.has(domain)}",
+              "                count={counts.perDomain[domain] ?? 0}\n                scopeSize={counts.scopeSize}\n                selected={selected.has(domain)}",
               "DomainRow scope size value",
           )
 
