@@ -1808,10 +1808,6 @@ summary::-webkit-details-marker {
     padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
   }
 
-  .medication-mobile-results {
-    gap: 0.5rem;
-  }
-
   .medication-mobile-result {
     padding-block: 0.75rem;
     padding-left: max(1rem, var(--safe-area-left));

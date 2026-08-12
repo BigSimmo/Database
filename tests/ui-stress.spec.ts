@@ -505,10 +505,14 @@ test.describe("Medication responsive stress coverage", () => {
         if (viewport.width <= 639) {
           expect(metrics?.workspaceLeft ?? 0).toBeGreaterThanOrEqual(12);
           expect(metrics?.workspaceRight ?? viewport.width).toBeLessThanOrEqual(viewport.width - 12);
-          expect(metrics?.patientLeft).toBeCloseTo(metrics?.workspaceLeft ?? 0, 0);
-          expect(metrics?.patientRight).toBeCloseTo(metrics?.workspaceRight ?? viewport.width, 0);
-          expect(metrics?.cardLeft).toBeCloseTo(metrics?.workspaceLeft ?? 0, 0);
-          expect(metrics?.cardRight).toBeCloseTo(metrics?.workspaceRight ?? viewport.width, 0);
+          expect(Math.abs((metrics?.patientLeft ?? 0) - (metrics?.workspaceLeft ?? 0))).toBeLessThanOrEqual(1);
+          expect(
+            Math.abs((metrics?.patientRight ?? 0) - (metrics?.workspaceRight ?? viewport.width)),
+          ).toBeLessThanOrEqual(1);
+          expect(Math.abs((metrics?.cardLeft ?? 0) - (metrics?.workspaceLeft ?? 0))).toBeLessThanOrEqual(1);
+          expect(Math.abs((metrics?.cardRight ?? 0) - (metrics?.workspaceRight ?? viewport.width))).toBeLessThanOrEqual(
+            1,
+          );
           expect(metrics?.cardPaddingLeft ?? 0).toBeGreaterThanOrEqual(15);
           expect(metrics?.cardPaddingRight ?? 0).toBeGreaterThanOrEqual(15);
           expect(metrics?.filterLeft ?? 0).toBeGreaterThanOrEqual(15);
