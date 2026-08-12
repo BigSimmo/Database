@@ -345,11 +345,13 @@
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/ui.tsx"
       ],
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/ui.tsx"
       ],
       "designSync": {
