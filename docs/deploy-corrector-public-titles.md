@@ -227,6 +227,6 @@ manifest and report clean. A clean result does not replace the migration-history
 ## Related
 
 - `docs/supabase-migration-reconciliation.md` — migration drift/repair policy
-- `docs/operator-apply-july8-batch.md` — example operator apply runbook
+- `docs/archive/operator-apply-july8-batch.md` — example operator apply runbook
 - `docs/database-drift-detection.md` — how `check:drift` / the manifest work
-- `docs/tenancy-defense-in-depth-review.md` — the owner-scoping model this fix aligns with
+- `docs/audit/tenancy-defense-in-depth-review.md` — the owner-scoping model this fix aligns with

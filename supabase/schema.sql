@@ -817,7 +817,7 @@ create index if not exists ingestion_jobs_document_status_idx
 -- more than one open job per document. Migration
 -- 20260708170000_ingestion_jobs_one_open_per_document.sql applies the same
 -- index transactionally via `db push`; operators on a busy queue may use the
--- CONCURRENTLY variant documented in docs/operator-apply-july8-batch.md instead.
+-- CONCURRENTLY variant documented in docs/archive/operator-apply-july8-batch.md instead.
 create unique index if not exists ingestion_jobs_one_open_per_document_uidx
   on public.ingestion_jobs(document_id)
   where status in ('pending', 'processing');

@@ -47,8 +47,8 @@ Priority set:
 
 - `docs/codex-review-protocol.md`
 - `docs/deployment-architecture.md`
-- `docs/capacity-review.md`
-- `docs/scale-readiness-review.md`
+- `docs/audit/capacity-review.md`
+- `docs/audit/scale-readiness-review.md`
 - `docs/operator-apply-performance-latency-remediation.md`
 - `docs/process-hardening.md`
 - `docs/search-chrome-behaviour.md`
