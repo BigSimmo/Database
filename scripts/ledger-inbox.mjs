@@ -322,7 +322,7 @@ function reconcile(argv) {
       current,
       pending.map((entry) => entry.request),
     );
-    const problems = checkIssues(result.markdown);
+    const problems = checkIssues(result.markdown, { prettierIgnored: true });
     if (problems.length > 0) throw new Error(`invalid ${ISSUES_PATH}: ${problems.join("; ")}`);
     return result;
   };
