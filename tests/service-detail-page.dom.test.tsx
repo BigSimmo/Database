@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ServiceDetailPage } from "@/components/services/service-detail-page";
@@ -92,8 +92,43 @@ describe("ServiceDetailPage content cleanup", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "mhc.wa.gov.au" })).toBeInTheDocument();
+    expect(screen.getByText(/Website: mhc\.wa\.gov\.au/)).toBeInTheDocument();
     expect(screen.queryByText(longUrl)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("service-actions-trigger"));
+    expect(screen.getByRole("link", { name: "Open website" })).toHaveAttribute("href", longUrl);
+  });
+
+  it("offers the source instead of a fake contact action when no contact is available", () => {
+    const sourceUrl = "https://example.com/current-service-details";
+    render(
+      <ServiceDetailPage
+        service={baseService({
+          primaryContact: undefined,
+          contacts: [],
+          source: { label: "Public source", status: "Source checked", url: sourceUrl },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("service-actions-trigger"));
+    expect(screen.getByRole("link", { name: "Open source" })).toHaveAttribute("href", sourceUrl);
+    expect(screen.queryByRole("button", { name: "Copy contact" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Call" })).not.toBeInTheDocument();
+  });
+
+  it("falls back to route when referral is a blank string", () => {
+    render(
+      <ServiceDetailPage
+        service={baseService({
+          referral: "   ",
+          route: "Statewide phone triage",
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Statewide phone triage" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Confirm referral route" })).not.toBeInTheDocument();
   });
 
   it("compacts pipe-joined fallback summary and referral text for display", () => {
