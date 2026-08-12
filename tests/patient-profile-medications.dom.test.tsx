@@ -89,6 +89,17 @@ describe("current-medications picker", () => {
     expect(storedProfile().medications).toEqual([]);
     expect((screen.getByTestId("patient-medication-search") as HTMLInputElement).value).toBe("");
   });
+
+  it("never persists more than the medication cap", () => {
+    const seeded = Array.from({ length: PATIENT_PROFILE_MAX_MEDICATIONS }, (_, index) => `drug-${index}`);
+    window.sessionStorage.setItem(PATIENT_PROFILE_STORAGE_KEY, JSON.stringify({ medications: seeded }));
+    renderPanel();
+
+    fireEvent.change(screen.getByTestId("patient-medication-search"), { target: { value: "sertral" } });
+    fireEvent.click(screen.getByTestId("patient-medication-add-sertraline"));
+
+    expect((storedProfile().medications as string[]).length).toBe(PATIENT_PROFILE_MAX_MEDICATIONS);
+  });
 });
 
 describe("medication-list sanitisation", () => {
