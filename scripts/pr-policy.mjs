@@ -70,7 +70,7 @@ const operationalRiskPatterns = [
   /^\.github\/(?:actions|workflows)\//,
   /^(?:package|package-lock)\.json$/,
   /^(?:next|playwright|vitest)(?:\..+)?\.config\.[cm]?[jt]s$/,
-  /^(?:Dockerfile|railway(?:\.[^.]+)?\.json|nixpacks\.toml)$/,
+  /^(?:Dockerfile(?:\.worker)?|railway(?:\.[^.]+)?\.json|nixpacks\.toml)$/,
 ];
 
 // RAG-ranking protected surfaces (docs/rag-behaviour/safeguards.md). Narrower than
@@ -552,7 +552,12 @@ function selfTest() {
     title: "ci: update clinical deployment policy",
     body: completeBody,
     headRef: "codex/clinical-ci-policy",
-    files: [".github/workflows/ci.yml", "src/lib/answer-synthesis.ts", "src/components/search.tsx"],
+    files: [
+      ".github/workflows/ci.yml",
+      "src/lib/answer-synthesis.ts",
+      "src/components/search.tsx",
+      "Dockerfile.worker",
+    ],
   });
   assert.equal(mixedOperationalRisk.ok, true, "mixed-risk signaling is advisory, not a new hard block");
   assert.match(mixedOperationalRisk.warnings.join(" "), /Operational-risk changes are bundled with clinical and UI/);
