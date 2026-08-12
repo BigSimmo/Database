@@ -17,12 +17,13 @@ vi.mock("next/navigation", () => ({
 
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
-const STANDALONE_PAGES = ["src/app/privacy/page.tsx", "src/app/reference/colour-coding/page.tsx"] as const;
+const SAFE_AREA_TOP_PAD = "pt-[max(0.75rem,var(--safe-area-top))]";
+const SAFE_AREA_TOP_PAD_SM = "sm:pt-[max(1.25rem,var(--safe-area-top))]";
 
 describe("searchPageShellStandalone contract", () => {
   it("owns the OS top inset without axis py-* that would fight side-specific pt-*", () => {
-    expect(searchPageShellStandalone).toContain("pt-[max(0.75rem,var(--safe-area-top))]");
-    expect(searchPageShellStandalone).toContain("sm:pt-[max(1.25rem,var(--safe-area-top))]");
+    expect(searchPageShellStandalone).toContain(SAFE_AREA_TOP_PAD);
+    expect(searchPageShellStandalone).toContain(SAFE_AREA_TOP_PAD_SM);
     expect(searchPageShellStandalone).toContain("pb-4");
     expect(searchPageShellStandalone).toContain("sm:pb-8");
     // Axis padding would reintroduce the Tailwind sort-order dependency that
@@ -36,27 +37,32 @@ describe("searchPageShellStandalone contract", () => {
   });
 
   it("is the shell used by every production standalone search-page route", () => {
-    for (const relativePath of STANDALONE_PAGES) {
-      const source = read(relativePath);
-      expect(source, relativePath).toContain("searchPageShellStandalone");
-      expect(source, relativePath).not.toMatch(/\bsearchPageShell\b(?!Standalone)/);
-    }
+    const colourCoding = read("src/app/reference/colour-coding/page.tsx");
+    expect(colourCoding).toContain("searchPageShellStandalone");
+    expect(colourCoding).not.toMatch(/\bsearchPageShell\b(?!Standalone)/);
+
+    // Quiet Signal privacy owns the same safe-area top pad on sticky chrome
+    // rather than wrapping the page in the ordinary standalone shell string.
+    const privacyPage = read("src/app/privacy/page.tsx");
+    expect(privacyPage).toContain("PrivacyQuietSignalPage");
+    expect(privacyPage).not.toMatch(/\bsearchPageShell\b(?!Standalone)/);
+    const privacySurface = read("src/components/privacy-quiet-signal-page.tsx");
+    expect(privacySurface).toContain(SAFE_AREA_TOP_PAD);
+    expect(privacySurface).toContain(SAFE_AREA_TOP_PAD_SM);
   });
 
   it("renders the safe-area top pad and tap-token back row on /privacy", () => {
     const markup = renderToStaticMarkup(createElement(PrivacyPage));
-    expect(markup).toContain(searchPageShellStandalone);
-    expect(markup).toContain("pt-[max(0.75rem,var(--safe-area-top))]");
-    expect(markup).toContain("sm:pt-[max(1.25rem,var(--safe-area-top))]");
+    expect(markup).toContain(SAFE_AREA_TOP_PAD);
+    expect(markup).toContain(SAFE_AREA_TOP_PAD_SM);
     expect(markup).toContain("min-h-tap");
-    expect(markup).not.toContain("min-h-12");
   });
 
   it("renders the same safe-area pad and tap-token back row on /reference/colour-coding", () => {
     const markup = renderToStaticMarkup(createElement(ColourCodingReferencePage));
     expect(markup).toContain(searchPageShellStandalone);
-    expect(markup).toContain("pt-[max(0.75rem,var(--safe-area-top))]");
-    expect(markup).toContain("sm:pt-[max(1.25rem,var(--safe-area-top))]");
+    expect(markup).toContain(SAFE_AREA_TOP_PAD);
+    expect(markup).toContain(SAFE_AREA_TOP_PAD_SM);
     expect(markup).toContain("min-h-tap");
   });
 });

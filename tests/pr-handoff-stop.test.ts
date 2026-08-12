@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -162,26 +162,24 @@ describe("pr-handoff-stop hook", () => {
 
   it("emits handoff context only when the marker file exists", () => {
     const { root, gitDir } = freshRepo();
-    // Make the git dir unwritable so the marker write fails; post must fail
-    // open with no additionalContext (model must not be told tools are denied).
-    chmodSync(gitDir, 0o555);
+    // A directory at the exact marker path makes shell redirection fail for
+    // root and non-root users. Post must fail open with no additionalContext
+    // (the model must not be told tools are denied when no marker file landed).
+    const marker = join(gitDir, "claude-pr-handoff-sess-readonly");
+    mkdirSync(marker);
 
-    try {
-      const out = runHook(
-        "post",
-        {
-          tool_name: "create_pull_request",
-          session_id: "sess-readonly",
-          tool_response: "Opened https://github.com/BigSimmo/Database/pull/1649",
-        },
-        root,
-      );
-      expect(out.status).toBe(0);
-      expect(out.markerExists("sess-readonly")).toBe(false);
-      expect(out.stdout).toBe("");
-    } finally {
-      chmodSync(gitDir, 0o755);
-    }
+    const out = runHook(
+      "post",
+      {
+        tool_name: "create_pull_request",
+        session_id: "sess-readonly",
+        tool_response: "Opened https://github.com/BigSimmo/Database/pull/1649",
+      },
+      root,
+    );
+    expect(out.status).toBe(0);
+    expect(lstatSync(marker).isDirectory()).toBe(true);
+    expect(out.stdout).toBe("");
   });
 
   it("denies quoted compound follow commands when jq is unavailable", () => {

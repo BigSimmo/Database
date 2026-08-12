@@ -4,7 +4,7 @@
 **Branch:** `claude/latency-audit-f1cbcd` (worktree `prompt-skill-improvements-7d5f80`), base 1 commit behind `origin/main` (`ea6d2d954`, mockups-only — no latency surface)
 **Method:** Three read-only reconnaissance sweeps (server request path / client-browser path / database + prior-work), then line-level verification of every load-bearing claim by the primary author. Four planned remediations were **retired during verification** because the evidence did not support them — recorded under "Retired during verification" rather than silently dropped.
 **Scope:** Latency only. Full server request path, client first-paint path, database/RPC surface, and the ingestion/worker path where it bounds a user-visible wait. Excludes correctness, security, and clinical-governance findings except where they _gate_ a latency fix.
-**Guardrail posture:** Obeys (1) the `src/lib/rag/**` FLAG + `RAG impact:` rule and its live-canary requirement for behaviour change; (2) ledger `#017`, which gates client payload work behind measured Web-Vitals evidence; (3) `docs/capacity-review.md:123-125` explicit non-actions; (4) the provider-confirmation boundary — no OpenAI/Supabase/hosted-CI call was made.
+**Guardrail posture:** Obeys (1) the `src/lib/rag/**` FLAG + `RAG impact:` rule and its live-canary requirement for behaviour change; (2) ledger `#017`, which gates client payload work behind measured Web-Vitals evidence; (3) `docs/audit/capacity-review.md:123-125` explicit non-actions; (4) the provider-confirmation boundary — no OpenAI/Supabase/hosted-CI call was made.
 
 ---
 
@@ -124,7 +124,7 @@ measured-and-cleared · **L6** deliberate.
 - **Evidence.** `proxy.ts:125` awaits `supabase.auth.getClaims()` on every matched request — the matcher excludes only static assets, so **every `/api/*` call** is included. Each public API route then independently resolves identity via `getOptionalAuthenticatedUser`, and `auth.ts:161` constructs a **fresh `createServerClient` per request**, with no caching of the resolved user.
 - **Correction to the first-pass finding.** `proxy.ts:102-105` short-circuits when no `sb-` cookie is present, so **anonymous traffic pays nothing here**, and `getClaims()` may be local JWKS verification rather than a network call depending on the project's JWT signing algorithm. The accurate claim is _two independent identity resolutions per authenticated request, at least one of which (`getUser`) always contacts the Auth server_ — not "always two network round trips".
 - **Why no memo was added.** Verified: every route resolves identity **exactly once per HTTP method handler** — the multi-call files have one call per `GET`/`POST`/`PATCH`/`DELETE`, never two per request. The real duplication spans the proxy and the route handler, which are separate invocations holding **different `Request` objects**, so no in-process memo can bridge them. A memo would dedupe nothing.
-- **Capacity relevance.** `docs/capacity-review.md:106-113` names the Auth tier's ~10 absolute DB connections the **first hard failure**. Halving per-request auth resolutions is a capacity lever, not only a latency one — which is why `#099` cross-references `#011`.
+- **Capacity relevance.** `docs/audit/capacity-review.md:106-113` names the Auth tier's ~10 absolute DB connections the **first hard failure**. Halving per-request auth resolutions is a capacity lever, not only a latency one — which is why `#099` cross-references `#011`.
 - **Fix shape (report-only).** Have the proxy forward its already-verified claims to the route handler through a request header it controls, so the route trusts the proxy's resolution instead of repeating it. Requires care: the header must be proxy-set and unspoofable from outside.
 
 ### L1-4 · Anonymous `answer`/`document_upload` consume two sequential rate-limit RPCs
@@ -340,7 +340,7 @@ Recorded so the next audit cannot re-file these.
 | **`#017`**   | L3-1, L3-2, L3-3, L3-6, L3-7, L3-8, L4-1            | Live Lighthouse/Web-Vitals evidence first                      |
 | **operator** | L1-4, L2-3, L2-5, + `#011` connection allocation    | Hosted apply / dashboard change                                |
 
-**Explicit non-actions**, per `docs/capacity-review.md:123-125`: no read replicas, no horizontal app scaling, **no retrieval concurrency semaphore** until soak data shows queueing. Its verdict — _Postgres CPU under hybrid-RPC concurrency is the first soft failure; "answer p95 inflates well before errors appear"_ — is precisely why L1/L2 round-trip reduction has capacity value beyond latency, and why a semaphore remains the wrong lever.
+**Explicit non-actions**, per `docs/audit/capacity-review.md:123-125`: no read replicas, no horizontal app scaling, **no retrieval concurrency semaphore** until soak data shows queueing. Its verdict — _Postgres CPU under hybrid-RPC concurrency is the first soft failure; "answer p95 inflates well before errors appear"_ — is precisely why L1/L2 round-trip reduction has capacity value beyond latency, and why a semaphore remains the wrong lever.
 
 ---
 
