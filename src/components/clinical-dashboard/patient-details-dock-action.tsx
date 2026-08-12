@@ -32,18 +32,40 @@ export function PatientDetailsDockAction() {
 
   useEffect(() => {
     const phoneMediaQuery = window.matchMedia("(max-width: 639px)");
-    const sync = () => {
-      setHost(phoneMediaQuery.matches ? document.getElementById(patientDetailsAddonSlotId) : null);
+    let observer: MutationObserver | null = null;
+
+    const syncHost = () => {
+      setHost(document.getElementById(patientDetailsAddonSlotId));
     };
-    sync();
-    phoneMediaQuery.addEventListener("change", sync);
-    // The dock (and therefore the slot) mounts and unmounts with the composer,
-    // so watch for it rather than assuming it exists on first paint.
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
+
+    const attachObserver = () => {
+      if (observer) return;
+      observer = new MutationObserver(syncHost);
+      observer.observe(document.body, { childList: true, subtree: true });
+    };
+
+    const detachObserver = () => {
+      observer?.disconnect();
+      observer = null;
+    };
+
+    const onMediaChange = () => {
+      if (phoneMediaQuery.matches) {
+        syncHost();
+        attachObserver();
+      } else {
+        setHost(null);
+        detachObserver();
+      }
+    };
+
+    // Initial state
+    onMediaChange();
+    phoneMediaQuery.addEventListener("change", onMediaChange);
+
     return () => {
-      phoneMediaQuery.removeEventListener("change", sync);
-      observer.disconnect();
+      phoneMediaQuery.removeEventListener("change", onMediaChange);
+      detachObserver();
     };
   }, []);
 

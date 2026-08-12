@@ -127,11 +127,11 @@ function MedicationPicker({
   const listId = useId();
 
   // Clearing the profile should empty the search box too.
-  const [syncedNonce, setSyncedNonce] = useState(resetNonce);
-  if (syncedNonce !== resetNonce) {
-    setSyncedNonce(resetNonce);
+  // useEffect defers the reset to after commit so there is no render-phase
+  // setState (which React warns about and can loop in Strict Mode).
+  useEffect(() => {
     setTerm("");
-  }
+  }, [resetNonce]);
 
   const options = catalogueMedicationOptions();
   const selectedSet = new Set(selected);
