@@ -35,6 +35,7 @@ describe("privacy UI", () => {
     expect(markup).toContain("Before you use Clinical KB");
     expect(markup).not.toContain("Quiet");
     expect(markup).not.toContain("Draft");
+    expect(markup).toContain("This is draft product information");
     for (const heading of [
       "What this tool is",
       "What is collected",
