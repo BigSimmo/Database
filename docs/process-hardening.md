@@ -433,7 +433,7 @@ one-open-job index, R5 metadata deep-merge, and `retrieval_owner_matches` fail-c
 in `supabase/migrations/` but **not yet verified on live** as of 2026-07-09. **Do not redeploy the
 ingestion worker from current `main` until `20260708130000` is live** — `worker/main.ts` already
 passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and post-apply probes:
-[`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md) · `npm run check:july8-live-batch`.
+[`docs/archive/operator-apply-july8-batch.md`](archive/operator-apply-july8-batch.md) · `npm run check:july8-live-batch`.
 
 ## PR merge gate: risk-scoped CI + required aggregate (2026-07-10)
 

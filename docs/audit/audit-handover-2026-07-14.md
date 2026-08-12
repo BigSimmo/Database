@@ -103,13 +103,13 @@ evals, service-role tenancy regression class, upstream OCR quality labels drivin
 
 ### M6 — Single-layer tenancy (ARCHITECTURE — P1 regression class)
 
-|                        |                                                                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **What**               | APIs use service role; ownership enforced in app helpers/RPCs, not full second-layer RLS for public-overlay model |
-| **Where**              | `createAdminClient()`, `withOwnerReadScope`, `retrieval_owner_matches`; `docs/tenancy-defense-in-depth-review.md` |
-| **Risk**               | Future route forgetting owner scope → private corpus leak                                                         |
-| **Address**            | Remediation Wave D2 — CI unscoped-query guard + live A/B                                                          |
-| **Status at handover** | Mitigated in current routes; guard not yet coded                                                                  |
+|                        |                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **What**               | APIs use service role; ownership enforced in app helpers/RPCs, not full second-layer RLS for public-overlay model       |
+| **Where**              | `createAdminClient()`, `withOwnerReadScope`, `retrieval_owner_matches`; `docs/audit/tenancy-defense-in-depth-review.md` |
+| **Risk**               | Future route forgetting owner scope → private corpus leak                                                               |
+| **Address**            | Remediation Wave D2 — CI unscoped-query guard + live A/B                                                                |
+| **Status at handover** | Mitigated in current routes; guard not yet coded                                                                        |
 
 ---
 
@@ -242,7 +242,7 @@ Full address sketches: Remediation Wave I in the remediation plan.
 | [`launch-operator-runbook.md`](../launch-operator-runbook.md)                  | Sequenced launch commands        |
 | [`privacy-impact-assessment.md`](../privacy-impact-assessment.md)              | PIA register                     |
 | [`openai-cross-border-basis.md`](../openai-cross-border-basis.md)              | APP 8 checklist                  |
-| [`tenancy-defense-in-depth-review.md`](../tenancy-defense-in-depth-review.md)  | Tenancy defense notes            |
+| [`tenancy-defense-in-depth-review.md`](tenancy-defense-in-depth-review.md)     | Tenancy defense notes            |
 | [`process-hardening.md`](../process-hardening.md)                              | Process & known debts            |
 | [`codex-review-protocol.md`](../codex-review-protocol.md)                      | Review severity / mutation rules |
 | [`branch-review-ledger.md`](../branch-review-ledger.md)                        | Prevent repeat audits            |
