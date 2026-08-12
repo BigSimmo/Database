@@ -31,6 +31,20 @@ const tabSectionTypes: Record<MedicationTabId, ReadonlySet<string>> = {
   more: new Set(["inter", "pearl", "evid", "spec", "comp", "sel", "src"]),
 };
 
+/**
+ * Which tab panel holds a given catalogue section type.
+ *
+ * Derived from the same table the panels render, so a section that moves
+ * between tabs cannot leave a "jump to this section" control pointing at the
+ * tab it used to be in.
+ */
+export function medicationTabForSectionType(sectionType: string): MedicationTabId | null {
+  const entry = (Object.entries(tabSectionTypes) as [MedicationTabId, ReadonlySet<string>][]).find(([, types]) =>
+    types.has(sectionType),
+  );
+  return entry?.[0] ?? null;
+}
+
 export function medicationSectionsByTab(record: MedicationRecord): Record<MedicationTabId, MedicationSection[]> {
   return {
     summary: record.sections.filter((section) => tabSectionTypes.summary.has(section.type)),

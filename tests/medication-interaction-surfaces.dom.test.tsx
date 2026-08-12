@@ -1,11 +1,14 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { medicationTabForSectionType } from "@/components/clinical-dashboard/medication-nav-header";
 import {
   MedicationConsiderations,
+  MedicationInteractionCallout,
+  verdictIcon,
   medicationVerdictRingClass,
   verdictSummaryBadge,
 } from "@/components/clinical-dashboard/medication-considerations";
@@ -87,7 +90,7 @@ describe("result-row verdict presentation", () => {
   };
 
   it("labels a clean verdict as a finding, not a guarantee", () => {
-    expect(verdictSummaryBadge(clean)).toEqual({
+    expect(verdictSummaryBadge(clean)).toMatchObject({
       id: "patient-verdict",
       label: "No interaction found",
       tone: "success",
@@ -132,5 +135,102 @@ describe("result-row verdict presentation", () => {
 
   it("leaves the neutral desktop row to the list divider rather than ringing it", () => {
     expect(medicationVerdictRingClass("neutral")).toBeNull();
+  });
+});
+
+describe("verdict icons", () => {
+  it("gives every tone its own glyph, including the two the shared badge default leaves bare", () => {
+    const icons = (["danger", "warning", "success", "neutral", "clinical", "info"] as const).map((tone) =>
+      verdictIcon(tone),
+    );
+    expect(icons.every(Boolean)).toBe(true);
+    // success and neutral are the ones that matter: "checked, nothing found" and
+    // "could not check" must be distinguishable without reading the border colour.
+    expect(verdictIcon("success")).not.toBe(verdictIcon("neutral"));
+    expect(verdictIcon("success")).not.toBe(verdictIcon("danger"));
+    expect(verdictIcon("neutral")).not.toBe(verdictIcon("warning"));
+  });
+
+  it("attaches an icon to the verdict badge in every branch", () => {
+    const base = {
+      tone: "success" as const,
+      incomplete: false,
+      interactionCount: 0,
+      considerationCount: 0,
+      unresolvedRowCount: 0,
+    };
+    expect(verdictSummaryBadge(base)?.icon).toBe(verdictIcon("success"));
+    expect(verdictSummaryBadge({ ...base, tone: "neutral", incomplete: true })?.icon).toBe(verdictIcon("neutral"));
+    expect(verdictSummaryBadge({ ...base, tone: "danger", interactionCount: 1 })?.icon).toBe(verdictIcon("danger"));
+  });
+});
+
+describe("MedicationInteractionCallout", () => {
+  function renderCallout(slug: string, onPatient = () => {}, onSection = () => {}) {
+    const record = getMedicationRecord(slug) as MedicationRecord;
+    return render(
+      <PatientProfileProvider>
+        <MedicationInteractionCallout
+          record={record}
+          onOpenPatientDetails={onPatient}
+          onOpenInteractionsSection={onSection}
+        />
+      </PatientProfileProvider>,
+    );
+  }
+
+  it("renders nothing when no interaction matched — it is not an empty-state surface", () => {
+    seedProfile({ medications: ["paracetamol"] });
+    renderCallout("acamprosate");
+    expect(screen.queryByTestId("medication-interaction-callout")).not.toBeInTheDocument();
+  });
+
+  it("names each interacting drug and links to its own record", () => {
+    seedProfile({ medications: ["tramadol-ir", "ibuprofen"] });
+    renderCallout("sertraline");
+
+    expect(screen.getByTestId("medication-interaction-callout")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /Tramadol IR/ });
+    expect(link).toHaveAttribute("href", "/medications/tramadol-ir");
+    expect(screen.getByRole("link", { name: /Ibuprofen/ })).toHaveAttribute("href", "/medications/ibuprofen");
+  });
+
+  it("shows the verbatim catalogue wording, not a summary of it", () => {
+    seedProfile({ medications: ["tramadol-ir"] });
+    renderCallout("sertraline");
+    expect(screen.getByText(/Massive risk of Serotonin Syndrome/i)).toBeInTheDocument();
+  });
+
+  it("lists the most severe first and counts the rest rather than hiding them", () => {
+    // Four interacting drugs; the callout shows three and reports the remainder.
+    seedProfile({ medications: ["tramadol-ir", "ibuprofen", "naproxen", "diclofenac"] });
+    renderCallout("sertraline");
+
+    const shown = screen.getAllByTestId(/^medication-callout-(?!open-)/);
+    expect(shown).toHaveLength(3);
+    expect(screen.getByText(/\+1 more/)).toBeInTheDocument();
+  });
+
+  it("opens the Key Interactions section and the patient sheet from the callout", () => {
+    const onPatient = vi.fn();
+    const onSection = vi.fn();
+    seedProfile({ medications: ["tramadol-ir"] });
+    renderCallout("sertraline", onPatient, onSection);
+
+    fireEvent.click(screen.getByTestId("medication-callout-open-section"));
+    expect(onSection).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByTestId("medication-callout-open-patient"));
+    expect(onPatient).toHaveBeenCalledOnce();
+  });
+});
+
+describe("interaction section targeting", () => {
+  it("resolves the tab that actually holds Key Interactions", () => {
+    // Hardcoding "more" would leave the callout's jump pointing at the old tab
+    // the day a section moves.
+    expect(medicationTabForSectionType("inter")).toBe("more");
+    expect(medicationTabForSectionType("dose")).toBe("dosing");
+    expect(medicationTabForSectionType("not-a-section")).toBeNull();
   });
 });
