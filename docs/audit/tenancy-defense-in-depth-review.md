@@ -93,7 +93,7 @@ $$;
 
 Legitimate public/demo paths pass the sentinel, not `NULL`. Verify live with
 `npm run check:july8-live-batch` after applying the July 8 batch
-([operator runbook](operator-apply-july8-batch.md)).
+([operator runbook](../archive/operator-apply-july8-batch.md)).
 
 ---
 
@@ -298,7 +298,7 @@ small, largely-cooperative user set with a public shared corpus.
 
 **Bottom line:** the current single-layer enforcement is correct today (0/33 gaps). Item 1 (fail-closed
 RPC) is live in the repo (#409); **apply to production** per
-[`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md). Item 2 (CI owner-scope guard) is
+[`docs/archive/operator-apply-july8-batch.md`](../archive/operator-apply-july8-batch.md). Item 2 (CI owner-scope guard) is
 now landed and blocks the regression class in CI. Item 3 (live cross-tenant integration test) closes the
 remaining app-layer regression exposure; full RLS (item 4) is justified before multi-tenant scale.
 

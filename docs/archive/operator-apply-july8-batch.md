@@ -91,5 +91,5 @@ active end-to-end.
 
 - Forward-codify live-ahead retrieval RPC bodies (`docs/database-drift-detection.md` backlog #0)
 - deep-memory delete scoping design (`docs/ingestion-concurrency-fix-workorder.md`)
-- Staging soak (`docs/staging-setup.md`, `docs/capacity-review.md`)
+- Staging soak (`docs/staging-setup.md`, `docs/audit/capacity-review.md`)
 - `registry:seed` per owner (`docs/process-hardening.md`)

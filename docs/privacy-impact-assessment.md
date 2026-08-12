@@ -491,5 +491,5 @@ PIA-3 is mitigated by default-null answer logging. If exceptional non-production
 ever enabled, it remains governance-gated. The historical cleanup migration is prepared but unexecuted;
 this assessment does not claim live cleanup or legal approval.
 
-See the companion **[tenancy defense-in-depth review](docs/tenancy-defense-in-depth-review.md)** for the
+See the companion **[tenancy defense-in-depth review](docs/audit/tenancy-defense-in-depth-review.md)** for the
 cross-tenant isolation analysis referenced above.

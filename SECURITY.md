@@ -51,7 +51,7 @@ not validated clinical decision support (see `README.md` → "Clinical Safety St
 ## Related security documentation
 
 - `docs/rag-injection-threat-model.md` — prompt-injection threat model.
-- `docs/tenancy-defense-in-depth-review.md` — multi-tenant isolation review.
+- `docs/audit/tenancy-defense-in-depth-review.md` — multi-tenant isolation review.
 - `docs/privacy-impact-assessment.md` — privacy impact assessment and launch blockers.
 - `docs/clinical-hazard-analysis.md` — clinical hazard register.
 - `docs/openai-cross-border-basis.md` — cross-border data-processing basis.

@@ -810,6 +810,15 @@ named PR). Future process only.
   pushes; it fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads still use
   `npm run sync:pr-branches` / `:apply` with a human `gh` identity — never bot
   `update-branch`.
+- When `gh pr checks` cannot read check runs with the current token, query the Actions runs for the
+  exact head SHA instead; do not report CI as unverifiable until that read-only fallback has also
+  failed.
+- Treat outstanding-issue IDs as display locators, not proof that work landed. Verify completion
+  from distinctive content and its recorded check on the exact target ref; PR state, row ID, and row
+  title are insufficient, especially after squash merges or concurrent renumbering. Allocate and
+  mutate rows only through `npm run issues:add|update|done`, never use GitHub's Update branch button
+  on a PR touching `docs/outstanding-issues.md`, and let the structural gate force any allocation
+  collision to be resolved explicitly.
 - Keep Playwright blocking tests at zero retries. Quarantine only after three reproductions
   on the same SHA via `tests/flake-ledger.json` (`@quarantine`, not `@critical`, ≤30-day
   expiry). Do not weaken tap targets to `min-h-11` to chase generic a11y guidance — that
