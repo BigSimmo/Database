@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pr1866-repair-bounded
+  group: pr1866-repair-deepened
   cancel-in-progress: false
 
 jobs:
@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - name: Checkout PR branch tip
+      - name: Checkout PR branch with bounded history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 1
+          fetch-depth: 512
           persist-credentials: true
 
       - name: Setup UI e2e environment
@@ -46,6 +46,12 @@ jobs:
 
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           test "$(git rev-parse "refs/remotes/origin/${BRANCH_NAME}")" = "${GITHUB_SHA}"
+          if ! git merge-base HEAD refs/remotes/origin/main >/dev/null; then
+            echo "Merge base was outside the initial bounded history; deepening both refs."
+            git fetch --no-tags --deepen=2048 origin \
+              "+refs/heads/main:refs/remotes/origin/main" \
+              "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
+          fi
           git merge-base HEAD refs/remotes/origin/main >/dev/null
           MERGED_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
           echo "Merging main ${MERGED_MAIN_SHA} into PR head ${GITHUB_SHA}."
