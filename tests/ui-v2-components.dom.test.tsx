@@ -345,6 +345,44 @@ describe("SegmentedControl", () => {
     expect(screen.getByRole("radio", { name: "Comprehensive" })).toHaveFocus();
   });
 
+  // The one-of-N rails this control replaces across the modes all carry a count.
+  // Baking it into `label` would fold the number into the truncating span, so it
+  // gets its own slot — and it must reach the accessible name, or a screen
+  // reader user loses information a sighted user has.
+  it("renders an option hint and folds it into the accessible name", () => {
+    render(
+      <SegmentedControl
+        label="Result type"
+        value="all"
+        onChange={() => undefined}
+        options={[
+          { value: "all", label: "All", hint: "62" },
+          { value: "presentation", label: "Presentations", hint: "41" },
+        ]}
+        layout="fit"
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "All (62)" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Presentations (41)" })).toBeInTheDocument();
+  });
+
+  // A hintless option must not gain stray whitespace or an empty span — the
+  // existing call sites pass no hint and their names must not drift.
+  it("leaves an option without a hint unchanged", () => {
+    render(
+      <SegmentedControl
+        label="Result type"
+        value="all"
+        onChange={() => undefined}
+        options={[{ value: "all", label: "All" }]}
+        layout="fit"
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "All" })).toBeInTheDocument();
+  });
+
   it("keeps a controlled disabled value checked instead of remapping to the first enabled option", () => {
     render(
       <SegmentedControl
