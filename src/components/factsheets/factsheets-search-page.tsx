@@ -65,39 +65,6 @@ export function FactsheetsSearchPage({
         query={query}
         matchCount={results.length}
         className="mt-4"
-        utilityControls={
-          <div
-            role="group"
-            aria-label="Result view"
-            className="inline-flex min-h-tap overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
-          >
-            {(["list", "cards"] as const).map((mode) => {
-              const isActive = view === mode;
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setView(mode)}
-                  aria-pressed={isActive}
-                  className={cn(
-                    "inline-flex min-h-tap items-center gap-1.5 px-2.5 text-xs font-bold capitalize transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
-                    mode === "cards" && "border-l border-[color:var(--border)]",
-                    isActive
-                      ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-                  )}
-                >
-                  {mode === "list" ? (
-                    <List className="h-3.5 w-3.5" aria-hidden="true" />
-                  ) : (
-                    <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
-                  )}
-                  <span className="max-[389px]:sr-only">{mode}</span>
-                </button>
-              );
-            })}
-          </div>
-        }
         filterLabel="Filter factsheets by category"
         // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"
@@ -137,6 +104,41 @@ export function FactsheetsSearchPage({
           </div>
         }
       />
+
+      <div className="mt-3 flex items-center justify-end gap-2" data-testid="factsheets-view-toolbar">
+        <span className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">View</span>
+        <div
+          role="group"
+          aria-label="Result view"
+          className="inline-flex min-h-tap overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
+        >
+          {(["list", "cards"] as const).map((mode) => {
+            const isActive = view === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setView(mode)}
+                aria-pressed={isActive}
+                className={cn(
+                  "inline-flex min-h-tap items-center gap-1.5 px-2.5 text-xs font-bold capitalize transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
+                  mode === "cards" && "border-l border-[color:var(--border)]",
+                  isActive
+                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                )}
+              >
+                {mode === "list" ? (
+                  <List className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                <span className="max-[389px]:sr-only">{mode}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Phone-only by construction: the trigger that opens it lives in the
           ribbon's `mobileControls` slot, which the band hides from `sm` up.
