@@ -118,10 +118,10 @@ never become unreachable.
 - **`footerNote` counts what the filters actually govern.** Specifiers currently reports
   `results.length + catalogueMatches.length` while the groups narrow only `results` — the sheet
   claims to scope a list it half controls. A mode must not report a total its filters cannot move.
-- **`onClearAll` never touches the query.** Therapy-compass's clear wipes the search box; the
-  shared sheet's does not. Clearing filters and clearing a search are different intentions.
-- **One trigger component.** `ResultFilterTrigger`. Therapy-compass re-implements it with a
-  different icon, a hardcoded test id and a different label-hiding breakpoint.
+- **`onClearAll` never touches the query.** Clearing filters and clearing a search are different
+  intentions. Therapy-compass's phone sheet wiped the search box until its own adoption (see
+  Rollout below) converged it onto the shared sheet's `onClearAll`, which does not.
+- **One trigger component.** `ResultFilterTrigger`. Every adopted mode uses it now — see Rollout.
 - **Tap targets are `min-h-tap` (48px) on phone.** Do not relax to 44px for generic WCAG
   guidance; it reintroduces a known `ui-smoke` flake.
 
@@ -141,6 +141,19 @@ Contract first, then one PR per mode:
 2. **Per mode** — adopt the right kind, derive the option list, add counts, and retire that mode's
    desktop rail so the breakpoints stop disagreeing.
 3. **Services and factsheets** — evict the query-replacing presets to the composer.
-4. **Documents last** — port its needle and collapse up into the shared component as the
+4. **Therapy-compass** — converged its bespoke phone-only `TherapyFilterSheet`/`TherapyFilterTrigger`
+   (`filter-sheet.tsx`, now deleted) onto the shared component, fixing both invariants named above
+   in the same change: the sheet's `onClearAll` no longer wipes the query (the composer's own
+   "Clear search" already covers that, on every breakpoint), and the trigger is now the shared
+   `ResultFilterTrigger`. Three facet groups: Topics (the six curated quick-filter tags, OR within
+   the group — this also fixed `searchTherapies`' tag matching, which had been AND-within-group,
+   the same defect class already fixed for document tags: a second topic narrowed instead of
+   widening, an accumulating-selection dead affordance) and two independent one-option groups,
+   Review status and Handout (`Reviewed only` / `Brief available`), which AND against Topics and
+   against each other — they are not alternatives, so they are not one shared group. See the two
+   predicates `matchesTopics`/`matchesAvailability` in `data/select.ts`, which `searchTherapies` and
+   the sheet's option counts both run through, so the count and the real filter cannot drift apart
+   (section 3).
+5. **Documents last** — port its needle and collapse up into the shared component as the
    `> 20` tier, then converge. It is the largest surface and should move once the contract is
    proven elsewhere.

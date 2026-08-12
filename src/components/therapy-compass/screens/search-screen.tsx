@@ -1,21 +1,31 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  ResultFilterFacetChips,
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterFacetGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import { pageContainer } from "@/components/ui-primitives";
 
 import { useTcBindings } from "../bindings";
-import { TherapyFilterSheet, TherapyFilterTrigger } from "../filter-sheet";
-import { softControl, therapyBtn } from "../controls";
+import { matchesAvailability, matchesTopics } from "../data/select";
+import { therapyBtn } from "../controls";
 import { XIcon } from "../icons";
 import { LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
 
 // Curated quick-filter tags surfaced as chips (all exist in the tag set).
+// None of the six is ever zero across the whole 205-therapy catalogue, so the
+// "derive the option list from the data" rule (docs/filter-contract.md
+// section 3) — aimed at a permanently empty option — does not apply here; a
+// deliberately curated subset of a larger tag vocabulary is a different thing.
 const QUICK_TAGS = ["CBT", "Anxiety", "Mood", "Trauma", "DBT", "Crisis/risk"];
 const MAX_CARDS = 24;
 
@@ -24,20 +34,16 @@ export function SearchScreen() {
   const q = b.search.query;
   const results = b.searchResults;
   const shown = results.slice(0, MAX_CARDS);
-  const availabilityFilterCount = Number(b.search.reviewedOnly) + Number(b.search.briefOnly);
-  // Match the sheet: a non-empty query is an active narrowing control on phone,
-  // where Clear only lives inside the filter sheet (wide keeps a ribbon Clear).
+  const topics = useMemo(() => new Set(b.search.tags), [b.search.tags]);
   // Filters only — the query is deliberately excluded. It counts toward the
-  // sheet's Clear all (see `filter-sheet.tsx`), because `clearSearch` resets it,
-  // but the trigger badge is labelled "N filters active" and a search term is
-  // not a filter. Counting it there makes the control announce a state the page
-  // is not in, which is the exact defect this screen's sheet was built to fix.
-  const activeFilterCount = b.search.tags.length + availabilityFilterCount;
+  // sheet's Clear all (see below), because `clearSearch` resets it, but the
+  // trigger badge is labelled "N filters active" and a search term is not a
+  // filter. Counting it there makes the control announce a state the page is
+  // not in, which is the exact defect this screen's sheet was built to fix.
+  const activeFilterCount = b.search.tags.length + Number(b.search.reviewedOnly) + Number(b.search.briefOnly);
   // Topics and availability both narrow the same list, so both belong on the
   // shelf. The query is deliberately absent: it is stated in the composer and
-  // removing it is not a filter operation. The shelf's trailing Clear therefore
-  // uses `clearSearchFilters`, not `clearSearch` — a row labelled "Filtered by"
-  // must not delete the search term the user is reading.
+  // removing it is not a filter operation.
   const appliedFilters = [
     ...b.search.tags.map((tag) => ({ id: `topic-${tag}`, label: tag, onRemove: () => b.toggleTag(tag) })),
     ...(b.search.reviewedOnly ? [{ id: "reviewed", label: "Reviewed only", onRemove: b.toggleReviewedOnly }] : []),
@@ -45,6 +51,78 @@ export function SearchScreen() {
   ];
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
+
+  // "How many would I have if I ticked this as well" — the same predicate as
+  // the filter, run against the query-only match set with the candidate
+  // added, so a count is never derived by narrowing the already-filtered
+  // subset. See docs/filter-contract.md section 3 and the two shared
+  // predicates in `data/select.ts` that both this and `searchTherapies` run
+  // through, so the count and the filter cannot drift apart.
+  const topicsGroup = useMemo(
+    () =>
+      resultFilterFacetGroup({
+        id: "topics",
+        label: "Topics",
+        selected: topics,
+        options: QUICK_TAGS.map((tag) => {
+          const withCandidate = topics.has(tag) ? topics : new Set([...topics, tag]);
+          const count = b.queryMatches.filter(
+            (t) => matchesTopics(t, withCandidate) && matchesAvailability(t, b.search.reviewedOnly, b.search.briefOnly),
+          ).length;
+          return { value: tag, label: tag, hint: String(count) };
+        }),
+        onToggle: b.toggleTag,
+      }),
+    [topics, b.queryMatches, b.search.reviewedOnly, b.search.briefOnly, b.toggleTag],
+  );
+  // Reviewed-only and brief-available are independent AND constraints, not
+  // alternatives — see `matchesAvailability`. Modelled as two separate
+  // one-option facet groups rather than options inside one group, because a
+  // shared group would OR them together (docs/filter-contract.md section 1),
+  // which `searchTherapies` does not: selecting both narrows to therapies
+  // that are both reviewed and have a brief, not either.
+  const reviewedGroup = useMemo(
+    () =>
+      resultFilterFacetGroup({
+        id: "review-status",
+        label: "Review status",
+        selected: b.search.reviewedOnly ? new Set(["reviewed"]) : new Set<string>(),
+        options: [
+          {
+            value: "reviewed",
+            label: "Reviewed only",
+            hint: String(
+              b.queryMatches.filter((t) => matchesTopics(t, topics) && matchesAvailability(t, true, b.search.briefOnly))
+                .length,
+            ),
+          },
+        ],
+        onToggle: b.toggleReviewedOnly,
+      }),
+    [b.search.reviewedOnly, b.search.briefOnly, b.queryMatches, topics, b.toggleReviewedOnly],
+  );
+  const handoutGroup = useMemo(
+    () =>
+      resultFilterFacetGroup({
+        id: "handout",
+        label: "Handout",
+        selected: b.search.briefOnly ? new Set(["brief"]) : new Set<string>(),
+        options: [
+          {
+            value: "brief",
+            label: "Brief available",
+            hint: String(
+              b.queryMatches.filter(
+                (t) => matchesTopics(t, topics) && matchesAvailability(t, b.search.reviewedOnly, true),
+              ).length,
+            ),
+          },
+        ],
+        onToggle: b.toggleBriefOnly,
+      }),
+    [b.search.briefOnly, b.search.reviewedOnly, b.queryMatches, topics, b.toggleBriefOnly],
+  );
+  const filterGroups = [topicsGroup, reviewedGroup, handoutGroup];
 
   return (
     <section data-screen-label="Search" className={`${pageContainer} space-y-2.5 sm:space-y-3`}>
@@ -62,68 +140,41 @@ export function SearchScreen() {
         // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"
         mobileControls={
-          <TherapyFilterTrigger
+          <ResultFilterTrigger
             panelId={filterPanelId}
+            testId="therapy-filter-trigger-phone"
+            title="Filter therapy results"
             open={filterOpen}
             activeCount={activeFilterCount}
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
         filterControls={
-          <div className="mb-1 flex flex-wrap gap-2.5 sm:mb-2">
-            {QUICK_TAGS.map((tag) => {
-              const on = b.search.tags.includes(tag);
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  className={`${therapyBtn} ${softControl}`}
-                  onClick={() => b.toggleTag(tag)}
-                  aria-pressed={on}
-                >
-                  {tag}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              className={`${therapyBtn} ${softControl}`}
-              onClick={b.toggleReviewedOnly}
-              aria-pressed={b.search.reviewedOnly}
-            >
-              Reviewed only
-            </button>
-            <button
-              type="button"
-              className={`${therapyBtn} ${softControl}`}
-              onClick={b.toggleBriefOnly}
-              aria-pressed={b.search.briefOnly}
-            >
-              Brief available
-            </button>
+          // `ResultFilterFacetChips` carries a `border-t` meant for groups
+          // stacked vertically inside the sheet (`first:border-t-0` zeroes
+          // only the very first one). Side by side here, that put a hairline
+          // above the second and third group only — a floating tick mark, not
+          // a real divider. Neutralised per-child rather than touching the
+          // shared component, which formulation's single-group desktop rail
+          // still needs unmodified.
+          <div className="mb-1 flex flex-wrap items-start gap-x-5 gap-y-1.5 sm:mb-2 [&>section]:border-t-0 [&>section]:pt-0">
+            {filterGroups.map((group) => (
+              <ResultFilterFacetChips key={group.id} group={group} idPrefix={`${filterPanelId}-desktop`} />
+            ))}
             {/* Rendered only when there is something to clear. Rewiring this to
                 `clearSearchFilters` fixed the label/handler mismatch but created
                 a second one: with no topics and neither availability toggle on —
                 the ordinary "typed a query, got results" case — clicking `Clear`
                 produced no observable change at all. A control that advertises an
-                action must perform one; the sheet's `Clear all` is already gated
-                on `clearableCount > 0` for the same reason. */}
+                action must perform one. */}
             {activeFilterCount > 0 ? (
               <button
                 type="button"
                 className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-muted)] text-sm-minus font-medium cursor-pointer`}
-                // `clearSearchFilters`, not `clearSearch`. This control sits at the
-                // end of the quick-filter chip row and is labelled `Clear`, so it
-                // reads as "clear these filters" — but `clearSearch` also wipes the
-                // query, deleting the search the reader is looking at. Same defect
-                // #1611 fixed on the shelf's Clear; the binding it introduced
-                // (`bindings.tsx:441`) is reused rather than duplicated.
-                // The sheet's `Clear all` is deliberately different and stays on
-                // `clearSearch` — it is labelled for what it does.
-                //
-                // Both sides of the v2 merge agreed on `--text-muted`, so this
-                // hunk reduced to the handler alone; `main` still carries the
-                // query-wiping version because #1616 branched before the fix.
+                // `clearSearchFilters`, not `clearSearch`. This control is
+                // labelled `Clear` and sits beside the filter chips, so it
+                // reads as "clear these filters" — `clearSearch` also wipes
+                // the query, deleting the search the reader is looking at.
                 onClick={b.clearSearchFilters}
               >
                 <XIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
@@ -134,20 +185,19 @@ export function SearchScreen() {
         }
       />
 
-      <TherapyFilterSheet
+      <ResultFilterSheet
         open={filterOpen}
-        panelId={filterPanelId}
         onClose={() => setFilterOpen(false)}
-        query={q}
-        topics={QUICK_TAGS}
-        activeTopics={b.search.tags}
-        onToggleTopic={b.toggleTag}
-        reviewedOnly={b.search.reviewedOnly}
-        onToggleReviewed={b.toggleReviewedOnly}
-        briefOnly={b.search.briefOnly}
-        onToggleBrief={b.toggleBriefOnly}
-        onClear={b.clearSearch}
-        resultCount={results.length}
+        panelId={filterPanelId}
+        testId="therapy-filter-panel"
+        title="Filter therapies"
+        groups={filterGroups}
+        // Never `clearSearch` — the shared sheet's Clear all must not touch
+        // the query (docs/filter-contract.md section 6). The composer's own
+        // "Clear search" control (every breakpoint) already covers wiping the
+        // query; this sheet only ever clears what it itself narrows.
+        onClearAll={activeFilterCount > 0 ? b.clearSearchFilters : undefined}
+        footerNote={`${results.length} therap${results.length === 1 ? "y" : "ies"}`}
       />
 
       {/* The band's fault panel owns the failure. Without this guard an error
@@ -158,12 +208,6 @@ export function SearchScreen() {
       ) : (
         <>
           {results.length === 0 ? (
-            // The shared surface, so the filtered-to-zero reader gets the same
-            // route out here as in documents. What it replaces was a single
-            // button labelled `Clear filters` wired to `clearSearch`, which also
-            // deleted the query — the label promised one thing and the handler
-            // did another. `Remove "X"` and `Clear all filters` are now separate
-            // controls, so each label matches its own action.
             <SearchResultsEmptyState
               modeId="therapy-compass"
               query={q}
