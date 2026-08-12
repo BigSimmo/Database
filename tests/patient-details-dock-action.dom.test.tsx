@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PatientDetailsDockAction } from "@/components/clinical-dashboard/patient-details-dock-action";
@@ -12,6 +12,17 @@ function mountSlot(): HTMLElement {
   slot.id = patientDetailsAddonSlotId;
   document.body.append(slot);
   return slot;
+}
+
+function mountDashboardDock(): { dock: HTMLFormElement; slot: HTMLElement } {
+  const dock = document.createElement("form");
+  dock.className = "answer-footer-search-dock dashboard-composer-edge answer-footer-search-edge";
+  dock.dataset.footerAddon = "patient-details";
+  const slot = document.createElement("div");
+  slot.id = patientDetailsAddonSlotId;
+  dock.append(slot);
+  document.body.append(dock);
+  return { dock, slot };
 }
 
 function setPhoneViewport(isPhone: boolean) {
@@ -45,7 +56,10 @@ beforeEach(() => {
 
 afterEach(() => {
   window.sessionStorage.clear();
-  document.getElementById(patientDetailsAddonSlotId)?.remove();
+  const slot = document.getElementById(patientDetailsAddonSlotId);
+  const dock = slot?.closest("form");
+  slot?.remove();
+  dock?.remove();
   vi.unstubAllGlobals();
 });
 
@@ -69,6 +83,19 @@ describe("PatientDetailsDockAction", () => {
     renderAction();
 
     expect(screen.queryByTestId("patient-details-dock-action")).not.toBeInTheDocument();
+  });
+
+  it("applies the patient-details hide overshoot to the dashboard dock", async () => {
+    const { dock } = mountDashboardDock();
+    renderAction();
+
+    dock.dataset.scrollHidden = "true";
+    await waitFor(() =>
+      expect(dock.style.transform).toBe("translateY(calc(100% + 0.5rem + var(--safe-area-bottom)))"),
+    );
+
+    delete dock.dataset.scrollHidden;
+    await waitFor(() => expect(dock.style.transform).toBe(""));
   });
 
   it("is a real button that opens the patient sheet", () => {
