@@ -134,9 +134,20 @@ export function serviceCatalogTags(record: ServiceRecord): CatalogServiceTags {
   };
 }
 
+/**
+ * Legacy or owner-authored records can predate the typed facet contract. With
+ * no facet metadata, a selection cannot establish that the record fails, so
+ * keep it visible rather than silently dropping it from the catalogue.
+ */
+export function serviceHasFacetMetadata(record: ServiceRecord): boolean {
+  const tags = serviceCatalogTags(record);
+  return serviceFacetDimensions.some((dimension) => tags[dimension].length > 0) || tags.substance_flags.length > 0;
+}
+
 /** No constraint means "no facet selection at all" — matches everything. */
 export function matchesServiceFacets(record: ServiceRecord, selection: ServiceFacetSelection): boolean {
   const tags = serviceCatalogTags(record);
+  if (!serviceHasFacetMetadata(record)) return true;
   return serviceFacetDimensions.every((dimension) => {
     const selected = selection[dimension];
     if (selected.size === 0) return true;
@@ -147,6 +158,7 @@ export function matchesServiceFacets(record: ServiceRecord, selection: ServiceFa
 /** `"all"` imposes no constraint; any other value must be carried exactly. */
 export function matchesSubstanceLens(record: ServiceRecord, lens: string): boolean {
   if (lens === "all") return true;
+  if (!serviceHasFacetMetadata(record)) return true;
   return serviceCatalogTags(record).substance_flags.includes(lens);
 }
 
