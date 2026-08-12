@@ -176,5 +176,10 @@ describe("service facets", () => {
     const tags = serviceCatalogTags(bareRecord);
     for (const dimension of serviceFacetDimensions) expect(tags[dimension]).toEqual([]);
     expect(matchesServiceFacets(bareRecord, emptyServiceFacetSelection())).toBe(true);
+
+    const activeSelection = { ...emptyServiceFacetSelection(), age_groups: new Set(["youth"]) };
+    expect(matchesServiceFacets(bareRecord, activeSelection)).toBe(true);
+    expect(matchesSubstanceLens(bareRecord, "aod")).toBe(true);
+    expect(filterServicesByFacets([bareRecord], activeSelection, "aod")).toHaveLength(1);
   });
 });
