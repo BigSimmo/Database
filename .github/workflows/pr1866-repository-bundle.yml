@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pr1866-repair
+  group: pr1866-repair-bounded
   cancel-in-progress: false
 
 jobs:
@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - name: Checkout PR branch with full history
+      - name: Checkout PR branch tip
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           persist-credentials: true
 
       - name: Setup UI e2e environment
@@ -40,12 +40,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config merge.ledger.driver 'node scripts/merge-branch-review-ledger.mjs %O %A %B'
 
-          git fetch --no-tags origin \
+          git fetch --no-tags --depth=512 origin \
             "+refs/heads/main:refs/remotes/origin/main" \
             "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
 
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
           test "$(git rev-parse "refs/remotes/origin/${BRANCH_NAME}")" = "${GITHUB_SHA}"
+          git merge-base HEAD refs/remotes/origin/main >/dev/null
           MERGED_MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
           echo "Merging main ${MERGED_MAIN_SHA} into PR head ${GITHUB_SHA}."
 
@@ -244,7 +245,7 @@ jobs:
           git commit -m "docs: record PR 1866 remediation review"
 
           test -z "$(git status --porcelain)"
-          git fetch --no-tags origin \
+          git fetch --no-tags --depth=512 origin \
             "+refs/heads/main:refs/remotes/origin/main" \
             "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
           test "$(git rev-parse "refs/remotes/origin/${BRANCH_NAME}")" = "${GITHUB_SHA}"
