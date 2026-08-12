@@ -12,6 +12,7 @@ import {
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
+  resultFilterFacetGroup,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 
@@ -544,6 +545,155 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByTestId("trigger")).toHaveAccessibleName(/2 filters active/);
     expect(screen.getByTestId("trigger")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("trigger")).toHaveAttribute("aria-controls", "panel");
+  });
+});
+
+describe("ResultFilterSheet facet groups", () => {
+  // The whole point of the kind split: a facet must NOT claim mutual exclusion.
+  // A radio bank here would tell a reader they cannot hold two domains at once,
+  // which is false for every mechanism in the formulation catalogue.
+  it("renders many-of-N as a pressed-toggle group and accumulates selections", async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="formulation-panel"
+        testId="formulation-filter-panel"
+        title="Filter mechanisms"
+        groups={[
+          resultFilterFacetGroup({
+            id: "domain",
+            label: "Domain",
+            selected: new Set<"Cognition" | "Affect">(["Cognition"]),
+            options: [
+              { value: "Cognition", label: "Cognition", hint: "7" },
+              { value: "Affect", label: "Affect", hint: "9" },
+            ],
+            onToggle,
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    const group = screen.getByRole("group", { name: "Domain" });
+    expect(within(group).getByRole("button", { name: /Cognition/ })).toHaveAttribute("aria-pressed", "true");
+    expect(within(group).getByRole("button", { name: /Affect/ })).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(within(group).getByRole("button", { name: /Affect/ }));
+    expect(onToggle).toHaveBeenCalledWith("Affect");
+  });
+
+  // Every toggle must be individually reachable. The lens groups' single tab
+  // stop is correct there because arrowing replaces; here it would strand
+  // options behind a key binding that must not commit anything.
+  it("gives every facet its own tab stop", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="formulation-panel"
+        testId="formulation-filter-panel"
+        title="Filter mechanisms"
+        groups={[
+          resultFilterFacetGroup({
+            id: "domain",
+            label: "Domain",
+            selected: new Set<"Cognition" | "Affect">(),
+            options: [
+              { value: "Cognition", label: "Cognition" },
+              { value: "Affect", label: "Affect" },
+            ],
+            onToggle: vi.fn(),
+          }),
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole("group", { name: "Domain" });
+    const first = within(group).getByRole("button", { name: /Cognition/ });
+    const second = within(group).getByRole("button", { name: /Affect/ });
+    first.focus();
+    await user.tab();
+    expect(second).toHaveFocus();
+  });
+
+  // A zero reached through the current selection stays reachable and explained.
+  // Dropping it would hide the choice that emptied the results.
+  it("keeps a zero-yield facet focusable, explained and unselectable", async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="formulation-panel"
+        testId="formulation-filter-panel"
+        title="Filter mechanisms"
+        groups={[
+          resultFilterFacetGroup({
+            id: "domain",
+            label: "Domain",
+            selected: new Set<"Cognition" | "Cultural">(),
+            options: [
+              { value: "Cognition", label: "Cognition", hint: "7" },
+              { value: "Cultural", label: "Cultural", hint: "0", disabled: true },
+            ],
+            onToggle,
+          }),
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole("group", { name: "Domain" });
+    const dead = within(group).getByRole("button", { name: /Cultural/ });
+    expect(dead).toHaveAttribute("aria-disabled", "true");
+    expect(dead).not.toHaveAttribute("disabled");
+    expect(dead).toHaveAccessibleDescription("No matches with your current filters.");
+
+    await user.click(dead);
+    expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  // Mixed sheets are the real shape for formulation: one lens, one facet.
+  it("renders lens and facet dimensions side by side with their own semantics", () => {
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="mixed-panel"
+        testId="mixed-filter-panel"
+        title="Filter"
+        groups={[
+          resultFilterGroup({
+            id: "show",
+            label: "Show",
+            value: "all" as "all" | "diagnoses",
+            options: [
+              { value: "all", label: "All" },
+              { value: "diagnoses", label: "Diagnoses" },
+            ],
+            onChange: vi.fn(),
+          }),
+          resultFilterFacetGroup({
+            id: "domain",
+            label: "Domain",
+            selected: new Set<"Cognition">(["Cognition"]),
+            options: [{ value: "Cognition", label: "Cognition" }],
+            onToggle: vi.fn(),
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("radiogroup", { name: "Show" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Domain" })).toBeInTheDocument();
   });
 });
 
