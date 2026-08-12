@@ -11,6 +11,15 @@ fail() {
   return 1
 }
 
+require_npm_config() {
+  local name="$1"
+  local expected="$2"
+  local actual
+  actual="$(npm config get "$name")" || fail "Could not read npm config ${name}."
+  [[ "$actual" = "$expected" ]] ||
+    fail "npm config ${name} must be ${expected} for the locked Cloud install; detected ${actual:-unset}."
+}
+
 setup_step="initialization"
 diagnostic_python_bin=""
 diagnose_setup_failure() {
@@ -265,6 +274,13 @@ source "$runtime_profile"
 
 log "Installing locked Node dependencies."
 setup_step="node-dependencies"
+require_npm_config force false
+require_npm_config legacy-peer-deps false
+require_npm_config ignore-scripts false
+require_npm_config package-lock true
+require_npm_config package-lock-only false
+require_npm_config offline false
+require_npm_config dry-run false
 npm ci --include=dev --prefer-offline --no-audit --no-fund
 
 setup_step="codex-cli"
