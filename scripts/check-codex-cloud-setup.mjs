@@ -809,6 +809,7 @@ export function validateCodexCloudSetup() {
   const setup = read("scripts/setup-codex-cloud.sh");
   const maintenance = read("scripts/maintain-codex-cloud.sh");
   const commandShims = read("scripts/install-codex-cloud-command-shims.sh");
+  const checkoutBaseRefresh = read("scripts/refresh-codex-cloud-base.sh");
   const rawEnvironmentProbe = read("scripts/check-codex-cloud-raw-env.sh");
   const patDelete = read("scripts/delete-codex-cloud-branch-with-pat.sh");
   const guide = read("docs/codex-cloud.md");
@@ -855,6 +856,7 @@ export function validateCodexCloudSetup() {
     [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
     [/@openai\/codex/, "Cloud setup must install the Codex CLI."],
     [/ensure-codex-cloud-git-remote\.mjs/, "Cloud setup must restore a safe origin remote."],
+    [/refresh-codex-cloud-base\.sh/, "Cloud setup must refresh and pin the task checkout base."],
     [/check:codex-cloud -- --runtime/, "Cloud setup must run runtime acceptance."],
     [
       /BEGIN clinical-kb-codex-cloud shell policy/,
@@ -900,6 +902,11 @@ export function validateCodexCloudSetup() {
   if (setup.includes("@railway/cli") || setup.includes('setup_step="railway-cli"')) {
     errors.push("Cloud setup must not install or invoke Railway CLI; hosted access comes from the authenticated app.");
   }
+  if (/gh auth login|configure-codex-cloud-github-shell\.sh/.test(`${setup}\n${maintenance}`)) {
+    errors.push(
+      "Cloud lifecycle scripts must not persist setup-only GitHub credentials for the agent phase; use the native connector.",
+    );
+  }
   const providerScrubIndex = setup.indexOf("unset OPENAI_API_KEY");
   const accessProfileBranchIndex = setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]');
   if (providerScrubIndex < 0 || accessProfileBranchIndex < 0 || providerScrubIndex > accessProfileBranchIndex) {
@@ -927,9 +934,21 @@ export function validateCodexCloudSetup() {
   );
   requireMatch(
     errors,
+    maintenance,
+    /refresh-codex-cloud-base\.sh/,
+    "Maintenance must refresh and pin the task checkout base.",
+  );
+  requireMatch(
+    errors,
     commandShims,
-    /nvm which/,
-    "Cloud command shims must resolve the selected Node version through nvm.",
+    /nvm version/,
+    "Cloud command shims must resolve the selected Node version without following their own wrappers.",
+  );
+  requireMatch(
+    errors,
+    commandShims,
+    /clean_path=.*\.local.*bin/,
+    "Cloud command shims must remove their directory before running child npm scripts.",
   );
   requireMatch(
     errors,
@@ -946,6 +965,18 @@ export function validateCodexCloudSetup() {
   if (!commandShims.includes('exec "$node_bin/$command_name" "\\$@"')) {
     errors.push("Cloud command shims must execute absolute Node commands.");
   }
+  requireMatch(
+    errors,
+    checkoutBaseRefresh,
+    /git merge-base HEAD refs\/remotes\/origin\/main/,
+    "Checkout-base refresh must pin the merge base shared by the task and origin/main.",
+  );
+  requireMatch(
+    errors,
+    checkoutBaseRefresh,
+    /cloud-expected-base-sha/,
+    "Checkout-base refresh must persist the verified base outside the repository.",
+  );
   requireMatch(
     errors,
     patDelete,

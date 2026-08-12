@@ -43,8 +43,8 @@ Keep agent internet access off for this repository's ordinary Cloud environments
 installation happens during setup; ordinary structure-only work, including the RAG
 decomposition prompt below, remains offline. The appended command-shim installer is required:
 it makes every normal `node`, `npm`, and `npx` invocation load the generated sanitized
-profile before starting Node. It is idempotent and uses `nvm which` rather than
-`command -v node`, so maintenance cannot accidentally wrap an earlier wrapper.
+profile before starting Node. It is idempotent and builds the executable path from `nvm version`
+instead of resolving through `PATH`, so maintenance cannot accidentally wrap an earlier wrapper.
 
 The setup command fails if the required Cloud toolchain cannot be installed. It intentionally does
 not install Railway CLI: hosted Railway access comes from the authenticated workspace app, and the
@@ -188,9 +188,11 @@ Setup restores a missing `origin` to the credential-free URL
 `https://github.com/BigSimmo/Database.git`; it preserves an existing correct remote and fails
 instead of overwriting a wrong or credential-bearing remote. When GitHub CLI authentication is
 already available, setup asks `gh auth setup-git` to install its token-free helper command. It
-never embeds a token or invents a PAT. `git ls-remote` and a dry-run push remain separate
-acceptance checks; if the connector does not expose shell Git authentication, report that
-platform capability gap.
+never embeds a token or invents a PAT. It also fetches `origin/main`, stores the current task's merge
+base outside the checkout, and exports
+that exact 40-character SHA as `CODEX_CLOUD_EXPECTED_BASE_SHA` in subsequent agent shells. `git
+ls-remote` and a dry-run push remain separate acceptance checks; if the connector does not expose
+shell Git authentication, report that platform capability gap.
 
 Suggested GitHub acceptance task:
 
@@ -254,8 +256,8 @@ Run this in a fresh Cloud task before relying on the environment:
 Read all applicable AGENTS.md files and docs/codex-cloud.md. State whether this is the
 offline or connected profile. Report tool versions without printing environment values.
 Run npm run check:codex-cloud, npm run check:runtime,
-npm run check:installed-lock-parity, and set CODEX_CLOUD_EXPECTED_BASE_SHA to the intended
-merge/base commit before running npm run check:codex-cloud -- --runtime. Do not call a
+npm run check:installed-lock-parity, and npm run check:codex-cloud -- --runtime. Confirm that
+setup exported CODEX_CLOUD_EXPECTED_BASE_SHA as a verified 40-character ancestor. Do not call a
 provider unless this task explicitly names and authorizes that provider. Report the decisive
 line from every command and any unrun check.
 ```
@@ -279,7 +281,8 @@ the full current HEAD, local main and origin/main when present, expected base, a
 and a separate freshness state. Setup and maintenance use the process-local
 `CODEX_CLOUD_PROVISIONING=1` flag so an unavoidable task-only checkout reports
 `freshness=unverified` without entering a repair loop. The explicit acceptance command does
-not set that flag and fails until `CODEX_CLOUD_EXPECTED_BASE_SHA` proves the intended base.
+not set that flag and fails unless the setup-generated `CODEX_CLOUD_EXPECTED_BASE_SHA` proves the
+intended base.
 MCP inspection emits server names, commands, and environment variable names only.
 
 A repository cannot remove a variable already inherited by the top-level task process. Before
@@ -434,8 +437,9 @@ copying credentials into the checkout.
 4. **Prove the shell boundary before providers.** First run the direct raw-shell command above
    before profiles or command shims. Then run `npm run check:codex-cloud`,
    `npm run check:codex-cloud -- --runtime`, `npm run check:runtime`, and
-   `npm run check:installed-lock-parity`. Set `CODEX_CLOUD_EXPECTED_BASE_SHA` to the intended
-   merged base commit. Require the raw PASS line, both Cloud PASS lines, correct runtime/lock
+   `npm run check:installed-lock-parity`. Confirm the setup-generated
+   `CODEX_CLOUD_EXPECTED_BASE_SHA` is a full intended merge-base commit. Require the raw PASS line,
+   both Cloud PASS lines, correct runtime/lock
    parity, `CODEX_CLOUD_ACCESS_PROFILE=connected`, no provider variable reported present, and a
    credential-free matching origin. Repository MCP metadata is configuration evidence only.
 5. **Prove each provider read-only.** Use the tools exposed by the fresh host session, not shell
