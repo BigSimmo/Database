@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, describe, expect, it } from "vitest";
 import { comparePerCaseRanks, compareRetrievalEval } from "../scripts/compare-retrieval-eval";
 
 // A complete retrieval eval summary as emitted by summarizeGoldenRetrievalResults, trimmed to the
@@ -118,5 +122,80 @@ describe("comparePerCaseRanks", () => {
     expect(comparison.missingInCandidate).toEqual(["dropped"]);
     expect(comparison.missingInBaseline).toEqual(["added"]);
     expect(comparison.comparedCaseCount).toBe(1);
+  });
+
+  it("surfaces candidate-only cases even when every shared case is clean", () => {
+    // Review finding (PR #1843): candidate-only cases must not slip past the identical-
+    // case-set gate just because nothing regressed among the shared cases.
+    const comparison = comparePerCaseRanks(
+      [perCase("shared", 1, 1)],
+      [perCase("shared", 1, 1), perCase("extra", 1, 1)],
+    );
+    expect(comparison.regressions).toEqual([]);
+    expect(comparison.missingInBaseline).toEqual(["extra"]);
+  });
+
+  it("records an absent or non-finite rank metric as unavailable instead of skipping it", () => {
+    const baseline = [perCase("a", 1, 1)];
+    const candidate = [{ id: "a", reciprocalRankAt10: Number.NaN } as Record<string, unknown>];
+    const comparison = comparePerCaseRanks(baseline, candidate);
+    expect(comparison.regressions).toEqual([]);
+    expect(comparison.unavailableMetrics).toEqual([
+      { caseId: "a", metric: "reciprocalRankAt10" },
+      { caseId: "a", metric: "contentReciprocalRankAt10" },
+    ]);
+  });
+
+  it("reports no unavailable metrics for a complete pair", () => {
+    const results = [perCase("a", 1, 1)];
+    expect(comparePerCaseRanks(results, results).unavailableMetrics).toEqual([]);
+  });
+});
+
+// CLI-level exit-code contract for --fail-on-regression: the pure-function tests above prove
+// the classification, these prove main() actually turns each non-comparable shape into a
+// non-zero exit (review finding on PR #1843 — the candidate-only shape previously exited 0).
+describe("compare-retrieval-eval CLI --fail-on-regression", () => {
+  const dir = mkdtempSync(join(tmpdir(), "compare-eval-"));
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  const summary = {
+    case_count: 1,
+    document_recall_at_5: 1,
+    content_recall_at_5: 1,
+    top_k_hit_rate: 1,
+    content_mrr_at_10: 1,
+    content_mrr_case_count: 1,
+    failed_cases: [],
+  };
+
+  function writeArtifact(name: string, results: Array<Record<string, unknown>>): string {
+    const filePath = join(dir, name);
+    writeFileSync(filePath, JSON.stringify({ summary, results }));
+    return filePath;
+  }
+
+  function runCli(baseline: string, candidate: string) {
+    return spawnSync(
+      process.execPath,
+      ["scripts/run-tsx.mjs", "scripts/compare-retrieval-eval.ts", baseline, candidate, "--fail-on-regression"],
+      { cwd: join(__dirname, ".."), encoding: "utf8" },
+    );
+  }
+
+  it("exits 0 for an identical clean pair", () => {
+    const baseline = writeArtifact("clean-base.json", [perCase("a", 1, 1)]);
+    const candidate = writeArtifact("clean-cand.json", [perCase("a", 1, 1)]);
+    const out = runCli(baseline, candidate);
+    expect(out.stdout).toContain("zero per-case rr regressions");
+    expect(out.status).toBe(0);
+  });
+
+  it("exits non-zero when the candidate carries a case the baseline lacks", () => {
+    const baseline = writeArtifact("subset-base.json", [perCase("a", 1, 1)]);
+    const candidate = writeArtifact("superset-cand.json", [perCase("a", 1, 1), perCase("extra", 1, 1)]);
+    const out = runCli(baseline, candidate);
+    expect(out.stdout).toContain("NEW in candidate (no baseline): extra");
+    expect(out.status).toBe(1);
   });
 });

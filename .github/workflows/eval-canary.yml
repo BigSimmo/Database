@@ -207,7 +207,18 @@ jobs:
             const fs = require("node:fs");
             const path = require("node:path");
             const { pathToFileURL } = require("node:url");
-            const { analyzeFailureText } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/productivity-core.mjs`).href);
+            // If checkout failed, the analyzer module is absent; the issue must still open,
+            // so fall back to a fixed diagnosis instead of letting the import throw.
+            let analyzeFailureText = () => ({
+              category: "unclassified",
+              confidence: "none",
+              reason: "failure analyzer unavailable (checkout likely failed before scripts/ existed); inspect step outcomes",
+            });
+            try {
+              ({ analyzeFailureText } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/productivity-core.mjs`).href));
+            } catch (error) {
+              core.warning(`analyzeFailureText unavailable, using fallback diagnosis: ${error.message}`);
+            }
             const label = "eval-canary";
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const logPaths = [

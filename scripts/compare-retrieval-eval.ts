@@ -116,8 +116,14 @@ export type PerCaseRankComparison = {
   // regression" — the pair is not comparable case-for-case, so callers must fail closed.
   missingInCandidate: string[];
   missingInBaseline: string[];
+  // Shared cases where a rank metric is absent or non-finite on either side. Skipping the
+  // metric would report "zero regressions" without evidence for it, so these also make the
+  // pair non-comparable.
+  unavailableMetrics: Array<{ caseId: string; metric: (typeof PER_CASE_RANK_METRICS)[number] }>;
   comparedCaseCount: number;
 };
+
+const PER_CASE_RANK_METRICS = ["reciprocalRankAt10", "contentReciprocalRankAt10"] as const;
 
 type PerCaseResult = Record<string, unknown>;
 
@@ -134,7 +140,6 @@ export function comparePerCaseRanks(
   baselineResults: PerCaseResult[],
   candidateResults: PerCaseResult[],
 ): PerCaseRankComparison {
-  const metrics = ["reciprocalRankAt10", "contentReciprocalRankAt10"] as const;
   const candidateById = new Map<string, PerCaseResult>();
   for (const result of candidateResults) {
     if (typeof result.id === "string") candidateById.set(result.id, result);
@@ -142,6 +147,7 @@ export function comparePerCaseRanks(
   const baselineIds = new Set<string>();
   const regressions: PerCaseRankRegression[] = [];
   const missingInCandidate: string[] = [];
+  const unavailableMetrics: PerCaseRankComparison["unavailableMetrics"] = [];
   let comparedCaseCount = 0;
   for (const baselineResult of baselineResults) {
     if (typeof baselineResult.id !== "string") continue;
@@ -152,17 +158,20 @@ export function comparePerCaseRanks(
       continue;
     }
     comparedCaseCount += 1;
-    for (const metric of metrics) {
+    for (const metric of PER_CASE_RANK_METRICS) {
       const baselineRank = readCaseRank(baselineResult, metric);
       const candidateRank = readCaseRank(candidateResult, metric);
-      if (baselineRank === undefined || candidateRank === undefined) continue;
+      if (baselineRank === undefined || candidateRank === undefined) {
+        unavailableMetrics.push({ caseId: baselineResult.id, metric });
+        continue;
+      }
       if (candidateRank < baselineRank) {
         regressions.push({ caseId: baselineResult.id, metric, baseline: baselineRank, candidate: candidateRank });
       }
     }
   }
   const missingInBaseline = [...candidateById.keys()].filter((id) => !baselineIds.has(id));
-  return { regressions, missingInCandidate, missingInBaseline, comparedCaseCount };
+  return { regressions, missingInCandidate, missingInBaseline, unavailableMetrics, comparedCaseCount };
 }
 
 // Pure so it can be unit-tested without touching the filesystem or process exit code.
@@ -236,10 +245,18 @@ function main() {
     }
     for (const id of perCase.missingInCandidate) console.log(`  MISSING in candidate: ${id}`);
     for (const id of perCase.missingInBaseline) console.log(`  NEW in candidate (no baseline): ${id}`);
-    const notComparable = perCase.missingInCandidate.length > 0;
+    for (const entry of perCase.unavailableMetrics) {
+      console.log(`  METRIC UNAVAILABLE ${entry.caseId} ${entry.metric}: absent or non-finite on one side`);
+    }
+    // Any difference in the case sets — either direction — or an unavailable metric means the
+    // pair cannot prove the identical-case-set gate; fail closed rather than report a pass.
+    const notComparable =
+      perCase.missingInCandidate.length > 0 ||
+      perCase.missingInBaseline.length > 0 ||
+      perCase.unavailableMetrics.length > 0;
     if (failOnRegression && (perCase.regressions.length > 0 || notComparable)) {
       console.error(
-        "\nPer-case gate failed: the canary-pair protocol (docs/rag-behaviour/safeguards.md) requires zero per-case rr regressions over an identical case set.",
+        "\nPer-case gate failed: the canary-pair protocol (docs/rag-behaviour/safeguards.md) requires zero per-case rr regressions over an identical case set with both rank metrics present.",
       );
       process.exitCode = 1;
     }
