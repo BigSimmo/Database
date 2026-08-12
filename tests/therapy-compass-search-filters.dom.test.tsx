@@ -119,7 +119,7 @@ describe("therapy-compass search filter contract adoption", () => {
     const user = userEvent.setup();
     bindingsState.query = "";
     bindingsState.tags = [];
-    bindingsState.queryMatches = [therapy()];
+    bindingsState.queryMatches = [therapy({ reviewStatus: "reviewed" })];
     bindingsState.searchResults = [];
     toggleReviewedOnly.mockClear();
     toggleBriefOnly.mockClear();
