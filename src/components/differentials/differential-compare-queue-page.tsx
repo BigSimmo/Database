@@ -34,7 +34,7 @@ export function DifferentialCompareQueuePage({
         className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-10 text-[color:var(--text)] sm:px-6 lg:px-8"
       >
         <div className="mx-auto grid w-full max-w-4xl gap-6">
-          <section className="overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]">
+          <section className="overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]">
             <div className="h-1 bg-[color:var(--clinical-accent)]" aria-hidden />
             <div className="p-5 sm:p-8">
               <div className="grid h-12 w-12 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
@@ -53,7 +53,7 @@ export function DifferentialCompareQueuePage({
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={differentialCompareSearchHref(trimmedQuery)}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] px-5 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--primary-strong)]"
+                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] px-5 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e2)] transition hover:bg-[color:var(--primary-strong)]"
                 >
                   <Search className="h-4 w-4" aria-hidden />
                   {trimmedQuery ? "Back to Search results" : "Open Search"}
@@ -79,11 +79,11 @@ export function DifferentialCompareQueuePage({
       className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-8 text-[color:var(--text)] sm:px-6 sm:py-10 lg:px-8"
     >
       <div className="mx-auto grid w-full max-w-4xl gap-5 sm:gap-6">
-        <section className="overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]">
+        <section className="overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]">
           <div className="h-1 bg-[color:var(--clinical-accent)]" aria-hidden />
           <div className="p-5 sm:p-8">
             <div className="flex items-start gap-4 sm:gap-5">
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] ">
                 <ListChecks className="h-5 w-5" aria-hidden />
               </div>
               <div className="min-w-0 flex-1">
@@ -108,7 +108,7 @@ export function DifferentialCompareQueuePage({
         </section>
 
         <section
-          className="order-3 overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] sm:order-2"
+          className="order-3 overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)] sm:order-2"
           aria-labelledby="selected-diagnoses-heading"
         >
           <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3.5 sm:px-5">
@@ -169,7 +169,7 @@ export function DifferentialCompareQueuePage({
             <Link
               href={openComparisonHref}
               data-testid="differential-compare-open"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] px-5 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)] transition hover:bg-[color:var(--primary-strong)]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] px-5 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e2)] transition hover:bg-[color:var(--primary-strong)]"
             >
               <GitCompareArrows className="h-4 w-4" aria-hidden />
               Open comparison
