@@ -35,6 +35,15 @@ same live path. The plain `npm run check:github-shell-access` entry is always of
 `GH_AUTH_MISSING` means shell authentication is absent, not that the hosted connector is
 disconnected. Never add a PAT to an ordinary Cloud task.
 
+If an explicitly authorized Cloud Run PR task lacks direct publication, review-thread, or Actions
+tools, `BigSimmo` may manually dispatch the default-branch `Codex Run PR operator` for the target
+same-repository feature PR. Dispatch requires the PR number, the authorizing Codex task URL, and the
+exact typed confirmation documented in `docs/codex-cloud.md`; comments and webhook text cannot
+authorize it. Its Codex
+repair job has no GitHub write credential; later clean jobs verify the exact head and operator
+identity before an ordinary push, bounded reply/resolution, or one genuine failed-job rerun. Do not
+use this trigger on protected heads, fork PRs, or as a substitute for PR merge/close authority.
+
 ## Mutation Rules
 
 - For a pure review request, do not edit files, stage, commit, push, post PR comments, rerun hosted CI, or call provider-backed services.
