@@ -638,6 +638,8 @@ describe("Codex Cloud environment contract", () => {
     expect(commandShims).toContain('nvm version "$expected_node_major"');
     expect(commandShims).toContain('node_bin="$NVM_DIR/versions/node/$resolved_node_version/bin"');
     expect(commandShims).toContain('clean_path="\\${clean_path//:\\$HOME\\/.local\\/bin:/:}"');
+    expect(commandShims).toContain('if [[ -n "\\$clean_path" ]]; then');
+    expect(commandShims).toContain('export PATH="$node_bin"');
     expect(commandShims).toContain('. "$runtime_profile"');
     expect(commandShims).toContain('mkdir -p "$HOME/.local/bin"');
     expect(checkoutBaseRefresh).toContain("git merge-base HEAD refs/remotes/origin/main");

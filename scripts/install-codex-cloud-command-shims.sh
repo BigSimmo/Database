@@ -36,7 +36,11 @@ clean_path=":\$PATH:"
 clean_path="\${clean_path//:\$HOME\/.local\/bin:/:}"
 clean_path="\${clean_path#:}"
 clean_path="\${clean_path%:}"
-export PATH="$node_bin:\$clean_path"
+if [[ -n "\$clean_path" ]]; then
+  export PATH="$node_bin:\$clean_path"
+else
+  export PATH="$node_bin"
+fi
 unset clean_path
 exec "$node_bin/$command_name" "\$@"
 EOF
