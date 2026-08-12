@@ -1,0 +1,180 @@
+diff --git a/docs/branch-review-ledger.md b/docs/branch-review-ledger.md
+index f7b079ff..45ea0f08 100644
+--- a/docs/branch-review-ledger.md
++++ b/docs/branch-review-ledger.md
+@@ -919,3 +919,4 @@ Records before 2026-07-28 were written by hand and had drifted: 146 lines carrie
+ | 2026-08-12 | claude/filter-lens-modes | 5cf8871ef122ec9e3d9b25ea65c4643d5a2cf2ba | filter contract PR A: lens adoption across differentials, medication, applications, specifiers | PR #1857 opened; 4 bespoke aria-pressed rails converged onto SegmentedControl with one shared option array per mode; specifiers footerNote fixed (counted results+catalogueMatches while filters govern only results); ResultFilterSheet counted-option accessible name fixed (All8 -> All (8)) on both group kinds; SegmentedControl gained group-level ariaControls so the launcher keeps #launcher-results-panel; dead SpecifierFamilyFilterChips removed; scope segment deliberately deferred to services per filter-contract.md s4 | verify:pr-local all steps green except build, which failed on the /issues #210 dev-types corruption and passed on a clean rebuild; unit suite 6100 passed/4 skipped with one 30s timeout (not an assertion failure) in design-sync-contract under parallel load, passing in isolation 7/7; bundle-budget production 1297.7 KiB and mockups 285.1 KiB both within tolerance on a verified-fresh build; browser proof at 1440/800/390/320px on all four modes, 0px overflow, 48px targets |
+ | 2026-08-12 | 1849 | 34e5581c4418ef8a08909dff9ecf91d4a8f622de | full PR diff and unresolved review feedback | P1 setup-only PAT remained accessible through gh credential storage; removed agent-phase PAT persistence and retained safe base/shim changes | check:codex-cloud PASS; docs:check-inventory PASS; focused Vitest blocked by active repository lease |
+ | 2026-08-12 | claude/filter-facet-formulation | 9262d89701808c58e3812a60b982596bb3f2b218 | filter contract PR B: formulation facet adoption (derive domains, union counts, evict query-replacing presets) | PR #1858 opened; domain converted from 12 radios to 9 derived facet chips (Biological/Social/Cultural carried by 0 of 12 mechanisms, removed per derive-dont-declare); union counts verified monotonic and non-additive (Affect 9 OR Risk 4 = 10); zero-yield options render as focusable dead ends, never on an already-selected option; Pattern group evicted from the sheet to AnswerSuggestionChips (all 5 presets, old slice(0,4) left one unreachable); ResultFilterFacetChips exported so desktop rail and sheet share one renderer; desktop select of 13 retired. Shares result-filter-control.tsx with PR #1857 - land #1857 first, its accessible-name fix then covers these chips | verify:pr-local failed:(none) not reached:(none), all 15 steps green including build with the server stopped; full unit suite 558/558 files, 6101 passed 4 skipped, zero failures; formulation.test.ts 11 passed with 3 new contract tests; bundle-budget production 1296.1 KiB and mockups 285.1 KiB both within tolerance on a freshness-verified build; browser proof 1440/390/320px, 0px overflow, 9 chips not 12, 0 selects, 5 suggestion chips, live dead-end-to-selectable transition on union widening, phone sheet radiogroup count 0 |
++| 2026-08-12 | PR-1853 | 294d84a881c336fd170eb5395abf0237b917bba8 | full PR diff and unresolved review feedback | P2 expansion-only interpretation semantics fixed; no hosted threads | focused medication workspace DOM tests pass; hosted exact-head required CI green |
+diff --git a/src/components/clinical-dashboard/medication-prescribing-workspace.tsx b/src/components/clinical-dashboard/medication-prescribing-workspace.tsx
+index eb6e8d0c..7ff1e19b 100644
+--- a/src/components/clinical-dashboard/medication-prescribing-workspace.tsx
++++ b/src/components/clinical-dashboard/medication-prescribing-workspace.tsx
+@@ -31,7 +31,10 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
+ import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
+ import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
+ import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
+-import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
++import {
++  useMedicationCatalog,
++  type MedicationCatalogInterpretation,
++} from "@/components/clinical-dashboard/use-medication-catalog";
+ import { evaluatePatientAlerts } from "@/lib/medication-patient-alerts";
+ import {
+   BadgeCluster,
+@@ -200,6 +203,42 @@ function StatusNotice({
+   );
+ }
+ 
++function MedicationInterpretationChip({ interpretation }: { interpretation?: MedicationCatalogInterpretation }) {
++  const correctedQuery = interpretation?.correctedQuery?.trim();
++  const hasCorrection = Boolean(correctedQuery);
++  const expansions = Array.from(
++    new Set(interpretation?.appliedExpansions?.map((term) => term.trim()).filter(Boolean) ?? []),
++  );
++  if (!hasCorrection && expansions.length === 0) return null;
++
++  const displayTerms = hasCorrection && correctedQuery ? correctedQuery : expansions.slice(0, 3).join(", ");
++  const hiddenExpansionCount = hasCorrection ? 0 : Math.max(0, expansions.length - 3);
++  const leadingLabel = hasCorrection ? "Did you mean" : "Search also included";
++  const accessibleLabel = hasCorrection
++    ? `Did you mean ${correctedQuery}?${
++        expansions.length ? ` Related terms were also included: ${expansions.join(", ")}.` : ""
++      }`
++    : `Search also included related terms: ${expansions.join(", ")}.`;
++
++  return (
++    <div className="medication-results-inset">
++      <p
++        role="note"
++        aria-label={accessibleLabel}
++        title={accessibleLabel}
++        data-testid="medication-query-interpretation"
++        className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--clinical-accent)]"
++      >
++        <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
++        <span className="shrink-0">{leadingLabel}</span>
++        <span aria-hidden="true">·</span>
++        <span className="min-w-0 truncate">{displayTerms}</span>
++        {hiddenExpansionCount ? <span className="shrink-0">+{hiddenExpansionCount}</span> : null}
++      </p>
++    </div>
++  );
++}
++
+ function MedicationHome({
+   loading,
+   realDataReady,
+@@ -466,6 +505,9 @@ function MedicationResults({
+           />
+         }
+       />
++
++      <MedicationInterpretationChip interpretation={catalog.data?.interpretation} />
++
+       {/* Phone-only by construction: the trigger that opens it lives in the
+           ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
+       <ResultFilterSheet
+diff --git a/src/components/clinical-dashboard/use-medication-catalog.ts b/src/components/clinical-dashboard/use-medication-catalog.ts
+index c5cd5aef..8c52cfa4 100644
+--- a/src/components/clinical-dashboard/use-medication-catalog.ts
++++ b/src/components/clinical-dashboard/use-medication-catalog.ts
+@@ -13,9 +13,16 @@ type MedicationCatalogMatch = {
+   reasons: string[];
+ };
+ 
++export type MedicationCatalogInterpretation = {
++  correctedQuery?: string;
++  corrections?: Array<{ from: string; to: string }>;
++  appliedExpansions?: string[];
++};
++
+ type MedicationCatalogResponse = {
+   records: MedicationRecord[];
+   matches?: MedicationCatalogMatch[];
++  interpretation?: MedicationCatalogInterpretation;
+   total: number;
+   governance?: Record<string, { sourceStatus: string; validationStatus: string }>;
+   demoMode?: boolean;
+diff --git a/tests/medication-prescribing-workspace.dom.test.tsx b/tests/medication-prescribing-workspace.dom.test.tsx
+index 0fbb6900..05c941c2 100644
+--- a/tests/medication-prescribing-workspace.dom.test.tsx
++++ b/tests/medication-prescribing-workspace.dom.test.tsx
+@@ -60,6 +60,16 @@ const sertraline: Result = {
+   tone: "slate",
+ };
+ 
++const catalogInterpretation = vi.hoisted(() => ({
++  current: undefined as
++    | {
++        correctedQuery?: string;
++        corrections?: Array<{ from: string; to: string }>;
++        appliedExpansions?: string[];
++      }
++    | undefined,
++}));
++
+ // Cross-mode "also matches" strip is a separate AuthProvider-backed component;
+ // stub it so this test isolates the filter strip from that component's auth deps.
+ vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+@@ -76,6 +86,7 @@ vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
+         score: 1,
+         reasons: [],
+       })),
++      interpretation: catalogInterpretation.current,
+       total: 3,
+       governance: {},
+     },
+@@ -114,6 +125,7 @@ function filterButton(label: string): HTMLElement {
+ }
+ 
+ afterEach(() => {
++  catalogInterpretation.current = undefined;
+   vi.restoreAllMocks();
+ });
+ 
+@@ -132,6 +144,43 @@ describe("MedicationPrescribingWorkspace — home vs submitted results", () => {
+   });
+ });
+ 
++describe("MedicationPrescribingWorkspace — query interpretation", () => {
++  it("shows the API corrected query as a compact accessible Did you mean note", () => {
++    catalogInterpretation.current = {
++      correctedQuery: "sertraline",
++      corrections: [{ from: "sertaline", to: "sertraline" }],
++      appliedExpansions: ["zoloft"],
++    };
++
++    renderWorkspace({ query: "sertaline" });
++
++    const note = screen.getByRole("note", {
++      name: "Did you mean sertraline? Related terms were also included: zoloft.",
++    });
++    expect(note).toHaveTextContent("Did you mean");
++    expect(note).toHaveTextContent("sertraline");
++  });
++
++  it("distinguishes applied expansions from a corrected query", () => {
++    catalogInterpretation.current = { appliedExpansions: ["olanzapine", "antipsychotic"] };
++
++    renderWorkspace({ query: "zyprexa" });
++
++    expect(
++      screen.getByRole("note", {
++        name: "Search also included related terms: olanzapine, antipsychotic.",
++      }),
++    ).toHaveTextContent("olanzapine, antipsychotic");
++    expect(screen.getByRole("note")).toHaveTextContent("Search also included");
++    expect(screen.getByRole("note")).not.toHaveTextContent("Did you mean");
++  });
++
++  it("does not add interpretation chrome when the API returns none", () => {
++    renderWorkspace();
++    expect(screen.queryByTestId("medication-query-interpretation")).not.toBeInTheDocument();
++  });
++});
++
+ describe("MedicationPrescribingWorkspace — result filter strip", () => {
+   it("labels each lens with the count of matching results", () => {
+     renderWorkspace();
