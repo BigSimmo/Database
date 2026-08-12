@@ -1,3 +1,4 @@
+# Refresh the exact PR and latest-main refs for the final isolated repair checkout.
 name: PR 1866 repository bundle
 
 on:
