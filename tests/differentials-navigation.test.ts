@@ -104,6 +104,13 @@ describe("differentials navigation", () => {
     expect(href).toContain("ids=");
   });
 
+  it("launches single-diagnosis compare into the default presentation workflow", () => {
+    const href = resolveDifferentialCompareLaunchHref(["wernicke-encephalopathy"], "Pain");
+    expect(href).toMatch(/^\/differentials\/presentations\//);
+    expect(href).toContain("acute-confusion-encephalopathy");
+    expect(href).toContain("ids=wernicke-encephalopathy");
+  });
+
   it("builds compare queue titles from known diagnosis slugs only", () => {
     const items = differentialCompareQueueItems([
       "delirium",
