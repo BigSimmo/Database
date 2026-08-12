@@ -41,14 +41,51 @@ export type ResultFilterOption<Value extends string> = {
   disabled?: boolean;
 };
 
-export type ResultFilterGroup = {
+/**
+ * A dimension the sheet can render, discriminated by what it MEANS rather than
+ * by how it should look.
+ *
+ * `lens` — one-of-N. The options partition the result set and exactly one is
+ * active: differentials' All/Presentations/Diagnoses, medication's
+ * Best/Indication/Safety/Monitor. This is the shape every call site uses today,
+ * so it is the default and `kind` may be omitted.
+ *
+ * `facet` — many-of-N, OR within the group and AND across groups. Formulation's
+ * domains and the documents tag groups are facets; rendering them as radios (as
+ * formulation does today) claims a reader cannot hold two domains at once,
+ * which is false.
+ *
+ * There is deliberately no `navigate` kind. Options that replace the query
+ * rather than narrowing the result set do not belong in a control called
+ * "Filter" — see `docs/filter-contract.md`.
+ */
+export type ResultFilterGroupKind = "lens" | "facet";
+
+type ResultFilterGroupBase = {
   /** Stable within one sheet; used for the group's own labelling ids. */
   id: string;
   label: string;
-  value: string;
   options: ReadonlyArray<ResultFilterOption<string>>;
+};
+
+export type ResultFilterLensGroup = ResultFilterGroupBase & {
+  kind?: "lens";
+  value: string;
   onChange: (value: string) => void;
 };
+
+export type ResultFilterFacetGroup = ResultFilterGroupBase & {
+  kind: "facet";
+  /** Selected option values. Empty means the group imposes no constraint. */
+  selected: ReadonlySet<string>;
+  onToggle: (value: string) => void;
+};
+
+export type ResultFilterGroup = ResultFilterLensGroup | ResultFilterFacetGroup;
+
+export function isFacetGroup(group: ResultFilterGroup): group is ResultFilterFacetGroup {
+  return group.kind === "facet";
+}
 
 /**
  * Builds a type-checked group for `ResultFilterSheet`.
@@ -68,12 +105,45 @@ export function resultFilterGroup<Value extends string>(group: {
   onChange: (value: Value) => void;
 }): ResultFilterGroup {
   return {
+    kind: "lens",
     id: group.id,
     label: group.label,
     value: group.value,
     options: group.options,
     // The one narrowing, isolated here rather than repeated at seven call sites.
     onChange: (value) => group.onChange(value as Value),
+  };
+}
+
+/**
+ * Builds a type-checked multi-select facet group.
+ *
+ * Same erasure argument as `resultFilterGroup`: `selected`, `options[].value`
+ * and `onToggle` are checked against one `Value` at the call site and widen to
+ * `string` once, and the sheet only ever passes back a value taken from this
+ * group's own options.
+ *
+ * Counts belong in `option.hint` and must be produced by the same predicate as
+ * the filter — "how many would I have if I ticked this as well" — because under
+ * OR-within-group, adding to an already-selected group *widens*. The companion
+ * rule is that the option list is derived from the data rather than declared,
+ * which is what stops a permanently empty option ever reaching this function.
+ * Both rules and the reasoning are in `docs/filter-contract.md`.
+ */
+export function resultFilterFacetGroup<Value extends string>(group: {
+  id: string;
+  label: string;
+  selected: ReadonlySet<Value>;
+  options: ReadonlyArray<ResultFilterOption<Value>>;
+  onToggle: (value: Value) => void;
+}): ResultFilterGroup {
+  return {
+    kind: "facet",
+    id: group.id,
+    label: group.label,
+    selected: group.selected as ReadonlySet<string>,
+    options: group.options,
+    onToggle: (value) => group.onToggle(value as Value),
   };
 }
 
@@ -186,7 +256,7 @@ export function ResultFilterTrigger({
  * the *selected* option. This path is therefore defensive, and is asserted in the
  * DOM tests so it cannot rot before the first mode needs it.
  */
-function FilterRadioGroup({ group, panelId }: { group: ResultFilterGroup; panelId: string }) {
+function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; panelId: string }) {
   const refs = useRef(new Map<string, HTMLButtonElement>());
   const groupLabelId = `${panelId}-${group.id}-label`;
 
@@ -319,6 +389,97 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterGroup; panelI
 }
 
 /**
+ * A multi-select facet group.
+ *
+ * Deliberately NOT a radio group. `aria-pressed` toggles inside a
+ * `role="group"` are the honest reading of many-of-N: each control is
+ * independently on or off, and nothing claims the options are mutually
+ * exclusive. That also means no roving tabindex — a reader must be able to
+ * reach every toggle, and arrow-to-select would commit constraints they did not
+ * ask for. The single tab stop the lens groups use is correct there precisely
+ * because arrowing *replaces* rather than accumulates.
+ *
+ * A zero-count option is a dead end: still focusable and explained, never
+ * silently dropped, because a reader who has just narrowed to nothing needs to
+ * see which of their choices did it. Under the derived-option-list rule such an
+ * option can only appear as a consequence of the current selection, never as a
+ * permanent fixture of the catalogue.
+ */
+function FilterFacetGroup({ group, panelId }: { group: ResultFilterFacetGroup; panelId: string }) {
+  const groupLabelId = `${panelId}-${group.id}-label`;
+
+  return (
+    <section className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
+      <h3 className="flex min-h-9 items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        {/* The id is on the label text alone, not the heading. With the badge
+            inside the labelled element the group's accessible name became
+            "Domain 1" — the selection count leaking into the dimension's name,
+            and changing it on every toggle. Caught by the DOM test. */}
+        <span id={groupLabelId}>{group.label}</span>
+        {group.selected.size > 0 ? (
+          <span className="nums rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-black tabular-nums text-[color:var(--clinical-accent)]">
+            <span className="sr-only">{group.selected.size} selected</span>
+            <span aria-hidden>{group.selected.size}</span>
+          </span>
+        ) : null}
+      </h3>
+      <div role="group" aria-labelledby={groupLabelId} className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5">
+        {group.options.map((option) => {
+          const selected = group.selected.has(option.value);
+          const deadEnd = Boolean(option.disabled) && !selected;
+          const deadEndDescId = `${panelId}-${group.id}-${option.value.replace(/[^A-Za-z0-9_-]/g, "-")}-note`;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={selected}
+              aria-disabled={deadEnd || undefined}
+              aria-describedby={deadEnd ? deadEndDescId : undefined}
+              onClick={() => {
+                if (deadEnd) return;
+                group.onToggle(option.value);
+              }}
+              className={cn(
+                // Same recipe and the same tap floor as the lens chips, so the
+                // two kinds read as one component family at every breakpoint.
+                "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:gap-1 sm:px-2 lg:min-h-8",
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                selected
+                  ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                  : deadEnd
+                    ? "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                    : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+              )}
+            >
+              {/* A box rather than a tick-only cue: the empty state has to be as
+                  legible as the checked one for a control that accumulates. */}
+              <span
+                aria-hidden
+                className={cn(
+                  "grid size-icon-sm shrink-0 place-items-center rounded-[0.25rem] border transition-colors",
+                  selected
+                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
+                    : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
+                )}
+              >
+                {selected ? <Check aria-hidden="true" className="h-2.5 w-2.5" strokeWidth={3.5} /> : null}
+              </span>
+              <span className="truncate">{option.label}</span>
+              {option.hint ? <span className="nums text-[color:var(--text-muted)]">{option.hint}</span> : null}
+              {deadEnd ? (
+                <span id={deadEndDescId} className="sr-only">
+                  No matches with your current filters.
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/**
  * A single-choice filter sheet: one radio group per dimension.
  *
  * `role="radiogroup"` with real radio semantics rather than the `aria-pressed`
@@ -399,9 +560,13 @@ export function ResultFilterSheet({
       }
     >
       <div className="grid min-w-0 gap-1">
-        {groups.map((group) => (
-          <FilterRadioGroup key={group.id} group={group} panelId={panelId} />
-        ))}
+        {groups.map((group) =>
+          isFacetGroup(group) ? (
+            <FilterFacetGroup key={group.id} group={group} panelId={panelId} />
+          ) : (
+            <FilterRadioGroup key={group.id} group={group} panelId={panelId} />
+          ),
+        )}
       </div>
     </Sheet>
   );
