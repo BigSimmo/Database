@@ -67,7 +67,8 @@ import {
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/document-manager-contracts";
 import { LibraryHealthStrip } from "@/components/clinical-dashboard/library-health-strip";
-import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import { GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
 import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
@@ -4071,7 +4072,7 @@ export function ClinicalDashboard({
               )}
 
               {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
-                <GuideTrigger onOpen={openGuide} />
+                <GuideTrigger onOpen={openGuide} onPrefetch={loadGuideDialog} />
               )}
             </div>
           </SearchCommandProvider>
@@ -4084,13 +4085,14 @@ export function ClinicalDashboard({
           hidden
           onNavigate={navigateMobileSection}
         />
-        <GuideDialog open={settingsState.guideOpen} onClose={settingsGuideFlow.closeGuideWithRestore} />
+        <LazyGuideDialog open={settingsState.guideOpen} onClose={settingsGuideFlow.closeGuideWithRestore} />
         <SidebarDialogs.SidebarSettingsDialog
           open={settingsState.settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
           onSignOut={auth.signOut}
           onOpenGuide={settingsGuideFlow.openGuideFromSettings}
+          onPrefetchGuide={loadGuideDialog}
           initialFocus={settingsGuideFlow.settingsInitialFocus}
         />
         <SidebarDialogs.SidebarAccountSetupDialog
