@@ -19,9 +19,10 @@ Complete the repository's authorized Run PR work locally:
 
 1. Verify `HEAD` equals `pull_request.head_sha` from the context.
 2. Inspect the bounded failed-check evidence and unresolved review threads.
-3. The trusted workflow has already attempted a normal merge of the exact
-   recorded base when the branch was behind. Resolve any resulting working-tree
-   conflicts, but do not fetch, merge another ref, or alter Git metadata.
+3. The trusted workflow has already completed a normal merge of the exact
+   recorded base when the branch was behind. If that merge was not clean, the
+   workflow stopped before invoking you. Do not fetch, merge another ref, or
+   alter Git metadata.
 4. Fix only evidenced failures and actionable review findings. Preserve
    unrelated work and add focused tests when behavior changes.
 5. Run the smallest relevant checks and `npm run format` before finishing.

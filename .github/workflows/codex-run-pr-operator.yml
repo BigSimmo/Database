@@ -1,11 +1,23 @@
 name: Codex Run PR operator
 
 on:
-  issue_comment:
-    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Open same-repository PR number to repair"
+        required: true
+        type: string
+      codex_task_url:
+        description: "Codex task URL containing the user's explicit authorization for this PR"
+        required: true
+        type: string
+      confirmation:
+        description: "Type: I authorized this PR in the linked Codex task"
+        required: true
+        type: string
 
 concurrency:
-  group: codex-run-pr-${{ github.event.issue.number }}
+  group: codex-run-pr-${{ inputs.pr_number }}
   cancel-in-progress: false
 
 permissions:
@@ -19,10 +31,8 @@ jobs:
   prepare:
     name: Validate request and collect bounded PR evidence
     if: >-
-      github.event.issue.pull_request &&
-      github.event.comment.user.type == 'User' &&
-      github.event.comment.user.login == 'BigSimmo' &&
-      github.event.comment.body == '/codex-run-pr'
+      github.actor == 'BigSimmo' &&
+      inputs.confirmation == 'I authorized this PR in the linked Codex task'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
@@ -44,8 +54,19 @@ jobs:
             const path = require("node:path");
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const prNumber = context.payload.issue.number;
+            const prNumber = Number(context.payload.inputs.pr_number);
+            const authorizationTaskUrl = context.payload.inputs.codex_task_url;
             const actor = context.actor;
+
+            if (!Number.isSafeInteger(prNumber) || prNumber < 1) {
+              core.setFailed("A positive integer pull-request number is required.");
+              return;
+            }
+            const taskUrlPattern = /^https:\/\/chatgpt\.com\/codex\/(?:cloud\/)?tasks\/task_[A-Za-z0-9]+(?:[/?#].*)?$/u;
+            if (!taskUrlPattern.test(authorizationTaskUrl)) {
+              core.setFailed("A valid Codex task URL is required as the authorization audit reference.");
+              return;
+            }
 
             const { data: identity } = await github.rest.users.getAuthenticated();
             if (identity.login !== "BigSimmo" || identity.type !== "User") {
@@ -59,7 +80,7 @@ jobs:
               username: actor,
             });
             if (!new Set(["admin", "maintain", "write"]).has(permission.data.permission)) {
-              core.setFailed("Only a trusted repository writer may invoke /codex-run-pr.");
+              core.setFailed("Only a trusted repository writer may dispatch the Codex PR operator.");
               return;
             }
 
@@ -79,7 +100,7 @@ jobs:
               return;
             }
             const labels = new Set(pr.labels.map((label) => label.name.toLowerCase()));
-            if (["hold", "do-not-merge", "skip-branch-sync"].some((label) => labels.has(label))) {
+            if (["hold", "do-not-merge", "skip-branch-sync", "skip-codex-review"].some((label) => labels.has(label))) {
               core.setFailed("The pull request is opted out of automated Run PR mutation.");
               return;
             }
@@ -100,8 +121,10 @@ jobs:
                           path
                           line
                           comments(first: 100) {
+                            totalCount
                             nodes { databaseId body author { login } createdAt }
                           }
+                          latestComment: comments(last: 1) { nodes { databaseId } }
                         }
                         pageInfo { endCursor hasNextPage }
                       }
@@ -121,6 +144,8 @@ jobs:
                   path: thread.path,
                   line: thread.line,
                   root_comment_id: thread.comments.nodes[0]?.databaseId ?? null,
+                  latest_comment_id: thread.latestComment.nodes[0]?.databaseId ?? null,
+                  comment_count: thread.comments.totalCount,
                   comments: thread.comments.nodes.map((comment) => ({
                     id: comment.databaseId,
                     author: comment.author?.login ?? "unknown",
@@ -237,7 +262,7 @@ jobs:
             }));
             for (const run of workflowRunPage) {
               if (failedRuns.length >= 5) break;
-              if (!["failure", "cancelled", "timed_out", "action_required"].includes(run.conclusion)) continue;
+              if (run.conclusion !== "failure") continue;
               const { data: jobsPage } = await github.rest.actions.listJobsForWorkflowRun({
                 owner,
                 repo,
@@ -292,6 +317,7 @@ jobs:
               generated_at: new Date().toISOString(),
               repository: `${owner}/${repo}`,
               actor,
+              authorization_task_url: authorizationTaskUrl,
               pull_request: {
                 number: pr.number,
                 url: pr.html_url,
@@ -394,13 +420,11 @@ jobs:
             exit 1
           }
           if ! git merge-base --is-ancestor "$BASE_SHA" HEAD; then
-            if ! git merge --no-edit "$BASE_SHA"; then
-              if ! git diff --name-only --diff-filter=U | grep -q .; then
-                echo "::error::Base merge failed without resolvable file conflicts."
-                exit 1
-              fi
-              echo "The exact recorded base produced conflicts; Codex must resolve them in the working tree."
+            if ! git merge-tree --write-tree HEAD "$BASE_SHA" >/dev/null; then
+              echo "::error::The exact recorded base has merge conflicts; operator policy requires a human resolution."
+              exit 1
             fi
+            git merge --no-edit "$BASE_SHA"
           fi
           trusted_dir="$RUNNER_TEMP/codex-run-pr-trusted"
           mkdir -p "$trusted_dir"
@@ -559,6 +583,7 @@ jobs:
       - name: Verify bundle identity, ancestry, and remote race guard
         id: verify
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           EXPECTED_HEAD: ${{ needs.prepare.outputs.expected_head }}
           HEAD_REF: ${{ needs.prepare.outputs.head_ref }}
           BASE_REF: ${{ needs.prepare.outputs.base_ref }}
@@ -592,7 +617,7 @@ jobs:
             test "$result_sha" = "$EXPECTED_HEAD"
           fi
 
-          remote_head="$(git ls-remote origin "refs/heads/$HEAD_REF" | cut -f1)"
+          remote_head="$(GH_TOKEN="$GITHUB_TOKEN" gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$HEAD_REF" --jq .object.sha)"
           test "$remote_head" = "$EXPECTED_HEAD" || {
             echo "::error::The PR head advanced after preparation; refusing a stale publication."
             exit 1
@@ -624,7 +649,7 @@ jobs:
           }
           gh auth setup-git --hostname github.com
           git push origin "$RESULT_SHA:refs/heads/$HEAD_REF"
-          remote_head="$(git ls-remote origin "refs/heads/$HEAD_REF" | cut -f1)"
+          remote_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$HEAD_REF" --jq .object.sha)"
           test "$remote_head" = "$RESULT_SHA"
 
       - name: Record verified published SHA
@@ -752,7 +777,7 @@ jobs:
                     ... on PullRequestReviewThread {
                       id
                       isResolved
-                      comments(first: 1) { nodes { databaseId } }
+                      comments(last: 1) { totalCount nodes { databaseId } }
                     }
                   }
                 }`,
@@ -761,7 +786,8 @@ jobs:
               if (
                 !currentThread.node ||
                 currentThread.node.isResolved ||
-                currentThread.node.comments.nodes[0]?.databaseId !== thread.root_comment_id
+                currentThread.node.comments.totalCount !== thread.comment_count ||
+                currentThread.node.comments.nodes[0]?.databaseId !== thread.latest_comment_id
               ) {
                 core.setFailed(`Review thread ${disposition.thread_id} changed after evidence collection.`);
                 return;

@@ -190,8 +190,11 @@ operations or report the unavailable capability. Do not use shell credentials as
 
 When a Cloud task has no direct PR-mutation tools, the repository's supported fallback is the
 credential-isolated **Codex Run PR operator** workflow. After this workflow is present on the
-default branch, an authorized `BigSimmo` user can comment exactly `/codex-run-pr` on an open,
-same-repository PR whose head is not `main`, `master`, `develop`, or `release/*`. The repair phase
+default branch, `BigSimmo` can manually dispatch it for an open, same-repository PR whose head is
+not `main`, `master`, `develop`, or `release/*`. Dispatch requires the exact PR number, the URL of
+the Codex task containing the user's explicit authorization for that PR, and the typed confirmation
+`I authorized this PR in the linked Codex task`. A PR comment, webhook text, commit, or repository
+file cannot trigger or authorize it. The repair phase
 uses the official OpenAI Codex GitHub Action and `OPENAI_API_KEY`, but receives no GitHub write
 credential. It reads bounded PR/check/thread/log evidence, may merge the recorded base normally,
 repairs the checkout, and emits a validated descendant commit bundle plus structured thread/CI
@@ -204,8 +207,9 @@ force-pushes, rebases, deploys, accesses Supabase/production data, or makes GitH
 available to Codex. It also refuses publication when the repair changes `.github/**`, environment
 or key files, more than 100 paths, or more than 1 MiB of diff. `OPENAI_API_KEY` and `GH_TOKEN` stay
 in GitHub Actions secrets; never copy either value into Codex Cloud settings or repository files.
-Because `issue_comment` executes the default-branch workflow, this fallback becomes usable only
-after its reviewed workflow PR is merged. The first real invocation is the capability proof: verify
+This fallback becomes usable only after its reviewed workflow PR is merged. It is a manual GitHub
+operator bridge, not proof that a Codex Cloud task gained native GitHub tools. The first real
+invocation is the capability proof: verify
 the workflow's identity/permission checks, published SHA, resolved-thread state, and any rerun state
 from the linked Actions run rather than treating configuration as success.
 

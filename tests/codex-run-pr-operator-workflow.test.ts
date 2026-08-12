@@ -17,11 +17,15 @@ describe("Codex Run PR operator workflow", () => {
   const publish = job("publish", "mutate");
   const mutate = job("mutate");
 
-  it("accepts only the exact human operator trigger for an open same-repository feature PR", () => {
-    expect(prepare).toContain("github.event.comment.user.login == 'BigSimmo'");
-    expect(prepare).toContain("github.event.comment.body == '/codex-run-pr'");
+  it("requires a deliberate human dispatch tied to an authorizing Codex task", () => {
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).not.toContain("issue_comment:");
+    expect(prepare).toContain("github.actor == 'BigSimmo'");
+    expect(prepare).toContain("I authorized this PR in the linked Codex task");
+    expect(prepare).toContain("taskUrlPattern");
     expect(prepare).toContain("pr.head.repo?.full_name !== `${owner}/${repo}`");
     expect(prepare).toContain("protectedBranch");
+    expect(prepare).toContain('"skip-codex-review"');
     expect(prepare).toContain('pr.state !== "open" || pr.merged');
     expect(prepare).toContain("basehead: `${pr.head.sha}...${pr.base.sha}`");
   });
@@ -35,6 +39,9 @@ describe("Codex Run PR operator workflow", () => {
     expect(prepare).toContain("check_runs: checkRuns");
     expect(prepare).toContain("workflow_runs: workflowRuns");
     expect(prepare).toContain("bounded_log_tail: boundedLog");
+    expect(prepare).toContain('if (run.conclusion !== "failure") continue;');
+    expect(prepare).toContain("latest_comment_id: thread.latestComment.nodes[0]?.databaseId");
+    expect(prepare).toContain("comment_count: thread.comments.totalCount");
   });
 
   it("keeps GitHub credentials out of the unprivileged Codex repair job", () => {
@@ -46,7 +53,9 @@ describe("Codex Run PR operator workflow", () => {
     expect(repair).toContain("${{ runner.temp }}/codex-run-pr-trusted/prompt.md");
     expect(repair).toContain("CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}");
     expect(repair).toContain("! -name .git");
+    expect(repair).toContain('git merge-tree --write-tree HEAD "$BASE_SHA"');
     expect(repair).toContain('git merge --no-edit "$BASE_SHA"');
+    expect(repair).toContain("operator policy requires a human resolution");
     expect(repair).not.toContain("secrets.GH_TOKEN");
     expect(repair).not.toContain("github-token:");
     expect(repair).not.toContain("./.github/actions/");
@@ -66,6 +75,8 @@ describe("Codex Run PR operator workflow", () => {
     expect(publish).toContain("secrets.GH_TOKEN");
     expect(publish).toContain('test "$identity" = "BigSimmo"');
     expect(publish).toContain('test "$remote_head" = "$EXPECTED_HEAD"');
+    expect(publish).toContain('gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$HEAD_REF"');
+    expect(publish).not.toContain("git ls-remote origin");
     expect(publish).toContain('git push origin "$RESULT_SHA:refs/heads/$HEAD_REF"');
     expect(publish).not.toMatch(/--force|--delete|push\s+origin\s+:(?:refs\/heads\/)?/u);
   });
@@ -76,6 +87,8 @@ describe("Codex Run PR operator workflow", () => {
     expect(mutate).toContain("The bounded PR context changed after collection.");
     expect(mutate).toContain("allowedActions");
     expect(mutate).toContain("Review thread ${disposition.thread_id} changed after evidence collection.");
+    expect(mutate).toContain("currentThread.node.comments.totalCount !== thread.comment_count");
+    expect(mutate).toContain("currentThread.node.comments.nodes[0]?.databaseId !== thread.latest_comment_id");
     expect(mutate).toContain("resolveReviewThread");
     expect(mutate).toContain("rerun-failed-jobs");
     expect(mutate).toContain('currentRun.conclusion !== "failure"');
