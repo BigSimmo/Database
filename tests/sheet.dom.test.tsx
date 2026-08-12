@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Sheet } from "@/components/ui/sheet";
+import { OverlayRoot } from "@/components/ui/overlay-root";
 
 // jsdom (via vitest's environment) normally provides requestAnimationFrame, but
 // guard it so the Sheet's focus scheduling never throws if a runner omits it.
@@ -23,6 +24,20 @@ afterEach(() => {
   if (typeof document !== "undefined" && document.body) {
     document.body.style.overflow = "";
   }
+});
+
+it("portals into OverlayRoot's modal host by default", async () => {
+  render(
+    <>
+      <OverlayRoot />
+      <Sheet open onClose={() => {}} title="Default portal sheet">
+        <p>Default portal body</p>
+      </Sheet>
+    </>,
+  );
+
+  const body = await screen.findByText("Default portal body");
+  expect(body.closest('[data-overlay-host="modal"]')).not.toBeNull();
 });
 
 function Stacked({
