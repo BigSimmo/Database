@@ -10,16 +10,20 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: pr-1870-focused-ledger-fix
+  cancel-in-progress: false
+
 jobs:
   patch-and-verify:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
-      - name: Checkout PR head
+      - name: Checkout exact triggering head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: claude/design-issues-triage-wnr7k9
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -27,43 +31,169 @@ jobs:
         with:
           node-version-file: ".nvmrc"
 
-      - name: Correct the per-record fuzzy-trigger analysis
+      - name: Install locked dependencies and merge driver
+        run: npm ci --include=dev
+
+      - name: Merge current main and apply the focused correction
         shell: bash
         run: |
+          set -euo pipefail
+
+          branch="claude/design-issues-triage-wnr7k9"
+          start_head="$GITHUB_SHA"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/${branch}:refs/remotes/origin/${branch}"
+
+          test "$(git rev-parse HEAD)" = "$start_head"
+          test "$(git rev-parse "origin/${branch}")" = "$start_head"
+          base_sha="$(git rev-parse origin/main)"
+
+          echo "START_HEAD=$start_head" >> "$GITHUB_ENV"
+          echo "BASE_SHA=$base_sha" >> "$GITHUB_ENV"
+          echo "BRANCH_NAME=$branch" >> "$GITHUB_ENV"
+
+          python - <<'PY'
+          import re
+          import subprocess
+
+          base_text = subprocess.check_output(
+              ["git", "show", "origin/main:docs/outstanding-issues.md"],
+              text=True,
+              encoding="utf-8",
+          )
+          if base_text.count("<!-- issues:next-id=310 -->") != 1:
+              raise SystemExit("current main no longer has exactly one issues:next-id=310 marker")
+          if re.search(r"^\| #31[01] \|", base_text, flags=re.MULTILINE):
+              raise SystemExit("current main already contains issue row #310 or #311")
+          PY
+
+          set +e
+          git merge --no-ff --no-commit "$base_sha"
+          merge_status=$?
+          set -e
+
+          if [[ $merge_status -ne 0 ]]; then
+            mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+            if [[ ${#conflicts[@]} -ne 1 || "${conflicts[0]}" != "docs/outstanding-issues.md" ]]; then
+              printf 'Unexpected merge conflicts:\n' >&2
+              printf '  %s\n' "${conflicts[@]}" >&2
+              exit 1
+            fi
+            git checkout --theirs -- docs/outstanding-issues.md
+            git add docs/outstanding-issues.md
+          fi
+
+          if [[ -n "$(git diff --name-only --diff-filter=U)" ]]; then
+            echo "Unresolved merge conflicts remain" >&2
+            git diff --name-only --diff-filter=U >&2
+            exit 1
+          fi
+
           python - <<'PY'
           from pathlib import Path
+          import re
+
+          row_310 = """| #310 | P2 | issue | Fuzzy catalogue search can match a DIFFERENT drug: fluoxetine to duloxetine at edit distance 2 | MEASURED 2026-08-12 by running the matcher itself, not by reading it. PR #1851 adds Damerau-Levenshtein typo recovery to `src/lib/catalog-search.ts` (`fuzzySearchTokenCount`, `boundedTypoDistance`, `typoDistanceLimit`) and folds it into the score. The tier `term.length >= 8 -> 2 edits` is the problem: Damerau counts an adjacent transposition as ONE edit, so `fluoxetine` -> `duloxetine` is distance 2 (substitute f->d, transpose lu->ul) and both are 10 characters. Confirmed hits against the PR's own algorithm: **fluoxetine -> duloxetine** (SSRI vs SNRI, different drugs), **prednisone -> prednisolone** (different drugs). Intended cases also confirmed working: sertraline -> setraline, olanzapine -> olanzepine. The existing guards DO hold — SSRI/SNRI, ADHD/ODD, citalopram/escitalopram, clozapine/clonazepam and quetiapine/olanzapine all correctly return no match. ONE MITIGATION, stated so this is not over-read: terms under 5 characters are excluded entirely. The fuzzy trigger is evaluated independently for each candidate record, so the hazard persists when both the exact drug and a two-edit near-match are present: the exact record receives a literal score while the wrong drug can independently receive a fuzzy score and appear as an additional result. Blast radius is wide because `catalog-search.ts` feeds ELEVEN modules — medications.ts (prescribing), dsm.ts, differentials.ts, differential-stream.ts, universal-search.ts, specifiers-search-index.ts, tools-catalog.ts, form-ranker.ts, service-ranker.ts. TESTED FIX: capping the >=8 tier at 1 edit removes both cross-drug hits and preserves every legitimate typo recovery in the sample — a one-line change to `typoDistanceLimit`. Next: if PR #1851 is still open, raise this on it; if it merged, apply the cap directly and add a test over real catalogue drug names with both the exact and near-match records present, asserting the wrong drug is excluded while the exact drug remains. Stop: do not remove fuzzy search outright — the typo recovery is genuinely useful and the guards are otherwise well judged. Note `classifyPullRequestFiles` returns clinicalRisk:true for this path (governance preflight fires) but ragRanking:false, which is correct — this is catalogue ranking, not the pgvector retrieval path. | session 2026-08-12; PR #1851 (codex/investigate-recent-regression-issues); algorithm re-run locally against real drug-name pairs; src/lib/catalog-search.ts | 2026-08-12 |"""
+          row_311 = """| #311 | P3 | task | Promote the derived ledger loss-detector into scripts/ — it has now earned its place twice | During the 2026-08-12 sweep, two main-merges silently reverted edits to `docs/outstanding-issues.md`, including the ENTIRE #293 refutation (a `grep sm:min-h-0` returned 0; the text survived only in commit a6bfc6f). It went unnoticed because the recovery script was HAND-ENUMERATED — it listed 15 archives and 8 updates from one commit and could therefore only restore what the author remembered. The replacement is derived rather than listed: read every row id this branch has ever stamped out of `git rev-list <merge-base>..HEAD` plus `git show <commit>:docs/outstanding-issues.md`, then assert each of those ids that is still OPEN carries its stamp text, and exit non-zero listing any that lost it. It has now proved itself twice — it caught the intentional #262 divergence (main's version was newer than the branch's, correctly left alone) and would have caught the #293 loss the hand-written list missed. The plan that created it said it should stay a scratch script 'unless it proves useful more than once'; that condition is met. Next: port it to scripts/ (suggested `check-ledger-stamp-retention.mjs`), generalise the stamp token from the hard-coded 2026-08-12 date to a `--since` or marker argument, add a self-test in the style of the other ledger scripts, and document it beside `ledger:dedupe` for use after any main sync that touches the ledger. Stop: do NOT wire it into verify:cheap or CI — it is a branch-local safety net for a human or agent mid-sweep, and it has no meaning on a branch that has not stamped rows. Related: #156 and #168, which track the id-allocation race that produces these merges in the first place. | session 2026-08-12 ledger sweep; scratch loss-check.mjs; #293 restoration from a6bfc6f | 2026-08-12 |"""
 
           path = Path("docs/outstanding-issues.md")
-          text = path.read_text(encoding="utf-8")
+          lines = path.read_text(encoding="utf-8").splitlines()
+          lines = [
+              line
+              for line in lines
+              if not re.match(r"^\| #31[01] \|", line)
+          ]
 
-          old_mitigation = "TWO MITIGATIONS, stated so this is not over-read: fuzzy fires only when `score === 0` (nothing matched literally), so the hazard needs the queried drug ABSENT from the catalogue while a near-miss is present; and terms under 5 characters are excluded entirely."
-          new_mitigation = "ONE MITIGATION, stated so this is not over-read: terms under 5 characters are excluded entirely. The fuzzy trigger is evaluated independently for each candidate record, so the hazard persists when both the exact drug and a two-edit near-match are present: the exact record receives a literal score while the wrong drug can independently receive a fuzzy score and appear as an additional result."
+          marker_indexes = [
+              index
+              for index, line in enumerate(lines)
+              if re.fullmatch(r"<!-- issues:next-id=\d+ -->", line)
+          ]
+          if len(marker_indexes) != 1:
+              raise SystemExit(f"expected one next-id marker, found {len(marker_indexes)}")
+          marker_index = marker_indexes[0]
+          marker_value = int(re.search(r"\d+", lines[marker_index]).group(0))
+          if marker_value not in {310, 312}:
+              raise SystemExit(f"unexpected next-id marker after merge: {marker_value}")
+          lines[marker_index] = "<!-- issues:next-id=312 -->"
 
-          old_next = "Next: if PR #1851 is still open, raise this on it; if it merged, apply the cap directly and add a test over real catalogue drug names asserting no cross-drug match."
-          new_next = "Next: if PR #1851 is still open, raise this on it; if it merged, apply the cap directly and add a test over real catalogue drug names with both the exact and near-match records present, asserting the wrong drug is excluded while the exact drug remains."
+          try:
+              archive_index = lines.index("## Resolved / archive")
+          except ValueError as exc:
+              raise SystemExit("missing Resolved / archive heading") from exc
+          while archive_index > 0 and lines[archive_index - 1] == "":
+              del lines[archive_index - 1]
+              archive_index -= 1
+          lines[archive_index:archive_index] = [row_310, row_311, ""]
 
-          if text.count(old_mitigation) != 1:
-              raise SystemExit(f"expected one mitigation match, found {text.count(old_mitigation)}")
-          if text.count(old_next) != 1:
-              raise SystemExit(f"expected one next-action match, found {text.count(old_next)}")
-
-          text = text.replace(old_mitigation, new_mitigation).replace(old_next, new_next)
+          text = "\n".join(lines) + "\n"
+          if text.count("| #310 |") != 1 or text.count("| #311 |") != 1:
+              raise SystemExit("issue rows were not normalised to exactly one copy each")
+          if "hazard needs the queried drug ABSENT" in text:
+              raise SystemExit("stale per-record mitigation wording remains")
+          if "both the exact and near-match records present" not in text:
+              raise SystemExit("corrected regression-test condition is missing")
           path.write_text(text, encoding="utf-8")
           PY
 
-          rm .github/workflows/pr-1870-ledger-fix.yml
+          rm -f .github/workflows/pr-1870-ledger-fix.yml
 
-      - name: Install dependencies
-        run: npm ci --include=dev
+          npm run ledger:dedupe
+          npm run ledger:append -- \
+            --ref "PR #1870 / claude/design-issues-triage-wnr7k9" \
+            --head "$start_head" \
+            --scope "review-and-fix" \
+            --outcome "Merged current main; corrected #310's per-record fuzzy-trigger analysis and regression-test condition; preserved #311; removed the temporary self-mutating workflow; no additional P0-P2 findings in a distinct adversarial pass." \
+            --checks "verify:pr-local; check:outstanding-issues; check:branch-review-ledger; exact-head hosted CI pending" \
+            --supersede
 
-      - name: Verify PR-local contract
-        run: npm run verify:pr-local
+          git add -A -- \
+            .github/workflows/pr-1870-ledger-fix.yml \
+            docs/branch-review-ledger.md \
+            docs/outstanding-issues.md
+          git diff --cached --check
+          git commit -m "Merge main and resolve PR #1870 review findings"
+          echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
-      - name: Commit focused correction and remove temporary workflow
+      - name: Verify the final local merge commit
         shell: bash
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/outstanding-issues.md .github/workflows/pr-1870-ledger-fix.yml
-          git commit -m "docs(issues): correct fuzzy-search trigger analysis"
-          git push origin HEAD:claude/design-issues-triage-wnr7k9
+          set -euo pipefail
+          test ! -e .github/workflows/pr-1870-ledger-fix.yml
+
+          actual="$(git diff --name-only "$BASE_SHA"...HEAD | sort)"
+          expected=$'docs/branch-review-ledger.md\ndocs/outstanding-issues.md'
+          if [[ "$actual" != "$expected" ]]; then
+            echo "Unexpected final PR file set:" >&2
+            printf '%s\n' "$actual" >&2
+            exit 1
+          fi
+
+          npm run verify:pr-local
+          npm run check:outstanding-issues
+          npm run check:branch-review-ledger
+          git diff --check "$BASE_SHA"...HEAD
+          test -z "$(git status --porcelain)"
+
+      - name: Push only if both remote tips are unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
+          test "$(git rev-parse "origin/${BRANCH_NAME}")" = "$START_HEAD"
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$FINAL_SHA"
+          git push origin "HEAD:refs/heads/${BRANCH_NAME}"
+
+          {
+            echo "Final head: $FINAL_SHA"
+            echo "Merged base: $BASE_SHA"
+            echo "Final PR files:"
+            git diff --name-only "$BASE_SHA"...HEAD
+          } >> "$GITHUB_STEP_SUMMARY"
