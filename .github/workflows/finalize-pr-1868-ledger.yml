@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "82b5f89417aae2fa63ec412b6f3d9e7718748e3a"
+          test "$(git rev-parse HEAD^)" = "d5f66867593e1e7af2cfed4167b8357a63bfd438"
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -43,9 +43,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          npm run hooks:install
           npm run ledger:append -- \
             --ref "PR #1868 / codex/windows-test-portability" \
-            --head "82b5f89417aae2fa63ec412b6f3d9e7718748e3a" \
+            --head "d5f66867593e1e7af2cfed4167b8357a63bfd438" \
             --scope "latest-main merge, Windows test-harness portability, CLS managed-port and readiness hardening, fail-safe cleanup, and signed-image URL isolation" \
             --outcome "Merged current main without unexpected overlap; bounded each CLS readiness request while preserving the overall deadline; guaranteed heavy-run lock release after cleanup errors; replaced the recursive-cleanup regex with per-call TypeScript AST validation; fixed all discovered Windows cleanup retries and review findings." \
             --checks "Verified in Actions: Node syntax, focused ESLint, source typecheck, 48 focused Vitest tests, documentation inventories, and branch-review-ledger validation."
