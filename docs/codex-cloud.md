@@ -206,12 +206,14 @@ validates this exact repository and the fresh task must exercise the complete re
 any mutation; `gh auth status` alone is not acceptance evidence.
 
 Codex exposes Secrets only during setup. `configure-codex-cloud-github-shell.sh` sends the secret to
-`gh auth login` over standard input, immediately unsets all token variables, restricts the standard
-GitHub CLI credential store to the current user, verifies identity `BigSimmo` and repository push
-permission, and configures the token-free Git credential helper. The generated runtime profile and
-Codex shell policy continue to exclude the original secret and token variables. No credential is
-written to the checkout, remote URL, task prompt, or logs. Changing a Secret invalidates the setup
-cache; start a new task and run the acceptance checks below.
+`gh auth login` over standard input, immediately unsets all token variables, and requires GitHub CLI
+to use an OS-backed secure credential store. If `gh` falls back to an `oauth_token` entry in its
+plaintext `hosts.yml`, setup logs out, removes that file, and fails closed. A successful setup then
+verifies identity `BigSimmo` and repository push permission and configures the token-free Git
+credential helper. The generated runtime profile and Codex shell policy continue to exclude the
+original secret and token variables. No credential is written to the checkout, remote URL, task
+prompt, logs, or a plaintext home-directory file. Changing a Secret invalidates the setup cache;
+start a new task and run the acceptance checks below.
 
 GitHub's repository permission model does not provide separate token switches for every prohibited
 workflow action. The `Run PR` policy therefore remains authoritative: never merge or close a PR,

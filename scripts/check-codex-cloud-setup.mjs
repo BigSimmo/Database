@@ -928,6 +928,11 @@ export function validateCodexCloudSetup() {
     [/gh api user --jq \.login/, "GitHub shell setup must verify the authenticated identity."],
     [/repos\/\$repository/, "GitHub shell setup must verify repository-specific push permission."],
     [/gh auth setup-git/, "GitHub shell setup must configure a token-free Git credential helper."],
+    [/grep -Eq '[^']*oauth_token:/, "GitHub shell setup must detect GitHub CLI plaintext credential fallback."],
+    [
+      /GitHub CLI fell back to plaintext credential storage/,
+      "GitHub shell setup must fail closed when OS-backed secure storage is unavailable.",
+    ],
   ]) {
     requireMatch(errors, githubShellSetup, pattern, message);
   }

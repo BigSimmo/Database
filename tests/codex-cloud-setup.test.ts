@@ -651,6 +651,9 @@ describe("Codex Cloud environment contract", () => {
     expect(githubShellSetup).toContain("unset CODEX_CLOUD_GITHUB_PAT GH_TOKEN GITHUB_TOKEN");
     expect(githubShellSetup).toContain("gh api user --jq .login");
     expect(githubShellSetup).toContain('gh api "repos/$repository"');
+    expect(githubShellSetup).toContain("grep -Eq '^[[:space:]]*oauth_token:'");
+    expect(githubShellSetup).toContain("GitHub CLI fell back to plaintext credential storage");
+    expect(githubShellSetup).toContain('rm -f "$GH_CONFIG_DIR/hosts.yml"');
     expect(githubShellSetup).not.toMatch(/printf[^\n]*(?:CODEX_CLOUD_GITHUB_PAT|GH_TOKEN|GITHUB_TOKEN)/u);
     expect(checkoutBaseRefresh).toContain("git merge-base HEAD refs/remotes/origin/main");
     expect(checkoutBaseRefresh).toContain("cloud-expected-base-sha");

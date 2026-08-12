@@ -70,5 +70,10 @@ if [[ -d "$GH_CONFIG_DIR" ]]; then
   chmod 0700 "$GH_CONFIG_DIR"
   [[ ! -f "$GH_CONFIG_DIR/hosts.yml" ]] || chmod 0600 "$GH_CONFIG_DIR/hosts.yml"
 fi
+if [[ -f "$GH_CONFIG_DIR/hosts.yml" ]] && grep -Eq '^[[:space:]]*oauth_token:' "$GH_CONFIG_DIR/hosts.yml"; then
+  gh auth logout --hostname github.com --user "$expected_identity" >/dev/null 2>&1 || true
+  rm -f "$GH_CONFIG_DIR/hosts.yml"
+  fail "GitHub CLI fell back to plaintext credential storage; configure the native connector or a Cloud image with OS-backed secure storage."
+fi
 
 validate_github_access
