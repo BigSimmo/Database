@@ -107,6 +107,18 @@ describe("AccessibleTable (jsdom)", () => {
     expect(screen.queryByText("-")).not.toBeInTheDocument();
   });
 
+  it("keeps the full missing-value phrase readable in the dense 320px preview", () => {
+    render(<AccessibleTable caption="Clozapine monitoring" columns={columns} rows={[["0", ""]]} densePreview />);
+
+    const missingValue = screen.getByTestId("missing-value");
+    const valueWrapper = missingValue.parentElement;
+
+    expect(missingValue).toHaveTextContent("Not recorded");
+    expect(valueWrapper).not.toBeNull();
+    expect(valueWrapper!).toHaveClass("whitespace-normal", "break-words");
+    expect(valueWrapper!).not.toHaveClass("truncate");
+  });
+
   it("opens the full-screen dialog when the mobile expand control is clicked", async () => {
     setMatchMedia(true); // emulate the mobile/coarse-pointer breakpoint that enables expansion
     const user = userEvent.setup();
