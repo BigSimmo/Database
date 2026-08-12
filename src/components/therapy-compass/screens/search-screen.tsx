@@ -1,5 +1,7 @@
 "use client";
 
+import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 
 import {
@@ -29,6 +31,7 @@ const MAX_CARDS = 24;
 
 export function SearchScreen() {
   const b = useTcBindings();
+  const router = useRouter();
   const q = b.search.query;
   const results = b.searchResults;
   const shown = results.slice(0, MAX_CARDS);
@@ -50,6 +53,13 @@ export function SearchScreen() {
   ];
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
+  const clearSearch = () => {
+    b.clearSearch();
+    // Therapy owns this route family. Clearing a deep-linked query must update
+    // the address bar as well as local state, otherwise the provider can reseed
+    // the stale `q` value on navigation or remount.
+    router.replace("/therapy-compass/search");
+  };
 
   // "How many would I have if I ticked this as well" — the same predicate as
   // the filter, run with the candidate added, exactly like formulation's
@@ -112,6 +122,19 @@ export function SearchScreen() {
         appliedFilters={appliedFilters}
         onClearFilters={b.clearSearchFilters}
         filterLabel="Filter therapy results"
+        utilityControls={
+          q ? (
+            <button
+              type="button"
+              onClick={clearSearch}
+              data-testid="therapy-clear-search"
+              className="search-band-ghost inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+            >
+              <X aria-hidden="true" className="h-3.5 w-3.5" />
+              <span className="max-[389px]:sr-only">Clear search</span>
+            </button>
+          ) : undefined
+        }
         // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"
         mobileControls={
@@ -137,9 +160,8 @@ export function SearchScreen() {
       {/* Phone-only by construction: the trigger that opens it lives in the
           ribbon's `mobileControls` slot, which the band hides from `sm` up.
           `onClearAll` clears filters only — never the query. The query has its
-          own always-visible clear affordance in the shared composer
-          (`master-search-header.tsx`), so this sheet does not need to double
-          as a query-reset control the way it once did. */}
+          own Therapy-owned clear action in the ribbon, so filter clearing never
+          needs to double as a query reset. */}
       <ResultFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -173,7 +195,7 @@ export function SearchScreen() {
               // Query-only zero results otherwise have no filter chip, example,
               // or cross-mode action. Restore a one-tap escape without relabeling
               // a query reset as a filter operation.
-              onClearSearch={b.clearSearch}
+              onClearSearch={clearSearch}
             />
           ) : (
             <div className="flex flex-col gap-3.5">
