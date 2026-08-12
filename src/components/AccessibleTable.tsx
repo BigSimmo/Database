@@ -328,7 +328,9 @@ function AccessibleTableMarkup({
                           className={cn(
                             "block min-w-0",
                             renderDensePreview
-                              ? "truncate text-2xs leading-4"
+                              ? cell
+                                ? "truncate text-2xs leading-4"
+                                : "whitespace-normal break-words text-2xs leading-4"
                               : "text-sm leading-6 md:text-inherit md:leading-inherit",
                           )}
                         >
