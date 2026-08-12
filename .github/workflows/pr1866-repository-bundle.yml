@@ -1,4 +1,4 @@
-name: PR 1866 repository bundle
+name: PR 1866 regression red proof
 
 on:
   push:
@@ -9,30 +9,71 @@ permissions:
   contents: read
 
 jobs:
-  bundle:
-    name: Export repository bundle
-    if: contains(github.event.head_commit.message, '[bundle-pr1866]')
+  regression-red:
+    name: Prove All items regression fails before the fix
+    if: contains(github.event.head_commit.message, '[red-pr1866]')
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
-      - name: Checkout full history
+      - name: Checkout unfixed PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
 
-      - name: Create verified two-ref bundle
-        run: |
-          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-          git branch --force pr1866-head HEAD
-          git branch --force pr1866-main refs/remotes/origin/main
-          git bundle create /tmp/pr1866.bundle pr1866-head pr1866-main
-          git bundle verify /tmp/pr1866.bundle
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
 
-      - name: Upload repository bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: pr1866-repository-bundle-${{ github.run_id }}
-          path: /tmp/pr1866.bundle
-          if-no-files-found: error
-          retention-days: 1
+      - name: Inject focused regression test without changing the branch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/ui-tools.spec.ts")
+          text = path.read_text()
+          marker = '  test("services referral header and best-use guidance stay actionable", async ({ page }) => {\n'
+          test = '''  test("services All items scope replaces an unmatched-query empty state with catalogue cards", async ({ page }) => {
+            await page.setViewportSize({ width: 1280, height: 900 });
+            await gotoLauncher(page, "/services?q=no-service-could-match-this-query&run=1");
+
+            await expect(page.getByText(/no matches for/i)).toBeVisible();
+            await expect(page.getByTestId("service-search-results")).toHaveCount(0);
+
+            await page.getByTestId("service-filter-trigger-desktop").click();
+            const resultScope = page.getByRole("radiogroup", { name: "Result scope" });
+            const allItems = resultScope.getByRole("radio", { name: /^All items/ });
+            await expect(allItems).toBeVisible();
+            await waitForReactEventHandler(allItems);
+            await allItems.click();
+
+            await expect(page).toHaveURL(/(?:[?&])scope=all(?:&|$)/);
+            await expect(page.getByTestId("service-search-results")).toBeVisible();
+            await expect(page.getByText(/no matches for/i)).toHaveCount(0);
+            await expect(page.locator('[data-testid^="service-search-result-"]').first()).toBeVisible();
+            await expectNoPageHorizontalOverflow(page);
+          });
+
+          '''
+          if marker not in text:
+              raise SystemExit("regression insertion point not found")
+          if "services All items scope replaces an unmatched-query empty state" in text:
+              raise SystemExit("regression test unexpectedly already present")
+          path.write_text(text.replace(marker, test + marker, 1))
+          PY
+
+      - name: Require the unfixed page test to fail at the missing results list
+        shell: bash
+        run: |
+          set +e
+          npm run test:e2e -- tests/ui-tools.spec.ts --project=chromium --grep "services All items scope replaces" 2>&1 | tee /tmp/pr1866-red.log
+          test_status=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$test_status" -eq 0 ]; then
+            echo "Regression test unexpectedly passed before the production fix."
+            exit 1
+          fi
+
+          grep -F "services All items scope replaces an unmatched-query empty state with catalogue cards" /tmp/pr1866-red.log
+          grep -F "service-search-results" /tmp/pr1866-red.log
+          echo "RED confirmed: scope=all updates the URL, but the unfixed renderer never exposes service-search-results."
