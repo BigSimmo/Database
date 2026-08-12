@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareRetrievalEval } from "../scripts/compare-retrieval-eval";
+import { comparePerCaseRanks, compareRetrievalEval } from "../scripts/compare-retrieval-eval";
 
 // A complete retrieval eval summary as emitted by summarizeGoldenRetrievalResults, trimmed to the
 // fields the comparison reads.
@@ -73,5 +73,50 @@ describe("compareRetrievalEval", () => {
     expect(row(comparison, "mrr_at_10").baseline.present).toBe(false);
     expect(row(comparison, "p90_latency_ms").candidate.present).toBe(false);
     expect(row(comparison, "index_units_layer_count").baseline.present).toBe(false);
+  });
+});
+
+// Per-case results as written by eval-retrieval's --json-out (trimmed to the compared fields).
+function perCase(id: string, rr: number, contentRR: number): Record<string, unknown> {
+  return { id, reciprocalRankAt10: rr, contentReciprocalRankAt10: contentRR };
+}
+
+describe("comparePerCaseRanks", () => {
+  it("reports zero regressions for an identical pair", () => {
+    const results = [perCase("a", 1, 1), perCase("b", 0.33, 0.5)];
+    const comparison = comparePerCaseRanks(results, results);
+    expect(comparison.regressions).toEqual([]);
+    expect(comparison.comparedCaseCount).toBe(2);
+    expect(comparison.missingInCandidate).toEqual([]);
+    expect(comparison.missingInBaseline).toEqual([]);
+  });
+
+  it("flags any per-case rr drop even when the case would still pass its top-5 gate", () => {
+    const comparison = comparePerCaseRanks([perCase("patient-property", 1, 1)], [perCase("patient-property", 0.11, 1)]);
+    expect(comparison.regressions).toEqual([
+      { caseId: "patient-property", metric: "reciprocalRankAt10", baseline: 1, candidate: 0.11 },
+    ]);
+  });
+
+  it("tracks doc-level and content-level rank drops independently", () => {
+    const comparison = comparePerCaseRanks([perCase("a", 0.5, 1)], [perCase("a", 0.5, 0.33)]);
+    expect(comparison.regressions).toEqual([
+      { caseId: "a", metric: "contentReciprocalRankAt10", baseline: 1, candidate: 0.33 },
+    ]);
+  });
+
+  it("does not count an improvement as a regression", () => {
+    const comparison = comparePerCaseRanks([perCase("a", 0.33, 0.5)], [perCase("a", 1, 1)]);
+    expect(comparison.regressions).toEqual([]);
+  });
+
+  it("surfaces non-identical case sets so callers can fail closed", () => {
+    const comparison = comparePerCaseRanks(
+      [perCase("kept", 1, 1), perCase("dropped", 1, 1)],
+      [perCase("kept", 1, 1), perCase("added", 1, 1)],
+    );
+    expect(comparison.missingInCandidate).toEqual(["dropped"]);
+    expect(comparison.missingInBaseline).toEqual(["added"]);
+    expect(comparison.comparedCaseCount).toBe(1);
   });
 });

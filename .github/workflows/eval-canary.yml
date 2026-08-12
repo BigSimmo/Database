@@ -197,8 +197,10 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
+      # Dispatch failures matter as much as scheduled ones — a red dispatch is usually one
+      # half of a canary pair gating a behaviour change, so it must not fail silently.
       - name: Open or update canary failure issue
-        if: failure() && github.event_name == 'schedule'
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'repository_dispatch')
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
@@ -211,6 +213,7 @@ jobs:
             const logPaths = [
               ".local/eval-canary/golden-retrieval.log",
               ".local/eval-canary/answer-quality.log",
+              ".local/eval-canary/answer-targeting.log",
             ].map((item) => path.join(process.env.GITHUB_WORKSPACE, item));
             const failureText = logPaths
               .filter((item) => fs.existsSync(item))
@@ -222,12 +225,15 @@ jobs:
               preflight: "${{ steps.preflight.outcome }}",
               setup_node: "${{ steps.setup_node.outcome }}",
               install: "${{ steps.install.outcome }}",
+              validate_override: "${{ steps.validate_override.outcome }}",
               project_guard: "${{ steps.project_guard.outcome }}",
               golden_retrieval: "${{ steps.golden_retrieval.outcome }}",
               answer_quality: "${{ steps.answer_quality.outcome }}",
+              answer_targeting: "${{ steps.answer_targeting.outcome }}",
             };
+            const trigger = context.eventName === "schedule" ? "Weekly (scheduled)" : "Dispatched";
             const body = [
-              `Weekly eval canary failed on ${new Date().toISOString()}.`,
+              `${trigger} eval canary failed on ${new Date().toISOString()}.`,
               "",
               `Run: ${runUrl}`,
               "",
@@ -257,7 +263,7 @@ jobs:
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: "Eval canary failure: weekly evaluation did not complete",
+                title: "Eval canary failure: evaluation did not complete",
                 labels: [label],
                 body,
               });
