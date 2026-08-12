@@ -2,7 +2,7 @@
 
 Decision record for the production topology of Clinical KB. Written 2026-07-06,
 revised 2026-07-12 when the app went live on Railway. Companion documents:
-`docs/observability-slos.md` (SLOs + eval canary) and `docs/capacity-review.md`
+`docs/observability-slos.md` (SLOs + eval canary) and `docs/audit/capacity-review.md`
 (load model, first bottleneck, soak test).
 
 Status of this document: **decided and live in production.** The app tier and
@@ -124,7 +124,7 @@ one.
   longer. That is hostile to per-request serverless billing/limits.
 - **Connection amplification.** Many cold instances multiply concurrent
   PostgREST/auth traffic against a database whose auth server is capped at 10
-  absolute connections (see `docs/capacity-review.md`).
+  absolute connections (see `docs/audit/capacity-review.md`).
 
 Scale-out plan: stay at 1 replica (vertical scaling first) until sustained load
 demands more; replicas are safe but dilute in-memory coalescing, so add them only
@@ -133,7 +133,7 @@ prefer a single-region replica bump (`railway scale southeast-asia=N`) over
 spreading replicas across regions, which would multiply the cross-region DB hop.
 **Before the first vertical scale-up**, clear the auth 10-connection cap so the
 auth pool scales with compute instead of staying pinned — operator runbook:
-`docs/auth-connection-cap-runbook.md` (`docs/capacity-review.md` §2–§3).
+`docs/auth-connection-cap-runbook.md` (`docs/audit/capacity-review.md` §2–§3).
 
 ### 2.1 The Railway↔Supabase connection (Singapore → Sydney)
 
@@ -424,7 +424,7 @@ Rules:
   The declared staging ref must differ from production and every stale project;
   otherwise `check:supabase-project` fails closed.
 - The soak test (`scripts/soak-test.ts`) targets staging **only** — see
-  `docs/capacity-review.md`.
+  `docs/audit/capacity-review.md`.
 
 ## 6. Rollout and rollback
 

@@ -18,7 +18,7 @@ Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before 
 - `src/lib/{source-governance,source-metadata,document-label-governance,indexed-source-formatting,source-spans,source-text-sanitizer,rag-source-block}.ts`
 - `src/lib/{citations,answer-verification,rag-quote-verification,rag-answer-support,answer-render-policy,clinical-safety}.ts`
 - `src/lib/{privacy,query-privacy}.ts`, `src/components/privacy-input-notice.tsx`
-- `docs/{clinical-*,privacy-*,source-governance-*,rag-injection-*}.md`, `docs/openai-cross-border-basis.md`, `docs/tenancy-defense-in-depth-review.md`
+- `docs/{clinical-*,privacy-*,source-governance-*,rag-injection-*}.md`, `docs/openai-cross-border-basis.md`, `docs/audit/tenancy-defense-in-depth-review.md`
 
 ## Provider boundary
 
