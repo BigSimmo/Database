@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useMemo, useState, useDeferredValue } from "react";
+import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -16,30 +16,32 @@ import {
   Target,
 } from "lucide-react";
 
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
+import {
+  ResultFilterFacetChips,
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterFacetGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
+import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
 import {
   FormulationPageShell,
   FormulationSafetyNote,
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
-import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
-import {
-  ResultFilterSheet,
-  ResultFilterTrigger,
-  resultFilterGroup,
-} from "@/components/clinical-dashboard/result-filter-control";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
-  formulationDomains,
+  formulationDomainsInUse,
   formulationSearchPresets,
   formulationTemplates,
   searchFormulationMechanisms,
 } from "@/lib/formulation";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 function presetHref(query: string) {
   return appModeHomeHref("formulation", { query, run: true, focus: true });
@@ -150,20 +152,49 @@ function EmptySearchResults({ query }: { query: string }) {
 
 function FormulationResults({ query }: { query: string }) {
   const router = useRouter();
-  const [domain, setDomain] = useState("all");
+  const [domains, setDomains] = useState<ReadonlySet<string>>(() => new Set());
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const rankingReady = deferredQuery === query;
+  const pendingRanking = Boolean(query.trim()) && !deferredQuery.trim();
+  const searchQuery = query.trim() ? deferredQuery : "";
   const results = useMemo(() => {
-    // Cleared live query should restore the full browse catalogue immediately.
-    if (!query.trim()) return searchFormulationMechanisms("", { domain });
-    // Empty deferred while live query has text would score every mechanism —
-    // treat that lag as "no results yet" instead of dumping the full catalogue.
+    if (!query.trim()) return searchFormulationMechanisms("", { domains });
     if (!deferredQuery.trim()) return [];
-    return searchFormulationMechanisms(deferredQuery, { domain });
-  }, [domain, deferredQuery, query]);
+    return searchFormulationMechanisms(deferredQuery, { domains });
+  }, [domains, deferredQuery, query]);
   const hasUniqueTopMatch = results.length > 0 && (results.length < 2 || results[0].score !== results[1].score);
+
+  const toggleDomain = useCallback((value: string) => {
+    setDomains((current) => {
+      const next = new Set(current);
+      if (!next.delete(value)) next.add(value);
+      return next;
+    });
+  }, []);
+
+  const domainGroup = useMemo(
+    () =>
+      resultFilterFacetGroup({
+        id: "domain",
+        label: "Domain",
+        selected: domains,
+        options: formulationDomainsInUse.map((item) => {
+          const withCandidate = pendingRanking
+            ? 0
+            : searchFormulationMechanisms(searchQuery, { domains: new Set([...domains, item]) }).length;
+          return {
+            value: item,
+            label: item,
+            hint: String(withCandidate),
+            disabled: !pendingRanking && withCandidate === 0 && !domains.has(item),
+          };
+        }),
+        onToggle: toggleDomain,
+      }),
+    [domains, pendingRanking, searchQuery, toggleDomain],
+  );
 
   return (
     <FormulationPageShell>
@@ -171,15 +202,9 @@ function FormulationResults({ query }: { query: string }) {
         modeId="formulation"
         query={query}
         matchCount={results.length}
-        // This is `useDeferredValue` lag over static data, not a network request:
-        // the previous count is still on screen and still correct, so it stays
-        // visible with a pulse rather than collapsing to a skeleton. Safe here
-        // precisely because nothing identity-scoped is being held across the gap.
         status={rankingReady ? "ready" : "refetching"}
         headingLevel={1}
         filterLabel="Filter formulation mechanisms"
-        // One compact badged trigger replaces the two-column grid of selects, so
-        // the band collapses to one line here too.
         mobileControlsPlacement="inline"
         mobileControls={
           <ResultFilterTrigger
@@ -187,85 +212,34 @@ function FormulationResults({ query }: { query: string }) {
             testId="formulation-filter-trigger-phone"
             title="Filter formulation mechanisms"
             open={filterOpen}
-            activeCount={domain === "all" ? 0 : 1}
+            activeCount={domains.size}
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
-        filterControls={
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_16rem] sm:items-center">
-            <div className="polished-scroll flex gap-1.5 overflow-x-auto">
-              {formulationSearchPresets.slice(0, 4).map((preset) => (
-                <Link
-                  key={preset.label}
-                  href={presetHref(preset.query)}
-                  className="inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] sm:min-h-10"
-                >
-                  {preset.label}
-                </Link>
-              ))}
-            </div>
-            <label className="grid gap-1">
-              <span className="sr-only">Filter by formulation domain</span>
-              <select
-                value={domain}
-                onChange={(event) => setDomain(event.target.value)}
-                className="min-h-tap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20 sm:min-h-10"
-              >
-                <option value="all">All formulation domains</option>
-                {formulationDomains.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        }
+        filterControls={<ResultFilterFacetChips group={domainGroup} idPrefix={`${filterPanelId}-desktop`} />}
       />
 
-      {/* Phone-only by construction: the trigger that opens it lives in the
-          ribbon's `mobileControls` slot, which the band hides from `sm` up. Two
-          groups here, which is the whole reason this stopped being a select —
-          two dimensions used to mean two side-by-side controls in a 320px line. */}
       <ResultFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
         panelId={filterPanelId}
         testId="formulation-filter-panel"
         title="Filter formulation mechanisms"
-        groups={[
-          resultFilterGroup({
-            id: "pattern",
-            label: "Pattern",
-            // A pattern runs a new search rather than narrowing this one, so the
-            // selected entry is always the placeholder naming where you are.
-            value: "current",
-            options: [
-              { value: "current", label: "Current search", disabled: true },
-              ...formulationSearchPresets.slice(0, 4).map((preset) => ({
-                value: preset.query,
-                label: preset.label,
-              })),
-            ],
-            onChange: (value) => {
-              if (value === "current") return;
-              setFilterOpen(false);
-              router.push(presetHref(value));
-            },
-          }),
-          resultFilterGroup({
-            id: "domain",
-            label: "Domain",
-            value: domain,
-            options: [
-              { value: "all", label: "All domains" },
-              ...formulationDomains.map((item) => ({ value: item, label: item })),
-            ],
-            onChange: setDomain,
-          }),
-        ]}
-        onClearAll={domain === "all" ? undefined : () => setDomain("all")}
+        groups={[domainGroup]}
+        onClearAll={domains.size === 0 ? undefined : () => setDomains(new Set())}
         footerNote={`${results.length} showing`}
+      />
+
+      <AnswerSuggestionChips
+        label="Try another pattern"
+        labelPlacement="above"
+        layout="scroll"
+        testId="formulation-pattern-suggestions"
+        suggestions={formulationSearchPresets.map((preset) => preset.label)}
+        onPick={(label) => {
+          const preset = formulationSearchPresets.find((item) => item.label === label);
+          if (preset) router.push(presetHref(preset.query));
+        }}
       />
 
       {results.length === 0 && rankingReady ? (
@@ -333,6 +307,7 @@ function FormulationResults({ query }: { query: string }) {
                   </p>
                 </div>
               </div>
+
               <div
                 data-formulation-card-details
                 className="grid gap-px border-y border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-2"
@@ -360,6 +335,7 @@ function FormulationResults({ query }: { query: string }) {
                   </div>
                 </div>
               </div>
+
               <div
                 data-formulation-card-action
                 className="flex bg-[color:var(--surface-raised)] px-4 py-3.5 sm:justify-end sm:px-5 sm:py-4"
@@ -382,7 +358,6 @@ function FormulationResults({ query }: { query: string }) {
       )}
 
       <UniversalSearchAlsoMatches modeId="formulation" query={query} />
-
       <FormulationSafetyNote />
     </FormulationPageShell>
   );

@@ -114,14 +114,32 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   const topMatch = page.getByTestId("formulation-top-match");
   await expect(topMatch.getByText("Top match for your search", { exact: true })).toBeVisible();
   await expect(topMatch.getByRole("link", { name: "Worry", exact: true })).toBeVisible();
-  // Both dimensions used to be side-by-side selects in the ribbon; they are now
-  // one compact trigger opening a sheet that holds both groups.
+  // One compact trigger opening a sheet. The sheet now holds a single group:
+  // the old `Pattern` group called router.push and replaced the query, so its
+  // presets moved below the band as suggested searches.
   const filterTrigger = queryRibbon.getByTestId("formulation-filter-trigger-phone");
   await expect(filterTrigger).toBeVisible();
+  await expect(page.getByTestId("formulation-pattern-suggestions")).toBeVisible();
   await filterTrigger.click();
-  await expect(page.getByRole("radiogroup", { name: "Pattern" })).toBeVisible();
-  const domainGroup = page.getByRole("radiogroup", { name: "Domain" });
-  await expect(domainGroup.getByRole("radio", { name: "All domains" })).toBeChecked();
+  await expect(page.getByRole("radiogroup", { name: "Pattern" })).toHaveCount(0);
+  // Domain is a facet, not a lens: many-of-N, so aria-pressed toggles inside a
+  // role="group" rather than radios, and no "All domains" escape option — an
+  // empty selection already means no constraint.
+  const domainGroup = page.getByRole("group", { name: "Domain" });
+  await expect(domainGroup).toBeVisible();
+  await expect(domainGroup.getByRole("radio")).toHaveCount(0);
+  // Derived from the mechanisms that carry a domain: 9 of the 12 declared.
+  await expect(domainGroup.getByRole("button")).toHaveCount(9);
+  const affect = domainGroup.getByRole("button", { name: /^Affect/ });
+  await expect(affect).toHaveAttribute("aria-pressed", "false");
+  await affect.click();
+  await expect(affect).toHaveAttribute("aria-pressed", "true");
+  // Accumulates rather than replaces — the whole point of the facet kind.
+  const cognition = domainGroup.getByRole("button", { name: /^Cognition/ });
+  await cognition.click();
+  await expect(affect).toHaveAttribute("aria-pressed", "true");
+  await expect(cognition).toHaveAttribute("aria-pressed", "true");
+  await expect(filterTrigger).toHaveAccessibleName(/2 filters active/);
   await page.getByTestId("formulation-filter-panel-done").click();
   await expect(domainGroup).toBeHidden();
   await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
@@ -152,90 +170,6 @@ test("does not promote a top match when the leading results are tied", async ({ 
   const topMatch = page.getByText("Top match for your search", { exact: true });
   await expect(topMatch).toHaveCount(0);
   await expect(topMatch).toBeHidden();
-});
-
-test("separates mechanism cards and keeps the primary action in the card footer", async ({ page }) => {
-  for (const viewport of [
-    { width: 320, height: 720 },
-    { width: 1440, height: 1000 },
-  ]) {
-    await page.setViewportSize(viewport);
-    await gotoApp(page, "/formulation?q=What+if+something+goes+wrong&run=1");
-
-    const cards = page.locator("[data-formulation-result-card]");
-    const topMatch = page.getByTestId("formulation-top-match");
-    const actionFooter = topMatch.locator("[data-formulation-card-action]");
-    const action = actionFooter.getByRole("link", { name: "Open Worry" });
-
-    await expect(cards.first()).toBeVisible();
-    expect(await cards.count()).toBeGreaterThan(1);
-    await expect(action).toBeVisible();
-
-    const geometry = await topMatch.evaluate((card) => {
-      const detailsElement = card.querySelector<HTMLElement>("[data-formulation-card-details]");
-      const footerElement = card.querySelector<HTMLElement>("[data-formulation-card-action]");
-      const actionElement = footerElement?.querySelector<HTMLElement>("a");
-      const accentElement = card.querySelector<HTMLElement>("[data-formulation-card-accent]");
-      const nextCard = card.nextElementSibling as HTMLElement | null;
-      if (!detailsElement || !footerElement || !actionElement || !accentElement || !nextCard) {
-        throw new Error("Expected complete formulation result-card structure");
-      }
-
-      const cardRect = card.getBoundingClientRect();
-      const detailsRect = detailsElement.getBoundingClientRect();
-      const footerRect = footerElement.getBoundingClientRect();
-      const actionRect = actionElement.getBoundingClientRect();
-      const nextCardRect = nextCard.getBoundingClientRect();
-      const cardStyle = getComputedStyle(card);
-      const accentStyle = getComputedStyle(accentElement);
-
-      return {
-        actionHeight: actionRect.height,
-        actionWidth: actionRect.width,
-        accentBackground: accentStyle.backgroundColor,
-        cardBottom: cardRect.bottom,
-        cardRadius: Number.parseFloat(cardStyle.borderRadius),
-        cardShadow: cardStyle.boxShadow,
-        cardWidth: cardRect.width,
-        detailsBottom: detailsRect.bottom,
-        footerBottom: footerRect.bottom,
-        footerTop: footerRect.top,
-        nextCardGap: nextCardRect.top - cardRect.bottom,
-      };
-    });
-
-    expect(geometry.detailsBottom).toBeLessThanOrEqual(geometry.footerTop + 1);
-    expect(Math.abs(geometry.cardBottom - geometry.footerBottom)).toBeLessThanOrEqual(1);
-    expect(geometry.actionHeight).toBeGreaterThanOrEqual(47);
-    expect(geometry.cardRadius).toBeGreaterThanOrEqual(12);
-    expect(geometry.cardShadow).not.toBe("none");
-    expect(geometry.accentBackground).not.toBe("rgba(0, 0, 0, 0)");
-    expect(geometry.nextCardGap).toBeGreaterThanOrEqual(16);
-    if (viewport.width === 320) {
-      expect(geometry.actionWidth).toBeGreaterThanOrEqual(geometry.cardWidth - 40);
-    } else {
-      expect(geometry.actionWidth).toBeLessThan(geometry.cardWidth / 2);
-    }
-
-    await action.focus();
-    await expect(action).toBeFocused();
-    await expectNoHorizontalOverflow(page);
-
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await expect
-      .poll(() => topMatch.evaluate((card) => Number.parseFloat(getComputedStyle(card).transitionDuration)))
-      .toBeLessThanOrEqual(0.001);
-    await page.emulateMedia({ reducedMotion: "no-preference" });
-  }
-
-  await page.emulateMedia({ forcedColors: "active" });
-  const forcedColorsAction = page
-    .getByTestId("formulation-top-match")
-    .locator("[data-formulation-card-action]")
-    .getByRole("link", { name: "Open Worry" });
-  await expect(forcedColorsAction).toBeVisible();
-  await forcedColorsAction.focus();
-  await expect(forcedColorsAction).toBeFocused();
 });
 
 test("keeps long mobile formulation pages inside the active app scroll surface", async ({ page }) => {

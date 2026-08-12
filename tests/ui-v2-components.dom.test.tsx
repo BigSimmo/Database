@@ -345,6 +345,105 @@ describe("SegmentedControl", () => {
     expect(screen.getByRole("radio", { name: "Comprehensive" })).toHaveFocus();
   });
 
+  // The one-of-N rails this control replaces across the modes all carry a count.
+  // Baking it into `label` would fold the number into the truncating span, so it
+  // gets its own slot — and it must reach the accessible name, or a screen
+  // reader user loses information a sighted user has.
+  it("renders an option hint and folds it into the accessible name", () => {
+    render(
+      <SegmentedControl
+        label="Result type"
+        value="all"
+        onChange={() => undefined}
+        options={[
+          { value: "all", label: "All", hint: "62" },
+          { value: "presentation", label: "Presentations", hint: "41" },
+        ]}
+        layout="fit"
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "All (62)" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Presentations (41)" })).toBeInTheDocument();
+  });
+
+  it("keeps a live count opaque and reserves a stable three-digit column", () => {
+    const renderControl = (hint: string) => (
+      <SegmentedControl
+        label="Result type"
+        value="all"
+        onChange={() => undefined}
+        options={[{ value: "all", label: "All", hint }]}
+        layout="fit"
+      />
+    );
+    const { rerender } = render(renderControl("9"));
+
+    const initialRadio = screen.getByRole("radio", { name: "All (9)" });
+    const initialHint = within(initialRadio).getByText("9");
+    expect(initialHint).toHaveClass("min-w-6", "text-right", "tabular-nums");
+    expect(initialHint).not.toHaveClass("opacity-80");
+    expect(initialHint.className).not.toContain("--text-soft");
+    const initialRadioClasses = initialRadio.className;
+
+    rerender(renderControl("100"));
+
+    const updatedRadio = screen.getByRole("radio", { name: "All (100)" });
+    expect(updatedRadio.className).toBe(initialRadioClasses);
+    expect(within(updatedRadio).getByText("100")).toHaveClass("min-w-6", "text-right", "tabular-nums");
+  });
+
+  // A hintless option must not gain stray whitespace or an empty span — the
+  // existing call sites pass no hint and their names must not drift.
+  it("leaves an option without a hint unchanged", () => {
+    render(
+      <SegmentedControl
+        label="Result type"
+        value="all"
+        onChange={() => undefined}
+        options={[{ value: "all", label: "All" }]}
+        layout="fit"
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "All" })).toBeInTheDocument();
+  });
+
+  it("points the group, not each radio, at the region it filters", () => {
+    render(
+      <SegmentedControl
+        label="Filter by tool category"
+        value="all"
+        onChange={() => undefined}
+        options={[
+          { value: "all", label: "All" },
+          { value: "assess", label: "Assess" },
+        ]}
+        ariaControls="launcher-results-panel"
+      />,
+    );
+
+    expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-controls", "launcher-results-panel");
+    // The radios are options of the control, not separate controllers of the
+    // panel — the launcher's old rail put aria-controls on all six buttons.
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).not.toHaveAttribute("aria-controls");
+    }
+  });
+
+  it("omits aria-controls entirely when the rail governs no separate region", () => {
+    render(
+      <SegmentedControl
+        label="Result type"
+        value="all"
+        onChange={() => undefined}
+        options={[{ value: "all", label: "All" }]}
+      />,
+    );
+
+    expect(screen.getByRole("radiogroup")).not.toHaveAttribute("aria-controls");
+  });
+
   it("keeps a controlled disabled value checked instead of remapping to the first enabled option", () => {
     render(
       <SegmentedControl
