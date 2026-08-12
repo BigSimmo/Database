@@ -369,7 +369,7 @@ async function main() {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
     console.error("[July8 Live Batch] FAIL:", error instanceof Error ? error.message : error);
-    console.error("[July8 Live Batch] Runbook: docs/operator-apply-july8-batch.md");
+    console.error("[July8 Live Batch] Runbook: docs/archive/operator-apply-july8-batch.md");
     process.exit(1);
   });
 }

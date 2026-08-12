@@ -3,7 +3,7 @@
 //
 // The app is a deliberately single-layer tenancy design: every API route uses the
 // service-role Supabase client (RLS bypassed) and enforces ownership in application
-// code via an `owner_id` filter. `docs/tenancy-defense-in-depth-review.md` verified
+// code via an `owner_id` filter. `docs/audit/tenancy-defense-in-depth-review.md` verified
 // 0/33 route gaps, but flagged (§6 item 2) that a *future* handler dropping the owner
 // filter is the single regression class this design is exposed to.
 //
@@ -44,26 +44,26 @@ const SCOPE_TOKENS = [
 // Intentional exceptions: a handler that queries an owner-scoped table where ownership
 // is enforced indirectly (e.g. the query filters by document ids that were themselves
 // fetched under an owner scope). Each entry needs a reason and a reviewer sign-off in
-// docs/tenancy-defense-in-depth-review.md. Keep this list empty unless a real, reviewed
+// docs/audit/tenancy-defense-in-depth-review.md. Keep this list empty unless a real, reviewed
 // indirect-scope pattern exists — a forgotten filter must NOT be silenced here.
 export const OWNER_SCOPE_ALLOWLIST = [
   {
     file: "src/app/api/setup-status/route.ts",
     table: "documents",
     reason:
-      "Global setup/health diagnostic: a `.limit(1)` existence probe (is any document indexed?), not an owner-data read. The route is gated to local origin and returns only status booleans — see docs/tenancy-defense-in-depth-review.md §3 (setup-status row / TEN-N1).",
+      "Global setup/health diagnostic: a `.limit(1)` existence probe (is any document indexed?), not an owner-data read. The route is gated to local origin and returns only status booleans — see docs/audit/tenancy-defense-in-depth-review.md §3 (setup-status row / TEN-N1).",
   },
   {
     file: "src/app/api/setup-status/route.ts",
     table: "import_batches",
     reason:
-      "Global setup/health diagnostic: a `.limit(1)` existence probe for schema provisioning, not an owner-data read. Same local-origin-gated status route — see docs/tenancy-defense-in-depth-review.md §3 (TEN-N1).",
+      "Global setup/health diagnostic: a `.limit(1)` existence probe for schema provisioning, not an owner-data read. Same local-origin-gated status route — see docs/audit/tenancy-defense-in-depth-review.md §3 (TEN-N1).",
   },
   {
     file: "src/app/api/setup-status/route.ts",
     table: "storage_cleanup_jobs",
     reason:
-      "Global setup/health diagnostic: a head-count existence probe for pending cleanup rows (schema/ops posture), not an owner-data read. Same local-origin-gated status route — see docs/tenancy-defense-in-depth-review.md §3 (TEN-N1).",
+      "Global setup/health diagnostic: a head-count existence probe for pending cleanup rows (schema/ops posture), not an owner-data read. Same local-origin-gated status route — see docs/audit/tenancy-defense-in-depth-review.md §3 (TEN-N1).",
   },
 ];
 
