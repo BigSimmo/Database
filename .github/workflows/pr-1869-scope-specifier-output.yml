@@ -1,0 +1,80 @@
+name: PR 1869 scope visible specifier output
+
+on:
+  push:
+    branches:
+      - codex/fix-form-section-expansion-issues
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-1869-specifier-output-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Scope the assertion to the visible working-diagnosis card
+        run: |
+          git pull --ff-only origin "${GITHUB_REF_NAME}"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/ui-specifiers.spec.ts")
+          text = path.read_text()
+          old = '''  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("mdd-recurrent");
+          await expect(page.getByText("Major depressive disorder, recurrent, mild", { exact: true })).toBeVisible();
+          await expect(page.getByText(/severe, mild|moderate, mild/i)).toHaveCount(0);
+
+          const anxiousDistress = page.getByRole("checkbox", { name: /Anxious distress/ });
+          await page.getByText("Anxious distress", { exact: true }).click();
+          await expect(anxiousDistress).toBeChecked();
+          await expect(
+            page.getByText("Major depressive disorder, recurrent, with anxious distress, mild", { exact: true }),
+          ).toBeVisible();'''
+          new = '''  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("mdd-recurrent");
+          const workingDiagnosis = page.locator("aside:visible > section").filter({ hasText: "Working diagnosis" });
+          await expect(workingDiagnosis).toHaveCount(1);
+          await expect(
+            workingDiagnosis.getByText("Major depressive disorder, recurrent, mild", { exact: true }),
+          ).toBeVisible();
+          await expect(page.getByText(/severe, mild|moderate, mild/i)).toHaveCount(0);
+
+          const anxiousDistress = page.getByRole("checkbox", { name: /Anxious distress/ });
+          await page.getByText("Anxious distress", { exact: true }).click();
+          await expect(anxiousDistress).toBeChecked();
+          await expect(
+            workingDiagnosis.getByText("Major depressive disorder, recurrent, with anxious distress, mild", {
+              exact: true,
+            }),
+          ).toBeVisible();'''
+          count = text.count(old)
+          if count == 1:
+              path.write_text(text.replace(old, new))
+          elif new not in text:
+              raise SystemExit(f"Expected one specifier assertion block, found {count}")
+          PY
+          npx prettier --write tests/ui-specifiers.spec.ts
+          git rm .github/workflows/pr-1869-scope-specifier-output.yml
+          git add tests/ui-specifiers.spec.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "test: scope specifier wording to visible output"
+          git push origin HEAD:${GITHUB_REF_NAME}
