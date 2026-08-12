@@ -23,6 +23,7 @@ describe("Codex Run PR operator workflow", () => {
     expect(prepare).toContain("pr.head.repo?.full_name !== `${owner}/${repo}`");
     expect(prepare).toContain("protectedBranch");
     expect(prepare).toContain('pr.state !== "open" || pr.merged');
+    expect(prepare).toContain("basehead: `${pr.head.sha}...${pr.base.sha}`");
   });
 
   it("collects the complete bounded Run PR control-plane evidence", () => {

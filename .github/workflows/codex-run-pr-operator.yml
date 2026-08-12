@@ -286,7 +286,7 @@ jobs:
             const compare = await github.rest.repos.compareCommitsWithBasehead({
               owner,
               repo,
-              basehead: `${pr.head.sha}...${pr.base.ref}`,
+              basehead: `${pr.head.sha}...${pr.base.sha}`,
             });
             const payload = {
               generated_at: new Date().toISOString(),
