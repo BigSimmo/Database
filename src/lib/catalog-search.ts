@@ -68,14 +68,18 @@ function boundedTypoDistance(left: string, right: string, limit: number) {
 }
 
 /** Number of query tokens with a conservative near-word match in normalized text. */
-export function fuzzySearchTokenCount(query: string, text: string) {
+function fuzzySearchTokens(query: string, text: string) {
   const queryTokens = normalizeSearchText(query).split(/\s+/).filter(Boolean);
   const words = Array.from(new Set(normalizeSearchText(text).split(/\s+/).filter(Boolean)));
   return queryTokens.filter((term) => {
     if (words.some((word) => word.includes(term))) return false;
     const limit = typoDistanceLimit(term);
     return limit > 0 && words.some((word) => boundedTypoDistance(term, word, limit) <= limit);
-  }).length;
+  });
+}
+
+export function fuzzySearchTokenCount(query: string, text: string) {
+  return fuzzySearchTokens(query, text).length;
 }
 
 export type CatalogField<T> = {
@@ -168,6 +172,14 @@ export function rankCatalogRecords<T>(
       const text = options.fullText(record);
       const fields: Record<string, number> = {};
       let score = 0;
+      let fuzzy = 0;
+      const compact =
+        compactBonus > 0 &&
+        compactQuery.length >= compactMinLength &&
+        (compactSearchText(text).includes(compactQuery) ||
+          (options.compactExtraText
+            ? compactSearchText(options.compactExtraText(record)).includes(compactQuery)
+            : false));
 
       for (const field of options.fields) {
         const haystack = field.text(record);
@@ -176,26 +188,29 @@ export function rankCatalogRecords<T>(
         // align with a word boundary — substring hits ("renal" inside
         // "adrenaline") stay confined to the low-weight content haystack.
         const matched = terms.filter((term) => matchesTermAtWordBoundary(haystack, term)).length;
-        if (!matched) continue;
-        fields[field.id] = matched;
-        score += matched * field.weight;
+        if (matched) {
+          fields[field.id] = matched;
+          score += matched * field.weight;
+        }
+
+        // A typo in a title/name/code field must retain that field's weight.
+        // Otherwise an intended record ties incidental full-text mentions and
+        // a limited universal-search result can omit the best match entirely.
+        const fuzzyFieldMatches = compact ? 0 : fuzzySearchTokenCount(normalizedQuery, haystack);
+        fuzzy += fuzzyFieldMatches;
+        score += fuzzyFieldMatches * field.weight;
       }
 
       const content = terms.filter((term) => text.includes(term)).length;
       score += content * contentWeight;
 
       const expanded = expandedTerms.filter((term) => text.includes(term)).length;
-      const fuzzy = score === 0 ? fuzzySearchTokenCount(normalizedQuery, text) : 0;
-      // Fuzzy evidence rescues misspellings but stays weaker than literal content.
-      score += fuzzy * Math.max(1, contentWeight * 0.5);
+      const fuzzyContentFallback = !compact && fuzzy === 0 ? fuzzySearchTokenCount(normalizedQuery, text) : 0;
+      fuzzy += fuzzyContentFallback;
+      // Broad full-text fuzzy evidence is only a fallback and stays weaker than
+      // literal content or a weighted field match.
+      score += fuzzyContentFallback * Math.max(1, contentWeight * 0.5);
 
-      const compact =
-        compactBonus > 0 &&
-        compactQuery.length >= compactMinLength &&
-        (compactSearchText(text).includes(compactQuery) ||
-          (options.compactExtraText
-            ? compactSearchText(options.compactExtraText(record)).includes(compactQuery)
-            : false));
       if (compact) score += compactBonus;
 
       const phrase = phraseBonus > 0 && text.includes(normalizedQuery);

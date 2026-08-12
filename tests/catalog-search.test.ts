@@ -67,6 +67,19 @@ describe("rankCatalogRecords", () => {
     expect(fuzzySearchTokenCount("monitroing", "Clozapine monitoring guidance")).toBe(1);
   });
 
+  it("weights a fuzzy title above an incidental full-text mention", () => {
+    const records = [
+      { title: "Schizophrenia", body: "Core diagnostic record" },
+      { title: "Other condition", body: "Consider schizophrenia in the differential" },
+    ];
+    const results = rankCatalogRecords(records, "schizophrnia", {
+      fields: [{ id: "title", weight: 8, text: (record) => normalizeSearchText(record.title) }],
+      fullText: (record) => normalizeSearchText(`${record.title} ${record.body}`),
+    });
+
+    expect(results[0]?.record.title).toBe("Schizophrenia");
+  });
+
   it("does not fuzz short clinical abbreviations or unrelated words", () => {
     expect(fuzzySearchTokenCount("GAD", "Major depressive disorder")).toBe(0);
     expect(fuzzySearchTokenCount("SSRI", "SNRI")).toBe(0);

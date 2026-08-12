@@ -198,7 +198,12 @@ function SmartRotatingHint({
     setIsTickerHeld(true);
   }, [activeExample]);
   const releaseTicker = useCallback(() => setIsTickerHeld(false), []);
-  const resolvedTickerExample = isTickerHeld ? (heldTickerExample ?? activeExample) : activeExample;
+  // A mode change can replace the examples while a pointer/focus hold is
+  // active. Never keep displaying or submit a held value that is no longer in
+  // the current mode's suggestion set.
+  const currentHeldTickerExample =
+    heldTickerExample && examples.includes(heldTickerExample) ? heldTickerExample : activeExample;
+  const resolvedTickerExample = isTickerHeld ? currentHeldTickerExample : activeExample;
 
   if (!activeExample) return null;
 

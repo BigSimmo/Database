@@ -29,12 +29,11 @@ const globalSearchShellSource = source("src/components/clinical-dashboard/global
 
 describe("audit navigation and auth regressions", () => {
   it("keeps the tappable phone suggestion ticker connected to standalone homes", () => {
-    expect(globalSearchShellSource).toContain(
-      'showPhoneSuggestionTickerOnHome={isStandaloneModeHome || pathname === "/"}',
-    );
+    expect(globalSearchShellSource).toContain('isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)');
     expect(masterSearchHeaderSource).toContain("showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}");
     expect(universalCommandSurfaceSource).toContain('data-testid="smart-search-phone-ticker"');
     expect(universalCommandSurfaceSource).toContain("onClick={() => onPickExample(resolvedTickerExample)}");
+    expect(universalCommandSurfaceSource).toContain("examples.includes(heldTickerExample)");
     expect(universalCommandSurfaceSource).toContain("onQueryChange(example);");
   });
   it("redirects exact legacy route handlers at request time while retaining useful query state", () => {

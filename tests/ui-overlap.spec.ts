@@ -278,5 +278,9 @@ test.describe("Header element overlap coverage", () => {
     const suggestedQuery = await ticker.locator(".smart-search-phone-ticker-query").textContent();
     await ticker.click();
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue(suggestedQuery ?? "");
+
+    await page.goto("/?mode=answer&q=lithium&run=1", { waitUntil: "domcontentloaded" });
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue("lithium");
+    await expect(page.getByTestId("smart-search-phone-ticker")).toBeHidden();
   });
 });
