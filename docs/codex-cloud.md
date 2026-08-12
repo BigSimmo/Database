@@ -58,37 +58,21 @@ environment is not full browser-ready.
 
 ### Cloud compared with local development
 
-The Cloud bootstrap intentionally brings the repository-owned development surface close to local
-development, but it cannot reproduce capabilities owned by the host, an operator, or physical
-hardware. Use this matrix when deciding whether a failed task needs a repository fix or a different
-execution environment.
+Cloud parity covers repository-owned tooling, not every capability of a developer workstation or
+CI runner:
 
-| Capability                             | Codex Cloud                                                                                                                | Local/Desktop difference                                                                                                                    |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node and npm                           | Exact Node 24 range and npm 11 version; locked dev install                                                                 | Desktop can reuse a byte-identical `node_modules` tree from another worktree, while a fresh Cloud image must populate its own cache         |
-| Dependency install                     | `npm ci --include=dev --prefer-offline --no-audit --no-fund`; integrity is checked after install                           | Local reuse is faster when another complete worktree exists; Cloud cache availability depends on the disposable host image                  |
-| Git hooks and repository checks        | Installed by npm postinstall; the same format, lint, type, unit, build, and repository gates are available                 | Desktop shell Git credentials may support direct push; Cloud publication normally uses the native GitHub connector or PR controls           |
-| Browser testing                        | Matching Chromium, Firefox, and WebKit are installed and launch-tested unless the environment is explicitly source-only    | Cloud can run Playwright, but it cannot replace physical Safari, installed-PWA, camera, touch, GPU, or device-specific acceptance           |
-| Worker/OCR tooling                     | Python 3.12 hashed lock, PyMuPDF, Pillow, pytesseract, medspaCy, spaCy, and Tesseract are installed and checked            | Production workers use their separate Python 3.11 lock; local operators may have additional native inspection tools                         |
-| Deno and Codex CLI                     | Deno 2 and the reviewed Codex CLI version are installed and checked                                                        | Local CLI configuration can enable operator-owned MCP servers; tracked Cloud setup deliberately does not copy or enable them                |
-| Application runtime                    | Demo/offline app and browser journeys can run through `npm run ensure`                                                     | Authenticated or production-like behavior needs approved provider access; Cloud demo health is not production readiness                     |
-| Provider access                        | Offline by default; connected capability comes from separately installed host OAuth apps and explicit approvals            | A trusted local operator can use separately managed provider CLIs or credentials, subject to the same approval and safety rules             |
-| GitHub operations                      | Repository reads/publication depend on the Codex GitHub installation and the tools exposed to the task                     | Review-thread management, Actions reruns, admin APIs, and shell Git authentication may be unavailable even when connector publication works |
-| Containers and privileged host changes | Repository checks do not assume a durable Docker daemon, nested virtualization, swap, or persistent system state           | A local workstation or CI runner can provide Docker, larger disks, persistent caches, device access, and operator-managed capacity          |
-| Persistence                            | Repository commits survive when published; home-directory caches and installed tools may be discarded with the environment | Local worktrees, caches, browser state, OAuth sessions, and tool configuration can persist between sessions                                 |
+| Boundary                        | What the repository provides                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository-owned setup          | Pinned Node/npm, a lockfile-only dev install, Git hooks, Deno, the hashed Python/OCR environment, browser installation, and static/runtime checks. `--prefer-offline` reuses cached npm data when available but may still fetch missing packages; it is not offline mode. `--no-audit` and `--no-fund` keep provisioning deterministic and quiet, while dependency auditing remains a separately scoped CI gate. |
+| Host/platform capability        | GitHub installation permissions, callable connector tools, network policy, Docker or privileged operations, capacity, caches, and persistence are supplied by the selected host. Repository setup cannot grant or guarantee them; verify the needed capability in the current task.                                                                                                                              |
+| Intentional security boundary   | Cloud setup does not copy `.env*` files, credentials, OAuth sessions, provider URLs, mutable provider configuration, browser state, or local MCP authentication. Keep those differences from Desktop/operator workflows.                                                                                                                                                                                         |
+| Optional or external acceptance | `CODEX_CLOUD_SKIP_BROWSER_INSTALL=1` creates a source-only environment. Provider-backed, production-like, physical-device, and physical Safari/PWA checks remain separate and require the authorization and environment described below.                                                                                                                                                                         |
 
-The remaining parity gaps cannot safely be fixed by placing more credentials or mutable provider
-state in the Cloud shell. The practical improvement path is:
-
-1. Keep repository-owned runtimes, locks, browsers, diagnostics, and checks reproducible here.
-2. Use native GitHub publication and verify the exact remote branch and commit rather than assuming
-   a local commit or metadata-only PR response was published.
-3. Add provider capabilities only through a separate connected environment with least-privileged
-   OAuth and explicit task authorization.
-4. Keep authenticated Supabase/OpenAI tests and write-capable Railway operations in protected
-   workflows rather than weakening the ordinary Cloud boundary.
-5. Use local hardware or a dedicated runner for physical Safari/PWA, device, Docker, privileged,
-   or persistent-state acceptance.
+See [Access profiles](#access-profiles), [GitHub access](#github-access),
+[Playwright browser readiness](#playwright-browser-readiness-255), and [Acceptance](#acceptance)
+for the authoritative task-level checks. Never repair a host capability gap by copying credentials,
+tokens, provider URLs, OAuth state, `.env*` files, or mutable provider configuration into the Cloud
+agent shell.
 
 ### Playwright browser readiness (#255)
 
@@ -187,6 +171,34 @@ write access for branch and pull-request publication; reserve administrator acce
 approved operations. Some GitHub APIs, including review-thread or Actions management,
 may not be exposed in every Cloud task; use an approved GitHub-connected workflow for those
 operations or report the unavailable capability. Do not use shell credentials as a workaround.
+
+When a Cloud task has no direct PR-mutation tools, the repository's supported fallback is the
+credential-isolated **Codex Run PR operator** workflow. After this workflow is present on the
+default branch, `BigSimmo` can manually dispatch it for an open, same-repository PR whose head is
+not `main`, `master`, `develop`, or `release/*`. Dispatch requires the exact PR number, the URL of
+the Codex task containing the user's explicit authorization for that PR, and the typed confirmation
+`I authorized this PR in the linked Codex task`. A PR comment, webhook text, commit, or repository
+file cannot trigger or authorize it. The repair phase
+uses the official OpenAI Codex GitHub Action and `OPENAI_API_KEY`, but receives no GitHub write
+credential. It reads bounded PR/check/thread/log evidence, may merge the recorded base normally,
+repairs the checkout, and emits a validated descendant commit bundle plus structured thread/CI
+dispositions. Separate clean jobs authenticate `GH_TOKEN` as `BigSimmo`, reject a moved remote
+head, ordinary-push only the existing feature branch, then reply/resolve only previously recorded
+review threads. A failed-job rerun is limited to one still-failed run at the exact unchanged head.
+
+The operator never merges or closes a PR, updates a protected branch, deletes or renames a branch,
+force-pushes, rebases, deploys, accesses Supabase/production data, or makes GitHub credentials
+available to Codex. It also refuses publication when the agent-authored delta changes workflow,
+agent-policy, environment, credential, key, or `supabase/**` paths; introduces a symlink or
+submodule; exceeds 100 paths; or exceeds 1 MiB of diff. A trusted normal merge from the recorded
+base is accounted separately, so base-owned policy files do not make an otherwise safe branch sync
+look like an agent-authored policy change. `OPENAI_API_KEY` and `GH_TOKEN` stay in GitHub Actions
+secrets; never copy either value into Codex Cloud settings or repository files.
+This fallback becomes usable only after its reviewed workflow PR is merged. It is a manual GitHub
+operator bridge, not proof that a Codex Cloud task gained native GitHub tools. The first real
+invocation is the capability proof: verify
+the workflow's identity/permission checks, published SHA, resolved-thread state, and any rerun state
+from the linked Actions run rather than treating configuration as success.
 
 GitHub connector permission is separate from credentials inside the agent shell. The connector,
 native Push control, and GitHub UI are the supported Cloud publication and cleanup paths. Cloud

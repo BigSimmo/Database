@@ -85,11 +85,14 @@ test("searches clinical language without provenance fields and carries a result 
   await expect(page.getByRole("combobox", { name: "Filter by diagnosis" })).toBeVisible();
   await expect(page.getByText("Best fit", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/clinical fit/i)).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Open With mixed features" })).toBeVisible();
+  const topMatch = page.getByTestId("specifier-top-match");
+  const topMatchLink = topMatch.getByRole("link", { name: "Open With mixed features" });
+  await expect(topMatchLink).toBeVisible();
+  await expect(topMatch.getByTestId("specifier-open-tab")).toHaveText("Open");
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
 
-  await page.getByRole("link", { name: "Open With mixed features" }).click();
+  await topMatchLink.click();
   await expect(page).toHaveURL(/\/specifiers\/with-mixed-features$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "With mixed features", exact: true })).toBeVisible();
   // Address the record label by id. The in-page section sheet's labels do not
@@ -125,6 +128,130 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
   await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
+
+  const topMatch = page.getByTestId("specifier-top-match");
+  const topMatchLink = topMatch.getByRole("link", { name: "Open With seasonal pattern" });
+  for (const width of [320, 390, 639, 768, 1440]) {
+    await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
+    await expectNoHorizontalOverflow(page);
+
+    const geometry = await topMatch.evaluate((card) => {
+      const copy = card.querySelector<HTMLElement>("[data-specifier-card-copy]");
+      const signal = card.querySelector<HTMLElement>("[data-specifier-card-signal]");
+      const tab = card.querySelector<HTMLElement>("[data-testid='specifier-open-tab']");
+      const detailCells = [...card.querySelectorAll<HTMLElement>("[data-specifier-card-details] > div")];
+      if (!copy || !signal || !tab || detailCells.length !== 2) {
+        throw new Error("Expected complete specifier result-card structure");
+      }
+
+      const cardRect = card.getBoundingClientRect();
+      const copyRect = copy.getBoundingClientRect();
+      const signalRect = signal.getBoundingClientRect();
+      const tabRect = tab.getBoundingClientRect();
+      const cardStyle = getComputedStyle(card);
+      const tabStyle = getComputedStyle(tab);
+      const detailRects = detailCells.map((cell) => cell.getBoundingClientRect());
+      return {
+        borderColors: [
+          cardStyle.borderTopColor,
+          cardStyle.borderRightColor,
+          cardStyle.borderBottomColor,
+          cardStyle.borderLeftColor,
+        ],
+        borderWidths: [
+          cardStyle.borderTopWidth,
+          cardStyle.borderRightWidth,
+          cardStyle.borderBottomWidth,
+          cardStyle.borderLeftWidth,
+        ].map(Number.parseFloat),
+        card: { top: cardRect.top, right: cardRect.right },
+        copy: { left: copyRect.left, right: copyRect.right },
+        detailCells: detailRects.map((rect) => ({ top: rect.top, width: rect.width })),
+        signal: { left: signalRect.left, right: signalRect.right },
+        tab: { top: tabRect.top, right: tabRect.right, height: tabRect.height, color: tabStyle.color },
+      };
+    });
+
+    expect(new Set(geometry.borderColors).size, `${width}px complete blue frame`).toBe(1);
+    expect(geometry.borderColors[0], `${width}px frame uses the clinical blue`).toBe(geometry.tab.color);
+    expect(Math.min(...geometry.borderWidths), `${width}px complete frame width`).toBeGreaterThanOrEqual(2);
+    expect(Math.abs(geometry.tab.top - geometry.card.top), `${width}px tab top edge`).toBeLessThanOrEqual(3);
+    expect(Math.abs(geometry.card.right - geometry.tab.right), `${width}px tab right edge`).toBeLessThanOrEqual(3);
+    expect(geometry.tab.height, `${width}px open target`).toBeGreaterThanOrEqual(48);
+
+    if (width < 640) {
+      expect(
+        Math.abs(geometry.copy.left - geometry.signal.left),
+        `${width}px aligned content left edge`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(geometry.copy.right - geometry.signal.right),
+        `${width}px aligned content right edge`,
+      ).toBeLessThanOrEqual(1);
+    } else {
+      expect(
+        Math.abs(geometry.detailCells[0].top - geometry.detailCells[1].top),
+        `${width}px detail row`,
+      ).toBeLessThanOrEqual(1);
+      expect(
+        Math.abs(geometry.detailCells[0].width - geometry.detailCells[1].width),
+        `${width}px equal detail columns`,
+      ).toBeLessThanOrEqual(1);
+    }
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await topMatchLink.focus();
+  await expect(topMatchLink).toBeFocused();
+  const focusStyle = await topMatch.evaluate((card) => {
+    const style = getComputedStyle(card);
+    return {
+      outlineOffset: Number.parseFloat(style.outlineOffset),
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth),
+    };
+  });
+  expect(focusStyle.outlineStyle).not.toBe("none");
+  expect(focusStyle.outlineWidth).toBeGreaterThanOrEqual(2);
+  expect(focusStyle.outlineOffset).toBeGreaterThanOrEqual(2);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect
+    .poll(() => topMatch.evaluate((card) => Number.parseFloat(getComputedStyle(card).transitionDuration)))
+    .toBeLessThanOrEqual(0.001);
+  await testInfo.attach("specifier-result-card-phone", {
+    body: await topMatch.screenshot(),
+    contentType: "image/png",
+  });
+  await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+  await expect(topMatch.getByTestId("specifier-open-tab")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.emulateMedia({ colorScheme: "dark", forcedColors: "none", reducedMotion: "reduce" });
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  const darkTheme = await topMatch.evaluate((card) => {
+    const tab = card.querySelector<HTMLElement>("[data-testid='specifier-open-tab']");
+    if (!tab) throw new Error("Expected the specifier open tab");
+    const cardStyle = getComputedStyle(card);
+    const tabStyle = getComputedStyle(tab);
+    return {
+      borderColors: [
+        cardStyle.borderTopColor,
+        cardStyle.borderRightColor,
+        cardStyle.borderBottomColor,
+        cardStyle.borderLeftColor,
+      ],
+      tabColor: tabStyle.color,
+    };
+  });
+  expect(new Set(darkTheme.borderColors).size, "dark mode complete blue frame").toBe(1);
+  expect(darkTheme.borderColors[0], "dark mode frame uses the clinical blue").toBe(darkTheme.tabColor);
+  await expectNoHorizontalOverflow(page);
+  await expectNoBlockingAxeViolations(page, testInfo);
+  await testInfo.attach("specifier-result-card-phone-dark", {
+    body: await topMatch.screenshot(),
+    contentType: "image/png",
+  });
+  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await page.emulateMedia({ colorScheme: "light", forcedColors: "none", reducedMotion: "reduce" });
 
   await filterTrigger.click();
   const familyGroup = page.getByRole("radiogroup", { name: "Family" });

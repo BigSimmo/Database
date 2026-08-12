@@ -28,6 +28,11 @@ const reviewedActionPins = new Map([
       ["1623c36729ac1cd5895198cded705a287de7db79", "v1.0.187"],
     ]),
   ],
+  // Reviewed 2026-08-13 for the credential-isolated Run PR operator: annotated
+  // tag v1 peels to this commit. The action keeps OPENAI_API_KEY behind its
+  // local proxy and runs the repair as an unprivileged user; GitHub mutation
+  // credentials remain confined to later clean jobs.
+  ["openai/codex-action", new Map([["52fe01ec70a42f454c9d2ebd47598f9fd6893d56", "v1"]])],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
   ["actions/upload-artifact", new Map([["043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "v7"]])],
   ["actions/download-artifact", new Map([["3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c", "v8.0.1"]])],
