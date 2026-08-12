@@ -215,13 +215,18 @@ describe("services catalogue", () => {
     const cads = records.find((service) => service.slug === "community-alcohol-and-drug-services-cads-network");
     const residential = records.find((service) => service.slug === "community-supported-residential-units");
 
-    expect(yarn && serviceCoreGroupIds(yarn)).toContain("urgent");
-    expect(cityEast && serviceCoreGroupIds(cityEast)).toContain("public");
-    expect(cads && serviceCoreGroupIds(cads)).toContain("aod");
-    expect(residential && serviceCoreGroupIds(residential)).toContain("community");
+    expect(yarn).toBeDefined();
+    expect(cityEast).toBeDefined();
+    expect(cads).toBeDefined();
+    expect(residential).toBeDefined();
+
+    expect(serviceCoreGroupIds(yarn!)).toContain("urgent");
+    expect(serviceCoreGroupIds(cityEast!)).toContain("public");
+    expect(serviceCoreGroupIds(cads!)).toContain("aod");
+    expect(serviceCoreGroupIds(residential!)).toContain("community");
     expect(readServiceCoreGroup("unknown")).toBeNull();
 
-    expect(yarn && serviceMatchesCoreGroup(yarn, null)).toBe(true);
+    expect(serviceMatchesCoreGroup(yarn!, null)).toBe(true);
   });
 
   it("normalizes service lookup", () => {

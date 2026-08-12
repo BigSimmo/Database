@@ -16,7 +16,7 @@ const aodPattern = /\b(?:aod|alcohol|drug|addiction|gambling|withdrawal|detox|re
 const communityPattern =
   /\b(?:psychosocial|recovery|community support|accommodation|homeless|housing|residential|ndis|disability|carer|family|youth|aboriginal|torres strait islander|lgbtq|veteran|perinatal|legal|advocacy|practical support|specialist)\b/i;
 
-function serviceGroupText(service: ServiceRecord) {
+function serviceGroupFields(service: ServiceRecord) {
   return [
     service.title,
     service.subtitle,
@@ -25,9 +25,11 @@ function serviceGroupText(service: ServiceRecord) {
     service.catalogueLabel,
     ...(service.tags ?? []),
     ...(service.statusChips ?? []).map((chip) => chip.label),
-  ]
-    .filter((value): value is string => Boolean(value?.trim()))
-    .join(" ");
+  ].filter((value): value is string => Boolean(value?.trim()));
+}
+
+function includesPatternInFields(fields: readonly string[], pattern: RegExp): boolean {
+  return fields.some((value) => pattern.test(value));
 }
 
 export function readServiceCoreGroup(value: string | null | undefined): ServiceCoreGroupId | null {
@@ -35,12 +37,12 @@ export function readServiceCoreGroup(value: string | null | undefined): ServiceC
 }
 
 export function serviceCoreGroupIds(service: ServiceRecord): ServiceCoreGroupId[] {
-  const text = serviceGroupText(service);
+  const fields = serviceGroupFields(service);
   const groups: ServiceCoreGroupId[] = [];
-  if (urgentPattern.test(text)) groups.push("urgent");
-  if (publicPattern.test(text)) groups.push("public");
-  if (aodPattern.test(text)) groups.push("aod");
-  if (communityPattern.test(text)) groups.push("community");
+  if (includesPatternInFields(fields, urgentPattern)) groups.push("urgent");
+  if (includesPatternInFields(fields, publicPattern)) groups.push("public");
+  if (includesPatternInFields(fields, aodPattern)) groups.push("aod");
+  if (includesPatternInFields(fields, communityPattern)) groups.push("community");
   return groups.length ? groups : ["community"];
 }
 
