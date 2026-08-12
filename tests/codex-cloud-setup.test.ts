@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -576,6 +576,10 @@ describe("Codex Cloud environment contract", () => {
       new URL("../scripts/install-codex-cloud-command-shims.sh", import.meta.url),
       "utf8",
     );
+    const checkoutBaseRefresh = readFileSync(
+      new URL("../scripts/refresh-codex-cloud-base.sh", import.meta.url),
+      "utf8",
+    );
     const patDelete = readFileSync(
       new URL("../scripts/delete-codex-cloud-branch-with-pat.sh", import.meta.url),
       "utf8",
@@ -620,20 +624,73 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain('setup_step="python-worker-requirements"');
     expect(setup).not.toContain("@railway/cli");
     expect(setup).not.toContain('setup_step="railway-cli"');
+    expect(setup).not.toContain("gh auth login");
+    expect(setup).not.toContain("configure-codex-cloud-github-shell.sh");
+    expect(maintenance).not.toContain("gh auth login");
+    expect(maintenance).not.toContain("configure-codex-cloud-github-shell.sh");
     expect(setup).toContain("--require-hashes -r worker/python/requirements-cloud.txt");
     expect(setup).toContain('"$ocr_venv/bin/python" -m pip check');
-    expect(setup).toContain("CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime");
-    expect(maintenance).toContain("CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime");
+    const refreshCommand = "bash scripts/refresh-codex-cloud-base.sh";
+    const runtimeCheck = "CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime";
+
+    expect(setup).toContain(runtimeCheck);
+    expect(setup).toContain(refreshCommand);
+    expect(maintenance).toContain(runtimeCheck);
     expect(maintenance).toContain("ensure-codex-cloud-git-remote.mjs");
-    expect(commandShims).toContain('nvm which "$expected_node_major"');
+    expect(maintenance).toContain(refreshCommand);
+    for (const script of [setup, maintenance]) {
+      expect(script.indexOf(refreshCommand)).toBeLessThan(script.indexOf(runtimeCheck));
+    }
+    expect(commandShims).toContain('nvm version "$expected_node_major"');
+    expect(commandShims).toContain('node_bin="$NVM_DIR/versions/node/$resolved_node_version/bin"');
+    expect(commandShims).toContain('while [[ "\\$clean_path" == *":\\$HOME/.local/bin:"* ]]; do');
+    expect(commandShims).toContain('clean_path="\\${clean_path//:\\$HOME\\/.local\\/bin:/:}"');
+    expect(commandShims).toContain('if [[ -n "\\$clean_path" ]]; then');
+    expect(commandShims).toContain('export PATH="$node_bin"');
     expect(commandShims).toContain('. "$runtime_profile"');
     expect(commandShims).toContain('mkdir -p "$HOME/.local/bin"');
+    expect(checkoutBaseRefresh).toContain("git merge-base HEAD refs/remotes/origin/main");
+    expect(checkoutBaseRefresh).toContain("cloud-expected-base-sha");
     expect(patDelete).toContain('[[ "${CODEX_CLOUD:-0}" != "1" ]]');
     expect(patDelete).toContain('[[ "$branch" != -* ]]');
     expect(patDelete).toContain("git check-ref-format --branch");
     expect(patDelete).toContain("git remote get-url --push --all origin");
     expect(patDelete).toContain("GIT_ASKPASS");
     expect(patDelete).toContain("core.hooksPath=/dev/null");
+  });
+
+  it("removes every adjacent command-shim PATH entry", () => {
+    const home = temporaryDirectory("codex-cloud-shims-");
+    const bashHome = bashPathEntry(home);
+    const nodeVersion = "v24.19.0";
+    const nodeBin = path.join(home, ".nvm", "versions", "node", nodeVersion, "bin");
+    const bashNodeBin = bashPathEntry(nodeBin);
+    mkdirSync(nodeBin, { recursive: true });
+    for (const command of ["node", "npm", "npx"]) {
+      const executable = path.join(nodeBin, command);
+      writeFileSync(executable, '#!/usr/bin/env bash\nprintf "%s\\n" "$PATH"\n');
+      chmodSync(executable, 0o755);
+    }
+    writeFileSync(
+      path.join(home, ".clinical-kb-codex-cloud.sh"),
+      [`export NVM_DIR="${bashHome}/.nvm"`, `nvm() { printf '${nodeVersion}\\n'; }`, ""].join("\n"),
+    );
+
+    const install = spawnSync(bashCommand, ["scripts/install-codex-cloud-command-shims.sh"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { ...process.env, HOME: bashHome, PATH: bashPathList(process.env.PATH || "") },
+    });
+    expect(install.status, install.stderr || install.stdout).toBe(0);
+
+    const shimDir = `${bashHome}/.local/bin`;
+    const result = spawnSync(bashCommand, [`${shimDir}/node`], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { ...process.env, HOME: bashHome, PATH: `${shimDir}:${shimDir}:/usr/bin:/bin` },
+    });
+    expect(result.status, result.stderr || result.stdout).toBe(0);
+    expect(result.stdout.trim()).toBe(`${bashNodeBin}:/usr/bin:/bin`);
   });
 
   it("writes managed shell policy behaviorally and preserves unrelated Codex config", () => {
