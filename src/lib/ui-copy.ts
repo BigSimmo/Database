@@ -142,7 +142,7 @@ export const emptyStates = {
 // components/privacy-input-notice.tsx.
 export const privacyCopy = {
   pageEyebrow: "Privacy",
-  pageTitle: "Privacy & data handling",
+  pageTitle: "How Clinical KB handles your data",
 } as const;
 
 // User-visible error / status messages.

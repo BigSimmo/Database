@@ -2194,8 +2194,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await page.goto("/privacy", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("main")).toBeVisible();
-      await expect(page.getByRole("heading", { level: 1, name: "Privacy & data handling" })).toBeVisible();
-      await expect(page.getByText("This is draft product information", { exact: false })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "How Clinical KB handles your data" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "Before you use Clinical KB" })).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
