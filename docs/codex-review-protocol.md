@@ -72,6 +72,7 @@ If `gh pr checks` or the check-runs endpoint returns `Resource not accessible by
 
 1. Resolve the PR head SHA from trusted PR metadata.
 2. Query `GET /repos/{owner}/{repo}/actions/runs?head_sha={sha}` and require `head_sha` to match the PR head before attributing any result.
-3. For the `ci` workflow run, also query its jobs (`GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs`) and require the `PR required` job to have `conclusion: success`. That job is this repository's single required aggregate gate; a run that completed without it does not prove required CI passed.
-4. If neither Checks nor Actions can be read, report CI as unobserved due to credential capability — never as passing, absent, or failed.
-5. An empty `GET /commits/{sha}/status` response does not prove that Actions workflows did not run.
+3. Require a matching Actions workflow run named "CI" for the trusted PR head SHA; if none exists, report CI as unobserved rather than passing, absent, or failed.
+4. For the "CI" workflow run, query its jobs (`GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs`) and require the `PR required` job. Explicitly report whether that job is missing or has a non-success conclusion. That job is this repository's single required aggregate gate; a run that completed without it does not prove required CI passed.
+5. If neither Checks nor Actions can be read, report CI as unobserved due to credential capability — never as passing, absent, or failed.
+6. An empty `GET /commits/{sha}/status` response does not prove that Actions workflows did not run.
