@@ -273,8 +273,8 @@ describe("Therapy Compass production-mode wiring", () => {
     // trailing Clear was wired to `clearSearch`, which resets EMPTY_SEARCH —
     // including `query: ""`. So Clear silently deleted the search term the user
     // was reading, while the code comment beside it claimed the query was
-    // deliberately excluded. The sheet's own "Clear all" still resets
-    // everything on purpose; only the shelf is filter-only.
+    // deliberately excluded. Only the shelf's own Clear needs to be filter-only
+    // here; see the invariant test below for every other control on the page.
     const searchScreenSrc = readFileSync(
       new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
       "utf8",
@@ -285,36 +285,41 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(bindingsSrc).toContain(
       "clearSearchFilters: () => setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query }))",
     );
-    // The sheet keeps the full reset.
-    expect(searchScreenSrc).toContain("onClear={b.clearSearch}");
   });
 
-  it("keeps the quick-filter row's Clear filter-only too", () => {
-    // The sibling of the defect above, missed when #1555 was reviewed. This
-    // Clear sits at the end of the quick-filter chip row — among Reviewed only,
-    // Brief available and the topic tags — so it reads as "clear these", but it
-    // was wired to `clearSearch` and wiped the query with them.
+  it("keeps every full-reset control on the page honestly labelled, and the filter sheet filter-only", () => {
+    // The sibling of the #1555 defect above (missed on the first review pass,
+    // PR #1611): any control wired to `clearSearch` must be labelled for
+    // clearing the *search*, or it silently wipes the query the reader is
+    // reading while claiming to do something narrower. Historically this was
+    // the quick-filter ribbon's own trailing Clear button and the bespoke
+    // `TherapyFilterSheet`'s "Clear all" — both retired when therapy-compass
+    // converged onto the shared `ResultFilterSheet` (docs/filter-contract.md),
+    // whose `onClearAll` is filter-only by contract (section 6: "onClearAll
+    // never touches the query"). The only remaining full reset on this page is
+    // the zero-results empty state's dedicated "Clear search" action, which is
+    // labelled for exactly that.
     const searchScreenSrc = readFileSync(
       new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
       "utf8",
     );
-    expect(searchScreenSrc).toContain("onClick={b.clearSearchFilters}");
+    expect(searchScreenSrc).not.toContain("onClear={b.clearSearch}");
+    expect(searchScreenSrc).not.toContain("onClearAll={b.clearSearch}");
+    expect(searchScreenSrc).toContain("onClearSearch={b.clearSearch}");
 
     // The rule is about labels matching actions, not about a head-count of
     // `clearSearch` calls. A full reset is fine wherever the control says so —
-    // the sheet's `Clear all` and the empty state's `Clear search` both do —
-    // and is a defect wherever the control says "filters". Asserting a count
-    // instead made a correctly-labelled `Clear search` look like a regression,
-    // which is the wrong signal from a guard whose whole point is intent.
+    // the empty state's `Clear search` does — and is a defect wherever the
+    // control says "filters". Asserting a count instead made a correctly
+    // labelled `Clear search` look like a regression, which is the wrong
+    // signal from a guard whose whole point is intent.
     const fullResetProps = Array.from(searchScreenSrc.matchAll(/(\w+)=\{b\.clearSearch\}/g)).map((match) => match[1]);
     expect(fullResetProps.length).toBeGreaterThan(0);
     expect(
-      fullResetProps.filter((prop) => !["onClear", "onClearSearch"].includes(prop)),
+      fullResetProps.filter((prop) => !["onClearSearch"].includes(prop)),
       "A control wired to `clearSearch` must be labelled for clearing the search. " +
-        "`onClearFilters`, `onRemove` or a bare `onClick` promising to clear filters must use " +
-        "`clearSearchFilters`, or it deletes the search term the reader is looking at.",
+        "`onClearFilters`, `onClearAll`, `onRemove` or a bare `onClick` promising to clear " +
+        "filters must use `clearSearchFilters`, or it deletes the search term the reader is looking at.",
     ).toEqual([]);
-    // The sheet keeps its deliberate full reset.
-    expect(searchScreenSrc).toContain("onClear={b.clearSearch}");
   });
 });

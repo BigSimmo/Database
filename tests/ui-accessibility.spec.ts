@@ -604,18 +604,17 @@ test.describe("Clinical KB accessibility coverage", () => {
       const bounds = element.getBoundingClientRect();
       return { width: bounds.width, height: bounds.height };
     });
-    // 44, not 48. This trigger sits in the ribbon's utility row, which is
-    // `min-h-tap` (44px) throughout — raising only this control would leave the
-    // row visibly ragged. (`ResultSortControl` set that rhythm before it became
-    // `sm`-and-up; the row still holds it.) The repo's `min-h-12` rule
-    // exists to stop generic a11y advice pulling production down to `min-h-11`
-    // (a known `ui-smoke` flake), not to override a page's own row rhythm; the
-    // sheet's own toggles, which have the room, are `min-h-12`.
-    expect(triggerSize.width).toBeGreaterThanOrEqual(44);
-    expect(triggerSize.height).toBeGreaterThanOrEqual(44);
+    // The shared `ResultFilterTrigger`'s tap floor is `min-h-tap`/`min-w-tap`
+    // (`--spacing-tap: 3rem`, globals.css) — 48px, the same floor every other
+    // converged mode's trigger uses below `sm`. This used to assert only 44px
+    // against the bespoke `TherapyFilterTrigger`'s own row rhythm; that control
+    // is retired in favour of the shared one, so this now holds therapy to the
+    // same floor as everywhere else.
+    expect(triggerSize.width).toBeGreaterThanOrEqual(48);
+    expect(triggerSize.height).toBeGreaterThanOrEqual(48);
 
     await therapyFilterTrigger.click();
-    const therapyFilterPanel = page.getByTestId("therapy-filter-panel");
+    const therapyFilterPanel = page.getByTestId("therapy-filter");
     await expect(therapyFilterPanel).toBeVisible();
     await expect(therapyFilterTrigger).toHaveAttribute("aria-expanded", "true");
     const therapyPanelId = await therapyFilterPanel.getAttribute("id");
@@ -641,16 +640,19 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(therapyFilterPanel).toHaveCount(0);
 
     // End-to-end guard the component tests cannot give: it is `SearchScreen`
-    // that decides what the trigger counts. A query-only session must offer
-    // Clear all (the phone's only route to `clearSearch`) while the badge still
-    // reports no filters, because a search term is not a filter.
+    // that decides what the trigger counts. A query-only session reports no
+    // filters active, and the sheet now shows no Clear all at all — there is
+    // nothing for it to clear. Clearing the query itself is the composer's own
+    // always-visible "x" (`master-search-header.tsx`), not this sheet's job;
+    // see docs/filter-contract.md section 6 ("onClearAll never touches the
+    // query").
     await page.goto("/therapy-compass/search?q=anxiety", { waitUntil: "domcontentloaded" });
     await expect(therapyRibbon.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 60_000 });
     const queryOnlyTrigger = therapyRibbon.getByTestId("therapy-filter-trigger");
     await expect(queryOnlyTrigger).toHaveAccessibleName(/No filters active/);
     await queryOnlyTrigger.click();
-    const queryOnlyPanel = page.getByTestId("therapy-filter-panel");
-    await expect(queryOnlyPanel.getByTestId("therapy-filter-clear")).toBeVisible();
+    const queryOnlyPanel = page.getByTestId("therapy-filter");
+    await expect(queryOnlyPanel.getByTestId("therapy-filter-clear")).toHaveCount(0);
     await queryOnlyPanel.getByTestId("therapy-filter-done").click();
 
     await expectNoPageHorizontalOverflow(page);
