@@ -13,11 +13,14 @@ import {
   SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
+  resultFilterFacetGroup,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ServiceGroupNav } from "@/components/services/service-group-nav";
 import { ServiceReferralFlow } from "@/components/services/service-referral-flow";
 import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
@@ -32,9 +35,26 @@ import {
   serviceMatchesCoreGroup,
   type ServiceCoreGroupId,
 } from "@/lib/service-core-groups";
+import {
+  deriveServiceFacetOptions,
+  deriveSubstanceLensOptions,
+  filterServicesByFacets,
+  serviceFacetDimensionLabels,
+  serviceFacetDimensions,
+  serviceFacetOptionCount,
+  serviceFacetSelectionFromParams,
+  serviceFacetSelectionSize,
+  serviceFacetValueLabel,
+  serviceSubstanceLensOptionCount,
+  serviceSubstanceLensValueLabel,
+  writeServiceFacetSelectionToParams,
+  type ServiceFacetDimension,
+} from "@/lib/service-facets";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
 import { sortResultItems } from "@/lib/result-sort";
 import { useRegistryRecords } from "@/lib/use-registry-records";
+
+type ServiceResultScope = "results" | "all";
 
 const bestFitQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
 const serviceQuickFilters = [
@@ -296,10 +316,39 @@ export function ServicesNavigatorPage() {
     () => rankedMatches.filter((service) => serviceMatchesCoreGroup(service, activeGroup)),
     [activeGroup, rankedMatches],
   );
-  const displayedMatches = useMemo(
-    () => sortResultItems(groupedMatches, sortValue, (service) => service.title),
-    [groupedMatches, sortValue],
+
+  // Facet selection lives in the URL, alongside `q`/`group`, so a filtered
+  // services search stays shareable and survives navigating away and back —
+  // see docs/filter-contract.md section 1 and PR C's own scope note.
+  const facetSelection = useMemo(() => serviceFacetSelectionFromParams(searchParams), [searchParams]);
+  const substanceLens = searchParams.get("substance") ?? "all";
+  const resultScope: ServiceResultScope = searchParams.get("scope") === "all" ? "all" : "results";
+  // The scope segment (section 4) lets a reader who has narrowed to zero
+  // widen from the query/group-scoped set to the whole 219-item catalogue
+  // without discarding the query. Gated on the UNFACETED result set so the
+  // segment does not flicker away as facets are applied — narrowing with
+  // facets only ever makes "catalogue > results" more true, never less.
+  const showResultScope = searchableRecords.length > groupedMatches.length;
+  const facetBaseMatches = resultScope === "all" ? searchableRecords : groupedMatches;
+  const facetedMatches = useMemo(
+    () => filterServicesByFacets(facetBaseMatches, facetSelection, substanceLens),
+    [facetBaseMatches, facetSelection, substanceLens],
   );
+  const displayedMatches = useMemo(
+    () => sortResultItems(facetedMatches, sortValue, (service) => service.title),
+    [facetedMatches, sortValue],
+  );
+  // Both scope segments show the current facet selection applied — "counts
+  // on both" — differing only in whether the query/group scoping applies.
+  const resultsScopedCount = useMemo(
+    () => filterServicesByFacets(groupedMatches, facetSelection, substanceLens).length,
+    [groupedMatches, facetSelection, substanceLens],
+  );
+  const allScopedCount = useMemo(
+    () => filterServicesByFacets(searchableRecords, facetSelection, substanceLens).length,
+    [searchableRecords, facetSelection, substanceLens],
+  );
+  const activeFilterCount = serviceFacetSelectionSize(facetSelection) + (substanceLens === "all" ? 0 : 1);
   const relevanceRankMap = useMemo(() => {
     const map = new Map<string, number>();
     rankedMatches.forEach((service, index) => map.set(service.slug, index + 1));
@@ -318,9 +367,6 @@ export function ServicesNavigatorPage() {
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
   const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
   const [showComparison, setShowComparison] = useState(false);
-  const activeQuickFilter = serviceQuickFilters.find(
-    (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
-  );
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
@@ -333,6 +379,45 @@ export function ServicesNavigatorPage() {
     const href = `/services?${params.toString()}`;
     if (replace) router.replace(href, { scroll: false });
     else router.push(href, { scroll: false });
+  }
+
+  // Facet/lens/scope toggles replace (not push) — a reader ticking several
+  // chips should not spam the back-button history the way submitting a new
+  // search does.
+  function toggleFacetValue(dimension: ServiceFacetDimension, value: string) {
+    updateParams((params) => {
+      const current = serviceFacetSelectionFromParams(params);
+      const next = new Set(current[dimension]);
+      if (!next.delete(value)) next.add(value);
+      writeServiceFacetSelectionToParams(params, { ...current, [dimension]: next });
+    }, true);
+  }
+
+  function setSubstanceLensValue(value: string) {
+    updateParams((params) => {
+      if (value === "all") params.delete("substance");
+      else params.set("substance", value);
+    }, true);
+  }
+
+  function setResultScopeValue(value: ServiceResultScope) {
+    updateParams((params) => {
+      if (value === "all") params.set("scope", "all");
+      else params.delete("scope");
+    }, true);
+  }
+
+  // Never touches `q`/`query`/`group` — docs/filter-contract.md section 6:
+  // clearing filters and clearing a search are different intentions. The
+  // quick filters this sheet used to hold DID conflate the two (clearing
+  // them wiped the search box); moving them to suggestion chips below the
+  // band removes that conflation rather than papering over it here.
+  function clearAllFilters() {
+    updateParams((params) => {
+      for (const dimension of serviceFacetDimensions) params.delete(dimension);
+      params.delete("substance");
+      params.delete("scope");
+    }, true);
   }
 
   function toggleSelected(slug: string) {
@@ -353,15 +438,6 @@ export function ServicesNavigatorPage() {
     });
   }
 
-  function clearServiceQuery() {
-    setLocalQuery({ urlQuery, value: "" });
-    updateParams((params) => {
-      params.delete("q");
-      params.delete("query");
-      params.delete("focus");
-    }, true);
-  }
-
   function hrefForGroup(group: ServiceCoreGroupId | null) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("run", "1");
@@ -369,6 +445,64 @@ export function ServicesNavigatorPage() {
     else params.delete("group");
     return `/services?${params.toString()}`;
   }
+
+  // `substance_flags` is an exact partition (measured 2026-08-12: all 219
+  // services carry exactly one of general/aod) — a lens, not a facet. See
+  // src/lib/service-facets.ts for the full measurement note.
+  const substanceOptionValues = useMemo(() => deriveSubstanceLensOptions(searchableRecords), [searchableRecords]);
+  const substanceGroup = resultFilterGroup({
+    id: "substance",
+    label: "Program type",
+    value: substanceLens,
+    options: [
+      {
+        value: "all",
+        label: "All programs",
+        hint: String(serviceSubstanceLensOptionCount(facetBaseMatches, facetSelection, "all")),
+      },
+      ...substanceOptionValues.map((value) => ({
+        value,
+        label: serviceSubstanceLensValueLabel(value),
+        hint: String(serviceSubstanceLensOptionCount(facetBaseMatches, facetSelection, value)),
+      })),
+    ],
+    onChange: setSubstanceLensValue,
+  });
+
+  // Options are derived from the whole ready catalogue, not the
+  // query/group/scope-narrowed `facetBaseMatches` — the option LIST must not
+  // shrink as a reader types (that would restructure the sheet mid-search);
+  // only each option's union COUNT narrows, via `serviceFacetOptionCount`
+  // against `facetBaseMatches`. See docs/filter-contract.md section 3 and
+  // the same split in formulation's `formulationDomainsInUse` (static list)
+  // versus its per-query union counts.
+  const facetGroups = serviceFacetDimensions.map((dimension) =>
+    resultFilterFacetGroup({
+      id: dimension,
+      label: serviceFacetDimensionLabels[dimension],
+      selected: facetSelection[dimension],
+      options: deriveServiceFacetOptions(searchableRecords, dimension).map((value) => {
+        const withCandidate = serviceFacetOptionCount(
+          facetBaseMatches,
+          facetSelection,
+          substanceLens,
+          dimension,
+          value,
+        );
+        return {
+          value,
+          label: serviceFacetValueLabel(dimension, value),
+          hint: String(withCandidate),
+          // A zero here is a consequence of the current query/group/scope and
+          // other facet selections, never a permanently empty option — the
+          // derived list above already excludes those. Never applied to an
+          // already-selected value: that would strand a live constraint.
+          disabled: withCandidate === 0 && !facetSelection[dimension].has(value),
+        };
+      }),
+      onToggle: (value) => toggleFacetValue(dimension, value),
+    }),
+  );
 
   return (
     <SearchResultsLayout
@@ -461,7 +595,7 @@ export function ServicesNavigatorPage() {
                 testId="service-filter-trigger-phone"
                 title="Filter services"
                 open={filterOpen}
-                activeCount={activeQuickFilter ? 1 : 0}
+                activeCount={activeFilterCount}
                 onToggle={() => setFilterOpen((current) => !current)}
               />
             }
@@ -472,7 +606,7 @@ export function ServicesNavigatorPage() {
                   testId="service-filter-trigger-desktop"
                   title="Filter services"
                   open={filterOpen}
-                  activeCount={activeQuickFilter ? 1 : 0}
+                  activeCount={activeFilterCount}
                   onToggle={() => setFilterOpen((current) => !current)}
                 />
               </span>
@@ -494,40 +628,41 @@ export function ServicesNavigatorPage() {
             panelId={filterPanelId}
             testId="service-filter-panel"
             title="Filter services"
-            description="Quick filters run a focused search within the selected service group."
-            groups={[
-              resultFilterGroup({
-                id: "quick-filter",
-                label: "Quick filters",
-                value: activeQuickFilter?.query ?? "current",
-                options: [
-                  ...(activeQuickFilter
-                    ? []
-                    : [
-                        {
-                          value: "current" as const,
-                          label: query.trim() ? "Current search" : serviceCoreGroupLabel(activeGroup),
-                          disabled: true,
-                        },
-                      ]),
-                  ...serviceQuickFilters.map((filter) => ({ value: filter.query, label: filter.label })),
-                ],
-                onChange: (value) => {
-                  if (value === "current") return;
-                  setFilterOpen(false);
-                  applyServiceQuery(value);
-                },
-              }),
-            ]}
-            onClearAll={
-              activeQuickFilter
-                ? () => {
-                    setFilterOpen(false);
-                    clearServiceQuery();
-                  }
-                : undefined
-            }
+            groups={[substanceGroup, ...facetGroups]}
+            onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
             footerNote={`${displayedMatches.length} showing`}
+            chromeResetKey={`${deferredQuery}|${activeGroup ?? ""}|${resultScope}`}
+            scopeControl={
+              showResultScope ? (
+                <SegmentedControl
+                  label="Result scope"
+                  value={resultScope}
+                  onChange={setResultScopeValue}
+                  options={[
+                    { value: "results", label: "These results", hint: String(resultsScopedCount) },
+                    { value: "all", label: "All items", hint: String(allScopedCount) },
+                  ]}
+                />
+              ) : undefined
+            }
+          />
+
+          {/* Evicted from the filter sheet: every quick filter called
+              `router.push` and replaced the query outright, discarding the
+              search and its results with no warning and no undo — exactly
+              what docs/filter-contract.md section 1 forbids inside a control
+              labelled "Filter". Framed as a new search, which is what
+              picking one does. */}
+          <AnswerSuggestionChips
+            label="Try a focused search"
+            labelPlacement="above"
+            layout="scroll"
+            testId="service-quick-search-suggestions"
+            suggestions={serviceQuickFilters.map((filter) => filter.label)}
+            onPick={(label) => {
+              const filter = serviceQuickFilters.find((item) => item.label === label);
+              if (filter) applyServiceQuery(filter.query);
+            }}
           />
         </>
       }
@@ -543,17 +678,32 @@ export function ServicesNavigatorPage() {
           onTryExample={(example) => applyServiceQuery(example)}
         />
       ) : deferredQuery === query && displayedMatches.length === 0 ? (
+        // `displayedMatches` is now group- AND facet/lens-narrowed, so a zero
+        // here can come from either — the old copy named only the group tab
+        // and a "quick filter" concept that no longer filters anything (it
+        // navigates). Offer both escapes, and only the one that applies.
         <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center">
-          <h2 className="text-lg font-bold text-[color:var(--text-heading)]">No services in this group</h2>
+          <h2 className="text-lg font-bold text-[color:var(--text-heading)]">No services match</h2>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            Try All services or remove the current quick filter.
+            {activeFilterCount > 0 ? "Try All services, or clear your filters." : "Try All services instead."}
           </p>
-          <Link
-            href={hrefForGroup(null)}
-            className="mt-3 inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          >
-            Show all services
-          </Link>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <Link
+              href={hrefForGroup(null)}
+              className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            >
+              Show all services
+            </Link>
+            {activeFilterCount > 0 ? (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                Clear filters
+              </button>
+            ) : null}
+          </div>
         </section>
       ) : (
         <>

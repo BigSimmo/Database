@@ -351,6 +351,15 @@ export function catalogToServiceRecord(service: CatalogService): ServiceRecord {
     navigatorQuery:
       cleanField(service.search_text) ?? `${service.name} ${service.provider} ${service.region_catchment}`,
     source: buildSource(service),
+    // The full source-specific record, including the six typed `tags.*`
+    // dimensions `flattenTags` above collapses into one deduped, ambiguous
+    // array. Without this, `catalogPayload` was undefined everywhere except
+    // rows written by `buildDefaultServiceRows` — i.e. undefined in demo
+    // mode, anonymous/public access and for any owner who has never run
+    // `ensureRegistrySeeded` (`ServiceRecord["catalogPayload"]` doc comment
+    // in service-ranker.ts). Setting it here means every `ServiceRecord`
+    // carries it, however it was produced.
+    catalogPayload: service as unknown as Record<string, unknown>,
   };
 }
 
