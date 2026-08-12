@@ -16,7 +16,6 @@ import { escapeFalseOpenAiKeySignatures } from "./lib/escape-false-openai-key-si
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const publicData = join(root, "public", "therapy-compass-data");
 const serverTarget = join(root, "src", "data", "therapies-index.json");
-const browserTarget = join(publicData, "therapies-index.json");
 const manifestTarget = join(root, "src", "components", "therapy-compass", "data", "generated-assets.ts");
 const checkOnly = process.argv.includes("--check");
 const currentManifest = existsSync(manifestTarget) ? readFileSync(manifestTarget, "utf8") : "";
@@ -192,8 +191,28 @@ if (checkOnly) {
   }
 }
 
+/**
+ * Exact bytes of a pretty projection asset. Shared by `syncTarget` and the
+ * content-addressed writer so a hashed asset is byte-identical to what the
+ * server-side projection would have written — the hash must not depend on which
+ * code path produced it.
+ */
+function projectionBytes(records) {
+  return `${escapeFalseOpenAiKeySignatures(JSON.stringify(records, null, 2))}\n`;
+}
+
+/**
+ * Exact bytes of the full catalogue: compact single-line JSON (no pretty indent,
+ * no trailing newline) — the historical `therapies.json` shape (~2.5 MB on one
+ * line). Pretty-printing it turns a modality scrub into a ~36k-line PR churn
+ * (`#179`). Projections stay pretty via `projectionBytes`/`syncTarget`.
+ */
+function fullCatalogueBytes(records) {
+  return escapeFalseOpenAiKeySignatures(JSON.stringify(records));
+}
+
 function syncTarget(target, records) {
-  const expected = `${escapeFalseOpenAiKeySignatures(JSON.stringify(records, null, 2))}\n`;
+  const expected = projectionBytes(records);
   if (checkOnly) {
     let actual = "";
     try {
@@ -216,66 +235,34 @@ function syncTarget(target, records) {
   console.log(`Wrote ${records.length} therapy records to ${target}`);
 }
 
-/**
- * Full catalogue on disk is compact single-line JSON (no pretty indent, no
- * trailing newline) — that is the historical `therapies.json` shape (~2.5 MB
- * one line). Pretty-printing it turns a modality scrub into a ~36k-line PR
- * churn (alias + hashed twin). Projections stay pretty via `syncTarget`.
- */
-function syncFullCatalogue(target, records) {
-  const expected = escapeFalseOpenAiKeySignatures(JSON.stringify(records));
-  if (checkOnly) {
-    let actual = "";
-    try {
-      actual = readFileSync(target, "utf8");
-    } catch {
-      throw new Error(`Missing generated therapy catalogue: ${target}`);
-    }
-    let parsed;
-    try {
-      parsed = JSON.parse(actual);
-    } catch {
-      throw new Error(`Generated therapy catalogue is invalid JSON: ${target}`);
-    }
-    if (JSON.stringify(parsed) !== JSON.stringify(records)) {
-      throw new Error(`Generated therapy catalogue is stale: ${target}`);
-    }
-    if (actual.includes("\n") || actual !== expected) {
-      throw new Error(
-        `Full therapy catalogue must stay compact single-line JSON (no pretty-print). Re-run \`node scripts/build-therapies-index.mjs\`.`,
-      );
-    }
-    return;
-  }
-  writeFileSync(target, expected);
-  console.log(`Wrote ${records.length} therapy records to ${target} (compact)`);
-}
-
 syncTarget(serverTarget, projected);
 if (!checkOnly) {
-  const browserHomeTarget = join(publicData, "therapies-home.json");
-  syncTarget(browserTarget, browserProjected);
-  syncTarget(browserHomeTarget, browserHomeProjected);
-  const hashedAsset = (target, stem) => {
-    const contents = readFileSync(target);
-    const hash = createHash("sha256").update(contents).digest("hex").slice(0, 16);
+  // Content-addressed assets are the ONLY catalogue payloads written to
+  // `publicData`. The unversioned aliases (`therapies.json`,
+  // `therapies-index.json`, `therapies-home.json`) used to be written here too,
+  // byte-identical to their hashed twin, which cost a second copy of every
+  // payload in the working tree and in every Docker image — 2.81 MB, and 5.34 MB
+  // during the one-deploy grace window. They are now served by a rewrite in
+  // next.config.ts that points each alias path at the current hashed filename,
+  // so the alias URLs behave exactly as before with no duplicated bytes.
+  //
+  // The alias URLs themselves are NOT optional: `useTherapyData` falls back to
+  // them when a bundle older than the grace generation names a hashed file that
+  // no longer exists. A rewrite preserves that contract; deleting the aliases
+  // outright would not.
+  const hashedAsset = (contents, stem) => {
+    const buffer = Buffer.from(contents);
+    const hash = createHash("sha256").update(buffer).digest("hex").slice(0, 16);
     const filename = `${stem}.${hash}.json`;
-    writeFileSync(join(publicData, filename), contents);
+    writeFileSync(join(publicData, filename), buffer);
     return filename;
   };
-  // Keep the unversioned aliases for clients loaded before this deployment.
-  // Content-addressed files remain immutable, while an already-open older client
-  // can still fetch the URL embedded in its JavaScript bundle after assets swap.
   // Write the curated full catalogue (not a raw source copy): detail/recommend
   // fetch this payload, and tag-echo modalities must not survive on that path.
-  // Keep the payload compact — see syncFullCatalogue.
-  // Output only. The source it is generated from is src/data/therapies-source.json;
-  // this file is never read back as input (see the `source` comment above).
-  const legacyFullTarget = join(publicData, "therapies.json");
-  syncFullCatalogue(legacyFullTarget, curatedFull);
-  const fullFilename = hashedAsset(legacyFullTarget, "therapies");
-  const indexFilename = hashedAsset(browserTarget, "therapies-index");
-  const homeFilename = hashedAsset(browserHomeTarget, "therapies-home");
+  // Keep the payload compact — see fullCatalogueBytes.
+  const fullFilename = hashedAsset(fullCatalogueBytes(curatedFull), "therapies");
+  const indexFilename = hashedAsset(projectionBytes(browserProjected), "therapies-index");
+  const homeFilename = hashedAsset(projectionBytes(browserHomeProjected), "therapies-home");
   const current = { full: fullFilename, index: indexFilename, home: homeFilename };
   // The generation being replaced stays on disk across one content-changing
   // regeneration. A client loaded before that regeneration has the *previous*
@@ -346,20 +333,27 @@ if (!checkOnly) {
     const contents = readFileSync(join(publicData, filename));
     const hash = createHash("sha256").update(contents).digest("hex").slice(0, 16);
     const stem = kind === "full" ? "therapies" : `therapies-${kind}`;
-    const legacyFilename = `${stem}.json`;
     if (filename !== `${stem}.${hash}.json` || JSON.stringify(JSON.parse(contents)) !== JSON.stringify(records)) {
       throw new Error(`Generated therapy asset is stale: ${filename}`);
     }
-    const legacyContents = readFileSync(join(publicData, legacyFilename));
-    if (!legacyContents.equals(contents)) {
-      throw new Error(`Therapy compatibility alias is stale: ${legacyFilename}`);
+    // The unversioned alias must NOT exist as a file: it is served by a rewrite
+    // in next.config.ts pointing at the hashed asset above. A file here would
+    // shadow nothing (afterFiles rewrites run only when no static file matched),
+    // so it would silently go stale the next time the catalogue regenerated —
+    // exactly the duplicated-bytes state this replaced.
+    const legacyFilename = `${stem}.json`;
+    if (existsSync(join(publicData, legacyFilename))) {
+      throw new Error(
+        `Therapy alias ${legacyFilename} is a duplicate file. The alias is served by the next.config.ts rewrite; delete the file.`,
+      );
     }
-    if (kind === "full") {
-      const text = contents.toString("utf8");
-      const expected = escapeFalseOpenAiKeySignatures(JSON.stringify(records));
-      if (text.includes("\n") || text !== expected) {
-        throw new Error(`Full therapy catalogue must stay compact single-line JSON (no pretty-print): ${filename}`);
-      }
+    const text = contents.toString("utf8");
+    const expected = kind === "full" ? fullCatalogueBytes(records) : projectionBytes(records);
+    if (text !== expected) {
+      throw new Error(`Generated therapy asset does not match its canonical bytes: ${filename}`);
+    }
+    if (kind === "full" && text.includes("\n")) {
+      throw new Error(`Full therapy catalogue must stay compact single-line JSON (no pretty-print): ${filename}`);
     }
   }
 }

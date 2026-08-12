@@ -95,12 +95,22 @@ describe("Therapy Compass production-mode wiring", () => {
     }
   });
 
-  it("keeps unversioned catalogue aliases for clients spanning a deployment", () => {
+  it("serves unversioned catalogue aliases by rewrite, not by duplicating bytes", () => {
+    // The aliases used to be real files written byte-identical to their hashed
+    // twin, costing a second copy of every payload in the tree and in every
+    // Docker image (2.81 MB; 5.34 MB during the one-deploy grace window). They
+    // are now next.config.ts rewrites onto the current content-addressed asset,
+    // so the URLs behave the same with no duplicated bytes.
+    const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
     for (const kind of ["full", "index", "home"] as const) {
-      const current = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS[kind], dataDir));
-      const legacy = readFileSync(new URL(legacyCatalogueAssets[kind], dataDir));
-      expect(legacy.equals(current), legacyCatalogueAssets[kind]).toBe(true);
+      const alias = legacyCatalogueAssets[kind];
+      expect(existsSync(new URL(alias, dataDir)), `${alias} must not exist as a duplicate file`).toBe(false);
+      expect(nextConfig, alias).toContain(`alias("${alias}", THERAPY_CATALOGUE_ASSETS.${kind})`);
     }
+    // afterFiles, so a stray alias file would win over the rewrite and go stale.
+    // build-therapies-index.mjs --check fails if one reappears; this pins the
+    // ordering assumption that makes that check the right guard.
+    expect(nextConfig).toContain("afterFiles: [");
   });
 
   it("commits no catalogue assets older than the one-deploy grace generation", () => {
