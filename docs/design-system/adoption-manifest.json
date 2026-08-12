@@ -1383,14 +1383,22 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/differentials-home.tsx",
+        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/in-page-nav/in-page-nav-header.tsx"
+        "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/specifiers/specifiers-home-page.tsx"
       ],
       "productImportFiles": [
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/differentials-home.tsx",
+        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/in-page-nav/in-page-nav-header.tsx"
+        "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/specifiers/specifiers-home-page.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1398,7 +1406,11 @@
         "preview": ".design-sync/previews/SegmentedControl.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/search-results-header-band.dom.test.tsx",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
