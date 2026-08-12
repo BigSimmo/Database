@@ -39,8 +39,23 @@ describe("eval canary workflow input", () => {
     expect(workflow.slice(installStart, projectGuardStart)).not.toContain("OPENAI_API_KEY");
   });
 
+  it("opens the failure issue for scheduled AND dispatched runs", () => {
+    // A red dispatch is usually half of a canary pair gating a behaviour change — it must
+    // not fail silently while only weekly runs get an issue.
+    expect(workflow).toContain(
+      "if: failure() && (github.event_name == 'schedule' || github.event_name == 'repository_dispatch')",
+    );
+    expect(workflow).toContain('context.eventName === "schedule" ? "Weekly (scheduled)" : "Dispatched"');
+  });
+
+  it("feeds every eval log and live step outcome into the failure issue", () => {
+    expect(workflow).toContain('".local/eval-canary/answer-targeting.log"');
+    expect(workflow).toContain('validate_override: "${{ steps.validate_override.outcome }}"');
+    expect(workflow).toContain('answer_targeting: "${{ steps.answer_targeting.outcome }}"');
+  });
+
   it("distinguishes provider outages from retrieval regressions in the failure issue", () => {
-    expect(workflow).toContain('title: "Eval canary failure: weekly evaluation did not complete"');
+    expect(workflow).toContain('title: "Eval canary failure: evaluation did not complete"');
     expect(workflow).toContain("Resolve provider quota/auth/config failures before rerunning");
     expect(workflow).toContain(
       "Do not bisect or revert code until provider health and the failure class are confirmed",
