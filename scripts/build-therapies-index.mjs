@@ -1,5 +1,5 @@
 // Generates src/data/therapies-index.json — a trimmed, server-importable projection
-// of public/therapy-compass-data/therapies.json (~2.5 MB). The full dataset is fetched
+// of src/data/therapies-source.json (~2.5 MB). The full dataset is fetched
 // client-side by the interactive Therapy Compass screens; the server only needs a small
 // rankable/metadata projection for routing (generateStaticParams / notFound / metadata)
 // and the universal-search "therapies" domain. Re-run after editing the source dataset,
@@ -20,16 +20,19 @@ const browserTarget = join(publicData, "therapies-index.json");
 const manifestTarget = join(root, "src", "components", "therapy-compass", "data", "generated-assets.ts");
 const checkOnly = process.argv.includes("--check");
 const currentManifest = existsSync(manifestTarget) ? readFileSync(manifestTarget, "utf8") : "";
-const currentFullFilename = currentManifest.match(/full: "([^"]+)"/)?.[1];
-const source = existsSync(join(publicData, "therapies.json"))
-  ? join(publicData, "therapies.json")
-  : currentFullFilename
-    ? join(publicData, currentFullFilename)
-    : join(publicData, "therapies.json");
+// The hand-edited source catalogue, deliberately OUTSIDE `publicData` — this
+// generator writes every file in that directory, and until 2026-08-12 the
+// source was `public/therapy-compass-data/therapies.json`, which it also wrote
+// as `legacyFullTarget`. Source and target being one file meant each run
+// consumed its own output: `curatedFull` nulls every tag-echo `modality`
+// (see curatedModality), so the first run overwrote the author's raw values
+// with the scrubbed ones and every later run re-read the scrubbed copy. It
+// survived only because the scrub is idempotent — the raw input was still
+// destroyed, recoverable from git history alone. Keep this path out of
+// `publicData` so a re-run can never consume what it just wrote.
+const source = join(root, "src", "data", "therapies-source.json");
 if (!existsSync(source)) {
-  throw new Error(
-    `Missing therapy source dataset. Expected ${join(publicData, "therapies.json")} or the manifest full asset.`,
-  );
+  throw new Error(`Missing therapy source dataset. Expected ${source}.`);
 }
 
 const therapies = JSON.parse(readFileSync(source, "utf8"));
@@ -266,6 +269,8 @@ if (!checkOnly) {
   // Write the curated full catalogue (not a raw source copy): detail/recommend
   // fetch this payload, and tag-echo modalities must not survive on that path.
   // Keep the payload compact — see syncFullCatalogue.
+  // Output only. The source it is generated from is src/data/therapies-source.json;
+  // this file is never read back as input (see the `source` comment above).
   const legacyFullTarget = join(publicData, "therapies.json");
   syncFullCatalogue(legacyFullTarget, curatedFull);
   const fullFilename = hashedAsset(legacyFullTarget, "therapies");
