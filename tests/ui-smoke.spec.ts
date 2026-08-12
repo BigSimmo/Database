@@ -3579,6 +3579,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectSingleMedicationPage(page);
     await expect(page.getByRole("link", { name: "Back to medications" }).filter({ visible: true })).toBeVisible();
 
+    // Regression guard for #1802: medication sections use the same priority
+    // menu as the mode home, not the older horizontally scrolling tab strip.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const medicationRail = page.getByTestId("medication-section-rail");
+    await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeVisible();
+    await expect(medicationRail.getByRole("button", { name: /^Dosing/ })).toBeVisible();
+    await expect(medicationRail.getByRole("button", { name: /^Safety/ })).toBeHidden();
+    await expect(page.getByTestId("medication-section-overflow")).toBeVisible();
+    const railGeometry = await medicationRail.evaluate((rail) => ({
+      clientWidth: rail.clientWidth,
+      scrollWidth: rail.scrollWidth,
+      overflowX: getComputedStyle(rail).overflowX,
+    }));
+    expect(railGeometry.scrollWidth).toBeLessThanOrEqual(railGeometry.clientWidth + 1);
+    expect(railGeometry.overflowX).not.toMatch(/auto|scroll/);
+
     expect(parentNodeErrors).toEqual([]);
   });
 
