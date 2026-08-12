@@ -8,6 +8,9 @@ import type { ReactNode } from "react";
  * `<strong>` spacing on "not a patient-record system" must not drift.
  */
 
+export const PRIVACY_DRAFT_DISCLAIMER =
+  "This is draft product information based on the repository's configured behaviour. It is not legal advice, a final privacy policy, or an assertion of governance approval.";
+
 export const PRIVACY_IMPORTANT_SHORT =
   "Do not enter identifiable patient details. Processing may include Singapore and the OpenAI API.";
 
