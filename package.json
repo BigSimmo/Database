@@ -175,6 +175,8 @@
     "differentials:seed": "node scripts/run-tsx.mjs scripts/seed-differential-records.ts",
     "medications:import": "node scripts/run-tsx.mjs scripts/import-medications-export.ts",
     "medications:seed": "node scripts/run-tsx.mjs scripts/seed-medication-records.ts",
+    "medications:interactions": "node scripts/run-tsx.mjs scripts/build-medication-interaction-index.ts",
+    "check:medication-interactions": "node scripts/run-tsx.mjs scripts/build-medication-interaction-index.ts --check",
     "reindex": "node scripts/run-tsx.mjs scripts/reindex.ts",
     "reindex:health": "node scripts/run-tsx.mjs scripts/reindex-health.ts",
     "ingestion:autopilot": "node scripts/run-tsx.mjs scripts/ingestion-autopilot.ts",

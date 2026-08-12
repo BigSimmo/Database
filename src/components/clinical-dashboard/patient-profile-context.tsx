@@ -17,6 +17,7 @@ export type PatientProfileContextValue = {
   updateField: <K extends keyof PatientProfile>(key: K, value: PatientProfile[K]) => void;
   setScrUnit: (unit: ScrUnit) => void;
   toggleAllergy: (allergy: AllergyClass) => void;
+  toggleMedication: (slug: string) => void;
   clear: () => void;
   isEmpty: boolean;
 };
@@ -54,13 +55,28 @@ export function PatientProfileProvider({ children }: { children: React.ReactNode
     writePatientProfile({ ...current, allergies: next });
   }, []);
 
+  const toggleMedication = useCallback((slug: string) => {
+    const current = getPatientProfileSnapshot();
+    const medications = current.medications ?? [];
+    const next = medications.includes(slug) ? medications.filter((item) => item !== slug) : [...medications, slug];
+    writePatientProfile({ ...current, medications: next });
+  }, []);
+
   const clear = useCallback(() => {
-    writePatientProfile({ ...EMPTY_PATIENT_PROFILE });
+    writePatientProfile({ ...EMPTY_PATIENT_PROFILE, medications: [] });
   }, []);
 
   const value = useMemo<PatientProfileContextValue>(
-    () => ({ profile, updateField, setScrUnit, toggleAllergy, clear, isEmpty: isProfileEmpty(profile) }),
-    [profile, updateField, setScrUnit, toggleAllergy, clear],
+    () => ({
+      profile,
+      updateField,
+      setScrUnit,
+      toggleAllergy,
+      toggleMedication,
+      clear,
+      isEmpty: isProfileEmpty(profile),
+    }),
+    [profile, updateField, setScrUnit, toggleAllergy, toggleMedication, clear],
   );
 
   return <PatientProfileContext.Provider value={value}>{children}</PatientProfileContext.Provider>;

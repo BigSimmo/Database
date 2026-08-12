@@ -248,6 +248,7 @@ import { DashboardDesktopResultComposerSlot } from "@/components/clinical-dashbo
 import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
+  patientDetailsAddonSlotId,
   modeHomeDesktopComposerSlotId,
 } from "@/lib/mode-home-composer";
 import { toolCatalogRecords } from "@/lib/tools-catalog";
@@ -3082,6 +3083,9 @@ export function ClinicalDashboard({
     ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
+  // Prescribing submitted searches render here (there is no standalone results
+  // route), so this is where the Patient details pill docks for that mode.
+  const patientDetailsAddonActive = searchMode === "prescribing" && modeSearchSubmitted && Boolean(query.trim());
   // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
@@ -3089,6 +3093,7 @@ export function ClinicalDashboard({
       searchMode,
       hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
       differentialsCompareAddonActive,
+      patientDetailsAddonActive,
       heroOwnsPhoneComposer,
     }),
   );
@@ -3374,7 +3379,18 @@ export function ClinicalDashboard({
           // maximum screen space (mode homes and result views alike).
           mobileBottomSearchVariant="compact"
           mobileBottomSearchAddonSlotId={
-            differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
+            differentialsCompareAddonActive
+              ? differentialsMobileCompareAddonSlotId
+              : patientDetailsAddonActive
+                ? patientDetailsAddonSlotId
+                : undefined
+          }
+          mobileBottomSearchAddonKind={
+            differentialsCompareAddonActive
+              ? "differentials-compare"
+              : patientDetailsAddonActive
+                ? "patient-details"
+                : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
           desktopPageComposerSlotId={desktopResultComposerSlotId}

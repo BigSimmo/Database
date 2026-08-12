@@ -28,10 +28,19 @@ import {
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
-import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
+import {
+  medicationVerdictRingClass,
+  verdictSummaryBadge,
+} from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
+import { PatientDetailsDockAction } from "@/components/clinical-dashboard/patient-details-dock-action";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
+import {
+  composeMedicationVerdict,
+  evaluateMedicationInteractions,
+  type MedicationVerdict,
+} from "@/lib/medication-interactions";
 import { evaluatePatientAlerts } from "@/lib/medication-patient-alerts";
 import {
   BadgeCluster,
@@ -80,6 +89,8 @@ type MedicationRow = {
   badges: ClinicalBadgeItem[];
   /** Per-medication (drug-class) identity accent hex, for a subtle icon tint. */
   accent?: string;
+  /** Composed patient verdict; absent when no patient profile is entered. */
+  verdict?: MedicationVerdict;
 };
 
 type MedicationResultFilter = "best" | "indication" | "safety" | "monitoring";
@@ -370,12 +381,24 @@ function MedicationResults({
     const toRow = (result: MedicationResult, medication?: MedicationRecord): MedicationRow => {
       const badges = medication ? medicationIdentityBadges(medication, governance?.[medication.slug]) : [];
       const accent = medication?.accent;
-      // Prepend a per-patient alert badge so the highest-severity consideration
+      // Prepend a per-patient verdict badge so the highest-severity signal
       // surfaces first in the row's badge cluster (priority-sorted by tone).
+      // The verdict folds BOTH engines together — physiology considerations and
+      // interactions against the entered medication list — and degrades a
+      // would-be green to grey whenever either engine left something unassessed.
       if (medication && !profileEmpty) {
         const alerts = evaluatePatientAlerts(medication, profile);
-        const alertBadge = considerationSummaryBadge(alerts.considerations.length, alerts.highestTone);
-        if (alertBadge) return { result, badges: [alertBadge, ...badges], accent };
+        const interactions = evaluateMedicationInteractions(medication.slug, profile.medications ?? [], medication);
+        const verdict = composeMedicationVerdict({
+          considerationTone: alerts.highestTone,
+          considerationCount: alerts.considerations.length,
+          unassessedCount: alerts.unassessed.length,
+          interactionTone: interactions.highestTone,
+          interactionCount: interactions.interactions.length,
+          unresolvedRowCount: interactions.unresolvedRowCount,
+        });
+        const verdictBadge = verdictSummaryBadge(verdict);
+        return { result, badges: verdictBadge ? [verdictBadge, ...badges] : badges, accent, verdict };
       }
       return { result, badges, accent };
     };
@@ -487,7 +510,15 @@ function MedicationResults({
         footerNote={`${resultCount} showing`}
       />
 
-      <PatientProfilePanel variant="compact" className="medication-patient-strip" />
+      {/* Phone gets the docked pill + sheet instead of the in-flow strip: two
+          copies of one form would duplicate every `data-testid` while the sheet
+          is open, and the strip is exactly the list space the pill exists to
+          give back. Above the phone breakpoint the pill does not render, so the
+          strip is the only entry point and must stay. */}
+      <PatientProfilePanel variant="compact" className="medication-patient-strip max-sm:hidden" />
+      {/* Renders only where the phone dock exposes its addon slot (the submitted
+          prescribing view); a no-op elsewhere and above the phone breakpoint. */}
+      <PatientDetailsDockAction />
 
       {/* The error branch moved into the band's fault panel, which carries the
           same message and announces it once. Loading copy stays here. */}
@@ -539,13 +570,21 @@ function MedicationResults({
             {rows.map((row, index) => {
               const result = row.result;
               const selected = index === 0 && Boolean(query.trim());
+              // The verdict ring replaces the selected-row accent ring rather
+              // than stacking with it: one edge mechanism, one owner, and safety
+              // outranks "this is the top hit".
+              const verdictRing = row.verdict ? medicationVerdictRingClass(row.verdict.tone) : null;
               const rowClassName = cn(
                 "group grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
                 selected
-                  ? "bg-[color:var(--clinical-accent-soft)]/35 shadow-[var(--shadow-rail-active)] ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
-                  : result.href
-                    ? "hover:bg-[color:var(--surface-subtle)]"
-                    : "cursor-default opacity-80",
+                  ? cn(
+                      "bg-[color:var(--clinical-accent-soft)]/35 shadow-[var(--shadow-rail-active)]",
+                      verdictRing ?? "ring-1 ring-inset ring-[color:var(--clinical-accent)]/35",
+                    )
+                  : cn(
+                      result.href ? "hover:bg-[color:var(--surface-subtle)]" : "cursor-default opacity-80",
+                      verdictRing,
+                    ),
               );
               const rowContent = (
                 <>
@@ -677,6 +716,7 @@ function MedicationResults({
                 href={result.href}
                 data-testid={`medication-result-${result.id}-phone`}
                 data-selected={selected ? "true" : "false"}
+                data-verdict={row.verdict?.tone}
                 className={cardClassName}
               >
                 {cardContent}
@@ -689,6 +729,7 @@ function MedicationResults({
               key={result.id}
               data-testid={`medication-result-${result.id}-phone`}
               data-selected={selected ? "true" : "false"}
+              data-verdict={row.verdict?.tone}
               className={cardClassName}
             >
               {cardContent}
