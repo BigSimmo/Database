@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: pr-1852-merge-repair
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   repair:
@@ -23,6 +23,7 @@ jobs:
         with:
           ref: codex/cloud-parity-repair-20260812
           fetch-depth: 0
+          filter: blob:none
           persist-credentials: true
 
       - name: Merge current main and preserve Cloud parity hardening
