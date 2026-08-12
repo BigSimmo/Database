@@ -15,12 +15,21 @@ concurrency:
 jobs:
   apply:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Register generated test coverage and remove this workflow
         shell: bash
@@ -54,7 +63,7 @@ jobs:
               path.write_text(text.replace(anchor, replacement))
           PY
 
-          node scripts/generate-design-system-adoption.mjs --write
+          npm run design-system:adoption:update
           git rm .github/workflows/pr-1869-register-disclosure-group-tests.yml
           git add \
             tests/forms-information-disclosure.dom.test.tsx \
