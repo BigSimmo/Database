@@ -2,7 +2,7 @@
  * Ward-round soak test for the Clinical KB app tier.
  *
  * STAGING ONLY. This script drives sustained answer/search load and must never
- * point at production. See docs/capacity-review.md §4 for the load model,
+ * point at production. See docs/audit/capacity-review.md §4 for the load model,
  * usage examples, and success criteria.
  *
  * Safety rails:
@@ -267,7 +267,7 @@ async function main() {
     console.error("FAIL: non-429 failure rate exceeded 5%.");
     process.exit(1);
   }
-  console.log("PASS: failure rate within budget. Compare percentiles against docs/capacity-review.md §4.");
+  console.log("PASS: failure rate within budget. Compare percentiles against docs/audit/capacity-review.md §4.");
 }
 
 main().catch((error) => {
