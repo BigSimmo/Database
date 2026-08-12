@@ -283,14 +283,18 @@ test("keeps the base diagnosis severity-neutral when applying a severity descrip
   await gotoApp(page, "/specifiers/builder?specifier=mild-severity");
 
   await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("mdd-recurrent");
-  await expect(page.getByText("Major depressive disorder, recurrent, mild", { exact: true })).toBeVisible();
+  const workingDiagnosis = page.locator("aside:visible > section").filter({ hasText: "Working diagnosis" });
+  await expect(workingDiagnosis).toHaveCount(1);
+  await expect(workingDiagnosis.getByText("Major depressive disorder, recurrent, mild", { exact: true })).toBeVisible();
   await expect(page.getByText(/severe, mild|moderate, mild/i)).toHaveCount(0);
 
   const anxiousDistress = page.getByRole("checkbox", { name: /Anxious distress/ });
   await page.getByText("Anxious distress", { exact: true }).click();
   await expect(anxiousDistress).toBeChecked();
   await expect(
-    page.getByText("Major depressive disorder, recurrent, with anxious distress, mild", { exact: true }),
+    workingDiagnosis.getByText("Major depressive disorder, recurrent, with anxious distress, mild", {
+      exact: true,
+    }),
   ).toBeVisible();
 });
 
