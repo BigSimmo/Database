@@ -8,6 +8,7 @@ import { NavigationBackButton } from "@/components/navigation-back-button";
 import { PrivacyPageBackButton } from "@/components/privacy-page-back-button";
 import { cn, eyebrowText, searchPageCanvas, searchFocusRing } from "@/components/ui-primitives";
 import {
+  PRIVACY_DRAFT_DISCLAIMER,
   PRIVACY_IMPORTANT_FULL,
   PRIVACY_IMPORTANT_SHORT,
   PRIVACY_PROCESSING_MAP,
@@ -325,6 +326,12 @@ export function PrivacyQuietSignalPage() {
             <p className="mt-3 max-w-[62ch] text-sm leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
               Understand what information Clinical KB handles, where it is processed, how long it is retained, and what
               you need to do before using it.
+            </p>
+            <p
+              data-testid="privacy-draft-disclaimer"
+              className="max-w-[68ch] text-xs font-semibold leading-5 text-[color:var(--warning-text)]"
+            >
+              {PRIVACY_DRAFT_DISCLAIMER}
             </p>
           </header>
 
