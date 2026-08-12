@@ -85,6 +85,12 @@ describe("RAG route deadlines", () => {
         degradedMode: { active: true, reason: "generation_fallback:provider_timeout" },
       }),
     ).toBe(false);
+    expect(
+      answerRouteResultCanBeCached(deadline, {
+        routingReason: "strong_generation; generation_fallback",
+        degradedMode: { active: true, reason: "generation_fallback" },
+      }),
+    ).toBe(false);
   });
 });
 

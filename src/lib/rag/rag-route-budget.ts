@@ -59,7 +59,7 @@ export function answerRouteResultCanBeCached(
   return (
     !deadline.deadlineExceeded &&
     !routingReason.includes("generation_fallback:") &&
-    !degradedReason.startsWith("generation_fallback:")
+    !degradedReason.startsWith("generation_fallback")
   );
 }
 
