@@ -64,15 +64,25 @@ cd "$CLAUDE_PROJECT_DIR"
 # merges, which surfaces as fake typecheck/test regressions (2026-07-19 audit).
 # Stamp the lockfile hash after a successful install and reinstall whenever the
 # lockfile no longer matches the stamp.
-LOCK_STAMP="node_modules/.session-start-lock-hash"
+# Keep this marker inside node_modules/.cache. npm's postinstall records a
+# trusted file inventory of node_modules (scripts/check-installed-lock-parity.mjs
+# --write-stamp), and this hook writes its own marker *after* that runs — so a
+# marker written directly into node_modules/ leaves the tree one file ahead of
+# the stamp and fails check:installed-lock-parity, which is the first real step
+# of verify:pr-local. `.cache` is in that check's VOLATILE_DIRECTORIES set, so a
+# marker there is ignored by the inventory while still being wiped by npm ci
+# along with the rest of node_modules, preserving the staleness semantics below.
+LOCK_STAMP="node_modules/.cache/session-start-lock-hash"
 lock_hash="$(sha256sum package-lock.json | cut -d' ' -f1)"
 if [ ! -d node_modules ]; then
   npm ci --no-audit --no-fund
+  mkdir -p "$(dirname "$LOCK_STAMP")"
   echo "$lock_hash" > "$LOCK_STAMP"
   echo "[session-start] Dependencies installed"
 elif [ ! -f "$LOCK_STAMP" ] || [ "$(cat "$LOCK_STAMP")" != "$lock_hash" ]; then
   echo "[session-start] node_modules is stale for the current lockfile, reinstalling"
   npm ci --no-audit --no-fund
+  mkdir -p "$(dirname "$LOCK_STAMP")"
   echo "$lock_hash" > "$LOCK_STAMP"
   echo "[session-start] Dependencies reinstalled"
 else
