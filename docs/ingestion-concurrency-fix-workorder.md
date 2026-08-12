@@ -22,11 +22,11 @@ provenance and must not be read as current live state.
 Sequenced, operator-applied plan for the state-machine violations that could
 **not** be safely landed from a chat session. Companion to
 `docs/ingestion-state-machine.md` (§6 findings, §8 backlog) and
-`docs/scale-readiness-review.md`.
+`docs/audit/scale-readiness-review.md`.
 
 Author date: 2026-07-08. All facts below were read from the **live** project
 `Clinical KB Database` (`sjrfecxgysukkwxsowpy`) via read-only `execute_sql`;
-nothing here was applied to live at author time. **Historical status (2026-07-09):** July 8 migrations were merged to `main` but pending live apply — see [`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md). Function bodies are quoted from
+nothing here was applied to live at author time. **Historical status (2026-07-09):** July 8 migrations were merged to `main` but pending live apply — see [`docs/archive/operator-apply-july8-batch.md`](archive/operator-apply-july8-batch.md). Function bodies are quoted from
 `pg_get_functiondef` so migrations are derived from live truth, not `schema.sql`
 (which is known-drifted — see R24e and `docs/database-drift-detection.md`).
 
@@ -327,7 +327,7 @@ naive scope — it can crash live enrichment.**
 
 ## Suggested landing order
 
-**Superseded for merged items** — use [`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md)
+**Superseded for merged items** — use [`docs/archive/operator-apply-july8-batch.md`](archive/operator-apply-july8-batch.md)
 for live apply of R24e → RPC hardening → fail-closed → R5 → R17 (`20260708170000`).
 
 Remaining repo work:

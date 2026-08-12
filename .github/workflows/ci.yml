@@ -57,7 +57,7 @@ jobs:
       codex_autofix_changed: ${{ steps.scope.outputs.codex_autofix_changed }}
       build_changed: ${{ steps.scope.outputs.build_changed }}
       lockfile_changed: ${{ steps.scope.outputs.lockfile_changed }}
-      pr_policy_body_present: ${{ steps.scope.outputs.pr_policy_body_present }}
+      pr_policy_body_changed: ${{ steps.scope.outputs.pr_policy_body_changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -88,7 +88,7 @@ jobs:
   sync-pr-policy-body:
     name: Sync PR policy body
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.pr_policy_body_present == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.pr_policy_body_changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
