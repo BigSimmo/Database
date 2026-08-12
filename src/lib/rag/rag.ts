@@ -2413,23 +2413,6 @@ function buildContextDerivedArtifacts(query: string, results: SearchResult[]) {
   };
 }
 
-export function isCacheableGroundedGenerationFallback(
-  answer: Pick<
-    RagAnswer,
-    "routingMode" | "routingReason" | "grounded" | "confidence" | "citations" | "unverifiedNumericTokens"
-  >,
-) {
-  return (
-    answer.routingMode === "extractive" &&
-    answer.grounded &&
-    answer.confidence !== "unsupported" &&
-    answer.citations.length > 0 &&
-    (answer.unverifiedNumericTokens?.length ?? 0) === 0 &&
-    /(?:source_backed_extractive_fallback|comparison_source_safe_fallback)/.test(answer.routingReason ?? "") &&
-    !(answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON)
-  );
-}
-
 /** Answer question. */
 export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
@@ -2963,7 +2946,7 @@ async function answerQuestionWithScopeUncoalesced(
 
     // Soft-tail unsupported refusals must not stick in the 5-minute answer cache.
     if (
-      answerRouteResultCanBeCached(routeDeadline) &&
+      answerRouteResultCanBeCached(routeDeadline, finalizedAnswer) &&
       !shouldSkipUnsupportedSoftTailAnswerCacheWrite({
         resultCount: results.length,
         retrievalStrategy: search.telemetry.retrieval_strategy,
@@ -3158,7 +3141,7 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    if (!routeDeadline.deadlineExceeded)
+    if (answerRouteResultCanBeCached(routeDeadline, finalizedAnswer))
       await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
     routeDeadline.dispose();
     return finalizedAnswer;
@@ -3924,7 +3907,7 @@ ${qualityRetryInstruction}`
         },
       });
 
-    if (answerRouteResultCanBeCached(routeDeadline))
+    if (answerRouteResultCanBeCached(routeDeadline, answer))
       await setCachedAnswer(args, answer, { indexingVersionAtRetrievalStart });
     routeDeadline.dispose();
     return answer;
@@ -4279,7 +4262,7 @@ ${qualityRetryInstruction}`
         },
       });
 
-    if (isCacheableGroundedGenerationFallback(fallbackAnswer) && !routeDeadline.deadlineExceeded) {
+    if (answerRouteResultCanBeCached(routeDeadline, fallbackAnswer)) {
       await setCachedAnswer(args, fallbackAnswer, { indexingVersionAtRetrievalStart });
     }
     routeDeadline.dispose();

@@ -1,4 +1,5 @@
 import type { AnswerRouteMode } from "@/lib/rag/rag-routing";
+import type { RagAnswer } from "@/lib/types";
 
 export const answerRouteBudgetMs = {
   unsupported: 0,
@@ -49,8 +50,17 @@ export function deadlineAllowsGenerationRetry(deadline: Pick<AnswerRouteDeadline
   return deadline.remainingMs() >= generationRecoveryReserveMs + minimumGenerationRetryMs;
 }
 
-export function answerRouteResultCanBeCached(deadline: Pick<AnswerRouteDeadline, "deadlineExceeded">) {
-  return !deadline.deadlineExceeded;
+export function answerRouteResultCanBeCached(
+  deadline: Pick<AnswerRouteDeadline, "deadlineExceeded">,
+  answer: Pick<RagAnswer, "routingReason" | "degradedMode">,
+) {
+  const routingReason = answer.routingReason ?? "";
+  const degradedReason = answer.degradedMode?.reason ?? "";
+  return (
+    !deadline.deadlineExceeded &&
+    !routingReason.includes("generation_fallback:") &&
+    !degradedReason.startsWith("generation_fallback")
+  );
 }
 
 function abortReason(signal: AbortSignal) {
