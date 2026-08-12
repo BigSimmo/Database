@@ -64,9 +64,7 @@ describe("DifferentialStreamPage", () => {
 
     const priorityGroup = screen.getByRole("group", { name: "Presentation priority" });
     await user.click(within(priorityGroup).getByRole("button", { name: "Urgent" }));
-    expect(
-      screen.queryByTestId(`differential-stream-card-${safetyItem!.slug}`),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId(`differential-stream-card-${safetyItem!.slug}`)).not.toBeInTheDocument();
 
     scrollIntoView.mockClear();
     await user.click(
@@ -75,9 +73,7 @@ describe("DifferentialStreamPage", () => {
       }),
     );
 
-    await waitFor(() =>
-      expect(screen.getByTestId(`differential-stream-card-${safetyItem!.slug}`)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId(`differential-stream-card-${safetyItem!.slug}`)).toBeInTheDocument());
     expect(within(priorityGroup).getByRole("button", { name: "All priorities" })).toHaveAttribute(
       "aria-pressed",
       "true",
