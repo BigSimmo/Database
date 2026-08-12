@@ -181,7 +181,6 @@ function MoreModesMenu({
         description="Open a specialist mode home."
         closeLabel="Close more modes"
         returnFocusRef={triggerRef}
-        portal
         mobilePlacement="bottom"
         mobileSize="content"
         testId="sidebar-more-modes-sheet"
