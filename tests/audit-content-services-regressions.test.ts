@@ -72,12 +72,24 @@ describe("content and services audit regressions", () => {
     expect(canCompareServices(records.slice(0, 1))).toBe(false);
     expect(canCompareServices(records.slice(0, 2))).toBe(true);
     expect(normalizedServiceNavigatorSource).toContain(
-      'key={selected.length === 0 ? "empty" : selected.length === 1 ? "single" : "multiple"}',
+      "const [selectedSlugs, setSelectedSlugs] = useState<string[]>([])",
     );
+    expect(serviceNavigatorSource).toContain('data-testid="services-shortlist-bar"');
+    expect(serviceNavigatorSource).toContain("disabled={selected.length < 2}");
     expect(serviceNavigatorSource).not.toContain("useEffect(");
     expect(serviceNavigatorSource).toContain("aria-pressed={selected}");
-    expect(serviceNavigatorSource).toContain("Add ${service.title} to comparison");
-    expect(serviceNavigatorSource).toContain("Remove ${service.title} from comparison");
+    expect(serviceNavigatorSource).toContain("Add ${service.title} to shortlist");
+    expect(serviceNavigatorSource).toContain("Remove ${service.title} from shortlist");
+    // Deferred-query lag must not flash the group-empty state while ranking catches up.
+    expect(serviceNavigatorSource).toContain("query.trim() && deferredQuery !== query");
+    expect(serviceNavigatorSource).toContain("deferredQuery === query && displayedMatches.length === 0");
+    // Shortlist Compare/Clear keep keyboard focus rings (shared focus-visible contract).
+    expect(serviceNavigatorSource).toMatch(
+      /setShowComparison\(true\)[\s\S]*?focus-visible:outline-\[color:var\(--focus\)\]/,
+    );
+    expect(serviceNavigatorSource).toMatch(
+      /setSelectedSlugs\(\[\]\)[\s\S]*?focus-visible:outline-\[color:var\(--focus\)\]/,
+    );
   });
 
   it("counts only explicit local verification and lets confirmation-required status veto it", () => {
