@@ -64,7 +64,10 @@ export function UniversalSearchAlsoMatches({
   // stream. Once mounted, keep the panel eager and invisible until real matches
   // arrive; a speculative phone disclosure would add dead space to short
   // answers that have no cross-mode matches.
-  const searchActive = isWide || modeId === "answer" || expanded;
+  // Prescribing hides this panel entirely (see early return below). Keep the
+  // fetch disabled too so wide viewports never fire `/api/search/universal`
+  // for results that cannot render.
+  const searchActive = modeId !== "prescribing" && (isWide || modeId === "answer" || expanded);
   const universal = useUniversalSearch({
     query: trimmedQuery,
     enabled: trimmedQuery.length >= 2 && searchActive,
@@ -113,6 +116,10 @@ export function UniversalSearchAlsoMatches({
         ? matchCountLabel(matchCount)
         : "No additional matches";
 
+  // Medication search is already a tightly scoped clinical result surface. Do
+  // not add cross-mode suggestions above its prescribing results: they displace
+  // the medication count, patient details, and primary matches on phones.
+  if (modeId === "prescribing") return null;
   if (!viewportReady || trimmedQuery.length < 2) return null;
   if (modeId === "answer" && currentGroups.length === 0) return null;
   if (isWide && !searchPending && currentGroups.length === 0) return null;
