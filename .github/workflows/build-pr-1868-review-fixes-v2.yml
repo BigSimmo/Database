@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "aa49af34c0089cb3ef08c913d5c1853afa5a6dbb"
+          test "$(git rev-parse HEAD^)" = "c37e0454f3b9f41cd8884646b4123fd9788a71e5"
 
           python <<'PY'
           from pathlib import Path
@@ -547,7 +547,7 @@ jobs:
 
           mapfile -t changed_code < <(
             git diff --cached --name-only --diff-filter=ACM |
-              grep -E '\.(?:[cm]?[jt]s|[jt]sx)$' || true
+              grep -E '\.(cjs|mjs|js|jsx|cts|mts|ts|tsx)$' || true
           )
           if [[ ${#changed_code[@]} -gt 0 ]]; then
             npx eslint "${changed_code[@]}"
@@ -555,7 +555,7 @@ jobs:
 
           mapfile -t changed_tests < <(
             git diff --cached --name-only --diff-filter=ACM |
-              grep -E '^tests/.*\.(?:test|spec)\.[jt]sx?$' || true
+              grep -E '^tests/.*\.(test|spec)\.(js|jsx|ts|tsx)$' || true
           )
           if [[ ${#changed_tests[@]} -eq 0 ]]; then
             echo "No changed tests were selected." >&2
