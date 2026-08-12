@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState, useDeferredValue } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -16,23 +16,22 @@ import {
   Target,
 } from "lucide-react";
 
-import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
-import {
-  ResultFilterFacetChips,
-  ResultFilterSheet,
-  ResultFilterTrigger,
-  resultFilterFacetGroup,
-} from "@/components/clinical-dashboard/result-filter-control";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
-import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
 import {
   FormulationPageShell,
   FormulationSafetyNote,
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
+import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  ResultFilterFacetChips,
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterFacetGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -42,6 +41,7 @@ import {
   searchFormulationMechanisms,
 } from "@/lib/formulation";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 function presetHref(query: string) {
   return appModeHomeHref("formulation", { query, run: true, focus: true });
@@ -152,15 +152,26 @@ function EmptySearchResults({ query }: { query: string }) {
 
 function FormulationResults({ query }: { query: string }) {
   const router = useRouter();
+  // Many-of-N. A mechanism carries 3.92 domains on average, so a radio set
+  // claimed the reader could not hold Affect and Risk at once, which is false.
   const [domains, setDomains] = useState<ReadonlySet<string>>(() => new Set());
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const rankingReady = deferredQuery === query;
+  // The one frame where the live query has text but the deferred one has not
+  // caught up. `results` deliberately reports nothing there rather than scoring
+  // the whole catalogue, so the counts must say the same thing — otherwise the
+  // sheet shows "0 showing" beside nine non-zero counts, which is the exact
+  // disagreement between a filter and its own predicate that this contract
+  // exists to remove.
   const pendingRanking = Boolean(query.trim()) && !deferredQuery.trim();
   const searchQuery = query.trim() ? deferredQuery : "";
   const results = useMemo(() => {
+    // Cleared live query should restore the full browse catalogue immediately.
     if (!query.trim()) return searchFormulationMechanisms("", { domains });
+    // Empty deferred while live query has text would score every mechanism —
+    // treat that lag as "no results yet" instead of dumping the full catalogue.
     if (!deferredQuery.trim()) return [];
     return searchFormulationMechanisms(deferredQuery, { domains });
   }, [domains, deferredQuery, query]);
@@ -174,6 +185,10 @@ function FormulationResults({ query }: { query: string }) {
     });
   }, []);
 
+  // "How many would I have if I ticked this as well" — the same predicate as the
+  // filter, run with the candidate added. Under OR-within-group adding an option
+  // WIDENS, so a count derived by narrowing the current subset would disagree
+  // with what the click actually does. See docs/filter-contract.md section 3.
   const domainGroup = useMemo(
     () =>
       resultFilterFacetGroup({
@@ -188,6 +203,15 @@ function FormulationResults({ query }: { query: string }) {
             value: item,
             label: item,
             hint: String(withCandidate),
+            // A zero here is a consequence of the current query, not a
+            // permanently empty option — the derived list already removed
+            // those. It stays visible and focusable as a dead end so a reader
+            // who has narrowed to nothing can see which choice did it, rather
+            // than being offered a tick that silently yields an empty list.
+            // Never applied to an option already selected: that would make an
+            // active constraint unremovable — and never during the deferred
+            // lag, where a zero means "not scored yet", not "nothing matches",
+            // and would flash all nine options inert for a frame.
             disabled: !pendingRanking && withCandidate === 0 && !domains.has(item),
           };
         }),
@@ -202,9 +226,15 @@ function FormulationResults({ query }: { query: string }) {
         modeId="formulation"
         query={query}
         matchCount={results.length}
+        // This is `useDeferredValue` lag over static data, not a network request:
+        // the previous count is still on screen and still correct, so it stays
+        // visible with a pulse rather than collapsing to a skeleton. Safe here
+        // precisely because nothing identity-scoped is being held across the gap.
         status={rankingReady ? "ready" : "refetching"}
         headingLevel={1}
         filterLabel="Filter formulation mechanisms"
+        // One compact badged trigger replaces the two-column grid of selects, so
+        // the band collapses to one line here too.
         mobileControlsPlacement="inline"
         mobileControls={
           <ResultFilterTrigger
@@ -216,9 +246,19 @@ function FormulationResults({ query }: { query: string }) {
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
+        // The same control the sheet renders, so the two breakpoints cannot
+        // drift. The preset row that used to sit here has moved below the band:
+        // it replaced the query rather than narrowing it, which a control
+        // labelled "Filter" must not do.
         filterControls={<ResultFilterFacetChips group={domainGroup} idPrefix={`${filterPanelId}-desktop`} />}
       />
 
+      {/* Phone-only by construction: the trigger that opens it lives in the
+          ribbon's `mobileControls` slot, which the band hides from `sm` up. One
+          group now — the `pattern` group that used to sit above it called
+          `router.push` and replaced the query, discarding the search and its
+          results with no warning and no undo. Those presets are searches, so
+          they render as searches below the band. */}
       <ResultFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -230,6 +270,9 @@ function FormulationResults({ query }: { query: string }) {
         footerNote={`${results.length} showing`}
       />
 
+      {/* Evicted from the filter sheet, and all five rather than the first four:
+          the old `.slice(0, 4)` left one preset unreachable at every breakpoint.
+          Framed as a new search, which is what picking one does. */}
       <AnswerSuggestionChips
         label="Try another pattern"
         labelPlacement="above"
@@ -358,6 +401,7 @@ function FormulationResults({ query }: { query: string }) {
       )}
 
       <UniversalSearchAlsoMatches modeId="formulation" query={query} />
+
       <FormulationSafetyNote />
     </FormulationPageShell>
   );
