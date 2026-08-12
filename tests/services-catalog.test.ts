@@ -228,9 +228,9 @@ describe("services catalogue", () => {
 
     expect(serviceMatchesCoreGroup(yarn!, null)).toBe(true);
 
+    // Minimal fixture: adjacent tags must not fabricate "public community" across fields.
     const crossFieldOnly = serviceMatchesCoreGroup(
       {
-        ...yarn!,
         slug: "cross-field-only",
         title: "Cross field program",
         tags: ["public", "community"],

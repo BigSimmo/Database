@@ -117,6 +117,20 @@ describe("ServiceDetailPage content cleanup", () => {
     expect(screen.queryByRole("link", { name: "Call" })).not.toBeInTheDocument();
   });
 
+  it("falls back to route when referral is a blank string", () => {
+    render(
+      <ServiceDetailPage
+        service={baseService({
+          referral: "   ",
+          route: "Statewide phone triage",
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Statewide phone triage" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Confirm referral route" })).not.toBeInTheDocument();
+  });
+
   it("compacts pipe-joined fallback summary and referral text for display", () => {
     render(
       <ServiceDetailPage

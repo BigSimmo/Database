@@ -729,7 +729,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                   <p className="text-xs font-semibold text-[color:var(--text-muted)]">Referral route</p>
                   <h2 className="mt-0.5 break-words text-base font-semibold leading-5 text-[color:var(--text-heading)]">
                     {hasText(service.referral) || hasText(service.route)
-                      ? compactCatalogField(service.referral ?? service.route ?? "", 150)
+                      ? compactCatalogField(hasText(service.referral) ? service.referral : (service.route ?? ""), 150)
                       : "Confirm referral route"}
                   </h2>
                   <p className={cn("mt-1 text-xs leading-5", textMuted)}>
