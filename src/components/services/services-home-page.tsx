@@ -18,30 +18,36 @@ import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-regi
 // passed as a prop: a direct `@/lib/services` value import here would compile
 // the full services snapshot (~100 KB gzip) into this client route chunk.
 function buildTaskCards(defaultServiceSlug: string | null): ModeHomeAction[] {
-  return [
+  const cards: ModeHomeAction[] = [
     {
       title: "Search services",
       description: "Need, catchment, provider, keyword.",
       icon: FileSearch,
       href: appModeHomeHref("services", { focus: true }),
     },
-    {
+  ];
+
+  if (defaultServiceSlug) {
+    cards.push({
       title: "Check catchment",
       description: "Region, public/private, eligibility.",
       icon: MapPinned,
-      href: `/services/${defaultServiceSlug ?? ""}`,
-    },
-    {
-      title: "Browse referral pathways",
-      description: "Crisis, youth, Aboriginal health, telehealth.",
-      icon: Route,
-      href: appModeHomeHref("services", {
-        query: "crisis youth Aboriginal health telehealth referral pathway",
-        focus: true,
-        run: true,
-      }),
-    },
-  ];
+      href: `${appModeHomeHref("services")}/${defaultServiceSlug}`,
+    });
+  }
+
+  cards.push({
+    title: "Browse referral pathways",
+    description: "Crisis, youth, Aboriginal health, telehealth.",
+    icon: Route,
+    href: appModeHomeHref("services", {
+      query: "crisis youth Aboriginal health telehealth referral pathway",
+      focus: true,
+      run: true,
+    }),
+  });
+
+  return cards;
 }
 
 const commonPathways: ModeHomePill[] = [

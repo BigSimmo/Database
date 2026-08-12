@@ -1272,6 +1272,17 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("services query param fallback ignores whitespace-only q values", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoLauncher(page, "/services?q=%20&query=13YARN&run=1");
+
+    await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
+    await expect(page.locator('input[placeholder="Search services..."]:visible').first()).toHaveValue("13YARN");
+    await expect(page.getByTestId("service-search-results")).toBeVisible();
+    await expect(page.getByTestId("service-search-result-13yarn")).toContainText("13YARN");
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("services results keep browse navigation without a walkthrough", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
