@@ -288,4 +288,21 @@ test.describe("Header element overlap coverage", () => {
     await ticker.click();
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue(suggestion ?? "");
   });
+
+  test("phone suggestion ticker renders on /documents mode home", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoDashboard(page);
+    await page.goto("/documents", { waitUntil: "domcontentloaded" });
+    await expect(async () => {
+      const header = page.locator("header#search");
+      await expect(header).toHaveCount(1);
+      await expect(header).toBeVisible();
+    }).toPass({ timeout: 30_000 });
+
+    const ticker = page.getByTestId("smart-search-phone-ticker");
+    await expect(ticker).toBeVisible();
+    const tickerBox = await ticker.boundingBox();
+    expect(tickerBox, "phone suggestion ticker must render on /documents home").not.toBeNull();
+    expect(tickerBox!.height, "phone ticker must meet the tap-target floor on /documents").toBeGreaterThanOrEqual(48);
+  });
 });
