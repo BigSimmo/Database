@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
-import { type ReactNode, useCallback, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
@@ -633,9 +633,14 @@ export function ResultFilterSheet({
     expanded: ReadonlySet<string>;
     collapsed: ReadonlySet<string>;
   }>(() => ({ key: chromeResetKey, needle: "", expanded: new Set(), collapsed: new Set() }));
-  if (chrome.key !== chromeResetKey) {
+  // Reset the chrome state when the reset key changes. Using an effect avoids
+  // calling setState during render (which React warns against and can cause
+  // loops under Strict Mode / concurrent rendering). The `scoped` fallback
+  // below already returns empty values when the key is stale, so there is no
+  // visible flash on the transitional render before the effect fires.
+  useEffect(() => {
     setChrome({ key: chromeResetKey, needle: "", expanded: new Set(), collapsed: new Set() });
-  }
+  }, [chromeResetKey]);
   // Prefer the scoped values even on the transitional render before the
   // setState above commits, so a stale needle cannot flash for one frame.
   const scoped = chrome.key === chromeResetKey;
