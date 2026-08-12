@@ -14,6 +14,7 @@ function readFirstSearchParam(value: string | string[] | undefined) {
 
 export default async function ServicesIndexRoute({ searchParams }: { searchParams: ServicesSearchParams }) {
   const resolvedSearchParams = await searchParams;
+  const rawParams = new URLSearchParams(Object.entries(resolvedSearchParams).map(([k, v]) => [k, String(v)]));
   const query =
     readFirstSearchParam(resolvedSearchParams.q)?.trim() ||
     readFirstSearchParam(resolvedSearchParams.query)?.trim() ||
