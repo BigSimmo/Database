@@ -1,0 +1,65 @@
+name: Record PR 1868 review
+
+on:
+  push:
+    branches:
+      - codex/windows-test-portability
+    paths:
+      - .github/workflows/record-pr-1868-review.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: record-pr-1868-review
+  cancel-in-progress: false
+
+jobs:
+  record:
+    if: github.repository == 'BigSimmo/Database'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repaired PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: codex/windows-test-portability
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --include=dev --prefer-offline --no-audit --no-fund
+
+      - name: Append validated review record
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "8fd8c0ed7f50e1ca1ce78eb321ff65da8bc4a100"
+
+          npm run ledger:append -- \
+            --ref "PR #1868 / codex/windows-test-portability" \
+            --head "8fd8c0ed7f50e1ca1ce78eb321ff65da8bc4a100" \
+            --scope "current-main merge, CLS managed-port review fix, and Windows test-harness portability" \
+            --outcome "Merged current main without unexpected conflicts; preserved upstream Codex Cloud coverage and Windows cleanup retries; replaced the unmanaged CLS default with deterministic free managed-port selection and regression coverage." \
+            --checks "Repair PR 1868 workflow PASS: node syntax check, focused ESLint, focused Vitest, branch-review-ledger check, git diff check, and repository push guard."
+
+          npm run check:branch-review-ledger
+          git diff --check
+
+      - name: Remove recorder, commit, and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/record-pr-1868-review.yml
+          git add docs/branch-review-ledger.md
+          git diff --cached --check
+          git commit -m "docs: record repaired PR 1868 review"
+          git push origin HEAD:codex/windows-test-portability
