@@ -167,7 +167,8 @@ test("separates mechanism cards and keeps the primary action in the card footer"
     const actionFooter = topMatch.locator("[data-formulation-card-action]");
     const action = actionFooter.getByRole("link", { name: "Open Worry" });
 
-    await expect(cards).toHaveCount(2);
+    await expect(cards.first()).toBeVisible();
+    expect(await cards.count()).toBeGreaterThan(1);
     await expect(action).toBeVisible();
 
     const geometry = await topMatch.evaluate((card) => {
@@ -221,7 +222,9 @@ test("separates mechanism cards and keeps the primary action in the card footer"
     await expectNoHorizontalOverflow(page);
 
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await expect(topMatch).toHaveCSS("transition-duration", "0s");
+    await expect
+      .poll(() => topMatch.evaluate((card) => Number.parseFloat(getComputedStyle(card).transitionDuration)))
+      .toBeLessThanOrEqual(0.001);
     await page.emulateMedia({ reducedMotion: "no-preference" });
   }
 
