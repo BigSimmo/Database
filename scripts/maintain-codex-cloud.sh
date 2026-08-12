@@ -8,6 +8,9 @@ repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
 }
 cd "$repo_root"
 
+export CODEX_CLOUD=1
+bash scripts/configure-codex-cloud-github-shell.sh
+
 if [[ -f "$HOME/.clinical-kb-codex-cloud.sh" ]]; then
   # shellcheck source=/dev/null
   source "$HOME/.clinical-kb-codex-cloud.sh"
@@ -19,6 +22,9 @@ if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
 fi
 
 node scripts/ensure-codex-cloud-git-remote.mjs --configure-gh-helper
+bash scripts/refresh-codex-cloud-base.sh
+# shellcheck source=/dev/null
+source "$HOME/.clinical-kb-codex-cloud.sh"
 npm run check:codex-cloud
 if ! CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime; then
   printf '[codex-cloud:maintenance] Runtime or toolchain drift detected; rerunning full setup.\n'

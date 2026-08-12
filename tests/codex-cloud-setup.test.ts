@@ -265,7 +265,7 @@ describe("Codex Cloud environment contract", () => {
     expect(report).toContain("hosted_workspace.class_documented=personal-pro");
     expect(report).toContain("OPENAI_API_KEY.present=true");
     expect(report).toContain("hosted_app.inventory=external-unverified-until-fresh-task");
-    expect(report).toContain("provider_route.github=codex-native-connector");
+    expect(report).toContain("provider_route.github=codex-native-connector-or-authenticated-gh");
     expect(report).toContain("provider_route.railway=chatgpt-official-app");
     expect(report).toContain("provider_route.supabase=chatgpt-project-scoped-read-only-app");
     expect(report).toContain(
@@ -576,6 +576,14 @@ describe("Codex Cloud environment contract", () => {
       new URL("../scripts/install-codex-cloud-command-shims.sh", import.meta.url),
       "utf8",
     );
+    const githubShellSetup = readFileSync(
+      new URL("../scripts/configure-codex-cloud-github-shell.sh", import.meta.url),
+      "utf8",
+    );
+    const checkoutBaseRefresh = readFileSync(
+      new URL("../scripts/refresh-codex-cloud-base.sh", import.meta.url),
+      "utf8",
+    );
     const patDelete = readFileSync(
       new URL("../scripts/delete-codex-cloud-branch-with-pat.sh", import.meta.url),
       "utf8",
@@ -623,11 +631,29 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain("--require-hashes -r worker/python/requirements-cloud.txt");
     expect(setup).toContain('"$ocr_venv/bin/python" -m pip check');
     expect(setup).toContain("CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime");
+    expect(setup).toContain("bash scripts/configure-codex-cloud-github-shell.sh");
+    expect(setup).toContain("bash scripts/refresh-codex-cloud-base.sh");
+    expect(setup.indexOf("bash scripts/configure-codex-cloud-github-shell.sh")).toBeLessThan(
+      setup.indexOf('source "$runtime_profile"'),
+    );
     expect(maintenance).toContain("CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime");
     expect(maintenance).toContain("ensure-codex-cloud-git-remote.mjs");
-    expect(commandShims).toContain('nvm which "$expected_node_major"');
+    expect(maintenance).toContain("bash scripts/configure-codex-cloud-github-shell.sh");
+    expect(maintenance).toContain("bash scripts/refresh-codex-cloud-base.sh");
+    expect(commandShims).toContain('nvm version "$expected_node_major"');
+    expect(commandShims).toContain('node_bin="$NVM_DIR/versions/node/$resolved_node_version/bin"');
+    expect(commandShims).toContain('clean_path="${clean_path//:$HOME\\/.local\\/bin:/:}"');
     expect(commandShims).toContain('. "$runtime_profile"');
     expect(commandShims).toContain('mkdir -p "$HOME/.local/bin"');
+    expect(githubShellSetup).toContain("set +x");
+    expect(githubShellSetup).toContain("gh auth login --hostname github.com --git-protocol https --with-token");
+    expect(githubShellSetup).toContain('export GH_CONFIG_DIR="$HOME/.config/gh"');
+    expect(githubShellSetup).toContain("unset CODEX_CLOUD_GITHUB_PAT GH_TOKEN GITHUB_TOKEN");
+    expect(githubShellSetup).toContain("gh api user --jq .login");
+    expect(githubShellSetup).toContain('gh api "repos/$repository"');
+    expect(githubShellSetup).not.toMatch(/printf[^\n]*(?:CODEX_CLOUD_GITHUB_PAT|GH_TOKEN|GITHUB_TOKEN)/u);
+    expect(checkoutBaseRefresh).toContain("git merge-base HEAD refs/remotes/origin/main");
+    expect(checkoutBaseRefresh).toContain("cloud-expected-base-sha");
     expect(patDelete).toContain('[[ "${CODEX_CLOUD:-0}" != "1" ]]');
     expect(patDelete).toContain('[[ "$branch" != -* ]]');
     expect(patDelete).toContain("git check-ref-format --branch");

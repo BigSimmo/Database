@@ -555,7 +555,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   ];
   for (const name of providerCredentialVariables) lines.push(`${name}.present=${Boolean(env[name])}`);
   lines.push(hostedAppInventoryCapabilityLine(options.hostedAppInventory ?? null));
-  lines.push("provider_route.github=codex-native-connector");
+  lines.push("provider_route.github=codex-native-connector-or-authenticated-gh");
   lines.push("provider_route.railway=chatgpt-official-app");
   lines.push("provider_route.supabase=chatgpt-project-scoped-read-only-app");
   lines.push(`codex.cli_available=${codexCliAvailable}`);
@@ -752,6 +752,8 @@ export function validateCodexCloudSetup() {
   const setup = read("scripts/setup-codex-cloud.sh");
   const maintenance = read("scripts/maintain-codex-cloud.sh");
   const commandShims = read("scripts/install-codex-cloud-command-shims.sh");
+  const githubShellSetup = read("scripts/configure-codex-cloud-github-shell.sh");
+  const checkoutBaseRefresh = read("scripts/refresh-codex-cloud-base.sh");
   const rawEnvironmentProbe = read("scripts/check-codex-cloud-raw-env.sh");
   const patDelete = read("scripts/delete-codex-cloud-branch-with-pat.sh");
   const guide = read("docs/codex-cloud.md");
@@ -798,7 +800,12 @@ export function validateCodexCloudSetup() {
     [/unset OPENAI_API_KEY/, "Cloud setup must remove raw provider variables from the agent shell."],
     [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
     [/@openai\/codex/, "Cloud setup must install the Codex CLI."],
+    [
+      /configure-codex-cloud-github-shell\.sh/,
+      "Cloud setup must provision the authenticated GitHub shell fallback before scrubbing setup secrets.",
+    ],
     [/ensure-codex-cloud-git-remote\.mjs/, "Cloud setup must restore a safe origin remote."],
+    [/refresh-codex-cloud-base\.sh/, "Cloud setup must refresh and pin the task checkout base."],
     [/check:codex-cloud -- --runtime/, "Cloud setup must run runtime acceptance."],
     [
       /BEGIN clinical-kb-codex-cloud shell policy/,
@@ -870,9 +877,27 @@ export function validateCodexCloudSetup() {
   );
   requireMatch(
     errors,
+    maintenance,
+    /configure-codex-cloud-github-shell\.sh/,
+    "Maintenance must repair authenticated GitHub shell access before scrubbing setup secrets.",
+  );
+  requireMatch(
+    errors,
+    maintenance,
+    /refresh-codex-cloud-base\.sh/,
+    "Maintenance must refresh and pin the task checkout base.",
+  );
+  requireMatch(
+    errors,
     commandShims,
-    /nvm which/,
-    "Cloud command shims must resolve the selected Node version through nvm.",
+    /nvm version/,
+    "Cloud command shims must resolve the selected Node version without following their own wrappers.",
+  );
+  requireMatch(
+    errors,
+    commandShims,
+    /clean_path=.*\.local.*bin/,
+    "Cloud command shims must remove their directory before running child npm scripts.",
   );
   requireMatch(
     errors,
@@ -889,6 +914,38 @@ export function validateCodexCloudSetup() {
   if (!commandShims.includes('exec "$node_bin/$command_name" "\\$@"')) {
     errors.push("Cloud command shims must execute absolute Node commands.");
   }
+  for (const [pattern, message] of [
+    [/set \+x/, "GitHub shell setup must disable shell tracing before reading the setup credential."],
+    [/--with-token/, "GitHub shell setup must pass the setup credential through GitHub CLI standard input."],
+    [
+      /GH_CONFIG_DIR="\$HOME\/\.config\/gh"/,
+      "GitHub shell setup must keep its credential store outside the repository.",
+    ],
+    [
+      /unset CODEX_CLOUD_GITHUB_PAT GH_TOKEN GITHUB_TOKEN/,
+      "GitHub shell setup must scrub token variables immediately after staging authentication input.",
+    ],
+    [/gh api user --jq \.login/, "GitHub shell setup must verify the authenticated identity."],
+    [/repos\/\$repository/, "GitHub shell setup must verify repository-specific push permission."],
+    [/gh auth setup-git/, "GitHub shell setup must configure a token-free Git credential helper."],
+  ]) {
+    requireMatch(errors, githubShellSetup, pattern, message);
+  }
+  if (/printf[^\n]*(?:CODEX_CLOUD_GITHUB_PAT|GH_TOKEN|GITHUB_TOKEN)/.test(githubShellSetup)) {
+    errors.push("GitHub shell setup must never print a credential variable.");
+  }
+  requireMatch(
+    errors,
+    checkoutBaseRefresh,
+    /git merge-base HEAD refs\/remotes\/origin\/main/,
+    "Checkout-base refresh must pin the merge base shared by the task and origin/main.",
+  );
+  requireMatch(
+    errors,
+    checkoutBaseRefresh,
+    /cloud-expected-base-sha/,
+    "Checkout-base refresh must persist the verified base outside the repository.",
+  );
   requireMatch(
     errors,
     patDelete,
