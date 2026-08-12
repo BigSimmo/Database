@@ -44,7 +44,6 @@ test.describe("Forms section navigation", () => {
 
   test("prints extended information once while collapsed", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.emulateMedia({ media: "print" });
     await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });
 
     const section = page.getByRole("region", { name: "Form information" });
@@ -52,11 +51,19 @@ test.describe("Forms section navigation", () => {
     const preview = "Psychiatric treatment or detention beyond the linked authority.";
 
     await expect(trigger).toBeVisible({ timeout: 20_000 });
-    const panel = page.locator(`#${await trigger.getAttribute("aria-controls")}`);
-    const disclosure = trigger.locator("xpath=ancestor::*[@data-testid='disclosure']");
-    const triggerPreview = trigger.getByText(preview, { exact: true });
+    const panelId = await trigger.getAttribute("aria-controls");
+    if (!panelId) throw new Error("Disclosure trigger is missing aria-controls");
+
+    const panel = page.locator(`#${panelId}`);
+    const disclosure = panel.locator("xpath=..");
+    const triggerPreview = disclosure.locator('button span[aria-hidden="true"]').filter({ hasText: preview });
 
     await expect(triggerPreview).toHaveCount(1);
+    await expect(triggerPreview).toBeVisible();
+    await expect(panel).toBeHidden();
+
+    await page.emulateMedia({ media: "print" });
+
     await expect(triggerPreview).toBeHidden();
     await expect(panel.getByText(preview, { exact: true })).toBeVisible();
     await expect
