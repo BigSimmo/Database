@@ -182,6 +182,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
     [selected],
   );
   const wording = [diagnosis.label, ...selectedRecords.map((record) => wordingSegment(record))].join(", ");
+  const severityNotSpecified = !selectedRecords.some((record) => record.family === "severity-remission");
 
   function changeDiagnosis(nextDiagnosis: SpecifierBuilderDiagnosis) {
     setDiagnosisId(nextDiagnosis);
@@ -314,8 +315,17 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                         onChange={() => chooseSeverity(null)}
                         className="peer sr-only"
                       />
-                      <span className="mt-0.5 grid h-7 w-7 place-items-center rounded-full border border-[color:var(--clinical-accent)] bg-[color:var(--surface)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--focus)]">
-                        <span className="h-3 w-3 rounded-full bg-[color:var(--clinical-accent)]" />
+                      <span
+                        className={cn(
+                          "mt-0.5 grid h-7 w-7 place-items-center rounded-full border peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--focus)]",
+                          severityNotSpecified
+                            ? "border-[color:var(--clinical-accent)] bg-[color:var(--surface)]"
+                            : "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)]",
+                        )}
+                      >
+                        {severityNotSpecified ? (
+                          <span className="h-3 w-3 rounded-full bg-[color:var(--clinical-accent)]" />
+                        ) : null}
                       </span>
                       <span className="min-w-0">
                         <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">
