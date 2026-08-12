@@ -36,7 +36,8 @@ jobs:
             await page.setViewportSize({ width: 1280, height: 900 });
             await gotoLauncher(page, "/services?q=no-service-could-match-this-query&run=1");
 
-            await expect(page.getByText(/no matches for/i)).toBeVisible();
+            const noMatches = page.getByText('No matches for “no-service-could-match-this-query”', { exact: true });
+            await expect(noMatches).toBeVisible();
             await expect(page.getByTestId("service-search-results")).toHaveCount(0);
 
             await page.getByTestId("service-filter-trigger-desktop").click();
@@ -48,7 +49,7 @@ jobs:
 
             await expect(page).toHaveURL(/(?:[?&])scope=all(?:&|$)/);
             await expect(page.getByTestId("service-search-results")).toBeVisible();
-            await expect(page.getByText(/no matches for/i)).toHaveCount(0);
+            await expect(noMatches).toHaveCount(0);
             await expect(page.locator('[data-testid^="service-search-result-"]').first()).toBeVisible();
             await expectNoPageHorizontalOverflow(page);
           });
@@ -61,7 +62,7 @@ jobs:
           path.write_text(text.replace(marker, test + marker, 1))
           PY
 
-      - name: Require the unfixed page test to fail at the missing results list
+      - name: Require the unfixed page test to fail at the post-click results list
         shell: bash
         run: |
           set +e
@@ -74,6 +75,12 @@ jobs:
             exit 1
           fi
 
+          if grep -Fq "strict mode violation" /tmp/pr1866-red.log; then
+            echo "The test failed from an ambiguous locator rather than the product defect."
+            exit 1
+          fi
+
           grep -F "services All items scope replaces an unmatched-query empty state with catalogue cards" /tmp/pr1866-red.log
-          grep -F "service-search-results" /tmp/pr1866-red.log
+          grep -F "Locator: getByTestId('service-search-results')" /tmp/pr1866-red.log
+          grep -F 'await expect(page.getByTestId("service-search-results")).toBeVisible();' /tmp/pr1866-red.log
           echo "RED confirmed: scope=all updates the URL, but the unfixed renderer never exposes service-search-results."
