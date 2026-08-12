@@ -2600,15 +2600,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await gotoApp(page, "/");
+    const newChat = page.getByRole("button", { name: /new chat|new comparison/i });
+    await expect(newChat).toBeVisible();
+    await newChat.click();
     await waitForDemoDashboardReady(page);
 
-    const homeRecentSearches = recentChips.locator(".home-recent-searches");
+    const homeRecentSearches = page.getByTestId("shared-home-recent-queries");
+    await homeRecentSearches.scrollIntoViewIfNeeded();
     await expect(homeRecentSearches).toBeVisible();
     const homeRecentDirection = await homeRecentSearches.evaluate((node) => getComputedStyle(node).flexDirection);
     expect(homeRecentDirection, "home recent-searches should stack on phone width").toBe("column");
 
-    const chipsGroup = recentChips.locator(".answer-suggestion-chips");
+    const chipsGroup = homeRecentSearches.locator(".answer-suggestion-chips");
     const mobileJustify = await chipsGroup.evaluate((node) => getComputedStyle(node).justifyContent);
     expect(mobileJustify, "phone home recent-search chips should align to flex-start").toBe("flex-start");
   });

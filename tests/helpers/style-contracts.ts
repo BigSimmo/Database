@@ -347,7 +347,6 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Answer suggestions and smart search.
   "answer-suggestion-chip": "answer suggestion rail — no effect contract yet (#094)",
   "answer-suggestion-chip-icon": "answer suggestion rail — no effect contract yet (#094)",
-  "answer-suggestion-label": "answer suggestion rail — no effect contract yet (#094)",
   "smart-search-rotating-query": "rotating placeholder — reduced-motion behaviour covered by ui-accessibility",
   "smart-search-rotating-text": "rotating placeholder — reduced-motion behaviour covered by ui-accessibility",
   "smart-search-phone-ticker":
