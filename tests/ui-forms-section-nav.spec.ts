@@ -25,6 +25,23 @@ import { visibleByTestId } from "./playwright-settlement";
 const FORM_ROUTE = "/forms/transport-crisis-form";
 
 test.describe("Forms section navigation", () => {
+  test("expands information previews into one continuous answer", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });
+
+    const section = page.getByRole("region", { name: "Form information" });
+    const trigger = section.getByRole("button", { name: "Does not authorise" });
+    const preview = "Psychiatric treatment or detention beyond the linked authority.";
+
+    await expect(trigger.getByText(preview)).toBeVisible({ timeout: 20_000 });
+    await trigger.click();
+
+    const panel = page.locator(`#${await trigger.getAttribute("aria-controls")}`);
+    await expect(trigger.getByText(preview)).toHaveCount(0);
+    await expect(panel.getByText(preview)).toBeVisible();
+    await expect(panel).not.toHaveClass(/border-t/);
+  });
+
   test("opens a section sheet listing the anchors the form record actually paints", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });

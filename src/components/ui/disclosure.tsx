@@ -10,6 +10,8 @@ export type DisclosureProps = {
   /** Right-aligned summary that stays visible while collapsed — a count, a status. */
   meta?: ReactNode;
   description?: ReactNode;
+  /** Replace the collapsed preview with the panel when open, so the copy reads as one continuous answer. */
+  extendDescription?: boolean;
   defaultOpen?: boolean;
   /** Controlled mode. Omit both to let the component own its state. */
   open?: boolean;
@@ -48,6 +50,7 @@ export function Disclosure({
   children,
   meta,
   description,
+  extendDescription = false,
   defaultOpen = false,
   open: controlledOpen,
   onOpenChange,
@@ -101,7 +104,7 @@ export function Disclosure({
                 trigger stays label-sized. Full copy lives in the panel for SR
                 once expanded. Wrap from sm+ so desktop scanners are not forced
                 through a tap the way phone truncation requires. */}
-            {description ? (
+            {description && !(extendDescription && open) ? (
               <span
                 aria-hidden="true"
                 className={cn("block truncate text-xs sm:whitespace-normal sm:leading-5", textMuted)}
@@ -119,7 +122,7 @@ export function Disclosure({
         aria-labelledby={`${id}-trigger`}
         hidden={!open}
         data-open={open ? "true" : "false"}
-        className="border-t border-[color:var(--border)] px-3 py-3 print:block"
+        className={cn("px-3 py-3 print:block", extendDescription ? "pt-0" : "border-t border-[color:var(--border)]")}
       >
         {children}
       </div>
@@ -128,7 +131,14 @@ export function Disclosure({
 }
 
 export type DisclosureGroupProps = {
-  items: Array<{ id: string; title: ReactNode; description?: ReactNode; meta?: ReactNode; content: ReactNode }>;
+  items: Array<{
+    id: string;
+    title: ReactNode;
+    description?: ReactNode;
+    extendDescription?: boolean;
+    meta?: ReactNode;
+    content: ReactNode;
+  }>;
   exclusive?: boolean;
   className?: string;
   headingLevel?: 2 | 3 | 4 | 5 | 6;
@@ -149,6 +159,7 @@ export function DisclosureGroup({ items, exclusive = false, className, headingLe
           key={item.id}
           title={item.title}
           description={item.description}
+          extendDescription={item.extendDescription}
           meta={item.meta}
           headingLevel={headingLevel}
           open={openIds.includes(item.id)}

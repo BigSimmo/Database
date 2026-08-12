@@ -47,7 +47,9 @@ describe("Form information disclosures", () => {
     await user.click(trigger);
 
     expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(within(trigger).queryByText(fullText)).not.toBeInTheDocument();
     expect(panel).not.toHaveAttribute("hidden");
+    expect(panel).not.toHaveClass("border-t");
     expect(within(panel).getByText(fullText)).toBeVisible();
   });
 
