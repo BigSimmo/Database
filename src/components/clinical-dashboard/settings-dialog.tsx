@@ -45,20 +45,13 @@ import {
 } from "@/components/clinical-dashboard/use-app-preferences";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { clearRecentQueries, countRecentQueries } from "@/lib/recent-query-storage";
-import {
-  cn,
-  floatingControl,
-  ignoreUnavailableActivation,
-  InlineNotice,
-  primaryControl,
-  toggleThumbSurface,
-} from "@/components/ui-primitives";
-import { ProviderBrandMark } from "@/components/clinical-dashboard/provider-brand-icons";
+import { cn, floatingControl, InlineNotice, primaryControl, toggleThumbSurface } from "@/components/ui-primitives";
+import { ProviderBrandMark, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { TextField } from "@/components/ui/text-field";
-import { useAuthSession } from "@/lib/supabase/client";
+import { type OAuthProvider, useAuthSession } from "@/lib/supabase/client";
 import type { ThemePreference } from "@/lib/theme";
 
 type SettingsSectionId =
@@ -175,12 +168,14 @@ export function SettingsDialog({
   // magic-link OTP; the mode only drives which control is pressed and focused.
   const [accountEntryMode, setAccountEntryMode] = useState<"create" | "sign-in">("create");
   const [accountNotice, setAccountNotice] = useState<string | null>(null);
+  const [pendingProvider, setPendingProvider] = useState<SsoProvider | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("account");
   const [dataCounts, setDataCounts] = useState<{ recent: number; saved: number }>(() => readDataCounts());
   const [privacyNotice, setPrivacyNotice] = useState<string | null>(null);
   const [prevOpen, setPrevOpen] = useState(false);
 
   const settingsAuthBusy = auth.status === "loading";
+  const settingsActionBusy = settingsAuthBusy || pendingProvider !== null;
   const signedOutAccount = !identity.signedIn;
 
   // Reset the surface each time it opens without a setState-in-effect: this is
@@ -197,6 +192,7 @@ export function SettingsDialog({
       setAccountEntryMode("create");
       setSettingsEmail("");
       setAccountNotice(null);
+      setPendingProvider(null);
     }
   }
 
@@ -451,8 +447,9 @@ export function SettingsDialog({
 
   async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!settingsEmail.trim()) return;
+    if (!settingsEmail.trim() || settingsActionBusy) return;
     setAccountNotice(null);
+    setPendingProvider(null);
     await auth.signInWithEmail(settingsEmail.trim());
   }
 
@@ -462,9 +459,16 @@ export function SettingsDialog({
     setAccountNotice(null);
   }
 
-  async function chooseSettingsProvider(provider: "Google" | "Microsoft") {
+  async function chooseSettingsProvider(provider: SsoProvider) {
+    if (settingsActionBusy) return;
     setAccountNotice(null);
-    await auth.signInWithOAuth(provider === "Google" ? "google" : "azure");
+    setPendingProvider(provider);
+    const providerId: OAuthProvider = provider === "Apple" ? "apple" : provider === "Google" ? "google" : "azure";
+    try {
+      await auth.signInWithOAuth(providerId);
+    } finally {
+      setPendingProvider(null);
+    }
   }
 
   function handleClearRecent() {
@@ -695,7 +699,7 @@ export function SettingsDialog({
                         />
                         <button
                           type="submit"
-                          disabled={settingsAuthBusy || !settingsEmail.trim() || !auth.isConfigured}
+                          disabled={settingsActionBusy || !settingsEmail.trim() || !auth.isConfigured}
                           className={cn(primaryControl, "w-full")}
                         >
                           {settingsAuthBusy ? (
@@ -715,16 +719,21 @@ export function SettingsDialog({
                     </div>
 
                     <div className="grid gap-2">
+                      {(["Apple", "Google", "Microsoft"] as const).map((provider) => (
+                        <SettingsProviderRow
+                          key={provider}
+                          provider={provider}
+                          busy={settingsActionBusy}
+                          pending={pendingProvider === provider}
+                          onClick={() => void chooseSettingsProvider(provider)}
+                        />
+                      ))}
                       <SettingsProviderRow
-                        provider="Apple"
-                        disabledReason="Apple sign-in is unavailable. Continue with email, Google, or Microsoft."
+                        provider="email"
+                        busy={settingsActionBusy}
+                        pending={false}
+                        onClick={() => openSettingsEmailEntry(accountEntryMode)}
                       />
-                      <SettingsProviderRow provider="Google" onClick={() => void chooseSettingsProvider("Google")} />
-                      <SettingsProviderRow
-                        provider="Microsoft"
-                        onClick={() => void chooseSettingsProvider("Microsoft")}
-                      />
-                      <SettingsProviderRow provider="email" onClick={() => openSettingsEmailEntry(accountEntryMode)} />
                     </div>
 
                     <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
@@ -1368,45 +1377,39 @@ function SettingsChip({ label }: { label: string }) {
 function SettingsProviderRow({
   provider,
   onClick,
-  disabledReason,
+  busy,
+  pending,
 }: {
-  provider: "Apple" | "Google" | "Microsoft" | "email";
-  onClick?: () => void;
-  disabledReason?: string;
+  provider: SsoProvider | "email";
+  onClick: () => void;
+  busy: boolean;
+  pending: boolean;
 }) {
-  const label =
-    provider === "email" ? "Use email instead" : disabledReason ? `${provider} sign-in unavailable` : provider;
-  const descriptionId = disabledReason ? `settings-provider-${provider.toLowerCase()}-unavailable` : undefined;
+  const label = provider === "email" ? "Use email instead" : `Continue with ${provider}`;
 
   return (
     <button
       type="button"
-      onClick={disabledReason ? ignoreUnavailableActivation : onClick}
-      aria-disabled={disabledReason ? true : undefined}
-      title={disabledReason ? `${disabledReason.replace(/\.$/, "")} — coming soon` : undefined}
+      onClick={onClick}
+      disabled={busy}
       aria-label={label}
-      aria-describedby={descriptionId}
-      // `aria-disabled` rather than `disabled` so the row keeps its tab stop and
-      // the `disabledReason` below is actually reachable by keyboard; the click
-      // is inert instead. Styling and hover follow the attribute.
-      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:not-aria-disabled:border-[color:var(--border-strong)] hover:not-aria-disabled:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] aria-disabled:cursor-not-allowed aria-disabled:bg-[color:var(--surface-inset)] aria-disabled:text-[color:var(--disabled)] aria-disabled:opacity-75 aria-disabled:shadow-none"
+      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-65 disabled:hover:border-[color:var(--border)] disabled:hover:bg-[color:var(--surface-raised)]"
     >
-      {provider === "email" ? (
+      {pending ? (
+        <span className="grid h-7 w-7 shrink-0 place-items-center">
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+        </span>
+      ) : provider === "email" ? (
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
           <Mail aria-hidden="true" className="h-4 w-4" />
         </span>
       ) : (
         <ProviderBrandMark provider={provider} />
       )}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      {disabledReason ? (
-        <span id={descriptionId} className="sr-only">
-          {disabledReason}
-        </span>
-      ) : null}
-      {!disabledReason ? (
+      <span className="min-w-0 flex-1 truncate">{pending ? "Connecting…" : label}</span>
+      {pending ? null : (
         <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
-      ) : null}
+      )}
     </button>
   );
 }

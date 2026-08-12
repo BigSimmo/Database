@@ -984,16 +984,42 @@ async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
   await expect(setup.getByLabel("Email address")).toBeVisible();
   await expect(setup.getByRole("button", { name: "Continue with email" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue with Apple" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
-  await expect(setup.getByRole("button", { name: /Apple/i })).toHaveCount(0);
-  await expect(setup.getByText("Apple sign-in is not available yet.")).toBeVisible();
+  await expect(setup.getByText(/Apple sign-in is not available/i)).toHaveCount(0);
   await expect(setup.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Saved to your account" })).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Stays on this device" })).toBeVisible();
+  await expect(setup.getByText("Account", { exact: true })).toHaveCount(2);
+  await expect(setup.getByText("This device", { exact: true })).toBeVisible();
   await expect(setup.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
-  await expect(setup.getByText("No PHI required")).toBeVisible();
-  await expect(setup).toContainText("Do not enter patient-identifying information.");
+  await expect(setup.getByText(/No PHI required\./i)).toBeVisible();
+  await expect(setup).toContainText("Do not enter patient-identifying information during sign-in.");
+}
+
+async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stack") {
+  const providers = ["Apple", "Google", "Microsoft"].map((provider) =>
+    setup.getByRole("button", { name: `Continue with ${provider}` }),
+  );
+  const boxes = await Promise.all(providers.map((provider) => provider.boundingBox()));
+  expect(boxes.every(Boolean)).toBe(true);
+  const [apple, google, microsoft] = boxes as NonNullable<(typeof boxes)[number]>[];
+
+  expect(boxes.every((box) => box!.height >= 48)).toBe(true);
+  if (layout === "row") {
+    expect(Math.max(apple.y, google.y, microsoft.y) - Math.min(apple.y, google.y, microsoft.y)).toBeLessThanOrEqual(1);
+    expect(apple.x + apple.width).toBeLessThanOrEqual(google.x);
+    expect(google.x + google.width).toBeLessThanOrEqual(microsoft.x);
+    expect(
+      Math.max(apple.width, google.width, microsoft.width) - Math.min(apple.width, google.width, microsoft.width),
+    ).toBeLessThanOrEqual(1);
+    return;
+  }
+
+  expect(apple.y + apple.height).toBeLessThanOrEqual(google.y);
+  expect(google.y + google.height).toBeLessThanOrEqual(microsoft.y);
+  expect(
+    Math.max(apple.width, google.width, microsoft.width) - Math.min(apple.width, google.width, microsoft.width),
+  ).toBeLessThanOrEqual(1);
 }
 
 async function expectAdminOnlyUploadNotice(page: Page) {
@@ -1394,6 +1420,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.locator("#clinical-tools-sidebar").getByTestId("sidebar-account-settings").click();
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
+    await expectAccountProviderLayout(setup, "row");
     await expectNoPageHorizontalOverflow(page);
     await setup.getByRole("button", { name: "Close account setup" }).click();
     await expect(setup).toBeHidden();
@@ -1560,6 +1587,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(accountMenu).toHaveCount(0);
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
+    await expectAccountProviderLayout(setup, "stack");
     await expect(setup.getByLabel("Email address")).toBeFocused();
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
