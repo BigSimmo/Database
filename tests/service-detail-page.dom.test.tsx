@@ -188,6 +188,22 @@ describe("ServiceDetailPage content cleanup", () => {
     expect(screen.getAllByText("Free/confidential").length).toBeGreaterThan(0);
   });
 
+  it("preserves best-use guidance when explicit summary and criteria arrays are empty", () => {
+    render(
+      <ServiceDetailPage
+        service={baseService({
+          bestUse: "Early intervention support",
+          summaryCards: [],
+          criteria: [],
+        })}
+      />,
+    );
+
+    const facts = within(screen.getByLabelText("Priority facts"));
+    expect(facts.getByText("Early intervention support")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Referral criteria" })).not.toBeInTheDocument();
+  });
+
   it("keeps referral details compact and exposes no copy controls", () => {
     render(<ServiceDetailPage service={baseService()} />);
 
@@ -215,5 +231,21 @@ describe("ServiceDetailPage content cleanup", () => {
     const facts = within(screen.getByLabelText("Priority facts"));
     expect(facts.getAllByText("Shared audience")).toHaveLength(1);
     expect(facts.getByText("Unique route note")).toBeInTheDocument();
+  });
+
+  it("keeps a detail that matches another priority card title", () => {
+    render(
+      <ServiceDetailPage
+        service={baseService({
+          summaryCards: [
+            { id: "best-use", label: "Best use", title: "Crisis support", detail: "Eligible callers" },
+            { id: "eligibility", label: "Eligibility", title: "Eligible callers", detail: "Shared audience" },
+          ],
+        })}
+      />,
+    );
+
+    const facts = within(screen.getByLabelText("Priority facts"));
+    expect(facts.getAllByText("Eligible callers")).toHaveLength(2);
   });
 });

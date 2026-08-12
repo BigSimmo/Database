@@ -94,13 +94,14 @@ function summaryCardIsRenderable(card: ServiceSummaryCard) {
 }
 
 function dedupeSummaryCardDetails(cards: ServiceSummaryCard[]) {
-  const seen = new Set(cards.flatMap((card) => (hasText(card.title) ? [normalizeTagForList(card.title)] : [])));
+  const seenDetails = new Set<string>();
 
   return cards.map((card) => {
     if (!hasText(card.detail)) return card;
     const detailKey = normalizeTagForList(card.detail);
-    if (seen.has(detailKey)) return { ...card, detail: undefined };
-    seen.add(detailKey);
+    const titleKey = hasText(card.title) ? normalizeTagForList(card.title) : undefined;
+    if (detailKey === titleKey || seenDetails.has(detailKey)) return { ...card, detail: undefined };
+    seenDetails.add(detailKey);
     return card;
   });
 }
@@ -201,13 +202,16 @@ function actionDestinationIdentity(href: string | undefined) {
 
 function summaryCardsFor(service: ServiceRecord): ServiceSummaryCard[] {
   if (Array.isArray(service.summaryCards)) {
-    return service.summaryCards
+    const cards = service.summaryCards
       .map((card) => ({
         ...card,
         title: hasText(card.title) ? compactCatalogField(card.title, 120) : card.title,
         detail: hasText(card.detail) ? compactCatalogField(card.detail, 120) : undefined,
       }))
       .filter(summaryCardIsRenderable);
+
+    if (cards.length > 0 || !hasText(service.bestUse)) return cards;
+    return [{ id: "best-use", label: "Best use", title: bestUseCardTitle(service.bestUse) }];
   }
 
   const cards: ServiceSummaryCard[] = [];
