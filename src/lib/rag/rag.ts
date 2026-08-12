@@ -36,6 +36,11 @@ import {
   isSourceOnlyMode,
   sourceOnlyReason,
 } from "@/lib/rag/rag-provider";
+import {
+  GenerationQualityError,
+  generationQualityFailureDiagnostics,
+  summarizeGenerationQualityAnswerShape,
+} from "@/lib/rag/rag-generation-quality-diagnostics";
 import { allowedChunkMap, citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
 import { assessAndEnforceClaimSupport, enforceLabelledNumericBandCoherence } from "@/lib/rag/rag-claim-support";
 import {
@@ -3677,7 +3682,11 @@ ${qualityRetryInstruction}`
       );
     }
     if (hasCitedProviderSourceGap(answer))
-      throw new Error("OpenAI generation quality gate failed: provider_source_gap");
+      throw new GenerationQualityError(
+        "cited_refusal",
+        "provider_source_gap",
+        summarizeGenerationQualityAnswerShape(answer),
+      );
     // Whether the answer was produced by the strong path (either routed strong from the
     // start or escalated via retry). Tracked by flag rather than model identity so it stays
     // correct when fast and strong tiers share a model.
@@ -3689,7 +3698,11 @@ ${qualityRetryInstruction}`
       // A second strong-model pass is expensive and pushes comparison requests beyond the
       // latency target. The catch path can rebuild these answers deterministically from the
       // same attributed sources, so prefer that bounded recovery over another generation.
-      throw new Error(`OpenAI generation quality gate failed: ${strongQualityFailureReason}`);
+      throw new GenerationQualityError(
+        "strong_gate",
+        strongQualityFailureReason,
+        summarizeGenerationQualityAnswerShape(answer),
+      );
     }
     const answerNeedsStrongQualityRepair = usedStrongModel && Boolean(strongQualityFailureReason);
     if (answerNeedsStrongQualityRepair && generationLatencyMs >= generationTotalBudgetMs) {
@@ -3841,7 +3854,11 @@ ${qualityRetryInstruction}`
             ? "numeric_faithfulness_gap"
             : null;
     if (sourceSafeFallbackReason) {
-      throw new Error(`OpenAI generation quality gate failed: ${sourceSafeFallbackReason}`);
+      throw new GenerationQualityError(
+        "post_finalize",
+        sourceSafeFallbackReason,
+        summarizeGenerationQualityAnswerShape(answer),
+      );
     }
 
     if (args.logQuery !== false)
@@ -3932,6 +3949,14 @@ ${qualityRetryInstruction}`
         routeDeadline.dispose();
         throw relatedDocumentsError;
       }
+    }
+    // #231: surface the specific quality-gate verdict that used to be flattened to the
+    // single `generation_quality_failed` token. Metadata only — the degraded reason the
+    // UI/cache sees is unchanged; the structured verdict rides alongside in
+    // answer_retry_reasons and the fallback log fields below.
+    const generationQualityFailure = generationQualityFailureDiagnostics(error);
+    if (generationQualityFailure) {
+      answerRetryReasons.push(`generation_quality_gate:${generationQualityFailure.gateReason}`);
     }
     const generationFallbackArtifacts = buildContextDerivedArtifacts(answerFocusQuery, generationFallbackResults);
     const generationFallbackSelectionSummary = summarizeAustralianSourceSelection(
@@ -4249,6 +4274,11 @@ ${qualityRetryInstruction}`
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           context_pack_latency_ms: contextPackLatencyMs,
+          answer_retry_count: answerRetryCount,
+          answer_retry_reasons: answerRetryReasons,
+          generation_quality_gate_reason: generationQualityFailure?.gateReason ?? null,
+          generation_quality_gate_stage: generationQualityFailure?.stage ?? null,
+          generation_quality_answer_shape: generationQualityFailure?.answerShape ?? null,
           retrieval_strategy: "generation_fallback",
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
