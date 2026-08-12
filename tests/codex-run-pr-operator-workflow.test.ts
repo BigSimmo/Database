@@ -185,6 +185,9 @@ describe("Codex Run PR operator workflow", () => {
     expect(prepare).toContain('pr.state !== "open" || pr.merged');
     expect(prepare).toContain("ref: `heads/${pr.base.ref}`");
     expect(prepare).toContain("const baseSha = currentBaseRef.object.sha");
+    expect(prepare).toContain("const { data: revalidatedPr } = await github.rest.pulls.get");
+    expect(prepare).toContain('revalidatedPr.base.ref !== pr.base.ref');
+    expect(prepare).toContain("The PR changed while its live base ref was being resolved.");
     expect(prepare).toContain("basehead: `${pr.head.sha}...${baseSha}`");
     expect(prepare).toContain("base_sha: baseSha");
     expect(prepare).not.toContain("base_sha: pr.base.sha");
