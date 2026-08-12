@@ -1,0 +1,235 @@
+name: Repair PR 1868
+
+on:
+  push:
+    branches:
+      - codex/windows-test-portability
+    paths:
+      - .github/workflows/repair-pr-1868.yml
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: repair-pr-1868
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.repository == 'BigSimmo/Database'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: codex/windows-test-portability
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Merge current main and apply reviewed fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --no-tags origin main
+
+          set +e
+          git merge --no-ff --no-commit origin/main
+          merge_status=$?
+          set -e
+
+          mapfile -t conflicts < <(git diff --name-only --diff-filter=U | sort)
+          for conflict in "${conflicts[@]}"; do
+            case "$conflict" in
+              docs/branch-review-ledger.md|tests/codex-cloud-setup.test.ts) ;;
+              *)
+                echo "Unexpected merge conflict: $conflict" >&2
+                exit 1
+                ;;
+            esac
+          done
+          if [[ $merge_status -ne 0 && ${#conflicts[@]} -eq 0 ]]; then
+            echo "Merge failed without an inspectable conflict set." >&2
+            exit 1
+          fi
+
+          if printf '%s\n' "${conflicts[@]}" | grep -Fxq docs/branch-review-ledger.md; then
+            git checkout --theirs -- docs/branch-review-ledger.md
+            git add docs/branch-review-ledger.md
+          fi
+          if printf '%s\n' "${conflicts[@]}" | grep -Fxq tests/codex-cloud-setup.test.ts; then
+            git checkout --theirs -- tests/codex-cloud-setup.test.ts
+            git add tests/codex-cloud-setup.test.ts
+          fi
+
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected one match, found {count}")
+              return text.replace(old, new, 1)
+
+          cloud_path = Path("tests/codex-cloud-setup.test.ts")
+          cloud = cloud_path.read_text(encoding="utf-8")
+          cloud_old = (
+              '  for (const directory of temporaryDirectories.splice(0)) '
+              'rmSync(directory, { recursive: true, force: true });'
+          )
+          cloud_new = (
+              '  for (const directory of temporaryDirectories.splice(0))\n'
+              '    rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });'
+          )
+          if cloud_old in cloud:
+              cloud = replace_once(cloud, cloud_old, cloud_new, "Codex Cloud cleanup")
+          elif cloud_new not in cloud:
+              raise SystemExit("Codex Cloud cleanup: neither expected form is present")
+          cloud_path.write_text(cloud, encoding="utf-8")
+
+          cls_path = Path("scripts/measure-cls-attribution.mjs")
+          cls = cls_path.read_text(encoding="utf-8")
+          if 'import net from "node:net";' not in cls:
+              cls = replace_once(
+                  cls,
+                  'import http from "node:http";\n',
+                  'import http from "node:http";\nimport net from "node:net";\n',
+                  "CLS net import",
+              )
+
+          old_identity_import = (
+              'import { appName, localProjectId } from "../src/lib/local-server-utils.mjs";'
+          )
+          new_identity_import = '''import {
+            appName,
+            circularProjectPortRange,
+            isReservedDevPort,
+            localProjectId,
+            projectPortEnd,
+            projectPortStart,
+            stableProjectPort,
+          } from "../src/lib/local-server-utils.mjs";'''
+          if old_identity_import in cls:
+              cls = replace_once(
+                  cls,
+                  old_identity_import,
+                  new_identity_import,
+                  "CLS project-port imports",
+              )
+          elif "circularProjectPortRange" not in cls:
+              raise SystemExit("CLS project-port imports: expected import was not found")
+
+          flag_block = '''const flag = (name, fallback) => {
+            const index = argv.indexOf(`--${name}`);
+            return index >= 0 && argv[index + 1] ? argv[index + 1] : fallback;
+          };
+          '''
+          port_helpers = flag_block + '''
+          function canConnect(port, host) {
+            return new Promise((resolve) => {
+              const socket = net.createConnection({ host, port });
+              socket.once("connect", () => socket.destroy(void resolve(true)));
+              socket.once("error", () => resolve(false));
+              setTimeout(() => socket.destroy(void resolve(false)), 500);
+            });
+          }
+
+          async function findFreePort(startPort) {
+            for (const candidate of circularProjectPortRange(startPort)) {
+              if (isReservedDevPort(candidate)) continue;
+              if (!(await canConnect(candidate, "127.0.0.1"))) return candidate;
+            }
+            throw new Error("No free CLS server port found in the configured project range.");
+          }
+          '''
+          if "async function findFreePort" not in cls:
+              cls = replace_once(cls, flag_block, port_helpers, "CLS free-port helpers")
+
+          old_port = 'const port = Number(flag("port", "4611"));'
+          new_port = '''const portFlag = flag("port", null);
+          const port = portFlag === null ? await findFreePort(stableProjectPort(projectRoot)) : Number(portFlag);
+          if (
+            !Number.isInteger(port) ||
+            port < projectPortStart ||
+            port > projectPortEnd ||
+            isReservedDevPort(port)
+          ) {
+            throw new Error(
+              `--port must be an available managed project port between ${projectPortStart} and ${projectPortEnd}; received ${portFlag}.`,
+            );
+          }'''
+          if old_port in cls:
+              cls = replace_once(cls, old_port, new_port, "CLS port selection")
+          elif 'flag("port", "4611")' in cls:
+              raise SystemExit("CLS port selection: stale default remains")
+          cls_path.write_text(cls, encoding="utf-8")
+
+          contract_path = Path("tests/measure-cls-attribution-contract.test.ts")
+          contract = contract_path.read_text(encoding="utf-8")
+          test_marker = '''  it("uses the shared browser-runner safety boundaries", () => {
+          '''
+          port_test = '''  it("selects a free managed project port by default", () => {
+            expect(source).toContain('import net from "node:net";');
+            expect(source).toContain("circularProjectPortRange");
+            expect(source).toContain("findFreePort(stableProjectPort(projectRoot))");
+            expect(source).toContain("port < projectPortStart");
+            expect(source).toContain("port > projectPortEnd");
+            expect(source).not.toContain('flag("port", "4611")');
+          });
+
+          '''
+          if 'it("selects a free managed project port by default"' not in contract:
+              contract = replace_once(contract, test_marker, port_test + test_marker, "CLS regression contract")
+          contract_path.write_text(contract, encoding="utf-8")
+          PY
+
+          test -z "$(git diff --name-only --diff-filter=U)"
+          git add scripts/measure-cls-attribution.mjs tests/measure-cls-attribution-contract.test.ts tests/codex-cloud-setup.test.ts
+
+      - name: Install locked dependencies
+        run: npm ci --include=dev --prefer-offline --no-audit --no-fund
+
+      - name: Format repaired files
+        run: >-
+          npx prettier --write
+          scripts/measure-cls-attribution.mjs
+          tests/measure-cls-attribution-contract.test.ts
+          tests/codex-cloud-setup.test.ts
+
+      - name: Run focused verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/measure-cls-attribution.mjs
+          npx eslint \
+            scripts/measure-cls-attribution.mjs \
+            tests/measure-cls-attribution-contract.test.ts \
+            tests/codex-cloud-setup.test.ts
+          npx vitest run \
+            tests/measure-cls-attribution-contract.test.ts \
+            tests/codex-cloud-setup.test.ts \
+            tests/server-identity-contract.test.ts \
+            tests/middleware-project-header.test.ts
+          npm run check:branch-review-ledger
+          git diff --check
+
+      - name: Commit merge and push repaired head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/repair-pr-1868.yml
+          git add --all
+          test -z "$(git diff --name-only --diff-filter=U)"
+          git diff --cached --check
+          git commit -m "Merge main and fix CLS port selection"
+          git push origin HEAD:codex/windows-test-portability
