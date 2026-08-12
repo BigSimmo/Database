@@ -456,7 +456,7 @@ function FilterFacetGroup({ group, panelId }: { group: ResultFilterFacetGroup; p
               <span
                 aria-hidden
                 className={cn(
-                  "grid size-icon-sm shrink-0 place-items-center rounded-[0.25rem] border transition-colors",
+                  "grid size-icon-sm shrink-0 place-items-center rounded-xs border transition-colors",
                   selected
                     ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
                     : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
