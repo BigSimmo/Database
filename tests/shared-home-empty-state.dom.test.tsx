@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { SharedHomeEmptyState } from "@/components/clinical-dashboard/answer-status";
 import { appModeIds, type AppModeId } from "@/lib/app-modes";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 
 const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -101,23 +102,18 @@ describe("SharedHomeEmptyState", () => {
   it("reserves the phone copy height once on the pair, never on each half", () => {
     const { container } = render(<SharedHomeEmptyState modeId="answer" />);
 
-    const heading = screen.getByRole("heading", { level: 2, name: "What can I help with?" });
-    const subtitle = screen.getByText("Ask a source-backed clinical question.", { exact: true });
+    const heading = screen.getByRole("heading", { level: 2, name: sharedHomePresentation.answer.title });
     const copyWrapper = heading.parentElement;
 
     expect(copyWrapper).not.toBeNull();
-    expect(subtitle.parentElement).toBe(copyWrapper);
+    expect(copyWrapper?.children).toHaveLength(1);
 
-    // The reserve belongs to the wrapping pair. Split across the two children
-    // (the old `max-sm:min-h-[2lh]` on each) half of each element's unused
-    // reserve collects between them, which rendered the subtitle 27px from its
-    // own title while the medallion sat 6px away.
+    // The reserve belongs to the wrapping pair. Keep it on the pair wrapper
+    // rather than on each element individually.
     expect(copyWrapper?.className).toContain("max-sm:min-h-[var(--mode-home-copy-reserve)]");
     expect(copyWrapper?.className).toContain("max-sm:content-center");
-    for (const el of [heading, subtitle]) {
-      expect(el.className).not.toContain("min-h-[2lh]");
-      expect(el.className).not.toContain("max-sm:place-items-center");
-    }
+    expect(heading.className).not.toContain("min-h-[2lh]");
+    expect(heading.className).not.toContain("max-sm:place-items-center");
 
     // The medallion tracks the fluid token rather than stepping at sm/lg, so
     // the 768-1023px tablet band stops being served the phone size.
@@ -156,6 +152,6 @@ describe("SharedHomeEmptyState", () => {
     expect(screen.getByTestId("shared-home-empty-state")).toBe(sharedHomeRoot);
     expect(screen.getByRole("heading", { level: 2, name: "Clinical Services" })).toBeInTheDocument();
     expect(sharedHomeRoot.querySelector(".mode-home-icon svg")).toHaveClass("lucide-route");
-    expect(screen.queryByText("What can I help with?", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText(sharedHomePresentation.answer.title, { exact: true })).not.toBeInTheDocument();
   });
 });
