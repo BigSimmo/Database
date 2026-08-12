@@ -23,6 +23,7 @@ function sourceSegment(contents: string, startMarker: string, endMarker: string)
 
 const clinicalDashboardSource = source("src/components/ClinicalDashboard.tsx");
 const masterSearchHeaderSource = source("src/components/clinical-dashboard/master-search-header.tsx");
+const universalAlsoMatchesSource = source("src/components/clinical-dashboard/universal-search-also-matches.tsx");
 
 describe("audit navigation and auth regressions", () => {
   it("redirects exact legacy route handlers at request time while retaining useful query state", () => {
@@ -150,6 +151,29 @@ describe("audit navigation and auth regressions", () => {
     );
   });
 
+  it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
+    expect(universalAlsoMatchesSource).toContain('const searchActive = isWide || modeId === "answer" || expanded;');
+    expect(universalAlsoMatchesSource).toContain("enabled: trimmedQuery.length >= 2 && searchActive");
+    expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
+    expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
+    expect(universalAlsoMatchesSource).toContain("setViewportReady(true);");
+    expect(universalAlsoMatchesSource).toContain('searchPending ? "Searching other modes"');
+  });
+
+  it("mounts Answer-mode also-matches only after generation completes", () => {
+    const alsoMatchesGate = sourceSegment(
+      clinicalDashboardSource,
+      "const showUniversalAlsoMatches =",
+      "const showDesktopHomeComposer =",
+    );
+    expect(alsoMatchesGate).toContain('activeModeResultKind === "tools"');
+    expect(alsoMatchesGate).toContain('activeModeResultKind === "favourites"');
+    expect(alsoMatchesGate).toContain('activeModeResultKind === "answer" && Boolean(answer) && !loading');
+    expect(alsoMatchesGate).not.toContain(
+      'activeModeResultKind === "answer" || activeModeResultKind === "tools" || activeModeResultKind === "favourites"',
+    );
+  });
+
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
     const uploadReadOnlyContract = sourceSegment(
       clinicalDashboardSource,
@@ -239,5 +263,20 @@ describe("audit navigation and auth regressions", () => {
   it("keeps the root dashboard H1 as Clinical Guide", () => {
     expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
     expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
+  });
+
+  it("leaves favourites universal matches to the favourites hub", () => {
+    const universalMatchesContract = sourceSegment(
+      clinicalDashboardSource,
+      "{showUniversalAlsoMatches &&",
+      // The shared home now opens the mode-content chain, ahead of differentials.
+      "{showSharedHome ?",
+    );
+
+    expect(universalMatchesContract).toContain("<UniversalSearchAlsoMatches modeId={searchMode}");
+    expect(universalMatchesContract).not.toContain('activeModeResultKind === "favourites"');
+    expect(source("src/components/clinical-dashboard/favourites-command-library-page.tsx")).toContain(
+      '<UniversalSearchAlsoMatches modeId="favourites" query={query} />',
+    );
   });
 });

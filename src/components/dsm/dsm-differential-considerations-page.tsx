@@ -328,7 +328,7 @@ export function DsmDifferentialConsiderationsPage({
                     ) : null}
                     <Link
                       href={comparisonHref}
-                      className="inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-extrabold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
+                      className="inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-extrabold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
                     >
                       <GitCompareArrows className="h-4 w-4" aria-hidden />
                       Add to comparison

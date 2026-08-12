@@ -41,6 +41,10 @@ vi.mock("@/components/use-result-sort", () => ({
   useResultSort: () => ["relevance", vi.fn()] as const,
 }));
 
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
+
 import { DifferentialsHome } from "@/components/clinical-dashboard/differentials-home";
 
 describe("DifferentialsHome compare selection URL handoff", () => {

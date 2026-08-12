@@ -228,7 +228,7 @@ export function ScoreBandBar({
         {started ? (
           <div
             aria-hidden="true"
-            className="absolute top-1/2 h-3.5 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--text-heading)] shadow-[var(--e1)]"
+            className="absolute top-1/2 h-3.5 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--text-heading)] shadow-[var(--shadow-tight)]"
             style={{ left: `${fraction * 100}%` }}
           />
         ) : null}
@@ -405,7 +405,7 @@ function OptionScale({
             className={cn(
               "inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg border px-2.5 text-sm-minus font-bold transition",
               active
-                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]"
+                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                 : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
               focusRing,
             )}

@@ -27,7 +27,7 @@ describe("cn()", () => {
     expect(cn("rounded-md", "rounded-lg")).toBe("rounded-lg");
     expect(cn("px-2", "px-5")).toBe("px-5");
     expect(cn("text-sm", "text-xs")).toBe("text-xs");
-    expect(cn("shadow-[var(--e1)]", "shadow-[var(--shadow-hover)]")).toBe("shadow-[var(--shadow-hover)]");
+    expect(cn("shadow-[var(--shadow-tight)]", "shadow-[var(--shadow-hover)]")).toBe("shadow-[var(--shadow-hover)]");
   });
 
   it("lets a caller override a recipe, which a plain join could not", () => {

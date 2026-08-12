@@ -156,7 +156,7 @@ export function CompareScreen() {
         {items.map((t) => (
           <span
             key={t.slug}
-            className="flex items-center gap-2 h-[46px] pt-0 pr-2 pb-0 pl-3.5 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)] shadow-[var(--e1)]"
+            className="flex items-center gap-2 h-[46px] pt-0 pr-2 pb-0 pl-3.5 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
           >
             <ScaleIcon size={15} className="text-[color:var(--decoration-soft)]" />
             <span className="text-sm-minus font-semibold text-[color:var(--text-heading)] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">

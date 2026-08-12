@@ -209,7 +209,7 @@ describe("shared-search route ownership", () => {
     expect(homeTemplateSource).not.toMatch(
       /mode-home-composer-slot block min-h-\[var\(--spacing-mode-home-composer-phone\)\]/,
     );
-    expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 7.625rem");
+    expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 6.625rem");
     expect(globalsSource).toContain("--spacing-mode-home-composer-wide: 5.5rem");
   });
 

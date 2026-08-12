@@ -253,7 +253,7 @@ function StickySignalChrome({
   return (
     <div
       ref={chromeRef}
-      className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)]/95 shadow-[var(--e1)] backdrop-blur-xl"
+      className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)]/95 shadow-[var(--shadow-tight)] backdrop-blur-xl"
     >
       <div className={cn(phone ? "px-3 pt-3" : "px-8 pt-5")}>
         <div className={cn("flex min-h-12 items-center gap-3", !phone && "mx-auto max-w-[80rem]")}>

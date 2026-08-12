@@ -1,5 +1,3 @@
-import { fuzzySearchTokenCount } from "@/lib/catalog-search";
-
 export type SpecifierFamily = "episode-features" | "course-onset" | "severity-remission";
 
 export type SpecifierBuilderDiagnosis =
@@ -714,7 +712,6 @@ export function searchSpecifiers(
         if (keywords.includes(token)) score += 10;
         if (haystack.includes(token)) score += 3;
       }
-      if (normalizedQuery && score === 0) score += fuzzySearchTokenCount(normalizedQuery, haystack) * 2;
 
       return { record, score };
     })

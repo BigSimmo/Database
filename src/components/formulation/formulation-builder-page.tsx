@@ -69,7 +69,7 @@ function StepProgress({ active, onChange }: { active: BuilderStepId; onChange: (
               className={cn(
                 "grid min-h-[3.25rem] w-full place-items-center rounded-lg px-1 py-1.5 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:grid-cols-[1.75rem_auto] sm:justify-center sm:gap-2",
                 isActive
-                  ? "border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--e1)]"
+                  ? "border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)]"
                   : "border border-transparent bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border)]",
               )}
             >
@@ -342,7 +342,7 @@ export function FormulationBuilderPage({
                   </div>
                 ) : (
                   <div className="grid min-h-36 place-items-center rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:32px_32px] p-5 text-center">
-                    <div className="rounded-xl bg-[color:var(--surface)]/95 px-6 py-4 shadow-[var(--e1)]">
+                    <div className="rounded-xl bg-[color:var(--surface)]/95 px-6 py-4 shadow-[var(--shadow-tight)]">
                       <Network className="mx-auto h-6 w-6 text-[color:var(--clinical-accent)]" aria-hidden />
                       <h3 className="mt-2 text-base font-extrabold text-[color:var(--text-heading)]">
                         No mechanisms selected
@@ -687,7 +687,7 @@ export function FormulationBuilderPage({
                 type="button"
                 onClick={() => move(1)}
                 disabled={activeStep === "select" && selectedMechanisms.length === 0}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-transparent bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--text-muted)] disabled:shadow-none"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-transparent bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--text-muted)] disabled:shadow-none"
               >
                 {activeStep === "select"
                   ? "Continue to framework"

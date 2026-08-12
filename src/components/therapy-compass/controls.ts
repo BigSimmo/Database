@@ -39,7 +39,7 @@ export const accentControl = cn(
 
 export const commandControl = cn(
   controlBase,
-  "gap-[9px] border-0 bg-[color:var(--command)] px-5 text-sm text-[color:var(--command-contrast)] shadow-[var(--e1)]",
+  "gap-[9px] border-0 bg-[color:var(--command)] px-5 text-sm text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)]",
   "hover:not-aria-disabled:enabled:bg-[color:var(--command-hover)] hover:not-aria-disabled:enabled:shadow-[var(--shadow-hover)]",
 );
 

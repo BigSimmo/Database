@@ -28,17 +28,6 @@ const expectedLabels: Record<AppModeId, string[]> = {
   factsheets: ["Topics", "Search"],
 };
 
-describe("shared search destinations", () => {
-  it.each([
-    ["differentials", "/?mode=differentials&focus=1"],
-    ["dsm", "/?mode=dsm&focus=1"],
-    ["specifiers", "/?mode=specifiers&focus=1"],
-    ["formulation", "/?mode=formulation&focus=1"],
-  ] as const)("routes the %s search tab to universal search with its mode selected", (modeId, href) => {
-    expect(modeSecondaryNavigationRegistry[modeId][0]).toMatchObject({ id: "search", href });
-  });
-});
-
 const cleanLandingPath: Record<AppModeId, string> = {
   answer: "/",
   documents: "/",
@@ -158,15 +147,6 @@ describe("mode secondary navigation registry", () => {
   it("translates compatible workflow selection state into each destination URL", () => {
     expect(
       modeSecondaryNavigationHref({
-        modeId: "dsm",
-        itemId: "search",
-        href: "/?mode=dsm&focus=1",
-        currentSearchParams: new URLSearchParams("q=bipolar&run=1&ids=one%2Ctwo"),
-      }),
-    ).toBe("/?mode=dsm&q=bipolar&focus=1&ids=one%2Ctwo");
-
-    expect(
-      modeSecondaryNavigationHref({
         modeId: "specifiers",
         itemId: "builder",
         href: "/specifiers/builder",
@@ -201,17 +181,16 @@ describe("mode secondary navigation registry", () => {
       }),
     ).toBe("/differentials/presentations?q=confusion&ids=delirium%2Cdementia");
 
-    // Search returns to the universal composer with the mode selected and the
-    // prior query as a draft. It must not carry run=1, which would re-open the
-    // old mode-owned results route through the legacy redirect.
+    // Search restores the last query and re-opens results even when the prior
+    // tab URL did not carry run=1 (e.g. Diagnoses / Presentations browse).
     expect(
       modeSecondaryNavigationHref({
         modeId: "differentials",
         itemId: "search",
-        href: "/?mode=differentials&focus=1",
-        currentSearchParams: new URLSearchParams("q=confusion&run=1&ids=delirium"),
+        href: "/differentials?focus=1",
+        currentSearchParams: new URLSearchParams("q=confusion&ids=delirium"),
       }),
-    ).toBe("/?mode=differentials&focus=1&q=confusion&ids=delirium");
+    ).toBe("/differentials?focus=1&q=confusion&run=1&ids=delirium");
 
     // Search is the CURRENT tab on /factsheets/search, so its own link must not
     // reset what you are looking at. `run` is carried with the query because

@@ -195,7 +195,6 @@ export function MasterSearchHeader({
   mobileBottomSearchVariant = "default",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
-  showPhoneSuggestionTickerOnHome = false,
   desktopHomeComposerSlotId,
   desktopPageComposerSlotId,
   heroComposerBreakpoint = "all",
@@ -251,8 +250,6 @@ export function MasterSearchHeader({
    *  content keeps maximum screen space. Every phone dock uses it now; the
    *  "default" value remains for hosts that need the taller legacy dock. */
   mobileBottomSearchVariant?: "default" | "compact";
-  /** Show the compact phone suggestion ticker only for standalone-mode homes. */
-  showPhoneSuggestionTickerOnHome?: boolean;
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
   /** Mode-home slot the composer portals into so the search pill sits in the
@@ -1819,7 +1816,6 @@ export function MasterSearchHeader({
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
-          showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -1915,7 +1911,7 @@ export function MasterSearchHeader({
                   className="grid min-h-tap min-w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-12 sm:w-12"
                   aria-label="Clear search question"
                 >
-                  <X aria-hidden="true" className="h-4 w-4" />
+                  <X aria-hidden="true" className="size-icon-md" />
                 </button>
               )}
             </label>
@@ -2111,7 +2107,7 @@ export function MasterSearchHeader({
             )}
             aria-label="Open Clinical Guide menu"
           >
-            <Menu aria-hidden="true" className="h-5 w-5" />
+            <Menu aria-hidden="true" className="size-icon-lg" />
           </button>
           {sharedHomeIdentity ? (
             <div data-testid="shared-home-brand" className="hidden min-w-0 items-center gap-3 lg:flex">
@@ -2178,8 +2174,11 @@ export function MasterSearchHeader({
             aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
             aria-label={`Mode ${selectedAppMode.label}`}
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
-              <SelectedAppModeIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+              {/* 16px in the 32px pill, not the 14px metadata step: this is a
+                  primary control, and 2.25 keeps its absolute stroke in line
+                  with the larger glyphs beside it. */}
+              <SelectedAppModeIcon aria-hidden="true" className="size-icon-md" strokeWidth={2.25} />
             </span>
             <span className="min-w-0">
               <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--text-muted)] sm:block">
@@ -2192,7 +2191,7 @@ export function MasterSearchHeader({
             <ChevronDown
               aria-hidden="true"
               className={cn(
-                "h-4 w-4 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
+                "size-icon-md text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
                 modeMenuOpen && "rotate-180",
               )}
             />
@@ -2253,7 +2252,7 @@ export function MasterSearchHeader({
               aria-label="Start a new chat"
               title="New chat"
             >
-              <MessageSquarePlus aria-hidden="true" className="h-5 w-5 xl:h-4 xl:w-4" />
+              <MessageSquarePlus aria-hidden="true" className="size-icon-lg xl:size-icon-md" />
               <span className="hidden whitespace-nowrap xl:inline">New chat</span>
             </button>
           ) : null}
