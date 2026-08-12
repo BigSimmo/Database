@@ -1694,6 +1694,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.locator('input[placeholder="Ask or search a presentation"]:visible').first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Search presentations" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Compare differentials" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Differential actions" }).getByRole("button")).toHaveCount(2);
     await expect(
       page.getByTestId("differentials-home").getByRole("region", { name: /^(Recent work|Library matches)$/ }),
     ).toBeVisible();
@@ -1806,7 +1807,7 @@ test.describe("Clinical KB tools launcher", () => {
     // Evidence arrived, so the results view renders with a real query-matched
     // result row from the imported differentials catalogue.
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
-    await expect(page.getByText("Catalogue ranking").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Differential matches" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
   });
 
@@ -1861,7 +1862,11 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/differentials");
     await submitDifferentialSearch(page, "acute confusion");
 
-    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
+    const evidenceBackedResults = visibleByTestId(page, "differentials-search-results");
+    await expect(evidenceBackedResults).toBeVisible();
+    await expect(evidenceBackedResults.getByRole("region", { name: "Source status" })).toContainText(
+      "1 indexed source match",
+    );
     const typeTrigger = page.getByTestId("differential-filter-trigger-phone");
     await expect(typeTrigger).toBeVisible();
     await expect(typeTrigger).toHaveAccessibleName(/No filters active/);
@@ -2054,6 +2059,27 @@ test.describe("Clinical KB tools launcher", () => {
     const ranks = await mobileCards.getByTestId("differential-mobile-result-rank").allTextContents();
     expect(ranks).toEqual(ranks.map((_, index) => String(index + 1)));
 
+    // Selection reads as a checkbox, but only the visible box is compact. Its
+    // surrounding label retains the repository's 48px phone target contract.
+    const uncheckedSelection = mobileCards.getByRole("checkbox", { name: /^Add .+ to comparison$/ }).first();
+    await expect(uncheckedSelection).toBeVisible();
+    await expect(uncheckedSelection).not.toBeChecked();
+    const uncheckedName = await uncheckedSelection.getAttribute("aria-label");
+    expect(uncheckedName).toMatch(/^Add .+ to comparison$/);
+    const checkedName = uncheckedName!.replace(/^Add /, "Remove ").replace(/ to comparison$/, " from comparison");
+    const selectionTarget = uncheckedSelection.locator("xpath=..");
+    await expectMinTouchTarget(selectionTarget, 48);
+    const visibleSelectionBox = await selectionTarget.getByTestId("differential-selection-box").evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    });
+    expect(visibleSelectionBox).toEqual({ width: 24, height: 24 });
+    await uncheckedSelection.focus();
+    await expect(uncheckedSelection).toBeFocused();
+    await uncheckedSelection.press("Space");
+    const checkedSelection = mobileCards.getByRole("checkbox", { name: checkedName, exact: true });
+    await expect(checkedSelection).toBeChecked();
+
     // Status badge sits on its own meta row below the title, never beside it.
     const titleBadgeLayout = await mobileCards.first().evaluate((card) => {
       const title = card.querySelector("a span.line-clamp-2") ?? card.querySelector("a");
@@ -2121,6 +2147,7 @@ test.describe("Clinical KB tools launcher", () => {
     const scrollport = visibleByTestId(page, "differentials-search-results");
     const mainContent = page.locator("#main-content");
     await expect(scrollport).toBeVisible();
+    await expect(scrollport.getByRole("region", { name: "Source status" })).toContainText("No indexed source matches");
     await expect(page.locator("#differentials-mobile-compare-addon-slot")).toHaveCount(1);
     await expect(compareAction).toBeVisible();
     await expect(compareAction).toContainText("Compare selected");
