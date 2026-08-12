@@ -74,49 +74,61 @@ jobs:
           path = Path("src/components/filter-sheet-restyle-mockups.tsx")
           text = path.read_text(encoding="utf-8")
 
-          def replace_once(old: str, new: str, label: str) -> None:
-              global text
-              count = text.count(old)
+          def replace_once(source: str, old: str, new: str, label: str) -> str:
+              count = source.count(old)
               if count != 1:
                   raise SystemExit(f"{label}: expected exactly 1 match, found {count}")
-              text = text.replace(old, new, 1)
+              return source.replace(old, new, 1)
 
-          replace_once(
+          text = replace_once(
+              text,
               "    return { total, perDomain };",
               "    return { total, perDomain, scopeSize: pool.length };",
               "scope size return",
           )
-          replace_once(
+          text = replace_once(
+              text,
               "/** Full-width row variant for the dense direction. */\nfunction DomainRow({",
               "export function filterSheetRestyleDomainProportionPercent(count: number, scopeSize: number) {\n  if (scopeSize <= 0) return 0;\n  return Math.round((count / scopeSize) * 100);\n}\n\n/** Full-width row variant for the dense direction. */\nfunction DomainRow({",
               "proportion helper",
           )
-          replace_once(
+          text = replace_once(
+              text,
               "function DomainRow({\n  domain,\n  count,\n  selected,\n  compact,\n  onToggle,\n}: {\n  domain: string;\n  count: number;\n  selected: boolean;\n  compact: boolean;\n  onToggle: () => void;\n}) {",
               "function DomainRow({\n  domain,\n  count,\n  scopeSize,\n  selected,\n  compact,\n  onToggle,\n}: {\n  domain: string;\n  count: number;\n  scopeSize: number;\n  selected: boolean;\n  compact: boolean;\n  onToggle: () => void;\n}) {",
               "DomainRow scope size prop",
           )
-          replace_once(
+          text = replace_once(
+              text,
               "A proportion bar, not just a number: twelve mechanisms is small enough\n          that relative weight is more legible than absolute count.",
               "A proportion bar, not just a number: relative weight within the active scope\n          is more legible than absolute count alone.",
               "proportion comment",
           )
-          replace_once(
+          text = replace_once(
+              text,
               '          style={{ width: `${Math.round((count / MECHANISMS.length) * 100)}%` }}',
               '          style={{ width: `${filterSheetRestyleDomainProportionPercent(count, scopeSize)}%` }}',
               "scoped proportion width",
           )
-          replace_once(
+
+          marker = "function StyleCBody({"
+          if text.count(marker) != 1:
+              raise SystemExit(f"StyleCBody marker: expected exactly 1 match, found {text.count(marker)}")
+          before, style_c = text.split(marker, 1)
+          style_c = marker + style_c
+          style_c = replace_once(
+              style_c,
               "  counts: { perDomain: Record<string, number> };",
               "  counts: { perDomain: Record<string, number>; scopeSize: number };",
               "StyleCBody counts type",
           )
-          replace_once(
+          style_c = replace_once(
+              style_c,
               "                count={counts.perDomain[domain] ?? 0}\n                selected={selected.has(domain)}",
               "                count={counts.perDomain[domain] ?? 0}\n                scopeSize={counts.scopeSize}\n                selected={selected.has(domain)}",
               "DomainRow scope size value",
           )
-
+          text = before + style_c
           path.write_text(text, encoding="utf-8")
           PY
 
