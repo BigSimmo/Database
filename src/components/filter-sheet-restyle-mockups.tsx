@@ -163,7 +163,7 @@ function useDomainCounts(scope: Scope, selected: ReadonlySet<string>) {
         perDomain[domain] = pool.filter((m) => m.domains.includes(domain)).length;
       }
     }
-    return { total, perDomain };
+    return { total, perDomain, scopeSize: pool.length };
   }, [scope, selected]);
 }
 
@@ -395,16 +395,23 @@ function DomainChip({
   );
 }
 
+export function filterSheetRestyleDomainProportionPercent(count: number, scopeSize: number) {
+  if (scopeSize <= 0) return 0;
+  return Math.round((count / scopeSize) * 100);
+}
+
 /** Full-width row variant for the dense direction. */
 function DomainRow({
   domain,
   count,
+  scopeSize,
   selected,
   compact,
   onToggle,
 }: {
   domain: string;
   count: number;
+  scopeSize: number;
   selected: boolean;
   compact: boolean;
   onToggle: () => void;
@@ -446,15 +453,15 @@ function DomainRow({
       >
         {domain}
       </span>
-      {/* A proportion bar, not just a number: twelve mechanisms is small enough
-          that relative weight is more legible than absolute count. */}
+      {/* A proportion bar, not just a number: relative weight within the active scope
+          is more legible than absolute count alone. */}
       <span
         aria-hidden
         className="hidden h-1 w-10 shrink-0 overflow-hidden rounded-full bg-[color:var(--surface-subtle)] min-[300px]:block"
       >
         <span
           className="block h-full rounded-full bg-[color:var(--clinical-accent)]/45"
-          style={{ width: `${Math.round((count / MECHANISMS.length) * 100)}%` }}
+          style={{ width: `${filterSheetRestyleDomainProportionPercent(count, scopeSize)}%` }}
         />
       </span>
       <span className="nums w-5 shrink-0 text-right text-3xs font-black tabular-nums text-[color:var(--text-soft)]">
@@ -719,7 +726,7 @@ function StyleCBody({
   compact,
 }: {
   selected: ReadonlySet<string>;
-  counts: { perDomain: Record<string, number> };
+  counts: { perDomain: Record<string, number>; scopeSize: number };
   onToggle: (domain: string) => void;
   compact: boolean;
 }) {
@@ -739,6 +746,7 @@ function StyleCBody({
                 key={domain}
                 domain={domain}
                 count={counts.perDomain[domain] ?? 0}
+                scopeSize={counts.scopeSize}
                 selected={selected.has(domain)}
                 compact={compact}
                 onToggle={() => onToggle(domain)}
