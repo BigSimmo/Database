@@ -138,7 +138,11 @@ export function SegmentedControl<T extends string>({
               // count crosses a digit boundary, which on a live result set
               // happens while the reader is aiming at it.
               <span
-                className={cn("nums shrink-0 tabular-nums", checked ? "opacity-80" : "text-[color:var(--text-soft)]")}
+                // --text-muted, not --text-soft: the latter is a decoration-only compatibility
+                // alias that production must not consume, ratcheted at zero by
+                // check:design-system-contract. It is also what ResultFilterSheet already
+                // uses for option.hint, so the two renderings now match.
+                className={cn("nums shrink-0 tabular-nums", checked ? "opacity-80" : "text-[color:var(--text-muted)]")}
               >
                 {option.hint}
               </span>
