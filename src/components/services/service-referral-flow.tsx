@@ -23,7 +23,8 @@ export function ServiceReferralFlow({
       <ol
         className={cn(
           "grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4",
-          variant === "track" && "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-2",
+          variant === "track" &&
+            "grid-cols-4 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1.5 sm:gap-2 sm:p-2",
         )}
       >
         {stages.map((stage, index) => {
@@ -36,7 +37,7 @@ export function ServiceReferralFlow({
                 "min-w-0",
                 variant === "cards"
                   ? "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)]"
-                  : "grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-2 rounded-lg px-2 py-1.5",
+                  : "grid justify-items-center gap-1 rounded-lg px-1 py-1.5 text-center sm:grid-cols-[2rem_minmax(0,1fr)] sm:justify-items-stretch sm:gap-2 sm:px-2 sm:text-left",
                 isActive && "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]",
               )}
             >
@@ -50,8 +51,10 @@ export function ServiceReferralFlow({
               >
                 {index + 1}
               </span>
-              <span className={cn(variant === "cards" && "mt-2 block")}>
-                <span className="block text-sm font-bold text-[color:var(--text-heading)]">{stage.label}</span>
+              <span className={cn(variant === "cards" && "mt-2 block", variant === "track" && "min-w-0")}>
+                <span className="block truncate text-xs font-bold text-[color:var(--text-heading)] sm:text-sm">
+                  {stage.label}
+                </span>
                 <span
                   className={cn(
                     "block text-2xs font-medium leading-4 text-[color:var(--text-muted)]",
