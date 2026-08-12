@@ -18,6 +18,7 @@ const imageOwnerSource = readFileSync(
   fileURLToPath(new URL("../src/components/document-viewer/non-pdf-source-preview.tsx", import.meta.url)),
   "utf8",
 );
+const globalStyles = readFileSync(fileURLToPath(new URL("../src/app/globals.css", import.meta.url)), "utf8");
 
 describe("DocumentFrame contract", () => {
   it("hides frame controls for print while keeping source content together", () => {
@@ -93,6 +94,15 @@ describe("DocumentFrame contract", () => {
     expect(pdfOwnerSource).toContain('from "@/components/ui/live-announcer"');
     expect(imageOwnerSource).not.toContain('role="alert"');
     expect(imageOwnerSource).toContain('data-preview-error="true"');
+  });
+
+  it("removes app chrome and background scrolling from the iOS fullscreen fallback", () => {
+    expect(frameSource).toContain('data-fullscreen-fallback={fullscreenFallback ? "on" : undefined}');
+    expect(globalStyles).toContain('html:has([data-document-frame][data-fullscreen-fallback="on"])');
+    expect(globalStyles).toContain(
+      ":is(.phone-sticky-header-stack, .universal-header, [data-document-sticky-header], .document-viewer-composer)",
+    );
+    expect(globalStyles).toContain("overscroll-behavior: none");
   });
 });
 

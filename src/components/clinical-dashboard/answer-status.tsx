@@ -75,7 +75,6 @@ export function SharedHomeEmptyState({
     <ModeHomeTemplate
       testId="shared-home-empty-state"
       title={presentation.title}
-      subtitle={presentation.subtitle}
       icon={appModeIcons[modeId]}
       headingLevel={2}
       stabilizePhoneCopy
