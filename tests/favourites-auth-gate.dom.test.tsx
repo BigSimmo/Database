@@ -18,7 +18,9 @@ const authSession = vi.hoisted(() => ({
   session: null as { user: { email?: string } } | null,
   isConfigured: true,
   error: null as string | null,
+  notice: null as string | null,
   signInWithEmail: vi.fn(),
+  signInWithOAuth: vi.fn(),
   signOut: vi.fn(),
 }));
 
@@ -41,6 +43,10 @@ vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => (
 
 vi.mock("@/components/clinical-dashboard/search-command-context", () => ({
   useSearchCommand: () => null,
+}));
+
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
 }));
 
 function sidebarProps(showAccountLibrary: boolean) {
@@ -85,6 +91,8 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     authSession.session = null;
     authSession.error = null;
+    authSession.notice = null;
+    vi.clearAllMocks();
   });
 
   it("keeps the six canonical navigation entries separate from conditional Favourites", () => {
@@ -145,28 +153,58 @@ describe("favourites auth gate DOM", () => {
     render(<AccountSetupDialog open onClose={() => undefined} intent="favourites" />);
 
     expect(screen.getByRole("heading", { name: "Sign up to save favourites" })).toBeVisible();
-    expect(screen.getByText(/Create an account to save clinical favourites/i)).toBeVisible();
+    expect(screen.getByText(/Sign in or create an account to save favourites/i)).toBeVisible();
     expect(screen.getByText("Saved favourites")).toBeVisible();
   });
 
-  it("describes the actual account persistence and disables unavailable social sign-in", () => {
+  it("separates account-synced data from device-only recents", () => {
     render(<AccountSetupDialog open onClose={() => undefined} />);
 
-    expect(screen.getByRole("heading", { name: "What your account saves" })).toBeVisible();
-    expect(screen.getByText(/Recent questions stay in this browser session/i)).toBeVisible();
-    expect(screen.getByText("Account-scoped saves")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Saved to your account" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Stays on this device" })).toBeVisible();
+    expect(screen.getByText(/Recent searches/i)).toBeVisible();
+    expect(screen.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
+    expect(screen.getByText("No PHI required")).toBeVisible();
     expect(screen.queryByText(/Everything syncs across your devices/i)).toBeNull();
     expect(screen.queryByText(/never shared/i)).toBeNull();
+    expect(screen.queryByText("Account-scoped saves")).toBeNull();
+  });
 
-    for (const provider of ["Apple", "Google", "Microsoft"]) {
-      const button = screen.getByRole("button", { name: `${provider} sign-in unavailable` });
-      // `aria-disabled`, not the native attribute: these carry a description the
-      // reader has to be able to reach, which a lost tab stop would prevent.
-      expect(button).toHaveAttribute("aria-disabled", "true");
-      expect(button).not.toBeDisabled();
-      expect(button).toHaveAttribute("title", `${provider} sign-in is unavailable — coming soon`);
-      expect(button).toHaveAccessibleDescription(`${provider} sign-in is unavailable. Continue with email.`);
-    }
+  it("wires available OAuth providers and presents Apple as non-interactive status", async () => {
+    const user = userEvent.setup();
+    render(<AccountSetupDialog open onClose={() => undefined} />);
+
+    await user.click(screen.getByRole("button", { name: "Continue with Google" }));
+    expect(authSession.signInWithOAuth).toHaveBeenCalledWith("google");
+
+    await user.click(screen.getByRole("button", { name: "Continue with Microsoft" }));
+    expect(authSession.signInWithOAuth).toHaveBeenCalledWith("azure");
+
+    expect(screen.getByText("Apple sign-in is not available yet.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Apple/i })).toBeNull();
+  });
+
+  it("submits email and announces success and failure feedback", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<AccountSetupDialog open onClose={() => undefined} />);
+
+    const submit = screen.getByRole("button", { name: "Continue with email" });
+    expect(submit).toBeDisabled();
+    const email = screen.getByLabelText(/Email address/);
+    expect(email).toHaveAttribute("data-sheet-autofocus", "true");
+    await user.type(email, "clinician@clinic.example");
+    await user.click(submit);
+    expect(authSession.signInWithEmail).toHaveBeenCalledWith("clinician@clinic.example");
+
+    authSession.notice = "Check your email for the sign-in link.";
+    rerender(<AccountSetupDialog open onClose={() => undefined} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Check your email for the sign-in link.");
+
+    authSession.notice = null;
+    authSession.error = "Sign-in email could not be sent.";
+    rerender(<AccountSetupDialog open onClose={() => undefined} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Sign-in email could not be sent.");
   });
 
   it("blacks out Tools Saved workflows and Favourites shortcuts for guests", () => {

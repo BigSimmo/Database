@@ -146,7 +146,7 @@ function AccentIconTile({
 
 function PrimaryActionChip({ label, arrowClassName = "h-4 w-4" }: { label: string; arrowClassName?: string }) {
   return (
-    <span className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
+    <span className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
       {label}
       <ArrowRight className={arrowClassName} aria-hidden="true" />
     </span>
@@ -198,7 +198,7 @@ function SearchControl({
     <form
       role="search"
       onSubmit={(event) => event.preventDefault()}
-      className="grid min-h-[3.25rem] min-w-0 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--e1)] focus-within:border-[color:var(--clinical-accent-border)]"
+      className="grid min-h-[3.25rem] min-w-0 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--shadow-tight)] focus-within:border-[color:var(--clinical-accent-border)]"
     >
       <Search className="ml-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden="true" />
       <input
@@ -506,7 +506,7 @@ function AllToolsEmptyState({ query, onClear }: { query: string; onClear: () => 
         type="button"
         onClick={onClear}
         className={cn(
-          "inline-flex min-h-10 items-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
+          "inline-flex min-h-10 items-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]",
           focusRing,
         )}
       >
@@ -666,7 +666,7 @@ function PhoneBrowserPreview({
                   <Link
                     href={selectedTool.href}
                     className={cn(
-                      "mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
+                      "mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]",
                       focusRing,
                     )}
                   >

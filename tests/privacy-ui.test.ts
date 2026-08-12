@@ -21,6 +21,8 @@ describe("privacy UI", () => {
     expect(markup).toContain("Do not enter patient-identifiable information.");
     expect(markup).toContain('href="/privacy"');
     expect(markup).toContain("Privacy and data processing");
+    // Phone reclaim that --spacing-mode-home-composer-phone assumes (bottom-only).
+    expect(markup).toContain("-mb-4");
     expect(documentsMarkup).toContain('href="/privacy?from=documents"');
   });
 

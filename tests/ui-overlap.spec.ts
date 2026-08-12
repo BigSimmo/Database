@@ -266,26 +266,12 @@ test.describe("Header element overlap coverage", () => {
     );
   });
 
-  test("phone smart search replaces desktop rows with one tappable ticker", async ({ page }) => {
+  test("phone smart search does not show the desktop rotating text or prompt row", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
     await expect(page.getByTestId("smart-search-rotating-text")).toBeHidden();
     await expect(page.getByTestId("smart-search-prompt-row")).toBeHidden();
-
-    const ticker = page.getByTestId("smart-search-phone-ticker");
-    await expect(ticker).toBeVisible();
-    await expect(ticker).toContainText("Try this");
-    await expect(ticker).toContainText("Tap to search");
-
-    const tickerBox = await ticker.boundingBox();
-    expect(tickerBox, "phone suggestion ticker must render").not.toBeNull();
-    expect(tickerBox!.height, "phone ticker must meet the tap-target floor").toBeGreaterThanOrEqual(48);
-
-    const suggestion = (await ticker.getAttribute("aria-label"))?.replace("Try suggested search: ", "");
-    expect(suggestion).toBeTruthy();
-    await ticker.click();
-    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue(suggestion ?? "");
   });
 });

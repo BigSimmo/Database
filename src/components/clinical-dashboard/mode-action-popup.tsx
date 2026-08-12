@@ -1009,7 +1009,7 @@ export function ModeActionPopup({
             onOpenChange(!open);
           }}
         >
-          <Plus aria-hidden="true" className="h-5 w-5" />
+          <Plus aria-hidden="true" className="size-icon-lg" />
         </button>
       </div>
     </>

@@ -214,10 +214,10 @@ function Button({
     <button
       type="button"
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition hover:-translate-y-px hover:shadow-[var(--e1)] active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition hover:-translate-y-px hover:shadow-[var(--shadow-tight)] active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         focusRing,
         primary
-          ? "bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--command-hover)]"
+          ? "bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
           : "border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-accent-border)]",
       )}
     >
@@ -242,10 +242,10 @@ function ActionLink({
     <Link
       href={href}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition hover:-translate-y-px hover:shadow-[var(--e1)] active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition hover:-translate-y-px hover:shadow-[var(--shadow-tight)] active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         focusRing,
         primary
-          ? "bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--command-hover)]"
+          ? "bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
           : "border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-accent-border)]",
       )}
     >
@@ -284,7 +284,7 @@ function SearchBar({ compact = false }: { compact?: boolean }) {
       <button
         type="button"
         className={cn(
-          "grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
+          "grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]",
           focusRing,
         )}
         aria-label="Search documents"
@@ -451,7 +451,7 @@ function CommandMockup({ copy }: { copy: VariantCopy }) {
               asset={copy.asset}
               priority
               overlay={
-                <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)]/95 p-3 shadow-[var(--e1)] backdrop-blur">
+                <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)]/95 p-3 shadow-[var(--shadow-tight)] backdrop-blur">
                   <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                     Active source preview
                   </p>

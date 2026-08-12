@@ -251,7 +251,7 @@ export function FavouritesHub({
               type="button"
               onClick={() => setTabMenuOpen((open) => !open)}
               onKeyDown={handleFavouriteTabTriggerKeyDown}
-              className="grid min-h-tap w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-left shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent)]/30 hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-56"
+              className="grid min-h-tap w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-left shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent)]/30 hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-56"
               aria-haspopup="listbox"
               aria-expanded={tabMenuOpen}
               aria-controls={tabMenuOpen ? "favourites-type-listbox" : undefined}
@@ -388,7 +388,7 @@ export function FavouritesHub({
             aria-describedby="favourites-add-unavailable"
             className={cn(
               primaryControl,
-              "min-h-tap cursor-not-allowed justify-center px-3 text-xs opacity-60 hover:bg-[color:var(--command)] hover:shadow-[var(--e1)] active:translate-y-0 sm:min-h-9 sm:px-2.5",
+              "min-h-tap cursor-not-allowed justify-center px-3 text-xs opacity-60 hover:bg-[color:var(--command)] hover:shadow-[var(--shadow-tight)] active:translate-y-0 sm:min-h-9 sm:px-2.5",
             )}
           >
             <Plus aria-hidden="true" className="h-4 w-4" />

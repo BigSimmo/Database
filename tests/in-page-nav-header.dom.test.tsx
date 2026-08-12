@@ -182,6 +182,29 @@ describe("InPageNavHeader", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
+  it("returns focus to a visible rail control when the title disclosure is hidden", async () => {
+    // With a rail, the disclosure is `sm:hidden`. A sheet opened on phone that
+    // closes after the viewport crosses `sm` must not restore to a display:none
+    // button (focus then falls to the page body).
+    const user = userEvent.setup();
+    renderHeader({ rail: { label: "Service sections" } });
+    const trigger = screen.getByTestId("service-section-trigger");
+
+    await user.click(trigger);
+    await screen.findByTestId("service-section-sheet");
+
+    Object.defineProperty(trigger, "getClientRects", {
+      configurable: true,
+      value: () => [] as unknown as DOMRectList,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Close section list" }));
+
+    const activeRail = screen.getByTestId("service-section-rail").querySelector('[aria-current="true"]');
+    expect(activeRail).not.toBeNull();
+    await waitFor(() => expect(activeRail).toHaveFocus());
+  });
+
   it("selects a section and closes the sheet in one action", async () => {
     const user = userEvent.setup();
     const selected: string[] = [];

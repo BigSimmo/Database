@@ -212,7 +212,7 @@ export function DocumentSectionIndexCard({
       aria-label="Document sections"
       data-testid="document-section-index"
       className={cn(
-        "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--e1)]",
+        "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow-tight)]",
         className,
       )}
     >

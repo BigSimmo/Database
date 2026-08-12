@@ -475,9 +475,11 @@ test.describe("Clinical KB tools launcher", () => {
         width < 1024
           ? page.getByTestId("application-row-clinical-kb-search")
           : page.getByTestId("application-card-clinical-kb-search");
-      const description = tool.getByText("Ask source-backed clinical questions and move straight to evidence.", {
-        exact: true,
-      });
+      const description = tool
+        .getByText("Ask source-backed clinical questions and move straight to evidence.", {
+          exact: true,
+        })
+        .first();
       await expect(description).toBeVisible();
       const clipping = await description.evaluate((element) => {
         const style = getComputedStyle(element);
@@ -572,8 +574,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(sharedHomeBrand).toBeVisible();
     await expect(sharedHomeBrand).toContainText("Clinical KB");
     await expect(sharedHomeBrand).toContainText("Source-backed clinical search");
-    await expect(sharedHome.getByRole("heading", { level: 2, name: "What can I help with?" })).toBeVisible();
-    await expect(sharedHome.getByText("Ask a source-backed clinical question.", { exact: true })).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Answers" })).toBeVisible();
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-sparkles\b/);
     await searchInput.fill("lithium draft");
     const historyLengthBefore = await page.evaluate(() => window.history.length);
@@ -590,8 +591,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(servicesModeButton).toBeVisible();
     await expect(servicesModeButton).toBeFocused();
     await expect(sharedHome).toBeVisible();
-    await expect(sharedHome.getByRole("heading", { level: 2, name: "Find a service?" })).toBeVisible();
-    await expect(sharedHome.getByText("Search services and referral pathways.", { exact: true })).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Services" })).toBeVisible();
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-route\b/);
     await expect(sharedHomeBrand).toContainText("Clinical KB");
     await expect(page.getByText("Services Navigator", { exact: true })).toHaveCount(0);
@@ -621,8 +621,7 @@ test.describe("Clinical KB tools launcher", () => {
     const formsModeButton = page.getByRole("button", { name: "Mode Forms" });
     await expect(formsModeButton).toBeVisible();
     await expect(formsModeButton).toBeFocused();
-    await expect(sharedHome.getByRole("heading", { level: 2, name: "Find a form?" })).toBeVisible();
-    await expect(sharedHome.getByText("Search clinical forms and pathways.", { exact: true })).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Forms" })).toBeVisible();
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-file-pen-line\b/);
     await expect(page.getByTestId("forms-home")).toHaveCount(0);
     await expect(searchInput).toHaveAttribute("placeholder", "Search forms...");
@@ -744,10 +743,7 @@ test.describe("Clinical KB tools launcher", () => {
     const specifiersModeButton = page.getByRole("button", { name: "Mode Specifiers" });
     await expect(specifiersModeButton).toBeVisible();
     await expect(specifiersModeButton).toBeFocused();
-    await expect(sharedHome.getByRole("heading", { level: 2, name: "Which specifier fits?" })).toBeVisible();
-    await expect(
-      sharedHome.getByText("Refine diagnostic wording and episode patterns.", { exact: true }),
-    ).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Diagnostic Specifiers" })).toBeVisible();
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-tags\b/);
 
     const heroSearch = sharedHome.getByTestId("global-search-input");
@@ -758,7 +754,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     const expectSoundPhoneGeometry = async () => {
       const searchBox = await heroSearch.boundingBox();
-      const headingBox = await page.getByRole("heading", { level: 2, name: "Which specifier fits?" }).boundingBox();
+      const headingBox = await page.getByRole("heading", { level: 2, name: "Diagnostic Specifiers" }).boundingBox();
       const mainBox = await page.locator("#main-content").boundingBox();
       expect(searchBox).not.toBeNull();
       expect(headingBox).not.toBeNull();
@@ -810,10 +806,8 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\/\?mode=specifiers\b/, { timeout: 20_000 });
     const specifiersModeButton = page.getByRole("button", { name: "Mode Specifiers" });
     await expect(specifiersModeButton).toBeFocused();
-    await expect(sharedHome.getByRole("heading", { level: 2, name: "Which specifier fits?" })).toBeVisible();
-    await expect(
-      sharedHome.getByText("Refine diagnostic wording and episode patterns.", { exact: true }),
-    ).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Diagnostic Specifiers" })).toBeVisible();
+    await expect(sharedHome.locator("p")).toHaveCount(1);
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-tags\b/);
     await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
       "placeholder",
@@ -822,7 +816,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("specifiers-home")).toHaveCount(0);
 
     const specifiersHeadingBox = await sharedHome
-      .getByRole("heading", { level: 2, name: "Which specifier fits?" })
+      .getByRole("heading", { level: 2, name: "Diagnostic Specifiers" })
       .boundingBox();
     expect(specifiersHeadingBox).not.toBeNull();
     expect((specifiersHeadingBox?.x ?? 0) + (specifiersHeadingBox?.width ?? 0)).toBeLessThanOrEqual(320);
@@ -848,8 +842,7 @@ test.describe("Clinical KB tools launcher", () => {
       await formulationModeLabel.evaluate((label) => label.scrollWidth <= label.clientWidth),
       "the full 320px mode label should fit without visual truncation",
     ).toBe(true);
-    await expect(sharedHome.getByRole("heading", { level: 2, name: "What explains the pattern?" })).toBeVisible();
-    await expect(sharedHome.getByText("Explore mechanisms behind the presentation.", { exact: true })).toBeVisible();
+    await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Formulation" })).toBeVisible();
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-network\b/);
     await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
       "placeholder",
@@ -860,7 +853,7 @@ test.describe("Clinical KB tools launcher", () => {
     expect(await page.evaluate(() => window.history.length)).toBe(historyLengthBefore);
 
     const formulationHeadingBox = await sharedHome
-      .getByRole("heading", { level: 2, name: "What explains the pattern?" })
+      .getByRole("heading", { level: 2, name: "Clinical Formulation" })
       .boundingBox();
     expect(formulationHeadingBox).not.toBeNull();
     expect((formulationHeadingBox?.x ?? 0) + (formulationHeadingBox?.width ?? 0)).toBeLessThanOrEqual(320);
@@ -1007,8 +1000,13 @@ test.describe("Clinical KB tools launcher", () => {
       await expect(heading).toBeVisible();
       const headingFontSize = await heading.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
       const subtitle = heading.locator("xpath=following-sibling::p[1]");
-      await expect(subtitle).toBeVisible();
-      const subtitleFontSize = await subtitle.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+      let subtitleFontSize: number | null = null;
+      if (home.testId === "shared-home-empty-state") {
+        await expect(subtitle).toHaveCount(0);
+      } else {
+        await expect(subtitle).toBeVisible();
+        subtitleFontSize = await subtitle.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+      }
       const expectedTypeSizes = await page.evaluate(() => {
         const resolveFontSize = (token: string) => {
           const probe = document.createElement("span");
@@ -1028,14 +1026,15 @@ test.describe("Clinical KB tools launcher", () => {
         iconWidth: Math.round(iconBox?.width ?? 0),
         iconHeight: Math.round(iconBox?.height ?? 0),
         headingFontSize,
-        subtitleFontSize,
       };
       // The hero tile is `h-tap w-tap` on phones, so it tracks `--spacing-tap`
       // (48px since PR 5b), not a standalone pixel choice.
       expect(metrics.iconWidth).toBe(48);
       expect(metrics.iconHeight).toBe(48);
       expect(metrics.headingFontSize).toBeCloseTo(expectedTypeSizes.hero, 1);
-      expect(metrics.subtitleFontSize).toBeCloseTo(expectedTypeSizes.subtitle, 1);
+      if (subtitleFontSize !== null) {
+        expect(subtitleFontSize).toBeCloseTo(expectedTypeSizes.subtitle, 1);
+      }
 
       await expectNoPageHorizontalOverflow(page);
     });
@@ -1056,7 +1055,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     await quickFilter.click();
     await page.getByRole("button", { name: "Clear filters" }).click();
-    await expect(page).toHaveURL(/\/services$/);
+    await expect(page).toHaveURL(/\/services\?run=1$/);
 
     // Phones keep the full search results in the page instead of opening a
     // command sheet over the small viewport.
@@ -1107,7 +1106,7 @@ test.describe("Clinical KB tools launcher", () => {
       {
         path: "/?mode=answer",
         testId: "shared-home-empty-state",
-        heading: "What can I help with?",
+        heading: "Clinical Answers",
         headingLevel: 2,
       },
       { path: "/documents", testId: "document-search-empty-state", heading: "Documents", headingLevel: 2 },
@@ -1267,10 +1266,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.locator('input[placeholder="Search services..."]:visible').first()).toHaveValue("13YARN");
     await expect(page.getByTestId("service-search-results")).toBeVisible();
     await expect(page.getByTestId("service-search-result-13yarn")).toContainText("13YARN");
-    await expect(page.getByTestId("service-search-result-13yarn").getByLabel("Open 13YARN")).toHaveAttribute(
-      "href",
-      "/services/13yarn",
-    );
+    await expect(
+      page.getByTestId("service-search-result-13yarn").getByLabel("Review referral for 13YARN"),
+    ).toHaveAttribute("href", "/services/13yarn");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1278,26 +1276,72 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
 
-    // Eyebrow copy is "Referral matches"; the H1 is "{n} referral match(es)".
-    await expect(page.getByText("Referral matches", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: /\d+\s+referral match(?:es)?/i })).toBeVisible();
-    await expect(
-      page.getByText("Prioritised for crisis support, culturally safe access, and phone referral."),
-    ).toBeVisible();
-    await expect(page.getByRole("group", { name: "Quick service filters" })).toBeVisible();
-    await expect(page.getByText("Quick filters")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
+    await expect(page.getByLabel("Referral workflow")).toContainText("Search");
+    await expect(page.getByRole("navigation", { name: "Service groups" })).toBeVisible();
+    await expect(page.getByTestId("services-shortlist-bar")).toHaveCount(0);
 
-    const culturallySafe = page.getByRole("button", { name: "Culturally safe" });
+    await page.getByTestId("service-filter-trigger-desktop").click();
+    const culturallySafe = page.getByRole("radio", { name: "Culturally safe" });
     await expect(culturallySafe).toBeVisible();
     await waitForReactEventHandler(culturallySafe);
     await culturallySafe.click();
     await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
-    await expect(page.getByText("Aboriginal and Torres Strait Islander-specific").first()).toBeVisible();
+    await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
-    await page.getByTestId("service-search-result-13yarn").getByRole("link", { name: "Open 13YARN" }).click();
+    await page
+      .getByTestId("service-search-result-13yarn")
+      .getByRole("link", { name: "Review referral for 13YARN" })
+      .click();
     await expect(page).toHaveURL(/\/services\/13yarn$/);
     await expect(page.getByText("Best use").first()).toBeVisible();
     await expect(page.getByText(/crisis support/i).first()).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("services browse starts unselected and reveals compare only after a shortlist", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoLauncher(page, "/services?run=1");
+
+    await expect(page.getByRole("heading", { level: 1, name: "Browse services" })).toBeVisible();
+    await expect(page.getByTestId("services-shortlist-bar")).toHaveCount(0);
+    await expect(page.getByTestId("services-comparison")).toHaveCount(0);
+
+    await page
+      .getByRole("navigation", { name: "Service groups" })
+      .getByRole("link", { name: /Crisis & urgent/ })
+      .click();
+    await expect(page).toHaveURL(/group=urgent/);
+    await expect(page.getByRole("heading", { level: 1, name: "Crisis & urgent" })).toBeVisible();
+
+    const addButtons = page.getByRole("button", { name: /Add .* to shortlist/ });
+    await addButtons.nth(0).click();
+    const shortlist = page.getByTestId("services-shortlist-bar");
+    await expect(shortlist).toContainText("1 shortlisted");
+    await expect(shortlist.getByRole("button", { name: "Compare" })).toBeDisabled();
+
+    await addButtons.nth(1).click();
+    await expect(shortlist).toContainText("2 shortlisted");
+    await shortlist.getByRole("button", { name: "Compare" }).click();
+    await expect(page.getByTestId("services-comparison")).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("services phone group navigation keeps two priorities and a More sheet", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await gotoLauncher(page, "/services?run=1");
+
+    const groups = page.getByRole("navigation", { name: "Service groups" });
+    await expect(groups.getByRole("link", { name: "All" })).toBeVisible();
+    await expect(groups.getByRole("link", { name: /Urgent/ })).toBeVisible();
+    await expect(groups.getByRole("link", { name: /Public MH/ })).toBeVisible();
+    await groups.getByRole("button", { name: "More" }).click();
+
+    const sheet = page.getByTestId("service-group-more-sheet");
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole("link", { name: /Alcohol & other drugs/ }).click();
+    await expect(page).toHaveURL(/group=aod/);
+    await expect(page.getByRole("heading", { level: 1, name: "Alcohol & other drugs" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1659,7 +1703,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(heroSearch).toBeVisible();
     await expect(heroSearch).toHaveAttribute("placeholder", "Search forms...");
     const searchBox = await heroSearch.boundingBox();
-    const headingBox = await page.getByRole("heading", { level: 2, name: "Find a form?" }).boundingBox();
+    const headingBox = await page.getByRole("heading", { level: 2, name: "Clinical Forms" }).boundingBox();
     expect(searchBox).not.toBeNull();
     expect(headingBox).not.toBeNull();
     expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);

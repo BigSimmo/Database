@@ -103,7 +103,7 @@ async function teardownLocalPwa() {
 const cardClassName =
   "pwa-notice-card pointer-events-auto relative rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-[color:var(--ring-glass)] backdrop-blur-md";
 const primaryButtonClassName =
-  "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const secondaryButtonClassName =
   "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border-lux)] px-3.5 py-2 text-sm font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const dismissIconButtonClassName =
@@ -152,7 +152,7 @@ function InstallAppIdentity({ title, titleId, tagline }: { title: string; titleI
         aria-hidden="true"
         width={56}
         height={56}
-        className="h-14 w-14 shrink-0 rounded-xl border border-[color:var(--border-lux)] shadow-[var(--e1)]"
+        className="h-14 w-14 shrink-0 rounded-xl border border-[color:var(--border-lux)] shadow-[var(--shadow-tight)]"
       />
       <div className="min-w-0">
         <p id={titleId} className="text-base font-bold leading-tight text-[color:var(--text-heading)]">

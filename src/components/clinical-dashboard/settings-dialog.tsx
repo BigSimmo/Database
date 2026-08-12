@@ -1265,7 +1265,7 @@ function Switch({
         <span
           className={cn(
             toggleThumbSurface,
-            "grid h-[18px] w-[18px] place-items-center rounded-full border border-[color:var(--border)] text-[color:var(--clinical-accent)] shadow-[var(--e1)] transition-transform motion-reduce:transition-none",
+            "grid h-[18px] w-[18px] place-items-center rounded-full border border-[color:var(--border)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition-transform motion-reduce:transition-none",
             checked ? "translate-x-[22px]" : "translate-x-0.5",
           )}
         >

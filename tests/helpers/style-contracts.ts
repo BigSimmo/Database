@@ -1,3 +1,6 @@
+import { guestAnswerThreadOwnerId } from "@/lib/answer-thread-storage";
+import { demoRecentQueryOwnerId, recentQueryStorageKey } from "@/lib/recent-query-storage";
+
 /**
  * The cascade-layer inertness registry (ledger #094).
  *
@@ -53,6 +56,13 @@ export type UnlayeredVisualClass = {
    * component rule past the coverage gate.
    */
   readonly unmediated: boolean;
+};
+
+type StyleContractSessionBootstrap = {
+  readonly sessionStorage?: ReadonlyArray<{
+    readonly key: string;
+    readonly value: readonly string[];
+  }>;
 };
 
 /**
@@ -164,6 +174,7 @@ export type StyleEffectContract = {
   readonly route: string;
   /** Playwright selector for an element carrying `className`. */
   readonly selector: string;
+  readonly bootstrap?: StyleContractSessionBootstrap;
   /** Computed values that must match exactly. */
   readonly computed: Readonly<Record<string, string>>;
   /** A computed colour that must resolve to the named CSS custom-property token. */
@@ -178,6 +189,15 @@ export type StyleEffectContract = {
    * so this catches inertness even where the exact token value is theme-dependent.
    */
   readonly nonInert?: readonly string[];
+};
+
+const HOME_RECENT_QUERIES = ["clozapine monitoring schedule"] as const;
+const HOME_RECENT_QUERY_STORAGE_KEYS = [
+  `${recentQueryStorageKey}:${guestAnswerThreadOwnerId}`,
+  `${recentQueryStorageKey}:${demoRecentQueryOwnerId}`,
+] as const;
+const homeRecentQueriesContractBootstrap: StyleContractSessionBootstrap = {
+  sessionStorage: HOME_RECENT_QUERY_STORAGE_KEYS.map((key) => ({ key, value: HOME_RECENT_QUERIES })),
 };
 
 /**
@@ -260,6 +280,28 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
     nonInert: ["color"],
     colorToken: { property: "color", token: "--text-heading" },
   },
+  {
+    className: "home-recent-searches",
+    description: "home recent-searches surface keeps compact desktop gap and phone-first mobile column flow",
+    route: "/",
+    selector: '[data-testid="shared-home-recent-queries"]',
+    bootstrap: homeRecentQueriesContractBootstrap,
+    computed: {
+      rowGap: "6px",
+      columnGap: "10px",
+      display: "flex",
+    },
+  },
+  {
+    className: "answer-suggestion-label",
+    description: "home recent-search labels use readable text contrast when nested under compact rail",
+    route: "/",
+    selector: '[data-testid="shared-home-recent-queries"] .answer-suggestion-label',
+    bootstrap: homeRecentQueriesContractBootstrap,
+    computed: {},
+    nonInert: ["color"],
+    colorToken: { property: "color", token: "--text-heading" },
+  },
 ];
 
 /**
@@ -305,14 +347,11 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Answer suggestions and smart search.
   "answer-suggestion-chip": "answer suggestion rail — no effect contract yet (#094)",
   "answer-suggestion-chip-icon": "answer suggestion rail — no effect contract yet (#094)",
-  "answer-suggestion-label": "answer suggestion rail — no effect contract yet (#094)",
   "smart-search-rotating-query": "rotating placeholder — reduced-motion behaviour covered by ui-accessibility",
   "smart-search-rotating-text": "rotating placeholder — reduced-motion behaviour covered by ui-accessibility",
-  "smart-search-phone-ticker":
-    "smart search home ticker — reserve/overlay and chrome behaviour covered by phone compose",
-  "smart-search-phone-ticker-kicker": "smart search home ticker — text treatment covered by phone compose",
-  "smart-search-phone-ticker-action": "smart search home ticker — CTA treatment covered by phone compose",
-
+  "smart-search-phone-ticker": "smart-search ticker title line — no contract yet (#094)",
+  "smart-search-phone-ticker-kicker": "smart-search ticker kicker — no contract yet (#094)",
+  "smart-search-phone-ticker-action": "smart-search ticker action chip — no contract yet (#094)",
   // Mode switcher.
   "mode-action-surface": "mode menu surface — dismissal/focus covered by ui-accessibility, effect not contracted",
   "mode-action-mode-option": "mode menu option — no effect contract yet (#094)",

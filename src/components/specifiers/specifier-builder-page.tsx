@@ -5,6 +5,7 @@ import { ArrowRight, Check, FileCheck2, ListChecks, RotateCcw, Tags } from "luci
 import { useMemo, useState } from "react";
 
 import {
+  SpecifierBreadcrumbs,
   SpecifierPageShell,
   SpecifierSafetyNote,
   SpecifierWordingPathway,
@@ -82,9 +83,12 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
 
   return (
     <SpecifierPageShell>
-      <header className="min-w-0 border-b border-[color:var(--border)] pb-5">
-        <h1 className="text-2xl font-extrabold tracking-tight break-words text-[color:var(--text-heading)] sm:text-4xl">
-          Build diagnostic wording
+      <SpecifierBreadcrumbs current="Build wording" />
+
+      <header className="grid min-w-0 gap-2 border-b border-[color:var(--border)] pb-5">
+        <p className={eyebrowText}>Structured diagnostic language</p>
+        <h1 className="text-3xl font-extrabold tracking-tight break-words text-[color:var(--text-heading)] sm:text-4xl">
+          Build the diagnosis in the right order
         </h1>
       </header>
 

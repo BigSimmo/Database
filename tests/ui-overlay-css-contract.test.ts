@@ -82,7 +82,10 @@ describe("overlay and global CSS contracts", () => {
     expect(phoneComposerBlock).toMatch(
       /\.chat-composer-icon-button,[\s\S]*?\.chat-send-button\s*\{[\s\S]*?min-height:\s*2\.75rem;/,
     );
-    expect(phoneComposerBlock).toMatch(/\.chat-composer-icon-button svg,[\s\S]*?height:\s*1\.1rem;/);
+    // 20px on the icon scale, not the old fractional 1.1rem (17.6px) that put
+    // lucide's 2px stroke on sub-pixel boundaries and rendered the "+" and send
+    // glyphs soft. The button itself stays pinned at 2.75rem above.
+    expect(phoneComposerBlock).toMatch(/\.chat-composer-icon-button svg,[\s\S]*?height:\s*var\(--spacing-icon-lg\);/);
   });
 
   it("lets contextual composer surfaces own their resting and focus border colors", () => {

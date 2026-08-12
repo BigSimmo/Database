@@ -179,7 +179,7 @@ function InlineImagePreview({
         >
           <span
             aria-hidden="true"
-            className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)]/85 p-1 text-[color:var(--text-muted)] shadow-[var(--e1)] backdrop-blur-md"
+            className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)]/85 p-1 text-[color:var(--text-muted)] shadow-[var(--shadow-tight)] backdrop-blur-md"
           >
             <Maximize2 aria-hidden="true" className="h-3.5 w-3.5" />
           </span>
