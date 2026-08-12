@@ -212,7 +212,10 @@ Anti-churn rules for this file:
 - Per-PR iteration cap (~3 fix-verify cycles or one full build).
 - Advisory jobs (`ui-advisory`, `release-browser-matrix`) are never chased.
 - Dormant CI observation: wait for a meaningful stage boundary, then take no more than one status
-  snapshot every five minutes until a terminal result. Do not minute-poll or stream hosted logs.
-- When the GitHub merge queue is enabled, keep at most two entries validating at once and configure
-  groups to merge one PR at a time. Let queued entries validate against the moving base instead of
-  manual re-sync churn; remove only a failed or genuinely conflicting entry for repair.
+  snapshot every five minutes for at most 30 minutes per run. If the run is still queued or in
+  progress at that limit, record it as deferred with its run URL and continue the sweep. Do not
+  minute-poll or stream hosted logs.
+- When the GitHub merge queue is enabled, treat its state as read-only during a Run PR sweep. Report
+  active validation capacity and failed or conflicting entries, but do not configure queue
+  concurrency/grouping or add, remove, or re-queue entries without separate explicit user
+  authorization.
