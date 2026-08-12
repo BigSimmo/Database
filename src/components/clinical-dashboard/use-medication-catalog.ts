@@ -13,9 +13,16 @@ type MedicationCatalogMatch = {
   reasons: string[];
 };
 
+export type MedicationCatalogInterpretation = {
+  correctedQuery?: string;
+  corrections?: Array<{ from: string; to: string }>;
+  appliedExpansions?: string[];
+};
+
 type MedicationCatalogResponse = {
   records: MedicationRecord[];
   matches?: MedicationCatalogMatch[];
+  interpretation?: MedicationCatalogInterpretation;
   total: number;
   governance?: Record<string, { sourceStatus: string; validationStatus: string }>;
   demoMode?: boolean;
