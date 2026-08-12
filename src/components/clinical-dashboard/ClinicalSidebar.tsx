@@ -290,7 +290,7 @@ export function ClinicalSidebarContent({
           onNewChat();
           onNavigate?.();
         }}
-        className="inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--command-hover)]"
+        className="inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
       >
         <MessageSquarePlus aria-hidden="true" className="h-4 w-4" />
         New chat

@@ -248,22 +248,18 @@ to something real, which is what the panel-swap half of
 `tests/in-page-nav-route-sections.dom.test.tsx` asserts in place of the anchor check.
 
 **The two-rail variant (`rail`).** A panel-swap route with few enough sections to name in a
-row may pass `rail={{ label }}` and get `InPageSectionRail` in place of the weighted track.
-It uses the same priority navigation grammar as Therapy `ModeNav`: icon, label and `count`
-badge, active content-width underline, and a `More` overflow slot instead of horizontal
-scrolling. `/medications/[slug]` is the only adopter, and the prop exists so it stays the only
-one by choice rather than by drift — `/factsheets/[slug]`'s eight anchored sections would
-overload a row this is meant to simplify, and a scrolling route already has a spy moving the
-active state continuously.
+row may pass `rail={{ label }}` and get `InPageSectionRail` in place of the weighted track:
+icon, label and a `count` badge per section, active one underlined. `/medications/[slug]` is
+the only adopter, and the prop exists so it stays the only one by choice rather than by
+drift — `/factsheets/[slug]`'s eight anchored sections would overflow the row this is meant
+to simplify, and a scrolling route already has a spy moving the active state continuously.
 
 The rail changes three things about the row above it:
 
 - **From `sm` the title stops being a disclosure.** Every section is already named in the
   rail, so the chevron would open a list of the same destinations. The title renders as plain
-  text and the section sheet is unreachable. Below `sm` the title disclosure remains available;
-  at the three-slot band the first two destinations plus `More` render, and `More` opens that
-  same sheet. Below the minimum safe bar width the rail disappears and the title disclosure is
-  the non-overflow fallback. The rail never scrolls horizontally.
+  text and the section sheet is unreachable. Below `sm` the rail scrolls, so the disclosure
+  returns as its overflow — that is the "two rails" shape.
 - **The rail is not a `role="tablist"`.** The same sections are reachable from the sheet on a
   phone, so a roving-tabindex group would put half the destinations behind arrow keys and half
   behind Tab. Ordinary buttons are reachable both ways.

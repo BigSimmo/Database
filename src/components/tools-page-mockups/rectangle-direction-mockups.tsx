@@ -57,7 +57,7 @@ function SearchBar({
     <form
       role="search"
       onSubmit={(event) => event.preventDefault()}
-      className="grid min-h-[3.25rem] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--e1)]"
+      className="grid min-h-[3.25rem] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--shadow-tight)]"
     >
       <Search className="ml-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden="true" />
       <input
@@ -117,7 +117,7 @@ function CompactHeader({
 
 function ActionPill({ label }: { label: string }) {
   return (
-    <span className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
+    <span className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
       {label}
       <ArrowRight className="h-4 w-4" aria-hidden="true" />
     </span>
@@ -435,7 +435,7 @@ function ContinueStrip() {
       <Link
         href="/?mode=prescribing"
         className={cn(
-          "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
+          "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]",
           focusRing,
         )}
       >

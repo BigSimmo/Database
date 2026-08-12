@@ -377,7 +377,7 @@ function MockupPair({
   children: (device: Device) => ReactNode;
 }) {
   return (
-    <article className="grid gap-4 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)]">
+    <article className="grid gap-4 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
       <div className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div>
           <h2 className="text-xl font-extrabold text-[color:var(--text-heading)]">{label}</h2>
@@ -661,7 +661,7 @@ function LibraryCommandPalette({ device }: { device: Device }) {
         />
       </div>
       <div className={cn("grid flex-1 content-start gap-3 bg-[color:var(--surface-subtle)] p-3", isDesktop && "p-5")}>
-        <section className="mx-auto grid w-full max-w-2xl gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--e1)]">
+        <section className="mx-auto grid w-full max-w-2xl gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)]">
           <SearchField placeholder="Type document title, file name, or tag" compact={device === "phone"} />
           <div className="flex flex-wrap gap-2">
             <Pill active tone="scope" icon={ExternalLink}>
@@ -685,7 +685,7 @@ export function SourceOverlayRedesignMockups() {
   return (
     <main className="min-h-dvh bg-[color:var(--surface-subtle)] px-4 py-6 text-[color:var(--text)] sm:px-6 lg:px-8">
       <div className="mx-auto grid max-w-[92rem] gap-6">
-        <header className="grid gap-4 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-4 shadow-[var(--e1)] lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end">
+        <header className="grid gap-4 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)] lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end">
           <div>
             <p className="text-xs font-extrabold uppercase text-[color:var(--clinical-accent)]">
               Source overlay review

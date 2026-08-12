@@ -263,8 +263,8 @@ The ladder itself is gated against baked-in hairlines (**[verified:** contract t
 
 `--shadow-inset` **stays the DS bevel**; `--shadow-well` is the recessed-well role. The
 former v2 `--shadow-inset` overrides became `--shadow-well` in `59e4c3dfc`, with the
-contract test's pin updated in the same commit (C1, done). Alias cleanup: `--shadow-focus` is deleted (done
-11 Aug 2026 — it encoded a companion focus ring the conventions forbid), `--shadow-lift` retires into the ladder, the
+contract test's pin updated in the same commit (C1, done). Alias cleanup: `--shadow-focus` is deleted (it encodes a
+companion focus ring the conventions forbid), `--shadow-lift` retires into the ladder, the
 three dead springs go — **retire aliases inside the recipes first**, or "never use an alias"
 is unfollowable.
 
@@ -796,7 +796,7 @@ close this runtime concern; revisit before adoption puts them on a hot path.
 
 | PR                             | Contents                                                                                                                                                                                                                                 | Status                                                                                                                                         |
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| PR 9 · Motion, stacking, edges | Wire `--duration-*`/`--ease-*`/`--z-*` to utilities + lint; `transform` for `Progress`, `LinkAction`, `ToggleSwitch`; edge-rule gate; `Quantity` off the retiring type step; delete `--shadow-focus`, `--shadow-lift`, dead springs      | open — `--shadow-focus` deleted 11 Aug 2026 (`#261`); the rest of the row is untouched                                                         |
+| PR 9 · Motion, stacking, edges | Wire `--duration-*`/`--ease-*`/`--z-*` to utilities + lint; `transform` for `Progress`, `LinkAction`, `ToggleSwitch`; edge-rule gate; `Quantity` off the retiring type step; delete `--shadow-focus`, `--shadow-lift`, dead springs      | open                                                                                                                                           |
 | PR 10 · Overlays               | One `OverlayRoot`; mandatory `Sheet` name; portal by default; `Tooltip` composes child handlers; `Toast` splits tone/priority/persistence, pauses on hover and focus                                                                     | **done** — component/publication contract and app-root mount; v2 style activation is unchanged                                                 |
 | PR 11 · Print and documents    | Print as a tokenised theme; `[data-print-hide]`; print primitives; `DocumentFrame`                                                                                                                                                       | open — COMPONENTS §6                                                                                                                           |
 | PR 12 · Design-sync integrity  | Declarations generated from real types; manifest parity; direct tests for every registered component; preview state matrices; `tailwind-merge` or slot props; split `ui-primitives.tsx`                                                  | **publication slice done** — deterministic props, parity, previews and direct contract proof; override policy and module split remain deferred |

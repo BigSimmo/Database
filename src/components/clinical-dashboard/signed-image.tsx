@@ -213,7 +213,7 @@ export const SignedImage = memo(function SignedImage({
               // devices that need it most. `hover:none` is the precise predicate:
               // it targets exactly the pointers that cannot trigger the reveal.
               // Hover-capable pointers keep the quiet, uncluttered original.
-              className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)]/85 p-1 text-[color:var(--text-muted)] opacity-0 shadow-[var(--e1)] backdrop-blur-md transition group-hover/signed-image:opacity-100 group-focus-within/signed-image:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
+              className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)]/85 p-1 text-[color:var(--text-muted)] opacity-0 shadow-[var(--shadow-tight)] backdrop-blur-md transition group-hover/signed-image:opacity-100 group-focus-within/signed-image:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
             >
               <Maximize2 aria-hidden="true" className="h-3.5 w-3.5" />
             </span>

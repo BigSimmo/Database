@@ -69,7 +69,7 @@ export function ModeNavSlotInk({
       <span
         aria-hidden="true"
         className={cn(
-          "mode-nav__rule absolute inset-x-0 -bottom-[0.8125rem] rounded-t-[2px]",
+          "mode-nav__rule absolute inset-x-0 -bottom-[0.8125rem] rounded-t-sm",
           state === "on"
             ? "h-0.5 bg-[color:var(--clinical-accent)]"
             : state === "trail"

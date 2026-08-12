@@ -195,45 +195,25 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
   const actionsOpen = actionsPath !== null && actionsPath === currentPath;
   const setSectionSheetOpen = (open: boolean) => setSectionSheetPath(open ? currentPath : null);
   const setActionsOpen = (open: boolean) => setActionsPath(open ? currentPath : null);
-  // The section sheet can open from the title disclosure or a priority rail's
-  // More slot. Capture the button that actually opened it so closing never
-  // returns focus to a breakpoint-hidden sibling.
-  const sectionSheetOpenerRef = useRef<HTMLButtonElement | null>(null);
-  const sectionTitleTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const openSectionSheet = (opener: HTMLButtonElement) => {
-    sectionSheetOpenerRef.current = opener;
-    setSectionSheetOpen(true);
-  };
+  const sectionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
 
-  // More can open the sheet at the three-slot band and then vanish under the
-  // 33rem `@container` rule while the dialog is still open (rotate / resize).
-  // Sheet only requires `isConnected` before restore, so a late resolver must
-  // pick a currently displayed control — title disclosure or a rail section.
-  const isDisplayedFocusTarget = (element: HTMLElement | null): element is HTMLElement => {
-    if (!element?.isConnected) return false;
-    let node: HTMLElement | null = element;
-    while (node) {
-      if (node.hidden || node.getAttribute("aria-hidden") === "true") return false;
-      // Inline `display: none` is how DOM tests simulate the `@container` /
-      // `sm:hidden` bands without loading stylesheet rules into jsdom.
-      if (node.style.display === "none") return false;
-      const style = window.getComputedStyle(node);
-      if (style.display === "none" || style.visibility === "hidden") return false;
-      node = node.parentElement;
+  // With a rail, the title disclosure is `sm:hidden`. If the sheet stays open
+  // across that breakpoint (rotation / resize), returning focus to the hidden
+  // trigger drops keyboard focus to the page body. Prefer a visible rail
+  // control when the trigger has no layout box.
+  const resolveSectionReturnFocus = useCallback(() => {
+    const trigger = sectionTriggerRef.current;
+    if (trigger && trigger.getClientRects().length > 0) return trigger;
+    if (rail) {
+      const railRoot = document.querySelector(`[data-testid="${testIdPrefix}-section-rail"]`);
+      const active = railRoot?.querySelector<HTMLElement>('[aria-current="true"]');
+      if (active) return active;
+      const first = railRoot?.querySelector<HTMLElement>("button");
+      if (first) return first;
     }
-    return true;
-  };
-  const resolveSectionSheetReturnFocus = useCallback((): HTMLElement | null => {
-    const opener = sectionSheetOpenerRef.current;
-    if (isDisplayedFocusTarget(opener)) return opener;
-    if (isDisplayedFocusTarget(sectionTitleTriggerRef.current)) return sectionTitleTriggerRef.current;
-    const rail = window.document.querySelector<HTMLElement>(`[data-testid="${testIdPrefix}-section-rail"]`);
-    if (!rail) return null;
-    const active = rail.querySelector<HTMLButtonElement>('button[aria-current="true"]');
-    if (isDisplayedFocusTarget(active)) return active;
-    return Array.from(rail.querySelectorAll<HTMLButtonElement>("li button")).find(isDisplayedFocusTarget) ?? null;
-  }, [testIdPrefix]);
+    return trigger;
+  }, [rail, testIdPrefix]);
 
   useInPageChromeMetrics();
 
@@ -294,8 +274,8 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               // you are, which the track can place but never label.
               <button
                 type="button"
-                ref={sectionTitleTriggerRef}
-                onClick={(event) => openSectionSheet(event.currentTarget)}
+                ref={sectionTriggerRef}
+                onClick={() => setSectionSheetOpen(true)}
                 aria-expanded={sectionSheetOpen}
                 aria-haspopup="dialog"
                 data-testid={`${testIdPrefix}-section-trigger`}
@@ -409,8 +389,6 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               sections={sections}
               activeId={activeSection?.id ?? null}
               onSelect={(id) => onSelectSection?.(id)}
-              onOpenSectionSheet={openSectionSheet}
-              sectionSheetOpen={sectionSheetOpen}
               label={rail.label}
               testIdPrefix={testIdPrefix}
             />
@@ -433,8 +411,8 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               : undefined
           }
           closeLabel="Close section list"
-          returnFocusRef={sectionSheetOpenerRef}
-          resolveReturnFocusTarget={resolveSectionSheetReturnFocus}
+          returnFocusRef={sectionTriggerRef}
+          resolveReturnFocusTarget={resolveSectionReturnFocus}
           testId={`${testIdPrefix}-section-sheet`}
         >
           <DocumentSectionList

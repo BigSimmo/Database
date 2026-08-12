@@ -212,7 +212,7 @@ export function CalculatorsDirectoryGridMockup() {
           <form
             role="search"
             onSubmit={(event) => event.preventDefault()}
-            className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 shadow-[var(--e1)]"
+            className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-tight)]"
           >
             <Search className="size-icon-lg text-[color:var(--decoration-soft)]" aria-hidden="true" />
             <input

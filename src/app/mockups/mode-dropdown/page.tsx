@@ -56,7 +56,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
         expanded ? "z-30 mb-64" : "",
       ].join(" ")}
     >
-      <header className="border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/95 px-3 py-2 text-[color:var(--text)] shadow-[var(--e1)] backdrop-blur-xl sm:px-4 lg:px-6">
+      <header className="border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/95 px-3 py-2 text-[color:var(--text)] shadow-[var(--shadow-tight)] backdrop-blur-xl sm:px-4 lg:px-6">
         <div className="mx-auto flex h-12 max-w-7xl items-center gap-2">
           <button
             type="button"
@@ -73,7 +73,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
               aria-haspopup="true"
               aria-expanded={expanded}
             >
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-white shadow-[var(--e1)]">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-white shadow-[var(--shadow-tight)]">
                 <ActiveIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
@@ -159,7 +159,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
           </span>
           <button
             type="button"
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-white shadow-[var(--e1)]"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-white shadow-[var(--shadow-tight)]"
           >
             Answer
           </button>

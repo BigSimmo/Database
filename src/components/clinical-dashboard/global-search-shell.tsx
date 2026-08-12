@@ -877,7 +877,6 @@ function GlobalStandaloneSearchShellBody({
               differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
             }
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
-            showPhoneSuggestionTickerOnHome={isStandaloneModeHome || pathname === "/"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
             desktopPageComposerSlotId={

@@ -239,7 +239,7 @@ describe("ModeNav overflow slot", () => {
     // label length worth having, and widening the bands would cost every mode.
     // Scoped to the rendered ink, which is what has a width — the accessible
     // name below may and does carry the folded page's label.
-    const slotInk = moreSlot.match(/<ModeNavSlotInk[^/]*\/>/)?.[0] ?? "";
+    const slotInk = moreSlot.match(/<SlotInk[^/]*\/>/)?.[0] ?? "";
     expect(slotInk).toContain('label="More"');
     expect(slotInk).toContain('state="off"');
     expect(slotInk).not.toContain("active");

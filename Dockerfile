@@ -18,7 +18,7 @@
 # NEVER baked into the image — inject them at run time from the host's
 # secret store.
 
-FROM node:26-bookworm-slim@sha256:cd565714d4da3e84bfd341e31448f81d47c6362198f152345297c9c1154e6341 AS node-base
+FROM node:24-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS node-base
 
 FROM node-base AS deps
 WORKDIR /app
@@ -28,10 +28,11 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
+COPY scripts/check-installed-lock-parity.mjs scripts/check-installed-lock-parity.mjs
 # Registry blips (ECONNRESET) have failed CI app-image builds mid-install; retry
 # the whole `npm ci` rather than relying only on per-request fetch retries.
 RUN for attempt in 1 2 3; do \
-      NPM_CONFIG_ENGINE_STRICT=false npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
+      npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
       if [ "$attempt" -eq 3 ]; then exit 1; fi; \
       sleep $((attempt * 10)); \
     done
@@ -67,8 +68,9 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
+COPY scripts/check-installed-lock-parity.mjs scripts/check-installed-lock-parity.mjs
 RUN for attempt in 1 2 3; do \
-      NPM_CONFIG_ENGINE_STRICT=false npm ci --omit=dev --ignore-scripts --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
+      npm ci --omit=dev --ignore-scripts --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
       if [ "$attempt" -eq 3 ]; then exit 1; fi; \
       sleep $((attempt * 10)); \
     done

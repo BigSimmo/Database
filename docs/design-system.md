@@ -150,11 +150,9 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
   instead of bleeding. `--e0` flush · `--e1` resting hairline · `--e2` cards/popovers ·
   `--e3` hover/lifted chrome · `--e4` modals/sheets/drawers. Dark lifts with a top highlight
   rather than more black.
-- The surviving role names are **aliases onto tiers**, not independent values:
+- The role names are **aliases onto tiers**, not independent values: `--shadow-tight` → `--e1`;
   `--shadow-card` / `--shadow-soft` → `--e2`; `--shadow-hover` → `--e3`; `--shadow-elevated` /
-  `--shadow-lux` → `--e4`. `--shadow-tight` is retired — the resting hairline is `--e1` at the
-  call site. `--shadow-focus` is retired too — focus is an `outline: 2px solid var(--focus)`,
-  never a companion shadow ring. `--shadow-inset`, `--shadow-rail-active` and
+  `--shadow-lux` → `--e4`. `--shadow-inset`, `--shadow-rail-active`, `--shadow-focus` and
   `--glow-primary/soft` stay bespoke. All are removed under forced-colors, ladder included.
 - No literal `box-shadow` values in components — reach for a tier
   (`shadow-[var(--e2)]`, `hover:shadow-[var(--e3)]`) or a role alias.
@@ -222,7 +220,7 @@ image"}` — never a possibly-empty variable alone.
 | `Number(query.page ?? 1)`                                     | `parseInt` + `Number.isFinite` + `>= 1` clamp          |
 | `alt={caption}`                                               | `alt={caption?.trim() \|\| "Clinical document image"}` |
 | new `z-[73]` for a popover                                    | an existing ladder rung, or `Sheet`                    |
-| `shadow-[0_5px_12px_rgba(0,122,120,0.16)]`                    | `shadow-[var(--e1)]`                                   |
+| `shadow-[0_5px_12px_rgba(0,122,120,0.16)]`                    | `shadow-[var(--shadow-tight)]`                         |
 
 ## 9. Verification gates — Definition of Done for UI PRs
 

@@ -40,7 +40,7 @@ export function SheetsScreen() {
         <div className="max-sm:flex-wrap flex gap-2.5">
           <button
             type="button"
-            className={`${therapyBtn} inline-flex items-center gap-2 h-tap py-0 px-[18px] border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm-minus font-semibold shadow-[var(--e1)] cursor-pointer`}
+            className={`${therapyBtn} inline-flex items-center gap-2 h-tap py-0 px-[18px] border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm-minus font-semibold shadow-[var(--shadow-tight)] cursor-pointer`}
             onClick={b.printSheet}
           >
             <PrinterIcon size={16} />
