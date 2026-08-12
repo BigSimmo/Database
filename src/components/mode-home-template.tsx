@@ -3,7 +3,7 @@ import { type ReactNode } from "react";
 import { type LucideIcon, ArrowRight } from "lucide-react";
 
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { cn, EmptyState, eyebrowText } from "@/components/ui-primitives";
 import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 
 export type ModeHomeAction = {
@@ -247,25 +247,27 @@ export function ModeHomeStatusNotice({
 }) {
   const actionClass =
     "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9";
+  const action =
+    onAction && actionLabel ? (
+      <button type="button" onClick={onAction} className={actionClass}>
+        {actionLabel}
+      </button>
+    ) : actionHref && actionLabel ? (
+      <Link href={actionHref} className={actionClass}>
+        {actionLabel}
+      </Link>
+    ) : undefined;
+
   return (
-    <div className="mx-auto grid max-w-xl gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left shadow-[var(--shadow-inset)] sm:grid-cols-[2.25rem_minmax(0,1fr)_auto] sm:items-center">
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-        <Icon className="h-5 w-5" aria-hidden="true" />
-      </span>
-      <span className="grid gap-1">
-        <span className="text-sm font-bold text-[color:var(--text-heading)]">{title}</span>
-        <span className="text-sm leading-5 text-[color:var(--text-muted)]">{body}</span>
-      </span>
-      {onAction && actionLabel ? (
-        <button type="button" onClick={onAction} className={actionClass}>
-          {actionLabel}
-        </button>
-      ) : actionHref && actionLabel ? (
-        <Link href={actionHref} className={actionClass}>
-          {actionLabel}
-        </Link>
-      ) : null}
-    </div>
+    <EmptyState
+      icon={Icon}
+      title={title}
+      body={body}
+      actions={action}
+      tone="info"
+      live="polite"
+      testId="mode-home-status-notice"
+    />
   );
 }
 
