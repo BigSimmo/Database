@@ -211,7 +211,8 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     render(<ApplicationsLauncherWorkspace canAccessFavourites={false} />);
 
-    expect(screen.queryByRole("button", { name: "Saved" })).toBeNull();
+    // The category rail is a lens: its options are radios, not buttons.
+    expect(screen.queryByRole("radio", { name: "Saved" })).toBeNull();
     expect(screen.queryByTestId("tool-shortcut-favourites")).toBeNull();
     expect(screen.queryByText("Saved workflows")).toBeNull();
     expect(screen.getByTestId("tools-hub")).toBeVisible();
@@ -220,7 +221,7 @@ describe("favourites auth gate DOM", () => {
   it("keeps Tools Saved workflows available when Favourites access is granted", () => {
     render(<ApplicationsLauncherWorkspace canAccessFavourites={true} />);
 
-    expect(screen.getByRole("button", { name: "Saved" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "Saved" })).toBeVisible();
     expect(screen.getByTestId("tool-shortcut-favourites")).toBeVisible();
     expect(
       toolCatalogRecordsForSession({ authenticated: true, demoMode: false }).some((t) => t.id === "favourites"),

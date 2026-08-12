@@ -10,6 +10,18 @@ export type SegmentedControlOption<T extends string> = {
   label: string;
   icon?: LucideIcon;
   disabled?: boolean;
+  /**
+   * Trailing detail, almost always a count — "Presentations 41".
+   *
+   * Exists because the one-of-N rails this control replaces across the modes all
+   * carry a count, and baking it into `label` would fold the number into the
+   * truncating span and lose the tabular alignment. Never the only thing
+   * distinguishing two options: it joins the accessible name, so an option whose
+   * label is not unique without its hint reads as a near-duplicate to a screen
+   * reader. Mirrors `ResultFilterOption.hint`, so a mode can build one option
+   * array and hand it to both the desktop rail and the phone sheet.
+   */
+  hint?: string;
 };
 
 type AccessibleName = { label: string; ariaLabelledBy?: never } | { label?: never; ariaLabelledBy: string };
@@ -19,6 +31,14 @@ export type SegmentedControlProps<T extends string> = AccessibleName & {
   onChange: (value: T) => void;
   options: ReadonlyArray<SegmentedControlOption<T>>;
   ariaDescribedBy?: string;
+  /**
+   * The region this rail filters. Set it when the control governs a panel
+   * elsewhere in the page — the launcher's category rail pointed each of its
+   * buttons at `#launcher-results-panel`, and converging on this primitive must
+   * not silently drop that association. One group-level reference, because the
+   * radiogroup is the control; the individual radios are its options.
+   */
+  ariaControls?: string;
   layout?: "fit" | "equal";
   className?: string;
 };
@@ -30,6 +50,7 @@ export function SegmentedControl<T extends string>({
   label,
   ariaLabelledBy,
   ariaDescribedBy,
+  ariaControls,
   layout = "fit",
   className,
 }: SegmentedControlProps<T>) {
@@ -79,6 +100,7 @@ export function SegmentedControl<T extends string>({
       aria-label={label}
       aria-labelledby={ariaLabelledBy}
       aria-describedby={ariaDescribedBy}
+      aria-controls={ariaControls}
       onKeyDown={onKeyDown}
       data-layout={layout}
       className={cn(
@@ -100,6 +122,11 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={checked}
+            // Without this the label and hint spans concatenate to "All62" in
+            // the accessible name — inter-element whitespace is normalised away
+            // by the name computation, so a text-node separator cannot fix it.
+            // Matches the `${label} (${count})` shape the mode rails used.
+            aria-label={option.hint ? `${option.label} (${option.hint})` : undefined}
             tabIndex={option.value === tabStopValue ? 0 : -1}
             disabled={option.disabled}
             data-segment-value={option.value}
@@ -116,6 +143,16 @@ export function SegmentedControl<T extends string>({
           >
             {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
             <span className="min-w-0 truncate">{option.label}</span>
+            {option.hint ? (
+              // Reserve a three-digit count column as well as using tabular figures so live
+              // result updates do not move the segment bounds — tabular figures keep digit
+              // widths equal but do not stop the span growing at 9 -> 10. The hint inherits
+              // the button's opaque semantic foreground rather than carrying its own colour:
+              // the decoration-only text alias is barred from production by
+              // check:design-system-contract, and any second token here would have to stay
+              // legible against both the checked and unchecked backgrounds.
+              <span className="nums min-w-6 shrink-0 text-right tabular-nums">{option.hint}</span>
+            ) : null}
           </button>
         );
       })}
