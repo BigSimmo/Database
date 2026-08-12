@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   merge-current-main:
-    if: ${{ !contains(github.event.head_commit.message, 'merge(main): resolve PR #1850 conflicts') }}
+    if: ${{ !contains(github.event.head_commit.message, 'resolve-pr-1850-conflicts') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -141,7 +141,7 @@ jobs:
             tests/in-page-nav-route-sections.dom.test.tsx \
             tests/ui-smoke.spec.ts
 
-          git commit -m "merge(main): resolve PR #1850 conflicts"
+          git commit -m "merge(main): resolve-pr-1850-conflicts"
           git merge-base --is-ancestor "${before_head}" HEAD
           git merge-base --is-ancestor "${main_sha}" HEAD
           git show --stat --oneline --summary HEAD
