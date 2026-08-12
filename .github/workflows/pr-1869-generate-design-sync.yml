@@ -1,4 +1,4 @@
-name: PR 1869 generate design-sync contract
+name: PR 1869 regenerate design-sync contract
 
 on:
   push:
@@ -6,21 +6,21 @@ on:
       - codex/fix-form-section-expansion-issues
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: pr-1869-design-sync-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  generate:
+  regenerate:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -31,15 +31,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate design-sync contract
+      - name: Regenerate and commit design-sync contract
         run: |
           npm run design-system:design-sync:update
-          cp .design-sync/config.json pr-1869-design-sync-config.json
-
-      - name: Upload generated contract
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: pr-1869-design-sync-contract
-          path: pr-1869-design-sync-config.json
-          if-no-files-found: error
-          retention-days: 1
+          git add .design-sync/config.json
+          if git diff --cached --quiet; then
+            echo "Design-sync contract is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: regenerate disclosure design-sync contract"
+          git push origin HEAD:${GITHUB_REF_NAME}
