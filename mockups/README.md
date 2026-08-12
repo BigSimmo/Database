@@ -61,6 +61,33 @@ These are PNGs for design review only. Runnable `/mockups/*` routes are a separa
 
 **Perfected combined comps** (desktop + phone in one image, recommended directions only) live in [`public/mockups/mode-page-redesign-2026-07/perfected-combined/`](../public/mockups/mode-page-redesign-2026-07/perfected-combined/README.md).
 
+## Tools search results directions (2026-08-12)
+
+Runnable study at [`/mockups/tools-search-directions`](../src/app/mockups/tools-search-directions/page.tsx):
+three directions for the **results state** of `/tools?q=…` (ledger `#162`). Scope is the submitted
+state only — not the Tools home, per that row's own stop rule.
+
+This is the runnable successor to the static July comps in
+[`public/mockups/mode-page-redesign-2026-07/tools-search/`](../public/mockups/mode-page-redesign-2026-07/tools-search/),
+whose direction A was the product pick but was never built, so the pick had never been read
+against live catalogue data. These directions are fresh, informed by that study rather than
+tracing it.
+
+| Direction                     | Adds                                                                     | Cost                                                    |
+| ----------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------- |
+| 01 Compact Results Instrument | Query-as-h1, hero dropped, filters on the title row, dense launch rows   | Leaves the substring matcher — and its ordering — as is |
+| 02 Ranked Clinical Brief      | `rankToolRecords` plus an inline brief from the unused catalogue fields  | Tallest frame; ranking change needs its own PR scrutiny |
+| 03 Launch-First Triage Deck   | No dialog at all — `<details>` rows; filter and count fuse into one band | Tall rows at desktop width, and no room for long detail |
+
+**Recommendation: 02**, on 01's row grammar. Every frame is built from the real 13-record
+`src/lib/tools-catalog.ts`, so the counts, orderings, badges and per-tool copy are genuine.
+Two queries are shown per direction: `monitoring` (3 substring matches vs 4 ranked — the current
+page puts the exactly-named tool **last**) and `compare` (one match: the reported screenshot).
+
+Frames use role tokens, so **set the app to Clinical White before judging** — the study was
+designed and reviewed in light mode. Shared app chrome is suppressed for this route because
+every frame draws its own top bar, composer and band.
+
 ## Breadcrumb header study (2026-08-09) — shipped, route retired
 
 Three sticky header directions for record pages that use `InformationPageBreadcrumbs` and have **no in-page section index** — factsheets, services, forms, DSM, specifiers, formulation, medications. `InPageNavHeader` stays the default for in-page navigation per [`docs/search-chrome-behaviour.md`](../docs/search-chrome-behaviour.md); it is the wrong shape for those pages, because with no sections its disclosure opens a one-item sheet and its weighted track renders one full-width segment. Every direction kept that header's row grammar (back, title, ellipsis, one scroll owner) and dropped the section machinery:
