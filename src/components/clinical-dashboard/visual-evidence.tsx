@@ -6,6 +6,7 @@ import {
   CircleAlert,
   BookOpen,
   CircleCheck,
+  CircleDashed,
   ChevronDown,
   Copy,
   ExternalLink,
@@ -346,21 +347,36 @@ const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
   Gaps: CircleAlert,
 };
 
-function supportDotClass(supportLevel: string) {
-  const normalized = supportLevel.toLowerCase();
-  if (normalized.includes("unsupported") || normalized.includes("none")) return "bg-[color:var(--danger)]";
-  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby")) {
-    return "bg-[color:var(--warning)]";
-  }
-  return "bg-[color:var(--clinical-accent)]";
-}
-
 function supportLabel(supportLevel: string) {
   const normalized = supportLevel.toLowerCase();
-  if (normalized.includes("unsupported") || normalized.includes("none")) return "Unsupported";
+  if (normalized.includes("unsupported") || normalized.includes("not classified") || normalized.includes("none")) {
+    return "Unsupported";
+  }
   if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby"))
     return "Partial";
   return "Direct";
+}
+
+function SupportStatusIcon({ supportLevel }: { supportLevel: string }) {
+  const label = supportLabel(supportLevel);
+  const Icon = label === "Direct" ? CircleCheck : label === "Partial" ? CircleDashed : CircleAlert;
+
+  return (
+    <span
+      className={cn(
+        "grid h-8 w-8 shrink-0 place-items-center rounded-full border",
+        label === "Direct"
+          ? "border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+          : label === "Partial"
+            ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+            : "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
+      )}
+      role="img"
+      aria-label={`${label} support`}
+    >
+      <Icon aria-hidden="true" className="h-4 w-4" />
+    </span>
+  );
 }
 
 function claimRowsForEvidencePanel(rows: AnswerEvidenceMapRow[], renderModel: AnswerRenderModel) {
@@ -369,10 +385,9 @@ function claimRowsForEvidencePanel(rows: AnswerEvidenceMapRow[], renderModel: An
     id: source.id,
     section: source.label || cleanDisplayTitle(source.title || source.file_name) || `Source ${index + 1}`,
     detail: source.snippet || source.reason || "Open source passage to review the cited evidence.",
-    supportLevel: source.sourceStrength === "none" ? "partial" : source.sourceStrength,
+    supportLevel: supportLabel(source.sourceStrength ?? "not classified"),
     citationCount: 1,
-    sourceStatus:
-      source.sourceStrength === "none" ? "Source requires review" : `${source.sourceStrength} source support`,
+    sourceStatus: source.sourceStrength ? `${source.sourceStrength} source support` : "Source requires review",
     bestSourceLabel: source.label,
     bestLinkedPassage: source.snippet || source.reason,
     href: source.href,
@@ -384,7 +399,7 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
   const directCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Direct").length;
   const partialCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Partial").length;
   const claimRowClassName =
-    "grid min-h-[76px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 text-left last:border-b-0";
+    "grid min-h-18 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-2.5 text-left last:border-b-0";
 
   if (!claimRows.length) {
     return (
@@ -399,7 +414,7 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
 
   return (
     <div data-testid="evidence-claims-panel" className="space-y-3">
-      <div className="flex min-w-0 items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-wrap items-end justify-between gap-x-3 gap-y-2">
         <div>
           <p className="text-sm font-semibold text-[color:var(--text-heading)]">Claims checked</p>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-semibold text-[color:var(--text-muted)]">
@@ -426,8 +441,7 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
         {claimRows.map((row, index) => {
           const content = (
             <>
-              <span className="grid h-7 w-7 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)]" />
-              <span className={cn("h-2.5 w-2.5 rounded-full", supportDotClass(row.supportLevel))} />
+              <SupportStatusIcon supportLevel={row.supportLevel} />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.section}</span>
                 <span className={cn("mt-1 line-clamp-2 block text-xs leading-5", textMuted)}>
@@ -463,7 +477,7 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
                 claimRowClassName,
                 "transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
               )}
-              aria-label={`Open source for ${row.section}`}
+              aria-label={`${supportLabel(row.supportLevel)} support. Open source for ${row.section}`}
             >
               {content}
             </Link>
@@ -581,7 +595,11 @@ export function MobileEvidenceSheetContent({
   }
 
   return (
-    <div data-testid="mobile-evidence-sheet" className="min-w-0 space-y-4 overflow-hidden">
+    <div data-testid="mobile-evidence-sheet" className="min-w-0 space-y-3 overflow-hidden">
+      <p className={cn("text-sm leading-5", textMuted)}>
+        Check which claims are backed by the retrieved sources, open the supporting passages, and flag evidence problems
+        before relying on the answer.
+      </p>
       <div className="-mx-1 overflow-x-auto pb-1 polished-scroll" role="presentation">
         <div
           data-testid="mobile-evidence-tabs"
@@ -630,7 +648,7 @@ export function MobileEvidenceSheetContent({
         </div>
       </div>
 
-      <div className="min-h-[220px]">
+      <div>
         {order.map((tab) => {
           const selected = tab === activeTab;
           return (
@@ -641,7 +659,6 @@ export function MobileEvidenceSheetContent({
               aria-labelledby={tabIdFor(tab)}
               data-testid={`mobile-evidence-panel-${tab.toLowerCase()}`}
               hidden={!selected}
-              className="min-h-[220px]"
             >
               {selected ? (
                 <MobileEvidenceTabPanel

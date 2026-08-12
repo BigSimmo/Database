@@ -162,7 +162,7 @@ export function UniversalSearchAlsoMatches({
               Also matches in other modes
             </span>
             <span
-              className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold tabular-nums text-[color:var(--clinical-accent)] sm:hidden"
+              className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-semibold tabular-nums text-[color:var(--clinical-accent)] sm:hidden"
               aria-hidden={phoneCountBadge === "…"}
             >
               {phoneCountBadge}
@@ -173,7 +173,7 @@ export function UniversalSearchAlsoMatches({
             {phoneSubtitle}
           </span>
         </span>
-        <span className="hidden text-2xs font-bold text-[color:var(--text-muted)] sm:inline">Across Clinical KB</span>
+        <span className="hidden text-2xs font-medium text-[color:var(--text-muted)] sm:inline">Across Clinical KB</span>
         <span
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-transform sm:hidden",
@@ -192,7 +192,7 @@ export function UniversalSearchAlsoMatches({
         )}
       >
         {searchPending || currentGroups.length === 0 ? (
-          <p className={cn("rounded-lg px-2.5 py-3 text-xs font-semibold", textMuted)} aria-live="polite">
+          <p className={cn("rounded-lg px-2.5 py-3 text-xs font-medium", textMuted)} aria-live="polite">
             {panelStatus}
           </p>
         ) : null}
@@ -203,20 +203,20 @@ export function UniversalSearchAlsoMatches({
           return (
             <div
               key={targetModeId}
-              className="flex min-w-0 items-start gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5"
+              className="flex min-w-0 items-start gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3"
             >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                 <TargetIcon className="h-4 w-4" aria-hidden />
               </span>
-              <span className="min-w-0 flex-1 space-y-0.5">
-                <span className="block truncate text-2xs font-bold uppercase tracking-wide text-[color:var(--clinical-accent)]">
+              <span className="min-w-0 flex-1 space-y-1">
+                <span className="block truncate text-2xs font-semibold uppercase tracking-label text-[color:var(--clinical-accent)]">
                   {targetMode.label}
                 </span>
                 {group.items.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="block truncate text-xs font-extrabold text-[color:var(--text)] hover:underline"
+                    className="block truncate text-xs font-medium leading-snug text-[color:var(--text)] underline-offset-2 hover:text-[color:var(--clinical-accent)] hover:underline"
                   >
                     {item.title}
                   </Link>
@@ -226,7 +226,7 @@ export function UniversalSearchAlsoMatches({
                 href={appModeHomeHref(targetModeId, { query: trimmedQuery, run: true })}
                 // Top-align the label with the mode title; min-h-tap still grows the
                 // hit box downward so the 48px floor does not pull the text mid-card.
-                className="inline-flex min-h-tap shrink-0 items-start pt-0.5 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)] sm:min-h-0 sm:pt-0 sm:items-center"
+                className="inline-flex min-h-tap shrink-0 items-start pt-0.5 text-2xs font-semibold text-[color:var(--clinical-accent)] underline-offset-2 hover:underline sm:min-h-0 sm:items-center sm:pt-0"
               >
                 View all
               </Link>
