@@ -33,9 +33,45 @@ export function PatientDetailsDockAction() {
   useEffect(() => {
     const phoneMediaQuery = window.matchMedia("(max-width: 639px)");
     let observer: MutationObserver | null = null;
+    let dockObserver: MutationObserver | null = null;
+    let dock: HTMLElement | null = null;
+
+    const syncDockOvershoot = () => {
+      if (!dock) return;
+      if (dock.dataset.footerAddon === "patient-details" && dock.dataset.scrollHidden === "true") {
+        // The prescribing surface uses the dashboard dock class, whereas the
+        // historical CSS overshoot selector was document-dock-only. Inline the
+        // addon-specific hidden transform on that actual owner so no edge peeps
+        // through while the whole dock is translated off screen.
+        dock.style.transform = "translateY(calc(100% + 0.5rem + var(--safe-area-bottom)))";
+      } else {
+        dock.style.removeProperty("transform");
+      }
+    };
+
+    const detachDockObserver = () => {
+      dockObserver?.disconnect();
+      dockObserver = null;
+      dock?.style.removeProperty("transform");
+      dock = null;
+    };
 
     const syncHost = () => {
-      setHost(document.getElementById(patientDetailsAddonSlotId));
+      const nextHost = document.getElementById(patientDetailsAddonSlotId);
+      setHost(nextHost);
+      const nextDock = nextHost?.closest(".answer-footer-search-dock") as HTMLElement | null;
+      if (nextDock === dock) return;
+
+      detachDockObserver();
+      dock = nextDock;
+      if (dock) {
+        dockObserver = new MutationObserver(syncDockOvershoot);
+        dockObserver.observe(dock, {
+          attributes: true,
+          attributeFilter: ["data-footer-addon", "data-scroll-hidden"],
+        });
+        syncDockOvershoot();
+      }
     };
 
     const attachObserver = () => {
@@ -47,6 +83,7 @@ export function PatientDetailsDockAction() {
     const detachObserver = () => {
       observer?.disconnect();
       observer = null;
+      detachDockObserver();
     };
 
     const onMediaChange = () => {
