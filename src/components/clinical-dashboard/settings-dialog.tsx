@@ -133,6 +133,7 @@ export function SettingsDialog({
   identity,
   onSignOut,
   onOpenGuide,
+  onPrefetchGuide,
   initialFocus = "close",
 }: {
   open: boolean;
@@ -140,6 +141,7 @@ export function SettingsDialog({
   identity: SidebarIdentity;
   onSignOut: () => void;
   onOpenGuide: () => void;
+  onPrefetchGuide?: () => void;
   initialFocus?: "close" | "guide";
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -1000,6 +1002,8 @@ export function SettingsDialog({
                     onClose();
                     onOpenGuide();
                   }}
+                  onPointerEnter={onPrefetchGuide}
+                  onFocus={onPrefetchGuide}
                   className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
                   data-testid="settings-row-guide-help"
                 >
