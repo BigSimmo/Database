@@ -1,0 +1,138 @@
+name: PR 1853 current-main sync
+
+on:
+  push:
+    branches:
+      - codex/medication-did-you-mean-20260812
+
+concurrency:
+  group: pr-1853-current-main-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync latest main, verify, and publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout current PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Capture immutable inputs and latest main
+        id: inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          old_head="$(git rev-parse HEAD)"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          main_sha="$(git rev-parse refs/remotes/origin/main)"
+          git cat-file -e b910336fbb4826f38e5383db63ac63600a48df27^{commit}
+          git diff --binary b910336fbb4826f38e5383db63ac63600a48df27 "$old_head" -- \
+            src/components/clinical-dashboard/medication-prescribing-workspace.tsx \
+            src/components/clinical-dashboard/use-medication-catalog.ts \
+            tests/medication-prescribing-workspace.dom.test.tsx \
+            > /tmp/pr1853-product.patch
+          test -s /tmp/pr1853-product.patch
+          printf 'old_head=%s\n' "$old_head" >> "$GITHUB_OUTPUT"
+          printf 'main_sha=%s\n' "$main_sha" >> "$GITHUB_OUTPUT"
+          git checkout --detach "$main_sha"
+
+      - name: Setup Node and exact dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Apply reviewed product delta to latest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run hooks:install
+          git apply --3way --index /tmp/pr1853-product.patch
+          npm run ledger:append -- \
+            --ref PR-1853 \
+            --head 294d84a881c336fd170eb5395abf0237b917bba8 \
+            --scope "full PR diff and unresolved review feedback" \
+            --outcome "P2 expansion-only interpretation semantics fixed; no hosted threads" \
+            --checks "focused medication workspace DOM tests pass; hosted exact-head required CI green"
+          npm run ledger:dedupe
+          npm run format
+          git add -A
+          git diff --cached --check
+
+      - name: Run focused dependency-backed verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check:runtime
+          npm run check:installed-lock-parity
+          npx eslint \
+            src/components/clinical-dashboard/medication-prescribing-workspace.tsx \
+            src/components/clinical-dashboard/use-medication-catalog.ts \
+            tests/medication-prescribing-workspace.dom.test.tsx
+          npm run typecheck
+          npm run test -- tests/medication-prescribing-workspace.dom.test.tsx
+          npm run check:branch-review-ledger
+
+      - name: Create latest-main merge commit and review record
+        id: prepared
+        env:
+          OLD_HEAD: ${{ steps.inputs.outputs.old_head }}
+          MAIN_SHA: ${{ steps.inputs.outputs.main_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "BigSimmo"
+          git config user.email "87357024+BigSimmo@users.noreply.github.com"
+
+          merge_tree="$(git write-tree)"
+          merge_sha="$(printf '%s\n' 'Merge latest main into codex/medication-did-you-mean-20260812' | git commit-tree "$merge_tree" -p "$OLD_HEAD" -p "$MAIN_SHA")"
+          git checkout --detach "$merge_sha"
+
+          npm run ledger:append -- \
+            --ref PR-1853 \
+            --head "$merge_sha" \
+            --scope "latest-main merge review and unresolved feedback" \
+            --outcome "No P0-P2 findings; no unresolved review threads; latest main preserved" \
+            --checks "focused DOM tests, targeted ESLint, typecheck, runtime, installed-lock, format, ledger and diff checks passed in hosted sync"
+          npm run ledger:dedupe
+          npx prettier --write docs/branch-review-ledger.md
+          git add docs/branch-review-ledger.md
+          npm run check:branch-review-ledger
+          git diff --cached --check
+
+          final_tree="$(git write-tree)"
+          final_sha="$(printf '%s\n' 'docs(review): record PR 1853 latest-main sync' | git commit-tree "$final_tree" -p "$merge_sha")"
+
+          printf '%s\n' \
+            docs/branch-review-ledger.md \
+            src/components/clinical-dashboard/medication-prescribing-workspace.tsx \
+            src/components/clinical-dashboard/use-medication-catalog.ts \
+            tests/medication-prescribing-workspace.dom.test.tsx \
+            | sort > /tmp/expected-paths
+          git diff --name-only "$MAIN_SHA" "$final_sha" | sort > /tmp/actual-paths
+          diff -u /tmp/expected-paths /tmp/actual-paths
+          git diff --check "$MAIN_SHA" "$final_sha"
+          if git ls-tree -r --name-only "$final_sha" | grep -Eq '^\.github/workflows/pr1853-current-main-sync\.yml$'; then
+            echo 'Temporary sync workflow remained in the final tree.' >&2
+            exit 1
+          fi
+
+          printf 'merge_sha=%s\n' "$merge_sha" >> "$GITHUB_OUTPUT"
+          printf 'final_sha=%s\n' "$final_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Publish prepared head
+        env:
+          OLD_HEAD: ${{ steps.inputs.outputs.old_head }}
+          FINAL_SHA: ${{ steps.prepared.outputs.final_sha }}
+          BRANCH: codex/medication-did-you-mean-20260812
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin "$FINAL_SHA:refs/heads/$BRANCH" \
+            --force-with-lease="refs/heads/$BRANCH:$OLD_HEAD"
+          printf 'Prepared PR head: %s\n' "$FINAL_SHA" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Merged main: %s\n' "${{ steps.inputs.outputs.main_sha }}" >> "$GITHUB_STEP_SUMMARY"
