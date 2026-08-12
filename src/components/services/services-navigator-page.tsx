@@ -668,7 +668,13 @@ export function ServicesNavigatorPage() {
         <SearchResultsSkeleton />
       ) : registryBlocked ? null : query.trim() && deferredQuery !== query ? (
         <SearchResultsSkeleton />
-      ) : query.trim() && deferredQuery === query && rankedMatches.length === 0 ? (
+      ) : resultScope === "results" && query.trim() && deferredQuery === query && rankedMatches.length === 0 ? (
+        // `rankedMatches` is query-only (see its definition above) and never
+        // reflects the "All items" scope, which exists precisely to bypass a
+        // query match of zero — see docs/filter-contract.md section 4. Gating
+        // this branch on `resultScope === "results"` lets that scope fall
+        // through to the facet-driven branches below instead of reporting a
+        // dead end the reader already escaped via the scope segment.
         <SearchResultsEmptyState
           modeId="services"
           query={query}
