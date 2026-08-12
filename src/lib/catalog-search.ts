@@ -90,7 +90,8 @@ export type CatalogField<T> = {
 };
 
 export type CatalogMatchSignals = {
-  // Matched term count per field id (only fields with at least one match are present).
+  // Literal or conservative fuzzy matched term count per field id
+  // (only fields with at least one match are present).
   fields: Record<string, number>;
   // Matched term count against the full-text haystack.
   content: number;
@@ -197,6 +198,9 @@ export function rankCatalogRecords<T>(
         // Otherwise an intended record ties incidental full-text mentions and
         // a limited universal-search result can omit the best match entirely.
         const fuzzyFieldMatches = compact ? 0 : fuzzySearchTokenCount(normalizedQuery, haystack);
+        if (fuzzyFieldMatches) {
+          fields[field.id] = (fields[field.id] ?? 0) + fuzzyFieldMatches;
+        }
         fuzzy += fuzzyFieldMatches;
         score += fuzzyFieldMatches * field.weight;
       }
