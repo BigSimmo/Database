@@ -45,7 +45,7 @@ export function retrievalRpcScopeArgs(scope: RetrievalAccessScope) {
 // rows). Return the public sentinel instead, so these modes see only the shared
 // public (null-owner) corpus. Combined with the DB fail-closed change (migration
 // 20260708160001_retrieval_owner_matches_fail_closed), no legitimate caller ever
-// passes NULL. See docs/tenancy-defense-in-depth-review.md §6.
+// passes NULL. See docs/audit/tenancy-defense-in-depth-review.md §6.
 export function requireOwnerScope(ownerId: string | null | undefined): string {
   if (ownerId) return ownerId;
   if (isDemoMode() || isLocalNoAuthMode() || process.env.NODE_ENV === "test") {
