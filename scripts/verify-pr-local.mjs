@@ -16,6 +16,7 @@ const docsScripts = [
   "docs:check-links",
   "check:branch-review-ledger",
   "check:outstanding-issues",
+  "check:ledger-write-discipline",
 ];
 const workflowScripts = [
   "check:github-actions",

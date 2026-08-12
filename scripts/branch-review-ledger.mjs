@@ -12,21 +12,24 @@
  *
  *   node scripts/branch-review-ledger.mjs lookup <branch-or-ref> [--head <sha>] [--scope <text>] [--json]
  *   node scripts/branch-review-ledger.mjs append --ref <x> --head <sha> --scope <s> --outcome <o> --checks <c>
+ *   node scripts/branch-review-ledger.mjs migrate-legacy [--base <commit>] [--dry-run]
  *   node scripts/branch-review-ledger.mjs dedupe [--dry-run]
  *   node scripts/branch-review-ledger.mjs rotate [--before YYYY-MM-DD] [--dry-run]
  *   node scripts/branch-review-ledger.mjs --self-test
  *
  * `lookup` answers the only question the ledger is for: has this exact ref at this exact
  * HEAD already been reviewed for this scope? It reads the live ledger plus any
- * `docs/archive/branch-review-ledger-*.md` files. `append` writes one valid row to the
- * live file only. `dedupe` removes exact duplicate dated records only. `rotate` moves
+ * `docs/archive/branch-review-ledger-*.md` files and immutable review records. `append`
+ * writes one valid row to its own file, avoiding a shared append hunk. `dedupe` removes
+ * exact duplicate dated records only from the legacy live table. `rotate` moves
  * dated records older than a cutoff into a quarterly archive (maturity L4).
  *
- * Read-only except for `append` / `dedupe` / `rotate`. Never calls a provider or a
- * network service; `git rev-parse` is local.
+ * Read-only except for `append`, `migrate-legacy`, and explicitly authorized historical
+ * repair. Never calls a provider or a network service; `git rev-parse` is local.
  */
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,6 +37,8 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LEDGER_PATH = "docs/branch-review-ledger.md";
 const ARCHIVE_DIR = "docs/archive";
 const ARCHIVE_PREFIX = "branch-review-ledger-";
+const RECORDS_DIR = "docs/branch-review-records";
+const RECORD_SUFFIX = ".record.md";
 
 /** Cell separator: a literal `|` that was not escaped as `\|` inside prose. */
 export const CELL_SPLIT = /(?<!\\)\|/;
@@ -151,8 +156,8 @@ export function archiveQuarterLabel(dateStr) {
   return `${year}-q${quarter}`;
 }
 
-/** Live ledger first, then sorted archive files. */
-export function listLedgerPaths() {
+/** Legacy live ledger first, then sorted archive files. */
+export function listLedgerArchivePaths() {
   const paths = [LEDGER_PATH];
   const absArchive = path.join(root, ARCHIVE_DIR);
   if (!existsSync(absArchive)) return paths;
@@ -162,6 +167,27 @@ export function listLedgerPaths() {
     }
   }
   return paths;
+}
+
+/** Immutable review records avoid a shared append hunk across active PRs. */
+export function listLedgerRecordPaths() {
+  const absRecords = path.join(root, RECORDS_DIR);
+  if (!existsSync(absRecords)) return [];
+  return readdirSync(absRecords)
+    .filter((name) => name.endsWith(RECORD_SUFFIX))
+    .sort()
+    .map((name) => path.posix.join(RECORDS_DIR, name));
+}
+
+/** Every source used by lookup: legacy tables plus immutable records. */
+export function listLedgerPaths() {
+  return [...listLedgerArchivePaths(), ...listLedgerRecordPaths()];
+}
+
+/** Equivalent rows converge on one path; distinct PR writes never share a file. */
+export function reviewRecordPath(row) {
+  const hash = createHash("sha256").update(row, "utf8").digest("hex");
+  return path.posix.join(RECORDS_DIR, `${hash}${RECORD_SUFFIX}`);
 }
 
 /** Concatenate every ledger source for consumers that parse one markdown blob. */
@@ -195,7 +221,7 @@ function archivePreamble(label) {
     "",
     "Historical review records rotated out of `docs/branch-review-ledger.md` so the live",
     "table stays navigable. Do not hand-edit. `npm run ledger:lookup` reads this file",
-    "together with the live ledger. New reviews append only to the live file.",
+    "together with the legacy table and immutable review records. New reviews use `ledger:append`.",
     "",
     "| Date | Branch or ref | Reviewed HEAD | Scope | Outcome | Checks |",
     "| --- | --- | --- | --- | --- | --- |",
@@ -541,15 +567,139 @@ function runAppend(markdown, argv) {
     return;
   }
 
-  const needsNewline = markdown.length > 0 && !markdown.endsWith("\n");
-  appendFileSync(path.join(root, LEDGER_PATH), `${needsNewline ? "\n" : ""}${row}\n`, "utf8");
-  console.log(`Appended review record to ${LEDGER_PATH}:\n${row}`);
+  const relative = reviewRecordPath(row);
+  const target = path.join(root, relative);
+  mkdirSync(path.dirname(target), { recursive: true });
+  writeFileSync(target, `${row}\n`, { encoding: "utf8", flag: "wx" });
+  console.log(`Recorded immutable review entry at ${relative}:\n${row}`);
+}
+
+/**
+ * Move rows introduced by a legacy branch out of the shared table without
+ * rewriting the rest of the file. This is the one-time compatibility path for
+ * active PRs that recorded a review before immutable records existed.
+ */
+export function migrateLegacyRows(markdown, baseMarkdown) {
+  const baseCounts = new Map();
+  for (const row of parseLedgerRows(baseMarkdown)) baseCounts.set(row.raw, (baseCounts.get(row.raw) ?? 0) + 1);
+
+  const added = [];
+  for (const row of parseLedgerRows(markdown)) {
+    const remaining = baseCounts.get(row.raw) ?? 0;
+    if (remaining > 0) baseCounts.set(row.raw, remaining - 1);
+    else added.push(row.raw);
+  }
+  const removed = [...baseCounts.entries()].filter(([, count]) => count > 0);
+  if (removed.length > 0) {
+    throw new Error(
+      "the current table removes or rewrites a base review row; resolve that historical repair separately",
+    );
+  }
+
+  const removeCounts = new Map();
+  for (const row of added) removeCounts.set(row, (removeCounts.get(row) ?? 0) + 1);
+  const newline = markdown.includes("\r\n") ? "\r\n" : "\n";
+  const lines = markdown.split(/\r?\n/);
+  const kept = [];
+  for (const line of lines) {
+    const remaining = removeCounts.get(line) ?? 0;
+    if (RECORD_START.test(line) && remaining > 0) {
+      removeCounts.set(line, remaining - 1);
+      continue;
+    }
+    kept.push(line);
+  }
+  let nextMarkdown = kept.join(newline);
+  if (markdown.endsWith(newline) && !nextMarkdown.endsWith(newline)) nextMarkdown += newline;
+  return { markdown: nextMarkdown, added };
+}
+
+function resolveMigrationBase(flags) {
+  if (flags.base && flags.base !== true) {
+    const resolved = git(["rev-parse", "--verify", `${flags.base}^{commit}`]);
+    if (resolved) return resolved;
+    throw new Error(`base ${JSON.stringify(flags.base)} is not a commit in this repository`);
+  }
+  const base = git(["merge-base", "HEAD", "refs/remotes/origin/main"]);
+  if (!base) throw new Error("cannot resolve a merge base; fetch refs/remotes/origin/main or pass --base <commit>");
+  return base;
+}
+
+function runMigrateLegacy(markdown, argv) {
+  const { flags } = parseFlags(argv);
+  const dryRun = Boolean(flags["dry-run"]);
+  let base;
+  let result;
+  try {
+    base = resolveMigrationBase(flags);
+    const baseMarkdown = execFileSync("git", ["show", `${base}:${LEDGER_PATH}`], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    result = migrateLegacyRows(markdown, baseMarkdown);
+  } catch (error) {
+    console.error(`refusing legacy migration: ${error.message}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (result.added.length === 0) {
+    console.log(`No branch-added legacy review rows relative to ${base.slice(0, 12)}.`);
+    return;
+  }
+  const records = result.added.map((row) => ({ row, relative: reviewRecordPath(row) }));
+  for (const { row, relative } of records) {
+    const target = path.join(root, relative);
+    if (!existsSync(target)) continue;
+    if (readFileSync(target, "utf8") !== `${row}\n`) {
+      console.error(`refusing legacy migration: existing ${relative} does not match its content-addressed row`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
+  console.log(
+    `${dryRun ? "Would migrate" : "Migrating"} ${records.length} legacy review row(s) from ${LEDGER_PATH} ` +
+      `to immutable records relative to ${base.slice(0, 12)}.`,
+  );
+  for (const { relative } of records) console.log(`  ${relative}`);
+  if (dryRun) return;
+
+  mkdirSync(path.join(root, RECORDS_DIR), { recursive: true });
+  for (const { row, relative } of records) {
+    const target = path.join(root, relative);
+    if (!existsSync(target)) writeFileSync(target, `${row}\n`, { encoding: "utf8", flag: "wx" });
+  }
+  writeFileSync(path.join(root, LEDGER_PATH), result.markdown, "utf8");
+  console.log(
+    `Migrated ${records.length} legacy review row(s); commit the table removal and immutable records together.`,
+  );
+}
+
+/** Historical maintenance writes need an intentional, visible opt-in. */
+export function legacyMaintenanceAllowed({
+  dryRun = false,
+  allow = process.env.ALLOW_LEGACY_REVIEW_LEDGER_MAINTENANCE,
+} = {}) {
+  return dryRun || allow === "true";
+}
+
+function requireLegacyMaintenance(command, dryRun) {
+  if (legacyMaintenanceAllowed({ dryRun })) return true;
+  console.error(
+    `refusing ${command}: the historical review table is frozen. ` +
+      "Use --dry-run to inspect, then set ALLOW_LEGACY_REVIEW_LEDGER_MAINTENANCE=true for an explicitly approved repair.",
+  );
+  process.exitCode = 1;
+  return false;
 }
 
 function runRotate(liveMarkdown, argv) {
   const { flags } = parseFlags(argv);
   const before = flags.before && flags.before !== true ? String(flags.before) : calendarQuarterStart(new Date());
   const dryRun = Boolean(flags["dry-run"]);
+  if (!requireLegacyMaintenance("rotate", dryRun)) return;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(before)) {
     console.error(`refusing to rotate: --before must be YYYY-MM-DD (got ${JSON.stringify(before)})`);
     process.exitCode = 1;
@@ -557,7 +707,7 @@ function runRotate(liveMarkdown, argv) {
   }
 
   const existingArchives = new Map();
-  for (const relative of listLedgerPaths().slice(1)) {
+  for (const relative of listLedgerArchivePaths().slice(1)) {
     existingArchives.set(relative, readFileSync(path.join(root, relative), "utf8"));
   }
 
@@ -595,6 +745,7 @@ function runRotate(liveMarkdown, argv) {
 function runDedupe(markdown, argv) {
   const { flags } = parseFlags(argv);
   const dryRun = Boolean(flags["dry-run"]);
+  if (!requireLegacyMaintenance("dedupe", dryRun)) return;
   const { markdown: next, removed, kept } = dedupeLedgerMarkdown(markdown);
   if (removed === 0) {
     console.log(`No exact duplicate records in ${LEDGER_PATH} (${kept} unique dated rows).`);
@@ -714,6 +865,23 @@ function selfTest() {
   );
   assert(mergedTips.recordCount === 2, "merge unions distinct rows and drops shared twin");
 
+  const legacyMigration = migrateLegacyRows(`${preamble}\n${oldRow}\n${newRow}\n`, `${preamble}\n${oldRow}\n`);
+  assert(legacyMigration.added.length === 1 && legacyMigration.added[0] === newRow, "finds branch-added legacy rows");
+  assert(
+    !legacyMigration.markdown.includes(newRow) && legacyMigration.markdown.includes(oldRow),
+    "removes only added rows",
+  );
+  let rejectedRewrite = false;
+  try {
+    migrateLegacyRows(`${preamble}\n${newRow}\n`, `${preamble}\n${oldRow}\n`);
+  } catch {
+    rejectedRewrite = true;
+  }
+  assert(rejectedRewrite, "rejects historical row rewrites");
+  assert(legacyMaintenanceAllowed({ dryRun: true }), "dry-run legacy maintenance remains safe");
+  assert(!legacyMaintenanceAllowed({ allow: "false" }), "legacy maintenance requires explicit opt-in");
+  assert(legacyMaintenanceAllowed({ allow: "true" }), "explicit legacy maintenance opt-in works");
+
   console.log("branch-review-ledger self-test passed.");
 }
 
@@ -727,13 +895,15 @@ function main() {
   const [command, ...rest] = argv;
   if (command === "lookup") return runLookup(markdown, rest);
   if (command === "append") return runAppend(markdown, rest);
+  if (command === "migrate-legacy") return runMigrateLegacy(markdown, rest);
   if (command === "dedupe") return runDedupe(markdown, rest);
   if (command === "rotate") return runRotate(markdown, rest);
-  console.error("usage: branch-review-ledger.mjs <lookup|append|dedupe|rotate|--self-test> [...]");
+  console.error("usage: branch-review-ledger.mjs <lookup|append|migrate-legacy|dedupe|rotate|--self-test> [...]");
   console.error("  lookup <branch-or-ref> [--head <sha>] [--scope <text>] [--json]");
   console.error(
     "  append --ref <x> --head <sha> --scope <s> --outcome <o> --checks <c> [--date <YYYY-MM-DD>] [--supersede]",
   );
+  console.error("  migrate-legacy [--base <commit>] [--dry-run]");
   console.error("  dedupe [--dry-run]");
   console.error("  rotate [--before YYYY-MM-DD] [--dry-run]");
   process.exitCode = 2;
