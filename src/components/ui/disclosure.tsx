@@ -37,9 +37,9 @@ export type DisclosureProps = {
  * open, so a collapsed section prints as if the guideline never mentioned it —
  * exactly the failure this component is supposed to prevent, made permanent on
  * paper and unnoticeable, because the reader holding the printout has no way to
- * tell a section was omitted. `print:block` on the panel (author styles beat the
- * UA `[hidden]` rule) expands every collapsed section for print; the chevron is
- * dropped, since a rotated arrow means nothing on paper.
+ * tell a section was omitted. `print:!block` on the panel overrides the UA's
+ * important `[hidden]` rule and expands every collapsed section for print; the
+ * chevron is dropped, since a rotated arrow means nothing on paper.
  *
  * No height animation. Animating `height` or `grid-template-rows` forces layout
  * every frame and is a measurable CLS contributor; the chevron rotates on
@@ -126,7 +126,7 @@ export function Disclosure({
         aria-labelledby={`${id}-trigger`}
         hidden={!open}
         data-open={open ? "true" : "false"}
-        className={cn("px-3 py-3 print:block", extendDescription ? "pt-0" : "border-t border-[color:var(--border)]")}
+        className={cn("px-3 py-3 print:!block", extendDescription ? "pt-0" : "border-t border-[color:var(--border)]")}
       >
         {children}
       </div>
