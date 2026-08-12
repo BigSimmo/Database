@@ -16,6 +16,7 @@ import {
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { pageContainer } from "@/components/ui-primitives";
 
+import { therapyBtn } from "../controls";
 import { useTcBindings } from "../bindings";
 import { searchTherapies } from "../data/select";
 import { LoadingState } from "../ui";
@@ -128,7 +129,7 @@ export function SearchScreen() {
               type="button"
               onClick={clearSearch}
               data-testid="therapy-clear-search"
-              className="search-band-ghost inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+              className={`${therapyBtn} search-band-ghost inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10`}
             >
               <X aria-hidden="true" className="h-3.5 w-3.5" />
               <span className="max-[389px]:sr-only">Clear search</span>
