@@ -8,6 +8,7 @@ import { GlobalMockupSearchShell } from "@/components/clinical-dashboard/global-
 export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isToolsPageMockup = pathname.startsWith("/mockups/tools-");
+  const isToolsSearchModeMockup = pathname === "/mockups/tools-search-mode";
   const isFavouritesPageMockup = pathname.startsWith("/mockups/favourites-");
   const isDocumentSearchMockup = pathname.startsWith("/mockups/document-search");
   const isDocumentTopNavigationMockup = pathname === "/mockups/document-top-navigation";
@@ -81,7 +82,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
                 : "answer"
       }
       searchComposerVisible={
-        !isToolsPageMockup &&
+        (!isToolsPageMockup || isToolsSearchModeMockup) &&
         !isFavouritesPageMockup &&
         !isStandaloneDocumentFlow &&
         !isDocumentTopNavigationMockup &&
