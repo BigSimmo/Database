@@ -324,6 +324,13 @@ export function resolveDifferentialCompareHandoff(ids: Iterable<string>, query =
 export function resolveDifferentialCompareLaunchHref(ids: Iterable<string>, query = ""): string {
   const handoff = resolveDifferentialCompareHandoff(ids, query);
   if (handoff.kind === "presentation") return handoff.href;
+  if (handoff.selection.diagnosisIds.length === 1) {
+    return differentialCompareHref(
+      "/differentials/presentations/acute-confusion-encephalopathy",
+      query,
+      handoff.selection.diagnosisIds,
+    );
+  }
   const params = new URLSearchParams();
   const trimmedQuery = query.trim();
   if (trimmedQuery) params.set("q", trimmedQuery);
