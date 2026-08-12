@@ -66,30 +66,30 @@ Smaller top-level directories that are easy to miss:
 
 ### Product pages (`src/app/`)
 
-| Route                                                                                                     | File                                        |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `/`                                                                                                       | `src/app/(search-app)/page.tsx`             |
-| Shared mode-home route group (`/(search-app)`)                                                            | `src/app/(search-app)/`                     |
-| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                       | `src/app/(search-app)/` shared shell group  |
-| `/applications`                                                                                           | `src/app/applications/route.ts`             |
-| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                              | `src/app/(search-app)/differentials/`       |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/(search-app)/dsm/`                 |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/(search-app)/documents/`           |
-| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/(search-app)/factsheets/`          |
-| `/favourites`                                                                                             | `src/app/(search-app)/favourites/page.tsx`  |
-| `/forms`, `/forms/[slug]`                                                                                 | `src/app/(search-app)/forms/`               |
-| `/medications`, `/medications/[slug]`                                                                     | `src/app/(search-app)/medications/`         |
-| `/privacy`                                                                                                | `src/app/privacy/page.tsx`                  |
-| `/reference/colour-coding`                                                                                | `src/app/reference/`                        |
-| `/safety-plan`                                                                                            | `src/app/safety-plan/page.tsx`              |
-| `/calculators`                                                                                            | `src/app/(search-app)/calculators/page.tsx` |
-| `/services`, `/services/[slug]`                                                                           | `src/app/(search-app)/services/`            |
-| `/therapy-compass`                                                                                        | `src/app/(search-app)/therapy-compass/`     |
-| `/tools`                                                                                                  | `src/app/(search-app)/tools/`               |
-| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/(search-app)/specifiers/`          |
-| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/(search-app)/formulation/`         |
-| `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production)      |
-| `/auth/callback`                                                                                          | `src/app/auth/callback/route.ts`            |
+| Route                                                                                                     | File                                                                                      |
+| --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `/`                                                                                                       | `src/app/(search-app)/page.tsx`                                                           |
+| Shared mode-home route group (`/(search-app)`)                                                            | `src/app/(search-app)/`                                                                   |
+| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                       | `src/app/(search-app)/` shared shell group                                                |
+| `/applications`                                                                                           | `src/app/applications/route.ts`                                                           |
+| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                              | `src/app/(search-app)/differentials/`                                                     |
+| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/(search-app)/dsm/`                                                               |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/(search-app)/documents/`                                                         |
+| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/(search-app)/factsheets/`                                                        |
+| `/favourites`                                                                                             | `src/app/(search-app)/favourites/page.tsx`                                                |
+| `/forms`, `/forms/[slug]`                                                                                 | `src/app/(search-app)/forms/`                                                             |
+| `/medications`, `/medications/[slug]`                                                                     | `src/app/(search-app)/medications/`                                                       |
+| `/privacy`                                                                                                | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx` |
+| `/reference/colour-coding`                                                                                | `src/app/reference/`                                                                      |
+| `/safety-plan`                                                                                            | `src/app/safety-plan/page.tsx`                                                            |
+| `/calculators`                                                                                            | `src/app/(search-app)/calculators/page.tsx`                                               |
+| `/services`, `/services/[slug]`                                                                           | `src/app/(search-app)/services/`                                                          |
+| `/therapy-compass`                                                                                        | `src/app/(search-app)/therapy-compass/`                                                   |
+| `/tools`                                                                                                  | `src/app/(search-app)/tools/`                                                             |
+| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/(search-app)/specifiers/`                                                        |
+| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/(search-app)/formulation/`                                                       |
+| `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production)                                                    |
+| `/auth/callback`                                                                                          | `src/app/auth/callback/route.ts`                                                          |
 
 ### API routes (`src/app/api/`)
 
@@ -358,18 +358,18 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
 ## Related docs
 
-| Topic                      | Doc                                                              |
-| -------------------------- | ---------------------------------------------------------------- |
-| Full documentation index   | `docs/README.md`                                                 |
-| Routes and modes           | `docs/site-map.md`                                               |
-| Search/RAG roadmap         | `docs/search-rag-master-plan.md`                                 |
-| Universal task ledger      | `docs/outstanding-issues.md`                                     |
-| Reindex operations         | `docs/reindex-runbook.md`                                        |
-| Production readiness       | `docs/production-readiness-checklist.md`                         |
-| Capacity / scale-up        | `docs/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
-| Frontend architecture      | `docs/frontend-architecture.md`                                  |
-| Repo audit (2026-07-01)    | `docs/audit/repo-audit-2026-07-01.md`                            |
-| Latency audit (2026-07-28) | `docs/audit/latency-audit-2026-07-28.md`                         |
+| Topic                      | Doc                                                                    |
+| -------------------------- | ---------------------------------------------------------------------- |
+| Full documentation index   | `docs/README.md`                                                       |
+| Routes and modes           | `docs/site-map.md`                                                     |
+| Search/RAG roadmap         | `docs/search-rag-master-plan.md`                                       |
+| Universal task ledger      | `docs/outstanding-issues.md`                                           |
+| Reindex operations         | `docs/reindex-runbook.md`                                              |
+| Production readiness       | `docs/production-readiness-checklist.md`                               |
+| Capacity / scale-up        | `docs/audit/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
+| Frontend architecture      | `docs/frontend-architecture.md`                                        |
+| Repo audit (2026-07-01)    | `docs/audit/repo-audit-2026-07-01.md`                                  |
+| Latency audit (2026-07-28) | `docs/audit/latency-audit-2026-07-28.md`                               |
 
 ---
 

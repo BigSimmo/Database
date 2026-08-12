@@ -152,7 +152,9 @@ describe("audit navigation and auth regressions", () => {
   });
 
   it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
-    expect(universalAlsoMatchesSource).toContain('const searchActive = isWide || modeId === "answer" || expanded;');
+    expect(universalAlsoMatchesSource).toContain(
+      'modeId !== "prescribing" && (isWide || modeId === "answer" || expanded)',
+    );
     expect(universalAlsoMatchesSource).toContain("enabled: trimmedQuery.length >= 2 && searchActive");
     expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
     expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { RagQueryClass } from "../src/lib/types";
 import {
   candidateFeatures,
@@ -78,7 +79,7 @@ const hardNegativeTemplates: Array<{
   features: RankingCandidateFeatures;
 }>;
 
-function convertArtifact(artifact: RetrievalArtifact, sourceRunId?: string): RankingSnapshot {
+export function convertArtifact(artifact: RetrievalArtifact, sourceRunId?: string): RankingSnapshot {
   // Floor, not an exact pin: the golden fixture only ever grows, and a short artifact means a
   // truncated or filtered eval run that must not silently become the tuner's ground truth.
   if (!Array.isArray(artifact.results) || artifact.results.length < 36) {
@@ -86,6 +87,18 @@ function convertArtifact(artifact: RetrievalArtifact, sourceRunId?: string): Ran
       `Expected a retrieval artifact containing at least 36 cases (got ${
         Array.isArray(artifact.results) ? artifact.results.length : 0
       })`,
+    );
+  }
+  // Templates attach by caseId filter, so a renamed golden case would silently drop its
+  // hard negatives and erode the below-threshold protection the tuner's floor depends on.
+  const artifactCaseIds = new Set(artifact.results.map((testCase) => testCase.id));
+  const orphanTemplateCaseIds = [
+    ...new Set(hardNegativeTemplates.map((item) => item.caseId).filter((caseId) => !artifactCaseIds.has(caseId))),
+  ];
+  if (orphanTemplateCaseIds.length > 0) {
+    throw new Error(
+      `Hard-negative template caseId(s) match no artifact case: ${orphanTemplateCaseIds.join(", ")}. ` +
+        "A renamed or removed golden case must update hardNegativeTemplates in the same change.",
     );
   }
   const cases = artifact.results.map((testCase) => {
@@ -156,4 +169,7 @@ function main() {
   console.log(JSON.stringify({ output: resolve(output), cases: snapshot.cases.length, version: snapshot.version }));
 }
 
-main();
+// Guarded so unit tests can import convertArtifact without executing the CLI.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
