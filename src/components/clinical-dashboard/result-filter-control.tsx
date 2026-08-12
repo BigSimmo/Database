@@ -136,7 +136,10 @@ export function resultFilterFacetGroup<Value extends string>(group: {
   selected: ReadonlySet<Value>;
   options: ReadonlyArray<ResultFilterOption<Value>>;
   onToggle: (value: Value) => void;
-}): ResultFilterGroup {
+  // Returns the narrow facet type, not the union: a mode hands the same group
+  // to `ResultFilterSheet` (which takes the union) and to
+  // `ResultFilterFacetChips` for its desktop rail (which does not).
+}): ResultFilterFacetGroup {
   return {
     kind: "facet",
     id: group.id,
@@ -396,7 +399,14 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
 }
 
 /**
- * A multi-select facet group.
+ * A multi-select facet group, exported so a mode renders the SAME control in
+ * its desktop rail as in its phone sheet.
+ *
+ * The lens modes converge on `SegmentedControl` at both breakpoints; facets had
+ * no such primitive, and the alternative was a second hand-rolled chip row per
+ * mode — which is exactly how the breakpoints came to disagree in the first
+ * place. `idPrefix` scopes the labelling ids, so the two copies can coexist in
+ * one page without colliding.
  *
  * Deliberately NOT a radio group. `aria-pressed` toggles inside a
  * `role="group"` are the honest reading of many-of-N: each control is
@@ -422,18 +432,19 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
  */
 type FacetGroupDisclosure = { open: boolean; onToggle: () => void; contentId: string };
 
-function FilterFacetGroup({
+export function ResultFilterFacetChips({
   group,
-  panelId,
+  idPrefix,
   options,
   disclosure,
 }: {
   group: ResultFilterFacetGroup;
-  panelId: string;
+  idPrefix: string;
   /** Needle-filtered subset; defaults to every option in the group. */
   options?: ReadonlyArray<ResultFilterOption<string>>;
   disclosure?: FacetGroupDisclosure;
 }) {
+  const panelId = idPrefix;
   const groupLabelId = `${panelId}-${group.id}-label`;
   const visibleOptions = options ?? group.options;
 
@@ -779,10 +790,10 @@ export function ResultFilterSheet({
             Boolean(activeNeedle) ||
             (!collapsed.has(group.id) && (expanded.has(group.id) || selectedCount > 0));
           return (
-            <FilterFacetGroup
+            <ResultFilterFacetChips
               key={group.id}
               group={group}
-              panelId={panelId}
+              idPrefix={panelId}
               options={filteredOptions}
               disclosure={
                 dense && !activeNeedle
