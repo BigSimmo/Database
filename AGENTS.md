@@ -872,8 +872,9 @@ status ledger. Update the universal ledger when work completes, is dropped, beco
 materially re-scoped. Never restore completed, duplicate, speculative, superseded, or rejected work
 to the recommended queue.
 
-- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
-  `docs/outstanding-issues.md`, state the recommended queue in order, then summarize other open
+- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): run
+  `npm run issues:report -- --json` for an authoritative revalidated read from `origin/main`,
+  state the recommended queue in order, then summarize other open
   items by priority. A plain `/issues` is read-only — it mutates and commits nothing.
 - `/issues add|done|update|capture …` mutate the ledger; each mutation commits **only**
   `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).

@@ -60,7 +60,7 @@ export function classifyAgentSafeWins(rows) {
       hours !== null &&
       hours <= 4 &&
       !/\boperator\b/i.test(row.capability) &&
-      !/\b(?:provider|live |production|staging|human decision|owner decides?|approval|rag|retrieval|clinical)\b/i.test(
+      !/\b(?:provider|live |production|staging|human decision|owner decides?|approval|rag|retrieval|clinical|design.?owner|do not close automatically|the decision is a human|not for agents?|human.?only|requires? human|awaiting? (?:owner|human|operator)|operator decision)\b/i.test(
         combined,
       )
     );

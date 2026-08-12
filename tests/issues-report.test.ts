@@ -48,6 +48,40 @@ describe("issues report", () => {
     expect(queueRows[0].acuity).toBe("A1");
   });
 
+  it("excludes human-only rows (design-owner review, do-not-close, human-decision phrases)", () => {
+    const humanOnlyRows = [
+      {
+        order: 1,
+        ids: ["#010"],
+        acuity: "A3",
+        capability: "High — frontend",
+        when: "After design-owner review",
+        estimate: "2 hours",
+        outcome: "Implement after design-owner review.",
+      },
+      {
+        order: 2,
+        ids: ["#011"],
+        acuity: "A3",
+        capability: "Standard",
+        when: "Next",
+        estimate: "1 hour",
+        outcome: "The decision is a human's; do not close automatically.",
+      },
+      {
+        order: 3,
+        ids: ["#012"],
+        acuity: "A3",
+        capability: "Standard",
+        when: "Next",
+        estimate: "30 min",
+        outcome: "Safe offline task.",
+      },
+    ];
+    const wins = classifyAgentSafeWins(humanOnlyRows);
+    expect(wins.map((row) => row.ids[0])).toEqual(["#012"]);
+  });
+
   it("builds machine-readable counts and preserves the A1 blocker separately", () => {
     const markdown = [
       "# Outstanding",
