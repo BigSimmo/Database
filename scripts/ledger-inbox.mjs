@@ -441,7 +441,41 @@ function reconcile(argv) {
   } finally {
     if (!transactionOpen) release();
   }
-}  createdOn: "2026-08-13",
+}
+
+function selfTest() {
+  const base = [
+    "<!-- issues:next-id=2 -->",
+    "",
+    "## Recommended execution queue",
+    "",
+    "<!-- prettier-ignore -->",
+    "",
+    "| Order | ID(s) |",
+    "| --- | --- |",
+    "| 1 | `#001` |",
+    "",
+    "## Open items",
+    "",
+    "<!-- prettier-ignore -->",
+    "",
+    "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    "| #001 | P2 | issue | one | d | s | 2026-01-01 |",
+    "",
+    "## Resolved / archive",
+    "",
+    "<!-- prettier-ignore -->",
+    "",
+    "| ID | Type | Summary | Outcome | Resolved |",
+    "| ---- | ---- | ---- | ---- | ---- |",
+    "| #000 | issue | old | done | 2026-01-01 |",
+    "",
+  ].join("\n");
+  const add = {
+    version: 1,
+    id: "11111111-1111-4111-8111-111111111111",
+    createdOn: "2026-08-13",
     action: "add",
     payload: { pri: "P2", type: "issue", summary: "two" },
   };
