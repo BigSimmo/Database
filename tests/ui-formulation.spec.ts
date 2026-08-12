@@ -114,14 +114,32 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   const topMatch = page.getByTestId("formulation-top-match");
   await expect(topMatch.getByText("Top match for your search", { exact: true })).toBeVisible();
   await expect(topMatch.getByRole("link", { name: "Worry", exact: true })).toBeVisible();
-  // Both dimensions used to be side-by-side selects in the ribbon; they are now
-  // one compact trigger opening a sheet that holds both groups.
+  // One compact trigger opening a sheet. The sheet now holds a single group:
+  // the old `Pattern` group called router.push and replaced the query, so its
+  // presets moved below the band as suggested searches.
   const filterTrigger = queryRibbon.getByTestId("formulation-filter-trigger-phone");
   await expect(filterTrigger).toBeVisible();
+  await expect(page.getByTestId("formulation-pattern-suggestions")).toBeVisible();
   await filterTrigger.click();
-  await expect(page.getByRole("radiogroup", { name: "Pattern" })).toBeVisible();
-  const domainGroup = page.getByRole("radiogroup", { name: "Domain" });
-  await expect(domainGroup.getByRole("radio", { name: "All domains" })).toBeChecked();
+  await expect(page.getByRole("radiogroup", { name: "Pattern" })).toHaveCount(0);
+  // Domain is a facet, not a lens: many-of-N, so aria-pressed toggles inside a
+  // role="group" rather than radios, and no "All domains" escape option — an
+  // empty selection already means no constraint.
+  const domainGroup = page.getByRole("group", { name: "Domain" });
+  await expect(domainGroup).toBeVisible();
+  await expect(domainGroup.getByRole("radio")).toHaveCount(0);
+  // Derived from the mechanisms that carry a domain: 9 of the 12 declared.
+  await expect(domainGroup.getByRole("button")).toHaveCount(9);
+  const affect = domainGroup.getByRole("button", { name: /^Affect/ });
+  await expect(affect).toHaveAttribute("aria-pressed", "false");
+  await affect.click();
+  await expect(affect).toHaveAttribute("aria-pressed", "true");
+  // Accumulates rather than replaces — the whole point of the facet kind.
+  const cognition = domainGroup.getByRole("button", { name: /^Cognition/ });
+  await cognition.click();
+  await expect(affect).toHaveAttribute("aria-pressed", "true");
+  await expect(cognition).toHaveAttribute("aria-pressed", "true");
+  await expect(filterTrigger).toHaveAccessibleName(/2 filters active/);
   await page.getByTestId("formulation-filter-panel-done").click();
   await expect(domainGroup).toBeHidden();
   await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
