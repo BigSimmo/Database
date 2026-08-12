@@ -27,18 +27,17 @@ export type DisclosureProps = {
  * `aria-controls`. `aria-expanded` alone says something opened but never what —
  * that exact gap was the `AccessibleTable` expander defect.
  *
- * The panel is kept in the DOM and hidden with `hidden` rather than unmounted, so
- * the content is there to be revealed rather than re-fetched. On screen, `hidden`
- * is `display:none`, so a collapsed panel is genuinely out of the accessibility
- * tree and out of Ctrl-F — that is correct for a control the reader can open, and
- * the docstring here used to claim otherwise.
+ * The panel stays mounted and uses the author-level `hidden` utility while
+ * collapsed rather than the HTML `hidden` attribute. On screen the utility is
+ * `display:none`, so a collapsed panel is genuinely out of the accessibility
+ * tree and out of Ctrl-F — that is correct for a control the reader can open.
  *
  * Print is the case where it is NOT correct. A printed page has no disclosure to
  * open, so a collapsed section prints as if the guideline never mentioned it —
  * exactly the failure this component is supposed to prevent, made permanent on
  * paper and unnoticeable, because the reader holding the printout has no way to
- * tell a section was omitted. `print:!block` on the panel overrides the UA's
- * important `[hidden]` rule and expands every collapsed section for print; the
+ * tell a section was omitted. `print:block` overrides the author-level collapse
+ * utility and expands every collapsed section for print; the
  * chevron is dropped, since a rotated arrow means nothing on paper.
  *
  * No height animation. Animating `height` or `grid-template-rows` forces layout
@@ -124,9 +123,12 @@ export function Disclosure({
         id={panelId}
         role="region"
         aria-labelledby={`${id}-trigger`}
-        hidden={!open}
         data-open={open ? "true" : "false"}
-        className={cn("px-3 py-3 print:!block", extendDescription ? "pt-0" : "border-t border-[color:var(--border)]")}
+        className={cn(
+          "px-3 py-3 print:block",
+          !open && "hidden",
+          extendDescription ? "pt-0" : "border-t border-[color:var(--border)]",
+        )}
       >
         {children}
       </div>

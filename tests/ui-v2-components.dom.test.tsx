@@ -1251,11 +1251,11 @@ describe("Disclosure — print", () => {
     );
 
     const panel = screen.getByTestId("disclosure").querySelector('[role="region"]');
-    expect(panel).toHaveAttribute("hidden");
+    expect(panel).not.toHaveAttribute("hidden");
     expect(panel).toHaveAttribute("data-open", "false");
     // On paper there is no control to open, so a collapsed section would print
     // as though the guideline never mentioned it — undetectably.
-    expect(panel?.className).toContain("print:!block");
+    expect(panel).toHaveClass("hidden", "print:block");
   });
 
   it("keeps an open panel visible and still print-expanded", () => {
@@ -1267,6 +1267,8 @@ describe("Disclosure — print", () => {
 
     const panel = screen.getByRole("region");
     expect(panel).not.toHaveAttribute("hidden");
+    expect(panel).not.toHaveClass("hidden");
+    expect(panel).toHaveClass("print:block");
     expect(panel).toHaveAttribute("data-open", "true");
   });
 });
