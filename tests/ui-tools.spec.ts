@@ -1306,7 +1306,7 @@ test.describe("Clinical KB tools launcher", () => {
     await page.getByTestId("service-filter-trigger-desktop").click();
     const filterPanel = page.getByTestId("service-filter-panel");
     await filterPanel.getByRole("button", { name: /^Acuity/ }).click();
-    const crisisFacet = filterPanel.getByRole("button", { name: /^Crisis \\/ urgent/ });
+    const crisisFacet = filterPanel.getByRole("button", { name: /^Crisis \/ urgent/ });
     await expect(crisisFacet).toBeVisible();
     await crisisFacet.click();
     await expect(page).toHaveURL(/acuity_flags=crisis_high/);
