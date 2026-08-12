@@ -61,12 +61,49 @@ describe("RAG route deadlines", () => {
   it("does not allow a result to be cached after its route deadline", async () => {
     vi.useFakeTimers();
     const deadline = createAnswerRouteDeadline({ routeMode: "extractive" });
+    const answer = { routingReason: "high_confidence_extractive_retrieval", degradedMode: undefined };
 
-    expect(answerRouteResultCanBeCached(deadline)).toBe(true);
+    expect(answerRouteResultCanBeCached(deadline, answer)).toBe(true);
     await vi.advanceTimersByTimeAsync(answerRouteBudgetMs.extractive);
-    expect(answerRouteResultCanBeCached(deadline)).toBe(false);
+    expect(answerRouteResultCanBeCached(deadline, answer)).toBe(false);
 
     deadline.dispose();
+  });
+
+  it("never caches provider-generation fallbacks before the route deadline", () => {
+    const deadline = { deadlineExceeded: false };
+
+    expect(
+      answerRouteResultCanBeCached(deadline, {
+        routingReason: "clinical_fast_grounded_synthesis; generation_fallback:provider_timeout",
+        degradedMode: { active: true, reason: "generation_fallback:provider_timeout" },
+      }),
+    ).toBe(false);
+    expect(
+      answerRouteResultCanBeCached(deadline, {
+        routingReason: "clinical_fast_grounded_synthesis; source_backed_extractive_fallback",
+        degradedMode: { active: true, reason: "generation_fallback:provider_timeout" },
+      }),
+    ).toBe(false);
+    expect(
+      answerRouteResultCanBeCached(deadline, {
+        routingReason: "strong_generation; generation_fallback",
+        degradedMode: { active: true, reason: "generation_fallback" },
+      }),
+    ).toBe(false);
+    // Bare routing marker alone (no degradedMode) must refuse the cache too.
+    expect(
+      answerRouteResultCanBeCached(deadline, {
+        routingReason: "strong_generation; generation_fallback",
+        degradedMode: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      answerRouteResultCanBeCached(deadline, {
+        routingReason: "clinical_fast; Generation_Fallback:provider_timeout",
+        degradedMode: undefined,
+      }),
+    ).toBe(false);
   });
 });
 

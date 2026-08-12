@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { citationFromResult } from "../src/lib/citations";
-import { answerRouteBudgetMs, generationRecoveryReserveMs } from "../src/lib/rag/rag-route-budget";
+import {
+  answerRouteBudgetMs,
+  answerRouteResultCanBeCached,
+  generationRecoveryReserveMs,
+} from "../src/lib/rag/rag-route-budget";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 function retrievalRpcBaseName(name: string) {
@@ -90,8 +94,13 @@ async function answerFromTextSources(
   generatedAnswer?: GeneratedAnswerPayload | Error,
   options: { sourceOnly?: boolean } = {},
 ) {
+  // `src/lib/env.ts` freezes process.env at module load. The offline vitest wrapper
+  // starts every worker as RAG_PROVIDER_MODE=offline with a blank OpenAI key, so we
+  // must re-parse env after stubbing — otherwise the first test in this file keeps
+  // the runner's offline snapshot and never exercises the mocked provider path.
+  vi.resetModules();
   vi.stubEnv("OPENAI_API_KEY", options.sourceOnly ? "" : "test-key");
-  if (options.sourceOnly) vi.stubEnv("RAG_PROVIDER_MODE", "offline");
+  vi.stubEnv("RAG_PROVIDER_MODE", options.sourceOnly ? "offline" : "auto");
   vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
   vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
@@ -3387,7 +3396,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope, isCacheableGroundedGenerationFallback } = await import("../src/lib/rag/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
     const progressEvents: Array<{
       stage: string;
       selectedContextCount?: number;
@@ -3430,7 +3439,7 @@ describe("RAG structured-output fallback", () => {
     ]);
     expect(answer.openAIRequestIds).toEqual(["req_truncated_1", "req_truncated_2"]);
     expect(answer.openAIUsage).toMatchObject({ output_tokens: 1300, total_tokens: 1500 });
-    expect(isCacheableGroundedGenerationFallback(answer)).toBe(true);
+    expect(answerRouteResultCanBeCached({ deadlineExceeded: false }, answer)).toBe(false);
     expect(progressEvents).toContainEqual(
       expect.objectContaining({
         stage: "ranking",
@@ -3471,14 +3480,12 @@ describe("RAG structured-output fallback", () => {
       ],
       new Error("OpenAI generation incomplete: max_output_tokens"),
     );
-    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag/rag");
-
     expect(answer.answer).not.toMatch(/fluoxetine|citalopram|60 mg|40 mg/i);
     expect(answer.answer).toMatch(/source|guidance|support|evidence/i);
     expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
     expect(answer.routingReason).toContain("source_backed_review_fallback");
     expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
-    expect(isCacheableGroundedGenerationFallback(answer)).toBe(false);
+    expect(answerRouteResultCanBeCached({ deadlineExceeded: false }, answer)).toBe(false);
   });
 
   it("prefers the safe single-chunk fallback candidate that carries the asked-for dose figure", async () => {
@@ -3523,40 +3530,25 @@ describe("RAG structured-output fallback", () => {
     expect(new Set(answer.citations.map((citation) => citation.chunk_id))).toEqual(new Set(["quetiapine-maximum-1"]));
   });
 
-  it("never marks the generic source-review fallback as cacheable", async () => {
-    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag/rag");
-
+  it("never marks provider-generation fallbacks as cacheable", async () => {
     expect(
-      isCacheableGroundedGenerationFallback({
-        routingMode: "unsupported",
-        routingReason: "strong_generation; generation_fallback:provider_timeout",
-        grounded: false,
-        confidence: "low",
-        citations: [],
-        unverifiedNumericTokens: [],
-      }),
+      answerRouteResultCanBeCached(
+        { deadlineExceeded: false },
+        {
+          routingReason: "strong_generation; generation_fallback:provider_timeout",
+          degradedMode: { active: true, reason: "generation_fallback:provider_timeout" },
+        },
+      ),
     ).toBe(false);
     expect(
-      isCacheableGroundedGenerationFallback({
-        routingMode: "extractive",
-        routingReason:
-          "strong_generation; generation_fallback:provider_timeout; source_backed_review_fallback; extractive_quality_gate:weak",
-        grounded: true,
-        confidence: "low",
-        citations: [
-          {
-            chunk_id: "source-1",
-            document_id: "document-1",
-            title: "Source",
-            file_name: "source.pdf",
-            page_number: 1,
-            chunk_index: 0,
-            source_metadata: null,
-            provenance: "deterministic_support",
-          },
-        ],
-        unverifiedNumericTokens: [],
-      }),
+      answerRouteResultCanBeCached(
+        { deadlineExceeded: false },
+        {
+          routingReason:
+            "strong_generation; generation_fallback:provider_timeout; source_backed_review_fallback; extractive_quality_gate:weak",
+          degradedMode: { active: true, reason: "generation_fallback:provider_timeout" },
+        },
+      ),
     ).toBe(false);
   });
 

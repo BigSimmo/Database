@@ -131,7 +131,7 @@ describe("CI cache safety", () => {
     expect(opsDigestWorkflow).toContain("eval-canary-liveness:");
     expect(opsDigestWorkflow).toContain("github.rest.actions.listWorkflowRuns");
     expect(workflow).toContain(
-      "if: github.event_name == 'pull_request' && needs.changes.outputs.pr_policy_body_present == 'true'",
+      "if: github.event_name == 'pull_request' && needs.changes.outputs.pr_policy_body_changed == 'true'",
     );
   });
 
