@@ -32,8 +32,6 @@ import {
   cn,
   codeText,
   eyebrowText,
-  fieldControl,
-  fieldLabel,
   floatingControl,
   LoadingPanel,
   panel,
@@ -737,36 +735,53 @@ export function PinnedSourceEvidence({
             <p className="mt-2 text-sm font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
           )}
           <blockquote
+            id={chunk.id ? `cited-passage-${chunk.id}` : undefined}
             className={cn(
-              "mt-2 rounded-lg bg-[color:var(--surface-inset)] px-3 py-2.5 text-[color:var(--text)]",
-              showingPreview ? "line-clamp-3 whitespace-normal" : "whitespace-pre-line",
+              "mt-2 rounded-lg bg-[color:var(--surface-inset)] px-3 py-2 text-[color:var(--text)]",
+              showingPreview ? "line-clamp-2 whitespace-normal" : "whitespace-pre-line",
             )}
           >
             {visibleContent || "No displayable clinical text was available for this indexed passage."}
           </blockquote>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <a href="#pdf-preview-section" className={cn(primaryButton, "sm:min-h-9 px-3 text-xs")}>
+          <div className="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
+            <a
+              href="#pdf-preview-section"
+              className={cn(
+                primaryButton,
+                "min-w-0 justify-center px-1.5 text-center text-2xs sm:min-h-9 sm:px-3 sm:text-xs",
+              )}
+            >
               <ExternalLink aria-hidden="true" className="h-4 w-4" />
-              View in PDF
+              <span>View PDF</span>
             </a>
             {compact && isLong ? (
               <button
                 type="button"
                 onClick={() => setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))}
-                className={cn(secondaryButton, "sm:min-h-9 px-3 text-xs")}
+                className={cn(
+                  secondaryButton,
+                  "min-w-0 justify-center px-1.5 text-center text-2xs sm:min-h-9 sm:px-3 sm:text-xs",
+                )}
                 data-testid="toggle-full-passage"
+                aria-expanded={expanded}
+                aria-controls={chunk.id ? `cited-passage-${chunk.id}` : undefined}
               >
-                {expanded ? "Show passage preview" : "Show full passage"}
+                {expanded ? "Collapse" : "Full passage"}
               </button>
-            ) : null}
+            ) : (
+              <span aria-hidden="true" />
+            )}
             {onInspectIndexedText ? (
               <button
                 type="button"
                 onClick={onInspectIndexedText}
-                className={cn(secondaryButton, "sm:min-h-9 px-3 text-xs")}
+                className={cn(
+                  secondaryButton,
+                  "min-w-0 justify-center px-1.5 text-center text-2xs sm:min-h-9 sm:px-3 sm:text-xs",
+                )}
                 data-testid="inspect-indexed-text"
               >
-                Inspect indexed text
+                Indexed text
               </button>
             ) : null}
           </div>
@@ -910,7 +925,7 @@ function HighlightedSearchText({ text, terms }: { text: string; terms: string[] 
 // Memoised: both the mobile <details> and desktop copies stay mounted and are
 // CSS-toggled, so without this every unrelated parent re-render (e.g. composer
 // typing) re-rendered both instances. All props are referentially stable across
-// those renders (onSearchChange is a stable setState), so memo actually elides them.
+// those renders, so memo actually elides them.
 export const IndexedTextPanel = memo(function IndexedTextPanel({
   loading,
   selectedPage,
@@ -922,7 +937,6 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   idPrefix,
   sectionId,
   selectedChunkId,
-  onSearchChange,
   compact = false,
   revealRequest = false,
 }: {
@@ -936,7 +950,8 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   idPrefix: string;
   sectionId?: "source-text";
   selectedChunkId?: string;
-  onSearchChange: (value: string) => void;
+  /** Retained for call-site compatibility; search input is owned by the document composer. */
+  onSearchChange?: (value: string) => void;
   compact?: boolean;
   /**
    * Explicit user intent to open the panel (e.g. "Inspect indexed text").
@@ -1002,19 +1017,26 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   // lost across re-renders and left deep-linked hits collapsed in Production UI.
   const [manualClosedDriver, setManualClosedDriver] = useState<string | null>(null);
   const [compactOpen, setCompactOpen] = useState(false);
+  const previousSearchRef = useRef("");
   // In-document search and an explicit "Inspect indexed text" action keep the
   // panel revealed through exclusive-accordion closes. Citation deep-links alone
   // must not force-open — that stole the first viewport from the PDF.
   const forceReveal = Boolean(normalizedSearch) || revealRequest;
-  const [prevForceReveal, setPrevForceReveal] = useState(forceReveal);
-  if (forceReveal !== prevForceReveal) {
-    setPrevForceReveal(forceReveal);
+  const previousForceRevealRef = useRef(forceReveal);
+  useEffect(() => {
+    if (forceReveal === previousForceRevealRef.current) return;
+    previousForceRevealRef.current = forceReveal;
     // Rising edge: latch open so exclusive-accordion closes cannot collapse an
     // active inspect/search reveal. Falling edge: drop the latch so jumping to
     // PDF/overview (or clearing revealRequest on the same citation) restores
     // PDF-first instead of leaving the dump controlled-open.
     setCompactOpen(forceReveal);
-  }
+  }, [forceReveal]);
+  useEffect(() => {
+    if (previousSearchRef.current === normalizedSearch) return;
+    previousSearchRef.current = normalizedSearch;
+    setActiveHitIndex(0);
+  }, [normalizedSearch]);
   if (previousAutoOpenDriverRef.current !== autoOpenDriver) {
     previousAutoOpenDriverRef.current = autoOpenDriver;
     if (manualClosedDriver !== null) setManualClosedDriver(null);
@@ -1097,23 +1119,11 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
             : `Extracted text for page ${selectedPage?.page_number ?? "n/a"} with searchable source passages.`
         }
       />
-      <div className={cn(clinicalDivider, "p-5 pt-4")}>
-        <label className="block">
-          <span className={fieldLabel}>Search within indexed source text</span>
-          <input
-            value={search}
-            onChange={(event) => {
-              setActiveHitIndex(0);
-              onSearchChange(event.target.value);
-            }}
-            placeholder="Find a term, warning, or monitoring item"
-            className={fieldControl}
-          />
-        </label>
+      <div className={cn(clinicalDivider, "px-4 pb-4 pt-3 sm:p-5 sm:pt-4")}>
         {loading ? (
           <LoadingPanel label="Loading indexed source text" />
         ) : (
-          <div className="mt-4 grid gap-3">
+          <div className="grid gap-2.5">
             <details
               data-source-nested-disclosure
               data-testid="indexed-page-text-disclosure"
@@ -1121,7 +1131,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
             >
               <summary
                 onClick={handleNestedSummaryClick}
-                className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9"
+                className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9"
               >
                 <span>
                   <span className="block text-sm font-semibold text-[color:var(--text)]">Full extracted page text</span>
@@ -1150,7 +1160,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
             </details>
           </div>
         )}
-        <div className={cn("mt-4 pt-4", clinicalDivider)}>
+        <div className={cn("mt-3 pt-3", clinicalDivider)}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-[color:var(--text)]">Source passages</p>
             {searchEligible ? (
@@ -1198,7 +1208,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
               {documentSearchError}
             </p>
           ) : null}
-          <div className="mt-3 grid gap-3">
+          <div className="mt-2.5 grid gap-2.5">
             {normalizedSearch.length === 1 ? (
               <p className={cn("text-base-minus leading-6", textMuted)}>
                 Enter at least 2 characters to search all indexed passages.
@@ -1239,7 +1249,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
                   >
                     <summary
                       onClick={handleNestedSummaryClick}
-                      className="flex min-h-tap cursor-pointer list-none items-start justify-between gap-3 px-3 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9"
+                      className="flex min-h-tap cursor-pointer list-none items-start justify-between gap-2 px-3 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9"
                     >
                       <span className="min-w-0">
                         <span
@@ -1254,7 +1264,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
                         >
                           {status}
                         </span>
-                        <span className={cn("mt-2 block", eyebrowText)}>
+                        <span className={cn("mt-1.5 block", eyebrowText)}>
                           Page {chunk.page_number ?? "n/a"} · chunk {chunk.chunk_index}
                           {chunk.serverRanked ? " · full-document search" : ""}
                         </span>
@@ -1263,7 +1273,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
                             {chunk.section_heading}
                           </span>
                         ) : null}
-                        <span className={cn("mt-1 line-clamp-2 block text-sm leading-5", textMuted)}>
+                        <span className={cn("mt-1 line-clamp-1 block text-xs leading-5", textMuted)}>
                           {teaser || "No displayable clinical text was available for this indexed passage."}
                         </span>
                       </span>
