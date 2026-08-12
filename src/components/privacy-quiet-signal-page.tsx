@@ -22,7 +22,7 @@ import { privacyCopy } from "@/lib/ui-copy";
  * Quiet-scroll mockup DNA (`privacy-live-signal-variants`):
  * - Sticky chrome = header + full-bleed amber Important only (no phone chips)
  * - Back + BrandMark + Quiet signal badge; Draft on the right
- * - Processing map: 3-col instrument on lg+, compact pills below
+ * - Processing map: single instrument card (stacks on phone, 3-col from sm+)
  * - Denser accordion with gists; desktop Signal Index
  *
  * Governance copy stays in `privacy-page-content` (pinned by privacy-ui tests).
@@ -45,67 +45,44 @@ function LiveDot() {
   );
 }
 
-function ProcessingMap({ compact }: { compact: boolean }) {
+function ProcessingMap() {
   return (
-    <section aria-label="Where processing happens" className="space-y-2">
-      <div className="flex items-baseline justify-between gap-3">
+    <section aria-label="Where processing happens" className="space-y-2.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="text-3xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--text-soft)]">
           Processing map
         </p>
-        {!compact ? (
-          <p className="text-3xs font-medium text-[color:var(--text-soft)]">Operator must verify regions</p>
-        ) : null}
+        <p className="text-3xs font-medium text-[color:var(--text-soft)]">Operator must verify regions</p>
       </div>
-      {compact ? (
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {PRIVACY_PROCESSING_MAP.map((cell) => {
-            const shortRole =
-              cell.place === "Sydney" ? "Storage" : cell.place === "Singapore" ? "App + worker" : "OpenAI";
-            return (
-              <span
-                key={cell.place}
-                title={`${cell.place} · ${cell.role}`}
-                className={cn(
-                  "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-3xs font-semibold",
-                  cell.tone === "accent" &&
-                    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-                  cell.tone === "warn" &&
-                    "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]",
-                  cell.tone === "neutral" &&
-                    "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
-                )}
-              >
-                <span className="font-extrabold uppercase tracking-[0.08em]">{cell.place}</span>
-                <span className="opacity-40">·</span>
-                <span>{shortRole}</span>
-              </span>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]">
-          {PRIVACY_PROCESSING_MAP.map((cell, index) => (
-            <div
-              key={cell.place}
-              className={cn("min-w-0 px-4 py-3.5", index > 0 && "border-l border-[color:var(--border)]")}
+      {/*
+        One instrument for every width — no dual-mount, no horizontal scroll that
+        clips External on phone. Stacks below sm; three columns from sm up.
+      */}
+      <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] sm:grid-cols-3">
+        {PRIVACY_PROCESSING_MAP.map((cell, index) => (
+          <div
+            key={cell.place}
+            className={cn(
+              "min-w-0 px-3.5 py-3 sm:px-4 sm:py-3.5",
+              index > 0 && "border-t border-[color:var(--border)] sm:border-t-0 sm:border-l",
+            )}
+          >
+            <p
+              className={cn(
+                "text-2xs font-extrabold uppercase tracking-[0.12em]",
+                cell.tone === "accent" && "text-[color:var(--clinical-accent)]",
+                cell.tone === "warn" && "text-[color:var(--warning-text)]",
+                cell.tone === "neutral" && "text-[color:var(--text-muted)]",
+              )}
             >
-              <p
-                className={cn(
-                  "text-2xs font-extrabold uppercase tracking-[0.12em]",
-                  cell.tone === "accent" && "text-[color:var(--clinical-accent)]",
-                  cell.tone === "warn" && "text-[color:var(--warning-text)]",
-                  cell.tone === "neutral" && "text-[color:var(--text-muted)]",
-                )}
-              >
-                {cell.place}
-              </p>
-              <p className="mt-1 truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
-                {cell.role}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+              {cell.place}
+            </p>
+            <p className="mt-1 text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
+              {cell.role}
+            </p>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -289,14 +266,14 @@ export function PrivacyQuietSignalPage() {
             </Suspense>
             <BrandMark className="h-10 w-10 shrink-0 lg:h-11 lg:w-11" />
             <div className="min-w-0 flex-1">
-              <div className="flex flex-nowrap items-center gap-2 overflow-hidden">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <p className={cn(eyebrowText, "shrink-0")}>{privacyCopy.pageEyebrow}</p>
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-2 py-0.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--warning-text)]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-2 py-0.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--warning-text)]">
                   <LiveDot />
-                  Quiet signal
+                  Quiet<span className="max-sm:hidden"> signal</span>
                 </span>
               </div>
-              <h1 className="truncate text-base-minus font-semibold tracking-[-0.025em] text-[color:var(--text-heading)] lg:text-xl">
+              <h1 className="mt-0.5 text-pretty text-base-minus font-semibold tracking-[-0.025em] text-[color:var(--text-heading)] max-sm:leading-snug lg:text-xl">
                 {privacyCopy.pageTitle}
               </h1>
             </div>
@@ -433,12 +410,7 @@ export function PrivacyQuietSignalPage() {
 
           <div className="min-w-0 space-y-5">
             <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">{PRIVACY_DRAFT_DISCLAIMER}</p>
-            <div className="lg:hidden">
-              <ProcessingMap compact />
-            </div>
-            <div className="hidden lg:block">
-              <ProcessingMap compact={false} />
-            </div>
+            <ProcessingMap />
             <SectionAccordion
               idPrefix={sectionIdPrefix}
               openId={openId}
