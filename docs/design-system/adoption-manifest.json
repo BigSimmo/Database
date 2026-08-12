@@ -1429,6 +1429,7 @@
       "testFiles": [
         "tests/answer-progress-ui-smoke.spec.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/differential-compare-queue-page.dom.test.tsx",
         "tests/eval-process-safety.test.ts",
         "tests/ui-formulation.spec.ts",
         "tests/ui-smoke.spec.ts",

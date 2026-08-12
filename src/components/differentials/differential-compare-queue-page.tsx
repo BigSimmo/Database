@@ -47,7 +47,7 @@ export function DifferentialCompareQueuePage({
                 Tick diagnoses on Search to build a comparison
               </h1>
               <p className="mt-4 max-w-xl text-sm leading-7 text-[color:var(--text-muted)] sm:text-base">
-                Select two or more diagnoses to review their distinguishing features side by side in a focused clinical
+                Select one or more diagnoses to review their distinguishing features side by side in a focused clinical
                 workspace.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -108,7 +108,7 @@ export function DifferentialCompareQueuePage({
         </section>
 
         <section
-          className="order-3 overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)] sm:order-2"
+          className="overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]"
           aria-labelledby="selected-diagnoses-heading"
         >
           <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3.5 sm:px-5">
@@ -125,7 +125,7 @@ export function DifferentialCompareQueuePage({
               return (
                 <li
                   key={item.slug}
-                  className="group flex min-h-[4.5rem] items-center gap-3 px-4 py-3 transition hover:bg-[color:var(--surface-subtle)] sm:px-5"
+                  className="group flex min-h-tap items-center gap-3 px-4 py-3 transition hover:bg-[color:var(--surface-subtle)] sm:px-5"
                 >
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-xs font-extrabold text-[color:var(--clinical-accent)]">
                     {selectedIds.indexOf(item.slug) + 1}
@@ -151,7 +151,7 @@ export function DifferentialCompareQueuePage({
         </section>
 
         <section
-          className="order-2 rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/50 p-4 sm:order-3 sm:p-5"
+          className="rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/50 p-4 sm:p-5"
           aria-label="Comparison actions"
         >
           <div className="mb-4 flex items-start gap-3">
