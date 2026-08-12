@@ -42,13 +42,22 @@ import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { removePathSync } from "./retryable-fs.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
-import { appName, localProjectId } from "../src/lib/local-server-utils.mjs";
+import {
+  appName,
+  circularProjectPortRange,
+  isReservedDevPort,
+  localProjectId,
+  projectPortEnd,
+  projectPortStart,
+  stableProjectPort,
+} from "../src/lib/local-server-utils.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const nextBin = path.join(projectRoot, "node_modules", "next", "dist", "bin", "next");
@@ -59,11 +68,34 @@ const flag = (name, fallback) => {
   return index >= 0 && argv[index + 1] ? argv[index + 1] : fallback;
 };
 
+function canConnect(port, host) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host, port });
+    socket.once("connect", () => socket.destroy(void resolve(true)));
+    socket.once("error", () => resolve(false));
+    setTimeout(() => socket.destroy(void resolve(false)), 500);
+  });
+}
+
+async function findFreePort(startPort) {
+  for (const candidate of circularProjectPortRange(startPort)) {
+    if (isReservedDevPort(candidate)) continue;
+    if (!(await canConnect(candidate, "127.0.0.1"))) return candidate;
+  }
+  throw new Error("No free CLS server port found in the configured project range.");
+}
+
 const routes = flag("routes", "/dsm,/documents/search,/forms,/therapy-compass,/")
   .split(",")
   .map((route) => route.trim())
   .filter(Boolean);
-const port = Number(flag("port", "4611"));
+const portFlag = flag("port", null);
+const port = portFlag === null ? await findFreePort(stableProjectPort(projectRoot)) : Number(portFlag);
+if (!Number.isInteger(port) || port < projectPortStart || port > projectPortEnd || isReservedDevPort(port)) {
+  throw new Error(
+    `--port must be an available managed project port between ${projectPortStart} and ${projectPortEnd}; received ${portFlag}.`,
+  );
+}
 const settleMs = Number(flag("settle-ms", "6000"));
 const outFile = path.resolve(projectRoot, flag("out", "cls-attribution.json"));
 const baseUrl = `http://127.0.0.1:${port}`;

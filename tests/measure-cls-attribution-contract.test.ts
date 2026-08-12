@@ -20,6 +20,15 @@ describe("CLS attribution evidence contract", () => {
     expect(source.indexOf("mkdirSync(path.dirname(outFile)")).toBeLessThan(source.indexOf("writeFileSync(outFile"));
   });
 
+  it("selects a free managed project port by default", () => {
+    expect(source).toContain('import net from "node:net";');
+    expect(source).toContain("circularProjectPortRange");
+    expect(source).toContain("findFreePort(stableProjectPort(projectRoot))");
+    expect(source).toContain("port < projectPortStart");
+    expect(source).toContain("port > projectPortEnd");
+    expect(source).not.toContain('flag("port", "4611")');
+  });
+
   it("uses the shared browser-runner safety boundaries", () => {
     expect(source).toContain('acquireHeavyRunLock({ projectRoot, command: "measure-cls-attribution" })');
     expect(source).toContain('import { removePathSync } from "./retryable-fs.mjs";');

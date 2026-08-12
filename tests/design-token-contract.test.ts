@@ -158,6 +158,33 @@ describe("elevation ladder", () => {
     expect(tokens.get("--e0")).toBe("none");
   });
 
+  // `--shadow-focus` is retired (`#261`). It was not an elevation alias at all:
+  // it packed a 3px accent halo in FRONT of `--shadow-soft`, so its one consumer
+  // — `.chat-composer-shell-delta:focus-within` — painted a companion ring on
+  // top of the accent border swap, which is the second focus affordance the
+  // shared `:focus-visible` treatment is written to prevent. The composer now
+  // uses the sanctioned `outline: 2px solid var(--focus)`.
+  //
+  // Unlike the `--shadow-tight` assertion above this is not a raw substring
+  // check: the stylesheet comment at the composer rule names the retired token
+  // on purpose, so that the next author reaching for a focus halo finds the
+  // reason it is gone rather than re-deriving it. The two spellings below are
+  // the only ways the token can actually come back to life — a declaration and
+  // a `var()` consumer — so they are what the gate rejects.
+  it("keeps the retired --shadow-focus token deleted in every scope", () => {
+    for (const [name, stylesheet] of [
+      ["globals.css", globals],
+      ["ckb-v2-tokens.css", v2Stylesheet],
+    ] as const) {
+      expect(stylesheet, `${name} redeclares --shadow-focus; focus is an outline, not a ring`).not.toContain(
+        "--shadow-focus:",
+      );
+      expect(stylesheet, `${name} consumes --shadow-focus; focus is an outline, not a ring`).not.toContain(
+        "var(--shadow-focus)",
+      );
+    }
+  });
+
   it("flattens the ladder itself under forced colors, not only the role aliases", () => {
     const forced = globals.slice(globals.indexOf("@media (forced-colors: active)"));
     for (const tier of ["--e1", "--e2", "--e3", "--e4"]) {
@@ -167,6 +194,11 @@ describe("elevation ladder", () => {
 });
 
 describe("status colour ranking", () => {
+  it.each(themes)("keeps warning body text AA-safe on the default surface in $name", ({ tokens, name }) => {
+    const ratio = contrastRatio(colourOf(tokens, "--warning"), colourOf(tokens, "--surface"));
+    expect(ratio, `${name} --warning body text on --surface`).toBeGreaterThanOrEqual(4.5);
+  });
+
   // Every status pair used to sit in a 4.6–5.2:1 band, so nothing read as more
   // urgent than anything else.
   it("clears 5.5:1 for every light-mode status pair", () => {
