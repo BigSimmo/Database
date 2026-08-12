@@ -90,6 +90,22 @@ export const formulationQualityPrompts = formulationContent.formulationQualityPr
 export const formulationSourceLibrary = formulationContent.sourceLibrary;
 export const formulationWarnings = formulationContent.sourceWarnings;
 
+/**
+ * The domains at least one mechanism actually carries — 9 of the 12 declared.
+ *
+ * `formulationDomains` is the taxonomy. Offering it as a filter meant three
+ * controls (Biological, Social, Cultural) that can never return anything: they
+ * are declared in the bundle but carried by 0 of the 12 mechanisms. Under the
+ * union counting rule a permanently empty option reports the unchanged total
+ * rather than zero, so it looks identical to a full one — which is why
+ * `docs/filter-contract.md` says derive the option list from the data and never
+ * declare it. Taxonomy order is preserved so the filter reads in the same order
+ * as the rest of the mode.
+ */
+export const formulationDomainsInUse = formulationDomains.filter((domain) =>
+  formulationMechanisms.some((mechanism) => mechanism.domains.includes(domain)),
+);
+
 export const formulationSearchPresets = [
   { label: "I keep going over it", query: "I keep going over it" },
   { label: "What if something goes wrong?", query: "What if something goes wrong?" },
@@ -201,13 +217,22 @@ function searchText(mechanism: FormulationMechanism) {
   );
 }
 
-export function searchFormulationMechanisms(query: string, options: { domain?: string } = {}) {
+export function searchFormulationMechanisms(
+  query: string,
+  // `domains` is many-of-N, OR within the group: a mechanism carries 3.92 of
+  // them on average, so asking for Affect OR Risk must widen rather than
+  // intersect. Empty means no constraint. `domain` is the older one-of-N form,
+  // still used by the builder page's own select.
+  options: { domain?: string; domains?: ReadonlySet<string> } = {},
+) {
   const normalizedQuery = normalize(query);
   const queryTokens = normalizedQuery.split(" ").filter(Boolean);
+  const domainFacets = options.domains;
 
   return formulationMechanisms
     .map((mechanism, index) => {
       if (options.domain && options.domain !== "all" && !mechanism.domains.includes(options.domain)) return null;
+      if (domainFacets?.size && !mechanism.domains.some((domain) => domainFacets.has(domain))) return null;
 
       const haystack = searchText(mechanism);
       const name = normalize(mechanism.name);

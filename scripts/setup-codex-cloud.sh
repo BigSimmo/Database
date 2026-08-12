@@ -135,6 +135,14 @@ export CODEX_CLOUD=1
 export CODEX_CLOUD_ACCESS_PROFILE="${access_profile}"
 export NEXT_PUBLIC_DEMO_MODE="\${NEXT_PUBLIC_DEMO_MODE:-true}"
 export PLAYWRIGHT_OFFLINE_MODE="\${PLAYWRIGHT_OFFLINE_MODE:-true}"
+cloud_expected_base_file="\$HOME/.cache/clinical-kb-codex/cloud-expected-base-sha"
+if [ -r "\$cloud_expected_base_file" ]; then
+  IFS= read -r cloud_expected_base < "\$cloud_expected_base_file" || true
+  if [[ "\$cloud_expected_base" =~ ^[0-9a-f]{40}\$ ]]; then
+    export CODEX_CLOUD_EXPECTED_BASE_SHA="\$cloud_expected_base"
+  fi
+fi
+unset cloud_expected_base cloud_expected_base_file
 unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy
 # Connected access is provided by host-installed, OAuth-backed apps, never by
 # repository MCP registration or raw provider variables in the agent shell.
@@ -264,6 +272,11 @@ install_npm_cli "@openai/codex" "$codex_cli_version" "codex"
 
 setup_step="git-remote"
 node scripts/ensure-codex-cloud-git-remote.mjs --configure-gh-helper
+
+setup_step="checkout-base"
+bash scripts/refresh-codex-cloud-base.sh
+# shellcheck source=/dev/null
+source "$runtime_profile"
 
 setup_step="deno-runtime"
 if ! command -v deno >/dev/null 2>&1 || [[ "$(deno --version 2>/dev/null | sed -n '1s/^deno \([0-9]*\).*/\1/p')" != "2" ]]; then
