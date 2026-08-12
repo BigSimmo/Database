@@ -10,6 +10,8 @@ export type DisclosureProps = {
   /** Right-aligned summary that stays visible while collapsed — a count, a status. */
   meta?: ReactNode;
   description?: ReactNode;
+  /** Replace the collapsed preview with the panel when open, so the copy reads as one continuous answer. */
+  extendDescription?: boolean;
   defaultOpen?: boolean;
   /** Controlled mode. Omit both to let the component own its state. */
   open?: boolean;
@@ -25,19 +27,18 @@ export type DisclosureProps = {
  * `aria-controls`. `aria-expanded` alone says something opened but never what —
  * that exact gap was the `AccessibleTable` expander defect.
  *
- * The panel is kept in the DOM and hidden with `hidden` rather than unmounted, so
- * the content is there to be revealed rather than re-fetched. On screen, `hidden`
- * is `display:none`, so a collapsed panel is genuinely out of the accessibility
- * tree and out of Ctrl-F — that is correct for a control the reader can open, and
- * the docstring here used to claim otherwise.
+ * The panel stays mounted and uses the author-level `hidden` utility while
+ * collapsed rather than the HTML `hidden` attribute. On screen the utility is
+ * `display:none`, so a collapsed panel is genuinely out of the accessibility
+ * tree and out of Ctrl-F — that is correct for a control the reader can open.
  *
  * Print is the case where it is NOT correct. A printed page has no disclosure to
  * open, so a collapsed section prints as if the guideline never mentioned it —
  * exactly the failure this component is supposed to prevent, made permanent on
  * paper and unnoticeable, because the reader holding the printout has no way to
- * tell a section was omitted. `print:block` on the panel (author styles beat the
- * UA `[hidden]` rule) expands every collapsed section for print; the chevron is
- * dropped, since a rotated arrow means nothing on paper.
+ * tell a section was omitted. `print:block` overrides the author-level collapse
+ * utility and expands every collapsed section for print; the
+ * chevron is dropped, since a rotated arrow means nothing on paper.
  *
  * No height animation. Animating `height` or `grid-template-rows` forces layout
  * every frame and is a measurable CLS contributor; the chevron rotates on
@@ -48,6 +49,7 @@ export function Disclosure({
   children,
   meta,
   description,
+  extendDescription = false,
   defaultOpen = false,
   open: controlledOpen,
   onOpenChange,
@@ -101,10 +103,14 @@ export function Disclosure({
                 trigger stays label-sized. Full copy lives in the panel for SR
                 once expanded. Wrap from sm+ so desktop scanners are not forced
                 through a tap the way phone truncation requires. */}
-            {description ? (
+            {description && !(extendDescription && open) ? (
               <span
                 aria-hidden="true"
-                className={cn("block truncate text-xs sm:whitespace-normal sm:leading-5", textMuted)}
+                className={cn(
+                  "block truncate text-xs sm:whitespace-normal sm:leading-5",
+                  extendDescription && "print:hidden",
+                  textMuted,
+                )}
               >
                 {description}
               </span>
@@ -117,9 +123,12 @@ export function Disclosure({
         id={panelId}
         role="region"
         aria-labelledby={`${id}-trigger`}
-        hidden={!open}
         data-open={open ? "true" : "false"}
-        className="border-t border-[color:var(--border)] px-3 py-3 print:block"
+        className={cn(
+          "px-3 py-3 print:block",
+          !open && "hidden",
+          extendDescription ? "pt-0" : "border-t border-[color:var(--border)]",
+        )}
       >
         {children}
       </div>
@@ -128,7 +137,14 @@ export function Disclosure({
 }
 
 export type DisclosureGroupProps = {
-  items: Array<{ id: string; title: ReactNode; description?: ReactNode; meta?: ReactNode; content: ReactNode }>;
+  items: Array<{
+    id: string;
+    title: ReactNode;
+    description?: ReactNode;
+    extendDescription?: boolean;
+    meta?: ReactNode;
+    content: ReactNode;
+  }>;
   exclusive?: boolean;
   className?: string;
   headingLevel?: 2 | 3 | 4 | 5 | 6;
@@ -149,6 +165,7 @@ export function DisclosureGroup({ items, exclusive = false, className, headingLe
           key={item.id}
           title={item.title}
           description={item.description}
+          extendDescription={item.extendDescription}
           meta={item.meta}
           headingLevel={headingLevel}
           open={openIds.includes(item.id)}
