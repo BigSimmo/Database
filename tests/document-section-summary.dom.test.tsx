@@ -203,13 +203,7 @@ describe("IndexedTextPanel citation landing", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next document search hit" }));
     expect(screen.getByText("Hit 2 of 2")).toBeVisible();
 
-    rerender(
-      <IndexedTextPanel
-        {...props}
-        search="head"
-        documentSearchResults={[props.documentSearchResults[1], props.documentSearchResults[0]]}
-      />,
-    );
+    rerender(<IndexedTextPanel {...props} search="head" documentSearchResults={props.documentSearchResults} />);
     expect(screen.getByText("Hit 1 of 2")).toBeVisible();
   });
 
