@@ -186,6 +186,18 @@ describe("Codex Run PR operator workflow", () => {
     expect(prepare).toContain("basehead: `${pr.head.sha}...${pr.base.sha}`");
   });
 
+  it("accepts genuine Codex task IDs without allowing URL suffix injection", () => {
+    const patternSource = prepare.match(/const taskUrlPattern = \/(.+?)\/u;/u)?.[1];
+    expect(patternSource).toBeDefined();
+    const taskUrlPattern = new RegExp(patternSource!, "u");
+
+    const taskUrl = "https://chatgpt.com/codex/cloud/tasks/task_e_6a7c91a549cc8322b0491687053bf902";
+    expect(taskUrlPattern.test(taskUrl)).toBe(true);
+    expect(taskUrlPattern.test(`${taskUrl}/`)).toBe(true);
+    expect(taskUrlPattern.test(`${taskUrl}?redirect=https://example.com`)).toBe(false);
+    expect(taskUrlPattern.test(`${taskUrl}#fragment`)).toBe(false);
+  });
+
   it("collects the complete bounded Run PR control-plane evidence", () => {
     expect(prepare).toContain("open_pull_requests: openPullRequests");
     expect(prepare).toContain("unresolved_review_thread_count: unresolvedThreadCount");
@@ -209,9 +221,13 @@ describe("Codex Run PR operator workflow", () => {
     expect(repair).toContain("${{ runner.temp }}/codex-run-pr-trusted/prompt.md");
     expect(repair).toContain("CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}");
     expect(repair).toContain("! -name .git");
+    expect(repair).toContain('"+$BASE_SHA:refs/remotes/codex-run-pr/base"');
+    expect(repair).toContain("git rev-parse refs/remotes/codex-run-pr/base");
+    expect(repair).not.toContain("The base branch advanced after evidence collection");
     expect(repair).toContain('git merge-tree --write-tree HEAD "$BASE_SHA"');
     expect(repair).toContain('git merge --no-edit "$BASE_SHA"');
     expect(repair).toContain("operator policy requires a human resolution");
+    expect(repair).toContain('if [ -e "$RUNNER_TEMP/codex-run-pr-trusted" ]; then');
     expect(repair).not.toContain("secrets.GH_TOKEN");
     expect(repair).not.toContain("github-token:");
     expect(repair).not.toContain("./.github/actions/");
