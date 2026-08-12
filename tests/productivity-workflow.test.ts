@@ -98,6 +98,29 @@ describe("productivity workflow planning", () => {
     expect(plan.localChecks.map((item: { command: string }) => item.command)).toContain("npm run verify:pr-local");
   });
 
+  it("routes ordinary handoff through one broad gate and requires decisive proof", () => {
+    const plan = buildWorkflowPlan("flightplan", ["src/lib/example.ts"]);
+
+    expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual(["npm run verify:pr-local"]);
+    expect(plan.proof.join(" ")).toContain("decisive output line");
+    expect(plan.proof.join(" ")).toContain("Do not stack broad gates");
+  });
+
+  it("orders app startup, a focused browser journey, then the PR-local gate for UI flightplans", () => {
+    const plan = buildWorkflowPlan("flightplan", ["src/components/SomeComponent.tsx"]);
+
+    const commands = plan.localChecks.map((item: { command: string }) => item.command);
+    expect(commands).toEqual(["npm run ensure", "npm run test:e2e:critical", "npm run verify:pr-local"]);
+  });
+
+  it("makes concurrent branch and index proof explicit at handoff", () => {
+    const plan = buildWorkflowPlan("lifecycle", [], { phase: "handoff" });
+
+    expect(plan.proof.join(" ")).toContain("before staging");
+    expect(plan.proof.join(" ")).toContain("foreign index changes");
+    expect(plan.proof.join(" ")).toContain("never pipe push output");
+  });
+
   it("rejects unknown lifecycle phases", () => {
     expect(() => buildWorkflowPlan("lifecycle", [], { phase: "publish-everything" })).toThrow(
       "Unknown lifecycle phase",
