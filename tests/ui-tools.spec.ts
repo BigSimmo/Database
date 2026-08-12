@@ -1319,6 +1319,20 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/q=13YARN/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
+    // Widening to All items keeps the submitted query while removing the
+    // narrowing facet and group scope.
+    await page.getByRole("radiogroup", { name: "Scope" }).getByRole("radio", { name: /All items/ }).click();
+    await expect(page).toHaveURL(/q=13YARN/);
+    await expect(page).not.toHaveURL(/facets=/);
+    await expect(page.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
+
+    // Reapply the facet so the clear action is exercised independently.
+    await page.getByTestId("service-filter-trigger-desktop").click();
+    await page.getByTestId("service-filter-panel-find").fill("crisis");
+    const crisisFacetAgain = page.getByRole("button", { name: /Crisis High/ });
+    await crisisFacetAgain.click();
+    await expect(page).toHaveURL(/facets=acuity_flags%3Acrisis_high/);
+
     // Clear filters removes the facet — and, unlike the evicted radio, leaves
     // the search itself untouched (docs/filter-contract.md §6).
     await page.getByTestId("service-filter-panel-clear").click();
