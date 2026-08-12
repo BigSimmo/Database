@@ -134,18 +134,14 @@ export function SegmentedControl<T extends string>({
             {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
             <span className="min-w-0 truncate">{option.label}</span>
             {option.hint ? (
-              // `nums` for tabular figures: without it the rail reflows as a
-              // count crosses a digit boundary, which on a live result set
-              // happens while the reader is aiming at it.
-              <span
-                // --text-muted, not --text-soft: the latter is a decoration-only compatibility
-                // alias that production must not consume, ratcheted at zero by
-                // check:design-system-contract. It is also what ResultFilterSheet already
-                // uses for option.hint, so the two renderings now match.
-                className={cn("nums shrink-0 tabular-nums", checked ? "opacity-80" : "text-[color:var(--text-muted)]")}
-              >
-                {option.hint}
-              </span>
+              // Reserve a three-digit count column as well as using tabular figures so live
+              // result updates do not move the segment bounds — tabular figures keep digit
+              // widths equal but do not stop the span growing at 9 -> 10. The hint inherits
+              // the button's opaque semantic foreground rather than carrying its own colour:
+              // the decoration-only text alias is barred from production by
+              // check:design-system-contract, and any second token here would have to stay
+              // legible against both the checked and unchecked backgrounds.
+              <span className="nums min-w-6 shrink-0 text-right tabular-nums">{option.hint}</span>
             ) : null}
           </button>
         );
