@@ -8,7 +8,7 @@ on:
       - .github/workflows/pr-1870-ledger-fix.yml
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: pr-1870-focused-ledger-fix
@@ -25,6 +25,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -148,7 +149,7 @@ jobs:
             --head "$start_head" \
             --scope "review-and-fix" \
             --outcome "Merged current main; corrected #310's per-record fuzzy-trigger analysis and regression-test condition; preserved #311; removed the temporary self-mutating workflow; no additional P0-P2 findings in a distinct adversarial pass." \
-            --checks "verify:pr-local; check:outstanding-issues; check:branch-review-ledger; exact-head hosted CI pending" \
+            --checks "verify:pr-local -- --files docs/branch-review-ledger.md,docs/outstanding-issues.md; check:outstanding-issues; check:branch-review-ledger; exact-head hosted CI pending" \
             --supersede
 
           git add -A -- \
@@ -173,23 +174,41 @@ jobs:
             exit 1
           fi
 
-          npm run verify:pr-local
+          npm run verify:pr-local -- --files docs/branch-review-ledger.md,docs/outstanding-issues.md
           npm run check:outstanding-issues
           npm run check:branch-review-ledger
           git diff --check "$BASE_SHA"...HEAD
           test -z "$(git status --porcelain)"
 
       - name: Push only if both remote tips are unchanged
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
+          test -n "$GH_TOKEN" || { echo "::error::GH_TOKEN is not configured."; exit 1; }
+          identity="$(gh api user --jq .login)"
+          test "$identity" = "BigSimmo" || {
+            echo "::error::GH_TOKEN must authenticate the intended BigSimmo operator identity."
+            exit 1
+          }
+          permission="$(gh api "repos/$GITHUB_REPOSITORY" --jq .permissions.push)"
+          test "$permission" = "true" || {
+            echo "::error::GH_TOKEN lacks feature-branch push permission for this repository."
+            exit 1
+          }
+
           git fetch --no-tags origin \
             "+refs/heads/main:refs/remotes/origin/main" \
             "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
           test "$(git rev-parse "origin/${BRANCH_NAME}")" = "$START_HEAD"
           test "$(git rev-parse origin/main)" = "$BASE_SHA"
           test "$(git rev-parse HEAD)" = "$FINAL_SHA"
-          git push origin "HEAD:refs/heads/${BRANCH_NAME}"
+
+          gh auth setup-git --hostname github.com
+          git push origin "$FINAL_SHA:refs/heads/${BRANCH_NAME}"
+          remote_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH_NAME" --jq .object.sha)"
+          test "$remote_head" = "$FINAL_SHA"
 
           {
             echo "Final head: $FINAL_SHA"
