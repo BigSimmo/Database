@@ -13,11 +13,11 @@ vi.mock("next/link", () => ({
 import { DifferentialCompareQueuePage } from "@/components/differentials/differential-compare-queue-page";
 
 describe("DifferentialCompareQueuePage", () => {
-  it("describes the supported singleton selection", () => {
+  it("describes the supported singleton queue", () => {
     render(<DifferentialCompareQueuePage items={[]} openComparisonHref="/differentials/compare/view" />);
 
-    expect(screen.getByText(/Select one or more diagnoses/)).toBeVisible();
-    expect(screen.queryByText(/Select two or more diagnoses/)).not.toBeInTheDocument();
+    expect(screen.getByText(/one or more diagnoses to review/)).toBeVisible();
+    expect(screen.queryByText(/two or more diagnoses/)).not.toBeInTheDocument();
   });
 
   it("keeps phone visual order aligned with DOM and focus order", () => {
