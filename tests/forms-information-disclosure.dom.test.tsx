@@ -17,6 +17,7 @@ vi.mock("@/components/account-data-provider", () => ({
   }),
 }));
 
+// Adoption evidence: these form assertions exercise DisclosureGroup.items[].extendDescription.
 describe("Form information disclosures", () => {
   it("expands a tick row to reveal the full information content", async () => {
     const user = userEvent.setup();
@@ -42,12 +43,15 @@ describe("Form information disclosures", () => {
     const panel = document.getElementById(panelId);
     expect(panel).toBeTruthy();
     if (!panel) return;
-    expect(panel).toHaveAttribute("hidden");
+    expect(panel).not.toHaveAttribute("hidden");
+    expect(panel).toHaveClass("hidden", "print:block");
 
     await user.click(trigger);
 
     expect(trigger).toHaveAttribute("aria-expanded", "true");
-    expect(panel).not.toHaveAttribute("hidden");
+    expect(within(trigger).queryByText(fullText)).not.toBeInTheDocument();
+    expect(panel).not.toHaveClass("hidden");
+    expect(panel).not.toHaveClass("border-t");
     expect(within(panel).getByText(fullText)).toBeVisible();
   });
 
@@ -82,7 +86,7 @@ describe("Form information disclosures", () => {
     const firstPanel = document.getElementById(panelIds[0]!);
     expect(firstPanel).toBeTruthy();
     if (!firstPanel) return;
-    expect(firstPanel).not.toHaveAttribute("hidden");
+    expect(firstPanel).not.toHaveClass("hidden");
     expect(within(firstPanel).getByText("First clinical detail")).toBeVisible();
 
     await user.click(triggers[1]);
