@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import userEvent from "@testing-library/user-event";
@@ -161,28 +161,52 @@ describe("favourites auth gate DOM", () => {
     render(<AccountSetupDialog open onClose={() => undefined} />);
 
     expect(screen.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Saved to your account" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Stays on this device" })).toBeVisible();
+    expect(screen.getAllByText("Account")).toHaveLength(2);
+    expect(screen.getByText("This device")).toBeVisible();
     expect(screen.getByText(/Recent searches/i)).toBeVisible();
     expect(screen.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
-    expect(screen.getByText("No PHI required")).toBeVisible();
+    expect(screen.getByText(/No PHI required\./i)).toBeVisible();
     expect(screen.queryByText(/Everything syncs across your devices/i)).toBeNull();
     expect(screen.queryByText(/never shared/i)).toBeNull();
     expect(screen.queryByText("Account-scoped saves")).toBeNull();
   });
 
-  it("wires available OAuth providers and presents Apple as non-interactive status", async () => {
+  it("leads with and wires Apple, Google, and Microsoft OAuth", async () => {
     const user = userEvent.setup();
     render(<AccountSetupDialog open onClose={() => undefined} />);
 
-    await user.click(screen.getByRole("button", { name: "Continue with Google" }));
+    const apple = screen.getByRole("button", { name: "Continue with Apple" });
+    const google = screen.getByRole("button", { name: "Continue with Google" });
+    const microsoft = screen.getByRole("button", { name: "Continue with Microsoft" });
+    const email = screen.getByLabelText(/Email address/);
+
+    expect(apple.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(google.compareDocumentPosition(microsoft) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(microsoft.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.click(apple);
+    expect(authSession.signInWithOAuth).toHaveBeenCalledWith("apple");
+
+    await user.click(google);
     expect(authSession.signInWithOAuth).toHaveBeenCalledWith("google");
 
-    await user.click(screen.getByRole("button", { name: "Continue with Microsoft" }));
+    await user.click(microsoft);
     expect(authSession.signInWithOAuth).toHaveBeenCalledWith("azure");
 
-    expect(screen.getByText("Apple sign-in is not available yet.")).toBeVisible();
-    expect(screen.queryByRole("button", { name: /Apple/i })).toBeNull();
+    expect(screen.queryByText(/Apple sign-in is not available/i)).toBeNull();
+  });
+
+  it("shows the selected provider and locks competing actions while OAuth starts", () => {
+    authSession.signInWithOAuth.mockImplementationOnce(() => new Promise<void>(() => undefined));
+    render(<AccountSetupDialog open onClose={() => undefined} />);
+
+    const apple = screen.getByRole("button", { name: "Continue with Apple" });
+    fireEvent.click(apple);
+    expect(apple).toHaveTextContent("Connecting…");
+    for (const provider of ["Apple", "Google", "Microsoft"]) {
+      expect(screen.getByRole("button", { name: `Continue with ${provider}` })).toBeDisabled();
+    }
+    expect(screen.getByRole("button", { name: "Continue with email" })).toBeDisabled();
   });
 
   it("submits email and announces success and failure feedback", async () => {
