@@ -66,11 +66,7 @@ test.describe("Forms section navigation", () => {
             (elements) =>
               elements.filter((element) => {
                 const style = getComputedStyle(element);
-                return (
-                  style.display !== "none" &&
-                  style.visibility !== "hidden" &&
-                  element.getClientRects().length > 0
-                );
+                return style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length > 0;
               }).length,
           ),
         { message: "extended description should print exactly once" },
