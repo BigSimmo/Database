@@ -183,7 +183,11 @@ describe("Codex Run PR operator workflow", () => {
     expect(prepare).toContain("protectedBranch");
     expect(prepare).toContain('"skip-codex-review"');
     expect(prepare).toContain('pr.state !== "open" || pr.merged');
-    expect(prepare).toContain("basehead: `${pr.head.sha}...${pr.base.sha}`");
+    expect(prepare).toContain("ref: `heads/${pr.base.ref}`");
+    expect(prepare).toContain("const baseSha = currentBaseRef.object.sha");
+    expect(prepare).toContain("basehead: `${pr.head.sha}...${baseSha}`");
+    expect(prepare).toContain("base_sha: baseSha");
+    expect(prepare).not.toContain("base_sha: pr.base.sha");
   });
 
   it("accepts genuine Codex task IDs without allowing URL suffix injection", () => {

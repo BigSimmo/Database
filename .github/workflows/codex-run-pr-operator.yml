@@ -117,6 +117,16 @@ jobs:
               core.setFailed("The pull request is opted out of automated Run PR mutation.");
               return;
             }
+            const { data: currentBaseRef } = await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: `heads/${pr.base.ref}`,
+            });
+            const baseSha = currentBaseRef.object.sha;
+            if (!/^[0-9a-f]{40}$/u.test(baseSha)) {
+              core.setFailed("The current base branch did not resolve to an exact commit SHA.");
+              return;
+            }
 
             const threads = [];
             let unresolvedThreadCount = 0;
@@ -324,7 +334,7 @@ jobs:
             const compare = await github.rest.repos.compareCommitsWithBasehead({
               owner,
               repo,
-              basehead: `${pr.head.sha}...${pr.base.sha}`,
+              basehead: `${pr.head.sha}...${baseSha}`,
             });
             const payload = {
               generated_at: new Date().toISOString(),
@@ -339,7 +349,7 @@ jobs:
                 head_ref: pr.head.ref,
                 head_sha: pr.head.sha,
                 base_ref: pr.base.ref,
-                base_sha: pr.base.sha,
+                base_sha: baseSha,
                 draft: pr.draft,
                 mergeable: pr.mergeable,
                 mergeable_state: pr.mergeable_state,
@@ -366,7 +376,7 @@ jobs:
             core.setOutput("expected_head", pr.head.sha);
             core.setOutput("head_ref", pr.head.ref);
             core.setOutput("base_ref", pr.base.ref);
-            core.setOutput("base_sha", pr.base.sha);
+            core.setOutput("base_sha", baseSha);
             core.setOutput("context_sha256", crypto.createHash("sha256").update(serialized).digest("hex"));
 
       - name: Upload bounded PR context
