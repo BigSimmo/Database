@@ -1,0 +1,45 @@
+name: PR 1869 format regression test
+
+on:
+  push:
+    branches:
+      - codex/fix-form-section-expansion-issues
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-1869-format-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format and commit the regression test
+        run: |
+          npx prettier --write tests/ui-forms-section-nav.spec.ts
+          git add tests/ui-forms-section-nav.spec.ts
+          if git diff --cached --quiet; then
+            echo "Regression test is already formatted."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "style: format print disclosure regression"
+          git push origin HEAD:${GITHUB_REF_NAME}
