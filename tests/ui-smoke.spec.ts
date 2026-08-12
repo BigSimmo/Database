@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
@@ -890,10 +891,10 @@ async function openGuide(page: Page) {
   await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
   await settings.getByRole("button", { name: "Guide & help", exact: true }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Ask and verify")).toBeVisible();
-  await expect(dialog.getByText("Top source and citations")).toBeVisible();
-  await expect(dialog.getByText("Upload and indexing")).toBeVisible();
-  await expect(dialog.getByText("Copying text")).toBeVisible();
+  await expect(dialog.getByPlaceholder("Search the guide")).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Verify an answer" })).toBeVisible();
+  await expect(dialog.getByText("3-minute guided tour")).toBeVisible();
   await expectNoPageHorizontalOverflow(page);
   return dialog;
 }
@@ -5265,9 +5266,53 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(restoredSettings.getByRole("button", { name: "Guide & help", exact: true })).toBeFocused();
 
       const reopenedDialog = await openGuide(page);
-      await tapOutsideActiveSurface(page);
+      if (viewport.width >= 1024) {
+        await tapOutsideActiveSurface(page);
+      } else {
+        await page.keyboard.press("Escape");
+      }
       await expect(reopenedDialog).toBeHidden();
       await expectNoPageHorizontalOverflow(page);
     });
   }
+
+  test("guide centre search, topic navigation, and tour progress remain accessible", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+
+    const dialog = await openGuide(page);
+    const search = dialog.getByPlaceholder("Search the guide");
+    await search.fill("privacy");
+    await expect(dialog.getByText(/topics? found for “privacy”\./)).toBeVisible();
+    await dialog.getByRole("button", { name: /Privacy and safe use/ }).click();
+    await expect(dialog.getByRole("heading", { name: "Privacy and safe use" })).toBeFocused();
+
+    await dialog.getByRole("button", { name: "Guide home" }).click();
+    await dialog.getByRole("button", { name: "Start guided tour" }).first().click();
+    await expect(dialog.getByRole("heading", { level: 2, name: "The evidence-first workflow" })).toBeFocused();
+    await dialog.getByRole("button", { name: "Continue" }).click();
+    await expect(dialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" })).toBeFocused();
+
+    const axeResults = await new AxeBuilder({ page })
+      .include('[data-testid="clinical-kb-guide-centre"]')
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(
+      axeResults.violations
+        .filter((violation) => violation.impact === "critical" || violation.impact === "serious")
+        .map((violation) => violation.id),
+    ).toEqual([]);
+
+    await dialog.getByRole("button", { name: "Close guide" }).click();
+    await expect(dialog).toBeHidden();
+    const reopenedDialog = await openGuide(page);
+    await expect(reopenedDialog.getByPlaceholder("Search the guide")).toHaveValue("");
+    await reopenedDialog.getByRole("button", { name: "Resume guided tour" }).first().click();
+    await expect(
+      reopenedDialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" }),
+    ).toBeFocused();
+    await expectNoPageHorizontalOverflow(page);
+  });
 });
