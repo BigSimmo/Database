@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ShieldAlert } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Suspense, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { ClinicalBadge } from "@/components/clinical-dashboard/clinical-badge";
@@ -265,42 +265,44 @@ export function PrivacyQuietSignalPage() {
           </div>
         </div>
 
-        {/* Full-bleed fused obligation — amber only. */}
+        {/* Full-bleed fused obligation — amber only; ClinicalBadge carries the warning icon. */}
         <div className="border-y border-[color:var(--warning-border)] bg-[color:var(--warning-bg)]">
           <div className={cn(shellPadX, "py-2.5 sm:py-3")}>
-            <div className={cn(searchPageContainer, "flex items-start gap-3")}>
+            <div className={cn(searchPageContainer, "flex items-start gap-2 sm:gap-3")}>
               <span
                 aria-hidden="true"
                 className="mt-0.5 w-1 shrink-0 self-stretch rounded-full bg-[color:var(--warning)]"
               />
-              <ShieldAlert className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--warning)]" aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-start justify-between gap-2">
                   <ClinicalBadge tone="warning" label="Important" />
+                  {/* Compact face + tap-sized hit (same pattern as source capsules). */}
+                  <button
+                    type="button"
+                    onClick={() => setNoticeOpen((value) => !value)}
+                    aria-expanded={noticeOpen}
+                    aria-controls={noticeId}
+                    className={cn(
+                      "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center self-start rounded-lg",
+                      searchFocusRing,
+                    )}
+                  >
+                    <span className="inline-flex items-center gap-1 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-2.5 py-1 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)] shadow-[var(--shadow-inset)]">
+                      {noticeOpen ? "Less" : "Full"}
+                      <ChevronDown
+                        aria-hidden="true"
+                        className={cn(
+                          "size-icon-xs transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+                          noticeOpen && "rotate-180",
+                        )}
+                      />
+                    </span>
+                  </button>
                 </div>
-                <p className="mt-1.5 text-xs font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm sm:leading-6">
+                <p className="mt-1.5 max-w-[68ch] text-xs font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm sm:leading-6">
                   {PRIVACY_IMPORTANT_SHORT}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setNoticeOpen((value) => !value)}
-                aria-expanded={noticeOpen}
-                aria-controls={noticeId}
-                className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-3 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-soft)]",
-                  searchFocusRing,
-                )}
-              >
-                {noticeOpen ? "Less" : "Full"}
-                <ChevronDown
-                  aria-hidden="true"
-                  className={cn(
-                    "size-icon-xs transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
-                    noticeOpen && "rotate-180",
-                  )}
-                />
-              </button>
             </div>
           </div>
           {/* Keep mounted (hidden) so aria-controls IDREF stays valid when collapsed. */}
@@ -308,7 +310,7 @@ export function PrivacyQuietSignalPage() {
             id={noticeId}
             hidden={!noticeOpen}
             className={cn(
-              "border-t border-[color:var(--warning-border)] bg-[color:var(--surface-raised)]",
+              "border-t border-[color:var(--warning-border)] bg-[color-mix(in_srgb,var(--surface-raised)_88%,var(--warning-bg))]",
               shellPadX,
               "py-3 sm:py-3.5",
               "print:block",
