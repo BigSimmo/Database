@@ -145,7 +145,7 @@ describe("MedicationPrescribingWorkspace — home vs submitted results", () => {
 });
 
 describe("MedicationPrescribingWorkspace — query interpretation", () => {
-  it("shows the API corrected query as a compact accessible Did you mean note", () => {
+  it("shows the API corrected query and visibly counts related terms", () => {
     catalogInterpretation.current = {
       correctedQuery: "sertraline",
       corrections: [{ from: "sertaline", to: "sertraline" }],
@@ -159,6 +159,7 @@ describe("MedicationPrescribingWorkspace — query interpretation", () => {
     });
     expect(note).toHaveTextContent("Did you mean");
     expect(note).toHaveTextContent("sertraline");
+    expect(note).toHaveTextContent("+1");
   });
 
   it("distinguishes applied expansions from a corrected query", () => {
