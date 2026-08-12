@@ -76,11 +76,7 @@ describe("FactsheetsSearchPage category filter", () => {
     const user = userEvent.setup();
     push.mockClear();
     render(
-      <FactsheetsSearchPage
-        query={query}
-        category="Conditions"
-        results={filterFactsheets(query, "Conditions")}
-      />,
+      <FactsheetsSearchPage query={query} category="Conditions" results={filterFactsheets(query, "Conditions")} />,
     );
 
     const desktopGroup = screen.getByRole("radiogroup", { name: "Category" });
