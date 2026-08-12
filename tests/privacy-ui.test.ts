@@ -61,4 +61,10 @@ describe("privacy UI", () => {
     expect(markup).toContain("bounded hourly purge of expired response-cache rows");
     expect(markup).not.toContain("approved privacy policy");
   });
+
+  it("exposes sticky-chrome state so oversized banners can drop sticky positioning", () => {
+    const markup = renderToStaticMarkup(createElement(PrivacyPage));
+    expect(markup).toContain('data-testid="privacy-sticky-chrome"');
+    expect(markup).toContain('data-sticky="true"');
+  });
 });
