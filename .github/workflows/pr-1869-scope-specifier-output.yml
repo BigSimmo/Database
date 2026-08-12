@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Scope the assertion to the visible working-diagnosis card
+      - name: Scope the assertion and commit generated metadata
         run: |
           git pull --ff-only origin "${GITHUB_REF_NAME}"
           python - <<'PY'
@@ -75,8 +75,13 @@ jobs:
           path.write_text(text)
           PY
           npx prettier --write tests/ui-specifiers.spec.ts
+          npm run design-system:adoption:update
           git rm .github/workflows/pr-1869-scope-specifier-output.yml
-          git add tests/ui-specifiers.spec.ts
+          git add \
+            tests/ui-specifiers.spec.ts \
+            docs/design-system/adoption-manifest.json \
+            docs/design-system/COMPONENTS.md \
+            docs/design-system/ADOPTION.md
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "test: scope specifier wording to visible output"
