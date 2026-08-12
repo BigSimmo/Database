@@ -18,14 +18,14 @@ force-push, or discard work.
 ## Steps
 
 1. **Inspect first (read-only):** `git status --short --branch`, `git diff`, `git diff --cached`,
-    and the ahead/behind from `node scripts/check-base-freshness.mjs`. Record the exact cached index
-    state with `git diff --cached --raw --no-renames` before staging. Also record the worktree and
-    untracked state for every intended path with `git status --porcelain=v1 -z --untracked-files=all -- <intended-paths>`.
-    Immediately before staging, repeat and compare both snapshots; if any intended path changed,
-    appeared, or disappeared, stop or move the handoff to an isolated worktree. Do not accept a
-    concurrent change merely because its path is intended. If the cached index contains paths outside
-    this session, stop and move the handoff to an isolated worktree; never unstage or otherwise
-    mutate another session's index entries.
+   and the ahead/behind from `node scripts/check-base-freshness.mjs`. Record the exact cached index
+   state with `git diff --cached --raw --no-renames` before staging. Also record the worktree and
+   untracked state for every intended path with `git status --porcelain=v1 -z --untracked-files=all -- <intended-paths>`.
+   Immediately before staging, repeat and compare both snapshots; if any intended path changed,
+   appeared, or disappeared, stop or move the handoff to an isolated worktree. Do not accept a
+   concurrent change merely because its path is intended. If the cached index contains paths outside
+   this session, stop and move the handoff to an isolated worktree; never unstage or otherwise
+   mutate another session's index entries.
    Record `git branch --show-current` and `git rev-parse HEAD`; repeat both immediately before and
    after the commit. Immediately before committing, repeat `git diff --cached --raw --no-renames`
    and verify that every pre-existing cached entry is unchanged and every new entry is in the
