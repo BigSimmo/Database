@@ -85,8 +85,10 @@ const MECHANISMS: ReadonlyArray<{ name: string; domains: ReadonlyArray<string> }
 ];
 
 /** The query in the screenshot's band, resolved to the mechanisms it returns. */
-const CURRENT_QUERY = "I keep going over it";
-const CURRENT_SUBSET = searchFormulationMechanisms(CURRENT_QUERY).map((r) => r.mechanism.name);
+export const filterSheetRestyleCurrentQuery = "Worry";
+export const filterSheetRestyleCurrentSubset = searchFormulationMechanisms(filterSheetRestyleCurrentQuery).map(
+  (result) => result.mechanism.name,
+);
 
 /**
  * `formulationDomainGroups`, quoted verbatim from `src/lib/formulation.ts`.
@@ -132,7 +134,7 @@ const DOMAIN_GROUPS: ReadonlyArray<{
 type Scope = "current" | "all";
 
 function scopeMechanisms(scope: Scope) {
-  return scope === "all" ? MECHANISMS : MECHANISMS.filter((m) => CURRENT_SUBSET.includes(m.name));
+  return scope === "all" ? MECHANISMS : MECHANISMS.filter((m) => filterSheetRestyleCurrentSubset.includes(m.name));
 }
 
 /** Domains OR together: picking two domains widens, exactly like the services facets. */
@@ -553,7 +555,7 @@ function Band({ compact, count, active }: { compact: boolean; count: number; act
         <span className="min-w-0 flex-1 truncate">
           <span className="nums text-sm font-extrabold tabular-nums text-[color:var(--text-heading)]">{count}</span>{" "}
           <span className="text-xs font-bold text-[color:var(--text-muted)]">mechanisms</span>
-          <span className="text-xs font-medium text-[color:var(--text-soft)]"> · {CURRENT_QUERY}</span>
+          <span className="text-xs font-medium text-[color:var(--text-soft)]"> · {filterSheetRestyleCurrentQuery}</span>
         </span>
         <span
           className={cn(
