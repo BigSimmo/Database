@@ -132,7 +132,7 @@ budget, and two studies quoting different numbers for the same catalogue would d
 
 Runnable study at [`/mockups/filter-sheet-restyle`](../src/app/mockups/filter-sheet-restyle/page.tsx). Rounds one and
 two settled the information architecture; this one is about craft, drawn on the **formulation** sheet because that is
-the specimen that stresses the layout hardest — two groups, sixteen options, and the longest title in the app.
+the specimen that stresses the layout hardest — four domain themes, twelve domains, twelve mechanisms, four presets, thirteen domain chips, and the longest title in the app.
 
 **The segment bar carries scope, not a verb.** Round two used it for "narrow these / start a new search", which is a
 mode set once and rarely changed — a poor use of the most valuable strip in the sheet. Here it is

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import {
   Brain,
   Check,
@@ -24,7 +24,8 @@ import { searchFormulationMechanisms } from "@/lib/formulation";
  *
  * The specimen is the FORMULATION sheet rather than services, because that is
  * the one whose craft problems are worst and whose content stresses the layout
- * hardest: two groups, sixteen options, and the longest title in the app
+ * hardest: four domain themes, twelve domains, twelve mechanisms, four presets,
+ * thirteen domain chips, and the longest title in the app
  * ("Filter formulation mechanisms" — inside formulation mode, where three of
  * those four words are already implied).
  *
@@ -309,7 +310,7 @@ function ScopeSwitch({
             className={cn(
               "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-2xs font-extrabold transition",
               "motion-reduce:transition-none",
-              compact ? "min-h-11" : "min-h-9",
+              compact ? "min-h-tap" : "min-h-9",
               focusRing,
               active
                 ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--shadow-soft)]"
@@ -352,12 +353,13 @@ function DomainChip({
   onToggle: () => void;
 }) {
   const empty = count === 0 && !selected;
+  const emptyId = `${useId()}-empty`;
   return (
     <button
       type="button"
       role="checkbox"
       aria-checked={selected}
-      aria-describedby={empty ? `${domain}-empty` : undefined}
+      aria-describedby={empty ? emptyId : undefined}
       onClick={onToggle}
       className={cn(
         "inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2.5 text-2xs font-semibold transition",
@@ -385,7 +387,7 @@ function DomainChip({
       <span className="truncate">{domain}</span>
       <span className="nums shrink-0 text-3xs font-bold tabular-nums text-[color:var(--text-soft)]">{count}</span>
       {empty ? (
-        <span id={`${domain}-empty`} className="sr-only">
+        <span id={emptyId} className="sr-only">
           No mechanisms in this scope.
         </span>
       ) : null}
@@ -725,7 +727,7 @@ function StyleCBody({
     <div className="min-w-0">
       {DOMAIN_GROUPS.map((group) => (
         <section key={group.id} className="min-w-0 break-inside-avoid px-3 pb-1.5">
-          {/* Sticky sub-head: with sixteen rows the group label must survive the
+          {/* Sticky sub-head: with twelve domain rows the group label must survive the
               scroll, or a reader loses which dimension they are in. */}
           <h5 className="sticky top-0 z-10 flex min-h-7 items-center gap-1.5 bg-[color:var(--surface-raised)] text-3xs font-black uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <group.icon aria-hidden className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" />
@@ -1144,9 +1146,10 @@ export function FilterSheetRestyleMockupsPage() {
               Three styles, and a real job for the segment bar
             </h1>
             <p className="mt-2 max-w-3xl text-sm font-medium text-[color:var(--text-muted)]">
-              Drawn on the formulation sheet, which stresses the layout hardest: two groups, sixteen options and the
-              longest title in the app. The three directions share one set of craft fixes and differ only in how the
-              options are arranged — flat, carded, or listed.
+              Drawn on the formulation sheet, which stresses the layout hardest: four domain themes, twelve domains,
+              twelve mechanisms, four presets, thirteen domain chips and the longest title in the app. The three
+              directions share one set of craft fixes and differ only in how the options are arranged — flat, carded, or
+              listed.
             </p>
             <p className="mt-2 max-w-3xl text-xs font-semibold text-[color:var(--text-soft)]">
               Counts are live, from the 12 mechanisms in{" "}
@@ -1230,7 +1233,7 @@ export function FilterSheetRestyleMockupsPage() {
           id="restyle-style-b"
           eyebrow="Style B"
           title="Themed cards"
-          lede="Each of the four themes becomes its own card carrying the icon, the label and the description the library already wrote — and tinting itself when it holds a selection, so an active dimension is visible without reading a single chip. The most structured of the three, and the best answer to a sheet that has to hold sixteen options without feeling like a word cloud."
+          lede="Each of the four themes becomes its own card carrying the icon, the label and the description the library already wrote — and tinting itself when it holds a selection, so an active dimension is visible without reading a single chip. The most structured of the three, and the best answer to a sheet that has to hold twelve domain options without feeling like a word cloud."
           strengths={["Uses the authored descriptions", "Active group visible at a glance", "Best for many options"]}
           style="b"
           shared={shared}
