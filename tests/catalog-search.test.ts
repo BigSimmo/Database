@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { compactSearchText, normalizeSearchText, rankCatalogRecords } from "../src/lib/catalog-search";
+import {
+  compactSearchText,
+  fuzzySearchTokenCount,
+  normalizeSearchText,
+  rankCatalogRecords,
+} from "../src/lib/catalog-search";
 
 type Item = { title: string; slug: string; tags: string[]; body: string };
 
@@ -54,6 +59,18 @@ describe("rankCatalogRecords", () => {
   it("drops records with no matching signal", () => {
     const results = rank("clozapine");
     expect(results.some((match) => match.record.slug === "lithium-levels")).toBe(false);
+  });
+
+  it("finds close catalogue words after an insertion, omission, or transposition", () => {
+    expect(rank("clozpaine")[0]?.record.slug).toBe("clozapine-monitoring");
+    expect(rank("lithum")[0]?.record.slug).toBe("lithium-levels");
+    expect(fuzzySearchTokenCount("monitroing", "Clozapine monitoring guidance")).toBe(1);
+  });
+
+  it("does not fuzz short clinical abbreviations or unrelated words", () => {
+    expect(fuzzySearchTokenCount("GAD", "Major depressive disorder")).toBe(0);
+    expect(fuzzySearchTokenCount("SSRI", "SNRI")).toBe(0);
+    expect(rank("transport").some((match) => match.record.slug === "clozapine-monitoring")).toBe(false);
   });
 
   it("applies the whole-phrase bonus on top of term matches", () => {

@@ -24,6 +24,60 @@ export function compactSearchText(value: string) {
   return value.replace(/\s+/g, "");
 }
 
+function typoDistanceLimit(term: string) {
+  if (term.length >= 8) return 2;
+  // Four-character clinical abbreviations (SSRI/SNRI, ADHD/ODD, etc.) are
+  // often one edit apart; require five characters before allowing a typo.
+  if (term.length >= 5) return 1;
+  return 0;
+}
+
+/** Bounded Damerau-Levenshtein distance for conservative catalogue typo recovery. */
+function boundedTypoDistance(left: string, right: string, limit: number) {
+  if (Math.abs(left.length - right.length) > limit) return limit + 1;
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  let previousPrevious: number[] | undefined;
+
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex];
+    let rowMinimum = current[0];
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      let distance = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + substitutionCost,
+      );
+      if (
+        previousPrevious &&
+        leftIndex > 1 &&
+        rightIndex > 1 &&
+        left[leftIndex - 1] === right[rightIndex - 2] &&
+        left[leftIndex - 2] === right[rightIndex - 1]
+      ) {
+        distance = Math.min(distance, previousPrevious[rightIndex - 2] + 1);
+      }
+      current[rightIndex] = distance;
+      rowMinimum = Math.min(rowMinimum, distance);
+    }
+    if (rowMinimum > limit) return limit + 1;
+    previousPrevious = previous.slice();
+    previous.splice(0, previous.length, ...current);
+  }
+  return previous[right.length];
+}
+
+/** Number of query tokens with a conservative near-word match in normalized text. */
+export function fuzzySearchTokenCount(query: string, text: string) {
+  const queryTokens = normalizeSearchText(query).split(/\s+/).filter(Boolean);
+  const words = Array.from(new Set(normalizeSearchText(text).split(/\s+/).filter(Boolean)));
+  return queryTokens.filter((term) => {
+    if (words.some((word) => word.includes(term))) return false;
+    const limit = typoDistanceLimit(term);
+    return limit > 0 && words.some((word) => boundedTypoDistance(term, word, limit) <= limit);
+  }).length;
+}
+
 export type CatalogField<T> = {
   // Wrapper-facing key used to build human-readable reasons (e.g. "title", "contact").
   id: string;
@@ -39,6 +93,7 @@ export type CatalogMatchSignals = {
   // Matched term count for terms introduced by expandTokens (e.g. symptom
   // aliases) that were not part of the raw query.
   expanded: number;
+  fuzzy: number;
   compact: boolean;
   phrase: boolean;
   prefix: boolean;
@@ -130,6 +185,9 @@ export function rankCatalogRecords<T>(
       score += content * contentWeight;
 
       const expanded = expandedTerms.filter((term) => text.includes(term)).length;
+      const fuzzy = score === 0 ? fuzzySearchTokenCount(normalizedQuery, text) : 0;
+      // Fuzzy evidence rescues misspellings but stays weaker than literal content.
+      score += fuzzy * Math.max(1, contentWeight * 0.5);
 
       const compact =
         compactBonus > 0 &&
@@ -158,7 +216,17 @@ export function rankCatalogRecords<T>(
         record,
         index,
         score,
-        signals: { fields, content, expanded, compact, phrase, prefix, exact, broad } satisfies CatalogMatchSignals,
+        signals: {
+          fields,
+          content,
+          expanded,
+          fuzzy,
+          compact,
+          phrase,
+          prefix,
+          exact,
+          broad,
+        } satisfies CatalogMatchSignals,
       };
     })
     .filter((match) => match.score > 0)

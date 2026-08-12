@@ -2,7 +2,15 @@
 
 import { TriangleAlert, Clock, CornerDownLeft, Heart, Loader2, Search, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import {
   modeActionItemsFor,
@@ -160,28 +168,79 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
   );
 }
 
-function SmartRotatingHint({ examples, modeLabel }: { examples: string[]; modeLabel: string }) {
+function SmartRotatingHint({
+  examples,
+  modeLabel,
+  showPhoneTicker,
+  onPickExample,
+}: {
+  examples: string[];
+  modeLabel: string;
+  showPhoneTicker: boolean;
+  onPickExample: (example: string) => void;
+}) {
   const [activeExampleIndex, setActiveExampleIndex] = useState(0);
+  const [heldTickerExample, setHeldTickerExample] = useState<string | null>(null);
+  const [isTickerHeld, setIsTickerHeld] = useState(false);
   const activeExample = examples[activeExampleIndex % examples.length];
 
   useEffect(() => {
+    if (isTickerHeld) return;
     if (examples.length <= 1) return;
     const intervalId = window.setInterval(() => {
       setActiveExampleIndex((current) => (current + 1) % examples.length);
     }, SMART_HINT_ROTATION_MS);
     return () => window.clearInterval(intervalId);
-  }, [examples]);
+  }, [examples, isTickerHeld]);
+
+  const freezeTicker = useCallback(() => {
+    setHeldTickerExample(activeExample);
+    setIsTickerHeld(true);
+  }, [activeExample]);
+  const releaseTicker = useCallback(() => setIsTickerHeld(false), []);
+  const resolvedTickerExample = isTickerHeld ? (heldTickerExample ?? activeExample) : activeExample;
 
   if (!activeExample) return null;
 
   return (
-    <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text" aria-live="polite">
-      <span>Smart search</span>
-      <span aria-hidden="true">·</span>
-      <span>
-        Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
-      </span>
-    </div>
+    <>
+      <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text" aria-live="polite">
+        <span>Smart search</span>
+        <span aria-hidden="true">·</span>
+        <span>
+          Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
+        </span>
+      </div>
+      {showPhoneTicker ? (
+        <button
+          type="button"
+          data-testid="smart-search-phone-ticker"
+          className="smart-search-phone-ticker"
+          onClick={() => onPickExample(resolvedTickerExample)}
+          onFocus={freezeTicker}
+          onBlur={releaseTicker}
+          onMouseEnter={freezeTicker}
+          onMouseLeave={releaseTicker}
+          onPointerDown={freezeTicker}
+          onPointerUp={releaseTicker}
+          onPointerLeave={releaseTicker}
+          onPointerCancel={releaseTicker}
+          onTouchStart={freezeTicker}
+          onTouchEnd={releaseTicker}
+          onTouchCancel={releaseTicker}
+          aria-label={`Try suggested search: ${resolvedTickerExample}`}
+        >
+          <span className="smart-search-phone-ticker-kicker">
+            <Sparkles aria-hidden="true" className="size-icon-sm" />
+            Try this
+          </span>
+          <span className="smart-search-phone-ticker-query">{resolvedTickerExample}</span>
+          <span className="smart-search-phone-ticker-action" aria-hidden="true">
+            Tap to search
+          </span>
+        </button>
+      ) : null}
+    </>
   );
 }
 
@@ -364,6 +423,7 @@ export function UniversalSearchCommandSurface({
   onFocusSearchInput,
   onListboxIdReady,
   onActiveItemIdChange,
+  showPhoneSuggestionTicker = false,
   placement = "inline",
   children,
 }: {
@@ -384,6 +444,8 @@ export function UniversalSearchCommandSurface({
   onFocusSearchInput?: () => void;
   onListboxIdReady?: (listboxId: string) => void;
   onActiveItemIdChange?: (activeItemId: string | null) => void;
+  /** Show the compact, tappable suggestion ticker below an in-flow phone home composer. */
+  showPhoneSuggestionTicker?: boolean;
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
@@ -992,7 +1054,15 @@ export function UniversalSearchCommandSurface({
         placement === "bottom-dock" ? "gap-1" : "gap-2",
       )}
     >
-      <SmartRotatingHint examples={config.examples} modeLabel={mode.label} />
+      <SmartRotatingHint
+        examples={config.examples}
+        modeLabel={mode.label}
+        showPhoneTicker={showPhoneSuggestionTicker}
+        onPickExample={(example) => {
+          onQueryChange(example);
+          onFocusSearchInput?.();
+        }}
+      />
       <div
         className="relative w-full"
         onKeyDownCapture={(event) => {

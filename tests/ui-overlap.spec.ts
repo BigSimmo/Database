@@ -266,12 +266,17 @@ test.describe("Header element overlap coverage", () => {
     );
   });
 
-  test("phone smart search does not show the desktop rotating text or prompt row", async ({ page }) => {
+  test("phone smart search shows the tappable suggestion ticker instead of desktop hints", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
     await expect(page.getByTestId("smart-search-rotating-text")).toBeHidden();
     await expect(page.getByTestId("smart-search-prompt-row")).toBeHidden();
+    const ticker = page.getByTestId("smart-search-phone-ticker");
+    await expect(ticker).toBeVisible();
+    const suggestedQuery = await ticker.locator(".smart-search-phone-ticker-query").textContent();
+    await ticker.click();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue(suggestedQuery ?? "");
   });
 });
