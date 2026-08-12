@@ -789,7 +789,8 @@ export function ResultFilterSheet({
           // matching document-search-results.tsx: a heading over zero options
           // is a section with nothing to disclose.
           if (activeNeedle && (filteredOptions?.length ?? 0) === 0) return null;
-          const selectedCount = group.options.filter((option) => group.selected.has(option.value)).length;
+          // Keep auto-open behavior aligned with the badge, which counts every selected value.
+          const selectedCount = group.selected.size;
           const isOpen =
             !dense ||
             Boolean(activeNeedle) ||
