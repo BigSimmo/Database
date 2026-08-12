@@ -32,16 +32,23 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expect(mockup.getByText("Also matches in other modes")).toHaveCount(0);
     await expect(mockup.getByText("Dose converter")).toHaveCount(0);
 
-    await mockup.getByTestId("tools-search-filter-trigger-wide").click();
-    const filterSheet = page.locator('[data-testid="tools-search-filter-sheet"]:visible');
-    await filterSheet.getByRole("radio", { name: /Treatment/ }).click();
-    await filterSheet.getByRole("button", { name: "Done" }).click();
+    const categoryRail = mockup.getByRole("radiogroup", { name: "Tool category" });
+    const allToolsFilter = categoryRail.getByRole("radio", { name: "All tools (1)" });
+    await allToolsFilter.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(categoryRail.getByRole("radio", { name: "Assessment (1)" })).toHaveAttribute("aria-checked", "true");
+    await expect(categoryRail.getByRole("radio", { name: "Treatment (0)" })).toBeDisabled();
+
+    await page.locator('[data-testid="global-search-input"]:visible').fill("Safety");
+    await expect(mockup.getByRole("heading", { level: 1, name: "Safety" })).toBeVisible();
+    const treatmentFilter = categoryRail.getByRole("radio", { name: "Treatment (2)" });
+    await treatmentFilter.click();
+    await expect(treatmentFilter).toHaveAttribute("aria-checked", "true");
+    await page.locator('[data-testid="global-search-input"]:visible').fill("Compare");
     await expect(mockup.getByText("0 tools", { exact: true })).toBeVisible();
     await expect(mockup.getByRole("heading", { name: "No tools match" })).toBeVisible();
     await expect(mockup.locator("aside")).toHaveCount(0);
-    await mockup.getByTestId("tools-search-filter-trigger-wide").click();
-    await filterSheet.getByRole("radio", { name: /All tools/ }).click();
-    await filterSheet.getByRole("button", { name: "Done" }).click();
+    await allToolsFilter.click();
     await expect(mockup.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
     await expect(mockup.locator("aside").getByRole("heading", { name: "Differentials" })).toBeVisible();
 
@@ -87,29 +94,29 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     const mockup = await gotoMockup(page, 390, 844);
     const trigger = mockup.getByTestId("tools-search-filter-trigger-phone");
 
+    await page.locator('[data-testid="global-search-input"]:visible').fill("Safety");
+    await expect(mockup.getByRole("heading", { level: 1, name: "Safety" })).toBeVisible();
+
     await trigger.click();
     const filterSheet = page.locator('[data-testid="tools-search-filter-sheet"]:visible');
     await expect(filterSheet).toBeVisible();
-    await expect(filterSheet.getByText("1 showing", { exact: true })).toBeVisible();
+    await expect(filterSheet.getByText("2 showing", { exact: true })).toBeVisible();
+    await expect(filterSheet.getByRole("radio", { name: /Evidence/ })).toHaveAttribute("aria-disabled", "true");
 
-    const assessment = filterSheet.getByRole("radio", { name: /Assessment/ });
-    await assessment.click();
-    await expect(assessment).toHaveAttribute("aria-checked", "true");
+    const treatment = filterSheet.getByRole("radio", { name: /Treatment/ });
+    await treatment.click();
+    await expect(treatment).toHaveAttribute("aria-checked", "true");
     await expect(filterSheet).toBeVisible();
-    await expect(filterSheet.getByText("1 showing", { exact: true })).toBeVisible();
+    await expect(filterSheet.getByText("2 showing", { exact: true })).toBeVisible();
     await filterSheet.getByRole("button", { name: "Done" }).click();
     await expect(filterSheet).toHaveCount(0);
     await expect(trigger).toContainText("1");
 
     await trigger.click();
-    const treatment = filterSheet.getByRole("radio", { name: /Treatment/ });
-    await treatment.click();
-    await expect(treatment).toHaveAttribute("aria-checked", "true");
-    await expect(filterSheet.getByText("0 showing", { exact: true })).toBeVisible();
     await filterSheet.getByRole("button", { name: "Clear filters" }).click();
     await expect(filterSheet).toBeVisible();
     await expect(filterSheet.getByRole("radio", { name: /All tools/ })).toHaveAttribute("aria-checked", "true");
-    await expect(filterSheet.getByText("1 showing", { exact: true })).toBeVisible();
+    await expect(filterSheet.getByText("2 showing", { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
 

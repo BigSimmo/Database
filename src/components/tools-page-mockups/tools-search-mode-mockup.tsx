@@ -26,6 +26,7 @@ import {
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { cn, controlBase, floatingControl } from "@/components/ui-primitives";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { toolCatalogRecords, toolSearchText, type ToolCatalogArea, type ToolCatalogRecord } from "@/lib/tools-catalog";
 
@@ -254,6 +255,17 @@ export function ToolsSearchModeMockup() {
     [activeFilter, queryMatchedTools],
   );
 
+  const filterControlOptions = useMemo(
+    () =>
+      filterOptions.map((option) => ({
+        value: option.id,
+        label: option.label,
+        hint: String(filterCounts[option.id]),
+        disabled: filterCounts[option.id] === 0 && activeFilter !== option.id,
+      })),
+    [activeFilter, filterCounts],
+  );
+
   const selectedTool = filteredTools.find((tool) => tool.id === selectedId) ?? filteredTools[0] ?? null;
 
   function toggleDetailSection(section: DetailSectionId) {
@@ -301,13 +313,11 @@ export function ToolsSearchModeMockup() {
             }
             mobileControlsPlacement="inline"
             filterControls={
-              <ResultFilterTrigger
-                panelId={filterPanelId}
-                testId="tools-search-filter-trigger-wide"
-                open={filterOpen}
-                activeCount={activeFilter === "all" ? 0 : 1}
-                onToggle={() => setFilterOpen((current) => !current)}
-                title="Filter tools"
+              <SegmentedControl
+                value={activeFilter}
+                onChange={setActiveFilter}
+                options={filterControlOptions}
+                label="Tool category"
               />
             }
           />
@@ -322,11 +332,7 @@ export function ToolsSearchModeMockup() {
                 id: "category",
                 label: "Category",
                 value: activeFilter,
-                options: filterOptions.map((option) => ({
-                  value: option.id,
-                  label: option.label,
-                  hint: String(filterCounts[option.id]),
-                })),
+                options: filterControlOptions,
                 onChange: setActiveFilter,
               }),
             ]}
