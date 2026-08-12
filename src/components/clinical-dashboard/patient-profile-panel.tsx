@@ -1,7 +1,7 @@
 "use client";
 
 import { Eraser, Plus, UserRound, X } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -107,9 +107,15 @@ function MedicationPicker({
   const [term, setTerm] = useState("");
   const listId = useId();
 
-  useEffect(() => {
+  // Clearing the profile empties the search box too. Done as React's sanctioned
+  // "adjust state during render" reconciliation rather than an effect: a
+  // setState inside useEffect renders once with the stale value and trips
+  // `react-hooks/set-state-in-effect`.
+  const [syncedNonce, setSyncedNonce] = useState(resetNonce);
+  if (syncedNonce !== resetNonce) {
+    setSyncedNonce(resetNonce);
     setTerm("");
-  }, [resetNonce]);
+  }
 
   const options = catalogueMedicationOptions();
   const selectedSet = new Set(selected);
@@ -228,22 +234,82 @@ export function PatientProfilePanel({
 
       <div className="space-y-3 border-t border-[color:var(--border)] p-3">
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          <NumberField key={`age-${resetNonce}`} label="Age" unit="years" value={profile.ageYears} onChange={(value) => updateField("ageYears", value)} testId="patient-age" min={PATIENT_PROFILE_NUMERIC_BOUNDS.ageYears.min} max={PATIENT_PROFILE_NUMERIC_BOUNDS.ageYears.max} />
-          <NumberField key={`egfr-${resetNonce}`} label="eGFR" unit="mL/min" value={profile.egfr} onChange={(value) => updateField("egfr", value)} testId="patient-egfr" min={PATIENT_PROFILE_NUMERIC_BOUNDS.egfr.min} max={PATIENT_PROFILE_NUMERIC_BOUNDS.egfr.max} />
-          <NumberField key={`crcl-${resetNonce}`} label="CrCl" unit="mL/min" value={profile.crcl} onChange={(value) => updateField("crcl", value)} testId="patient-crcl" min={PATIENT_PROFILE_NUMERIC_BOUNDS.crcl.min} max={PATIENT_PROFILE_NUMERIC_BOUNDS.crcl.max} />
-          <NumberField key={`qtc-${resetNonce}`} label="QTc" unit="ms" value={profile.qtc} onChange={(value) => updateField("qtc", value)} testId="patient-qtc" min={PATIENT_PROFILE_NUMERIC_BOUNDS.qtc.min} max={PATIENT_PROFILE_NUMERIC_BOUNDS.qtc.max} />
+          <NumberField
+            key={`age-${resetNonce}`}
+            label="Age"
+            unit="years"
+            value={profile.ageYears}
+            onChange={(value) => updateField("ageYears", value)}
+            testId="patient-age"
+            min={PATIENT_PROFILE_NUMERIC_BOUNDS.ageYears.min}
+            max={PATIENT_PROFILE_NUMERIC_BOUNDS.ageYears.max}
+          />
+          <NumberField
+            key={`egfr-${resetNonce}`}
+            label="eGFR"
+            unit="mL/min"
+            value={profile.egfr}
+            onChange={(value) => updateField("egfr", value)}
+            testId="patient-egfr"
+            min={PATIENT_PROFILE_NUMERIC_BOUNDS.egfr.min}
+            max={PATIENT_PROFILE_NUMERIC_BOUNDS.egfr.max}
+          />
+          <NumberField
+            key={`crcl-${resetNonce}`}
+            label="CrCl"
+            unit="mL/min"
+            value={profile.crcl}
+            onChange={(value) => updateField("crcl", value)}
+            testId="patient-crcl"
+            min={PATIENT_PROFILE_NUMERIC_BOUNDS.crcl.min}
+            max={PATIENT_PROFILE_NUMERIC_BOUNDS.crcl.max}
+          />
+          <NumberField
+            key={`qtc-${resetNonce}`}
+            label="QTc"
+            unit="ms"
+            value={profile.qtc}
+            onChange={(value) => updateField("qtc", value)}
+            testId="patient-qtc"
+            min={PATIENT_PROFILE_NUMERIC_BOUNDS.qtc.min}
+            max={PATIENT_PROFILE_NUMERIC_BOUNDS.qtc.max}
+          />
           <div className="col-span-2 sm:col-span-1">
-            <NumberField key={`scr-${resetNonce}-${scrUnit}`} label="Serum creatinine" value={profile.scr} onChange={(value) => updateField("scr", value)} testId="patient-scr" min={scrBounds.min} max={scrBounds.max} />
+            <NumberField
+              key={`scr-${resetNonce}-${scrUnit}`}
+              label="Serum creatinine"
+              value={profile.scr}
+              onChange={(value) => updateField("scr", value)}
+              testId="patient-scr"
+              min={scrBounds.min}
+              max={scrBounds.max}
+            />
           </div>
           <div className="col-span-2 min-w-0 sm:col-span-1">
-            <span id="patient-scr-unit-label" className={fieldLabel}>Creatinine unit</span>
-            <SegmentedControl ariaLabelledBy="patient-scr-unit-label" value={profile.scrUnit ?? "umol/L"} onChange={setScrUnit} options={SCR_UNIT_OPTIONS} layout="equal" />
+            <span id="patient-scr-unit-label" className={fieldLabel}>
+              Creatinine unit
+            </span>
+            <SegmentedControl
+              ariaLabelledBy="patient-scr-unit-label"
+              value={profile.scrUnit ?? "umol/L"}
+              onChange={setScrUnit}
+              options={SCR_UNIT_OPTIONS}
+              layout="equal"
+            />
           </div>
         </div>
 
         <div className="min-w-0">
-          <span id="patient-hepatic-label" className={fieldLabel}>Hepatic impairment</span>
-          <SegmentedControl ariaLabelledBy="patient-hepatic-label" value={profile.hepatic ?? "none"} onChange={(value) => updateField("hepatic", value === "none" ? null : value)} options={HEPATIC_OPTIONS} layout="fit" />
+          <span id="patient-hepatic-label" className={fieldLabel}>
+            Hepatic impairment
+          </span>
+          <SegmentedControl
+            ariaLabelledBy="patient-hepatic-label"
+            value={profile.hepatic ?? "none"}
+            onChange={(value) => updateField("hepatic", value === "none" ? null : value)}
+            options={HEPATIC_OPTIONS}
+            layout="fit"
+          />
         </div>
 
         <MedicationPicker selected={profile.medications ?? []} onToggle={toggleMedication} resetNonce={resetNonce} />
@@ -254,7 +320,16 @@ export function PatientProfilePanel({
             {ALLERGY_OPTIONS.map((option) => {
               const active = allergies.has(option.value);
               return (
-                <button key={option.value} type="button" aria-pressed={active} onClick={() => toggleAllergy(option.value)} data-testid={`patient-allergy-${option.value}`} className={cn(segmentBase, active ? segmentActive : segmentIdle)}>{option.label}</button>
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => toggleAllergy(option.value)}
+                  data-testid={`patient-allergy-${option.value}`}
+                  className={cn(segmentBase, active ? segmentActive : segmentIdle)}
+                >
+                  {option.label}
+                </button>
               );
             })}
           </div>
@@ -262,11 +337,19 @@ export function PatientProfilePanel({
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <span className="flex items-center gap-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
-            <ToggleSwitch enabled={profile.pregnant ?? false} onToggle={() => updateField("pregnant", !profile.pregnant)} aria-label="Pregnancy" />
+            <ToggleSwitch
+              enabled={profile.pregnant ?? false}
+              onToggle={() => updateField("pregnant", !profile.pregnant)}
+              aria-label="Pregnancy"
+            />
             Pregnancy
           </span>
           <span className="flex items-center gap-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
-            <ToggleSwitch enabled={profile.breastfeeding ?? false} onToggle={() => updateField("breastfeeding", !profile.breastfeeding)} aria-label="Breastfeeding" />
+            <ToggleSwitch
+              enabled={profile.breastfeeding ?? false}
+              onToggle={() => updateField("breastfeeding", !profile.breastfeeding)}
+              aria-label="Breastfeeding"
+            />
             Breastfeeding
           </span>
           <button
@@ -284,7 +367,8 @@ export function PatientProfilePanel({
         </div>
 
         <p className="text-2xs leading-4 text-[color:var(--text-muted)]">
-          Anonymous values only — no patient‑identifying information is stored. Cleared when the tab closes. Decision support, not medical advice.
+          Anonymous values only — no patient‑identifying information is stored. Cleared when the tab closes. Decision
+          support, not medical advice.
         </p>
       </div>
     </details>

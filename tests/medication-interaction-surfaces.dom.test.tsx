@@ -71,6 +71,23 @@ describe("interactions block on the medication detail page", () => {
     expect(screen.getByText(/is not shown as clear/i)).toBeInTheDocument();
   });
 
+  it("says so plainly when the catalogue has no interaction data at all", () => {
+    // `dataAvailable: false` reports a synthetic unresolvedRowCount of 1 against
+    // a totalRowCount of 0, so the ordinary "N of M rows" copy would read
+    // "1 of this medication's 0 interaction rows". Different reason, different words.
+    seedProfile({ medications: ["paracetamol"] });
+    const record = { ...(getMedicationRecord("acamprosate") as MedicationRecord), slug: "not-in-the-index" };
+    render(
+      <PatientProfileProvider>
+        <MedicationConsiderations record={record} />
+      </PatientProfileProvider>,
+    );
+
+    expect(screen.getByText(/carries no interaction data for this medication/i)).toBeInTheDocument();
+    expect(screen.queryByText(/of this medication.s 0 interaction/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/not shown as clear/i)).toBeInTheDocument();
+  });
+
   it("never claims an all-clear for a medication carrying unresolved rows", () => {
     seedProfile({ medications: ["paracetamol"] });
     const { container } = renderFor("bupropion-sr");

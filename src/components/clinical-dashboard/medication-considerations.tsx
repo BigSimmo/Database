@@ -392,8 +392,14 @@ function MedicationInteractionBlock({ record }: { record: MedicationRecord }) {
 
       {!hasList ? (
         <div className="rounded-lg border border-dashed border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-3 text-sm text-[color:var(--text-muted)]">
-          Add the patient&rsquo;s current medications to cross-check them against this drug&rsquo;s{" "}
-          {result.totalRowCount} catalogued interaction {result.totalRowCount === 1 ? "row" : "rows"}.
+          {result.dataAvailable ? (
+            <>
+              Add the patient&rsquo;s current medications to cross-check them against this drug&rsquo;s{" "}
+              {result.totalRowCount} catalogued interaction {result.totalRowCount === 1 ? "row" : "rows"}.
+            </>
+          ) : (
+            <>This catalogue carries no interaction data for this medication, so there is nothing to cross-check.</>
+          )}
         </div>
       ) : result.interactions.length === 0 ? (
         <InlineNotice tone={result.unresolvedRowCount > 0 ? "neutral" : "success"}>
@@ -428,7 +434,17 @@ function MedicationInteractionBlock({ record }: { record: MedicationRecord }) {
         </div>
       )}
 
-      {result.unresolvedRowCount > 0 ? (
+      {/* Two distinct reasons this medication cannot be shown as clear, and they
+          need different words. `dataAvailable === false` means the catalogue
+          carries no interaction rows for it at all, in which case
+          `unresolvedRowCount` is a synthetic 1 against a `totalRowCount` of 0 —
+          phrasing that as "1 of 0 rows" would be nonsense. */}
+      {!result.dataAvailable ? (
+        <InlineNotice tone="neutral">
+          This catalogue carries no interaction data for this medication, so nothing could be cross-checked against the
+          entered list. Review manually. It is not shown as clear.
+        </InlineNotice>
+      ) : result.unresolvedRowCount > 0 ? (
         <InlineNotice tone="neutral">
           {result.unresolvedRowCount} of this medication&rsquo;s {result.totalRowCount} interaction{" "}
           {result.totalRowCount === 1 ? "row" : "rows"} could not be matched automatically — review the Key Interactions

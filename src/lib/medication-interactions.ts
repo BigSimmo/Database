@@ -1,18 +1,44 @@
 // Patient-medication-list → drug-interaction evaluation.
+//
+// The companion to `medication-patient-alerts.ts`. That module answers "does
+// this patient's *physiology* change how I use this drug?"; this one answers
+// "does this drug collide with something the patient is *already taking*?".
+// Both are pure and framework-free so the prescribing workspace, the medication
+// detail page, and unit tests can share them.
+//
+// Input is the generated `data/medication-interaction-index.json` (see
+// `scripts/build-medication-interaction-index.ts`): per source medication, one
+// entry per `Key Interactions` row, carrying normalised severity and the
+// resolved catalogue counterparties. The verbatim row text is NOT duplicated
+// into the index — it is read back off the `MedicationRecord` by `rowIndex`.
+//
+// THE ONE INVARIANT THAT MATTERS
+// `success` (green) must be unreachable on incomplete analysis. Three separate
+// things can make the analysis incomplete, and each has to keep green off:
+//
+//   1. A row whose counterparty could not be resolved → `unresolvedRowCount`.
+//   2. A medication the index has no entry for at all → `dataAvailable: false`,
+//      which reports a synthetic `unresolvedRowCount` of 1. Without this, a drug
+//      we know nothing about scored zero unresolved rows and composed straight
+//      to green — a false all-clear on absent data, the worst failure this
+//      module has.
+//   3. An unparsed severity token → `SEVERITY_TONE.unknown` is `neutral`, never
+//      `success`.
+//
+// Missing analysis is not the same as a negative finding. `composeMedicationVerdict`
+// is where that is finally enforced.
+//
+// SYMMETRY
+// Interaction prose is not reliably symmetric: drug A's rows may name drug B
+// while drug B's rows never mention A. Evaluating only the viewed drug's rows
+// therefore misses real pairs in one direction. Both directions are scanned and
+// the results de-duplicated, preferring the copy that carries source text.
 
 import interactionIndex from "../../data/medication-interaction-index.json";
 import { SEMANTIC_TONE_PRIORITY, type SemanticTone } from "@/lib/semantic-tone";
 
 export type InteractionSeverity =
-  | "critical"
-  | "high"
-  | "moderate"
-  | "caution"
-  | "low"
-  | "none"
-  | "safe"
-  | "beneficial"
-  | "unknown";
+  "critical" | "high" | "moderate" | "caution" | "low" | "none" | "safe" | "beneficial" | "unknown";
 
 export type MedicationInteraction = {
   id: string;

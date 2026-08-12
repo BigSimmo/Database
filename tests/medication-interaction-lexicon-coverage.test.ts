@@ -70,9 +70,7 @@ describe("interaction lexicon coverage", () => {
       .flatMap((entry) => entry.rows)
       .filter(
         (row) =>
-          row.termIds.length > 0 &&
-          row.counterparties.length === 0 &&
-          row.termIds.every((id) => mechanismIds.has(id)),
+          row.termIds.length > 0 && row.counterparties.length === 0 && row.termIds.every((id) => mechanismIds.has(id)),
       );
     expect(mechanismOnly.length).toBeGreaterThan(0);
     expect(mechanismOnly.every((row) => !row.resolved)).toBe(true);
