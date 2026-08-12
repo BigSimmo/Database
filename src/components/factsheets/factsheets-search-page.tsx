@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Info, LayoutGrid, List, SearchX } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
@@ -14,6 +14,7 @@ import {
 import {
   categoryTheme,
   factsheetCategories,
+  filterFactsheets,
   type Factsheet,
   type FactsheetCategory,
 } from "@/components/factsheets/factsheets-data";
@@ -49,6 +50,14 @@ export function FactsheetsSearchPage({
   const activeCategory = factsheetCategories.find((entry) => entry === category);
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
+  // "How many would I have if I picked this" — the same predicate as the filter,
+  // run against the current query, not a static catalogue total. `categoryCount`
+  // (factsheets-data.ts) answers a different question for the home page's browse
+  // pills, which has no active search to hold constant.
+  const categoryOptions = useMemo(
+    () => filterChips.map((chip) => ({ ...chip, count: filterFactsheets(query, chip.key).length })),
+    [query],
+  );
 
   return (
     <div
@@ -83,21 +92,29 @@ export function FactsheetsSearchPage({
             <span className="hidden shrink-0 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)] sm:inline">
               Category
             </span>
-            {filterChips.map((chip) => {
+            {categoryOptions.map((chip) => {
               const isActive = chip.key ? activeCategory === chip.key : !activeCategory;
               return (
                 <Link
                   key={chip.label}
                   href={searchHref(query, chip.key)}
                   aria-current={isActive ? "true" : undefined}
+                  // Same `${label} (${count})` shape as ResultFilterOption.hint's
+                  // aria-label override — inter-element whitespace is normalised
+                  // away by the accessible-name computation, so a visible-only
+                  // count span would otherwise announce as "Medications3".
+                  aria-label={`${chip.label} (${chip.count})`}
                   className={cn(
-                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-2.5 text-2xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9 sm:text-xs",
+                    "inline-flex min-h-tap shrink-0 items-center gap-1 rounded-lg border px-2.5 text-2xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9 sm:text-xs",
                     isActive
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                   )}
                 >
-                  {chip.label}
+                  <span aria-hidden="true">{chip.label}</span>
+                  <span aria-hidden="true" className="nums text-[color:var(--text-muted)]">
+                    {chip.count}
+                  </span>
                 </Link>
               );
             })}
@@ -155,7 +172,11 @@ export function FactsheetsSearchPage({
             id: "category",
             label: "Category",
             value: activeCategory ?? "all",
-            options: filterChips.map((chip) => ({ value: chip.key ?? "all", label: chip.label })),
+            options: categoryOptions.map((chip) => ({
+              value: chip.key ?? "all",
+              label: chip.label,
+              hint: String(chip.count),
+            })),
             onChange: (value) => {
               setFilterOpen(false);
               router.push(searchHref(query, value === "all" ? undefined : value));

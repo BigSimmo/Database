@@ -28,13 +28,22 @@ does today — tells the reader they cannot hold two domains at once, which is f
 
 ### There is no `navigate` kind, and that is the point
 
-Services' quick filters and factsheets' categories do not filter. They call `router.push` and
-**replace the query**, so choosing one discards the search and its results with no warning and no
-undo. A control labelled "Filter" must not do that. Query-replacing presets belong beside the
-composer as suggested searches (`AnswerSuggestionChips`), not inside the filter sheet.
+Services' quick filters do not filter. They call `router.push` and **replace the query**, so
+choosing one discards the search and its results with no warning and no undo. A control labelled
+"Filter" must not do that. Query-replacing presets belong beside the composer as suggested
+searches (`AnswerSuggestionChips`), not inside the filter sheet.
 
 Until a mode has real facets, it is better for its filter trigger to be absent than to open a
 sheet that throws the query away.
+
+**Correction, verified by reading the code rather than assumed:** an earlier draft of this
+section named factsheets' categories alongside services' quick filters as another `navigate`-kind
+offender. That was wrong. `searchHref(query, category)`
+(`src/components/factsheets/factsheets-search-page.tsx`) preserves `q` and _adds_ `category` —
+factsheets never discards the search. Its category chips are a genuine `lens` (one-of-N,
+query-preserving) at both breakpoints; they were never a contract violation and needed no
+eviction. See the desktop-rail note under §2 for the one place factsheets deliberately does not
+converge on the shared component.
 
 ## 2. Accessibility follows from the kind
 
@@ -51,6 +60,23 @@ never asked for, and where every toggle must be individually reachable.
 
 Both breakpoints use the same contract. The per-mode desktop chip rails that use `aria-pressed`
 for one-of-N dimensions are wrong and are replaced as each mode adopts.
+
+### One deliberate exception: factsheets' desktop rail stays real `<Link>`s
+
+Every other lens mode's desktop rail (`SegmentedControl`, `role="radio"` buttons) filters an
+already-fetched result set held in client-side state — nothing about the URL is load-bearing.
+Factsheets' category is different in kind, not just in current implementation: `/factsheets/search`
+is a Next.js Server Component route (`src/app/(search-app)/factsheets/search/page.tsx`) that reads
+`category` from `searchParams` and filters server-side before the client ever mounts. A real
+`<a href>` is the correct primitive for a server-driven route change — native prefetch,
+right-click/open-in-new-tab, works with no JS — and `SegmentedControl` cannot render one; adopting
+it would mean giving that up for a narrow "breakpoint mechanism consistency" gain with no
+correctness benefit (the phone sheet already agrees with the rail on _meaning_ — both are
+query-preserving one-of-N — they only differ in _mechanism_, unlike the four lens modes PR #1857
+converged, where the breakpoints disagreed on meaning itself). The phone sheet stays
+`resultFilterGroup`/`ResultFilterSheet` as normal; only the desktop rail is the exception, and it
+is exempt from the "chip rails are wrong" rule above for this reason alone. Do not use this as
+precedent for keeping a bespoke rail anywhere the URL is not genuinely server-owned like this.
 
 ## 3. Counts, and the rule that makes them safe
 
