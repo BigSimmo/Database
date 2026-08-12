@@ -427,9 +427,9 @@ jobs:
           git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
           git fetch --no-tags origin \
             "+refs/heads/$HEAD_REF:refs/remotes/origin/$HEAD_REF" \
-            "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-          test "$(git rev-parse "refs/remotes/origin/$BASE_REF")" = "$BASE_SHA" || {
-            echo "::error::The base branch advanced after evidence collection; invoke Run PR again."
+            "+$BASE_SHA:refs/remotes/codex-run-pr/base"
+          test "$(git rev-parse refs/remotes/codex-run-pr/base)" = "$BASE_SHA" || {
+            echo "::error::The exact recorded base commit could not be fetched."
             exit 1
           }
           if ! git merge-base --is-ancestor "$BASE_SHA" HEAD; then
@@ -474,7 +474,9 @@ jobs:
           sudo pkill -KILL -u codex-operator 2>/dev/null || true
           sudo find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 ! -name .git \
             -exec chown -hR "$(id -u):$(id -g)" {} +
-          sudo chown -hR "$(id -u):$(id -g)" "$RUNNER_TEMP/codex-run-pr-trusted"
+          if [ -e "$RUNNER_TEMP/codex-run-pr-trusted" ]; then
+            sudo chown -hR "$(id -u):$(id -g)" "$RUNNER_TEMP/codex-run-pr-trusted"
+          fi
 
       - name: Seal local result as a validated Git bundle
         env:

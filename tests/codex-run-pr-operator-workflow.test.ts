@@ -221,9 +221,13 @@ describe("Codex Run PR operator workflow", () => {
     expect(repair).toContain("${{ runner.temp }}/codex-run-pr-trusted/prompt.md");
     expect(repair).toContain("CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}");
     expect(repair).toContain("! -name .git");
+    expect(repair).toContain('"+$BASE_SHA:refs/remotes/codex-run-pr/base"');
+    expect(repair).toContain("git rev-parse refs/remotes/codex-run-pr/base");
+    expect(repair).not.toContain("The base branch advanced after evidence collection");
     expect(repair).toContain('git merge-tree --write-tree HEAD "$BASE_SHA"');
     expect(repair).toContain('git merge --no-edit "$BASE_SHA"');
     expect(repair).toContain("operator policy requires a human resolution");
+    expect(repair).toContain('if [ -e "$RUNNER_TEMP/codex-run-pr-trusted" ]; then');
     expect(repair).not.toContain("secrets.GH_TOKEN");
     expect(repair).not.toContain("github-token:");
     expect(repair).not.toContain("./.github/actions/");
