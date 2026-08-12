@@ -642,7 +642,7 @@ describe("Codex Cloud environment contract", () => {
     expect(maintenance).toContain("bash scripts/refresh-codex-cloud-base.sh");
     expect(commandShims).toContain('nvm version "$expected_node_major"');
     expect(commandShims).toContain('node_bin="$NVM_DIR/versions/node/$resolved_node_version/bin"');
-    expect(commandShims).toContain('clean_path="${clean_path//:$HOME\\/.local\\/bin:/:}"');
+    expect(commandShims).toContain('clean_path="\\${clean_path//:\\$HOME\\/.local\\/bin:/:}"');
     expect(commandShims).toContain('. "$runtime_profile"');
     expect(commandShims).toContain('mkdir -p "$HOME/.local/bin"');
     expect(githubShellSetup).toContain("set +x");
