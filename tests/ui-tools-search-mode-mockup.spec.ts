@@ -153,6 +153,21 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expect(sheet).toHaveCount(0);
   });
 
+  test("closes the phone filter sheet when the viewport enters desktop layout", async ({ page }) => {
+    const mockup = await gotoMockup(page, 390, 844);
+    const trigger = mockup.getByTestId("tools-search-filter-trigger-phone");
+
+    await trigger.click();
+    const filterSheet = page.locator('[data-testid="tools-search-filter-sheet"]:visible');
+    await expect(filterSheet).toBeVisible();
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(filterSheet).toHaveCount(0);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(filterSheet).toHaveCount(0);
+  });
+
   test("phone filter sheet follows the shared local-filter behavior", async ({ page }) => {
     const mockup = await gotoMockup(page, 390, 844);
     const trigger = mockup.getByTestId("tools-search-filter-trigger-phone");

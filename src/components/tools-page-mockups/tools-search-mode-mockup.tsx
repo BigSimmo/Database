@@ -235,12 +235,15 @@ export function ToolsSearchModeMockup() {
 
   useEffect(() => {
     const desktopMedia = window.matchMedia("(min-width: 1024px)");
-    const closePhoneDetailOnDesktop = (event: MediaQueryListEvent) => {
-      if (event.matches) setPhoneDetailOpen(false);
+    const closePhoneOverlaysOnDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) {
+        setPhoneDetailOpen(false);
+        setFilterOpen(false);
+      }
     };
 
-    desktopMedia.addEventListener("change", closePhoneDetailOnDesktop);
-    return () => desktopMedia.removeEventListener("change", closePhoneDetailOnDesktop);
+    desktopMedia.addEventListener("change", closePhoneOverlaysOnDesktop);
+    return () => desktopMedia.removeEventListener("change", closePhoneOverlaysOnDesktop);
   }, []);
 
   const queryMatchedTools = useMemo(() => {
