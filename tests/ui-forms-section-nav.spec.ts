@@ -24,6 +24,7 @@ import { visibleByTestId } from "./playwright-settlement";
  */
 const FORM_ROUTE = "/forms/transport-crisis-form";
 
+// Adoption evidence: these browser regressions exercise DisclosureGroup.items[].extendDescription.
 test.describe("Forms section navigation", () => {
   test("expands information previews into one continuous answer", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });

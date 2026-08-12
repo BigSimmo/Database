@@ -17,6 +17,7 @@ vi.mock("@/components/account-data-provider", () => ({
   }),
 }));
 
+// Adoption evidence: these form assertions exercise DisclosureGroup.items[].extendDescription.
 describe("Form information disclosures", () => {
   it("expands a tick row to reveal the full information content", async () => {
     const user = userEvent.setup();
