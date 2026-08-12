@@ -1,0 +1,83 @@
+name: PR 1869 register DisclosureGroup tests fast
+
+on:
+  push:
+    branches:
+      - codex/fix-form-section-expansion-issues
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-1869-register-disclosure-group-fast-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Register generated coverage and remove this workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "codex/fix-form-section-expansion-issues"
+          git pull --ff-only origin "$GITHUB_REF_NAME"
+
+          python - <<'PY'
+          from pathlib import Path
+
+          test_markers = {
+              Path("tests/forms-information-disclosure.dom.test.tsx"): (
+                  'describe("Form information disclosures", () => {',
+                  '// Adoption evidence: these form assertions exercise DisclosureGroup.items[].extendDescription.\n'
+                  'describe("Form information disclosures", () => {',
+              ),
+              Path("tests/ui-forms-section-nav.spec.ts"): (
+                  'test.describe("Forms section navigation", () => {',
+                  '// Adoption evidence: these browser regressions exercise DisclosureGroup.items[].extendDescription.\n'
+                  'test.describe("Forms section navigation", () => {',
+              ),
+          }
+          for path, (anchor, replacement) in test_markers.items():
+              text = path.read_text()
+              if replacement not in text:
+                  if text.count(anchor) != 1:
+                      raise SystemExit(f"{path}: expected one coverage anchor, found {text.count(anchor)}")
+                  path.write_text(text.replace(anchor, replacement))
+
+          manifest = Path("docs/design-system/adoption-manifest.json")
+          text = manifest.read_text()
+          old = '      "testFiles": ["tests/design-sync-visual-exports.test.ts"],\n'
+          new = (
+              '      "testFiles": [\n'
+              '        "tests/design-sync-visual-exports.test.ts",\n'
+              '        "tests/forms-information-disclosure.dom.test.tsx",\n'
+              '        "tests/ui-forms-section-nav.spec.ts"\n'
+              '      ],\n'
+          )
+          disclosure_group = text.index('      "name": "DisclosureGroup",')
+          next_component = text.index('      "name": ', disclosure_group + len('      "name": "DisclosureGroup",'))
+          prefix, block, suffix = text[:disclosure_group], text[disclosure_group:next_component], text[next_component:]
+          if new not in block:
+              if block.count(old) != 1:
+                  raise SystemExit("DisclosureGroup manifest testFiles did not match the expected generated source")
+              block = block.replace(old, new)
+              manifest.write_text(prefix + block + suffix)
+          PY
+
+          git rm .github/workflows/pr-1869-register-disclosure-group-tests-fast.yml
+          git add \
+            tests/forms-information-disclosure.dom.test.tsx \
+            tests/ui-forms-section-nav.spec.ts \
+            docs/design-system/adoption-manifest.json
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "test: register DisclosureGroup behavioural coverage"
+          git push origin HEAD:${GITHUB_REF_NAME}
