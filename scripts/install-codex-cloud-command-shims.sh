@@ -33,7 +33,9 @@ set -Eeuo pipefail
 # or maintenance replaces this wrapper through the same idempotent command.
 . "$runtime_profile"
 clean_path=":\$PATH:"
-clean_path="\${clean_path//:\$HOME\/.local\/bin:/:}"
+while [[ "\$clean_path" == *":\$HOME/.local/bin:"* ]]; do
+  clean_path="\${clean_path//:\$HOME\/.local\/bin:/:}"
+done
 clean_path="\${clean_path#:}"
 clean_path="\${clean_path%:}"
 if [[ -n "\$clean_path" ]]; then
