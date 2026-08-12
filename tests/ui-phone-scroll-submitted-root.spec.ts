@@ -43,7 +43,7 @@ async function mockDemoDashboard(page: Page) {
   });
 }
 
-test("submitted root search keeps its query and hides the phone suggestion ticker", async ({ page }) => {
+test("submitted root search keeps its query and hides the phone suggestion ticker @critical", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 820 });
   await mockDemoDashboard(page);
   await page.goto("/?mode=answer&q=lithium&run=1", { waitUntil: "domcontentloaded" });
