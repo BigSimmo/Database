@@ -12,7 +12,7 @@
 -- Before applying on live, confirm `npm run reindex:health` reports
 -- jobs_pending = 0 and jobs_processing = 0 (live had 0/0 as of 2026-07-08).
 -- On a busy queue, prefer the lock-free form from
--- docs/operator-apply-july8-batch.md (CREATE INDEX CONCURRENTLY outside a
+-- docs/archive/operator-apply-july8-batch.md (CREATE INDEX CONCURRENTLY outside a
 -- transaction), then `supabase migration repair --linked --status applied
 -- 20260708170000`.
 --

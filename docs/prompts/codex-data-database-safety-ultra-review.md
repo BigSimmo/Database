@@ -64,7 +64,7 @@ Locate and read these when present. Do not invent missing documents.
 Priority set:
 
 - `docs/codex-review-protocol.md`
-- `docs/tenancy-defense-in-depth-review.md`
+- `docs/audit/tenancy-defense-in-depth-review.md`
 - `docs/supabase-migration-reconciliation.md`
 - `docs/deployment-architecture.md`
 - `docs/process-hardening.md`
