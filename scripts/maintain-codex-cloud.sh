@@ -9,7 +9,6 @@ repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
 cd "$repo_root"
 
 export CODEX_CLOUD=1
-bash scripts/configure-codex-cloud-github-shell.sh
 
 if [[ -f "$HOME/.clinical-kb-codex-cloud.sh" ]]; then
   # shellcheck source=/dev/null

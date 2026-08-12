@@ -260,9 +260,6 @@ for shell_profile in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.bash_profile"; do
   fi
 done
 
-setup_step="github-shell-auth"
-bash scripts/configure-codex-cloud-github-shell.sh
-
 # shellcheck source=/dev/null
 source "$runtime_profile"
 

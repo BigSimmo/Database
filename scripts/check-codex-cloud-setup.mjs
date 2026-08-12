@@ -555,7 +555,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   ];
   for (const name of providerCredentialVariables) lines.push(`${name}.present=${Boolean(env[name])}`);
   lines.push(hostedAppInventoryCapabilityLine(options.hostedAppInventory ?? null));
-  lines.push("provider_route.github=codex-native-connector-or-authenticated-gh");
+  lines.push("provider_route.github=codex-native-connector");
   lines.push("provider_route.railway=chatgpt-official-app");
   lines.push("provider_route.supabase=chatgpt-project-scoped-read-only-app");
   lines.push(`codex.cli_available=${codexCliAvailable}`);
@@ -752,7 +752,6 @@ export function validateCodexCloudSetup() {
   const setup = read("scripts/setup-codex-cloud.sh");
   const maintenance = read("scripts/maintain-codex-cloud.sh");
   const commandShims = read("scripts/install-codex-cloud-command-shims.sh");
-  const githubShellSetup = read("scripts/configure-codex-cloud-github-shell.sh");
   const checkoutBaseRefresh = read("scripts/refresh-codex-cloud-base.sh");
   const rawEnvironmentProbe = read("scripts/check-codex-cloud-raw-env.sh");
   const patDelete = read("scripts/delete-codex-cloud-branch-with-pat.sh");
@@ -800,10 +799,6 @@ export function validateCodexCloudSetup() {
     [/unset OPENAI_API_KEY/, "Cloud setup must remove raw provider variables from the agent shell."],
     [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
     [/@openai\/codex/, "Cloud setup must install the Codex CLI."],
-    [
-      /configure-codex-cloud-github-shell\.sh/,
-      "Cloud setup must provision the authenticated GitHub shell fallback before scrubbing setup secrets.",
-    ],
     [/ensure-codex-cloud-git-remote\.mjs/, "Cloud setup must restore a safe origin remote."],
     [/refresh-codex-cloud-base\.sh/, "Cloud setup must refresh and pin the task checkout base."],
     [/check:codex-cloud -- --runtime/, "Cloud setup must run runtime acceptance."],
@@ -850,6 +845,11 @@ export function validateCodexCloudSetup() {
   if (setup.includes("@railway/cli") || setup.includes('setup_step="railway-cli"')) {
     errors.push("Cloud setup must not install or invoke Railway CLI; hosted access comes from the authenticated app.");
   }
+  if (/gh auth login|configure-codex-cloud-github-shell\.sh/.test(`${setup}\n${maintenance}`)) {
+    errors.push(
+      "Cloud lifecycle scripts must not persist setup-only GitHub credentials for the agent phase; use the native connector.",
+    );
+  }
   const providerScrubIndex = setup.indexOf("unset OPENAI_API_KEY");
   const accessProfileBranchIndex = setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]');
   if (providerScrubIndex < 0 || accessProfileBranchIndex < 0 || providerScrubIndex > accessProfileBranchIndex) {
@@ -874,12 +874,6 @@ export function validateCodexCloudSetup() {
     maintenance,
     /ensure-codex-cloud-git-remote\.mjs/,
     "Maintenance must preserve the safe origin remote.",
-  );
-  requireMatch(
-    errors,
-    maintenance,
-    /configure-codex-cloud-github-shell\.sh/,
-    "Maintenance must repair authenticated GitHub shell access before scrubbing setup secrets.",
   );
   requireMatch(
     errors,
@@ -913,31 +907,6 @@ export function validateCodexCloudSetup() {
   );
   if (!commandShims.includes('exec "$node_bin/$command_name" "\\$@"')) {
     errors.push("Cloud command shims must execute absolute Node commands.");
-  }
-  for (const [pattern, message] of [
-    [/set \+x/, "GitHub shell setup must disable shell tracing before reading the setup credential."],
-    [/--with-token/, "GitHub shell setup must pass the setup credential through GitHub CLI standard input."],
-    [
-      /GH_CONFIG_DIR="\$HOME\/\.config\/gh"/,
-      "GitHub shell setup must keep its credential store outside the repository.",
-    ],
-    [
-      /unset CODEX_CLOUD_GITHUB_PAT GH_TOKEN GITHUB_TOKEN/,
-      "GitHub shell setup must scrub token variables immediately after staging authentication input.",
-    ],
-    [/gh api user --jq \.login/, "GitHub shell setup must verify the authenticated identity."],
-    [/repos\/\$repository/, "GitHub shell setup must verify repository-specific push permission."],
-    [/gh auth setup-git/, "GitHub shell setup must configure a token-free Git credential helper."],
-    [/grep -Eq '[^']*oauth_token:/, "GitHub shell setup must detect GitHub CLI plaintext credential fallback."],
-    [
-      /GitHub CLI fell back to plaintext credential storage/,
-      "GitHub shell setup must fail closed when OS-backed secure storage is unavailable.",
-    ],
-  ]) {
-    requireMatch(errors, githubShellSetup, pattern, message);
-  }
-  if (/printf[^\n]*(?:CODEX_CLOUD_GITHUB_PAT|GH_TOKEN|GITHUB_TOKEN)/.test(githubShellSetup)) {
-    errors.push("GitHub shell setup must never print a credential variable.");
   }
   requireMatch(
     errors,
