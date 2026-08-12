@@ -33,12 +33,13 @@ jobs:
           path = Path("docs/design-system/adoption-manifest.json")
           text = path.read_text()
           old = '      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/forms-information-disclosure.dom.test.tsx", "tests/ui-forms-section-nav.spec.ts"],\n'
-          new = '''      "testFiles": [
-        "tests/design-sync-visual-exports.test.ts",
-        "tests/forms-information-disclosure.dom.test.tsx",
-        "tests/ui-forms-section-nav.spec.ts"
-      ],
-'''
+          new = (
+              '      "testFiles": [\n'
+              '        "tests/design-sync-visual-exports.test.ts",\n'
+              '        "tests/forms-information-disclosure.dom.test.tsx",\n'
+              '        "tests/ui-forms-section-nav.spec.ts"\n'
+              '      ],\n'
+          )
           if text.count(old) != 1:
               raise SystemExit("expected exactly one unformatted DisclosureGroup testFiles entry")
           path.write_text(text.replace(old, new))
