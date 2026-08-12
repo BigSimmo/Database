@@ -100,5 +100,9 @@ describe("DifferentialsHome compare selection URL handoff", () => {
         ["bpsd-as-unmet-need-delirium-pain-mimic", "medical-gi-endocrine-painful-organic-cause"].sort(),
       );
     });
+
+    const selectedControls = screen.getAllByRole("checkbox", { name: /^Remove .+ from comparison$/ });
+    expect(selectedControls.length).toBeGreaterThanOrEqual(2);
+    for (const control of selectedControls) expect(control).toBeChecked();
   });
 });
