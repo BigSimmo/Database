@@ -1068,7 +1068,10 @@ test.describe("Clinical KB tools launcher", () => {
 
     // The evicted presets still run a search — now as suggestion chips beside
     // the composer rather than as a fake filter that discarded the query.
-    await page.getByTestId("service-search-shortcuts").getByRole("button", { name: "Crisis" }).click();
+    await page
+      .getByTestId("service-search-shortcuts")
+      .getByRole("button", { name: "Crisis" })
+      .click();
     await expect(page).toHaveURL(/\/services\?.*q=crisis/);
 
     // Phones keep the full search results in the page instead of opening a
@@ -1321,7 +1324,10 @@ test.describe("Clinical KB tools launcher", () => {
 
     // Widening to All items keeps the submitted query while removing the
     // narrowing facet and group scope.
-    await page.getByRole("radiogroup", { name: "Scope" }).getByRole("radio", { name: /All items/ }).click();
+    await page
+      .getByRole("radiogroup", { name: "Scope" })
+      .getByRole("radio", { name: /All items/ })
+      .click();
     await expect(page).toHaveURL(/q=13YARN/);
     await expect(page).not.toHaveURL(/facets=/);
     await expect(page.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
@@ -1344,7 +1350,10 @@ test.describe("Clinical KB tools launcher", () => {
     // The evicted preset still runs a search — as a suggestion chip beside the
     // composer, which is honest about replacing the query rather than
     // pretending to be a filter.
-    await page.getByTestId("service-search-shortcuts").getByRole("button", { name: "Culturally safe" }).click();
+    await page
+      .getByTestId("service-search-shortcuts")
+      .getByRole("button", { name: "Culturally safe" })
+      .click();
     await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
