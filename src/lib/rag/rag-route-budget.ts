@@ -1,4 +1,5 @@
 import type { AnswerRouteMode } from "@/lib/rag/rag-routing";
+import type { RagAnswer } from "@/lib/types";
 
 export const answerRouteBudgetMs = {
   unsupported: 0,
@@ -16,6 +17,12 @@ export const generationRecoveryReserveMs = 2_000;
 // truncated attempts measure ~20s+ before hitting max_output_tokens, and the strong retry
 // spends MORE reasoning under a boosted cap, so anything shorter is a guaranteed-discard.
 export const minimumGenerationRetryMs = 5_000;
+
+// Keep in lockstep with rag-cache / isProviderGenerationDegraded: bare
+// `generation_fallback` (no `:reason`) and case variants must refuse the cache.
+// Inline the marker here so this leaf module does not import rag-answer-support
+// (that path pulls env through deep-memory and freezes the offline vitest snapshot).
+const GENERATION_FALLBACK_MARKER = /(?:^|;\s*)generation_fallback(?::|$)/i;
 
 export class AnswerRouteDeadlineExceededError extends Error {
   readonly routeMode: AnswerRouteMode;
@@ -49,8 +56,15 @@ export function deadlineAllowsGenerationRetry(deadline: Pick<AnswerRouteDeadline
   return deadline.remainingMs() >= generationRecoveryReserveMs + minimumGenerationRetryMs;
 }
 
-export function answerRouteResultCanBeCached(deadline: Pick<AnswerRouteDeadline, "deadlineExceeded">) {
-  return !deadline.deadlineExceeded;
+export function answerRouteResultCanBeCached(
+  deadline: Pick<AnswerRouteDeadline, "deadlineExceeded">,
+  answer: Pick<RagAnswer, "routingReason" | "degradedMode">,
+) {
+  return (
+    !deadline.deadlineExceeded &&
+    !GENERATION_FALLBACK_MARKER.test(answer.routingReason ?? "") &&
+    !GENERATION_FALLBACK_MARKER.test(answer.degradedMode?.reason ?? "")
+  );
 }
 
 function abortReason(signal: AbortSignal) {
