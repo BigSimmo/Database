@@ -246,6 +246,13 @@ export function TcProvider({ children }: { children: ReactNode }) {
     enabled: !isHome,
   });
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
+  // Home reads the build-time summary rather than the catalogue so first paint
+  // never waits on catalogue I/O (`enabled: !isHome` above). The count and the
+  // default slugs are therefore only as true as the last generator run, which
+  // is why `npm run check:therapy-data-index` (build-therapies-index --check)
+  // is load-bearing in verify:cheap - do not bypass it. If home ever lists real
+  // therapy records rather than a count, it must re-enable `useTherapyData`;
+  // extending the generated summary instead would drift silently.
   const therapyCount = isHome ? THERAPY_CATALOGUE_SUMMARY.totalCount : therapies.length;
   const pathways = useMemo(() => data?.pathways ?? [], [data]);
 

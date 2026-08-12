@@ -758,7 +758,8 @@ several into one PR/session rather than a dedicated branch each.
 - A change needing its own `RAG impact:` line together with one that doesn't.
 - A change needing `## Clinical Governance Preflight` together with unrelated chores.
 - Anything explicitly scoped "1 PR per work order" by its own tracking doc (e.g. the
-  maturity backlog in `docs/maturity-backlog-workorders.md`, ledger `#086`) — those are
+  maturity backlog in `docs/maturity-backlog-workorders.md`, tracked per work order as ledger
+  `#190`–`#195` since the `#086` umbrella was retired) — those are
   deliberately isolated for staged rollout and review.
 
 Bundling saves PR/CI-invocation count, not verification rigor — every bundled item still
