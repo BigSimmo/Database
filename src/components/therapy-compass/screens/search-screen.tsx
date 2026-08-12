@@ -69,7 +69,7 @@ export function SearchScreen() {
           const count = b.queryMatches.filter(
             (t) => matchesTopics(t, withCandidate) && matchesAvailability(t, b.search.reviewedOnly, b.search.briefOnly),
           ).length;
-          return { value: tag, label: tag, hint: String(count) };
+          return { value: tag, label: tag, hint: String(count), disabled: count === 0 && !topics.has(tag) };
         }),
         onToggle: b.toggleTag,
       }),
@@ -95,6 +95,9 @@ export function SearchScreen() {
               b.queryMatches.filter((t) => matchesTopics(t, topics) && matchesAvailability(t, true, b.search.briefOnly))
                 .length,
             ),
+            disabled:
+              b.queryMatches.filter((t) => matchesTopics(t, topics) && matchesAvailability(t, true, b.search.briefOnly))
+                .length === 0 && !b.search.reviewedOnly,
           },
         ],
         onToggle: b.toggleReviewedOnly,
@@ -116,6 +119,10 @@ export function SearchScreen() {
                 (t) => matchesTopics(t, topics) && matchesAvailability(t, b.search.reviewedOnly, true),
               ).length,
             ),
+            disabled:
+              b.queryMatches.filter(
+                (t) => matchesTopics(t, topics) && matchesAvailability(t, b.search.reviewedOnly, true),
+              ).length === 0 && !b.search.briefOnly,
           },
         ],
         onToggle: b.toggleBriefOnly,
