@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DifferentialStreamPage } from "@/components/differentials/differential-stream-page";
+import { buildDifferentialStreamModel } from "@/lib/differential-stream";
 import { differentialDiagnosesCards, differentialPresentationsCards } from "@/lib/differentials";
 
 vi.mock("next/navigation", () => ({
@@ -48,6 +49,38 @@ describe("DifferentialStreamPage", () => {
     expect(screen.getByRole("button", { name: firstCard!.title })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /Open pathway/ }).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/differential candidates?/).length).toBeGreaterThan(0);
+  });
+
+  it("reveals a filtered safety-shelf target before scrolling to it", async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.mocked(Element.prototype.scrollIntoView);
+    const model = buildDifferentialStreamModel("presentations", "");
+    const safetyItem = model.safetyShelfIds
+      .map((id) => model.items.find((item) => item.id === id))
+      .find((item) => item?.status === "emergent");
+    expect(safetyItem).toBeTruthy();
+
+    render(<DifferentialStreamPage stream="presentations" />);
+
+    const priorityGroup = screen.getByRole("group", { name: "Presentation priority" });
+    await user.click(within(priorityGroup).getByRole("button", { name: "Urgent" }));
+    expect(screen.queryByTestId(`differential-stream-card-${safetyItem!.slug}`)).not.toBeInTheDocument();
+
+    scrollIntoView.mockClear();
+    await user.click(
+      within(screen.getByTestId("differentials-stream-safety-shelf")).getByRole("button", {
+        name: safetyItem!.title,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId(`differential-stream-card-${safetyItem!.slug}`)).toBeInTheDocument(),
+    );
+    expect(within(priorityGroup).getByRole("button", { name: "All priorities" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "center" }));
   });
 
   it("filters presentations by priority and shared-candidate pathways", async () => {
