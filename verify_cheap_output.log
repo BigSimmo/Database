@@ -1,0 +1,117 @@
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 verify:cheap
+> npm run verify:cheap:internal
+
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 verify:cheap:internal
+> npm run check:runtime && npm run check:installed-lock-parity && npm run check:upload-limit-parity && npm run check:github-actions && npm run check:ci-scope && npm run check:verification-plan && npm run check:gitleaks-pinned && npm run check:ci-triage && npm run check:pr-policy && npm run check:gate-manifest && npm run check:branch-review-ledger && npm run check:outstanding-issues && npm run check:pr-mergeability && npm run sitemap:check && npm run docs:check-index && npm run docs:check-inventory && npm run docs:check-scripts && npm run docs:check-links && npm run check:knip && npm run check:maintainability-budgets && npm run brand:check && npm run check:assets && npm run check:therapy-data-index && npm run check:cross-mode-index && npm run check:type-scale && npm run check:icon-scale && npm run check:design-system-contract && npm run check:migration-role && npm run check:function-grants && npm run check:owner-scope && npm run lint && npm run typecheck && npm run test
+
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:runtime
+> node scripts/run-tsx.mjs scripts/check-runtime.ts
+
+[Runtime Check] PASS: Node runtime 24.19.0 matches required Node 24.x.
+[Runtime Check] PASS: npm runtime 11.17.0 matches required npm 11.x.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:installed-lock-parity
+> node scripts/check-installed-lock-parity.mjs
+
+[installed-lock-parity] next: 16.2.12
+[installed-lock-parity] react: 19.2.8
+[installed-lock-parity] react-dom: 19.2.8
+[installed-lock-parity] eslint: 9.39.5
+[installed-lock-parity] playwright: 1.62.1
+[installed-lock-parity] typescript: 6.0.3
+[installed-lock-parity] vitest: 4.1.10
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:upload-limit-parity
+> node scripts/check-upload-limit-parity.mjs --self-test && node scripts/check-upload-limit-parity.mjs
+
+upload-limit parity self-test passed.
+Upload-limit parity passed: client and server both resolve to 150 MB.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:github-actions
+> node scripts/check-github-action-pins.mjs
+
+GitHub Actions pin check passed.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:ci-scope
+> node scripts/ci-change-scope.mjs --self-test
+
+Mockup spec parity: 5 advisory specs all match mockupPatterns.
+CI change scope self-test passed.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:verification-plan
+> node scripts/verify-pr-local.mjs --self-test
+
+PR-local verification plan self-test passed.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:gitleaks-pinned
+> node scripts/run-gitleaks-pinned.mjs --self-test
+
+Pinned Gitleaks range self-test passed.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:ci-triage
+> node scripts/ci-triage.mjs --self-test
+
+[ci-triage] self-test passed
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:pr-policy
+> node scripts/pr-policy.mjs --self-test && node scripts/check-pr-policy-workflow.mjs
+
+[pr-policy] self-test passed
+PR policy workflow guard passed.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:gate-manifest
+> node scripts/check-gate-manifest.mjs
+
+Gate-manifest OK: all 33 verify:cheap gates are enforced in CI (static-pr + mapped jobs), and the 30 static gates are documented consistently.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:branch-review-ledger
+> node scripts/check-branch-review-ledger.mjs --self-test && node scripts/branch-review-ledger.mjs --self-test && node scripts/merge-branch-review-ledger.mjs --self-test && node scripts/check-branch-review-ledger.mjs
+
+branch-review-ledger self-test passed.
+branch-review-ledger self-test passed.
+merge-branch-review-ledger self-test passed.
+Branch review ledger guard passed: 676 live table records + 1206 archived (676 under the 2026-07-29 machine-readable contract), ledger merge active, six cells each, no conflict markers, mojibake, heading records, or duplicates.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:outstanding-issues
+> node scripts/check-outstanding-issues.mjs --self-test && node scripts/outstanding-issues.mjs --self-test && node scripts/check-outstanding-issues.mjs
+
+outstanding-issues self-test passed.
+outstanding-issues writer self-test passed.
+Outstanding-issues guard passed: 274 rows (131 open, 143 archived), unique ids, next-id=277 above the highest, no merge driver, no ids deleted from base 2675e6e1d1a5.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:pr-mergeability
+> node scripts/pr-mergeability.mjs --self-test && node scripts/check-pr-mergeability-workflow.mjs
+
+pr-mergeability self-test passed.
+PR mergeability workflow guard passed.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 sitemap:check
+> node scripts/run-tsx.mjs scripts/generate-site-map.ts --check
+
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 docs:check-index
+> node scripts/check-codebase-index-coverage.mjs
+
+docs/codebase-index.md coverage OK: all 50 repository roots/modules/routes and all schema tables are indexed.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 docs:check-inventory
+> node scripts/update-docs-inventory.mjs --check
+
+Docs inventory current: 218 script files, 231 npm scripts.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 docs:check-scripts
+> node scripts/check-docs-script-refs.mjs
+
+docs script-ref check passed: 446 npm-run reference(s) resolve to real scripts.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 docs:check-links
+> node scripts/check-docs-links.mjs
+
+docs link check passed: 1655 repo path references resolve.
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 check:knip
+> knip --no-progress --include dependencies,unlisted,unresolved,duplicates
+

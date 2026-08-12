@@ -1,0 +1,402 @@
+<testsuites id="" name="" tests="160" failures="1" skipped="0" errors="0" time="259.06079">
+<testsuite name="ui-chrome-scroll.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="17" failures="0" skipped="0" time="42.119" errors="0">
+<testcase name="1024px bounded main scrolling preserves focused page search" classname="ui-chrome-scroll.spec.ts" time="2.253">
+</testcase>
+<testcase name="tablet: top bar hides on scroll down and returns mid-page on shell results" classname="ui-chrome-scroll.spec.ts" time="2.622">
+</testcase>
+<testcase name="tablet: search composer keeps its breakpoint owner on shell results" classname="ui-chrome-scroll.spec.ts" time="2.189">
+</testcase>
+<testcase name="tablet: top bar hides on scroll down and returns mid-page on shell service detail" classname="ui-chrome-scroll.spec.ts" time="1.989">
+</testcase>
+<testcase name="tablet: search composer keeps its breakpoint owner on shell service detail" classname="ui-chrome-scroll.spec.ts" time="1.575">
+</testcase>
+<testcase name="tablet: top bar hides on scroll down and returns mid-page on dashboard results" classname="ui-chrome-scroll.spec.ts" time="3.553">
+</testcase>
+<testcase name="tablet: search composer keeps its breakpoint owner on dashboard results" classname="ui-chrome-scroll.spec.ts" time="3.082">
+</testcase>
+<testcase name="tablet: top bar hides on scroll down and returns mid-page on shell mode nav" classname="ui-chrome-scroll.spec.ts" time="2.847">
+</testcase>
+<testcase name="tablet: search composer keeps its breakpoint owner on shell mode nav" classname="ui-chrome-scroll.spec.ts" time="2.363">
+</testcase>
+<testcase name="desktop: top bar hides on scroll down and returns mid-page on shell results" classname="ui-chrome-scroll.spec.ts" time="2.538">
+</testcase>
+<testcase name="desktop: search composer keeps its breakpoint owner on shell results" classname="ui-chrome-scroll.spec.ts" time="2.074">
+</testcase>
+<testcase name="desktop: top bar hides on scroll down and returns mid-page on shell service detail" classname="ui-chrome-scroll.spec.ts" time="1.924">
+</testcase>
+<testcase name="desktop: search composer keeps its breakpoint owner on shell service detail" classname="ui-chrome-scroll.spec.ts" time="1.537">
+</testcase>
+<testcase name="desktop: top bar hides on scroll down and returns mid-page on dashboard results" classname="ui-chrome-scroll.spec.ts" time="3.455">
+</testcase>
+<testcase name="desktop: search composer keeps its breakpoint owner on dashboard results" classname="ui-chrome-scroll.spec.ts" time="2.984">
+</testcase>
+<testcase name="desktop: top bar hides on scroll down and returns mid-page on shell mode nav" classname="ui-chrome-scroll.spec.ts" time="2.789">
+</testcase>
+<testcase name="desktop: search composer keeps its breakpoint owner on shell mode nav" classname="ui-chrome-scroll.spec.ts" time="2.345">
+</testcase>
+</testsuite>
+<testsuite name="ui-document-canvas.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="3" failures="0" skipped="0" time="4.776" errors="0">
+<testcase name="document viewer canvas › rasters a clinical source page rather than leaving the canvas blank" classname="ui-document-canvas.spec.ts" time="1.692">
+</testcase>
+<testcase name="document viewer canvas › reports the document&apos;s real page count in the one toolbar readout" classname="ui-document-canvas.spec.ts" time="1.279">
+</testcase>
+<testcase name="document viewer canvas › a page flip paints a different page" classname="ui-document-canvas.spec.ts" time="1.805">
+<system-out>
+<![CDATA[[viewer-canvas] page flip painted in 140ms; 0 long task(s) totalling 0ms
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="ui-forms-section-nav.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="3" failures="0" skipped="0" time="4.291" errors="0">
+<testcase name="Forms section navigation › opens a section sheet listing the anchors the form record actually paints" classname="ui-forms-section-nav.spec.ts" time="1.283">
+</testcase>
+<testcase name="Forms section navigation › moves the reader to a section and records the stable fragment" classname="ui-forms-section-nav.spec.ts" time="1.384">
+</testcase>
+<testcase name="Forms section navigation › resolves each breakpoint variant to the side that is actually visible" classname="ui-forms-section-nav.spec.ts" time="1.624">
+</testcase>
+</testsuite>
+<testsuite name="ui-hydration.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="3" failures="0" skipped="0" time="4.849" errors="0">
+<testcase name="React Hydration Safety › dashboard defaults does not emit hydration warnings during initial load" classname="ui-hydration.spec.ts" time="1.465">
+</testcase>
+<testcase name="React Hydration Safety › dashboard persisted theme and sidebar does not emit hydration warnings during initial load" classname="ui-hydration.spec.ts" time="1.475">
+</testcase>
+<testcase name="React Hydration Safety › document viewer deep-linked page does not emit hydration warnings during initial load" classname="ui-hydration.spec.ts" time="1.909">
+</testcase>
+</testsuite>
+<testsuite name="ui-overlap.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="14" failures="1" skipped="0" time="20.118" errors="0">
+<testcase name="Header element overlap coverage › header controls do not overlap at 640px" classname="ui-overlap.spec.ts" time="0.683">
+</testcase>
+<testcase name="Header element overlap coverage › header controls do not overlap at 768px" classname="ui-overlap.spec.ts" time="0.767">
+</testcase>
+<testcase name="Header element overlap coverage › header controls do not overlap at 1024px" classname="ui-overlap.spec.ts" time="0.779">
+</testcase>
+<testcase name="Header element overlap coverage › header controls do not overlap at 1152px" classname="ui-overlap.spec.ts" time="0.713">
+</testcase>
+<testcase name="Header element overlap coverage › header controls do not overlap at 1280px" classname="ui-overlap.spec.ts" time="0.722">
+</testcase>
+<testcase name="Header element overlap coverage › header controls do not overlap at 1366px" classname="ui-overlap.spec.ts" time="0.749">
+</testcase>
+<testcase name="Header element overlap coverage › header controls do not overlap at 1440px" classname="ui-overlap.spec.ts" time="0.73">
+</testcase>
+<testcase name="Header element overlap coverage › header controls do not overlap at 1536px" classname="ui-overlap.spec.ts" time="0.758">
+</testcase>
+<testcase name="Header element overlap coverage › header menu and new-chat insets stay symmetric on narrow-phone" classname="ui-overlap.spec.ts" time="0.625">
+</testcase>
+<testcase name="Header element overlap coverage › header menu and new-chat insets stay symmetric on phone" classname="ui-overlap.spec.ts" time="0.599">
+</testcase>
+<testcase name="Header element overlap coverage › composer clear button does not cover typed text at mobile" classname="ui-overlap.spec.ts" time="0.628">
+</testcase>
+<testcase name="Header element overlap coverage › composer clear button does not cover typed text at desktop" classname="ui-overlap.spec.ts" time="0.876">
+</testcase>
+<testcase name="Header element overlap coverage › desktop smart search keeps rotating text above and prompts below the composer" classname="ui-overlap.spec.ts" time="0.841">
+</testcase>
+<testcase name="Header element overlap coverage › phone smart search replaces desktop rows with one tappable ticker" classname="ui-overlap.spec.ts" time="10.648">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|ui-overlap-Header-element--d1b7f-ws-with-one-tappable-ticker-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|ui-overlap-Header-element--d1b7f-ws-with-one-tappable-ticker-chromium/error-context.md]]
+
+[[ATTACHMENT|ui-overlap-Header-element--d1b7f-ws-with-one-tappable-ticker-chromium/trace.zip]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [chromium] › ui-overlap.spec.ts:269:7 › Header element overlap coverage › phone smart search replaces desktop rows with one tappable ticker 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByTestId('smart-search-phone-ticker')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByTestId('smart-search-phone-ticker')
+
+
+      276 |
+      277 |     const ticker = page.getByTestId("smart-search-phone-ticker");
+    > 278 |     await expect(ticker).toBeVisible();
+          |                          ^
+      279 |     await expect(ticker).toContainText("Try this");
+      280 |     await expect(ticker).toContainText("Tap to search");
+      281 |
+        at /home/runner/work/Database/Database/tests/ui-overlap.spec.ts:278:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/ui-overlap-Header-element--d1b7f-ws-with-one-tappable-ticker-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/ui-overlap-Header-element--d1b7f-ws-with-one-tappable-ticker-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../test-results/ui-overlap-Header-element--d1b7f-ws-with-one-tappable-ticker-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace ../test-results/ui-overlap-Header-element--d1b7f-ws-with-one-tappable-ticker-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+</testcase>
+</testsuite>
+<testsuite name="ui-phone-scroll-document-rail.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="2" failures="0" skipped="0" time="3.984" errors="0">
+<testcase name="document rail cards stay inside the phone viewport" classname="ui-phone-scroll-document-rail.spec.ts" time="1.835">
+</testcase>
+<testcase name="wide table crops offer a visible full-screen route on touch" classname="ui-phone-scroll-document-rail.spec.ts" time="2.149">
+</testcase>
+</testsuite>
+<testsuite name="ui-phone-scroll-page-owned.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="17" failures="0" skipped="0" time="44.122" errors="0">
+<testcase name="phone browser results use document scrolling so Safari can minimize its browser chrome" classname="ui-phone-scroll-page-owned.spec.ts" time="2.738">
+</testcase>
+<testcase name="document detail header overlay and footer follow browser document scrolling together" classname="ui-phone-scroll-page-owned.spec.ts" time="4.688">
+</testcase>
+<testcase name="document detail header overlay and footer follow standalone PWA main scrolling together" classname="ui-phone-scroll-page-owned.spec.ts" time="4.64">
+</testcase>
+<testcase name="compiled standalone PWA rules bind full-height footer chrome to the inner scroller" classname="ui-phone-scroll-page-owned.spec.ts" time="2.338">
+</testcase>
+<testcase name="browser document search keeps focus through passive scroll settling and releases it on a user gesture" classname="ui-phone-scroll-page-owned.spec.ts" time="2.589">
+</testcase>
+<testcase name="standalone PWA main search keeps focus through passive scroll settling and releases it on a user gesture" classname="ui-phone-scroll-page-owned.spec.ts" time="2.348">
+</testcase>
+<testcase name="standalone calculator composer is frame-owned and stays anchored while main scrolls" classname="ui-phone-scroll-page-owned.spec.ts" time="2.742">
+</testcase>
+<testcase name="standalone document composer is frame-owned and stays anchored while main scrolls" classname="ui-phone-scroll-page-owned.spec.ts" time="2.919">
+</testcase>
+<testcase name="standalone differential comparison actions is frame-owned and stays anchored while main scrolls" classname="ui-phone-scroll-page-owned.spec.ts" time="2.061">
+</testcase>
+<testcase name="differential footer returns inline when the viewport leaves phone mode" classname="ui-phone-scroll-page-owned.spec.ts" time="1.851">
+</testcase>
+<testcase name="Services results keep a continuous browser viewport after shared chrome releases" classname="ui-phone-scroll-page-owned.spec.ts" time="3.149">
+</testcase>
+<testcase name="calculator results stay inside narrow phone viewports" classname="ui-phone-scroll-page-owned.spec.ts" time="2.618">
+</testcase>
+<testcase name="calculators page-owned phone dock uses localized glass and releases its reserve when hidden" classname="ui-phone-scroll-page-owned.spec.ts" time="2.435">
+</testcase>
+<testcase name="calculator dock clears its focus pin after a focused submit opens and closes a sheet" classname="ui-phone-scroll-page-owned.spec.ts" time="2.122">
+</testcase>
+<testcase name="page-owned focus clearance places a below-fold calculator control above the visible dock" classname="ui-phone-scroll-page-owned.spec.ts" time="1.34">
+</testcase>
+<testcase name="calculator combined chrome refuses a near-bottom hide that would clamp the reader" classname="ui-phone-scroll-page-owned.spec.ts" time="1.606">
+</testcase>
+<testcase name="calculator reserve and dock hide and reveal monotonically with sufficient near-bottom runway" classname="ui-phone-scroll-page-owned.spec.ts" time="1.938">
+</testcase>
+</testsuite>
+<testsuite name="ui-pwa.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="2" failures="0" skipped="0" time="3.812" errors="0">
+<testcase name="Clinical KB PWA › has a browser-valid manifest, installable icons, and a root worker" classname="ui-pwa.spec.ts" time="1.864">
+</testcase>
+<testcase name="Clinical KB PWA › serves a cold offline fallback, recovers online, and keeps private URLs out of CacheStorage" classname="ui-pwa.spec.ts" time="1.948">
+</testcase>
+</testsuite>
+<testsuite name="ui-specifiers.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="6" failures="0" skipped="0" time="8.396" errors="0">
+<testcase name="searches clinical language without provenance fields and carries a result into wording" classname="ui-specifiers.spec.ts" time="2.875">
+</testcase>
+<testcase name="keeps mobile search, filters, results, and the fixed composer usable" classname="ui-specifiers.spec.ts" time="2.395">
+</testcase>
+<testcase name="keeps the base diagnosis severity-neutral when applying a severity descriptor" classname="ui-specifiers.spec.ts" time="0.834">
+</testcase>
+<testcase name="keeps the builder pathway readable without horizontal overflow on phone" classname="ui-specifiers.spec.ts" time="0.649">
+</testcase>
+<testcase name="blocks incompatible specifiers and preserves severe psychotic-features wording" classname="ui-specifiers.spec.ts" time="0.851">
+</testcase>
+<testcase name="infers a compatible diagnosis for non-MDD builder deep links" classname="ui-specifiers.spec.ts" time="0.792">
+</testcase>
+</testsuite>
+<testsuite name="ui-stress.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="3" failures="0" skipped="0" time="8.381" errors="0">
+<testcase name="Clinical KB long-content stress coverage › many documents and citations do not overflow at mobile" classname="ui-stress.spec.ts" time="2.796">
+</testcase>
+<testcase name="Clinical KB long-content stress coverage › many documents and citations do not overflow at desktop" classname="ui-stress.spec.ts" time="2.649">
+</testcase>
+<testcase name="Medication responsive stress coverage › full-bleed phone rows and tablet cards remain safe across breakpoint boundaries" classname="ui-stress.spec.ts" time="2.936">
+</testcase>
+</testsuite>
+<testsuite name="ui-style-contract.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="7" failures="0" skipped="0" time="6.271" errors="0">
+<testcase name="unlayered style rules render their effect › search band accent lead rule is a live border" classname="ui-style-contract.spec.ts" time="2.089">
+</testcase>
+<testcase name="unlayered style rules render their effect › mode nav overflow rule marks the page held in More" classname="ui-style-contract.spec.ts" time="0.671">
+</testcase>
+<testcase name="unlayered style rules render their effect › mode nav overflow ink takes heading weight when it holds the page" classname="ui-style-contract.spec.ts" time="0.669">
+</testcase>
+<testcase name="unlayered style rules render their effect › tap-sized minimum heights survive the rendered cascade" classname="ui-style-contract.spec.ts" time="0.919">
+</testcase>
+<testcase name="ckb-v2 forced-colours computed tokens › .ckb-v2 remaps command/danger/focus/disabled and flattens elevation" classname="ui-style-contract.spec.ts" time="0.627">
+</testcase>
+<testcase name="ckb-v2 forced-colours computed tokens › .dark .ckb-v2 remaps command/danger/focus/disabled and flattens elevation" classname="ui-style-contract.spec.ts" time="0.659">
+</testcase>
+<testcase name="ckb-v2 forced-colours computed tokens › .ckb-v2.dark remaps command/danger/focus/disabled and flattens elevation" classname="ui-style-contract.spec.ts" time="0.637">
+</testcase>
+</testsuite>
+<testsuite name="ui-therapy-nav-scroll.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="1" failures="0" skipped="0" time="1.837" errors="0">
+<testcase name="phone Therapy mode nav hides and returns with the universal header" classname="ui-therapy-nav-scroll.spec.ts" time="1.837">
+</testcase>
+</testsuite>
+<testsuite name="ui-tools.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="81" failures="0" skipped="0" time="97.463" errors="0">
+<testcase name="Clinical KB tools launcher › tools launcher is usable at mobile" classname="ui-tools.spec.ts" time="1.304">
+</testcase>
+<testcase name="Clinical KB tools launcher › tools launcher is usable at desktop" classname="ui-tools.spec.ts" time="0.779">
+</testcase>
+<testcase name="Clinical KB tools launcher › standalone tools route uses the shared global search" classname="ui-tools.spec.ts" time="0.868">
+</testcase>
+<testcase name="Clinical KB tools launcher › tool descriptions remain complete across supported breakpoints" classname="ui-tools.spec.ts" time="1.282">
+</testcase>
+<testcase name="Clinical KB tools launcher › launcher links point to the expected in-app modes" classname="ui-tools.spec.ts" time="1.856">
+</testcase>
+<testcase name="Clinical KB tools launcher › search and filters reduce visible application rows without overflow" classname="ui-tools.spec.ts" time="0.836">
+</testcase>
+<testcase name="Clinical KB tools launcher › tools mode embeds the launcher content inside the dashboard" classname="ui-tools.spec.ts" time="1.096">
+</testcase>
+<testcase name="Clinical KB tools launcher › shared-home presentation updates in place when the mode changes" classname="ui-tools.spec.ts" time="1.853">
+</testcase>
+<testcase name="Clinical KB tools launcher › submitting from the shared home opens the selected mode&apos;s search page" classname="ui-tools.spec.ts" time="1.251">
+</testcase>
+<testcase name="Clinical KB tools launcher › dashboard mode switches return answer results to the shared home as a draft" classname="ui-tools.spec.ts" time="1.979">
+</testcase>
+<testcase name="Clinical KB tools launcher › header mode switches return results and mode homes to the shared home" classname="ui-tools.spec.ts" time="2.375">
+</testcase>
+<testcase name="Clinical KB tools launcher › phone shared-home presentation stays accessible and centered after a mode change" classname="ui-tools.spec.ts" time="1.05">
+</testcase>
+<testcase name="Clinical KB tools launcher › 320px shared-home presentation wraps the longest mode copy without overflow" classname="ui-tools.spec.ts" time="1.139">
+</testcase>
+<testcase name="Clinical KB tools launcher › phone mode homes keep the in-flow hero pill, matching the answer home" classname="ui-tools.spec.ts" time="3.779">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home hero uses the shared mobile sizing on /?mode=answer" classname="ui-tools.spec.ts" time="0.657">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home hero uses the shared mobile sizing on /documents" classname="ui-tools.spec.ts" time="0.685">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home hero uses the shared mobile sizing on /medications" classname="ui-tools.spec.ts" time="0.607">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home hero uses the shared mobile sizing on /tools" classname="ui-tools.spec.ts" time="0.69">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home hero uses the shared mobile sizing on /services" classname="ui-tools.spec.ts" time="0.762">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home hero uses the shared mobile sizing on /forms" classname="ui-tools.spec.ts" time="0.686">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home hero uses the shared mobile sizing on /differentials" classname="ui-tools.spec.ts" time="0.643">
+</testcase>
+<testcase name="Clinical KB tools launcher › phone bottom-dock search keeps the command results sheet hidden" classname="ui-tools.spec.ts" time="1.431">
+</testcase>
+<testcase name="Clinical KB tools launcher › tablet mode homes keep the shared search in the hero, not the bottom dock" classname="ui-tools.spec.ts" time="2.094">
+</testcase>
+<testcase name="Clinical KB tools launcher › desktop answer footer opens the command surface above the pill" classname="ui-tools.spec.ts" time="1.868">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at tablet width on /?mode=answer" classname="ui-tools.spec.ts" time="0.746">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at tablet width on /documents" classname="ui-tools.spec.ts" time="0.758">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at tablet width on /medications" classname="ui-tools.spec.ts" time="0.719">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at tablet width on /services" classname="ui-tools.spec.ts" time="0.822">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at tablet width on /forms" classname="ui-tools.spec.ts" time="0.756">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at tablet width on /differentials" classname="ui-tools.spec.ts" time="0.702">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at tablet width on /tools" classname="ui-tools.spec.ts" time="0.764">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at desktop width on /?mode=answer" classname="ui-tools.spec.ts" time="0.764">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at desktop width on /documents" classname="ui-tools.spec.ts" time="0.821">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at desktop width on /medications" classname="ui-tools.spec.ts" time="0.718">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at desktop width on /services" classname="ui-tools.spec.ts" time="0.848">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at desktop width on /forms" classname="ui-tools.spec.ts" time="0.764">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at desktop width on /differentials" classname="ui-tools.spec.ts" time="0.766">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home search is centered at desktop width on /tools" classname="ui-tools.spec.ts" time="0.859">
+</testcase>
+<testcase name="Clinical KB tools launcher › search route keeps the correct composer at mobile width on /services?q=13YARN&amp;focus=1&amp;run=1" classname="ui-tools.spec.ts" time="0.806">
+</testcase>
+<testcase name="Clinical KB tools launcher › search route keeps the correct composer at mobile width on /services/13yarn" classname="ui-tools.spec.ts" time="0.669">
+</testcase>
+<testcase name="Clinical KB tools launcher › search route keeps the correct composer at mobile width on /forms?q=transport&amp;focus=1&amp;run=1" classname="ui-tools.spec.ts" time="0.831">
+</testcase>
+<testcase name="Clinical KB tools launcher › search route keeps the correct composer at mobile width on /favourites?q=lithium&amp;focus=1&amp;run=1" classname="ui-tools.spec.ts" time="0.645">
+</testcase>
+<testcase name="Clinical KB tools launcher › search route keeps the correct composer at mobile width on /differentials?q=acute+confusion&amp;focus=1&amp;run=1" classname="ui-tools.spec.ts" time="0.607">
+</testcase>
+<testcase name="Clinical KB tools launcher › search route keeps the correct composer at desktop width on /services?q=13YARN&amp;focus=1&amp;run=1" classname="ui-tools.spec.ts" time="0.958">
+</testcase>
+<testcase name="Clinical KB tools launcher › search route keeps the correct composer at desktop width on /services/13yarn" classname="ui-tools.spec.ts" time="0.766">
+</testcase>
+<testcase name="Clinical KB tools launcher › search route keeps the correct composer at desktop width on /forms?q=transport&amp;focus=1&amp;run=1" classname="ui-tools.spec.ts" time="0.951">
+</testcase>
+<testcase name="Clinical KB tools launcher › search route keeps the correct composer at desktop width on /favourites?q=lithium&amp;focus=1&amp;run=1" classname="ui-tools.spec.ts" time="0.755">
+</testcase>
+<testcase name="Clinical KB tools launcher › search route keeps the correct composer at desktop width on /differentials?q=acute+confusion&amp;focus=1&amp;run=1" classname="ui-tools.spec.ts" time="0.753">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode home deep links preserve focus=1 on initial load" classname="ui-tools.spec.ts" time="1.226">
+</testcase>
+<testcase name="Clinical KB tools launcher › services mode shows source-backed records in search results" classname="ui-tools.spec.ts" time="0.93">
+</testcase>
+<testcase name="Clinical KB tools launcher › services referral header and best-use guidance stay actionable" classname="ui-tools.spec.ts" time="1.769">
+</testcase>
+<testcase name="Clinical KB tools launcher › forms mode shows registry-backed form records without unsupported pathway claims" classname="ui-tools.spec.ts" time="1.102">
+</testcase>
+<testcase name="Clinical KB tools launcher › result sorting persists in the URL and restores through browser history" classname="ui-tools.spec.ts" time="1.401">
+</testcase>
+<testcase name="Clinical KB tools launcher › form detail pages keep the shared forms search wired to form results" classname="ui-tools.spec.ts" time="1.577">
+</testcase>
+<testcase name="Clinical KB tools launcher › form detail mobile renders decision context after the form content" classname="ui-tools.spec.ts" time="0.768">
+</testcase>
+<testcase name="Clinical KB tools launcher › forms search mockup is usable without horizontal overflow on mobile" classname="ui-tools.spec.ts" time="0.874">
+</testcase>
+<testcase name="Clinical KB tools launcher › phone bottom search dock stays edge-to-edge with safe-area padding inside the form" classname="ui-tools.spec.ts" time="1.272">
+</testcase>
+<testcase name="Clinical KB tools launcher › phone bottom search dock hides while scrolling down on search results" classname="ui-tools.spec.ts" time="1.792">
+</testcase>
+<testcase name="Clinical KB tools launcher › tablet and desktop forms results keep non-phone bottom clearance" classname="ui-tools.spec.ts" time="1.681">
+</testcase>
+<testcase name="Clinical KB tools launcher › mode toggle keeps the shared home hero geometry when the mode changes" classname="ui-tools.spec.ts" time="1.019">
+</testcase>
+<testcase name="Clinical KB tools launcher › the differentials home renders inside the dashboard when opened directly" classname="ui-tools.spec.ts" time="0.712">
+</testcase>
+<testcase name="Clinical KB tools launcher › differentials global search posts the standalone differentials mode" classname="ui-tools.spec.ts" time="1.457">
+</testcase>
+<testcase name="Clinical KB tools launcher › differentials evidence-backed search badges stay single-line on narrow viewport" classname="ui-tools.spec.ts" time="1.657">
+</testcase>
+<testcase name="Clinical KB tools launcher › differentials search badges stay single-line on narrow viewport" classname="ui-tools.spec.ts" time="1.673">
+</testcase>
+<testcase name="Clinical KB tools launcher › mobile differential compare dock hides on scroll down and stays tappable when revealed" classname="ui-tools.spec.ts" time="2.021">
+</testcase>
+<testcase name="Clinical KB tools launcher › diagnosis detail actions stay tappable and tabs stay single-line" classname="ui-tools.spec.ts" time="1.225">
+</testcase>
+<testcase name="Clinical KB tools launcher › differentials compare queue launches presentation comparison" classname="ui-tools.spec.ts" time="2.774">
+</testcase>
+<testcase name="Clinical KB tools launcher › tools mode opens tool details before navigation on mobile" classname="ui-tools.spec.ts" time="0.748">
+</testcase>
+<testcase name="Clinical KB service detail page › 13YARN service detail is usable at mobile" classname="ui-tools.spec.ts" time="0.881">
+</testcase>
+<testcase name="Clinical KB service detail page › 13YARN service detail is usable at desktop" classname="ui-tools.spec.ts" time="0.989">
+</testcase>
+<testcase name="Clinical KB service detail page › long mobile service details clear the bottom search dock at the scroll endpoint" classname="ui-tools.spec.ts" time="0.823">
+</testcase>
+<testcase name="Clinical KB service detail page › service navigator action uses the shared global search route" classname="ui-tools.spec.ts" time="0.995">
+</testcase>
+<testcase name="Clinical KB service detail page › service detail actions save, copy, and back from direct entry" classname="ui-tools.spec.ts" time="1.463">
+</testcase>
+<testcase name="Responsive layout guards › prescribing mode home never overflows horizontally across sizes" classname="ui-tools.spec.ts" time="1.08">
+</testcase>
+<testcase name="Responsive layout guards › differentials mode home never overflows horizontally across sizes" classname="ui-tools.spec.ts" time="1.154">
+</testcase>
+<testcase name="Responsive layout guards › services mode home never overflows horizontally across sizes" classname="ui-tools.spec.ts" time="1.154">
+</testcase>
+<testcase name="Responsive layout guards › forms mode home never overflows horizontally across sizes" classname="ui-tools.spec.ts" time="1.106">
+</testcase>
+<testcase name="Responsive layout guards › prescribing mode home centres above the phone composer and balances on tablet" classname="ui-tools.spec.ts" time="1.063">
+</testcase>
+<testcase name="Responsive layout guards › prescribing mobile shortcuts and checks are distinct, actionable, and scrollable" classname="ui-tools.spec.ts" time="7.629">
+</testcase>
+<testcase name="Responsive layout guards › safety-plan working content stays local until an explicit export" classname="ui-tools.spec.ts" time="0.681">
+</testcase>
+<testcase name="Responsive layout guards › differentials recent work remains touch-sized inside its mobile scroll row" classname="ui-tools.spec.ts" time="0.649">
+</testcase>
+</testsuite>
+<testsuite name="ui-visual-artifacts.spec.ts" timestamp="2026-08-10T17:37:54.707Z" hostname="chromium" tests="1" failures="0" skipped="0" time="2.698" errors="0">
+<testcase name="Clinical KB visual QA artifacts › captures dashboard and document viewer screenshots" classname="ui-visual-artifacts.spec.ts" time="2.698">
+</testcase>
+</testsuite>
+</testsuites>
