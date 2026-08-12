@@ -187,7 +187,7 @@ describe("Codex Run PR operator workflow", () => {
   });
 
   it("accepts genuine Codex task IDs without allowing URL suffix injection", () => {
-    const patternSource = prepare.match(/const taskUrlPattern = \/(.+)\/u;/u)?.[1];
+    const patternSource = prepare.match(/const taskUrlPattern = \/(.+?)\/u;/u)?.[1];
     expect(patternSource).toBeDefined();
     const taskUrlPattern = new RegExp(patternSource!, "u");
 
