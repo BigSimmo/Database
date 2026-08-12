@@ -107,7 +107,11 @@ export function Disclosure({
             {description && !(extendDescription && open) ? (
               <span
                 aria-hidden="true"
-                className={cn("block truncate text-xs sm:whitespace-normal sm:leading-5", textMuted)}
+                className={cn(
+                  "block truncate text-xs sm:whitespace-normal sm:leading-5",
+                  extendDescription && "print:hidden",
+                  textMuted,
+                )}
               >
                 {description}
               </span>
