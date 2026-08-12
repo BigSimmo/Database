@@ -400,7 +400,7 @@ export function ServicesNavigatorPage() {
                   title={
                     selected.length < 2 ? "Shortlist at least two services to compare" : "Compare shortlisted services"
                   }
-                  className="inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10"
+                  className="inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10"
                 >
                   <GitCompareArrows className="h-4 w-4" aria-hidden />
                   Compare
@@ -411,7 +411,7 @@ export function ServicesNavigatorPage() {
                     setSelectedSlugs([]);
                     setShowComparison(false);
                   }}
-                  className="inline-flex min-h-12 items-center rounded-lg px-3 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] sm:min-h-10"
+                  className="inline-flex min-h-12 items-center rounded-lg px-3 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
                 >
                   Clear
                 </button>
@@ -534,13 +534,15 @@ export function ServicesNavigatorPage() {
     >
       {registryLoading ? (
         <SearchResultsSkeleton />
-      ) : registryBlocked ? null : query.trim() && deferredQuery === query && rankedMatches.length === 0 ? (
+      ) : registryBlocked ? null : query.trim() && deferredQuery !== query ? (
+        <SearchResultsSkeleton />
+      ) : query.trim() && deferredQuery === query && rankedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
           query={query}
           onTryExample={(example) => applyServiceQuery(example)}
         />
-      ) : displayedMatches.length === 0 ? (
+      ) : deferredQuery === query && displayedMatches.length === 0 ? (
         <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center">
           <h2 className="text-lg font-bold text-[color:var(--text-heading)]">No services in this group</h2>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
@@ -548,7 +550,7 @@ export function ServicesNavigatorPage() {
           </p>
           <Link
             href={hrefForGroup(null)}
-            className="mt-3 inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+            className="mt-3 inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             Show all services
           </Link>

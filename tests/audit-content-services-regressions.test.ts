@@ -80,6 +80,16 @@ describe("content and services audit regressions", () => {
     expect(serviceNavigatorSource).toContain("aria-pressed={selected}");
     expect(serviceNavigatorSource).toContain("Add ${service.title} to shortlist");
     expect(serviceNavigatorSource).toContain("Remove ${service.title} from shortlist");
+    // Deferred-query lag must not flash the group-empty state while ranking catches up.
+    expect(serviceNavigatorSource).toContain("query.trim() && deferredQuery !== query");
+    expect(serviceNavigatorSource).toContain("deferredQuery === query && displayedMatches.length === 0");
+    // Shortlist Compare/Clear keep keyboard focus rings (shared focus-visible contract).
+    expect(serviceNavigatorSource).toMatch(
+      /setShowComparison\(true\)[\s\S]*?focus-visible:outline-\[color:var\(--focus\)\]/,
+    );
+    expect(serviceNavigatorSource).toMatch(
+      /setSelectedSlugs\(\[\]\)[\s\S]*?focus-visible:outline-\[color:var\(--focus\)\]/,
+    );
   });
 
   it("counts only explicit local verification and lets confirmation-required status veto it", () => {
