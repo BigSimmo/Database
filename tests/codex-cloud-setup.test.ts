@@ -160,6 +160,7 @@ describe("Codex Cloud environment contract", () => {
     expect(validateCloudNpmInstallContract(setup)).toEqual([]);
     expect(setup).toContain("require_npm_config ignore-scripts false");
     expect(setup).toContain("require_npm_config package-lock true");
+    expect(setup).toContain("require_npm_config dry-run false");
   });
 
   it.each([

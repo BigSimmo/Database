@@ -271,6 +271,7 @@ require_npm_config legacy-peer-deps false
 require_npm_config ignore-scripts false
 require_npm_config package-lock true
 require_npm_config offline false
+require_npm_config dry-run false
 npm ci --include=dev --prefer-offline --no-audit --no-fund
 
 setup_step="codex-cli"
