@@ -532,7 +532,11 @@
         "preview": ".design-sync/previews/Disclosure.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-forms-section-nav.spec.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -560,7 +564,11 @@
         "preview": ".design-sync/previews/DisclosureGroup.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/forms-information-disclosure.dom.test.tsx",
+        "tests/ui-forms-section-nav.spec.ts"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
