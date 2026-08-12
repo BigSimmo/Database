@@ -29,6 +29,16 @@ describe("CLS attribution evidence contract", () => {
     expect(source).not.toContain('flag("port", "4611")');
   });
 
+  it("bounds readiness requests and releases the heavy-run lock after cleanup failures", () => {
+    expect(source).toContain('import { waitForHttpReadiness } from "./lib/http-readiness.mjs";');
+    expect(source).toContain("requestTimeoutMs: 5_000");
+    expect(source).toContain("timeoutMs: 120_000");
+    expect(source).toMatch(
+      /try \{\s+stopOwnedProcessTree\(server\);\s+\} finally \{\s+removePathSync\(absoluteRunRoot, \{ recursive: true \}\);\s+\}/,
+    );
+    expect(source).toMatch(/\} finally \{\s+lock\.release\(\);\s+\}\s+\}\s*$/);
+  });
+
   it("uses the shared browser-runner safety boundaries", () => {
     expect(source).toContain('acquireHeavyRunLock({ projectRoot, command: "measure-cls-attribution" })');
     expect(source).toContain('import { removePathSync } from "./retryable-fs.mjs";');

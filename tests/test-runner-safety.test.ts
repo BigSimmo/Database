@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { afterEach, describe, expect, it } from "vitest";
 import { childProcessExitCode, childProcessFailureSummary } from "../scripts/child-process-result.mjs";
 import {
@@ -36,6 +37,62 @@ function sourceFiles(directory: string): string[] {
     if (entry.isDirectory()) return sourceFiles(filePath);
     return /\.(?:test|spec)\.[jt]sx?$/.test(entry.name) ? [filePath] : [];
   });
+}
+
+function propertyAssignment(
+  objectLiteral: ts.ObjectLiteralExpression,
+  name: string,
+): ts.PropertyAssignment | undefined {
+  return objectLiteral.properties.find(
+    (property): property is ts.PropertyAssignment =>
+      ts.isPropertyAssignment(property) &&
+      (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
+      property.name.text === name,
+  );
+}
+
+function isRmSyncCall(expression: ts.LeftHandSideExpression) {
+  return (
+    (ts.isIdentifier(expression) && expression.text === "rmSync") ||
+    (ts.isPropertyAccessExpression(expression) && expression.name.text === "rmSync")
+  );
+}
+
+function scriptKindFor(filePath: string) {
+  switch (path.extname(filePath)) {
+    case ".js":
+      return ts.ScriptKind.JS;
+    case ".jsx":
+      return ts.ScriptKind.JSX;
+    case ".tsx":
+      return ts.ScriptKind.TSX;
+    default:
+      return ts.ScriptKind.TS;
+  }
+}
+
+function unsafeRecursiveRmSyncCalls(sourceText: string, filePath: string): string[] {
+  const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true, scriptKindFor(filePath));
+  const unsafe: string[] = [];
+
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && isRmSyncCall(node.expression)) {
+      const options = node.arguments[1];
+      if (options && ts.isObjectLiteralExpression(options)) {
+        const recursive = propertyAssignment(options, "recursive");
+        if (recursive?.initializer.kind === ts.SyntaxKind.TrueKeyword) {
+          const retries = propertyAssignment(options, "maxRetries");
+          const retryCount =
+            retries && ts.isNumericLiteral(retries.initializer) ? Number(retries.initializer.text) : Number.NaN;
+          if (!Number.isFinite(retryCount) || retryCount <= 0) unsafe.push(node.getText(sourceFile));
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return unsafe;
 }
 
 function requireLeasePath(lease: { path?: string }) {
@@ -101,11 +158,21 @@ describe("temporary path cleanup", () => {
     }
   });
 
+  it("scopes retry validation to each rmSync options object regardless of option order", () => {
+    const sourceText = `
+    rmSync("unsafe", { recursive: true }); // maxRetries: 5
+    "maxRetries: 5";
+    rmSync("safe", { maxRetries: 5, recursive: true });
+    fs.rmSync("also-safe", { recursive: true, maxRetries: 5 });
+  `;
+    expect(unsafeRecursiveRmSyncCalls(sourceText, "fixture.ts")).toEqual(['rmSync("unsafe", { recursive: true })']);
+  });
+
   it("requires bounded retries for every recursive test-fixture cleanup", () => {
     const testsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
-    const unsafeRecursiveRemoval = /rmSync\([\s\S]{0,140}?recursive:\s*true(?![\s\S]{0,100}?maxRetries)/;
     for (const filePath of sourceFiles(testsRoot)) {
-      expect(readFileSync(filePath, "utf8"), filePath).not.toMatch(unsafeRecursiveRemoval);
+      const unsafe = unsafeRecursiveRmSyncCalls(readFileSync(filePath, "utf8"), filePath);
+      expect(unsafe, `${filePath}\n${unsafe.join("\n")}`).toEqual([]);
     }
   });
 });

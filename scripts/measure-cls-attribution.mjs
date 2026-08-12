@@ -41,11 +41,11 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
-import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { waitForHttpReadiness } from "./lib/http-readiness.mjs";
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { removePathSync } from "./retryable-fs.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
@@ -127,29 +127,16 @@ function isThisProject(body) {
 }
 
 /** Resolves once the isolated server identifies itself, or rejects if it dies first. */
-function waitForServer(url, child) {
-  return new Promise((resolve, reject) => {
-    const deadline = Date.now() + 120_000;
-    let exited = false;
-    child.on("exit", () => {
-      exited = true;
-    });
-    const poll = () => {
-      if (exited) return reject(new Error("isolated server exited before becoming ready"));
-      if (Date.now() > deadline) return reject(new Error("isolated server did not become ready within 120s"));
-      http
-        .get(`${url}/api/local-project-id`, (response) => {
-          let body = "";
-          response.setEncoding("utf8");
-          response.on("data", (chunk) => (body += chunk));
-          response.on("end", () => {
-            if (response.statusCode === 200 && isThisProject(body)) return resolve();
-            setTimeout(poll, 500);
-          });
-        })
-        .on("error", () => setTimeout(poll, 500));
-    };
-    poll();
+async function waitForServer(url, child) {
+  await waitForHttpReadiness({
+    url: `${url}/api/local-project-id`,
+    isReady: ({ statusCode, body }) => statusCode === 200 && isThisProject(body),
+    hasExited: () => child.exitCode !== null || child.signalCode !== null,
+    timeoutMs: 120_000,
+    requestTimeoutMs: 5_000,
+    pollIntervalMs: 500,
+    exitErrorMessage: "isolated server exited before becoming ready",
+    timeoutErrorMessage: "isolated server did not become ready within 120s",
   });
 }
 
@@ -360,11 +347,17 @@ try {
   }
 } finally {
   try {
-    await browser?.close();
-  } catch {
-    /* browser failed before it could close */
+    try {
+      await browser?.close();
+    } catch {
+      /* browser failed before it could close */
+    }
+    try {
+      stopOwnedProcessTree(server);
+    } finally {
+      removePathSync(absoluteRunRoot, { recursive: true });
+    }
+  } finally {
+    lock.release();
   }
-  stopOwnedProcessTree(server);
-  removePathSync(absoluteRunRoot, { recursive: true });
-  lock.release();
 }
