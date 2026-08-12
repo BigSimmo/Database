@@ -7,7 +7,7 @@ on:
 
 concurrency:
   group: pr-1853-current-main-resync
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.ref_name }}
-          fetch-depth: 0
+          fetch-depth: 100
           persist-credentials: true
 
       - name: Capture immutable head and current main
@@ -41,7 +41,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config merge.ledger.name "branch-review-ledger union with exact-row dedupe"
           git config merge.ledger.driver "node scripts/merge-branch-review-ledger.mjs %O %A %B"
-          git fetch --no-tags origin main:refs/remotes/origin/main
+          git fetch --no-tags --depth=100 origin main:refs/remotes/origin/main
+
+          if ! git merge-base HEAD refs/remotes/origin/main >/dev/null; then
+            echo "Bounded fetch did not include the merge base." >&2
+            exit 1
+          fi
 
           echo "expected_head=$expected_head" >> "$GITHUB_OUTPUT"
           echo "main_sha=$(git rev-parse refs/remotes/origin/main)" >> "$GITHUB_OUTPUT"
