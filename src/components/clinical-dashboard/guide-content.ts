@@ -211,26 +211,23 @@ export const guideTopics: readonly GuideTopic[] = [
     id: "keyboard-shortcuts",
     title: "Keyboard shortcuts",
     navLabel: "Keyboard shortcuts",
-    summary: "Move quickly through search, commands, new questions, appearance, and dialogs without losing focus.",
-    keywords: ["keyboard", "shortcut", "focus", "search", "command", "escape", "appearance", "new question"],
+    summary: "Use the implemented search-focus shortcut and standard dialog dismissal without losing your place.",
+    keywords: ["keyboard", "shortcut", "focus", "search", "slash", "escape", "dialog"],
     sections: [
       {
-        heading: "Current shortcuts",
+        heading: "Current keyboard controls",
         paragraphs: [
-          "Keyboard shortcuts work when their action is available and focus is not inside a control that needs the same keystroke. The Guide Centre keeps focus trapped while open; closing it returns focus to the Guide & help control in Settings.",
+          "Press slash from an app surface to move focus to the main clinical search input. The shortcut is deliberately ignored while you are typing in an input, text area, select control, or editable region, and when Ctrl, Command, or Alt is held. This prevents a slash that belongs in your text from unexpectedly moving focus.",
         ],
         bullets: [
-          "/ — focus the main clinical search input.",
-          "Ctrl K — open the command menu.",
-          "Ctrl Shift O — start a new question.",
-          "Ctrl Shift L — toggle appearance.",
-          "Esc — close the active dialog or dismissible surface.",
+          "/ — focus the main clinical search input when you are not already editing text.",
+          "Esc — close the active dialog or other dismissible surface that supports it.",
         ],
       },
       {
-        heading: "Use shortcuts predictably",
+        heading: "Keep your place",
         paragraphs: [
-          "On macOS, use Command where the interface presents the platform equivalent. If a shortcut does not act, close the top-most menu or dialog and try again. Always use visible focus indicators to confirm where the next keyboard action will land.",
+          "The Guide Centre traps focus while it is open so Tab and Shift Tab remain inside the dialog. Pressing Escape closes the top-most open Sheet; when the guide was opened from Settings, focus returns to Guide & help. Use the visible focus indicator to confirm where the next keyboard action will land. Actions without an implemented keyboard shortcut remain available through their labelled buttons and menus.",
         ],
       },
     ],

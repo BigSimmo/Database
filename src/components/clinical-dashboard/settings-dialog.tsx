@@ -978,9 +978,6 @@ export function SettingsDialog({
             <SettingsSection id="keyboard" title="Keyboard shortcuts">
               <div className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
                 <ShortcutRow label="Focus search" keys={["/"]} />
-                <ShortcutRow label="Open command menu" keys={["Ctrl", "K"]} />
-                <ShortcutRow label="New question" keys={["Ctrl", "Shift", "O"]} />
-                <ShortcutRow label="Toggle appearance" keys={["Ctrl", "Shift", "L"]} />
                 <ShortcutRow label="Close dialog" keys={["Esc"]} />
               </div>
             </SettingsSection>

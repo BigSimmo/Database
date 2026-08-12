@@ -55,16 +55,13 @@ describe("Clinical KB Guide Centre content", () => {
     expect(searchGuideTopics("   ")).toEqual([]);
   });
 
-  it("documents the current keyboard shortcut contract exactly", () => {
+  it("lists only the keyboard controls that are currently implemented", () => {
     const shortcuts = guideTopics
       .find((topic) => topic.id === "keyboard-shortcuts")
       ?.sections.flatMap((section) => section.bullets ?? []);
     expect(shortcuts).toEqual([
-      "/ — focus the main clinical search input.",
-      "Ctrl K — open the command menu.",
-      "Ctrl Shift O — start a new question.",
-      "Ctrl Shift L — toggle appearance.",
-      "Esc — close the active dialog or dismissible surface.",
+      "/ — focus the main clinical search input when you are not already editing text.",
+      "Esc — close the active dialog or other dismissible surface that supports it.",
     ]);
   });
 });
