@@ -18,7 +18,8 @@ import { ISSUES_PATH, checkIssues } from "./check-outstanding-issues.mjs";
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INBOX_DIR = "docs/outstanding-issues-inbox";
 const APPLIED_DIR = path.posix.join(INBOX_DIR, "applied");
-const ACTIONS = new Set(["add", "done", "update"]);
+const ACTIONS = new Set(["add", "done", "update", "cancel"]);
+const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECONCILE_LOCK_NAME = "outstanding-issues-reconcile.lock";
 
 function date() {
@@ -38,11 +39,9 @@ export function validateRequest(request) {
   const problems = [];
   if (!request || typeof request !== "object") return ["request must be an object"];
   if (request.version !== 1) problems.push("version must be 1");
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(request.id ?? "")) {
-    problems.push("id must be a UUID");
-  }
+  if (!REQUEST_ID.test(request.id ?? "")) problems.push("id must be a UUID");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(request.createdOn ?? "")) problems.push("createdOn must be YYYY-MM-DD");
-  if (!ACTIONS.has(request.action)) problems.push("action must be add, done, or update");
+  if (!ACTIONS.has(request.action)) problems.push("action must be add, done, update, or cancel");
   if (!request.payload || typeof request.payload !== "object") problems.push("payload must be an object");
   if (request.action === "add") {
     for (const field of ["pri", "type", "summary"])
@@ -58,16 +57,95 @@ export function validateRequest(request) {
       problems.push("update requires summary, detail, or source");
     }
   }
+  if (request.action === "cancel") {
+    if (!REQUEST_ID.test(request.payload?.requestId ?? "")) {
+      problems.push("cancel requires a pending request UUID");
+    }
+    if (!String(request.payload?.reason ?? "").trim()) problems.push("cancel requires reason");
+  }
   return problems;
 }
 
 export function applyRequest(markdown, request) {
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
+  if (request.action === "cancel") {
+    throw new Error("cancel requests must be applied through batch reconciliation");
+  }
   const options = { date: request.createdOn };
   if (request.action === "add") return addIssue(markdown, request.payload, options);
   if (request.action === "done") return resolveIssue(markdown, request.payload.id, request.payload.outcome, options);
   return updateIssue(markdown, request.payload.id, request.payload);
+}
+
+function mutationConflicts(requests) {
+  const byIssue = new Map();
+  for (const request of requests) {
+    if (request.action === "add" || request.action === "cancel") continue;
+    const id = request.payload.id;
+    const requestIds = byIssue.get(id) ?? [];
+    requestIds.push(request.id);
+    byIssue.set(id, requestIds);
+  }
+  return [...byIssue.entries()].filter(([, requestIds]) => requestIds.length > 1);
+}
+
+/**
+ * Resolve immutable cancellation decisions before applying a pending request batch.
+ * A cancellation request is itself retained in the applied audit trail, while the
+ * targeted request is moved unchanged but deliberately not applied to the ledger.
+ */
+export function planRequestBatch(requests) {
+  const byId = new Map();
+  for (const request of requests) {
+    const problems = validateRequest(request);
+    if (problems.length > 0) throw new Error(`${request?.id ?? "unknown request"}: ${problems.join("; ")}`);
+    if (byId.has(request.id)) throw new Error(`duplicate immutable request id: ${request.id}`);
+    byId.set(request.id, request);
+  }
+
+  const cancelledIds = new Set();
+  const cancellations = [];
+  for (const request of requests) {
+    if (request.action !== "cancel") continue;
+    const target = byId.get(request.payload.requestId);
+    if (!target) {
+      throw new Error(
+        `cancel request ${request.id} targets missing pending request ${request.payload.requestId}`,
+      );
+    }
+    if (target.action === "cancel") {
+      throw new Error(`cancel request ${request.id} cannot cancel another cancellation request`);
+    }
+    if (cancelledIds.has(target.id)) {
+      throw new Error(`pending request ${target.id} is cancelled more than once`);
+    }
+    cancelledIds.add(target.id);
+    cancellations.push({
+      requestId: request.id,
+      targetId: target.id,
+      reason: String(request.payload.reason).trim(),
+    });
+  }
+
+  const active = requests.filter((request) => request.action !== "cancel" && !cancelledIds.has(request.id));
+  const conflicts = mutationConflicts(active);
+  if (conflicts.length > 0) {
+    const detail = conflicts.map(([id, requestIds]) => `${id}: ${requestIds.join(", ")}`).join("; ");
+    throw new Error(
+      `multiple pending mutations require an explicit cancellation decision (${detail}). ` +
+        "Queue `node scripts/ledger-inbox.mjs cancel <request-uuid> --reason \"<why>\"` for each rejected mutation, land it, then reconcile again.",
+    );
+  }
+
+  return { active, cancellations, cancelledIds: [...cancelledIds] };
+}
+
+export function applyRequestBatch(markdown, requests) {
+  const plan = planRequestBatch(requests);
+  let next = markdown;
+  for (const request of plan.active) next = applyRequest(next, request);
+  return { markdown: next, ...plan };
 }
 
 function loadPending() {
@@ -94,18 +172,6 @@ function allRequestEntries() {
   return [...loadPending(), ...loadRequestsIn(APPLIED_DIR)];
 }
 
-function mutationConflicts(pending) {
-  const byId = new Map();
-  for (const entry of pending) {
-    if (entry.request.action === "add") continue;
-    const id = entry.request.payload.id;
-    const requests = byId.get(id) ?? [];
-    requests.push(entry.relative);
-    byId.set(id, requests);
-  }
-  return [...byId.entries()].filter(([, requests]) => requests.length > 1);
-}
-
 function canonicalLedgerIsClean() {
   for (const args of [
     ["diff", "--quiet", "--", ISSUES_PATH],
@@ -124,10 +190,12 @@ function git(args) {
   return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 }
 
-function processIsAlive(pid) {
+export function processIsAlive(pid) {
+  const numericPid = typeof pid === "string" && /^\d+$/.test(pid) ? Number(pid) : pid;
+  if (!Number.isSafeInteger(numericPid) || numericPid <= 0) return false;
   try {
-    process.kill(pid, 0);
-    return Number.isInteger(pid) && pid > 0;
+    process.kill(numericPid, 0);
+    return true;
   } catch (error) {
     return error?.code === "EPERM";
   }
@@ -205,12 +273,14 @@ function createRequest(action, argv) {
         }
       : action === "done"
         ? { id: argv[1], outcome: argValue(argv, "outcome") }
-        : {
-            id: argv[1],
-            summary: argValue(argv, "summary"),
-            detail: argValue(argv, "detail"),
-            source: argValue(argv, "source"),
-          };
+        : action === "cancel"
+          ? { requestId: argv[1], reason: argValue(argv, "reason") }
+          : {
+              id: argv[1],
+              summary: argValue(argv, "summary"),
+              detail: argValue(argv, "detail"),
+              source: argValue(argv, "source"),
+            };
   const request = { version: 1, id: randomUUID(), createdOn: date(), action, payload };
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
@@ -237,16 +307,6 @@ function reconcile(argv) {
     console.log("No outstanding-issue requests to reconcile.");
     return;
   }
-  const conflicts = mutationConflicts(pending);
-  if (conflicts.length > 0) {
-    for (const [id, paths] of conflicts)
-      console.error(`${id} is mutated by multiple pending requests: ${paths.join(", ")}`);
-    console.error(
-      "Reconcile one intended mutation for each existing issue at a time; do not choose a UUID sort order as policy.",
-    );
-    process.exitCode = 1;
-    return;
-  }
   if (!dryRun && !canonicalLedgerIsClean()) {
     console.error(
       `refusing to reconcile: ${ISSUES_PATH} has staged or unstaged changes; preserve or commit them first.`,
@@ -257,30 +317,36 @@ function reconcile(argv) {
   assertFreshReconciliationBase();
 
   const apply = () => {
-    let markdown = readFileSync(path.join(ROOT, ISSUES_PATH), "utf8");
-    for (const entry of pending) markdown = applyRequest(markdown, entry.request);
-    const problems = checkIssues(markdown);
+    const current = readFileSync(path.join(ROOT, ISSUES_PATH), "utf8");
+    const result = applyRequestBatch(
+      current,
+      pending.map((entry) => entry.request),
+    );
+    const problems = checkIssues(result.markdown);
     if (problems.length > 0) throw new Error(`invalid ${ISSUES_PATH}: ${problems.join("; ")}`);
-    return markdown;
+    return result;
   };
 
-  let markdown;
+  let result;
   try {
-    markdown = apply();
+    result = apply();
   } catch (error) {
     console.error(`refusing to reconcile: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
     return;
   }
-  console.log(`${dryRun ? "Would reconcile" : "Reconciling"} ${pending.length} request(s) into ${ISSUES_PATH}.`);
+  const decisions = result.cancellations.length > 0 ? ` with ${result.cancellations.length} cancellation decision(s)` : "";
+  console.log(
+    `${dryRun ? "Would reconcile" : "Reconciling"} ${pending.length} request(s) into ${ISSUES_PATH}${decisions}.`,
+  );
   if (dryRun) return;
   const release = acquireReconcileLock();
   try {
     if (!canonicalLedgerIsClean())
       throw new Error(`${ISSUES_PATH} changed while reconciliation was waiting for its lock`);
     assertFreshReconciliationBase();
-    markdown = apply();
-    writeFileSync(path.join(ROOT, ISSUES_PATH), markdown, "utf8");
+    result = apply();
+    writeFileSync(path.join(ROOT, ISSUES_PATH), result.markdown, "utf8");
     mkdirSync(path.join(ROOT, APPLIED_DIR), { recursive: true });
     for (const entry of pending)
       renameSync(path.join(ROOT, entry.relative), path.join(ROOT, APPLIED_DIR, path.basename(entry.relative)));
@@ -336,6 +402,20 @@ function selfTest() {
     action: "done",
     payload: { id: "#001", outcome: "done" },
   };
+  const update = {
+    version: 1,
+    id: "33333333-3333-4333-8333-333333333333",
+    createdOn: "2026-08-13",
+    action: "update",
+    payload: { id: "#001", summary: "updated" },
+  };
+  const cancel = {
+    version: 1,
+    id: "44444444-4444-4444-8444-444444444444",
+    createdOn: "2026-08-13",
+    action: "cancel",
+    payload: { requestId: done.id, reason: "prefer the later update" },
+  };
   const added = applyRequest(base, add);
   if (!added.includes("#002")) throw new Error("self-test failed: queued add did not preserve ledger invariants");
   const resolved = applyRequest(base, done);
@@ -343,6 +423,31 @@ function selfTest() {
     throw new Error("self-test failed: queued resolve did not preserve ledger invariants");
   if (validateRequest({ ...add, payload: {} }).length === 0)
     throw new Error("self-test failed: invalid request accepted");
+
+  let conflictRejected = false;
+  try {
+    applyRequestBatch(base, [done, update]);
+  } catch (error) {
+    conflictRejected = /explicit cancellation decision/.test(String(error));
+  }
+  if (!conflictRejected) throw new Error("self-test failed: colliding mutations were not rejected");
+  const planned = applyRequestBatch(base, [done, update, cancel]);
+  if (!planned.markdown.includes("updated") || planned.cancelledIds[0] !== done.id) {
+    throw new Error("self-test failed: cancellation did not select the intended mutation");
+  }
+  let missingTargetRejected = false;
+  try {
+    planRequestBatch([{ ...cancel, payload: { requestId: add.id, reason: "missing" } }]);
+  } catch (error) {
+    missingTargetRejected = /missing pending request/.test(String(error));
+  }
+  if (!missingTargetRejected) throw new Error("self-test failed: missing cancellation target was accepted");
+  if (!processIsAlive(process.pid) || !processIsAlive(String(process.pid))) {
+    throw new Error("self-test failed: current numeric or numeric-string PID was not treated as alive");
+  }
+  if (processIsAlive(0) || processIsAlive("not-a-pid")) {
+    throw new Error("self-test failed: invalid PID was treated as alive");
+  }
   console.log("ledger inbox self-test passed.");
 }
 
@@ -374,7 +479,7 @@ function main() {
       );
       return;
     }
-    throw new Error("usage: ledger-inbox.mjs <add|done|update|reconcile|check> [args]");
+    throw new Error("usage: ledger-inbox.mjs <add|done|update|cancel|reconcile|check> [args]");
   } catch (error) {
     console.error(`ledger inbox: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
