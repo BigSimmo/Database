@@ -642,12 +642,12 @@ export function ServicesNavigatorPage() {
                 label: "Care type",
                 value: substanceLens ?? "all",
                 options: [
-                  { value: "all" as const, label: "All", hint: String(facetFilteredMatches.length) },
+                  { value: "all" as const, label: "All", hint: String(lensScopedMatches.length) },
                   {
                     value: "general" as const,
                     label: "General",
                     hint: String(
-                      facetFilteredMatches.filter((service) => service.facets?.substance_flags.includes("general"))
+                      lensScopedMatches.filter((service) => service.facets?.substance_flags.includes("general"))
                         .length,
                     ),
                   },
@@ -655,7 +655,7 @@ export function ServicesNavigatorPage() {
                     value: "aod" as const,
                     label: "Alcohol & other drugs",
                     hint: String(
-                      facetFilteredMatches.filter((service) => service.facets?.substance_flags.includes("aod")).length,
+                      lensScopedMatches.filter((service) => service.facets?.substance_flags.includes("aod")).length,
                     ),
                   },
                 ],
