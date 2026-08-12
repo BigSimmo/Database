@@ -185,8 +185,11 @@ type Mask = Uint8Array<ArrayBuffer>;
 
 function decodeMask(encoded: string): Mask {
   const binary = atob(encoded);
+  if (binary.length !== MASK_LENGTH) {
+    throw new Error(`Service facet mask length mismatch: expected ${MASK_LENGTH} bytes, got ${binary.length}`);
+  }
   const bytes = new Uint8Array(MASK_LENGTH);
-  for (let index = 0; index < binary.length && index < MASK_LENGTH; index += 1) {
+  for (let index = 0; index < MASK_LENGTH; index += 1) {
     bytes[index] = binary.charCodeAt(index);
   }
   return bytes;
@@ -954,7 +957,7 @@ function SegmentSwitch({
   ];
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label="Filter mode"
       className="inline-flex w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1"
     >
@@ -962,8 +965,7 @@ function SegmentSwitch({
         <button
           key={segment.value}
           type="button"
-          role="tab"
-          aria-selected={value === segment.value}
+          aria-pressed={value === segment.value}
           onClick={() => onChange(segment.value)}
           className={cn(
             "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-2xs font-extrabold transition-colors",
