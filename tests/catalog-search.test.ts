@@ -67,7 +67,7 @@ describe("rankCatalogRecords", () => {
     expect(fuzzySearchTokenCount("monitroing", "Clozapine monitoring guidance")).toBe(1);
   });
 
-  it("weights a fuzzy title above an incidental full-text mention", () => {
+  it("weights and reports a fuzzy title above an incidental full-text mention", () => {
     const records = [
       { title: "Schizophrenia", body: "Core diagnostic record" },
       { title: "Other condition", body: "Consider schizophrenia in the differential" },
@@ -78,6 +78,8 @@ describe("rankCatalogRecords", () => {
     });
 
     expect(results[0]?.record.title).toBe("Schizophrenia");
+    expect(results[0]?.signals.fuzzy).toBe(1);
+    expect(results[0]?.signals.fields.title).toBe(1);
   });
 
   it("does not fuzz short clinical abbreviations or unrelated words", () => {
