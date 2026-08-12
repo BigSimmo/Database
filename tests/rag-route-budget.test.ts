@@ -91,6 +91,19 @@ describe("RAG route deadlines", () => {
         degradedMode: { active: true, reason: "generation_fallback" },
       }),
     ).toBe(false);
+    // Bare routing marker alone (no degradedMode) must refuse the cache too.
+    expect(
+      answerRouteResultCanBeCached(deadline, {
+        routingReason: "strong_generation; generation_fallback",
+        degradedMode: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      answerRouteResultCanBeCached(deadline, {
+        routingReason: "clinical_fast; Generation_Fallback:provider_timeout",
+        degradedMode: undefined,
+      }),
+    ).toBe(false);
   });
 });
 

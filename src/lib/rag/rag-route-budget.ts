@@ -1,3 +1,4 @@
+import { isProviderGenerationDegraded } from "@/lib/rag/rag-answer-support";
 import type { AnswerRouteMode } from "@/lib/rag/rag-routing";
 import type { RagAnswer } from "@/lib/types";
 
@@ -54,12 +55,12 @@ export function answerRouteResultCanBeCached(
   deadline: Pick<AnswerRouteDeadline, "deadlineExceeded">,
   answer: Pick<RagAnswer, "routingReason" | "degradedMode">,
 ) {
-  const routingReason = answer.routingReason ?? "";
-  const degradedReason = answer.degradedMode?.reason ?? "";
+  // Match rag-cache / isProviderGenerationDegraded: bare `generation_fallback`
+  // (no `:reason` suffix) and case variants must also refuse the cache.
   return (
     !deadline.deadlineExceeded &&
-    !routingReason.includes("generation_fallback:") &&
-    !degradedReason.startsWith("generation_fallback")
+    !isProviderGenerationDegraded(answer.routingReason) &&
+    !isProviderGenerationDegraded(answer.degradedMode?.reason)
   );
 }
 
