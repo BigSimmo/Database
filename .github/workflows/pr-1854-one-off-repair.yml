@@ -1,0 +1,270 @@
+name: One-off PR 1854 repair
+
+on:
+  push:
+    branches:
+      - codex/chat-differentials-results-design-differentials-results-design
+    paths:
+      - .github/workflows/pr-1854-one-off-repair.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-1854-one-off-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: Merge main and resolve reviewed findings
+    if: github.event.head_commit.message == 'chore(pr-1854): trigger one-off repair'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: codex/chat-differentials-results-design-differentials-results-design
+          fetch-depth: 0
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Merge latest main and resolve the two known overlaps
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch='codex/chat-differentials-results-design-differentials-results-design'
+          component='src/components/clinical-dashboard/differentials-home.tsx'
+          ledger='docs/branch-review-ledger.md'
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main "$branch" --no-tags
+
+          set +e
+          git merge --no-ff --no-commit origin/main
+          merge_status=$?
+          set -e
+
+          if [[ $merge_status -ne 0 ]]; then
+            unexpected="$(git diff --name-only --diff-filter=U | grep -Ev "^(${component}|${ledger})$" || true)"
+            if [[ -n "$unexpected" ]]; then
+              echo 'Unexpected merge conflicts:' >&2
+              echo "$unexpected" >&2
+              exit 1
+            fi
+          fi
+
+          # Preserve the PR's Differentials redesign as the implementation base,
+          # while taking the append-only ledger exactly from current main.
+          git show ORIG_HEAD:"$component" > "$component"
+          git show origin/main:"$ledger" > "$ledger"
+
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          component_path = Path("src/components/clinical-dashboard/differentials-home.tsx")
+          text = component_path.read_text()
+
+          def replace_once(old: str, new: str, label: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              text = text.replace(old, new, 1)
+
+          if "type ResultFilterOption" not in text:
+              replace_once(
+                  "  ResultFilterTrigger,\n  resultFilterGroup,",
+                  "  ResultFilterTrigger,\n  type ResultFilterOption,\n  resultFilterGroup,",
+                  "ResultFilterOption import",
+              )
+
+          if 'from "@/components/ui/segmented-control"' not in text:
+              replace_once(
+                  'import { Chip as DesignChip } from "@/components/ui/chip";\n',
+                  'import { Chip as DesignChip } from "@/components/ui/chip";\nimport { SegmentedControl } from "@/components/ui/segmented-control";\n',
+                  "SegmentedControl import",
+              )
+
+          text, removed = re.subn(
+              r"\nconst resultTypeTabFocusRing =\n.*?\nfunction MatchBadge",
+              "\nfunction MatchBadge",
+              text,
+              count=1,
+              flags=re.S,
+          )
+          if removed != 1:
+              raise SystemExit(f"ResultTypeTabs removal: expected one block, found {removed}")
+
+          counts = (
+              '  const presentationCount = results.filter((result) => result.kind === "presentation").length;\n'
+              "  const diagnosisCount = results.length - presentationCount;\n"
+          )
+          options = counts + '''  const kindFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<KindFilter>>>(
+            () => [
+              { value: "all", label: "All", hint: String(results.length) },
+              { value: "presentation", label: "Presentations", hint: String(presentationCount) },
+              { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
+            ],
+            [diagnosisCount, presentationCount, results.length],
+          );
+'''
+          replace_once(counts, options, "shared result-type options")
+
+          text, controls = re.subn(
+              r'''        filterControls=\{\n          <ResultTypeTabs\n.*?\n          />\n        \}''',
+              '''        filterControls={
+                  <SegmentedControl
+                    value={kindFilter}
+                    onChange={setKindFilter}
+                    options={kindFilterOptions}
+                    label="Result type"
+                  />
+                }''',
+              text,
+              count=1,
+              flags=re.S,
+          )
+          if controls != 1:
+              raise SystemExit(f"desktop result-type control migration: expected one block, found {controls}")
+
+          replace_once(
+              '''            options: [
+                      { value: "all", label: "All", hint: String(results.length) },
+                      { value: "presentation", label: "Presentations", hint: String(presentationCount) },
+                      { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
+                    ],''',
+              "            options: kindFilterOptions,",
+              "phone result-type options",
+          )
+
+          replace_once(
+              "      catalogFailed ? null : !best ? (",
+              "      catalogFailed ? null : results.length === 0 ? (",
+              "true catalogue empty-state guard",
+          )
+
+          empty_anchor = '''        </section>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">'''
+          filter_empty = '''        </section>
+              ) : !best ? (
+                <section
+                  data-testid="differentials-filter-empty-results"
+                  className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
+                >
+                  <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
+                    {kindFilter === "presentation"
+                      ? "No presentations in this result set"
+                      : "No diagnoses in this result set"}
+                  </h2>
+                  <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                    Other result types still match this search. Clear the result-type filter to show them.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setKindFilter("all")}
+                    className="inline-flex min-h-tap w-fit items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    Show all results
+                  </button>
+                </section>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">'''
+          replace_once(empty_anchor, filter_empty, "filter-specific empty state")
+
+          text = text.replace(
+              '`best` is\n              `results[0] ?? null`',
+              '`best` is\n              `relevanceResults[0] ?? null`',
+              1,
+          )
+          component_path.write_text(text)
+
+          test_path = Path("tests/differentials-compare-selection.dom.test.tsx")
+          test_text = test_path.read_text()
+          marker = 'it("shows a filter-specific empty state and restores all results"'
+          if marker not in test_text:
+              addition = r'''
+
+            it("shows a filter-specific empty state and restores all results", async () => {
+              const diagnosis = getDifferentialRecord("anorexia-nervosa");
+              expect(diagnosis).toBeTruthy();
+              catalogState.status = "ready";
+              catalogState.matches = {
+                diagnoses: [{ record: diagnosis!, score: 20, reasons: ["title"] }],
+                presentations: [],
+              };
+
+              render(<DifferentialsHome query="Anorexia" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+              await waitFor(() => {
+                expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);
+              });
+
+              await act(async () => {
+                screen.getByRole("radio", { name: "Presentations (0)" }).click();
+              });
+
+              expect(screen.getByTestId("differentials-filter-empty-results")).toBeVisible();
+              expect(screen.getByRole("heading", { name: "No presentations in this result set" })).toBeVisible();
+              expect(screen.queryByText(/No catalogue matches/)).not.toBeInTheDocument();
+
+              await act(async () => {
+                screen.getByRole("button", { name: "Show all results" }).click();
+              });
+
+              expect(screen.queryByTestId("differentials-filter-empty-results")).not.toBeInTheDocument();
+              expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);
+            });
+          '''
+              closing = "\n});\n"
+              if not test_text.endswith(closing):
+                  raise SystemExit("compare-selection DOM test: unexpected file ending")
+              test_text = test_text[: -len(closing)] + addition + closing
+              test_path.write_text(test_text)
+          PY
+
+          git add "$component" "$ledger" tests/ui-smoke.spec.ts tests/ui-tools.spec.ts tests/differentials-compare-selection.dom.test.tsx
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo 'Unresolved merge conflicts remain:' >&2
+            git diff --name-only --diff-filter=U >&2
+            exit 1
+          fi
+
+      - name: Format and run focused verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx prettier --write \
+            src/components/clinical-dashboard/differentials-home.tsx \
+            tests/differentials-compare-selection.dom.test.tsx \
+            tests/ui-smoke.spec.ts \
+            tests/ui-tools.spec.ts
+          npx vitest run tests/differentials-compare-selection.dom.test.tsx
+          npm run typecheck
+
+      - name: Commit merge repair and append review evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch='codex/chat-differentials-results-design-differentials-results-design'
+
+          git add -A
+          git commit -m 'fix(pr-1854): resolve review findings and sync main'
+          fixed_head="$(git rev-parse HEAD)"
+
+          npm run ledger:dedupe
+          npm run ledger:append -- \
+            --ref "PR #1854 / ${branch}" \
+            --head "$fixed_head" \
+            --scope 'review-and-fix' \
+            --outcome 'Fixed the append-only ledger conflict and added a truthful zero-count result-type empty state with reset action; synced current main.' \
+            --checks 'focused Differentials DOM test passed; typecheck passed; fresh hosted CI required on final head'
+          npm run check:branch-review-ledger
+
+          git add docs/branch-review-ledger.md
+          git commit -m 'chore(pr-1854): record repair evidence'
+          git push origin "HEAD:${branch}"
