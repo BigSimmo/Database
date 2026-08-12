@@ -128,6 +128,20 @@ jobs:
               return;
             }
 
+            // Revalidate the PR after resolving the live base ref. A retarget
+            // between pulls.get and git.getRef must fail closed rather than
+            // publishing evidence for one base and mutating another.
+            const { data: revalidatedPr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            if (
+              revalidatedPr.state !== "open" ||
+              revalidatedPr.merged ||
+              revalidatedPr.base.ref !== pr.base.ref ||
+              revalidatedPr.head.sha !== pr.head.sha
+            ) {
+              core.setFailed("The PR changed while its live base ref was being resolved.");
+              return;
+            }
+
             const threads = [];
             let unresolvedThreadCount = 0;
             let threadCursor = null;
