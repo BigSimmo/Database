@@ -3,7 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useId, useMemo, useState, useDeferredValue } from "react";
-import { ArrowRight, CheckCircle2, ChevronRight, GitCompareArrows, ListChecks, Network, Search } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  ChevronRight,
+  GitCompareArrows,
+  Lightbulb,
+  ListChecks,
+  MessageSquareQuote,
+  Network,
+  Search,
+  Target,
+} from "lucide-react";
 
 import {
   FormulationPageShell,
@@ -277,19 +288,28 @@ function FormulationResults({ query }: { query: string }) {
       {results.length === 0 && rankingReady ? (
         <EmptySearchResults query={query} />
       ) : results.length === 0 ? null : (
-        <section aria-label="Mechanism matches" className="grid gap-3">
+        <section aria-label="Mechanism matches" className="grid gap-4 sm:gap-5">
           {results.map(({ mechanism }, index) => (
             <article
               key={mechanism.id}
               data-testid={index === 0 && hasUniqueTopMatch ? "formulation-top-match" : undefined}
+              data-formulation-result-card
               className={cn(
                 formulationCard,
-                "group overflow-hidden transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-inset)]",
+                "group relative overflow-hidden rounded-xl border-[color:var(--border-strong)] shadow-[var(--shadow-soft)] transition hover:border-[color:var(--clinical-accent-border)] motion-reduce:transition-none",
                 index === 0 &&
                   hasUniqueTopMatch &&
-                  "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/20 shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--clinical-accent)]/10",
+                  "border-[color:var(--clinical-accent)] ring-1 ring-[color:var(--clinical-accent)]/10",
               )}
             >
+              <div
+                aria-hidden
+                data-formulation-card-accent
+                className={cn(
+                  "h-1 w-full bg-[color:var(--clinical-accent-border)]",
+                  index === 0 && hasUniqueTopMatch && "bg-[color:var(--clinical-accent)]",
+                )}
+              />
               {index === 0 && hasUniqueTopMatch ? (
                 <div className="flex items-center gap-2 border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:px-5">
                   <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)]">
@@ -302,59 +322,78 @@ function FormulationResults({ query }: { query: string }) {
                 </div>
               ) : null}
 
-              <div className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.5fr)_auto] sm:items-center sm:gap-4 sm:p-5">
+              <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)] lg:items-start">
                 <div className="min-w-0">
-                  <Link
-                    href={`/formulation/${mechanism.id}`}
-                    className="text-lg font-extrabold tracking-tight text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)] sm:text-xl"
-                  >
-                    {mechanism.name}
-                  </Link>
-                  <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                  <h2 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
+                    <Link
+                      href={`/formulation/${mechanism.id}`}
+                      className="transition hover:text-[color:var(--clinical-accent)] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none"
+                    >
+                      {mechanism.name}
+                    </Link>
+                  </h2>
+                  <p className="mt-1.5 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                     {mechanism.summary}
                   </p>
-                  <div className="mt-2.5">
+                  <div className="mt-3">
                     <MechanismDomainChips values={mechanism.domains} limit={3} />
                   </div>
                 </div>
 
-                <div className="grid gap-1 border-t border-[color:var(--border)] pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-                  <p className={eyebrowText}>Look for</p>
-                  <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55 p-3.5 shadow-[var(--shadow-inset)]">
+                  <div className="flex items-center gap-2 text-[color:var(--clinical-accent)]">
+                    <Target className="h-4 w-4 shrink-0" aria-hidden />
+                    <p className={eyebrowText}>Look for</p>
+                  </div>
+                  <p className="mt-1.5 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                     {mechanism.clinicalClues[0]}
                   </p>
                 </div>
+              </div>
 
+              <div
+                data-formulation-card-details
+                className="grid gap-px border-y border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-2"
+              >
+                <div className="flex items-start gap-3 bg-[color:var(--surface-subtle)] px-4 py-3.5 sm:px-5 sm:py-4">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--info-soft)] text-[color:var(--info)]">
+                    <MessageSquareQuote className="h-4 w-4" aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <p className={eyebrowText}>Patient language</p>
+                    <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                      “{mechanism.patientPhrases[0]}”
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 bg-[color:var(--surface-subtle)] px-4 py-3.5 sm:px-5 sm:py-4">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                    <Lightbulb className="h-4 w-4" aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <p className={eyebrowText}>Formulation use</p>
+                    <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                      {mechanism.formulationUse}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                data-formulation-card-action
+                className="flex bg-[color:var(--surface-raised)] px-4 py-3.5 sm:justify-end sm:px-5 sm:py-4"
+              >
                 <Link
                   href={`/formulation/${mechanism.id}`}
                   aria-label={`Open ${mechanism.name}`}
-                  className={cn(
-                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border px-3 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-tap sm:px-0",
-                    index === 0 && hasUniqueTopMatch
-                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--clinical-accent-strong)]"
-                      : "border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] text-[color:var(--text)] hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent)]",
-                  )}
+                  className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:w-auto sm:min-w-44 sm:px-5"
                 >
-                  <span className="sm:sr-only">Open</span>
+                  Open mechanism
                   <ArrowRight
                     className="h-4 w-4 transition group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                     aria-hidden
                   />
                 </Link>
-              </div>
-              <div className="grid border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)]/55 sm:grid-cols-2">
-                <div className="px-4 py-2.5 sm:px-5 sm:py-3">
-                  <p className={eyebrowText}>Patient language</p>
-                  <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    “{mechanism.patientPhrases[0]}”
-                  </p>
-                </div>
-                <div className="border-t border-[color:var(--border)] px-4 py-2.5 sm:border-l sm:border-t-0 sm:px-5 sm:py-3">
-                  <p className={eyebrowText}>Formulation use</p>
-                  <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    {mechanism.formulationUse}
-                  </p>
-                </div>
               </div>
             </article>
           ))}
