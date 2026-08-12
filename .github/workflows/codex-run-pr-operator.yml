@@ -75,7 +75,7 @@ jobs:
               core.setFailed("A positive integer pull-request number is required.");
               return;
             }
-            const taskUrlPattern = /^https:\/\/chatgpt\.com\/codex\/(?:cloud\/)?tasks\/task_[A-Za-z0-9]+\/?$/u;
+            const taskUrlPattern = /^https:\/\/chatgpt\.com\/codex\/(?:cloud\/)?tasks\/task_[A-Za-z0-9_]+\/?$/u;
             if (!taskUrlPattern.test(authorizationTaskUrl)) {
               core.setFailed("A valid Codex task URL is required as the authorization audit reference.");
               return;

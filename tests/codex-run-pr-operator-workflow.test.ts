@@ -186,6 +186,18 @@ describe("Codex Run PR operator workflow", () => {
     expect(prepare).toContain("basehead: `${pr.head.sha}...${pr.base.sha}`");
   });
 
+  it("accepts genuine Codex task IDs without allowing URL suffix injection", () => {
+    const patternSource = prepare.match(/const taskUrlPattern = \/(.+)\/u;/u)?.[1];
+    expect(patternSource).toBeDefined();
+    const taskUrlPattern = new RegExp(patternSource!, "u");
+
+    const taskUrl = "https://chatgpt.com/codex/cloud/tasks/task_e_6a7c91a549cc8322b0491687053bf902";
+    expect(taskUrlPattern.test(taskUrl)).toBe(true);
+    expect(taskUrlPattern.test(`${taskUrl}/`)).toBe(true);
+    expect(taskUrlPattern.test(`${taskUrl}?redirect=https://example.com`)).toBe(false);
+    expect(taskUrlPattern.test(`${taskUrl}#fragment`)).toBe(false);
+  });
+
   it("collects the complete bounded Run PR control-plane evidence", () => {
     expect(prepare).toContain("open_pull_requests: openPullRequests");
     expect(prepare).toContain("unresolved_review_thread_count: unresolvedThreadCount");
