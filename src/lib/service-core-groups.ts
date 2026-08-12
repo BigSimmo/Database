@@ -25,7 +25,9 @@ function serviceGroupFields(service: ServiceRecord) {
     service.catalogueLabel,
     ...(service.tags ?? []),
     ...(service.statusChips ?? []).map((chip) => chip.label),
-  ].filter((value): value is string => Boolean(value?.trim()));
+  ]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map((value) => value.trim());
 }
 
 function includesPatternInFields(fields: readonly string[], pattern: RegExp): boolean {

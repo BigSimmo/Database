@@ -227,6 +227,17 @@ describe("services catalogue", () => {
     expect(readServiceCoreGroup("unknown")).toBeNull();
 
     expect(serviceMatchesCoreGroup(yarn!, null)).toBe(true);
+
+    const crossFieldOnly = serviceMatchesCoreGroup(
+      {
+        ...yarn!,
+        slug: "cross-field-only",
+        title: "Cross field program",
+        tags: ["public", "community"],
+      },
+      "public",
+    );
+    expect(crossFieldOnly).toBe(false);
   });
 
   it("normalizes service lookup", () => {
