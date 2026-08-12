@@ -28,7 +28,7 @@ export type ModeHomePill = {
 type ModeHomeTemplateProps = {
   testId?: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   icon: LucideIcon;
   actions: ModeHomeAction[];
   actionsLabel: string;
@@ -64,7 +64,7 @@ export function ModeHomeHero({
 }: {
   testId?: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   icon: LucideIcon;
   headingLevel?: 1 | 2;
   stabilizePhoneCopy?: boolean;
@@ -103,9 +103,16 @@ export function ModeHomeHero({
         >
           {title}
         </Heading>
-        <p className="mx-auto max-w-2xl text-pretty text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-5 lg:text-base lg:leading-6">
-          {subtitle}
-        </p>
+        {subtitle ? (
+          <p
+            className={cn(
+              "mx-auto max-w-2xl text-pretty text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-5 lg:text-base lg:leading-6",
+              stabilizePhoneCopy && "max-sm:grid max-sm:min-h-[2lh] max-sm:place-items-center",
+            )}
+          >
+            {subtitle}
+          </p>
+        ) : null}
       </div>
     </section>
   );

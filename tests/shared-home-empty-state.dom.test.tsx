@@ -12,86 +12,72 @@ const escapeForRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, 
 const expectedPresentations = [
   {
     modeId: "answer",
-    title: "What can I help with?",
-    subtitle: "Ask a source-backed clinical question.",
+    title: "Clinical Answers",
     iconClass: "lucide-sparkles",
   },
   {
     modeId: "documents",
-    title: "Find a source?",
-    subtitle: "Search documents and evidence passages.",
+    title: "Clinical Documents",
     iconClass: "lucide-file-text",
   },
   {
     modeId: "services",
-    title: "Find a service?",
-    subtitle: "Search services and referral pathways.",
+    title: "Clinical Services",
     iconClass: "lucide-route",
   },
   {
     modeId: "forms",
-    title: "Find a form?",
-    subtitle: "Search clinical forms and pathways.",
+    title: "Clinical Forms",
     iconClass: "lucide-file-pen-line",
   },
   {
     modeId: "favourites",
-    title: "Find a saved item?",
-    subtitle: "Search your saved clinical items.",
+    title: "Clinical Favourites",
     iconClass: "lucide-heart",
   },
   {
     modeId: "differentials",
-    title: "What else could it be?",
-    subtitle: "Compare causes and clinical clues.",
+    title: "Differential Diagnosis",
     iconClass: "lucide-brain-circuit",
   },
   {
     modeId: "dsm",
-    title: "Check DSM-5 criteria?",
-    subtitle: "Search diagnoses, criteria, and codes.",
+    title: "DSM-5 Diagnosis",
     iconClass: "lucide-book-open-check",
   },
   {
     modeId: "specifiers",
-    title: "Which specifier fits?",
-    subtitle: "Refine diagnostic wording and episode patterns.",
+    title: "Diagnostic Specifiers",
     iconClass: "lucide-tags",
   },
   {
     modeId: "formulation",
-    title: "What explains the pattern?",
-    subtitle: "Explore mechanisms behind the presentation.",
+    title: "Clinical Formulation",
     iconClass: "lucide-network",
   },
   {
     modeId: "prescribing",
-    title: "Check a medication?",
-    subtitle: "Check dosing, safety, and monitoring.",
+    title: "Medication Guidance",
     iconClass: "lucide-pill",
   },
   {
     modeId: "tools",
-    title: "Find a clinical tool?",
-    subtitle: "Search clinical tools and applications.",
+    title: "Clinical Tools",
     iconClass: "lucide-wrench",
   },
   {
     modeId: "therapy-compass",
-    title: "Which therapy fits?",
-    subtitle: "Explore source-grounded therapy guidance.",
+    title: "Therapy Compass",
     iconClass: "lucide-compass",
   },
   {
     modeId: "factsheets",
-    title: "Find a patient factsheet?",
-    subtitle: "Search clear patient information to share.",
+    title: "Patient Factsheets",
     iconClass: "lucide-book-open-text",
   },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;
   title: string;
-  subtitle: string;
   iconClass: string;
 }>;
 
@@ -100,20 +86,17 @@ describe("SharedHomeEmptyState", () => {
     expect(expectedPresentations.map(({ modeId }) => modeId)).toEqual(appModeIds);
   });
 
-  it.each(expectedPresentations)(
-    "renders the canonical $modeId presentation",
-    ({ modeId, title, subtitle, iconClass }) => {
-      const { container } = render(<SharedHomeEmptyState modeId={modeId} />);
+  it.each(expectedPresentations)("renders the canonical $modeId presentation", ({ modeId, title, iconClass }) => {
+    const { container } = render(<SharedHomeEmptyState modeId={modeId} />);
 
-      expect(screen.getByTestId("shared-home-empty-state")).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 2, name: title })).toBeInTheDocument();
-      expect(screen.getByText(subtitle, { exact: true })).toBeInTheDocument();
+    expect(screen.getByTestId("shared-home-empty-state")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: title })).toBeInTheDocument();
+    expect(container.querySelector("h2 + p")).not.toBeInTheDocument();
 
-      const icon = container.querySelector(".mode-home-icon svg");
-      expect(icon).toHaveClass(iconClass);
-      expect(icon).toHaveAttribute("aria-hidden", "true");
-    },
-  );
+    const icon = container.querySelector(".mode-home-icon svg");
+    expect(icon).toHaveClass(iconClass);
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+  });
 
   it("reserves the phone copy height once on the pair, never on each half", () => {
     const { container } = render(<SharedHomeEmptyState modeId="answer" />);
@@ -171,8 +154,7 @@ describe("SharedHomeEmptyState", () => {
     rerender(<SharedHomeEmptyState modeId="services" />);
 
     expect(screen.getByTestId("shared-home-empty-state")).toBe(sharedHomeRoot);
-    expect(screen.getByRole("heading", { level: 2, name: "Find a service?" })).toBeInTheDocument();
-    expect(screen.getByText("Search services and referral pathways.", { exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Clinical Services" })).toBeInTheDocument();
     expect(sharedHomeRoot.querySelector(".mode-home-icon svg")).toHaveClass("lucide-route");
     expect(screen.queryByText("What can I help with?", { exact: true })).not.toBeInTheDocument();
   });

@@ -16,61 +16,47 @@ import type { AppModeId } from "@/lib/app-modes";
 
 export type SharedHomePresentation = {
   title: string;
-  subtitle: string;
 };
 
 export const sharedHomePresentation = {
   answer: {
-    title: "What can I help with?",
-    subtitle: "Ask a source-backed clinical question.",
+    title: "Clinical Answers",
   },
   documents: {
-    title: "Find a source?",
-    subtitle: "Search documents and evidence passages.",
+    title: "Clinical Documents",
   },
   services: {
-    title: "Find a service?",
-    subtitle: "Search services and referral pathways.",
+    title: "Clinical Services",
   },
   forms: {
-    title: "Find a form?",
-    subtitle: "Search clinical forms and pathways.",
+    title: "Clinical Forms",
   },
   favourites: {
-    title: "Find a saved item?",
-    subtitle: "Search your saved clinical items.",
+    title: "Clinical Favourites",
   },
   differentials: {
-    title: "What else could it be?",
-    subtitle: "Compare causes and clinical clues.",
+    title: "Differential Diagnosis",
   },
   dsm: {
-    title: "Check DSM-5 criteria?",
-    subtitle: "Search diagnoses, criteria, and codes.",
+    title: "DSM-5 Diagnosis",
   },
   specifiers: {
-    title: "Which specifier fits?",
-    subtitle: "Refine diagnostic wording and episode patterns.",
+    title: "Diagnostic Specifiers",
   },
   formulation: {
-    title: "What explains the pattern?",
-    subtitle: "Explore mechanisms behind the presentation.",
+    title: "Clinical Formulation",
   },
   prescribing: {
-    title: "Check a medication?",
-    subtitle: "Check dosing, safety, and monitoring.",
+    title: "Medication Guidance",
   },
   tools: {
-    title: "Find a clinical tool?",
-    subtitle: "Search clinical tools and applications.",
+    title: "Clinical Tools",
   },
   "therapy-compass": {
-    title: "Which therapy fits?",
-    subtitle: "Explore source-grounded therapy guidance.",
+    title: "Therapy Compass",
   },
   factsheets: {
-    title: "Find a patient factsheet?",
-    subtitle: "Search clear patient information to share.",
+    title: "Patient Factsheets",
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
