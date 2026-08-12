@@ -363,6 +363,7 @@
         "tests/ckb-v2-token-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-contract-utils.test.ts",
+        "tests/design-system-target-evidence.test.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -530,7 +531,11 @@
         "preview": ".design-sync/previews/Disclosure.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-forms-section-nav.spec.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -558,7 +563,11 @@
         "preview": ".design-sync/previews/DisclosureGroup.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/forms-information-disclosure.dom.test.tsx",
+        "tests/ui-forms-section-nav.spec.ts"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -650,7 +659,8 @@
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
-        "src/components/dsm/dsm-search-page.tsx"
+        "src/components/dsm/dsm-search-page.tsx",
+        "src/components/mode-home-template.tsx"
       ],
       "productImportFiles": [
         "src/components/ClinicalDashboard.tsx",
@@ -664,7 +674,8 @@
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
-        "src/components/dsm/dsm-search-page.tsx"
+        "src/components/dsm/dsm-search-page.tsx",
+        "src/components/mode-home-template.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -675,6 +686,7 @@
       "testFiles": [
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-target-evidence.test.ts",
         "tests/dsm-search-empty-state.dom.test.tsx",
         "tests/therapy-compass-ui.dom.test.tsx",
         "tests/ui-primitives.dom.test.tsx"
@@ -1005,7 +1017,7 @@
         "preview": ".design-sync/previews/LoadingPanel.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/design-system-target-evidence.test.ts"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1077,6 +1089,8 @@
       "testFiles": [
         "tests/app-announcements-root.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-target-evidence.test.ts",
+        "tests/sheet.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -1377,14 +1391,22 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/differentials-home.tsx",
+        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/in-page-nav/in-page-nav-header.tsx"
+        "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/specifiers/specifiers-home-page.tsx"
       ],
       "productImportFiles": [
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/differentials-home.tsx",
+        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/in-page-nav/in-page-nav-header.tsx"
+        "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/specifiers/specifiers-home-page.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1392,7 +1414,11 @@
         "preview": ".design-sync/previews/SegmentedControl.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/search-results-header-band.dom.test.tsx",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1522,6 +1548,7 @@
         "tests/factsheet-save.dom.test.tsx",
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
+        "tests/in-page-nav-route-sections.dom.test.tsx",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",

@@ -100,5 +100,40 @@ describe("DifferentialsHome compare selection URL handoff", () => {
         ["bpsd-as-unmet-need-delirium-pain-mimic", "medical-gi-endocrine-painful-organic-cause"].sort(),
       );
     });
+
+    const selectedControls = screen.getAllByRole("checkbox", { name: /^Remove .+ from comparison$/ });
+    expect(selectedControls.length).toBeGreaterThanOrEqual(2);
+    for (const control of selectedControls) expect(control).toBeChecked();
+  });
+
+  it("shows a filter-specific empty state and restores all results", async () => {
+    const diagnosis = getDifferentialRecord("anorexia-nervosa");
+    expect(diagnosis).toBeTruthy();
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [{ record: diagnosis!, score: 20, reasons: ["title"] }],
+      presentations: [],
+    };
+
+    render(<DifferentialsHome query="Anorexia" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);
+    });
+
+    await act(async () => {
+      screen.getByRole("radio", { name: "Presentations (0)" }).click();
+    });
+
+    expect(screen.getByTestId("differentials-filter-empty-results")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "No presentations in this result set" })).toBeVisible();
+    expect(screen.queryByText(/No catalogue matches/)).not.toBeInTheDocument();
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Show all results" }).click();
+    });
+
+    expect(screen.queryByTestId("differentials-filter-empty-results")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);
   });
 });

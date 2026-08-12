@@ -52,6 +52,32 @@ storage bucket rows + storage.objects policies.
   carries the _identical_ name-stripped index definition under a legacy name
   (the machine-checked version of `search_schema_health()`'s `index_aliases`).
 
+### Known coverage limits
+
+What the check does **not** see — established offline on 2026-08-12 while
+answering `/issues` `#248` (the 20260705180000 search-health indexes that were
+missing on live despite an applied history):
+
+- **Invalid indexes read as healthy.** `schema_drift_snapshot()`
+  (`20260706200000`) builds its index rows from `pg_index` via
+  `pg_get_indexdef` + an md5 `def_hash`, and never reads `indisvalid` /
+  `indisready`. An index left behind by a failed `CREATE INDEX CONCURRENTLY`
+  still has a definition, so it compares byte-identical and drift stays green
+  while the planner refuses to use it. `20260804110240` checks both flags at
+  apply time, so the guard exists for that one migration but not for the
+  ongoing probe.
+- **Nothing gates on it.** `check:drift` runs only from
+  `.github/workflows/live-drift.yml` — `workflow_dispatch` plus a weekly Sunday
+  18:30 UTC cron — and blocks no PR or release. Coverage of the plain
+  missing-index class is genuine (indexes compare by name on `table` +
+  `def_hash`, and `supabase/drift-allowlist.json` is empty, so a missing index
+  fails the run), but nothing forces a run between the drift appearing and
+  runtime `search_schema_health()` noticing.
+
+Both are decisions rather than defects: adding validity to the snapshot RPC is
+a migration, and raising the cadence spends provider budget. Recorded so the
+gap is chosen, not assumed away.
+
 ### Workflow
 
 - Change `supabase/schema.sql` → run `npm run drift:manifest` (Docker) in the

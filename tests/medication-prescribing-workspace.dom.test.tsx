@@ -60,6 +60,16 @@ const sertraline: Result = {
   tone: "slate",
 };
 
+const catalogInterpretation = vi.hoisted(() => ({
+  current: undefined as
+    | {
+        correctedQuery?: string;
+        corrections?: Array<{ from: string; to: string }>;
+        appliedExpansions?: string[];
+      }
+    | undefined,
+}));
+
 // Cross-mode "also matches" strip is a separate AuthProvider-backed component;
 // stub it so this test isolates the filter strip from that component's auth deps.
 vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
@@ -76,6 +86,7 @@ vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
         score: 1,
         reasons: [],
       })),
+      interpretation: catalogInterpretation.current,
       total: 3,
       governance: {},
     },
@@ -107,11 +118,14 @@ function rowVisible(name: string): boolean {
   return screen.queryAllByText(name).length > 0;
 }
 
+// The rail is a one-of-N lens, so its options are radios in a radiogroup, not
+// pressed toggles. The accessible name carries the count as "Best (3)".
 function filterButton(label: string): HTMLElement {
-  return screen.getByRole("button", { name: new RegExp(`^${label}`, "i") });
+  return screen.getByRole("radio", { name: new RegExp(`^${label}`, "i") });
 }
 
 afterEach(() => {
+  catalogInterpretation.current = undefined;
   vi.restoreAllMocks();
 });
 
@@ -130,6 +144,44 @@ describe("MedicationPrescribingWorkspace — home vs submitted results", () => {
   });
 });
 
+describe("MedicationPrescribingWorkspace — query interpretation", () => {
+  it("shows the API corrected query and visibly counts related terms", () => {
+    catalogInterpretation.current = {
+      correctedQuery: "sertraline",
+      corrections: [{ from: "sertaline", to: "sertraline" }],
+      appliedExpansions: ["zoloft"],
+    };
+
+    renderWorkspace({ query: "sertaline" });
+
+    const note = screen.getByRole("note", {
+      name: "Did you mean sertraline? Related terms were also included: zoloft.",
+    });
+    expect(note).toHaveTextContent("Did you mean");
+    expect(note).toHaveTextContent("sertraline");
+    expect(note).toHaveTextContent("+1");
+  });
+
+  it("distinguishes applied expansions from a corrected query", () => {
+    catalogInterpretation.current = { appliedExpansions: ["olanzapine", "antipsychotic"] };
+
+    renderWorkspace({ query: "zyprexa" });
+
+    expect(
+      screen.getByRole("note", {
+        name: "Search also included related terms: olanzapine, antipsychotic.",
+      }),
+    ).toHaveTextContent("olanzapine, antipsychotic");
+    expect(screen.getByRole("note")).toHaveTextContent("Search also included");
+    expect(screen.getByRole("note")).not.toHaveTextContent("Did you mean");
+  });
+
+  it("does not add interpretation chrome when the API returns none", () => {
+    renderWorkspace();
+    expect(screen.queryByTestId("medication-query-interpretation")).not.toBeInTheDocument();
+  });
+});
+
 describe("MedicationPrescribingWorkspace — result filter strip", () => {
   it("labels each lens with the count of matching results", () => {
     renderWorkspace();
@@ -142,8 +194,8 @@ describe("MedicationPrescribingWorkspace — result filter strip", () => {
 
   it("defaults to the Best lens with every result shown", () => {
     renderWorkspace();
-    expect(filterButton("Best")).toHaveAttribute("aria-pressed", "true");
-    expect(filterButton("Safety")).toHaveAttribute("aria-pressed", "false");
+    expect(filterButton("Best")).toHaveAttribute("aria-checked", "true");
+    expect(filterButton("Safety")).toHaveAttribute("aria-checked", "false");
     expect(rowVisible("Clozapine")).toBe(true);
     expect(rowVisible("Lithium")).toBe(true);
     expect(rowVisible("Sertraline")).toBe(true);
@@ -153,8 +205,8 @@ describe("MedicationPrescribingWorkspace — result filter strip", () => {
     renderWorkspace();
     fireEvent.click(filterButton("Indication"));
 
-    expect(filterButton("Indication")).toHaveAttribute("aria-pressed", "true");
-    expect(filterButton("Best")).toHaveAttribute("aria-pressed", "false");
+    expect(filterButton("Indication")).toHaveAttribute("aria-checked", "true");
+    expect(filterButton("Best")).toHaveAttribute("aria-checked", "false");
     expect(rowVisible("Clozapine")).toBe(true);
     expect(rowVisible("Lithium")).toBe(true);
     // Sertraline is a "Related match", so it leaves the Indication lens.
@@ -165,7 +217,7 @@ describe("MedicationPrescribingWorkspace — result filter strip", () => {
     renderWorkspace();
     fireEvent.click(filterButton("Monitor"));
 
-    expect(filterButton("Monitor")).toHaveAttribute("aria-pressed", "true");
+    expect(filterButton("Monitor")).toHaveAttribute("aria-checked", "true");
     expect(rowVisible("Lithium")).toBe(true);
     expect(rowVisible("Clozapine")).toBe(false);
     expect(rowVisible("Sertraline")).toBe(false);
