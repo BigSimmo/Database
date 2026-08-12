@@ -17,7 +17,6 @@ concurrency:
 jobs:
   repair:
     name: Merge main and resolve reviewed findings
-    if: github.event.head_commit.message == 'chore(pr-1854): trigger one-off repair'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -56,8 +55,9 @@ jobs:
             fi
           fi
 
-          # Preserve the PR's Differentials redesign as the implementation base,
-          # while taking the append-only ledger exactly from current main.
+          # Preserve the PR redesign, then apply the known current-main
+          # SegmentedControl migration. Take the append-only ledger verbatim
+          # from current main before recording a new row with the repo script.
           git show ORIG_HEAD:"$component" > "$component"
           git show origin/main:"$ledger" > "$ledger"
 
@@ -85,7 +85,8 @@ jobs:
           if 'from "@/components/ui/segmented-control"' not in text:
               replace_once(
                   'import { Chip as DesignChip } from "@/components/ui/chip";\n',
-                  'import { Chip as DesignChip } from "@/components/ui/chip";\nimport { SegmentedControl } from "@/components/ui/segmented-control";\n',
+                  'import { Chip as DesignChip } from "@/components/ui/chip";\n'
+                  'import { SegmentedControl } from "@/components/ui/segmented-control";\n',
                   "SegmentedControl import",
               )
 
@@ -103,27 +104,28 @@ jobs:
               '  const presentationCount = results.filter((result) => result.kind === "presentation").length;\n'
               "  const diagnosisCount = results.length - presentationCount;\n"
           )
-          options = counts + '''  const kindFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<KindFilter>>>(
-            () => [
-              { value: "all", label: "All", hint: String(results.length) },
-              { value: "presentation", label: "Presentations", hint: String(presentationCount) },
-              { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
-            ],
-            [diagnosisCount, presentationCount, results.length],
-          );
-'''
+          options = counts + (
+              "  const kindFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<KindFilter>>>(\n"
+              "    () => [\n"
+              '      { value: "all", label: "All", hint: String(results.length) },\n'
+              '      { value: "presentation", label: "Presentations", hint: String(presentationCount) },\n'
+              '      { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },\n'
+              "    ],\n"
+              "    [diagnosisCount, presentationCount, results.length],\n"
+              "  );\n"
+          )
           replace_once(counts, options, "shared result-type options")
 
           text, controls = re.subn(
-              r'''        filterControls=\{\n          <ResultTypeTabs\n.*?\n          />\n        \}''',
-              '''        filterControls={
-                  <SegmentedControl
-                    value={kindFilter}
-                    onChange={setKindFilter}
-                    options={kindFilterOptions}
-                    label="Result type"
-                  />
-                }''',
+              r'        filterControls=\{\n          <ResultTypeTabs\n.*?\n          />\n        \}',
+              "        filterControls={\n"
+              "          <SegmentedControl\n"
+              "            value={kindFilter}\n"
+              "            onChange={setKindFilter}\n"
+              "            options={kindFilterOptions}\n"
+              '            label="Result type"\n'
+              "          />\n"
+              "        }",
               text,
               count=1,
               flags=re.S,
@@ -131,15 +133,14 @@ jobs:
           if controls != 1:
               raise SystemExit(f"desktop result-type control migration: expected one block, found {controls}")
 
-          replace_once(
-              '''            options: [
-                      { value: "all", label: "All", hint: String(results.length) },
-                      { value: "presentation", label: "Presentations", hint: String(presentationCount) },
-                      { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
-                    ],''',
-              "            options: kindFilterOptions,",
-              "phone result-type options",
+          phone_options = (
+              "            options: [\n"
+              '              { value: "all", label: "All", hint: String(results.length) },\n'
+              '              { value: "presentation", label: "Presentations", hint: String(presentationCount) },\n'
+              '              { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },\n'
+              "            ],"
           )
+          replace_once(phone_options, "            options: kindFilterOptions,", "phone result-type options")
 
           replace_once(
               "      catalogFailed ? null : !best ? (",
@@ -147,33 +148,37 @@ jobs:
               "true catalogue empty-state guard",
           )
 
-          empty_anchor = '''        </section>
-              ) : (
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">'''
-          filter_empty = '''        </section>
-              ) : !best ? (
-                <section
-                  data-testid="differentials-filter-empty-results"
-                  className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
-                >
-                  <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
-                    {kindFilter === "presentation"
-                      ? "No presentations in this result set"
-                      : "No diagnoses in this result set"}
-                  </h2>
-                  <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                    Other result types still match this search. Clear the result-type filter to show them.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setKindFilter("all")}
-                    className="inline-flex min-h-tap w-fit items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  >
-                    Show all results
-                  </button>
-                </section>
-              ) : (
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">'''
+          empty_anchor = (
+              "        </section>\n"
+              "      ) : (\n"
+              '        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">'
+          )
+          filter_empty = (
+              "        </section>\n"
+              "      ) : !best ? (\n"
+              "        <section\n"
+              '          data-testid="differentials-filter-empty-results"\n'
+              '          className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"\n'
+              "        >\n"
+              '          <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">\n'
+              '            {kindFilter === "presentation"\n'
+              '              ? "No presentations in this result set"\n'
+              '              : "No diagnoses in this result set"}\n'
+              "          </h2>\n"
+              '          <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">\n'
+              "            Other result types still match this search. Clear the result-type filter to show them.\n"
+              "          </p>\n"
+              "          <button\n"
+              '            type="button"\n'
+              '            onClick={() => setKindFilter("all")}\n'
+              '            className="inline-flex min-h-tap w-fit items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"\n'
+              "          >\n"
+              "            Show all results\n"
+              "          </button>\n"
+              "        </section>\n"
+              "      ) : (\n"
+              '        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">'
+          )
           replace_once(empty_anchor, filter_empty, "filter-specific empty state")
 
           text = text.replace(
@@ -187,39 +192,41 @@ jobs:
           test_text = test_path.read_text()
           marker = 'it("shows a filter-specific empty state and restores all results"'
           if marker not in test_text:
-              addition = r'''
-
-            it("shows a filter-specific empty state and restores all results", async () => {
-              const diagnosis = getDifferentialRecord("anorexia-nervosa");
-              expect(diagnosis).toBeTruthy();
-              catalogState.status = "ready";
-              catalogState.matches = {
-                diagnoses: [{ record: diagnosis!, score: 20, reasons: ["title"] }],
-                presentations: [],
-              };
-
-              render(<DifferentialsHome query="Anorexia" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
-
-              await waitFor(() => {
-                expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);
-              });
-
-              await act(async () => {
-                screen.getByRole("radio", { name: "Presentations (0)" }).click();
-              });
-
-              expect(screen.getByTestId("differentials-filter-empty-results")).toBeVisible();
-              expect(screen.getByRole("heading", { name: "No presentations in this result set" })).toBeVisible();
-              expect(screen.queryByText(/No catalogue matches/)).not.toBeInTheDocument();
-
-              await act(async () => {
-                screen.getByRole("button", { name: "Show all results" }).click();
-              });
-
-              expect(screen.queryByTestId("differentials-filter-empty-results")).not.toBeInTheDocument();
-              expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);
-            });
-          '''
+              lines = [
+                  "",
+                  "",
+                  '  it("shows a filter-specific empty state and restores all results", async () => {',
+                  '    const diagnosis = getDifferentialRecord("anorexia-nervosa");',
+                  "    expect(diagnosis).toBeTruthy();",
+                  '    catalogState.status = "ready";',
+                  "    catalogState.matches = {",
+                  '      diagnoses: [{ record: diagnosis!, score: 20, reasons: ["title"] }],',
+                  "      presentations: [],",
+                  "    };",
+                  "",
+                  '    render(<DifferentialsHome query="Anorexia" loading={false} searchSubmitted onRunSearch={vi.fn()} />);',
+                  "",
+                  "    await waitFor(() => {",
+                  '      expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);',
+                  "    });",
+                  "",
+                  "    await act(async () => {",
+                  '      screen.getByRole("radio", { name: "Presentations (0)" }).click();',
+                  "    });",
+                  "",
+                  '    expect(screen.getByTestId("differentials-filter-empty-results")).toBeVisible();',
+                  '    expect(screen.getByRole("heading", { name: "No presentations in this result set" })).toBeVisible();',
+                  "    expect(screen.queryByText(/No catalogue matches/)).not.toBeInTheDocument();",
+                  "",
+                  "    await act(async () => {",
+                  '      screen.getByRole("button", { name: "Show all results" }).click();',
+                  "    });",
+                  "",
+                  '    expect(screen.queryByTestId("differentials-filter-empty-results")).not.toBeInTheDocument();',
+                  '    expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);',
+                  "  });",
+              ]
+              addition = "\n".join(lines)
               closing = "\n});\n"
               if not test_text.endswith(closing):
                   raise SystemExit("compare-selection DOM test: unexpected file ending")
