@@ -9,20 +9,20 @@ permissions:
   contents: read
 
 concurrency:
-  group: pr1866-repository-bundle-v2
+  group: pr1866-repository-bundle-v3
   cancel-in-progress: false
 
 jobs:
   bundle:
     name: Export exact PR and main refs
-    if: contains(github.event.head_commit.message, '[bundle-pr1866-v2]')
+    if: contains(github.event.head_commit.message, '[bundle-pr1866-v3]')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Checkout full history
+      - name: Checkout bounded history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 512
           persist-credentials: false
 
       - name: Create verified repository bundle
@@ -31,10 +31,13 @@ jobs:
           BRANCH_NAME: claude/plan-implementation-3t2vl5
         run: |
           set -euo pipefail
-          git fetch --no-tags origin \
+          git fetch --no-tags --depth=512 origin \
             "+refs/heads/main:refs/remotes/origin/main" \
             "+refs/heads/${BRANCH_NAME}:refs/remotes/origin/${BRANCH_NAME}"
           test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git merge-base \
+            refs/remotes/origin/main \
+            "refs/remotes/origin/${BRANCH_NAME}"
           git bundle create pr1866.bundle \
             refs/remotes/origin/main \
             "refs/remotes/origin/${BRANCH_NAME}"
@@ -44,7 +47,7 @@ jobs:
       - name: Upload repository bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: pr1866-repository-bundle-v2-${{ github.run_id }}
+          name: pr1866-repository-bundle-v3-${{ github.run_id }}
           path: pr1866.bundle
           if-no-files-found: error
           retention-days: 1
