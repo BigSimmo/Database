@@ -14,12 +14,7 @@ function readFirstSearchParam(value: string | string[] | undefined) {
 
 export default async function ServicesIndexRoute({ searchParams }: { searchParams: ServicesSearchParams }) {
   const resolvedSearchParams = await searchParams;
-  const rawParams = new URLSearchParams(Object.entries(resolvedSearchParams).map(([k, v]) => [k, String(v)]));
-  const query =
-    readFirstSearchParam(resolvedSearchParams.q)?.trim() ||
-    readFirstSearchParam(resolvedSearchParams.query)?.trim() ||
-    "";
-  const hasSubmittedSearch = readFirstSearchParam(resolvedSearchParams.run) === "1" && query.length > 0;
+  const hasSubmittedSearch = readFirstSearchParam(resolvedSearchParams.run) === "1";
 
   if (!hasSubmittedSearch) {
     // Computed server-side so the client route chunk never bundles the

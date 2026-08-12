@@ -275,7 +275,7 @@ export function ServicesNavigatorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sortValue, setSortValue] = useResultSort();
-  const urlQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
+  const urlQuery = searchParams.get("q")?.trim() || searchParams.get("query")?.trim() || "";
   const activeGroup = readServiceCoreGroup(searchParams.get("group"));
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: urlQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : urlQuery;
