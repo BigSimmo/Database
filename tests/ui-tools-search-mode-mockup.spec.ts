@@ -27,7 +27,13 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expect(mockup.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
     await expect(mockup.getByText("1 tool", { exact: true })).toBeVisible();
     await expect(mockup.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
+    const selectedResult = mockup.getByRole("article").filter({ hasText: "Differentials" });
+    await expect(selectedResult).toHaveAttribute("data-selected", "true");
+    await expect(selectedResult.getByText("Source-backed")).toBeVisible();
+    await expect(selectedResult.getByText("High yield")).toBeVisible();
+    await expect(selectedResult.getByText("Broad or complex presentations")).toBeVisible();
     await expect(mockup.locator("aside").getByRole("heading", { name: "Best for" })).toBeVisible();
+    await expect(mockup.locator("aside").getByText("Selected tool")).toBeVisible();
     await expect(mockup.getByTestId("tools-search-mode-hero")).toHaveCount(0);
     await expect(mockup.getByText("Also matches in other modes")).toHaveCount(0);
     await expect(mockup.getByText("Dose converter")).toHaveCount(0);
@@ -60,6 +66,12 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await page.locator('[data-testid="global-search-input"]:visible').fill("Safety");
     await expect(mockup.getByRole("heading", { level: 1, name: "Safety" })).toBeVisible();
     await expect(mockup.locator("aside").getByRole("heading", { name: "Risk & Safety" })).toBeVisible();
+
+    await page.locator('[data-testid="global-search-input"]:visible').fill("");
+    await expect(mockup.getByRole("heading", { level: 1, name: "All" })).toBeVisible();
+    const renderedResultCount = await mockup.getByRole("article").count();
+    expect(renderedResultCount).toBeGreaterThan(4);
+    await expect(mockup.getByText(`${renderedResultCount} tools`, { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
 

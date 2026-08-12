@@ -342,30 +342,44 @@ export function ToolsSearchModeMockup() {
 
           <section aria-label="Tool results" className="mt-4 grid gap-3">
             {filteredTools.length ? (
-              filteredTools.slice(0, 4).map((tool) => (
+              filteredTools.map((tool) => (
                 <article
                   key={tool.id}
+                  data-selected={tool.id === selectedTool?.id || undefined}
                   className={cn(
-                    "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-2xl border bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-card)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center",
+                    "relative grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 overflow-hidden rounded-2xl border bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-card)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center",
                     tool.id === selectedTool?.id
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35"
                       : "border-[color:var(--border)]",
                   )}
                 >
+                  {tool.id === selectedTool?.id ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[color:var(--clinical-accent)]"
+                    />
+                  ) : null}
                   <ToolIcon tool={tool} />
                   <div className="min-w-0">
                     <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">{tool.title}</h2>
                     <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">{tool.description}</p>
-                    <span className="mt-2 block sm:hidden">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                       <ToolChips tool={tool} />
-                    </span>
+                      <span className="hidden min-w-0 items-center gap-1.5 text-xs text-[color:var(--text-muted)] sm:inline-flex">
+                        <Search
+                          className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]"
+                          aria-hidden="true"
+                        />
+                        <span className="font-bold text-[color:var(--text)]">Best for</span>
+                        <span className="truncate">{tool.bestFor}</span>
+                      </span>
+                    </div>
                   </div>
                   <button
                     ref={(node) => {
                       if (tool.id === selectedTool?.id && node) detailReturnFocusRef.current = node;
                     }}
                     type="button"
-                    aria-haspopup="dialog"
                     aria-label={`View details for ${tool.title}`}
                     onClick={(event) => openTool(tool, event.currentTarget)}
                     className={cn(
@@ -395,12 +409,15 @@ export function ToolsSearchModeMockup() {
             ref={desktopPanelRef}
             tabIndex={-1}
             aria-labelledby="desktop-tool-detail-title"
-            className="sticky top-4 hidden max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-lux)] focus:outline-none lg:block"
+            className="sticky top-4 hidden max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-lux)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)] focus-visible:ring-offset-2 lg:block"
           >
             <div className="border-b border-[color:var(--border)] p-5">
               <div className="flex items-start gap-3">
                 <ToolIcon tool={selectedTool} large />
                 <div className="min-w-0">
+                  <p className="mb-1 text-3xs font-extrabold uppercase tracking-wider text-[color:var(--clinical-accent)]">
+                    Selected tool
+                  </p>
                   <h2
                     id="desktop-tool-detail-title"
                     className="text-xl font-extrabold text-[color:var(--text-heading)]"
