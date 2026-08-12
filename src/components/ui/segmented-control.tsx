@@ -134,14 +134,10 @@ export function SegmentedControl<T extends string>({
             {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
             <span className="min-w-0 truncate">{option.label}</span>
             {option.hint ? (
-              // `nums` for tabular figures: without it the rail reflows as a
-              // count crosses a digit boundary, which on a live result set
-              // happens while the reader is aiming at it.
-              <span
-                className={cn("nums shrink-0 tabular-nums", checked ? "opacity-80" : "text-[color:var(--text-soft)]")}
-              >
-                {option.hint}
-              </span>
+              // Reserve a three-digit count column as well as using tabular
+              // figures so live result updates do not move the segment bounds.
+              // The hint inherits the button's opaque semantic foreground.
+              <span className="nums min-w-6 shrink-0 text-right tabular-nums">{option.hint}</span>
             ) : null}
           </button>
         );

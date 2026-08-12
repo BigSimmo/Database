@@ -367,6 +367,32 @@ describe("SegmentedControl", () => {
     expect(screen.getByRole("radio", { name: "Presentations (41)" })).toBeInTheDocument();
   });
 
+  it("keeps a live count opaque and reserves a stable three-digit column", () => {
+    const renderControl = (hint: string) => (
+      <SegmentedControl
+        label="Result type"
+        value="all"
+        onChange={() => undefined}
+        options={[{ value: "all", label: "All", hint }]}
+        layout="fit"
+      />
+    );
+    const { rerender } = render(renderControl("9"));
+
+    const initialRadio = screen.getByRole("radio", { name: "All (9)" });
+    const initialHint = within(initialRadio).getByText("9");
+    expect(initialHint).toHaveClass("min-w-6", "text-right", "tabular-nums");
+    expect(initialHint).not.toHaveClass("opacity-80");
+    expect(initialHint.className).not.toContain("--text-soft");
+    const initialRadioClasses = initialRadio.className;
+
+    rerender(renderControl("100"));
+
+    const updatedRadio = screen.getByRole("radio", { name: "All (100)" });
+    expect(updatedRadio.className).toBe(initialRadioClasses);
+    expect(within(updatedRadio).getByText("100")).toHaveClass("min-w-6", "text-right", "tabular-nums");
+  });
+
   // A hintless option must not gain stray whitespace or an empty span — the
   // existing call sites pass no hint and their names must not drift.
   it("leaves an option without a hint unchanged", () => {
