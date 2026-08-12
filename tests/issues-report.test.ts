@@ -49,7 +49,7 @@ const queueRows = [
 describe("issues report", () => {
   it("classifies only bounded provider-free, decision-free wins without changing acuity", () => {
     const wins = classifyAgentSafeWins(queueRows);
-    expect(wins.map((row) => row.ids[0])).toEqual(["#002"]);
+    expect(wins.map((row: { ids: string[] }) => row.ids[0])).toEqual(["#002"]);
     expect(queueRows[0].acuity).toBe("A1");
   });
 
@@ -84,7 +84,7 @@ describe("issues report", () => {
       },
     ];
     const wins = classifyAgentSafeWins(humanOnlyRows);
-    expect(wins.map((row) => row.ids[0])).toEqual(["#012"]);
+    expect(wins.map((row: { ids: string[] }) => row.ids[0])).toEqual(["#012"]);
   });
 
   it("excludes hosted-CI uploads and human-review gates from agent-safe wins", () => {
@@ -134,7 +134,7 @@ describe("issues report", () => {
     const report = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true });
     expect(report.counts).toEqual({ open: 2, recommended: 2 });
     expect(report.priorityBlockers[0].ids).toEqual(["#001"]);
-    expect(report.agentSafeWins.map((row) => row.ids[0])).toEqual(["#002"]);
+    expect(report.agentSafeWins.map((row: { ids: string[] }) => row.ids[0])).toEqual(["#002"]);
     expect(report.open[0].added).toBe("2026-01-01");
   });
 
