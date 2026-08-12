@@ -1298,7 +1298,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(culturallySafe).toBeVisible();
     await waitForReactEventHandler(culturallySafe);
     await culturallySafe.click();
-    await expect(page).toHaveURL(/q=Aboriginal\\+Torres\\+Strait\\+Islander/);
+    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
     // Quick search suggestions and facet clearing are separate contracts.
@@ -1311,7 +1311,7 @@ test.describe("Clinical KB tools launcher", () => {
     await crisisFacet.click();
     await expect(page).toHaveURL(/acuity_flags=crisis_high/);
     await filterPanel.getByTestId("service-filter-panel-clear").click();
-    await expect(page).toHaveURL(/q=Aboriginal\\+Torres\\+Strait\\+Islander/);
+    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
     await page
