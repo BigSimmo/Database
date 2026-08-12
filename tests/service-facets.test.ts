@@ -155,6 +155,11 @@ describe("service facets", () => {
     writeServiceFacetSelectionToParams(params, withValues);
     expect(params.get("catchments")).toBe("Metro-wide,Peel");
     expect(params.get("acuity_flags")).toBe("crisis_high");
+
+    const commaBearing = { ...selection, catchments: new Set(["Wanneroo, north metro"]) };
+    const commaParams = new URLSearchParams();
+    writeServiceFacetSelectionToParams(commaParams, commaBearing);
+    expect([...serviceFacetSelectionFromParams(commaParams).catchments]).toEqual(["Wanneroo, north metro"]);
     expect(params.has("age_groups")).toBe(false);
 
     const parsed = serviceFacetSelectionFromParams(params);
