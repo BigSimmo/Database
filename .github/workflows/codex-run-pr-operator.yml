@@ -446,6 +446,10 @@ jobs:
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
           test "$(sha256sum .codex-run-pr/context.json | awk '{print $1}')" = "$CONTEXT_SHA256"
           sudo useradd --create-home --shell /bin/bash codex-operator
+          # GitHub-hosted runners keep /home/runner at mode 750. The official
+          # codex-action unprivileged-user example grants this group solely so
+          # the repair account can traverse the path to the checkout.
+          sudo usermod --append --groups runner codex-operator
           git config user.name "BigSimmo"
           git config user.email "87357024+BigSimmo@users.noreply.github.com"
           git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
@@ -475,6 +479,16 @@ jobs:
           sudo find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 ! -name .git \
             -exec chown -hR codex-operator:codex-operator {} +
           sudo chown -R codex-operator:codex-operator "$trusted_dir"
+          sudo -u codex-operator git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          sudo -u codex-operator test -x "$GITHUB_WORKSPACE"
+          sudo -u codex-operator test -r "$GITHUB_WORKSPACE/.git/HEAD"
+          sudo -u codex-operator test -r "$trusted_dir/prompt.md"
+          sudo -u codex-operator test -w "$GITHUB_WORKSPACE/.codex-run-pr"
+          if sudo -u codex-operator test -w "$GITHUB_WORKSPACE/.git/HEAD"; then
+            echo "::error::The repair account unexpectedly has write access to Git metadata."
+            exit 1
+          fi
+          sudo -u codex-operator git -C "$GITHUB_WORKSPACE" rev-parse --verify HEAD >/dev/null
 
       - name: Run official Codex repair action
         id: codex

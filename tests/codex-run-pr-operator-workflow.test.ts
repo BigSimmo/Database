@@ -186,7 +186,7 @@ describe("Codex Run PR operator workflow", () => {
     expect(prepare).toContain("ref: `heads/${pr.base.ref}`");
     expect(prepare).toContain("const baseSha = currentBaseRef.object.sha");
     expect(prepare).toContain("const { data: revalidatedPr } = await github.rest.pulls.get");
-    expect(prepare).toContain('revalidatedPr.base.ref !== pr.base.ref');
+    expect(prepare).toContain("revalidatedPr.base.ref !== pr.base.ref");
     expect(prepare).toContain("The PR changed while its live base ref was being resolved.");
     expect(prepare).toContain("basehead: `${pr.head.sha}...${baseSha}`");
     expect(prepare).toContain("base_sha: baseSha");
@@ -228,6 +228,12 @@ describe("Codex Run PR operator workflow", () => {
     expect(repair).toContain("${{ runner.temp }}/codex-run-pr-trusted/prompt.md");
     expect(repair).toContain("CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}");
     expect(repair).toContain("! -name .git");
+    expect(repair).toContain("sudo usermod --append --groups runner codex-operator");
+    expect(repair).toContain('sudo -u codex-operator git config --global --add safe.directory "$GITHUB_WORKSPACE"');
+    expect(repair).toContain('sudo -u codex-operator test -r "$GITHUB_WORKSPACE/.git/HEAD"');
+    expect(repair).toContain('sudo -u codex-operator test -w "$GITHUB_WORKSPACE/.codex-run-pr"');
+    expect(repair).toContain('if sudo -u codex-operator test -w "$GITHUB_WORKSPACE/.git/HEAD"; then');
+    expect(repair).toContain('sudo -u codex-operator git -C "$GITHUB_WORKSPACE" rev-parse --verify HEAD >/dev/null');
     expect(repair).toContain('"+$BASE_SHA:refs/remotes/codex-run-pr/base"');
     expect(repair).toContain("git rev-parse refs/remotes/codex-run-pr/base");
     expect(repair).not.toContain("The base branch advanced after evidence collection");
