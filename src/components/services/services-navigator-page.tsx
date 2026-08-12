@@ -353,21 +353,25 @@ export function ServicesNavigatorPage() {
     );
   }, [searchParams]);
   const substanceLens = readServiceSubstanceLens(searchParams.get("substance"));
-  const serviceFacetIndex = useMemo(() => buildServiceFacetIndex(groupedMatches), [groupedMatches]);
-  const facetFilteredMatches = useMemo(
-    () => filterServicesByFacetIndex(serviceFacetIndex, [...selectedFacetKeys]),
-    [serviceFacetIndex, selectedFacetKeys],
-  );
-  const substanceFilteredMatches = useMemo(
+  // Counts and option availability are projected from the same lens-scoped
+  // population that the result list renders, so a facet never advertises a
+  // match that disappears when the active care lens is applied.
+  const lensScopedMatches = useMemo(
     () =>
       substanceLens
-        ? facetFilteredMatches.filter((service) => service.facets?.substance_flags.includes(substanceLens))
-        : facetFilteredMatches,
-    [facetFilteredMatches, substanceLens],
+        ? groupedMatches.filter((service) => service.facets?.substance_flags.includes(substanceLens))
+        : groupedMatches,
+    [groupedMatches, substanceLens],
   );
+  const serviceFacetIndex = useMemo(() => buildServiceFacetIndex(lensScopedMatches), [lensScopedMatches]);
   const displayedMatches = useMemo(
-    () => sortResultItems(substanceFilteredMatches, sortValue, (service) => service.title),
-    [substanceFilteredMatches, sortValue],
+    () =>
+      sortResultItems(
+        filterServicesByFacetIndex(serviceFacetIndex, [...selectedFacetKeys]),
+        sortValue,
+        (service) => service.title,
+      ),
+    [selectedFacetKeys, serviceFacetIndex, sortValue],
   );
   const projectedFacetGroups = useMemo(
     () => projectServiceFacetCounts(serviceFacetIndex, [...selectedFacetKeys]),
@@ -438,11 +442,9 @@ export function ServicesNavigatorPage() {
   // could be narrowing the result set at once, not just the facets/substance this sheet owns:
   // the escape has to reach zero regardless of what put the reader there.
   function showAllServiceItems() {
-    setLocalQuery({ urlQuery, value: "" });
     setFilterOpen(false);
     updateParams((params) => {
-      params.delete("q");
-      params.delete("query");
+      // Widen the result population without discarding the submitted search.
       params.delete("focus");
       params.delete("group");
       params.delete("facets");
