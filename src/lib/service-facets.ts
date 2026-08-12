@@ -252,7 +252,14 @@ export function serviceFacetSelectionFromParams(params: ReadableSearchParams): S
       (params.get(dimension) ?? "")
         .split(",")
         .map((value) => value.trim())
-        .filter(Boolean),
+        .filter(Boolean)
+        .map((value) => {
+          try {
+            return decodeURIComponent(value);
+          } catch {
+            return value;
+          }
+        }),
     );
   return {
     catchments: read("catchments"),
@@ -266,7 +273,7 @@ export function serviceFacetSelectionFromParams(params: ReadableSearchParams): S
 export function writeServiceFacetSelectionToParams(params: URLSearchParams, selection: ServiceFacetSelection): void {
   for (const dimension of serviceFacetDimensions) {
     const values = [...selection[dimension]];
-    if (values.length > 0) params.set(dimension, values.join(","));
+    if (values.length > 0) params.set(dimension, values.map((value) => encodeURIComponent(value)).join(","));
     else params.delete(dimension);
   }
 }
