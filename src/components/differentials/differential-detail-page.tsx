@@ -808,7 +808,7 @@ function MobilePrimaryActions({
       <button
         type="button"
         onClick={onCompare}
-        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--primary-strong)]"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--primary-strong)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare ({record.related.length + 1})

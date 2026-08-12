@@ -60,6 +60,12 @@ const sertraline: Result = {
   tone: "slate",
 };
 
+// Cross-mode "also matches" strip is a separate AuthProvider-backed component;
+// stub it so this test isolates the filter strip from that component's auth deps.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
+
 vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
   useMedicationCatalog: () => ({
     data: {

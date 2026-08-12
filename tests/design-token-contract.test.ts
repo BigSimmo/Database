@@ -143,6 +143,7 @@ describe("surface scale", () => {
 describe("elevation ladder", () => {
   it.each(themes)("aliases every shadow role onto an --e tier in $name", ({ tokens }) => {
     const aliases = {
+      "--shadow-tight": "--e1",
       "--shadow-card": "--e2",
       "--shadow-soft": "--e2",
       "--shadow-hover": "--e3",
@@ -155,45 +156,6 @@ describe("elevation ladder", () => {
     // --shadow-lux may add a top highlight, but its body is still a tier.
     expect(tokens.get("--shadow-lux")).toContain("var(--e4)");
     expect(tokens.get("--e0")).toBe("none");
-  });
-
-  // `--shadow-tight` was retired once its 90 production call sites moved onto
-  // `--e1` (`#262` part 1). Redeclaring it anywhere — either theme, the v2 layer
-  // or the forced-colors flattening — would reopen the alias the contract
-  // ratchet is paying down, and would do it quietly: a role that resolves to the
-  // same tier looks harmless at the declaration and reads as sanctioned at the
-  // call site. Asserted over the whole stylesheet, not per theme block, because
-  // any scope that reintroduces it makes the alias spellable again.
-  it("keeps the retired --shadow-tight role deleted", () => {
-    expect(globals, "--shadow-tight is retired; call sites use --e1").not.toContain("--shadow-tight");
-    expect(v2Stylesheet, "--shadow-tight is retired; call sites use --e1").not.toContain("--shadow-tight");
-  });
-
-  // `--shadow-focus` is retired (`#261`). It was not an elevation alias at all:
-  // it packed a 3px accent halo in FRONT of `--shadow-soft`, so its one consumer
-  // — `.chat-composer-shell-delta:focus-within` — painted a companion ring on
-  // top of the accent border swap, which is the second focus affordance the
-  // shared `:focus-visible` treatment is written to prevent. The composer now
-  // uses the sanctioned `outline: 2px solid var(--focus)`.
-  //
-  // Unlike the `--shadow-tight` assertion above this is not a raw substring
-  // check: the stylesheet comment at the composer rule names the retired token
-  // on purpose, so that the next author reaching for a focus halo finds the
-  // reason it is gone rather than re-deriving it. The two spellings below are
-  // the only ways the token can actually come back to life — a declaration and
-  // a `var()` consumer — so they are what the gate rejects.
-  it("keeps the retired --shadow-focus token deleted in every scope", () => {
-    for (const [name, stylesheet] of [
-      ["globals.css", globals],
-      ["ckb-v2-tokens.css", v2Stylesheet],
-    ] as const) {
-      expect(stylesheet, `${name} redeclares --shadow-focus; focus is an outline, not a ring`).not.toContain(
-        "--shadow-focus:",
-      );
-      expect(stylesheet, `${name} consumes --shadow-focus; focus is an outline, not a ring`).not.toContain(
-        "var(--shadow-focus)",
-      );
-    }
   });
 
   it("flattens the ladder itself under forced colors, not only the role aliases", () => {

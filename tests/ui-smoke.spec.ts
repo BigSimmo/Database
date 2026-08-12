@@ -2317,15 +2317,34 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const geo = await page.evaluate(() => {
       const header = document.querySelector("header");
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
+      const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
+      // Include vertical margins: the phone bottom clearance (`max-sm:mb-4`) sits
+      // outside getBoundingClientRect().height and still consumes scroll budget.
+      let alsoMatchesHeight = 0;
+      if (alsoMatches instanceof HTMLElement) {
+        const box = alsoMatches.getBoundingClientRect();
+        const styles = window.getComputedStyle(alsoMatches);
+        alsoMatchesHeight = Math.ceil(
+          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+        );
+      }
       return {
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
+        alsoMatchesHeight,
       };
     });
-    // Content-sized section => no unexplained phantom scroll. The responsive
-    // notice keeps its complete instruction while retaining the 8px phone budget.
+    // Content-sized section => no unexplained phantom scroll. Submitted universal
+    // matches are real content below the answer, so their compact panel may account
+    // for the overflow; the old viewport floor created much more empty scroll.
+    // The responsive notice keeps its complete instruction while returning the
+    // unexplained-scroll allowance to the original 8px phone contract. Submitted
+    // universal matches are real content, so subtract their measured height
+    // before applying that phantom-overflow budget. That measured height already
+    // includes the section's phone bottom margin, so the 8px allowance stays put.
+    const permittedOverflow = geo.alsoMatchesHeight + 8;
     expect(scrollGeometry.owner).toBe("document");
-    expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(8);
+    expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
     // (a bottom-anchor regression would push surfaceTop far down the viewport).
     expect(geo.surfaceTop - geo.headerBottom).toBeGreaterThanOrEqual(0);
@@ -2598,6 +2617,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("plain-answer-response")).toBeVisible();
     expect(answerRequests).toContain(recent);
     await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const newChat = page.getByRole("button", { name: /new chat|new comparison/i });
+    await expect(newChat).toBeVisible();
+    await newChat.click();
+    await waitForDemoDashboardReady(page);
+
+    const homeRecentSearches = page.getByTestId("shared-home-recent-queries");
+    await homeRecentSearches.scrollIntoViewIfNeeded();
+    await expect(homeRecentSearches).toBeVisible();
+    const homeRecentDirection = await homeRecentSearches.evaluate((node) => getComputedStyle(node).flexDirection);
+    expect(homeRecentDirection, "home recent-searches should stack on phone width").toBe("column");
+
+    const chipsGroup = homeRecentSearches.locator(".answer-suggestion-chips");
+    const mobileJustify = await chipsGroup.evaluate((node) => getComputedStyle(node).justifyContent);
+    expect(mobileJustify, "phone home recent-search chips should align to flex-start").toBe("flex-start");
   });
 
   test("legacy unscoped recent-query storage is purged and never displayed @critical", async ({ page }) => {
@@ -3582,70 +3617,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const backLink = page.getByRole("link", { name: "Back to medications" }).filter({ visible: true });
     await expect(backLink).toBeVisible();
     await expectMinTouchTarget(backLink);
-
-    const medicationRail = page.getByTestId("medication-section-rail");
-    await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeVisible();
-    await expect(medicationRail.getByRole("button", { name: /^Dosing/ })).toBeVisible();
-    await expect(medicationRail.getByRole("button", { name: /^Safety/ })).toBeHidden();
-    const medicationMore = page.getByTestId("medication-section-overflow");
-    await expect(medicationMore).toBeVisible();
-    await expectMinTouchTarget(medicationMore);
-    const railGeometry = await medicationRail.evaluate((rail) => ({
-      clientWidth: rail.clientWidth,
-      scrollWidth: rail.scrollWidth,
-      overflowX: getComputedStyle(rail).overflowX,
-    }));
-    expect(railGeometry.scrollWidth).toBeLessThanOrEqual(railGeometry.clientWidth + 1);
-    expect(railGeometry.overflowX).not.toMatch(/auto|scroll/);
-
-    await medicationMore.click();
-    const sectionSheet = page.getByTestId("medication-section-sheet");
-    await sectionSheet.getByRole("button", { name: /^Safety/ }).click();
-    await expect(page.locator("#medication-panel-safety")).toBeVisible();
-    await expect(medicationMore).toHaveAccessibleName("More, current section: Safety");
-    await expect(medicationMore).toBeFocused();
-
-    for (const viewport of [
-      { width: 320, height: 720, density: "disclosure" },
-      { width: 390, height: 844, density: "priority" },
-      { width: 639, height: 820, density: "full" },
-      { width: 640, height: 820, density: "full" },
-      { width: 768, height: 1024, density: "full" },
-      { width: 1440, height: 920, density: "full" },
-      { width: 1920, height: 1080, density: "full" },
-    ] as const) {
-      await page.setViewportSize(viewport);
-      await page.evaluate(
-        () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
-      );
-      await expectNoPageHorizontalOverflow(page);
-
-      if (viewport.density === "disclosure") {
-        await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeHidden();
-        await expect(medicationMore).toBeHidden();
-        await expect(page.getByTestId("medication-section-trigger")).toBeVisible();
-      } else if (viewport.density === "priority") {
-        await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeVisible();
-        await expect(medicationRail.getByRole("button", { name: /^Dosing/ })).toBeVisible();
-        await expect(medicationRail.getByRole("button", { name: /^Safety/ })).toBeHidden();
-        await expect(medicationMore).toBeVisible();
-      } else {
-        await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeVisible();
-        await expect(medicationRail.getByRole("button", { name: /^Dosing/ })).toBeVisible();
-        await expect(medicationRail.getByRole("button", { name: /^Safety/ })).toBeVisible();
-        await expect(medicationRail.getByRole("button", { name: /^Additional/ })).toBeVisible();
-        await expect(medicationMore).toBeHidden();
-      }
-    }
-
-    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await expect(medicationMore).toBeVisible();
-    await medicationMore.focus();
-    await expect(medicationMore).toBeFocused();
-    await expectNoPageHorizontalOverflow(page);
-    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
-
     await backLink.click();
     await expect(page).toHaveURL(
       (url) =>
@@ -4155,7 +4126,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("services decision rail exposes only functional review and comparison actions", async ({ page }) => {
+  test("services shortlist exposes comparison only when requested", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/services?q=mental%20health&focus=1&run=1");
@@ -4163,35 +4134,23 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const navigator = page.getByRole("main");
     await expect(navigator).toBeVisible();
     await expect(navigator.getByRole("button", { name: "Edit" })).toHaveCount(0);
-    // Sticky-stack search stays pinned above phones. Playwright's default
-    // scroll-into-view parks rail controls under that composer (Clear search
-    // intercepts). Center the control first so the click hits the rail.
-    const clickRailControl = async (locator: Locator) => {
-      await locator.evaluate((element) => {
-        element.scrollIntoView({ block: "center", inline: "nearest" });
-      });
-      await locator.click();
-    };
-    const reviewDetails = navigator.getByRole("button", { name: "Review details" });
-    await expect(reviewDetails).toBeEnabled();
-    await clickRailControl(reviewDetails);
-    await expect(navigator.locator("#service-checklist-details")).toBeVisible();
-    const viewDetails = navigator.getByRole("button", { name: "View details" });
-    await expect(viewDetails).toBeEnabled();
-    await clickRailControl(viewDetails);
-    await expect(navigator.locator("#service-confidence-details")).toBeVisible();
-    const compare = navigator.getByTestId("services-compare-selected");
-    await expect(compare).toBeEnabled();
-    await clickRailControl(compare);
-    await expect(navigator.getByRole("region", { name: "Selected service comparison" })).toBeVisible();
-    // Prefer the decision-rail clear control — the results pane also exposes a
-    // "Clear" for quick filters, and a first-match click leaves selection intact.
-    const clear = navigator.getByTestId("services-clear-selected");
-    await expect(clear).toBeEnabled();
-    await clickRailControl(clear);
-    await expect(navigator.getByTestId("services-selected-count")).toHaveText("Selected services (0)");
-    // RightRail remounts when selection empties (`key` swaps to "empty").
-    await expect(navigator.getByTestId("services-compare-selected")).toBeDisabled();
+    await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
+    await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
+
+    const addButtons = navigator.getByRole("button", { name: /Add .* to shortlist/ });
+    await addButtons.nth(0).click();
+    const shortlist = navigator.getByTestId("services-shortlist-bar");
+    await expect(shortlist).toContainText("1 shortlisted");
+    await expect(shortlist.getByRole("button", { name: "Compare" })).toBeDisabled();
+
+    await addButtons.nth(1).click();
+    await expect(shortlist).toContainText("2 shortlisted");
+    await shortlist.getByRole("button", { name: "Compare" }).click();
+    await expect(navigator.getByTestId("services-comparison")).toBeVisible();
+
+    await shortlist.getByRole("button", { name: "Clear" }).click();
+    await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
+    await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
   });
 
   test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {

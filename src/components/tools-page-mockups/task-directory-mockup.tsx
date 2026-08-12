@@ -129,7 +129,7 @@ function SearchControl({ value, onChange }: { value: string; onChange: (value: s
       role="search"
       onSubmit={(event) => event.preventDefault()}
       className={cn(
-        "grid min-h-[3.25rem] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--e1)]",
+        "grid min-h-[3.25rem] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--shadow-tight)]",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
       )}
     >
@@ -221,7 +221,7 @@ function ToolRow({ tool }: { tool: ToolFixture }) {
       </div>
       <div className="hidden items-center gap-2 sm:flex">
         <span className="nums w-28 text-right text-xs font-bold text-[color:var(--text-muted)]">{tool.lastUsed}</span>
-        <span className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
+        <span className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
           {tool.primaryAction}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </span>

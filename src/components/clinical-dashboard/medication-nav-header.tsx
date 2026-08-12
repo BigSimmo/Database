@@ -43,9 +43,9 @@ export function medicationSectionsByTab(record: MedicationRecord): Record<Medica
 /**
  * The medication record page's navigable sections.
  *
- * Ids carried over from the `SectionTabs` roving-tabindex tablist this replaces.
- * The final destination is labelled "Additional" so "More" can unambiguously
- * mean the Therapy-style priority overflow control.
+ * Ids and labels carried over verbatim from the `SectionTabs` roving-tabindex
+ * tablist this replaces, so a reader's mental map of the page is unchanged —
+ * only the control moved into the shared header.
  *
  * Exported as the base table (the shape `docs/search-chrome-behaviour.md`
  * requires a nav-header sibling to own) with `buildMedicationNavSections` adding
@@ -57,7 +57,7 @@ export const medicationNavSections: readonly PageSection[] = [
   { id: "summary", label: "Summary", icon: ClipboardList },
   { id: "dosing", label: "Dosing", icon: CalendarDays },
   { id: "safety", label: "Safety", icon: ShieldAlert },
-  { id: "more", label: "Additional", icon: Layers },
+  { id: "more", label: "More", icon: Layers },
 ];
 
 /**

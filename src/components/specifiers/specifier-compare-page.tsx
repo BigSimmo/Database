@@ -5,10 +5,10 @@ import { ArrowRight, GitCompareArrows, HelpCircle, Repeat2, Tags } from "lucide-
 import { useState } from "react";
 
 import {
+  SpecifierBreadcrumbs,
   SpecifierFamilyBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierToolHeader,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
@@ -94,7 +94,18 @@ export function SpecifierComparePage({ initialLeft, initialRight }: { initialLef
 
   return (
     <SpecifierPageShell>
-      <SpecifierToolHeader icon={GitCompareArrows} title="Compare specifiers" />
+      <SpecifierBreadcrumbs current="Compare" />
+
+      <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
+        <p className={eyebrowText}>Close-call reasoning</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
+          Compare specifiers
+        </h1>
+        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+          Clarify the deciding signal, chronology, and common overcalls. This comparison changes as you choose either
+          specifier.
+        </p>
+      </header>
 
       <section
         className={cn(

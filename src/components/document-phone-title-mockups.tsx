@@ -227,7 +227,7 @@ function FusedApproach({ open }: { open: boolean }) {
         {open ? (
           <div
             id={paneId}
-            className="shrink-0 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--e1)]"
+            className="shrink-0 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2 shadow-[var(--shadow-tight)]"
           >
             <PaneList compact />
           </div>

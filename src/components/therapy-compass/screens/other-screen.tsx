@@ -65,7 +65,7 @@ export function OtherScreen() {
         {queue.map((t) => (
           <div
             key={t.slug}
-            className="grid grid-cols-1 sm:grid-cols-[minmax(200px,_1.4fr)_repeat(3,_minmax(110px,_1fr))_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--e1)] py-4 px-5"
+            className="grid grid-cols-1 sm:grid-cols-[minmax(200px,_1.4fr)_repeat(3,_minmax(110px,_1fr))_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-tight)] py-4 px-5"
           >
             <div className="min-w-0">
               <div className="text-sm font-semibold text-[color:var(--text-heading)]">{t.name}</div>
