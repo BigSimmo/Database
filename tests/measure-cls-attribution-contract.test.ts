@@ -19,4 +19,13 @@ describe("CLS attribution evidence contract", () => {
     expect(source).toContain("mkdirSync(path.dirname(outFile), { recursive: true })");
     expect(source.indexOf("mkdirSync(path.dirname(outFile)")).toBeLessThan(source.indexOf("writeFileSync(outFile"));
   });
+
+  it("uses the shared browser-runner safety boundaries", () => {
+    expect(source).toContain('acquireHeavyRunLock({ projectRoot, command: "measure-cls-attribution" })');
+    expect(source).toContain('import { removePathSync } from "./retryable-fs.mjs";');
+    expect(source).toContain("/api/local-project-id");
+    expect(source).toContain("payload.projectId === localProjectId(projectRoot)");
+    expect(source).toContain('spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"]');
+    expect(source).not.toContain("rmSync(");
+  });
 });

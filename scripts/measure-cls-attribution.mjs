@@ -40,12 +40,15 @@
  */
 import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { offlineTestEnvironment } from "./test-environment.mjs";
+import { removePathSync } from "./retryable-fs.mjs";
+import { acquireHeavyRunLock } from "./test-run-lock.mjs";
+import { appName, localProjectId } from "../src/lib/local-server-utils.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const nextBin = path.join(projectRoot, "node_modules", "next", "dist", "bin", "next");
@@ -69,13 +72,6 @@ const runId = `lighthouse-cls-${process.pid}-${Date.now()}`;
 const relativeRunRoot = `.next-playwright/${runId}`;
 const absoluteRunRoot = path.join(projectRoot, relativeRunRoot);
 
-mkdirSync(absoluteRunRoot, { recursive: true });
-writeFileSync(
-  path.join(absoluteRunRoot, "tsconfig.json"),
-  `${JSON.stringify({ extends: "../../tsconfig.json", compilerOptions: { noEmit: true } }, null, 2)}\n`,
-  "utf8",
-);
-
 const env = offlineTestEnvironment(process.env, {
   PORT: String(port),
   NEXT_DIST_DIR: `${relativeRunRoot}/dist`,
@@ -85,7 +81,20 @@ const env = offlineTestEnvironment(process.env, {
   NEXT_PUBLIC_MOCKUPS_ENABLED: "false",
 });
 
-/** Resolves once the isolated server answers, or rejects if it dies first. */
+function isThisProject(body) {
+  try {
+    const payload = JSON.parse(body);
+    return (
+      payload.appName === appName &&
+      payload.projectId === localProjectId(projectRoot) &&
+      payload.localServer?.safeLocalOrigin === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Resolves once the isolated server identifies itself, or rejects if it dies first. */
 function waitForServer(url, child) {
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + 120_000;
@@ -97,9 +106,14 @@ function waitForServer(url, child) {
       if (exited) return reject(new Error("isolated server exited before becoming ready"));
       if (Date.now() > deadline) return reject(new Error("isolated server did not become ready within 120s"));
       http
-        .get(url, (response) => {
-          response.resume();
-          resolve();
+        .get(`${url}/api/local-project-id`, (response) => {
+          let body = "";
+          response.setEncoding("utf8");
+          response.on("data", (chunk) => (body += chunk));
+          response.on("end", () => {
+            if (response.statusCode === 200 && isThisProject(body)) return resolve();
+            setTimeout(poll, 500);
+          });
         })
         .on("error", () => setTimeout(poll, 500));
     };
@@ -193,33 +207,52 @@ const PAGE_INSTRUMENTATION = () => {
   window.__clsObserverReady = true;
 };
 
-console.log(`[cls] building offline production app (${relativeRunRoot})`);
-const build = spawnSync(process.execPath, ["--max-old-space-size=8192", nextBin, "build", "--webpack"], {
-  cwd: projectRoot,
-  env,
-  stdio: ["ignore", "ignore", "inherit"],
-});
-if (build.status !== 0) {
-  rmSync(absoluteRunRoot, { recursive: true, force: true });
-  throw new Error(`production build failed (status ${build.status})`);
+function stopOwnedProcessTree(child) {
+  if (!child?.pid || child.exitCode !== null) return;
+  if (process.platform === "win32") {
+    spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    return;
+  }
+  try {
+    process.kill(-child.pid, "SIGTERM");
+  } catch {
+    child.kill("SIGTERM");
+  }
 }
 
-console.log(`[cls] serving at ${baseUrl}`);
-const server = spawn(process.execPath, [nextBin, "start", "--hostname", "127.0.0.1", "--port", String(port)], {
-  cwd: projectRoot,
-  detached: process.platform !== "win32",
-  env,
-  stdio: ["ignore", "ignore", "inherit"],
-});
-
+let server = null;
+let browser = null;
+const lock = acquireHeavyRunLock({ projectRoot, command: "measure-cls-attribution" });
 try {
+  mkdirSync(absoluteRunRoot, { recursive: true });
+  writeFileSync(
+    path.join(absoluteRunRoot, "tsconfig.json"),
+    `${JSON.stringify({ extends: "../../tsconfig.json", compilerOptions: { noEmit: true } }, null, 2)}\n`,
+    "utf8",
+  );
+
+  console.log(`[cls] building offline production app (${relativeRunRoot})`);
+  const build = spawnSync(process.execPath, ["--max-old-space-size=8192", nextBin, "build", "--webpack"], {
+    cwd: projectRoot,
+    env,
+    stdio: ["ignore", "ignore", "inherit"],
+  });
+  if (build.status !== 0) throw new Error(`production build failed (status ${build.status})`);
+
+  console.log(`[cls] serving at ${baseUrl}`);
+  server = spawn(process.execPath, [nextBin, "start", "--hostname", "127.0.0.1", "--port", String(port)], {
+    cwd: projectRoot,
+    detached: process.platform !== "win32",
+    env,
+    stdio: ["ignore", "ignore", "inherit"],
+  });
   await waitForServer(baseUrl, server);
 
   // playwright ships CJS, so a dynamic import would put the namespace on
   // `.default`; createRequire resolves it from the project either way.
   const { chromium } = createRequire(path.join(projectRoot, "package.json"))("playwright");
   const executablePath = process.env.CHROME_PATH || process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined;
-  const browser = await chromium.launch(executablePath ? { executablePath } : {});
+  browser = await chromium.launch(executablePath ? { executablePath } : {});
 
   const results = {};
   for (const route of routes) {
@@ -277,6 +310,7 @@ try {
   }
 
   await browser.close();
+  browser = null;
   mkdirSync(path.dirname(outFile), { recursive: true });
   writeFileSync(outFile, `${JSON.stringify(results, null, 2)}\n`, "utf8");
   console.log(`[cls] wrote ${path.relative(projectRoot, outFile)}`);
@@ -294,9 +328,11 @@ try {
   }
 } finally {
   try {
-    if (server.pid) process.kill(process.platform === "win32" ? server.pid : -server.pid, "SIGTERM");
+    await browser?.close();
   } catch {
-    /* already exited */
+    /* browser failed before it could close */
   }
-  rmSync(absoluteRunRoot, { recursive: true, force: true });
+  stopOwnedProcessTree(server);
+  removePathSync(absoluteRunRoot, { recursive: true });
+  lock.release();
 }

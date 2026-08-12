@@ -986,7 +986,7 @@ describe("band adoption detection", () => {
       );
       expect(routeReachesBand(path.join(dir, "default-reexport-route.tsx"))).toBe(true);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

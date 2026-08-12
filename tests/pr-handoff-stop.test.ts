@@ -9,7 +9,7 @@ const scratchRoots: string[] = [];
 
 afterEach(() => {
   for (const root of scratchRoots.splice(0)) {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
@@ -64,7 +64,11 @@ function runHook(
   };
 }
 
-describe("pr-handoff-stop hook", () => {
+// The hook is a Bash contract exercised on Linux CI. Windows' `bash.exe` is a
+// WSL launcher: it cannot execute the native absolute paths this fixture gives
+// it and can retain NTFS directory handles after exit. That is neither the
+// hook's runtime nor meaningful Windows coverage, so avoid false local reds.
+describe.skipIf(process.platform === "win32")("pr-handoff-stop hook", () => {
   it("does not treat create_pull_request_review as opening a PR", () => {
     const { root } = freshRepo();
     const out = runHook(

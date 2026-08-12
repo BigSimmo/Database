@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -16,17 +16,26 @@ import { acquireHeavyRunLock, testRunLockInternals } from "../scripts/test-run-l
 import { typescriptBuildInfoPath, vitestCacheDirectory } from "../scripts/test-cache-path.mjs";
 import { vitestLeaseMode } from "../scripts/test-run-selection.mjs";
 import { redactSensitiveText } from "../scripts/sensitive-text.mjs";
+import { recursiveRemovalRetryOptions, removePathSync } from "../scripts/retryable-fs.mjs";
 
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
-  for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
+  for (const directory of temporaryDirectories.splice(0)) removePathSync(directory, { recursive: true });
 });
 
 function temporaryDirectory(prefix: string) {
   const directory = mkdtempSync(path.join(os.tmpdir(), prefix));
   temporaryDirectories.push(directory);
   return directory;
+}
+
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const filePath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return sourceFiles(filePath);
+    return /\.(?:test|spec)\.[jt]sx?$/.test(entry.name) ? [filePath] : [];
+  });
 }
 
 function requireLeasePath(lease: { path?: string }) {
@@ -57,6 +66,47 @@ describe("child process results", () => {
     const result = spawnSync(`clinical-kb-missing-command-${Date.now()}`, []);
     expect(result.error).toBeTruthy();
     expect(childProcessExitCode(result)).toBe(1);
+  });
+});
+
+describe("temporary path cleanup", () => {
+  it("uses Windows-tolerant recursive removal for ephemeral runner state", () => {
+    expect(recursiveRemovalRetryOptions).toEqual({ maxRetries: 5, retryDelay: 100 });
+    const directory = temporaryDirectory("clinical-kb-retryable-removal-");
+    writeFileSync(path.join(directory, "artifact.txt"), "temporary", "utf8");
+    removePathSync(directory, { recursive: true });
+    expect(existsSync(directory)).toBe(false);
+  });
+
+  it("retries transient file removal failures that Node only retries recursively", () => {
+    let calls = 0;
+    removePathSync(
+      "ignored",
+      {},
+      {
+        remove() {
+          calls += 1;
+          if (calls < 3) throw Object.assign(new Error("handle retained"), { code: "EPERM" });
+        },
+      },
+    );
+    expect(calls).toBe(3);
+  });
+
+  it("keeps lock and browser runners on the shared cleanup path", () => {
+    for (const runner of ["test-run-lock.mjs", "run-playwright.mjs", "run-lighthouse-budget.mjs"]) {
+      const source = readFileSync(new URL(`../scripts/${runner}`, import.meta.url), "utf8");
+      expect(source).toContain('import { removePathSync } from "./retryable-fs.mjs";');
+      expect(source).not.toContain("rmSync(");
+    }
+  });
+
+  it("requires bounded retries for every recursive test-fixture cleanup", () => {
+    const testsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)));
+    const unsafeRecursiveRemoval = /rmSync\([\s\S]{0,140}?recursive:\s*true(?![\s\S]{0,100}?maxRetries)/;
+    for (const filePath of sourceFiles(testsRoot)) {
+      expect(readFileSync(filePath, "utf8"), filePath).not.toMatch(unsafeRecursiveRemoval);
+    }
   });
 });
 
