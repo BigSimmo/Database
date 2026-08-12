@@ -376,7 +376,6 @@ export function ToolsSearchModeMockup() {
                       if (tool.id === selectedTool?.id && node) detailReturnFocusRef.current = node;
                     }}
                     type="button"
-                    aria-haspopup="dialog"
                     aria-label={`View details for ${tool.title}`}
                     onClick={(event) => openTool(tool, event.currentTarget)}
                     className={cn(
@@ -406,7 +405,7 @@ export function ToolsSearchModeMockup() {
             ref={desktopPanelRef}
             tabIndex={-1}
             aria-labelledby="desktop-tool-detail-title"
-            className="sticky top-4 hidden max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-lux)] focus:outline-none lg:block"
+            className="sticky top-4 hidden max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-lux)] focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-[color:var(--focus)] lg:block"
           >
             <div className="border-b border-[color:var(--border)] p-5">
               <div className="flex items-start gap-3">
