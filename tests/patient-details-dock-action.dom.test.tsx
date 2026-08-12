@@ -90,9 +90,7 @@ describe("PatientDetailsDockAction", () => {
     renderAction();
 
     dock.dataset.scrollHidden = "true";
-    await waitFor(() =>
-      expect(dock.style.transform).toBe("translateY(calc(100% + 0.5rem + var(--safe-area-bottom)))"),
-    );
+    await waitFor(() => expect(dock.style.transform).toBe("translateY(calc(100% + 0.5rem + var(--safe-area-bottom)))"));
 
     delete dock.dataset.scrollHidden;
     await waitFor(() => expect(dock.style.transform).toBe(""));

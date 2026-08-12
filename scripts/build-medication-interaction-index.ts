@@ -65,7 +65,10 @@ function stripDosageForm(name: string): string {
     }
     break;
   }
-  return tokens.join(" ").replace(/[\s/-]+$/, "").trim();
+  return tokens
+    .join(" ")
+    .replace(/[\s/-]+$/, "")
+    .trim();
 }
 
 function escapeRegExp(value: string): string {
@@ -89,7 +92,10 @@ function counterpartySegments(value: string): { severityToken: string | null; se
   const match = SEVERITY_PATTERN.exec(value);
   const severityToken = match ? match[1].trim() : null;
   const body = (match ? match[2] : value).replace(/\*\*/g, "").trim();
-  const sentences = body.split(/(?<=[.;])\s+/).map((sentence) => sentence.trim()).filter(Boolean);
+  const sentences = body
+    .split(/(?<=[.;])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
   return { severityToken, segments: sentences.length ? sentences : [body] };
 }
 
@@ -121,7 +127,10 @@ function main(): void {
       // enforces alphanumeric boundaries, so dropping them here only creates
       // avoidable false negatives. Two-character route/form tokens remain below
       // the floor to avoid indexing abbreviations such as IR/IM/IV as drugs.
-      const parts = record.name.split("/").map((part) => part.trim()).filter((part) => part.length >= 3);
+      const parts = record.name
+        .split("/")
+        .map((part) => part.trim())
+        .filter((part) => part.length >= 3);
       const surfaces = new Set(parts);
       for (const part of parts) surfaces.add(stripDosageForm(part));
       surfaces.add(stripDosageForm(record.name));
@@ -215,7 +224,9 @@ function main(): void {
       rowsWithCatalogueTarget,
       medicationsWithUnresolvedRows: Object.values(bySlug).filter((entry) => entry.unresolvedRowCount > 0).length,
     },
-    names: Object.fromEntries(records.map((record) => [record.slug, record.name] as const).sort(([a], [b]) => a.localeCompare(b))),
+    names: Object.fromEntries(
+      records.map((record) => [record.slug, record.name] as const).sort(([a], [b]) => a.localeCompare(b)),
+    ),
     bySlug,
   };
 
@@ -224,7 +235,9 @@ function main(): void {
   if (checkOnly) {
     const current = readFileSync(outputPath, "utf8");
     if (!sameJson(current, serialised)) {
-      console.error(`[medication-interactions] ${OUTPUT_PATH} is stale.\nRun \`npm run medications:interactions\` and commit the result.`);
+      console.error(
+        `[medication-interactions] ${OUTPUT_PATH} is stale.\nRun \`npm run medications:interactions\` and commit the result.`,
+      );
       process.exit(1);
     }
     console.log(`[medication-interactions] ${OUTPUT_PATH} is up to date (${sourceRowCount} rows).`);
@@ -232,7 +245,9 @@ function main(): void {
   }
 
   writeFileSync(outputPath, serialised);
-  console.log(`[medication-interactions] wrote ${OUTPUT_PATH}: ${sourceRowCount} rows, ${resolvedRows} resolved, ${unresolvedRows} unresolved, ${index.stats.medicationsWithUnresolvedRows} medications carry an unresolved row.`);
+  console.log(
+    `[medication-interactions] wrote ${OUTPUT_PATH}: ${sourceRowCount} rows, ${resolvedRows} resolved, ${unresolvedRows} unresolved, ${index.stats.medicationsWithUnresolvedRows} medications carry an unresolved row.`,
+  );
 }
 
 main();

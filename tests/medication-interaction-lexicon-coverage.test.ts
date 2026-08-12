@@ -31,7 +31,7 @@ const index = JSON.parse(
   readFileSync(path.resolve(process.cwd(), "data/medication-interaction-index.json"), "utf8"),
 ) as {
   sourceRowCount: number;
-  stats: { resolvedRows: number; unresolvedRows: number };
+  stats: { resolvedRows: number; unresolvedRows: number; rowsWithCatalogueTarget: number };
   bySlug: Record<string, { rows: IndexRow[]; unresolvedRowCount: number }>;
 };
 
@@ -50,9 +50,22 @@ function slugsFor(id: string): string[] {
 
 describe("interaction lexicon coverage", () => {
   it("does not regress the number of resolved rows", () => {
-    // Ratchet. Raise it when resolution genuinely improves; never lower it
-    // without recording why in the PR.
-    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(400);
+    // Ratchet, but read it carefully: `resolvedRows` moves for TWO reasons, and
+    // only one of them is coverage.
+    //
+    // It fell from 400 to 355 when a row containing any unenumerated mechanism
+    // term became unresolved even if it also matched a named drug. Previously
+    // "CYP3A4 inhibitors (Clarithromycin, Ketoconazole)" resolved on
+    // clarithromycin and counted as fully read, quietly implying the whole
+    // mechanism class had been checked. Fewer resolved rows there means more
+    // medications held at grey — a tightening, not a loss.
+    //
+    // So: a drop is only acceptable alongside a deliberate semantics change,
+    // recorded here and in the PR. Track raw drug-matching separately, which
+    // rose 381 → 417 over the same period and is the number that must never
+    // fall without explanation.
+    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(355);
+    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(417);
     expect(index.sourceRowCount).toBeGreaterThanOrEqual(523);
   });
 

@@ -3,10 +3,10 @@
   "generatedFrom": "data/medications-snapshot.json",
   "sourceRowCount": 523,
   "stats": {
-    "resolvedRows": 400,
-    "unresolvedRows": 123,
-    "rowsWithCatalogueTarget": 381,
-    "medicationsWithUnresolvedRows": 116
+    "resolvedRows": 355,
+    "unresolvedRows": 168,
+    "rowsWithCatalogueTarget": 417,
+    "medicationsWithUnresolvedRows": 149
   },
   "names": {
     "acamprosate": "Acamprosate",
@@ -345,7 +345,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "low",
-          "counterparties": ["diazepam", "disulfiram", "imipramine"],
+          "counterparties": ["diazepam", "disulfiram", "imipramine", "naltrexone"],
           "termIds": [],
           "resolved": true
         }
@@ -374,10 +374,10 @@
             "tramadol-ir"
           ],
           "termIds": ["cns-depressants", "opioids"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "buprenorphine-naloxone": {
       "rows": [
@@ -411,7 +411,7 @@
             "tramadol-ir"
           ],
           "termIds": ["alcohol", "benzodiazepines", "cns-depressants", "gabapentinoids", "opioids"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -431,7 +431,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "bupropion-sr": {
       "rows": [
@@ -439,8 +439,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
+          "counterparties": ["levodopa-benserazide"],
+          "termIds": ["alcohol", "cyp-substrates"],
           "resolved": false
         }
       ],
@@ -452,7 +452,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
+          "counterparties": ["amitriptyline", "chlorpromazine", "metronidazole", "phenytoin"],
           "termIds": ["alcohol"],
           "resolved": true
         }
@@ -466,11 +466,11 @@
           "rowIndex": 0,
           "severity": "high",
           "counterparties": ["carbamazepine", "phenytoin"],
-          "termIds": ["antiretrovirals", "cyp-inducers", "st-johns-wort"],
-          "resolved": true
+          "termIds": ["antiretrovirals", "cns-depressants", "cyp-inducers", "st-johns-wort"],
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "naltrexone": {
       "rows": [
@@ -507,12 +507,14 @@
           "rowIndex": 0,
           "severity": "caution",
           "counterparties": [
+            "clozapine",
             "nicotine-lozenge",
             "nicotine-mouth-spray",
             "nicotine-patch",
-            "nicotine-sublingual-tablet"
+            "nicotine-sublingual-tablet",
+            "olanzapine-pamoate-lai"
           ],
-          "termIds": ["acidic-drinks"],
+          "termIds": ["acidic-drinks", "smoking"],
           "resolved": true
         }
       ],
@@ -525,12 +527,17 @@
           "rowIndex": 0,
           "severity": "caution",
           "counterparties": [
+            "clomipramine",
+            "clozapine",
+            "fluvoxamine",
+            "imipramine",
             "nicotine-lozenge",
             "nicotine-mouth-spray",
             "nicotine-patch",
-            "nicotine-sublingual-tablet"
+            "nicotine-sublingual-tablet",
+            "olanzapine-pamoate-lai"
           ],
-          "termIds": ["acidic-drinks"],
+          "termIds": ["acidic-drinks", "smoking"],
           "resolved": true
         }
       ],
@@ -542,12 +549,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "caution",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": ["nicotine-mouth-spray", "nicotine-patch", "nicotine-sublingual-tablet"],
+          "termIds": ["acidic-drinks"],
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "nicotine-mouth-spray": {
       "rows": [
@@ -568,7 +575,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": ["nicotine-lozenge", "nicotine-mouth-spray", "nicotine-sublingual-tablet"],
+          "counterparties": [
+            "clozapine",
+            "nicotine-lozenge",
+            "nicotine-mouth-spray",
+            "nicotine-sublingual-tablet",
+            "olanzapine-pamoate-lai"
+          ],
           "termIds": ["smoking"],
           "resolved": true
         }
@@ -638,10 +651,10 @@
           "severity": "moderate",
           "counterparties": [],
           "termIds": ["alcohol", "cns-depressants"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "diphenhydramine": {
       "rows": [
@@ -652,23 +665,30 @@
           "counterparties": [
             "alprazolam",
             "amisulpride",
+            "amitriptyline",
             "aripiprazole",
             "aripiprazole-lai",
             "asenapine",
+            "benzatropine",
             "brexpiprazole",
             "buprenorphine-naloxone",
             "buprenorphine-patch",
             "buprenorphine-sl-depot",
             "cariprazine",
             "chlorpromazine",
+            "clomipramine",
             "clonazepam",
             "clozapine",
             "codeine",
             "diazepam",
+            "doxepin",
             "fentanyl",
             "flupentixol-decanoate",
             "haloperidol-decanoate",
             "hydromorphone-ir-iv",
+            "hyoscine-butylbromide",
+            "hyoscine-hydrobromide",
+            "imipramine",
             "levomepromazine",
             "loperamide",
             "lorazepam",
@@ -678,20 +698,26 @@
             "morphine-ir-iv",
             "morphine-sr-mr",
             "nitrazepam",
+            "nortriptyline",
             "olanzapine-pamoate-lai",
             "olanzapine-wafer-odt",
+            "orphenadrine",
             "oxazepam",
+            "oxybutynin",
             "oxycodone-ir",
             "oxycodone-sr-mr",
             "paliperidone-er",
             "paliperidone-lai",
             "periciazine",
+            "phenelzine",
             "quetiapine",
             "risperidone",
             "risperidone-lai",
+            "solifenacin",
             "tapentadol-sr",
             "temazepam",
             "tramadol-ir",
+            "tranylcypromine",
             "trifluoperazine",
             "ziprasidone",
             "ziprasidone-im",
@@ -699,8 +725,18 @@
             "zuclopenthixol-acetate",
             "zuclopenthixol-decanoate"
           ],
-          "termIds": ["alcohol", "antipsychotics", "barbiturates", "benzodiazepines", "cns-depressants", "opioids"],
-          "resolved": true
+          "termIds": [
+            "alcohol",
+            "anticholinergics",
+            "antipsychotics",
+            "barbiturates",
+            "benzodiazepines",
+            "cns-depressants",
+            "maois",
+            "opioids",
+            "tcas"
+          ],
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -749,7 +785,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "fexofenadine": {
       "rows": [
@@ -758,7 +794,7 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": [],
-          "termIds": ["pgp"],
+          "termIds": ["grapefruit", "pgp"],
           "resolved": false
         },
         {
@@ -793,29 +829,66 @@
           "severity": "critical",
           "counterparties": [
             "alprazolam",
+            "amisulpride",
+            "amitriptyline",
+            "aripiprazole",
+            "aripiprazole-lai",
+            "asenapine",
+            "benzatropine",
+            "brexpiprazole",
             "buprenorphine-naloxone",
             "buprenorphine-patch",
             "buprenorphine-sl-depot",
+            "cariprazine",
+            "chlorpromazine",
+            "clomipramine",
             "clonazepam",
+            "clozapine",
             "codeine",
             "diazepam",
+            "doxepin",
             "fentanyl",
+            "flupentixol-decanoate",
+            "haloperidol-decanoate",
             "hydromorphone-ir-iv",
+            "hyoscine-butylbromide",
+            "hyoscine-hydrobromide",
+            "imipramine",
+            "levomepromazine",
             "loperamide",
             "lorazepam",
+            "lurasidone",
             "methadone",
             "midazolam",
             "morphine-ir-iv",
             "morphine-sr-mr",
             "nitrazepam",
+            "nortriptyline",
+            "olanzapine-pamoate-lai",
+            "olanzapine-wafer-odt",
+            "orphenadrine",
             "oxazepam",
+            "oxybutynin",
             "oxycodone-ir",
             "oxycodone-sr-mr",
+            "paliperidone-er",
+            "paliperidone-lai",
+            "periciazine",
+            "quetiapine",
+            "risperidone",
+            "risperidone-lai",
+            "solifenacin",
             "tapentadol-sr",
             "temazepam",
-            "tramadol-ir"
+            "tramadol-ir",
+            "trifluoperazine",
+            "ziprasidone",
+            "ziprasidone-im",
+            "zuclopenthixol",
+            "zuclopenthixol-acetate",
+            "zuclopenthixol-decanoate"
           ],
-          "termIds": ["alcohol", "benzodiazepines", "opioids"],
+          "termIds": ["alcohol", "anticholinergics", "antipsychotics", "benzodiazepines", "opioids", "tcas"],
           "resolved": true
         }
       ],
@@ -854,9 +927,9 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["bupropion-sr", "fluoxetine", "paroxetine"],
+          "counterparties": ["bupropion-sr", "fluoxetine", "morphine-sr-mr", "paroxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -867,7 +940,7 @@
           "resolved": false
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 2
     },
     "fentanyl": {
       "rows": [
@@ -877,7 +950,7 @@
           "severity": "high",
           "counterparties": ["clarithromycin"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -897,7 +970,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "hydromorphone-ir-iv": {
       "rows": [
@@ -916,10 +989,10 @@
             "temazepam"
           ],
           "termIds": ["benzodiazepines", "cns-depressants"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "morphine-ir-iv": {
       "rows": [
@@ -1002,17 +1075,30 @@
           "severity": "critical",
           "counterparties": [
             "alprazolam",
+            "buprenorphine-naloxone",
+            "buprenorphine-patch",
+            "buprenorphine-sl-depot",
             "clonazepam",
+            "codeine",
             "diazepam",
+            "fentanyl",
             "gabapentin",
+            "hydromorphone-ir-iv",
+            "loperamide",
             "lorazepam",
+            "methadone",
             "midazolam",
+            "morphine-ir-iv",
+            "morphine-sr-mr",
             "nitrazepam",
             "oxazepam",
+            "oxycodone-sr-mr",
             "pregabalin",
-            "temazepam"
+            "tapentadol-sr",
+            "temazepam",
+            "tramadol-ir"
           ],
-          "termIds": ["alcohol", "benzodiazepines", "gabapentinoids"],
+          "termIds": ["alcohol", "benzodiazepines", "gabapentinoids", "opioids"],
           "resolved": true
         },
         {
@@ -1021,10 +1107,10 @@
           "severity": "high",
           "counterparties": ["clarithromycin", "oxycodone-sr-mr"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "oxycodone-sr-mr": {
       "rows": [
@@ -1062,9 +1148,9 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "low",
-          "counterparties": [],
+          "counterparties": ["codeine", "tramadol-ir"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -1110,7 +1196,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "tramadol-ir": {
       "rows": [
@@ -1164,10 +1250,10 @@
             "venlafaxine-xr"
           ],
           "termIds": ["cyp-inhibitors", "opioids", "snris"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "celecoxib": {
       "rows": [
@@ -1530,12 +1616,12 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["lidocaine-patch"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "capsaicin-cream": {
       "rows": [
@@ -1605,8 +1691,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": ["pgp"],
+          "counterparties": ["atorvastatin", "digoxin", "rosuvastatin", "warfarin-anticoagulant", "warfarin-vka"],
+          "termIds": ["pgp", "statins"],
           "resolved": false
         },
         {
@@ -1623,10 +1709,10 @@
             "sotalol"
           ],
           "termIds": ["beta-blockers", "qtc-prolonging"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 2
     },
     "digoxin": {
       "rows": [
@@ -1643,7 +1729,7 @@
             "verapamil"
           ],
           "termIds": ["macrolides", "pgp"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -1661,7 +1747,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "flecainide": {
       "rows": [
@@ -1687,10 +1773,10 @@
           "severity": "high",
           "counterparties": ["amiodarone", "fluoxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "sotalol": {
       "rows": [
@@ -1737,7 +1823,7 @@
             "zuclopenthixol-decanoate"
           ],
           "termIds": ["antipsychotics", "macrolides", "qtc-prolonging", "ssris"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -1748,7 +1834,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "glyceryl-trinitrate-gtn": {
       "rows": [
@@ -1797,7 +1883,7 @@
           "severity": "high",
           "counterparties": ["clarithromycin"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -1808,7 +1894,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "candesartan": {
       "rows": [
@@ -1868,12 +1954,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": ["atorvastatin", "digoxin", "rosuvastatin"],
+          "termIds": ["statins"],
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "felodipine": {
       "rows": [
@@ -1883,7 +1969,7 @@
           "severity": "critical",
           "counterparties": ["azithromycin", "clarithromycin", "erythromycin", "roxithromycin"],
           "termIds": ["azole-antifungals", "cyp-inhibitors", "grapefruit", "macrolides"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -1894,7 +1980,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "nifedipine-xr": {
       "rows": [
@@ -1904,7 +1990,7 @@
           "severity": "high",
           "counterparties": [],
           "termIds": ["cyp-inhibitors", "grapefruit"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -1915,7 +2001,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "perindopril": {
       "rows": [
@@ -1968,9 +2054,12 @@
             "atenolol",
             "bisoprolol",
             "carvedilol",
+            "hydromorphone-ir-iv",
             "labetalol",
             "metoprolol",
+            "morphine-ir-iv",
             "propranolol",
+            "sodium-valproate-oral-iv",
             "sotalol"
           ],
           "termIds": ["beta-blockers"],
@@ -1980,12 +2069,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
+          "counterparties": ["atorvastatin", "digoxin"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "atenolol": {
       "rows": [
@@ -2035,7 +2124,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["diltiazem", "verapamil"],
+          "counterparties": ["diltiazem", "prazosin", "verapamil"],
           "termIds": [],
           "resolved": true
         },
@@ -2079,10 +2168,10 @@
           "severity": "high",
           "counterparties": ["fluoxetine", "paroxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "amiloride": {
       "rows": [
@@ -2113,7 +2202,7 @@
           "severity": "critical",
           "counterparties": ["clarithromycin"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -2124,7 +2213,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "frusemide": {
       "rows": [
@@ -2151,12 +2240,12 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
+          "counterparties": ["digoxin"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "hydrochlorothiazide": {
       "rows": [
@@ -2236,9 +2325,9 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": ["amiodarone", "clarithromycin", "diltiazem"],
+          "termIds": ["grapefruit"],
+          "resolved": true
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -2249,7 +2338,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "ezetimibe": {
       "rows": [
@@ -2637,7 +2726,7 @@
             "propranolol",
             "sotalol"
           ],
-          "termIds": ["beta-blockers"],
+          "termIds": ["alcohol", "beta-blockers"],
           "resolved": true
         }
       ],
@@ -2687,14 +2776,29 @@
           "severity": "high",
           "counterparties": [
             "atenolol",
+            "beclometasone",
+            "betamethasone",
             "bisoprolol",
+            "budesonide",
             "carvedilol",
+            "ciclesonide",
+            "clobetasol",
+            "dexamethasone",
+            "fludrocortisone",
+            "fluticasone",
+            "hydrocortisone",
+            "hydrocortisone-1",
             "labetalol",
+            "methylprednisolone",
             "metoprolol",
+            "mometasone",
+            "prednisolone",
+            "prednisone",
             "propranolol",
-            "sotalol"
+            "sotalol",
+            "triamcinolone"
           ],
-          "termIds": ["beta-blockers"],
+          "termIds": ["beta-blockers", "corticosteroids"],
           "resolved": true
         }
       ],
@@ -3049,8 +3153,17 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": ["hydrochlorothiazide", "indapamide"],
-          "termIds": ["thiazide-diuretics"],
+          "counterparties": [
+            "aspirin",
+            "diclofenac",
+            "hydrochlorothiazide",
+            "ibuprofen",
+            "indapamide",
+            "ketorolac",
+            "meloxicam",
+            "naproxen"
+          ],
+          "termIds": ["nsaids", "thiazide-diuretics"],
           "resolved": true
         }
       ],
@@ -3075,8 +3188,17 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen"],
-          "termIds": ["nsaids"],
+          "counterparties": [
+            "aspirin",
+            "diclofenac",
+            "esomeprazole",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "pantoprazole"
+          ],
+          "termIds": ["nsaids", "ppis"],
           "resolved": true
         },
         {
@@ -3096,8 +3218,17 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen"],
-          "termIds": ["nsaids"],
+          "counterparties": [
+            "aspirin",
+            "diclofenac",
+            "esomeprazole",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "pantoprazole"
+          ],
+          "termIds": ["nsaids", "ppis"],
           "resolved": true
         },
         {
@@ -3197,7 +3328,7 @@
           "severity": "critical",
           "counterparties": ["carbamazepine", "phenytoin"],
           "termIds": ["antiretrovirals", "cyp-inducers", "st-johns-wort"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -3208,7 +3339,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "levonorgestrel": {
       "rows": [
@@ -3216,7 +3347,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["copper"],
           "termIds": ["cyp-inducers"],
           "resolved": false
         }
@@ -3231,10 +3362,10 @@
           "severity": "high",
           "counterparties": ["carbamazepine", "phenytoin"],
           "termIds": ["cyp-inducers"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "esomeprazole": {
       "rows": [
@@ -3242,8 +3373,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": ["clopidogrel"],
-          "termIds": [],
+          "counterparties": ["aspirin", "clopidogrel", "dipyridamole", "pantoprazole", "ticagrelor"],
+          "termIds": ["antiplatelets", "ppis"],
           "resolved": true
         }
       ],
@@ -3276,9 +3407,9 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "low",
-          "counterparties": [],
+          "counterparties": ["clopidogrel"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -3289,7 +3420,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "cyclizine": {
       "rows": [
@@ -3373,7 +3504,7 @@
           "severity": "critical",
           "counterparties": ["clarithromycin"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -3393,7 +3524,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "hyoscine-hydrobromide": {
       "rows": [
@@ -3544,7 +3675,7 @@
             "sertraline"
           ],
           "termIds": ["macrolides", "qtc-prolonging", "ssris"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -3555,7 +3686,7 @@
           "resolved": false
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 2
     },
     "prochlorperazine": {
       "rows": [
@@ -3681,10 +3812,10 @@
             "verapamil"
           ],
           "termIds": ["azole-antifungals", "opioids", "pgp"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "mesalazine": {
       "rows": [
@@ -3838,12 +3969,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
+          "counterparties": ["digoxin"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "senna": {
       "rows": [
@@ -3909,7 +4040,7 @@
           "severity": "critical",
           "counterparties": ["clarithromycin"],
           "termIds": ["azole-antifungals", "pgp"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -3933,7 +4064,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "dabigatran": {
       "rows": [
@@ -3943,7 +4074,7 @@
           "severity": "critical",
           "counterparties": ["amiodarone", "clarithromycin", "verapamil"],
           "termIds": ["pgp"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -3967,7 +4098,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "dalteparin": {
       "rows": [
@@ -4015,7 +4146,7 @@
             "verapamil"
           ],
           "termIds": ["macrolides", "pgp"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -4039,7 +4170,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "enoxaparin": {
       "rows": [
@@ -4111,7 +4242,7 @@
           "severity": "critical",
           "counterparties": ["clarithromycin"],
           "termIds": ["azole-antifungals", "pgp"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -4135,7 +4266,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "tranexamic-acid": {
       "rows": [
@@ -4156,7 +4287,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["amiodarone", "fluconazole", "metronidazole"],
+          "counterparties": ["amiodarone", "fluconazole", "metronidazole", "warfarin-anticoagulant"],
           "termIds": ["cotrimoxazole"],
           "resolved": true
         },
@@ -4164,7 +4295,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "critical",
-          "counterparties": ["carbamazepine"],
+          "counterparties": ["carbamazepine", "warfarin-anticoagulant"],
           "termIds": ["st-johns-wort"],
           "resolved": true
         },
@@ -4185,7 +4316,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["amiodarone", "fluconazole", "metronidazole"],
+          "counterparties": ["amiodarone", "fluconazole", "metronidazole", "warfarin-vka"],
           "termIds": ["cotrimoxazole"],
           "resolved": true
         },
@@ -4266,7 +4397,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["esomeprazole"],
+          "counterparties": ["esomeprazole", "pantoprazole"],
           "termIds": [],
           "resolved": true
         },
@@ -4312,19 +4443,36 @@
           "rowIndex": 0,
           "severity": "high",
           "counterparties": [
+            "amlodipine",
             "apixaban",
+            "atenolol",
+            "bisoprolol",
+            "candesartan",
+            "carvedilol",
             "clopidogrel",
             "dabigatran",
             "dalteparin",
+            "diltiazem",
             "edoxaban",
             "enoxaparin",
+            "eplerenone",
+            "felodipine",
+            "frusemide",
             "heparin-iv-sc",
+            "hydrochlorothiazide",
+            "indapamide",
+            "labetalol",
+            "metoprolol",
+            "nifedipine-xr",
+            "perindopril",
             "rivaroxaban",
+            "spironolactone",
             "ticagrelor",
+            "verapamil",
             "warfarin-anticoagulant",
             "warfarin-vka"
           ],
-          "termIds": ["anticoagulants"],
+          "termIds": ["anticoagulants", "antihypertensives"],
           "resolved": true
         }
       ],
@@ -4336,9 +4484,9 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": ["clarithromycin"],
+          "termIds": ["azole-antifungals"],
+          "resolved": true
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -4349,7 +4497,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "gentamicin": {
       "rows": [
@@ -4577,8 +4725,30 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen"],
-          "termIds": ["nsaids"],
+          "counterparties": [
+            "aspirin",
+            "beclometasone",
+            "betamethasone",
+            "budesonide",
+            "ciclesonide",
+            "clobetasol",
+            "dexamethasone",
+            "diclofenac",
+            "fludrocortisone",
+            "fluticasone",
+            "hydrocortisone",
+            "hydrocortisone-1",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "methylprednisolone",
+            "mometasone",
+            "naproxen",
+            "prednisolone",
+            "prednisone",
+            "triamcinolone"
+          ],
+          "termIds": ["corticosteroids", "nsaids"],
           "resolved": true
         }
       ],
@@ -4631,8 +4801,25 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "low",
-          "counterparties": ["clarithromycin", "erythromycin"],
-          "termIds": [],
+          "counterparties": [
+            "apixaban",
+            "atorvastatin",
+            "clarithromycin",
+            "clopidogrel",
+            "dabigatran",
+            "dalteparin",
+            "dipyridamole",
+            "edoxaban",
+            "enoxaparin",
+            "erythromycin",
+            "heparin-iv-sc",
+            "rivaroxaban",
+            "rosuvastatin",
+            "ticagrelor",
+            "warfarin-anticoagulant",
+            "warfarin-vka"
+          ],
+          "termIds": ["anticoagulants", "statins"],
           "resolved": true
         },
         {
@@ -4652,7 +4839,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["apixaban", "atorvastatin", "colchicine", "rivaroxaban"],
           "termIds": ["pgp"],
           "resolved": false
         },
@@ -4673,12 +4860,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["atorvastatin", "colchicine", "warfarin-anticoagulant", "warfarin-vka"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "minocycline": {
       "rows": [
@@ -4707,8 +4894,25 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "low",
-          "counterparties": ["clarithromycin"],
-          "termIds": [],
+          "counterparties": [
+            "apixaban",
+            "atorvastatin",
+            "azithromycin",
+            "clarithromycin",
+            "clopidogrel",
+            "dabigatran",
+            "dalteparin",
+            "dipyridamole",
+            "edoxaban",
+            "enoxaparin",
+            "erythromycin",
+            "heparin-iv-sc",
+            "rivaroxaban",
+            "ticagrelor",
+            "warfarin-anticoagulant",
+            "warfarin-vka"
+          ],
+          "termIds": ["anticoagulants", "macrolides"],
           "resolved": true
         }
       ],
@@ -4733,12 +4937,12 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "low",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": ["amikacin", "gentamicin"],
+          "termIds": ["aminoglycosides"],
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "clindamycin": {
       "rows": [
@@ -4835,7 +5039,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["disulfiram"],
           "termIds": ["alcohol"],
           "resolved": true
         },
@@ -5030,9 +5234,9 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": ["calcium-carbonate", "iron", "magnesium-oxide"],
+          "termIds": ["antacids", "food"],
+          "resolved": true
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -5043,7 +5247,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "fosfomycin": {
       "rows": [
@@ -5198,7 +5402,7 @@
             "verapamil"
           ],
           "termIds": ["azole-antifungals", "macrolides", "pgp"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -5209,7 +5413,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "dantrolene": {
       "rows": [
@@ -5232,7 +5436,7 @@
           "severity": "high",
           "counterparties": ["amiodarone", "azithromycin", "clarithromycin", "erythromycin", "roxithromycin"],
           "termIds": ["macrolides", "qtc-prolonging"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -5243,7 +5447,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "methotrexate": {
       "rows": [
@@ -5392,9 +5596,9 @@
           "rowKey": "Endocrine",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["copper"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -5405,7 +5609,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "donepezil": {
       "rows": [
@@ -5461,6 +5665,7 @@
             "cariprazine",
             "chlorpromazine",
             "clozapine",
+            "domperidone",
             "flupentixol-decanoate",
             "haloperidol-decanoate",
             "levomepromazine",
@@ -5468,6 +5673,7 @@
             "metoclopramide",
             "olanzapine-pamoate-lai",
             "olanzapine-wafer-odt",
+            "ondansetron",
             "paliperidone-er",
             "paliperidone-lai",
             "periciazine",
@@ -5514,9 +5720,28 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": [
+            "apixaban",
+            "azithromycin",
+            "clarithromycin",
+            "clopidogrel",
+            "clozapine",
+            "dabigatran",
+            "dalteparin",
+            "dipyridamole",
+            "edoxaban",
+            "enoxaparin",
+            "erythromycin",
+            "heparin-iv-sc",
+            "quetiapine",
+            "rivaroxaban",
+            "roxithromycin",
+            "ticagrelor",
+            "warfarin-anticoagulant",
+            "warfarin-vka"
+          ],
+          "termIds": ["anticoagulants", "macrolides"],
+          "resolved": true
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -5527,7 +5752,7 @@
           "resolved": false
         }
       ],
-      "unresolvedRowCount": 2
+      "unresolvedRowCount": 1
     },
     "gabapentin": {
       "rows": [
@@ -5600,12 +5825,25 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "low",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": [
+            "apixaban",
+            "clopidogrel",
+            "dabigatran",
+            "dalteparin",
+            "dipyridamole",
+            "edoxaban",
+            "enoxaparin",
+            "heparin-iv-sc",
+            "rivaroxaban",
+            "ticagrelor",
+            "warfarin-anticoagulant",
+            "warfarin-vka"
+          ],
+          "termIds": ["anticoagulants"],
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "phenytoin": {
       "rows": [
@@ -5613,9 +5851,23 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": [
+            "apixaban",
+            "clopidogrel",
+            "dabigatran",
+            "dalteparin",
+            "dipyridamole",
+            "edoxaban",
+            "enoxaparin",
+            "heparin-iv-sc",
+            "quetiapine",
+            "rivaroxaban",
+            "ticagrelor",
+            "warfarin-anticoagulant",
+            "warfarin-vka"
+          ],
+          "termIds": ["anticoagulants"],
+          "resolved": true
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -5626,7 +5878,7 @@
           "resolved": false
         }
       ],
-      "unresolvedRowCount": 2
+      "unresolvedRowCount": 1
     },
     "pregabalin": {
       "rows": [
@@ -5713,11 +5965,13 @@
             "fluoxetine",
             "fluvoxamine",
             "paroxetine",
+            "phenelzine",
             "sertraline",
             "tramadol-ir",
+            "tranylcypromine",
             "venlafaxine-xr"
           ],
-          "termIds": ["snris", "ssris"],
+          "termIds": ["maois", "snris", "ssris"],
           "resolved": true
         },
         {
@@ -5762,10 +6016,10 @@
           "severity": "critical",
           "counterparties": ["clarithromycin"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "clonazepam": {
       "rows": [
@@ -5798,10 +6052,10 @@
           "severity": "high",
           "counterparties": ["clarithromycin"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "diazepam": {
       "rows": [
@@ -5883,10 +6137,10 @@
           "severity": "high",
           "counterparties": ["clarithromycin"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "nitrazepam": {
       "rows": [
@@ -5919,10 +6173,10 @@
           "severity": "high",
           "counterparties": ["clarithromycin"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "oxazepam": {
       "rows": [
@@ -5953,12 +6207,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "low",
-          "counterparties": [],
+          "counterparties": ["amiodarone", "clarithromycin"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "temazepam": {
       "rows": [
@@ -6025,7 +6279,7 @@
           "severity": "critical",
           "counterparties": [],
           "termIds": ["alcohol", "cns-depressants"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -6033,10 +6287,10 @@
           "severity": "high",
           "counterparties": ["erythromycin"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 2
     },
     "atomoxetine": {
       "rows": [
@@ -6046,7 +6300,7 @@
           "severity": "high",
           "counterparties": ["fluoxetine", "paroxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -6057,7 +6311,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "dexamfetamine": {
       "rows": [
@@ -6086,9 +6340,9 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": ["clarithromycin"],
+          "counterparties": ["carbamazepine", "clarithromycin"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -6113,11 +6367,11 @@
             "spironolactone",
             "verapamil"
           ],
-          "termIds": ["antihypertensives"],
-          "resolved": true
+          "termIds": ["antihypertensives", "cns-depressants"],
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 2
     },
     "lisdexamfetamine": {
       "rows": [
@@ -6133,12 +6387,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
+          "counterparties": ["ascorbic-acid"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "methylphenidate": {
       "rows": [
@@ -6507,12 +6761,35 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": [
+            "alprazolam",
+            "buprenorphine-naloxone",
+            "buprenorphine-patch",
+            "buprenorphine-sl-depot",
+            "clonazepam",
+            "codeine",
+            "diazepam",
+            "fentanyl",
+            "hydromorphone-ir-iv",
+            "loperamide",
+            "lorazepam",
+            "methadone",
+            "midazolam",
+            "morphine-ir-iv",
+            "morphine-sr-mr",
+            "nitrazepam",
+            "oxazepam",
+            "oxycodone-ir",
+            "oxycodone-sr-mr",
+            "tapentadol-sr",
+            "temazepam",
+            "tramadol-ir"
+          ],
+          "termIds": ["benzodiazepines", "opioids"],
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "propranolol": {
       "rows": [
@@ -6550,7 +6827,7 @@
             "roxithromycin"
           ],
           "termIds": ["macrolides", "qtc-prolonging"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -6579,7 +6856,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "agomelatine": {
       "rows": [
@@ -6634,10 +6911,10 @@
           "severity": "high",
           "counterparties": ["clomipramine", "doxepin", "fluoxetine", "imipramine", "nortriptyline", "paroxetine"],
           "termIds": ["cyp-inhibitors", "tcas"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "citalopram": {
       "rows": [
@@ -6647,7 +6924,7 @@
           "severity": "critical",
           "counterparties": ["amiodarone", "sotalol"],
           "termIds": ["qtc-prolonging"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -6658,7 +6935,7 @@
           "resolved": false
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 2
     },
     "clomipramine": {
       "rows": [
@@ -6686,10 +6963,10 @@
           "severity": "high",
           "counterparties": ["fluoxetine", "paroxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "desvenlafaxine": {
       "rows": [
@@ -6719,7 +6996,7 @@
           "rowIndex": 0,
           "severity": "critical",
           "counterparties": ["phenelzine", "tramadol-ir", "tranylcypromine"],
-          "termIds": ["maois"],
+          "termIds": ["alcohol", "maois"],
           "resolved": true
         },
         {
@@ -6728,10 +7005,10 @@
           "severity": "high",
           "counterparties": ["fluoxetine", "paroxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "doxepin": {
       "rows": [
@@ -6772,10 +7049,10 @@
           "severity": "high",
           "counterparties": ["paroxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "duloxetine": {
       "rows": [
@@ -6793,10 +7070,10 @@
           "severity": "high",
           "counterparties": ["ciprofloxacin", "fluvoxamine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "escitalopram": {
       "rows": [
@@ -6806,7 +7083,7 @@
           "severity": "critical",
           "counterparties": ["amiodarone", "sotalol"],
           "termIds": ["qtc-prolonging"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -6825,7 +7102,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 2
     },
     "fluoxetine": {
       "rows": [
@@ -6833,9 +7110,20 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": [
+            "amitriptyline",
+            "clomipramine",
+            "codeine",
+            "doxepin",
+            "imipramine",
+            "metoprolol",
+            "nortriptyline",
+            "risperidone",
+            "risperidone-lai",
+            "tramadol-ir"
+          ],
+          "termIds": ["tcas"],
+          "resolved": true
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -6846,7 +7134,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "fluvoxamine": {
       "rows": [
@@ -6854,12 +7142,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["agomelatine", "clozapine", "duloxetine"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "imipramine": {
       "rows": [
@@ -6877,10 +7165,10 @@
           "severity": "high",
           "counterparties": ["fluoxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "mirtazapine": {
       "rows": [
@@ -6973,10 +7261,10 @@
           "severity": "high",
           "counterparties": ["bupropion-sr", "fluoxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "paroxetine": {
       "rows": [
@@ -6984,12 +7272,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["codeine", "metoprolol", "risperidone", "risperidone-lai", "tramadol-ir"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "phenelzine": {
       "rows": [
@@ -6997,9 +7285,9 @@
           "rowKey": "Dietary",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": ["noradrenaline"],
+          "termIds": ["food"],
+          "resolved": true
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -7024,7 +7312,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "reboxetine": {
       "rows": [
@@ -7042,10 +7330,10 @@
           "severity": "high",
           "counterparties": ["clarithromycin"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "sertraline": {
       "rows": [
@@ -7061,8 +7349,22 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["aspirin", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen"],
-          "termIds": ["nsaids"],
+          "counterparties": [
+            "aspirin",
+            "citalopram",
+            "diclofenac",
+            "escitalopram",
+            "esomeprazole",
+            "fluoxetine",
+            "fluvoxamine",
+            "ibuprofen",
+            "ketorolac",
+            "meloxicam",
+            "naproxen",
+            "pantoprazole",
+            "paroxetine"
+          ],
+          "termIds": ["nsaids", "ppis", "ssris"],
           "resolved": true
         }
       ],
@@ -7082,12 +7384,20 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": [
+            "citalopram",
+            "escitalopram",
+            "fluoxetine",
+            "fluvoxamine",
+            "paroxetine",
+            "sertraline",
+            "tramadol-ir"
+          ],
+          "termIds": ["ssris"],
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "venlafaxine-xr": {
       "rows": [
@@ -7118,7 +7428,7 @@
           "severity": "high",
           "counterparties": ["bupropion-sr", "fluoxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -7126,7 +7436,7 @@
           "severity": "high",
           "counterparties": ["carbamazepine"],
           "termIds": ["cyp-inducers"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -7137,7 +7447,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 2
     },
     "aripiprazole": {
       "rows": [
@@ -7147,7 +7457,7 @@
           "severity": "high",
           "counterparties": ["aripiprazole-lai", "clarithromycin", "fluoxetine", "paroxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -7155,10 +7465,10 @@
           "severity": "high",
           "counterparties": ["aripiprazole-lai", "carbamazepine", "phenytoin"],
           "termIds": ["cyp-inducers"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 2
     },
     "clozapine": {
       "rows": [
@@ -7176,10 +7486,10 @@
           "severity": "high",
           "counterparties": ["ciprofloxacin", "fluvoxamine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "olanzapine-wafer-odt": {
       "rows": [
@@ -7212,18 +7522,18 @@
             "tramadol-ir"
           ],
           "termIds": ["benzodiazepines", "cns-depressants", "opioids"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
+          "counterparties": ["olanzapine-pamoate-lai"],
           "termIds": ["smoking"],
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "quetiapine": {
       "rows": [
@@ -7231,8 +7541,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": ["cyp-inhibitors"],
+          "counterparties": ["phenytoin"],
+          "termIds": ["cyp-inducers", "cyp-inhibitors"],
           "resolved": false
         },
         {
@@ -7272,7 +7582,7 @@
           "severity": "high",
           "counterparties": ["bupropion-sr", "fluoxetine", "paroxetine", "risperidone-lai"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -7301,7 +7611,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "aripiprazole-lai": {
       "rows": [
@@ -7311,7 +7621,7 @@
           "severity": "high",
           "counterparties": ["clarithromycin", "fluoxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -7319,10 +7629,10 @@
           "severity": "critical",
           "counterparties": ["carbamazepine"],
           "termIds": ["cyp-inducers"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 2
     },
     "flupentixol-decanoate": {
       "rows": [
@@ -7340,10 +7650,10 @@
           "severity": "high",
           "counterparties": ["paroxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 2
     },
     "haloperidol-decanoate": {
       "rows": [
@@ -7353,7 +7663,7 @@
           "severity": "critical",
           "counterparties": ["amiodarone", "azithromycin", "clarithromycin", "erythromycin", "roxithromycin"],
           "termIds": ["macrolides", "qtc-prolonging"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -7364,7 +7674,7 @@
           "resolved": false
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 2
     },
     "olanzapine-pamoate-lai": {
       "rows": [
@@ -7457,10 +7767,10 @@
           "severity": "high",
           "counterparties": ["fluoxetine", "paroxetine", "risperidone"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "zuclopenthixol-acetate": {
       "rows": [
@@ -7586,12 +7896,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
+          "counterparties": ["phenytoin"],
           "termIds": [],
-          "resolved": false
+          "resolved": true
         }
       ],
-      "unresolvedRowCount": 2
+      "unresolvedRowCount": 1
     },
     "amisulpride": {
       "rows": [
@@ -7638,7 +7948,7 @@
           "severity": "high",
           "counterparties": ["ciprofloxacin", "fluvoxamine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -7664,10 +7974,10 @@
             "verapamil"
           ],
           "termIds": ["antihypertensives", "cns-depressants"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 2
     },
     "brexpiprazole": {
       "rows": [
@@ -7677,10 +7987,10 @@
           "severity": "high",
           "counterparties": ["clarithromycin", "fluoxetine", "paroxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "cariprazine": {
       "rows": [
@@ -7688,12 +7998,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["clarithromycin"],
-          "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "counterparties": ["carbamazepine", "clarithromycin"],
+          "termIds": ["azole-antifungals", "cyp-inducers", "cyp-inhibitors"],
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "chlorpromazine": {
       "rows": [
@@ -7701,9 +8011,32 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "counterparties": [
+            "alprazolam",
+            "buprenorphine-naloxone",
+            "buprenorphine-patch",
+            "buprenorphine-sl-depot",
+            "clonazepam",
+            "codeine",
+            "diazepam",
+            "fentanyl",
+            "hydromorphone-ir-iv",
+            "loperamide",
+            "lorazepam",
+            "methadone",
+            "midazolam",
+            "morphine-ir-iv",
+            "morphine-sr-mr",
+            "nitrazepam",
+            "oxazepam",
+            "oxycodone-ir",
+            "oxycodone-sr-mr",
+            "tapentadol-sr",
+            "temazepam",
+            "tramadol-ir"
+          ],
+          "termIds": ["benzodiazepines", "opioids"],
+          "resolved": true
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -7726,7 +8059,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "lurasidone": {
       "rows": [
@@ -7736,10 +8069,10 @@
           "severity": "critical",
           "counterparties": ["clarithromycin", "diltiazem"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "paliperidone-er": {
       "rows": [
@@ -7854,12 +8187,12 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
+          "counterparties": ["carbamazepine"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "zuclopenthixol": {
       "rows": [
@@ -7869,7 +8202,7 @@
           "severity": "high",
           "counterparties": ["bupropion-sr", "fluoxetine", "paroxetine"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -7880,7 +8213,7 @@
           "resolved": false
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 2
     },
     "beclometasone": {
       "rows": [
@@ -7890,10 +8223,10 @@
           "severity": "moderate",
           "counterparties": ["fluticasone"],
           "termIds": ["cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "budesonide": {
       "rows": [
@@ -8112,6 +8445,7 @@
             "benzatropine",
             "hyoscine-butylbromide",
             "hyoscine-hydrobromide",
+            "ipratropium",
             "orphenadrine",
             "oxybutynin",
             "solifenacin"
@@ -8141,8 +8475,22 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["amitriptyline", "clomipramine", "doxepin", "imipramine", "nortriptyline"],
-          "termIds": ["tcas"],
+          "counterparties": [
+            "alprazolam",
+            "amitriptyline",
+            "clomipramine",
+            "clonazepam",
+            "diazepam",
+            "doxepin",
+            "imipramine",
+            "lorazepam",
+            "midazolam",
+            "nitrazepam",
+            "nortriptyline",
+            "oxazepam",
+            "temazepam"
+          ],
+          "termIds": ["benzodiazepines", "tcas"],
           "resolved": true
         }
       ],
@@ -8169,10 +8517,10 @@
           "severity": "high",
           "counterparties": [],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "finasteride": {
       "rows": [
@@ -8276,10 +8624,10 @@
           "severity": "high",
           "counterparties": ["clarithromycin"],
           "termIds": ["cyp-inhibitors", "grapefruit"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 2
     },
     "solifenacin": {
       "rows": [
@@ -8288,8 +8636,8 @@
           "rowIndex": 0,
           "severity": "high",
           "counterparties": [],
-          "termIds": [],
-          "resolved": false
+          "termIds": ["azole-antifungals"],
+          "resolved": true
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -8337,7 +8685,7 @@
           "resolved": true
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "tadalafil": {
       "rows": [
@@ -8395,10 +8743,10 @@
           "severity": "high",
           "counterparties": ["clarithromycin"],
           "termIds": ["azole-antifungals", "cyp-inhibitors"],
-          "resolved": true
+          "resolved": false
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "ascorbic-acid": {
       "rows": [
