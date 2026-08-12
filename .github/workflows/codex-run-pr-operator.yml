@@ -808,15 +808,11 @@ jobs:
                 core.setFailed("A generated review reply resembled credential material; refusing to post it.");
                 return;
               }
-              let marker = "";
               if (disposition.action === "resolve_fixed") {
                 if (!changed) {
                   core.setFailed("A fixed-thread disposition requires a newly published commit.");
                   return;
                 }
-                marker = `<!-- codex-thread-disposition:resolved -->\n<!-- codex-thread-result:fixed-head:${publishedSha} -->\n`;
-              } else if (disposition.action === "resolve_no_change") {
-                marker = "<!-- codex-thread-disposition:resolved -->\n<!-- codex-thread-result:no-change -->\n";
               }
               if (disposition.action === "leave_open") continue;
 
@@ -844,7 +840,7 @@ jobs:
               mutationPlan.push({
                 threadId: disposition.thread_id,
                 rootCommentId: thread.root_comment_id,
-                body: `${marker}${sanitizeGeneratedText(disposition.reply)}`,
+                body: sanitizeGeneratedText(disposition.reply),
               });
             }
 

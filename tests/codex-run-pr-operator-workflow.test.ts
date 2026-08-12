@@ -255,6 +255,8 @@ describe("Codex Run PR operator workflow", () => {
     expect(mutate).toContain("const mutationPlan = []");
     expect(mutate.indexOf("mutationPlan.push")).toBeLessThan(mutate.indexOf("for (const plannedMutation"));
     expect(mutate).toContain('replaceAll("@", "@\\u200b")');
+    expect(mutate).not.toContain("codex-thread-disposition");
+    expect(mutate).not.toContain("codex-thread-result");
     expect(mutate).toContain("resolveReviewThread");
     expect(mutate).toContain("rerun-failed-jobs");
     expect(mutate).toContain('currentRun.conclusion !== "failure"');
