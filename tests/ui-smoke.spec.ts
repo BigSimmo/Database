@@ -943,6 +943,38 @@ async function expectMobileSettingsLayout(settings: Locator) {
   expect(controlBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height + 8);
   expect(controlBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
   expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
+
+  for (const groupLabel of ["Answer style", "Appearance", "Interface density", "Default landing view"]) {
+    const row = settings.getByTestId(`settings-row-${groupLabel.toLowerCase().replaceAll(" ", "-")}`);
+    const radios = row.getByRole("radiogroup", { name: groupLabel }).getByRole("radio");
+    const radioBoxes = await radios.evaluateAll((elements) =>
+      elements.map((element) => {
+        const box = element.getBoundingClientRect();
+        const text = element.querySelector("span");
+        return {
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height,
+          textFits: text ? text.scrollWidth <= text.clientWidth + 1 : true,
+        };
+      }),
+    );
+
+    expect(radioBoxes).toHaveLength(3);
+    expect(
+      Math.max(...radioBoxes.map((box) => box.y)) - Math.min(...radioBoxes.map((box) => box.y)),
+    ).toBeLessThanOrEqual(1);
+    expect(radioBoxes.every((box) => box.height >= 48)).toBe(true);
+    expect(radioBoxes.every((box) => box.textFits)).toBe(true);
+    expect(radioBoxes[0].x + radioBoxes[0].width).toBeLessThanOrEqual(radioBoxes[1].x);
+    expect(radioBoxes[1].x + radioBoxes[1].width).toBeLessThanOrEqual(radioBoxes[2].x);
+  }
+
+  const switchBox = await settings.getByTestId("settings-row-reduce-motion").getByRole("switch").boundingBox();
+  expect(switchBox).not.toBeNull();
+  expect(switchBox!.width).toBeGreaterThanOrEqual(48);
+  expect(switchBox!.height).toBeGreaterThanOrEqual(48);
   await expect(settings.getByRole("button", { name: "Close settings" })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Back from settings" })).toHaveCount(0);
 }
@@ -950,13 +982,15 @@ async function expectMobileSettingsLayout(settings: Locator) {
 async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
   await expect(setup.getByLabel("Email address")).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Apple sign-in unavailable" })).toBeDisabled();
-  await expect(setup.getByRole("button", { name: "Google sign-in unavailable" })).toBeDisabled();
-  await expect(setup.getByRole("button", { name: "Microsoft sign-in unavailable" })).toBeDisabled();
-  await expect(setup.getByRole("heading", { name: "What your account saves" })).toBeVisible();
-  await expect(setup.getByText(/Recent questions stay in this browser session/i)).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Security summary" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue with email" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+  await expect(setup.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
+  await expect(setup.getByRole("button", { name: /Apple/i })).toHaveCount(0);
+  await expect(setup.getByText("Apple sign-in is not available yet.")).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Saved to your account" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Stays on this device" })).toBeVisible();
+  await expect(setup.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
   await expect(setup.getByText("No PHI required")).toBeVisible();
   await expect(setup).toContainText("Do not enter patient-identifying information.");
 }
@@ -1015,7 +1049,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await waitForDemoDashboardReady(page);
 
       await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
-      await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
       await expect(visibleQuestionInput(page)).toBeVisible();
       await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
       const headerHeight = await page.locator("#search").evaluate((element) => element.getBoundingClientRect().height);
@@ -1211,7 +1245,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/\?mode=answer$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
-    await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
   });
 
   test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
@@ -1498,6 +1532,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
 
+    await page.setViewportSize({ width: 320, height: 820 });
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 390, height: 820 });
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
     await page.setViewportSize({ width: 430, height: 820 });
     await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
@@ -1517,10 +1559,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(accountMenu).toHaveCount(0);
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
+    await expect(setup.getByLabel("Email address")).toBeFocused();
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
     expect(setupBox!.x).toBeGreaterThanOrEqual(-1);
     expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 320, height: 700 });
+    const setupClose = setup.getByRole("button", { name: "Close account setup" });
+    await expect(setup.getByLabel("Email address")).toBeInViewport();
+    await expect(setup.getByRole("button", { name: "Continue with email" })).toBeInViewport();
+    await expect(setupClose).toBeInViewport();
+    await expectNoPageHorizontalOverflow(page);
+
+    const setupScrollPort = setup.locator(".polished-scroll");
+    await setupScrollPort.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect(setup.getByText("No PHI required")).toBeInViewport();
+    await expect(setupClose).toBeInViewport();
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    expect(await setup.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+    expect(
+      await setup.getByRole("button", { name: "Continue with Google" }).evaluate((element) => {
+        return getComputedStyle(element).borderStyle;
+      }),
+    ).not.toBe("none");
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await expect(setupClose).toBeInViewport();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1761,7 +1832,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectMinTouchTarget(firstPreviewSource);
     await expect(sourcePreview.getByRole("link", { name: /Open S1 source page/i })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
-    const copyQuoteButton = sourcePreview.getByRole("button", { name: "Copy quote" });
+    const copyQuoteButton = sourcePreview.getByRole("button", { name: "Copy passage" });
     await expect(copyQuoteButton).toBeVisible();
     await expectMinTouchTarget(copyQuoteButton);
     if (browserName === "chromium") {
@@ -1769,7 +1840,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         origin: new URL(page.url()).origin,
       });
       await copyQuoteButton.click();
-      await expect(sourcePreview.getByRole("button", { name: "Copied quote" })).toBeVisible();
+      await expect(sourcePreview.getByRole("button", { name: "Copied passage" })).toBeVisible();
     }
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
@@ -4163,7 +4234,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toHaveJSProperty("open", true);
 
-    const sourceSearch = page.getByLabel("Search within indexed source text").last();
+    // The fixed document composer is the single search owner; the indexed-text
+    // disclosure must not duplicate a large search field inside its content.
+    const sourceSearch = page.getByRole("textbox", { name: "Search within this document" });
+    await expect(page.getByLabel("Search within indexed source text")).toHaveCount(0);
     await waitForReactEventHandler(sourceSearch, "onChange");
     await sourceSearch.fill("safety plan include");
     const desktopTextPanel = page.getByTestId("source-chunk-indexed-text-panel");
@@ -4255,6 +4329,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
   test("document viewer puts the PDF preview first with pinned evidence after it on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
+    // iOS Safari cannot fullscreen a plain document element, so production
+    // takes the fixed in-app fallback there. Exercise that exact path instead
+    // of letting Chromium's native fullscreen top layer hide stacking bugs.
+    await page.addInitScript(() => {
+      Object.defineProperty(Element.prototype, "requestFullscreen", {
+        configurable: true,
+        value: () => Promise.reject(new Error("fullscreen blocked by test")),
+      });
+    });
     await mockDemoApi(page);
     await gotoApp(
       page,
@@ -4336,14 +4419,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(indexedTextBox!.y).toBeLessThan(imagesBox!.y);
 
     const passageToggle = page.getByTestId("toggle-full-passage").first();
-    await expect(passageToggle).toHaveText("Show full passage");
+    await expect(passageToggle).toHaveText("Full passage");
+    await expect(passageToggle).toHaveAttribute("aria-expanded", "false");
     // Keyboard activation is intentional here: pdf.js can resize the canvas
     // while Firefox is calculating pointer coordinates, but a focused native
     // button must keep its expand/collapse behavior through that layout shift.
     await activateFocusedControl(page, passageToggle);
-    await expect(passageToggle).toHaveText("Show passage preview");
+    await expect(passageToggle).toHaveText("Collapse");
+    await expect(passageToggle).toHaveAttribute("aria-expanded", "true");
     const expandedEvidenceBox = await evidence.boundingBox();
     expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
+    await activateFocusedControl(page, passageToggle);
+    await expect(passageToggle).toHaveText("Full passage");
+    await expect(passageToggle).toHaveAttribute("aria-expanded", "false");
+    const collapsedEvidenceBox = await evidence.boundingBox();
+    expect(collapsedEvidenceBox?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(expandedEvidenceBox!.height);
     await openSection(/PDF preview/);
     await expect(preview).toBeInViewport();
     await openSection(/Indexed source text/);
@@ -4366,17 +4456,57 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(pdfScroller).toBeVisible();
     await openOverflow();
     await overflow.getByRole("button", { name: "Fullscreen" }).click();
-    await openOverflow();
-    await expect(overflow.getByRole("button", { name: "Exit fullscreen" })).toBeVisible();
     const fullscreenRootStyles = await page.getByTestId("document-frame").evaluate((element) => {
       const style = window.getComputedStyle(element);
+      const bounds = element.getBoundingClientRect();
+      const topOwner = document.elementFromPoint(window.innerWidth / 2, 1);
       return {
         position: style.position,
         height: style.height,
+        bounds: {
+          left: Math.round(bounds.left),
+          top: Math.round(bounds.top),
+          right: Math.round(bounds.right),
+          bottom: Math.round(bounds.bottom),
+        },
+        ownsTopEdge: Boolean(topOwner && element.contains(topOwner)),
       };
     });
     expect(fullscreenRootStyles.position).toBe("fixed");
-    await overflow.getByRole("button", { name: "Exit fullscreen" }).click();
+    expect(fullscreenRootStyles.bounds).toEqual({ left: 0, top: 0, right: 320, bottom: 720 });
+    expect(fullscreenRootStyles.ownsTopEdge).toBe(true);
+    await expect(page.locator("#search")).toHaveCSS("visibility", "hidden");
+    const exitFullscreen = page.getByRole("button", { name: "Exit fullscreen document view" });
+    await expect(exitFullscreen).toBeVisible();
+    await expect(exitFullscreen).toBeFocused();
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await expect(exitFullscreen).toBeVisible();
+    await expect(page.locator("#search")).toHaveCSS("visibility", "hidden");
+    await exitFullscreen.click();
+    await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
+
+    // A rejected desktop Fullscreen API request uses the same fallback. It must
+    // still suppress app chrome, cover the resized viewport, and leave through
+    // the keyboard Escape path without requiring the phone overflow menu.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const enterFullscreen = page.getByRole("button", { name: "Enter fullscreen document view" });
+    await expect(enterFullscreen).toBeVisible();
+    await enterFullscreen.click();
+    await expect(page.locator("#search")).toHaveCSS("visibility", "hidden");
+    await expect(page.getByTestId("document-frame")).toHaveAttribute("data-fullscreen-fallback", "on");
+    await expect(page.getByTestId("document-frame")).toHaveCSS("position", "fixed");
+    const fullscreenBounds = await page.getByTestId("document-frame").boundingBox();
+    expect(fullscreenBounds).not.toBeNull();
+    expect({
+      x: Math.round(fullscreenBounds!.x),
+      y: Math.round(fullscreenBounds!.y),
+      width: Math.round(fullscreenBounds!.width),
+      height: Math.round(fullscreenBounds!.height),
+    }).toEqual({ x: 0, y: 0, width: 1280, height: 900 });
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("document-frame")).not.toHaveAttribute("data-fullscreen");
+    await expect(page.locator("#search")).not.toHaveCSS("visibility", "hidden");
+    await page.setViewportSize({ width: 320, height: 720 });
 
     const fitWidthScrollStyles = await pdfScroller.evaluate((element) => {
       const style = window.getComputedStyle(element);

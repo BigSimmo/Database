@@ -135,7 +135,7 @@ async function expectNoPageHorizontalOverflow(page: Page) {
 
 async function expectDashboardUsable(page: Page) {
   await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
-  await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
   await expect(page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')).toBeVisible();
   await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible();
   await expectNoPageHorizontalOverflow(page);

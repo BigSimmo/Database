@@ -185,8 +185,11 @@ type Mask = Uint8Array<ArrayBuffer>;
 
 function decodeMask(encoded: string): Mask {
   const binary = atob(encoded);
+  if (binary.length !== MASK_LENGTH) {
+    throw new Error(`Service facet mask length mismatch: expected ${MASK_LENGTH} bytes, got ${binary.length}`);
+  }
   const bytes = new Uint8Array(MASK_LENGTH);
-  for (let index = 0; index < binary.length && index < MASK_LENGTH; index += 1) {
+  for (let index = 0; index < MASK_LENGTH; index += 1) {
     bytes[index] = binary.charCodeAt(index);
   }
   return bytes;
@@ -249,12 +252,10 @@ export function useFacetCounts(selected: ReadonlySet<string>): FacetCounts {
     const total = popcount(maskForSelection(selected));
     const perFacet: Record<string, number> = {};
     for (const group of FACET_GROUPS) {
-      // Counts for a group are computed against every OTHER group's selection,
-      // so the numbers answer "what would I get if I added this?" rather than
-      // collapsing to zero the moment a sibling in the same group is chosen.
-      const base = maskForSelection(selected, group.id);
       for (const facet of group.facets) {
-        perFacet[facet.id] = popcount(and(base, DECODED[facet.id]));
+        const candidate = new Set(selected);
+        candidate.add(facet.id);
+        perFacet[facet.id] = popcount(maskForSelection(candidate));
       }
     }
     return { total, perFacet };
@@ -464,25 +465,37 @@ export function ResultsBand({
 }
 
 export function ResultsPreview({ compact, count }: { compact: boolean; count: number }) {
+  const previewCount = compact ? 2 : 3;
+  const visible = Math.min(count, previewCount);
+  const remaining = Math.max(count - previewCount, 0);
+
   return (
     <div className="mt-2 grid content-start gap-1.5">
-      {SAMPLE_RESULTS.slice(0, compact ? 2 : 3).map((result) => (
-        <div
-          key={result.name}
-          className="flex items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-2xs font-bold text-[color:var(--text)]">{result.name}</span>
-            <span className="block truncate text-3xs font-medium text-[color:var(--text-soft)]">{result.meta}</span>
-          </span>
-          <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs font-bold text-[color:var(--text-soft)]">
-            {result.confidence}
-          </span>
-        </div>
-      ))}
-      <span className="px-1 text-3xs font-semibold text-[color:var(--text-soft)]">
-        + {Math.max(count - (compact ? 2 : 3), 0)} more
-      </span>
+      {count === 0 ? (
+        <span className="px-1 py-3 text-center text-3xs font-semibold text-[color:var(--text-soft)]">
+          No services match this filter set.
+        </span>
+      ) : (
+        <>
+          {SAMPLE_RESULTS.slice(0, visible).map((result) => (
+            <div
+              key={result.name}
+              className="flex items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-2xs font-bold text-[color:var(--text)]">{result.name}</span>
+                <span className="block truncate text-3xs font-medium text-[color:var(--text-soft)]">{result.meta}</span>
+              </span>
+              <span className="shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs font-bold text-[color:var(--text-soft)]">
+                {result.confidence}
+              </span>
+            </div>
+          ))}
+          {remaining > 0 ? (
+            <span className="px-1 text-3xs font-semibold text-[color:var(--text-soft)]">+ {remaining} more</span>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
@@ -964,7 +977,7 @@ function SegmentSwitch({
   ];
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label="Filter mode"
       className="inline-flex w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1"
     >
@@ -972,8 +985,7 @@ function SegmentSwitch({
         <button
           key={segment.value}
           type="button"
-          role="tab"
-          aria-selected={value === segment.value}
+          aria-pressed={value === segment.value}
           onClick={() => onChange(segment.value)}
           className={cn(
             "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-2xs font-extrabold transition-colors",
@@ -1239,8 +1251,14 @@ function DirectionC({
             <div className="grid gap-2">
               <div className="flex items-center gap-1.5 text-3xs font-semibold text-[color:var(--text-soft)]">
                 <span className="nums font-black tabular-nums text-[color:var(--clinical-accent)]">{counts.total}</span>
-                match ·<span className="nums tabular-nums">{counts.perFacet["confidence:High"] ?? 0}</span> high
-                confidence ·<span className="nums tabular-nums">{counts.perFacet["setting:digital_phone"] ?? 0}</span>{" "}
+                match ·
+                <span className="nums tabular-nums">
+                  {popcount(and(maskForSelection(selected), DECODED["confidence:High"]))}
+                </span>{" "}
+                high confidence ·
+                <span className="nums tabular-nums">
+                  {popcount(and(maskForSelection(selected), DECODED["setting:digital_phone"]))}
+                </span>{" "}
                 digital &amp; phone
               </div>
               <CommitButton count={counts.total} compact disabled={counts.total === 0} />
