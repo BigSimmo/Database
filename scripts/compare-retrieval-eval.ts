@@ -103,6 +103,77 @@ export type RetrievalEvalComparison = {
   missingRequired: string[];
 };
 
+export type PerCaseRankRegression = {
+  caseId: string;
+  metric: "reciprocalRankAt10" | "contentReciprocalRankAt10";
+  baseline: number;
+  candidate: number;
+};
+
+export type PerCaseRankComparison = {
+  regressions: PerCaseRankRegression[];
+  // Case IDs present in one artifact but not the other. A vanished case is not a "no
+  // regression" — the pair is not comparable case-for-case, so callers must fail closed.
+  missingInCandidate: string[];
+  missingInBaseline: string[];
+  // Shared cases where a rank metric is absent or non-finite on either side. Skipping the
+  // metric would report "zero regressions" without evidence for it, so these also make the
+  // pair non-comparable.
+  unavailableMetrics: Array<{ caseId: string; metric: (typeof PER_CASE_RANK_METRICS)[number] }>;
+  comparedCaseCount: number;
+};
+
+const PER_CASE_RANK_METRICS = ["reciprocalRankAt10", "contentReciprocalRankAt10"] as const;
+
+type PerCaseResult = Record<string, unknown>;
+
+function readCaseRank(result: PerCaseResult, key: string): number | undefined {
+  const value = result[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+// The safeguards protocol's "zero per-case rr regressions" gate (docs/rag-behaviour/
+// safeguards.md, canary-pair step 3), mechanized: any per-case drop in doc-level rr@10 or
+// content rr@10 between the baseline and post artifacts is a regression, even when the
+// case still passes its top-5 recall gate (rank depth can silently erode otherwise).
+export function comparePerCaseRanks(
+  baselineResults: PerCaseResult[],
+  candidateResults: PerCaseResult[],
+): PerCaseRankComparison {
+  const candidateById = new Map<string, PerCaseResult>();
+  for (const result of candidateResults) {
+    if (typeof result.id === "string") candidateById.set(result.id, result);
+  }
+  const baselineIds = new Set<string>();
+  const regressions: PerCaseRankRegression[] = [];
+  const missingInCandidate: string[] = [];
+  const unavailableMetrics: PerCaseRankComparison["unavailableMetrics"] = [];
+  let comparedCaseCount = 0;
+  for (const baselineResult of baselineResults) {
+    if (typeof baselineResult.id !== "string") continue;
+    baselineIds.add(baselineResult.id);
+    const candidateResult = candidateById.get(baselineResult.id);
+    if (!candidateResult) {
+      missingInCandidate.push(baselineResult.id);
+      continue;
+    }
+    comparedCaseCount += 1;
+    for (const metric of PER_CASE_RANK_METRICS) {
+      const baselineRank = readCaseRank(baselineResult, metric);
+      const candidateRank = readCaseRank(candidateResult, metric);
+      if (baselineRank === undefined || candidateRank === undefined) {
+        unavailableMetrics.push({ caseId: baselineResult.id, metric });
+        continue;
+      }
+      if (candidateRank < baselineRank) {
+        regressions.push({ caseId: baselineResult.id, metric, baseline: baselineRank, candidate: candidateRank });
+      }
+    }
+  }
+  const missingInBaseline = [...candidateById.keys()].filter((id) => !baselineIds.has(id));
+  return { regressions, missingInCandidate, missingInBaseline, unavailableMetrics, comparedCaseCount };
+}
+
 // Pure so it can be unit-tested without touching the filesystem or process exit code.
 export function compareRetrievalEval(baseline: EvalSummary, candidate: EvalSummary): RetrievalEvalComparison {
   const rows: ComparisonRow[] = [];
@@ -135,14 +206,18 @@ function readPayload(path: string): EvalPayload {
 }
 
 function main() {
-  const [, , baselinePath, candidatePath] = process.argv;
+  const positional = process.argv.slice(2).filter((arg) => arg !== "--fail-on-regression");
+  const failOnRegression = process.argv.includes("--fail-on-regression");
+  const [baselinePath, candidatePath] = positional;
   if (!baselinePath || !candidatePath) {
-    throw new Error("Usage: tsx scripts/compare-retrieval-eval.ts <baseline.json> <candidate.json>");
+    throw new Error(
+      "Usage: tsx scripts/compare-retrieval-eval.ts <baseline.json> <candidate.json> [--fail-on-regression]",
+    );
   }
 
-  const baseline = readPayload(baselinePath).summary ?? {};
-  const candidate = readPayload(candidatePath).summary ?? {};
-  const { rows, missingRequired } = compareRetrievalEval(baseline, candidate);
+  const baselinePayload = readPayload(baselinePath);
+  const candidatePayload = readPayload(candidatePath);
+  const { rows, missingRequired } = compareRetrievalEval(baselinePayload.summary ?? {}, candidatePayload.summary ?? {});
 
   console.log("Retrieval eval comparison: candidate (delta from baseline)");
   for (const row of rows) {
@@ -152,6 +227,45 @@ function main() {
   if (missingRequired.length > 0) {
     console.error(`\nMissing required metric(s), refusing a clean comparison: ${missingRequired.join(", ")}`);
     console.error("A missing decision metric is not the same as 0 — regenerate the eval JSON with the full summary.");
+    process.exitCode = 1;
+  }
+
+  const baselineResults = baselinePayload.results;
+  const candidateResults = candidatePayload.results;
+  if (Array.isArray(baselineResults) && Array.isArray(candidateResults)) {
+    const perCase = comparePerCaseRanks(baselineResults, candidateResults);
+    console.log(`\nPer-case rank comparison over ${perCase.comparedCaseCount} shared case(s):`);
+    if (perCase.regressions.length === 0) {
+      console.log("  zero per-case rr regressions");
+    }
+    for (const regression of perCase.regressions) {
+      console.log(
+        `  REGRESSION ${regression.caseId} ${regression.metric}: ${regression.baseline.toFixed(4)} -> ${regression.candidate.toFixed(4)}`,
+      );
+    }
+    for (const id of perCase.missingInCandidate) console.log(`  MISSING in candidate: ${id}`);
+    for (const id of perCase.missingInBaseline) console.log(`  NEW in candidate (no baseline): ${id}`);
+    for (const entry of perCase.unavailableMetrics) {
+      console.log(`  METRIC UNAVAILABLE ${entry.caseId} ${entry.metric}: absent or non-finite on one side`);
+    }
+    // Any difference in the case sets — either direction — or an unavailable metric means the
+    // pair cannot prove the identical-case-set gate; fail closed rather than report a pass.
+    const notComparable =
+      perCase.missingInCandidate.length > 0 ||
+      perCase.missingInBaseline.length > 0 ||
+      perCase.unavailableMetrics.length > 0;
+    if (failOnRegression && (perCase.regressions.length > 0 || notComparable)) {
+      console.error(
+        "\nPer-case gate failed: the canary-pair protocol (docs/rag-behaviour/safeguards.md) requires zero per-case rr regressions over an identical case set with both rank metrics present.",
+      );
+      process.exitCode = 1;
+    }
+  } else if (failOnRegression) {
+    // Summary-only artifacts cannot prove the per-case gate — fail closed rather than
+    // reporting a green pair without the evidence.
+    console.error(
+      "\n--fail-on-regression requires per-case results in both artifacts (re-run the eval with --json-out).",
+    );
     process.exitCode = 1;
   }
 }

@@ -266,12 +266,43 @@ test.describe("Header element overlap coverage", () => {
     );
   });
 
-  test("phone smart search does not show the desktop rotating text or prompt row", async ({ page }) => {
+  test("phone smart search replaces desktop rows with one tappable ticker", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
     await expect(page.getByTestId("smart-search-rotating-text")).toBeHidden();
     await expect(page.getByTestId("smart-search-prompt-row")).toBeHidden();
+
+    const ticker = page.getByTestId("smart-search-phone-ticker");
+    await expect(ticker).toBeVisible();
+    await expect(ticker).toContainText("Try this");
+    await expect(ticker).toContainText("Tap to search");
+
+    const tickerBox = await ticker.boundingBox();
+    expect(tickerBox, "phone suggestion ticker must render").not.toBeNull();
+    expect(tickerBox!.height, "phone ticker must meet the tap-target floor").toBeGreaterThanOrEqual(48);
+
+    const suggestion = (await ticker.getAttribute("aria-label"))?.replace("Try suggested search: ", "");
+    expect(suggestion).toBeTruthy();
+    await ticker.click();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue(suggestion ?? "");
+  });
+
+  test("phone suggestion ticker renders on /documents mode home", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoDashboard(page);
+    await page.goto("/documents", { waitUntil: "domcontentloaded" });
+    await expect(async () => {
+      const header = page.locator("header#search");
+      await expect(header).toHaveCount(1);
+      await expect(header).toBeVisible();
+    }).toPass({ timeout: 30_000 });
+
+    const ticker = page.getByTestId("smart-search-phone-ticker");
+    await expect(ticker).toBeVisible();
+    const tickerBox = await ticker.boundingBox();
+    expect(tickerBox, "phone suggestion ticker must render on /documents home").not.toBeNull();
+    expect(tickerBox!.height, "phone ticker must meet the tap-target floor on /documents").toBeGreaterThanOrEqual(48);
   });
 });
