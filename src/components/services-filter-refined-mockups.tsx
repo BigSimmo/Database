@@ -57,7 +57,7 @@ import { cn } from "@/components/ui-primitives";
 /* Facet index — generated from data/services-snapshot.json (219 services)    */
 /* ------------------------------------------------------------------------- */
 
-const SERVICE_TOTAL = 219;
+export const SERVICE_TOTAL = 219;
 
 /**
  * One base64 bitmask per facet, 219 bits wide, index-aligned to the snapshot's
@@ -91,7 +91,7 @@ const FACET_MASKS: Record<string, string> = {
   "confidence:Low": "CAAAAAAAQBAAAAAAAAAAAAAAAAAAAABAAAAAAA==",
 };
 
-type FacetGroupId = "acuity" | "catchment" | "age" | "setting" | "focus" | "confidence";
+export type FacetGroupId = "acuity" | "catchment" | "age" | "setting" | "focus" | "confidence";
 
 type FacetGroup = {
   id: FacetGroupId;
@@ -101,7 +101,7 @@ type FacetGroup = {
   facets: ReadonlyArray<{ id: string; label: string }>;
 };
 
-const FACET_GROUPS: ReadonlyArray<FacetGroup> = [
+export const FACET_GROUPS: ReadonlyArray<FacetGroup> = [
   {
     id: "acuity",
     label: "Acuity",
@@ -242,9 +242,9 @@ function maskForSelection(selected: ReadonlySet<string>, skipGroup?: FacetGroupI
   return result;
 }
 
-type FacetCounts = { total: number; perFacet: Record<string, number> };
+export type FacetCounts = { total: number; perFacet: Record<string, number> };
 
-function useFacetCounts(selected: ReadonlySet<string>): FacetCounts {
+export function useFacetCounts(selected: ReadonlySet<string>): FacetCounts {
   return useMemo(() => {
     const total = popcount(maskForSelection(selected));
     const perFacet: Record<string, number> = {};
@@ -265,7 +265,7 @@ function useFacetCounts(selected: ReadonlySet<string>): FacetCounts {
 /* Presets — the six that ship today, unchanged in meaning                    */
 /* ------------------------------------------------------------------------- */
 
-const PRESETS: ReadonlyArray<{ id: string; label: string; detail: string }> = [
+export const PRESETS: ReadonlyArray<{ id: string; label: string; detail: string }> = [
   { id: "best-fit", label: "Best fit", detail: "13YARN crisis · culturally safe · phone" },
   { id: "crisis", label: "Crisis", detail: "Searches “crisis”" },
   { id: "culturally-safe", label: "Culturally safe", detail: "Aboriginal & Torres Strait Islander" },
@@ -286,7 +286,7 @@ const SAMPLE_RESULTS: ReadonlyArray<{ name: string; meta: string; confidence: st
 /* Shared control primitives                                                  */
 /* ------------------------------------------------------------------------- */
 
-const focusRing =
+export const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 /** The tap floor: 48px on phone per the repo's `--spacing-tap`, 36px where a pointer is likely. */
@@ -294,7 +294,7 @@ function tapHeight(compact: boolean) {
   return compact ? "min-h-tap" : "min-h-9";
 }
 
-function FacetChip({
+export function FacetChip({
   label,
   count,
   selected,
@@ -346,7 +346,15 @@ function FacetChip({
   );
 }
 
-function ActiveFilterPill({ facetId, onRemove, compact }: { facetId: string; onRemove: () => void; compact: boolean }) {
+export function ActiveFilterPill({
+  facetId,
+  onRemove,
+  compact,
+}: {
+  facetId: string;
+  onRemove: () => void;
+  compact: boolean;
+}) {
   return (
     <span
       className={cn(
@@ -370,7 +378,7 @@ function ActiveFilterPill({ facetId, onRemove, compact }: { facetId: string; onR
   );
 }
 
-function PresetRow({
+export function PresetRow({
   preset,
   compact,
   onRun,
@@ -404,7 +412,7 @@ function PresetRow({
 }
 
 /** The band the sheet is opened from — reproduced so each frame has real context. */
-function ResultsBand({
+export function ResultsBand({
   compact,
   count,
   query,
@@ -455,7 +463,7 @@ function ResultsBand({
   );
 }
 
-function ResultsPreview({ compact, count }: { compact: boolean; count: number }) {
+export function ResultsPreview({ compact, count }: { compact: boolean; count: number }) {
   return (
     <div className="mt-2 grid content-start gap-1.5">
       {SAMPLE_RESULTS.slice(0, compact ? 2 : 3).map((result) => (
@@ -480,13 +488,14 @@ function ResultsPreview({ compact, count }: { compact: boolean; count: number })
 }
 
 /** Bottom-sheet shell used by the phone frames — an in-frame simulation of `Sheet`. */
-function PhoneSheetShell({
+export function PhoneSheetShell({
   title,
   description,
   onClear,
   children,
   footer,
   fullHeight = false,
+  maxHeight = "max-h-[72%]",
 }: {
   title: string;
   description?: string;
@@ -494,12 +503,15 @@ function PhoneSheetShell({
   children: React.ReactNode;
   footer: React.ReactNode;
   fullHeight?: boolean;
+  /** Overrides the default detent. Use when the surface behind the sheet is
+      part of the argument and must stay visible. */
+  maxHeight?: string;
 }) {
   return (
     <div
       className={cn(
         "absolute inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)]",
-        fullHeight ? "top-6" : "max-h-[72%]",
+        fullHeight ? "top-6" : maxHeight,
       )}
     >
       <div className="flex shrink-0 justify-center pb-1 pt-2" aria-hidden>
@@ -535,7 +547,15 @@ function PhoneSheetShell({
 }
 
 /** The committed primary action — states its own outcome instead of "Done". */
-function CommitButton({ count, compact, disabled = false }: { count: number; compact: boolean; disabled?: boolean }) {
+export function CommitButton({
+  count,
+  compact,
+  disabled = false,
+}: {
+  count: number;
+  compact: boolean;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -571,7 +591,7 @@ function GroupHeading({ group, showHint }: { group: FacetGroup; showHint?: boole
 }
 
 /** The facet body every direction shares, so the three differ by frame and not by content. */
-function FacetGroupsBody({
+export function FacetGroupsBody({
   selected,
   counts,
   onToggle,

@@ -103,3 +103,27 @@ free-text values; ~69 of 219 match a free-ish pattern, so it is deliberately abs
 `age_groups: mixed` (202/219) and `setting_flags: public` (207/219) are **omitted as facets** because an option that
 never excludes anything is a row of dead pixels; and the radiogroup/`aria-pressed` disagreement must be resolved
 deliberately rather than inherited.
+
+### Round two — three options along the recommended path (2026-08-11)
+
+Runnable study at [`/mockups/services-filter-options`](../src/app/mockups/services-filter-options/page.tsx).
+Round one offered three _directions_; asked which to build, the answer was a sequence rather than a
+winner, plus one bolder move flagged as a product judgement. This study draws those three threads so
+they can be compared directly.
+
+| Option                 | Verdict     | What it is                                                                                                                                                                                                              |
+| ---------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 — Stop the bleed     | Ship first  | No filtering. Renames the sheet, shows each shortcut's literal query, and puts the current search at the top as the thing you are about to lose. No new state, no new component                                         |
+| 2 — The recommendation | Recommended | Direction A's facets + counts + committed `Show N services`, plus direction B's persistent active-filter pill row. Phone shows the sheet open, desktop shows it closed — the closed state is what the pill row is for   |
+| 3 — Presets evicted    | Your call   | Sheet becomes purely a filter; the six presets move to the composer as `AnswerSuggestionChips`, a production component whose own prop docs name composer rows as a use. Deletes sheet code rather than adding a surface |
+
+Three points the study makes that are easy to lose: the expensive part (services facet index,
+selection state, URL round-tripping) is **identical in options 2 and 3**, so choosing between them on
+build cost is a false economy; **counts and multi-select have to ship together**, because a count on
+a single-select radio only reports the size of the thing you are about to jump to; and option 1 is
+**purely subtractive**, so it can land while the facet work is still being scoped and nothing in it
+has to be unpicked afterwards.
+
+The facet engine, chips, band and sheet shell are imported from the round-one study rather than
+copied — the ~1KB bitmask table would otherwise be duplicated against a finite `mockups` bundle
+budget, and two studies quoting different numbers for the same catalogue would discredit both.
