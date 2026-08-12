@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/components/ui-primitives";
+import { searchFormulationMechanisms } from "@/lib/formulation";
 
 /**
  * Restyling the shared filter sheet — three style directions, plus the answer to
@@ -85,7 +86,7 @@ const MECHANISMS: ReadonlyArray<{ name: string; domains: ReadonlyArray<string> }
 
 /** The query in the screenshot's band, resolved to the mechanisms it returns. */
 const CURRENT_QUERY = "I keep going over it";
-const CURRENT_SUBSET = ["Rumination", "Worry"] as const;
+const CURRENT_SUBSET = searchFormulationMechanisms(CURRENT_QUERY).map((r) => r.mechanism.name);
 
 /**
  * `formulationDomainGroups`, quoted verbatim from `src/lib/formulation.ts`.
@@ -131,7 +132,7 @@ const DOMAIN_GROUPS: ReadonlyArray<{
 type Scope = "current" | "all";
 
 function scopeMechanisms(scope: Scope) {
-  return scope === "all" ? MECHANISMS : MECHANISMS.filter((m) => CURRENT_SUBSET.includes(m.name as never));
+  return scope === "all" ? MECHANISMS : MECHANISMS.filter((m) => CURRENT_SUBSET.includes(m.name));
 }
 
 /** Domains OR together: picking two domains widens, exactly like the services facets. */
