@@ -223,7 +223,8 @@ describe("Codex Run PR operator workflow", () => {
     expect(repair).toContain('git diff --name-only --no-renames -z "$OPERATOR_START_SHA"');
     expect(repair).toContain("mapfile -d '' -t changed_paths");
     expect(repair).toContain(".github/*|.codex/*|.claude/*|.agents/*");
-    expect(repair).toContain("supabase/*|.env|.env.*|.npmrc");
+    expect(repair).toContain("supabase/*|.env|.env.*");
+    expect(repair).toContain(".npmrc|*/.npmrc");
     expect(repair).toContain('git diff --cached --raw "$OPERATOR_START_SHA"');
     expect(repair).toContain('git diff --cached --binary "$OPERATOR_START_SHA"');
     expect(repair).toContain("(120000|160000)");
