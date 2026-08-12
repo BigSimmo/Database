@@ -188,6 +188,27 @@ approved operations. Some GitHub APIs, including review-thread or Actions manage
 may not be exposed in every Cloud task; use an approved GitHub-connected workflow for those
 operations or report the unavailable capability. Do not use shell credentials as a workaround.
 
+When a Cloud task has no direct PR-mutation tools, the repository's supported fallback is the
+credential-isolated **Codex Run PR operator** workflow. After this workflow is present on the
+default branch, an authorized `BigSimmo` user can comment exactly `/codex-run-pr` on an open,
+same-repository PR whose head is not `main`, `master`, `develop`, or `release/*`. The repair phase
+uses the official OpenAI Codex GitHub Action and `OPENAI_API_KEY`, but receives no GitHub write
+credential. It reads bounded PR/check/thread/log evidence, may merge the recorded base normally,
+repairs the checkout, and emits a validated descendant commit bundle plus structured thread/CI
+dispositions. Separate clean jobs authenticate `GH_TOKEN` as `BigSimmo`, reject a moved remote
+head, ordinary-push only the existing feature branch, then reply/resolve only previously recorded
+review threads. A failed-job rerun is limited to one still-failed run at the exact unchanged head.
+
+The operator never merges or closes a PR, updates a protected branch, deletes or renames a branch,
+force-pushes, rebases, deploys, accesses Supabase/production data, or makes GitHub credentials
+available to Codex. It also refuses publication when the repair changes `.github/**`, environment
+or key files, more than 100 paths, or more than 1 MiB of diff. `OPENAI_API_KEY` and `GH_TOKEN` stay
+in GitHub Actions secrets; never copy either value into Codex Cloud settings or repository files.
+Because `issue_comment` executes the default-branch workflow, this fallback becomes usable only
+after its reviewed workflow PR is merged. The first real invocation is the capability proof: verify
+the workflow's identity/permission checks, published SHA, resolved-thread state, and any rerun state
+from the linked Actions run rather than treating configuration as success.
+
 GitHub connector permission is separate from credentials inside the agent shell. The connector,
 native Push control, and GitHub UI are the supported Cloud publication and cleanup paths. Cloud
 secrets are setup-only, so `CODEX_CLOUD_GITHUB_PAT` cannot safely support an agent-phase helper;
