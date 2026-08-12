@@ -134,7 +134,7 @@ describe("owner-scope tenancy guard", () => {
   it("documents every allowlist exception explicitly in the tenancy review", () => {
     // The review doc must list each exact file/table pair (not just a reason string mentioning
     // the doc), so a new bypass entry cannot pass without the reviewer actually recording it.
-    const review = readFileSync("docs/tenancy-defense-in-depth-review.md", "utf8");
+    const review = readFileSync("docs/audit/tenancy-defense-in-depth-review.md", "utf8");
     const lines = review.split("\n");
     for (const entry of OWNER_SCOPE_ALLOWLIST) {
       expect(entry.file).toMatch(/^src\/app\/api\//);
