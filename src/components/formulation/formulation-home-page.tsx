@@ -148,6 +148,13 @@ function FormulationResults({ query }: { query: string }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const rankingReady = deferredQuery === query;
+  // The one frame where the live query has text but the deferred one has not
+  // caught up. `results` deliberately reports nothing there rather than scoring
+  // the whole catalogue, so the counts must say the same thing — otherwise the
+  // sheet shows "0 showing" beside nine non-zero counts, which is the exact
+  // disagreement between a filter and its own predicate that this contract
+  // exists to remove.
+  const pendingRanking = Boolean(query.trim()) && !deferredQuery.trim();
   const searchQuery = query.trim() ? deferredQuery : "";
   const results = useMemo(() => {
     // Cleared live query should restore the full browse catalogue immediately.
@@ -178,9 +185,9 @@ function FormulationResults({ query }: { query: string }) {
         label: "Domain",
         selected: domains,
         options: formulationDomainsInUse.map((item) => {
-          const withCandidate = searchFormulationMechanisms(searchQuery, {
-            domains: new Set([...domains, item]),
-          }).length;
+          const withCandidate = pendingRanking
+            ? 0
+            : searchFormulationMechanisms(searchQuery, { domains: new Set([...domains, item]) }).length;
           return {
             value: item,
             label: item,
@@ -191,13 +198,15 @@ function FormulationResults({ query }: { query: string }) {
             // who has narrowed to nothing can see which choice did it, rather
             // than being offered a tick that silently yields an empty list.
             // Never applied to an option already selected: that would make an
-            // active constraint unremovable.
-            disabled: withCandidate === 0 && !domains.has(item),
+            // active constraint unremovable — and never during the deferred
+            // lag, where a zero means "not scored yet", not "nothing matches",
+            // and would flash all nine options inert for a frame.
+            disabled: !pendingRanking && withCandidate === 0 && !domains.has(item),
           };
         }),
         onToggle: toggleDomain,
       }),
-    [domains, searchQuery, toggleDomain],
+    [domains, pendingRanking, searchQuery, toggleDomain],
   );
 
   return (
