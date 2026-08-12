@@ -40,7 +40,22 @@ export function InPageSectionRail({
   label: string;
   testIdPrefix: string;
 }) {
-  const plan = useMemo(() => planModeNavBands(sections.length), [sections.length]);
+  const plan = useMemo(() => {
+    const sharedPlan = planModeNavBands(sections.length);
+    if (sections.length !== 4) return sharedPlan;
+    // Medication labels carry icons and count badges, so the generic 33rem
+    // four-slot band clips them. Reuse the established 42rem density band:
+    // two priority destinations plus More until all four fit completely.
+    return {
+      firstVisibleBand: new Map([
+        [0, 3],
+        [1, 3],
+        [2, 5],
+        [3, 5],
+      ] as const),
+      moreUntil: 4,
+    } satisfies ReturnType<typeof planModeNavBands>;
+  }, [sections.length]);
   const activeIndex = sections.findIndex((section) => section.id === activeId);
   const activeBand = activeIndex >= 0 ? plan.firstVisibleBand.get(activeIndex) : undefined;
   const activeFrom = plan.moreUntil !== null && activeIndex >= 0 ? (activeBand ?? "none") : undefined;

@@ -342,13 +342,13 @@ describe("in-page navigation panel-swap contracts", () => {
       within(rail)
         .getByRole("button", { name: /^Safety/ })
         .closest("li"),
-    ).toHaveAttribute("data-band", "4");
+    ).toHaveAttribute("data-band", "5");
     expect(
       within(rail)
         .getByRole("button", { name: /^Additional/ })
         .closest("li"),
-    ).toHaveAttribute("data-band", "4");
-    expect(screen.getByTestId("medication-section-overflow").closest("li")).toHaveAttribute("data-until", "3");
+    ).toHaveAttribute("data-band", "5");
+    expect(screen.getByTestId("medication-section-overflow").closest("li")).toHaveAttribute("data-until", "4");
   });
 
   it("opens the section sheet from More and returns focus to that opener", async () => {

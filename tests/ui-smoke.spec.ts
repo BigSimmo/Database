@@ -3595,6 +3595,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(railGeometry.scrollWidth).toBeLessThanOrEqual(railGeometry.clientWidth + 1);
     expect(railGeometry.overflowX).not.toMatch(/auto|scroll/);
 
+    // At the generic four-slot boundary the medication labels still need a
+    // little more room for their icons and count badges, so the tail remains
+    // folded instead of clipping every visible label.
+    await page.setViewportSize({ width: 552, height: 844 });
+    await expect(page.getByTestId("medication-section-overflow")).toBeVisible();
+    await expect(medicationRail.getByRole("button", { name: /^Additional/ })).toBeHidden();
+    const clippedLabelsAtBoundary = await medicationRail
+      .locator("button:visible .mode-nav__ink > span.truncate")
+      .evaluateAll((labels) =>
+        labels.filter((label) => label.scrollWidth > label.clientWidth + 1).map((label) => label.textContent),
+      );
+    expect(clippedLabelsAtBoundary).toEqual([]);
+
+    await page.setViewportSize({ width: 736, height: 844 });
+    await expect(medicationRail.getByRole("button", { name: /^Additional/ })).toBeVisible();
+    await expect(page.getByTestId("medication-section-overflow")).toBeHidden();
+    const clippedLabelsAtWideBand = await medicationRail
+      .locator("button:visible .mode-nav__ink > span.truncate")
+      .evaluateAll((labels) =>
+        labels.filter((label) => label.scrollWidth > label.clientWidth + 1).map((label) => label.textContent),
+      );
+    expect(clippedLabelsAtWideBand).toEqual([]);
+
     expect(parentNodeErrors).toEqual([]);
   });
 

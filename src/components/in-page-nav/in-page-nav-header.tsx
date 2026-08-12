@@ -226,14 +226,20 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
   };
   const resolveSectionSheetReturnFocus = useCallback((): HTMLElement | null => {
     const opener = sectionSheetOpenerRef.current;
-    if (isDisplayedFocusTarget(opener)) return opener;
-    if (isDisplayedFocusTarget(sectionTitleTriggerRef.current)) return sectionTitleTriggerRef.current;
-    const rail = window.document.querySelector<HTMLElement>(`[data-testid="${testIdPrefix}-section-rail"]`);
-    if (!rail) return null;
-    const active = rail.querySelector<HTMLButtonElement>('button[aria-current="true"]');
+    const titleTrigger = sectionTitleTriggerRef.current;
+    // Keep the established rail-breakpoint contract: a title disclosure with
+    // no layout box is hidden even when a stylesheet-free DOM test cannot
+    // resolve the responsive `sm:hidden` class through computed styles.
+    const titleTriggerIsDisplayed =
+      isDisplayedFocusTarget(titleTrigger) && (!rail || titleTrigger.getClientRects().length > 0);
+    if (opener !== titleTrigger && isDisplayedFocusTarget(opener)) return opener;
+    if (titleTriggerIsDisplayed) return titleTrigger;
+    const railRoot = window.document.querySelector<HTMLElement>(`[data-testid="${testIdPrefix}-section-rail"]`);
+    if (!railRoot) return null;
+    const active = railRoot.querySelector<HTMLButtonElement>('button[aria-current="true"]');
     if (isDisplayedFocusTarget(active)) return active;
-    return Array.from(rail.querySelectorAll<HTMLButtonElement>("li button")).find(isDisplayedFocusTarget) ?? null;
-  }, [testIdPrefix]);
+    return Array.from(railRoot.querySelectorAll<HTMLButtonElement>("li button")).find(isDisplayedFocusTarget) ?? null;
+  }, [rail, testIdPrefix]);
 
   useInPageChromeMetrics();
 
