@@ -812,6 +812,15 @@ named PR). Future process only.
   pushes; it fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads still use
   `npm run sync:pr-branches` / `:apply` with a human `gh` identity — never bot
   `update-branch`.
+- When `gh pr checks` cannot read check runs with the current token, query the Actions runs for the
+  exact head SHA instead; do not report CI as unverifiable until that read-only fallback has also
+  failed.
+- Treat outstanding-issue IDs as display locators, not proof that work landed. Verify completion
+  from distinctive content and its recorded check on the exact target ref; PR state, row ID, and row
+  title are insufficient, especially after squash merges or concurrent renumbering. Allocate and
+  mutate rows only through `npm run issues:add|update|done`, never use GitHub's Update branch button
+  on a PR touching `docs/outstanding-issues.md`, and let the structural gate force any allocation
+  collision to be resolved explicitly.
 - Keep Playwright blocking tests at zero retries. Quarantine only after three reproductions
   on the same SHA via `tests/flake-ledger.json` (`@quarantine`, not `@critical`, ≤30-day
   expiry). Do not weaken tap targets to `min-h-11` to chase generic a11y guidance — that
@@ -874,8 +883,9 @@ status ledger. Update the universal ledger when work completes, is dropped, beco
 materially re-scoped. Never restore completed, duplicate, speculative, superseded, or rejected work
 to the recommended queue.
 
-- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
-  `docs/outstanding-issues.md`, state the recommended queue in order, then summarize other open
+- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): run
+  `npm run issues:report -- --json` to read the cached `origin/main` ledger with an explicit stale-state warning;
+  refresh that ref first only with provider authorization. State the recommended queue in order, then summarize other open
   items by priority. A plain `/issues` is read-only — it mutates and commits nothing.
 - `/issues add|done|update|capture …` mutate the ledger; each mutation commits **only**
   `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).

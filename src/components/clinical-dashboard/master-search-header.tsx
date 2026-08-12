@@ -251,7 +251,7 @@ export function MasterSearchHeader({
    *  content keeps maximum screen space. Every phone dock uses it now; the
    *  "default" value remains for hosts that need the taller legacy dock. */
   mobileBottomSearchVariant?: "default" | "compact";
-  /** Show the compact, tappable suggestion ticker only for standalone-mode homes. */
+  /** Show the compact phone suggestion ticker only for standalone-mode homes. */
   showPhoneSuggestionTickerOnHome?: boolean;
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;

@@ -4,7 +4,7 @@
 -- It previously built its spell-correction vocabulary from EVERY indexed document
 -- title AND every enabled rag_aliases row regardless of owner, while the rest of
 -- retrieval is strictly owner-scoped and fail-closed (see
--- docs/tenancy-defense-in-depth-review.md and retrieval_owner_matches). Both
+-- docs/audit/tenancy-defense-in-depth-review.md and retrieval_owner_matches). Both
 -- rag_aliases (owner_id column; deep-memory.ts persists owner-scoped aliases and
 -- canonicals for private documents) and documents carry private rows, so the unscoped
 -- reads let a private tenant's terms bias — and, via observable query rewriting, leak

@@ -79,7 +79,9 @@ test("searches clinical language without provenance fields and carries a result 
   await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
   await expect(page.getByText(/Results ranked by text relevance/i)).toHaveCount(0);
   await expect(page.getByText("Top match", { exact: true })).toBeVisible();
-  await expect(page.getByRole("group", { name: "Filter by specifier family" })).toBeVisible();
+  // A lens, so the rail is a radiogroup rather than a toggle group — the sheet
+  // already said one-of-N and the desktop rail now agrees with it.
+  await expect(page.getByRole("radiogroup", { name: "Filter by specifier family" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Filter by diagnosis" })).toBeVisible();
   await expect(page.getByText("Best fit", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/clinical fit/i)).toHaveCount(0);

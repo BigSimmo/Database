@@ -30,7 +30,7 @@ applied to the live project _before_ the worker is (re)deployed from current
 `complete_strict_enrichment_job`). Deploying the new worker against a database
 that has not yet taken this migration means the R1/R2 lease fences the worker
 relies on are not present. See
-[`operator-apply-july8-batch.md`](operator-apply-july8-batch.md) (step 2:
+[`operator-apply-july8-batch.md`](archive/operator-apply-july8-batch.md) (step 2:
 _"apply before worker redeploy"_) for the ordered apply plan.
 
 Confirm the gate before continuing:

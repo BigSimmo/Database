@@ -1,4 +1,4 @@
--- Tenancy defense-in-depth (docs/tenancy-defense-in-depth-review.md §6, item 1).
+-- Tenancy defense-in-depth (docs/audit/tenancy-defense-in-depth-review.md §6, item 1).
 --
 -- retrieval_owner_matches(owner_filter, row_owner_id) previously returned TRUE for
 -- EVERY row when owner_filter IS NULL (fail-open). Because RLS is service-role-only,

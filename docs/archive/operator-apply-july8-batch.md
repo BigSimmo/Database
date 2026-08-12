@@ -12,8 +12,8 @@
 Consolidated runbook for migrations merged to `main` in PRs **#380**, **#405**,
 **#408**, and **#409** that were **in the repo but not yet verified on live** as
 of 2026-07-09. Companion to
-[`docs/supabase-migration-reconciliation.md`](supabase-migration-reconciliation.md)
-and [`docs/ingestion-concurrency-fix-workorder.md`](ingestion-concurrency-fix-workorder.md).
+[`docs/supabase-migration-reconciliation.md`](../supabase-migration-reconciliation.md)
+and [`docs/ingestion-concurrency-fix-workorder.md`](../ingestion-concurrency-fix-workorder.md).
 
 ## Pre-flight
 
@@ -91,5 +91,5 @@ active end-to-end.
 
 - Forward-codify live-ahead retrieval RPC bodies (`docs/database-drift-detection.md` backlog #0)
 - deep-memory delete scoping design (`docs/ingestion-concurrency-fix-workorder.md`)
-- Staging soak (`docs/staging-setup.md`, `docs/capacity-review.md`)
+- Staging soak (`docs/staging-setup.md`, `docs/audit/capacity-review.md`)
 - `registry:seed` per owner (`docs/process-hardening.md`)
