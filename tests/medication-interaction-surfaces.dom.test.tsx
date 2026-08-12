@@ -179,15 +179,54 @@ describe("MedicationInteractionCallout", () => {
     );
   }
 
+  /** The disclosure trigger — the only thing visible before a tap. */
+  function trigger() {
+    return screen.getByRole("button", { name: /interactions? with this patient/i });
+  }
+
+  function expand() {
+    fireEvent.click(trigger());
+  }
+
   it("renders nothing when no interaction matched — it is not an empty-state surface", () => {
     seedProfile({ medications: ["paracetamol"] });
     renderCallout("acamprosate");
     expect(screen.queryByTestId("medication-interaction-callout")).not.toBeInTheDocument();
   });
 
+  it("starts collapsed, so the record's own content is not pushed down", () => {
+    seedProfile({ medications: ["tramadol-ir", "ibuprofen"] });
+    renderCallout("sertraline");
+
+    expect(trigger()).toHaveAttribute("aria-expanded", "false");
+    // Present in the DOM (Disclosure hides rather than unmounts) but not shown.
+    expect(screen.getByText(/Massive risk of Serotonin Syndrome/i)).not.toBeVisible();
+  });
+
+  it("keeps severity, count and the interacting drugs legible while collapsed", () => {
+    seedProfile({ medications: ["tramadol-ir", "ibuprofen"] });
+    renderCallout("sertraline");
+
+    // Count + severity on the trigger; the drug names in the visible summary.
+    expect(trigger()).toHaveAccessibleName(/2 interactions with this patient/i);
+    expect(screen.getByText("CRITICAL")).toBeVisible();
+    expect(screen.getByText(/Tramadol IR · Ibuprofen/)).toBeVisible();
+  });
+
+  it("reveals the panel on tap", () => {
+    seedProfile({ medications: ["tramadol-ir"] });
+    renderCallout("sertraline");
+
+    expand();
+
+    expect(trigger()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Massive risk of Serotonin Syndrome/i)).toBeVisible();
+  });
+
   it("names each interacting drug and links to its own record", () => {
     seedProfile({ medications: ["tramadol-ir", "ibuprofen"] });
     renderCallout("sertraline");
+    expand();
 
     expect(screen.getByTestId("medication-interaction-callout")).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /Tramadol IR/ });
@@ -198,17 +237,19 @@ describe("MedicationInteractionCallout", () => {
   it("shows the verbatim catalogue wording, not a summary of it", () => {
     seedProfile({ medications: ["tramadol-ir"] });
     renderCallout("sertraline");
-    expect(screen.getByText(/Massive risk of Serotonin Syndrome/i)).toBeInTheDocument();
+    expand();
+    expect(screen.getByText(/Massive risk of Serotonin Syndrome/i)).toBeVisible();
   });
 
   it("lists the most severe first and counts the rest rather than hiding them", () => {
     // Four interacting drugs; the callout shows three and reports the remainder.
     seedProfile({ medications: ["tramadol-ir", "ibuprofen", "naproxen", "diclofenac"] });
     renderCallout("sertraline");
+    expand();
 
     const shown = screen.getAllByTestId(/^medication-callout-(?!open-)/);
     expect(shown).toHaveLength(3);
-    expect(screen.getByText(/\+1 more/)).toBeInTheDocument();
+    expect(screen.getByText(/\+1 more/)).toBeVisible();
   });
 
   it("opens the Key Interactions section and the patient sheet from the callout", () => {
@@ -216,6 +257,7 @@ describe("MedicationInteractionCallout", () => {
     const onSection = vi.fn();
     seedProfile({ medications: ["tramadol-ir"] });
     renderCallout("sertraline", onPatient, onSection);
+    expand();
 
     fireEvent.click(screen.getByTestId("medication-callout-open-section"));
     expect(onSection).toHaveBeenCalledOnce();

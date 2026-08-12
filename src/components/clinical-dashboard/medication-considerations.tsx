@@ -28,6 +28,7 @@ import {
 } from "@/lib/medication-patient-alerts";
 import type { MedicationRecord } from "@/lib/medications";
 import type { SemanticTone } from "@/lib/semantic-tone";
+import { Disclosure } from "@/components/ui/disclosure";
 import { cn, InlineNotice } from "@/components/ui-primitives";
 
 /**
@@ -64,16 +65,17 @@ export function medicationVerdictRingClass(tone: SemanticTone): string | null {
  * without relying on the border colour. Overridden for this badge only, by
  * passing an explicit icon rather than by changing the shared default.
  */
+export const VERDICT_ICONS: Record<SemanticTone, LucideIcon> = {
+  danger: Ban,
+  warning: TriangleAlert,
+  success: ShieldCheck,
+  neutral: CircleHelp,
+  clinical: ClipboardList,
+  info: Info,
+};
+
 export function verdictIcon(tone: SemanticTone): LucideIcon {
-  const byTone: Record<SemanticTone, LucideIcon> = {
-    danger: Ban,
-    warning: TriangleAlert,
-    success: ShieldCheck,
-    neutral: CircleHelp,
-    clinical: ClipboardList,
-    info: Info,
-  };
-  return byTone[tone];
+  return VERDICT_ICONS[tone];
 }
 
 /**
@@ -83,7 +85,7 @@ export function verdictIcon(tone: SemanticTone): LucideIcon {
  * manual review" are findings the clinician should see stated, not absences to
  * be inferred from a missing badge.
  */
-export function verdictSummaryBadge(verdict: MedicationVerdict): ClinicalBadgeItem | null {
+export function verdictSummaryBadge(verdict: MedicationVerdict): ClinicalBadgeItem {
   const findings = verdict.interactionCount + verdict.considerationCount;
   if (findings > 0) {
     const parts: string[] = [];
@@ -148,6 +150,20 @@ function CounterpartyLink({ interaction }: { interaction: MedicationInteraction 
  *
  * Shows the three highest-severity interactions; `interactions` is already
  * priority-sorted by `evaluateMedicationInteractions`.
+ *
+ * COMPACT BY DEFAULT. Always-expanded, this took ~180px above the fold on a
+ * phone and pushed the drug's own content down for prose the reader had not
+ * asked for yet. It is now a `Disclosure`, whose trigger still carries
+ * everything needed to triage — the severity glyph, the count, the interacting
+ * drug names, and the worst severity token. Only the verbatim wording and the
+ * two actions sit behind the tap, so nothing safety-bearing is hidden; the
+ * detail is.
+ *
+ * `Disclosure` is the adopted primitive for this, which is why there is no new
+ * CSS class here: it already gives a real button carrying both `aria-expanded`
+ * and `aria-controls`, a `min-h-tap` trigger, and `print:block` on the panel so
+ * a collapsed interaction still prints — the one case where "hidden until
+ * tapped" would otherwise become "silently absent" on paper.
  */
 export function MedicationInteractionCallout({
   record,
@@ -172,73 +188,84 @@ export function MedicationInteractionCallout({
   const headline = result.interactions.slice(0, MAX_CALLOUT_INTERACTIONS);
   const remaining = result.interactions.length - headline.length;
   const tone = result.highestTone ?? "warning";
+  // Indexed, not `verdictIcon(tone)` — a component produced by a call
+  // expression during render trips `react-hooks/static-components`.
+  const Icon = VERDICT_ICONS[tone];
+  const count = result.interactions.length;
+  // Every matched drug, not just the three the panel details — the trigger is
+  // where the reader decides whether to open at all.
+  const counterparties = result.interactions.map((interaction) => interaction.counterpartyName).join(" · ");
 
   return (
-    <section
-      aria-label="Interactions with this patient's medications"
-      data-testid="medication-interaction-callout"
-      className={cn(
-        "rounded-lg border bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]",
-        tone === "danger" ? "border-[color:var(--danger-border)]" : "border-[color:var(--warning-border)]",
-        className,
-      )}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <ClinicalBadge
-          label={`${result.interactions.length} interaction${result.interactions.length === 1 ? "" : "s"} with this patient`}
-          tone={tone}
-          icon={verdictIcon(tone)}
-          compact
-        />
-      </div>
-
-      <ul className="mt-2 space-y-2">
-        {headline.map((interaction) => (
-          <li
-            key={interaction.id}
-            className="min-w-0"
-            data-testid={`medication-callout-${interaction.counterpartySlug}`}
-          >
-            <Link
-              href={`/medications/${interaction.counterpartySlug}`}
-              className="inline-flex items-center gap-1 text-sm-minus font-semibold text-[color:var(--text-heading)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+    <div data-testid="medication-interaction-callout" className={cn("min-w-0", className)}>
+      <Disclosure
+        headingLevel={2}
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            <Icon className="size-icon-sm shrink-0" aria-hidden="true" />
+            {count} interaction{count === 1 ? "" : "s"} with this patient
+          </span>
+        }
+        description={counterparties}
+        meta={result.interactions[0]?.severity.toUpperCase()}
+        // Border + soft fill only. The bundled toneDanger/toneWarning recipes
+        // also set the text colour, which would put same-hue text on a same-hue
+        // wash — the readability lesson recorded on the hero tiles (#659).
+        // Disclosure's own title is already --text-heading; leave it there.
+        className={cn(
+          tone === "danger"
+            ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]"
+            : "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]",
+        )}
+      >
+        <ul className="space-y-2">
+          {headline.map((interaction) => (
+            <li
+              key={interaction.id}
+              className="min-w-0"
+              data-testid={`medication-callout-${interaction.counterpartySlug}`}
             >
-              {interaction.counterpartyName}
-              <ChevronRight className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden="true" />
-            </Link>
-            {/* Verbatim catalogue text, clamped — the full row is one tap away. */}
-            {interaction.note ? (
-              <p className="line-clamp-2 text-xs leading-5 text-[color:var(--text-muted)]">{interaction.note}</p>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+              <Link
+                href={`/medications/${interaction.counterpartySlug}`}
+                className="inline-flex min-h-tap items-center gap-1 text-sm-minus font-semibold text-[color:var(--text-heading)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                {interaction.counterpartyName}
+                <ChevronRight className="size-icon-sm text-[color:var(--decoration-soft)]" aria-hidden="true" />
+              </Link>
+              {/* Verbatim catalogue text, clamped — the full row is one tap away. */}
+              {interaction.note ? (
+                <p className="line-clamp-2 text-xs leading-5 text-[color:var(--text-muted)]">{interaction.note}</p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
 
-      {remaining > 0 ? (
-        <p className="mt-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
-          +{remaining} more with this patient&rsquo;s medications
-        </p>
-      ) : null}
+        {remaining > 0 ? (
+          <p className="mt-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
+            +{remaining} more with this patient&rsquo;s medications
+          </p>
+        ) : null}
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onOpenInteractionsSection}
-          data-testid="medication-callout-open-section"
-          className={calloutActionClass}
-        >
-          See Key Interactions
-        </button>
-        <button
-          type="button"
-          onClick={onOpenPatientDetails}
-          data-testid="medication-callout-open-patient"
-          className={calloutActionClass}
-        >
-          Patient details
-        </button>
-      </div>
-    </section>
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onOpenInteractionsSection}
+            data-testid="medication-callout-open-section"
+            className={calloutActionClass}
+          >
+            See Key Interactions
+          </button>
+          <button
+            type="button"
+            onClick={onOpenPatientDetails}
+            data-testid="medication-callout-open-patient"
+            className={calloutActionClass}
+          >
+            Patient details
+          </button>
+        </div>
+      </Disclosure>
+    </div>
   );
 }
 

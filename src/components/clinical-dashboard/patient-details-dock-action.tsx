@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
@@ -109,9 +109,14 @@ export function PatientDetailsDockAction() {
   // Count the entered dimensions, not just the medications, so the badge means
   // "how much context is loaded" rather than "how many drugs".
   const enteredCount = countEnteredFields(profile);
+  // Stable id so the trigger can advertise `aria-controls`. `aria-expanded`
+  // alone announces that something opened but never what — the same gap
+  // `Disclosure` exists to close.
+  const sheetId = useId();
 
   const sheet = (
     <Sheet
+      id={sheetId}
       open={open}
       onClose={() => setOpen(false)}
       title="Patient details"
@@ -140,6 +145,7 @@ export function PatientDetailsDockAction() {
             data-testid="patient-details-dock-action"
             aria-haspopup="dialog"
             aria-expanded={open}
+            aria-controls={sheetId}
             className={cn("patient-details-fab__button", !isEmpty && "patient-details-fab__button--active")}
           >
             <UserRound className="h-5 w-5 shrink-0" aria-hidden="true" />
