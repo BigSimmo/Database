@@ -458,7 +458,7 @@ function AllTopics({ onSelect }: { onSelect: (id: GuideTopicId) => void }) {
               key={topic.id}
               type="button"
               onClick={() => onSelect(topic.id)}
-              className="group min-h-tap rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="group min-h-tap rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--e1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <span className="grid size-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                 <Icon aria-hidden="true" className="size-icon-md" />
