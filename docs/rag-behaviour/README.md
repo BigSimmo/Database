@@ -18,8 +18,10 @@ Standing rules (mirrored in `AGENTS.md` so every agent session inherits them):
    `scripts/pr-policy.mjs` — the check fails without it).
 2. **Canary for behaviour changes.** Any retrieval/ranking/ordering behaviour change requires a
    live eval-canary pair — baseline + post — with doc/content recall pinned at 1.0 and zero
-   per-case regressions, before the change is trusted. `workflow_dispatch` on
-   `eval-canary.yml` (provider-backed → explicit user approval per run).
+   per-case regressions, before the change is trusted. Runs fire via an `eval-canary`
+   repository dispatch (`eval-canary.yml` deliberately has no `workflow_dispatch` and no
+   `ref` input — it always loads from the default branch; provider-backed → explicit user
+   approval per run).
 3. **Offline green is necessary, never sufficient.** The Phase C regression passed 121/121
    offline tests and an adversarial code review, then failed 3/36 live within one run. The live
    corpus is the only authority on ordering behaviour.

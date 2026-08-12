@@ -90,7 +90,7 @@ export function SharedHomeEmptyState({
               onPick={(entry) => onSelectRecent?.(entry)}
               label={sharedHomeEmptyState.recentLabel}
               layout="wrap"
-              className="justify-center"
+              className="home-recent-searches justify-center"
               icon={History}
             />
           )}

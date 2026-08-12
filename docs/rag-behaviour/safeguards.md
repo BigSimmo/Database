@@ -64,8 +64,19 @@ keys above relevance, read this folder first. **Also:** do not add `review_due` 
 refuted (`refuted-approaches.md` § Refutation 3; ledger `#032`). The eval-canary pair protocol:
 
 1. Baseline: latest green canary on current main (or one dispatch).
-2. Change merges (or runs from a branch via the `ref` dispatch input).
-3. Post: one dispatch; gates = recall 1.0/1.0, zero per-case rr regressions.
+2. Change merges to main. (Post runs are post-merge only: the workflow accepts only the
+   `eval-canary` repository dispatch and always loads code from the default branch — no
+   `workflow_dispatch`, no `ref` input; both are asserted absent by
+   `tests/eval-canary-workflow.test.ts`.)
+3. Post: one dispatch; gates = recall 1.0/1.0, zero per-case rr regressions. Compare the
+   pair's `--json-out` artifacts — the command diffs per-case `rr@10`/`contentRR@10` and
+   exits non-zero on any per-case regression, a non-identical case set, or an unavailable
+   rank metric:
+
+   ```bash
+   npm run eval:retrieval:compare -- <baseline.json> <post.json> --fail-on-regression
+   ```
+
 4. Regression → immediate single-commit revert + one confirmation dispatch.
 
 Provider-backed dispatches always need explicit user approval (~$1–2 each).

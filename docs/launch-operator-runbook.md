@@ -47,12 +47,12 @@ verified on 2026-07-13. Their detailed procedures remain for staging/disaster re
 them merely because they appear below. First compare linked migration history and verify the remaining
 PIA-4 retention migrations. **Do not redeploy the worker until `20260708130000` is confirmed live.**
 
-| Group | Migration/control                                                                                | Recorded status                                     | Operator action                                                                                            |
-| ----- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| a–f   | July-8 ingestion/tenancy batch in [operator-apply-july8-batch.md](operator-apply-july8-batch.md) | **Verified live 2026-07-13**                        | Verify only; redeploy the worker if that recorded remaining action is still open.                          |
-| g     | `20260708120000_rag_query_misses_retention`                                                      | **Applied and verified live 2026-07-14**            | Job 13 is active with the 90-day retention window.                                                         |
-| h     | `20260713201542_consolidate_rag_response_cache_retention`                                        | **Applied and verified live 2026-07-14**            | Job 16 is active and bounded; obsolete duplicate job confirmed absent.                                     |
-| i     | Retrieval RPC forward-codification (`20260713062107`…`20260713062139`)                           | **Applied and drift/readiness verified 2026-07-13** | Verify only; see [forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md). |
+| Group | Migration/control                                                                                        | Recorded status                                     | Operator action                                                                                            |
+| ----- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| a–f   | July-8 ingestion/tenancy batch in [operator-apply-july8-batch.md](archive/operator-apply-july8-batch.md) | **Verified live 2026-07-13**                        | Verify only; redeploy the worker if that recorded remaining action is still open.                          |
+| g     | `20260708120000_rag_query_misses_retention`                                                              | **Applied and verified live 2026-07-14**            | Job 13 is active with the 90-day retention window.                                                         |
+| h     | `20260713201542_consolidate_rag_response_cache_retention`                                                | **Applied and verified live 2026-07-14**            | Job 16 is active and bounded; obsolete duplicate job confirmed absent.                                     |
+| i     | Retrieval RPC forward-codification (`20260713062107`…`20260713062139`)                                   | **Applied and drift/readiness verified 2026-07-13** | Verify only; see [forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md). |
 
 **⏸ PAUSE:** if and only if linked history shows migration `20260708120000` or `20260713201542` absent,
 apply the reviewed committed migration through the normal guarded workflow. Do not use this status
@@ -129,7 +129,7 @@ Detailed: [staging-setup.md](staging-setup.md). No code change — the identity 
    npx tsx scripts/soak-test.ts --target https://<staging-host> --confirm-staging \
      --users 30 --duration-s 600 --ramp-s 120
    ```
-   Targets ([capacity-review.md](capacity-review.md) §4): search p95 ≤ 3 s, **answer p95 ≤ 25 s**
+   Targets ([capacity-review.md](audit/capacity-review.md) §4): search p95 ≤ 3 s, **answer p95 ≤ 25 s**
    (watch this given the Railway↔Sydney hop), non-429 error rate < 1 %.
 4. Rehearse rollback = redeploy the previous Railway image tag; confirm health returns.
 
@@ -154,7 +154,7 @@ no scale-to-zero, Railway health `/api/health/ready`. I'll prep the Railway serv
 - **Registry seed (prod)** 🧑 — `npm run registry:seed -- --owner-id <prod-owner-uuid> --write --confirm`
   (+ `differentials:seed` for the slug-retitle prune). Until seeded, Services/Forms show empty.
 - **Auth connection cap** 🧑 — before the first vertical scale-up, switch Supabase auth from the 10-absolute
-  cap to **percentage-based** allocation in the dashboard ([capacity-review.md](capacity-review.md) §3).
+  cap to **percentage-based** allocation in the dashboard ([capacity-review.md](audit/capacity-review.md) §3).
   Not settable via SQL/MCP.
 - **Observability wiring** 🧑 — once host metrics exist, wire the warn/page SLO thresholds
   ([observability-slos.md](observability-slos.md) §2) into a real alert channel; confirm the nightly eval

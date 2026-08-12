@@ -1785,33 +1785,19 @@ summary::-webkit-details-marker {
   display: none;
 }
 
-/* Medication result views use full-bleed structure on phones while keeping
-   readable content inside the device safe area. The dashboard content shell
-   contributes 0.75rem phone gutters, so the workspace cancels only that known
-   inset rather than using 100vw (which can create page-level overflow). */
+/* Medication results keep the dashboard's phone gutter so the search band,
+   patient details, and result-card edges remain visibly complete. Content also
+   honours device safe areas without expanding the workspace beyond its owner. */
 @media (max-width: 639px) {
-  .medication-results-workspace {
-    width: calc(100% + 1.5rem);
-    max-width: none;
-    margin-inline: -0.75rem;
-  }
-
   .medication-results-inset {
-    padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
-    padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
-  }
-
-  .medication-patient-strip {
-    border-right: 0;
-    border-left: 0;
-    border-radius: 0;
-    box-shadow: none;
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
   }
 
   .medication-patient-strip > summary,
   .medication-patient-strip > div {
-    padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
-    padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
+    padding-left: max(0.75rem, var(--safe-area-left));
+    padding-right: max(0.75rem, var(--safe-area-right));
   }
 
   .medication-filter-strip {
@@ -1822,25 +1808,10 @@ summary::-webkit-details-marker {
     padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
   }
 
-  .medication-mobile-results {
-    gap: 0;
-    border-block: 1px solid var(--border);
-    background: var(--surface-raised);
-  }
-
   .medication-mobile-result {
-    border-top: 0;
-    border-right: 0;
-    border-left: 0;
-    border-radius: 0;
     padding-block: 0.75rem;
-    padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
-    padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
-    box-shadow: none;
-  }
-
-  .medication-mobile-result:last-child {
-    border-bottom: 0;
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
   }
 
   .medication-mobile-result[data-selected="true"] {
@@ -2083,6 +2054,66 @@ summary::-webkit-details-marker {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Home history is a quiet convenience rather than a second set of primary
+   actions. Keep the shared chip behaviour and touch target, but use a compact
+   rectangular treatment that takes up less visual and vertical space. */
+.home-recent-searches {
+  gap: calc(var(--spacing-icon-xs) / 2) var(--radius-md);
+  padding-inline: 0;
+}
+
+.home-recent-searches .answer-suggestion-label {
+  color: var(--text-heading);
+  font-size: var(--text-3xs);
+  font-weight: 650;
+  letter-spacing: 0.025em;
+}
+
+.home-recent-searches .answer-suggestion-chips {
+  justify-content: center;
+  gap: calc(var(--spacing-icon-xs) / 2);
+}
+
+.home-recent-searches .answer-suggestion-chip {
+  min-height: calc(var(--spacing-tap) * 7 / 12);
+  border-color: color-mix(in srgb, var(--border) 58%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-inset) 42%, transparent);
+  box-shadow: none;
+  padding-inline: var(--radius-md);
+  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+  font-size: var(--text-2xs);
+  font-weight: 550;
+}
+
+.home-recent-searches .answer-suggestion-chip-icon {
+  width: var(--text-2xs);
+  height: var(--text-2xs);
+  margin-right: var(--radius-xs);
+}
+
+.home-recent-searches .answer-suggestion-chip:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--clinical-accent-border) 68%, transparent);
+  background: color-mix(in srgb, var(--clinical-accent-soft) 52%, transparent);
+}
+
+@media (pointer: coarse) {
+  .home-recent-searches .answer-suggestion-chip {
+    min-height: var(--spacing-tap);
+  }
+}
+
+@media (max-width: 639px) {
+  .home-recent-searches {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .home-recent-searches .answer-suggestion-chips {
+    justify-content: flex-start;
+  }
 }
 
 .answer-footer-search-edge .answer-suggestion-row {

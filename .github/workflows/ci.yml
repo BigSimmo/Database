@@ -57,7 +57,7 @@ jobs:
       codex_autofix_changed: ${{ steps.scope.outputs.codex_autofix_changed }}
       build_changed: ${{ steps.scope.outputs.build_changed }}
       lockfile_changed: ${{ steps.scope.outputs.lockfile_changed }}
-      pr_policy_body_present: ${{ steps.scope.outputs.pr_policy_body_present }}
+      pr_policy_body_changed: ${{ steps.scope.outputs.pr_policy_body_changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -88,7 +88,7 @@ jobs:
   sync-pr-policy-body:
     name: Sync PR policy body
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.pr_policy_body_present == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.pr_policy_body_changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -121,6 +121,19 @@ jobs:
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/trusted-policy/scripts/pr-policy.mjs`).href;
             const { collectSatisfiedGovernanceItems, requiredClinicalGovernanceItems, section } = await import(moduleUrl);
             const pr = context.payload.pull_request;
+            const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const bodyTemplateWasAdded = changedFiles.some(
+              (file) => file.filename === "PR_POLICY_BODY.md" && file.status === "added",
+            );
+            if (!bodyTemplateWasAdded) {
+              core.info("PR_POLICY_BODY.md was not added by this PR; skipping PR body sync.");
+              return;
+            }
             const existingBody = pr.body || "";
             const existingCheckedItems = new Set();
             const govSection = section(existingBody, "Clinical Governance Preflight");
