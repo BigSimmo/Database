@@ -218,7 +218,6 @@ function presetChips(): DifferentialStreamPresetChip[] {
  * the shared ranker), then dimmed non-matches. Without a query: urgency chapters
  * for diagnoses, presentation list for presentations.
  */
-
 function compareSeedIdsForMatches(matchSlugs: string[]): string[] {
   const slugs = matchSlugs.map((slug) => slug.trim().toLowerCase()).filter(Boolean);
   if (slugs.length < 2) return slugs.slice(0, 1);
@@ -243,7 +242,32 @@ export function buildDifferentialStreamModel(stream: DifferentialStreamType, que
 
   if (stream === "presentations") {
     const presentations = differentialPresentations();
-    const ranked = hasQuery ? rankPresentationWorkflows(presentations, trimmedQuery, presentations.length) : [];
+
+    if (!hasQuery) {
+      const items = [...presentations]
+        .sort(
+          (left, right) =>
+            statusChapterOrder.indexOf(left.status) - statusChapterOrder.indexOf(right.status) ||
+            left.title.localeCompare(right.title),
+        )
+        .map((workflow) => presentationItemFromWorkflow(workflow, presentations));
+
+      return {
+        stream,
+        items,
+        matchCount: 0,
+        chapters: urgencyChapters(items),
+        presentationChapters: [],
+        presets,
+        safetyShelfIds: items
+          .filter((item) => item.status === "emergent")
+          .slice(0, 6)
+          .map((item) => item.id),
+        compareSeedIds: [],
+      };
+    }
+
+    const ranked = rankPresentationWorkflows(presentations, trimmedQuery, presentations.length);
     const matchById = new Map(ranked.map((match) => [match.workflow.id, match]));
     const matchedItems = ranked.map((match) =>
       presentationItemFromWorkflow(match.workflow, presentations, {
@@ -255,22 +279,13 @@ export function buildDifferentialStreamModel(stream: DifferentialStreamType, que
       .filter((workflow) => !matchById.has(workflow.id))
       .map((workflow) => presentationItemFromWorkflow(workflow, presentations))
       .sort((left, right) => left.title.localeCompare(right.title));
-
-    const items = hasQuery
-      ? [...matchedItems, ...unmatchedItems]
-      : [...presentations]
-          .sort(
-            (left, right) =>
-              statusChapterOrder.indexOf(left.status) - statusChapterOrder.indexOf(right.status) ||
-              left.title.localeCompare(right.title),
-          )
-          .map((workflow) => presentationItemFromWorkflow(workflow, presentations));
+    const items = [...matchedItems, ...unmatchedItems];
 
     return {
       stream,
       items,
       matchCount: matchedItems.length,
-      chapters: hasQuery ? [] : urgencyChapters(items),
+      chapters: [],
       presentationChapters: [],
       presets,
       safetyShelfIds: items
