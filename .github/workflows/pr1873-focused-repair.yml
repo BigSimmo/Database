@@ -1,0 +1,71 @@
+name: PR 1873 focused repair
+on:
+  push:
+    branches: [codex/ledger-conflict-guards-publish]
+concurrency:
+  group: pr-1873-focused-repair
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  repair:
+    if: contains(github.event.head_commit.message, '[pr1873-bootstrap]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact bootstrap commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: true
+          token: ${{ secrets.GH_TOKEN }}
+      - name: Setup repository Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Verify, apply, test, and publish
+        shell: bash
+        env:
+          PARENT: 3b3af951b74926b28ac53b9af7cd99698a7a5549
+          BRANCH: codex/ledger-conflict-guards-publish
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$PARENT"
+          test "$GITHUB_REF_NAME" = "$BRANCH"
+          printf '%s\n' \
+            .github/workflows/pr1873-focused-repair.yml \
+            .pr1873-payload/chunk-{00..07} \
+            > /tmp/bootstrap-paths
+          diff -u /tmp/bootstrap-paths <(git diff-tree --no-commit-id --name-only -r HEAD | sort)
+
+          cat .pr1873-payload/chunk-* | base64 -d > /tmp/payload.tar.xz
+          echo '37b903d12e19e41c979dafc161cb276e1c7f0eb8ae476e8cb36acee6aa21c9ad  /tmp/payload.tar.xz' | sha256sum -c -
+          rm -rf /tmp/payload && mkdir /tmp/payload
+          tar -xJf /tmp/payload.tar.xz -C /tmp/payload
+
+          files=(
+            docs/outstanding-issues-inbox/README.md
+            scripts/branch-review-ledger.mjs
+            scripts/check-branch-review-ledger.mjs
+            scripts/check-ledger-write-discipline.mjs
+            scripts/ledger-inbox.mjs
+          )
+          for file in "${files[@]}"; do
+            cat "/tmp/payload/$file" > "$file"
+          done
+          rm -rf .pr1873-payload .github/workflows/pr1873-focused-repair.yml
+
+          for file in "${files[@]:1}"; do node --check "$file"; done
+          node scripts/branch-review-ledger.mjs --self-test
+          node scripts/check-branch-review-ledger.mjs --self-test
+          node scripts/ledger-inbox.mjs --self-test
+          node scripts/check-ledger-write-discipline.mjs --self-test
+          git diff --check "$PARENT"
+          printf '%s\n' "${files[@]}" | sort > /tmp/final-paths
+          diff -u /tmp/final-paths <(git diff --name-only "$PARENT" | sort)
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(ledger): resolve concurrent review races'
+          git push origin "HEAD:$BRANCH"
