@@ -3,7 +3,7 @@
 **Owner:** operator (dashboard action; **not settable via SQL/MCP**).
 **When:** complete this _before_ the first compute (vertical) scale-up and before
 any horizontal replica add. See the ordering in `docs/deployment-architecture.md`
-§2 and the bottleneck analysis in `docs/capacity-review.md` §2–§3.
+§2 and the bottleneck analysis in `docs/audit/capacity-review.md` §2–§3.
 **Project:** `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), region
 ap-southeast-2 (Sydney).
 
@@ -40,7 +40,7 @@ Concretely, the desired end state is:
    Max Connections if you lean on the PostgREST API heavily, up to **80 %**
    otherwise), which **leaves adequate room for the Auth server and other
    utilities** ([connection-management][connmgmt]). This app is PostgREST-heavy
-   (the answer path fans out to ~6 hybrid RPCs — `docs/capacity-review.md` §2),
+   (the answer path fans out to ~6 hybrid RPCs — `docs/audit/capacity-review.md` §2),
    so stay near the 40 % end.
 3. When you scale compute, the auth service pool moves **with** the new
    `max_connections` instead of staying pinned at the old absolute number.
@@ -93,7 +93,7 @@ Concretely, the desired end state is:
       settings screenshot.
 - [ ] **Soak at higher load passes with zero auth failures.** Re-run the
       ward-round soak against **staging** at the higher user count and confirm
-      the "Auth failures during ramp = 0" row of the `docs/capacity-review.md` §4
+      the "Auth failures during ramp = 0" row of the `docs/audit/capacity-review.md` §4
       success table holds (command below).
 
 Higher-load soak (authenticated, staging only — so the sign-in burst actually
@@ -127,7 +127,7 @@ npx tsx scripts/soak-test.ts \
 
 ## References
 
-- `docs/capacity-review.md` §2 (Auth: 10 absolute DB connections) and §3
+- `docs/audit/capacity-review.md` §2 (Auth: 10 absolute DB connections) and §3
   (first-bottleneck verdict) and §4 (soak test + success criteria).
 - `docs/deployment-architecture.md` §2 (single-instance scale-out plan) and §5
   (why staging must not share the production auth cap).

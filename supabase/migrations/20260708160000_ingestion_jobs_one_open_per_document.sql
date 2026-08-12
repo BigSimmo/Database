@@ -5,7 +5,7 @@
 -- preview sync with "Remote migration versions not found in local migrations
 -- directory." The transactional index creation lives in
 -- 20260708170000_ingestion_jobs_one_open_per_document.sql; on live, prefer the
--- lock-free CONCURRENTLY path in docs/operator-apply-july8-batch.md when the
+-- lock-free CONCURRENTLY path in docs/archive/operator-apply-july8-batch.md when the
 -- queue is idle, then repair history to match effect.
 
 select 1 where false;
