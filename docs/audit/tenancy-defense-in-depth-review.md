@@ -275,7 +275,7 @@ small, largely-cooperative user set with a public shared corpus.
    `retrieval_owner_matches` now returns no rows when `owner_filter IS NULL`; the app uses the public
    sentinel for legitimate unauthenticated paths. Verify: `npm run check:july8-live-batch`.
 2. **Add a CI guard against un-scoped owner tables (cheap, high value) — DONE (2026-07-17).**
-   [`scripts/check-owner-scope-api.mjs`](../scripts/check-owner-scope-api.mjs) fails when a
+   [`scripts/check-owner-scope-api.mjs`](../../scripts/check-owner-scope-api.mjs) fails when a
    `src/app/api/**` handler queries an owner-scoped table (any table with an `owner_id` column in
    `supabase/schema.sql`) without a recognised scoping construct in the enclosing handler —
    `.eq('owner_id'`, `withOwnerReadScope`, `requireOwnerScope`, `requireOwnedDocument`/`loadOwnedDocument`,
@@ -283,7 +283,7 @@ small, largely-cooperative user set with a public shared corpus.
    indirect-scope cases live in a documented `OWNER_SCOPE_ALLOWLIST` (today only the two local-origin
    `setup-status` existence probes, §3 / TEN-N1). Wired into `npm run check:owner-scope`,
    `npm run verify:cheap`, and the CI `static-pr` job; regression-locked by
-   [`tests/owner-scope-guard.test.ts`](../tests/owner-scope-guard.test.ts). This directly guards the
+   [`tests/owner-scope-guard.test.ts`](../../tests/owner-scope-guard.test.ts). This directly guards the
    regression class the single-layer model is exposed to — a future PR dropping the filter.
 3. **Add a live cross-tenant integration test (medium value).** Fixtures for user A + user B; for each
    route family assert B cannot read/mutate A's non-null rows and gets 404/empty. This is the
