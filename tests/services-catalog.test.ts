@@ -33,6 +33,18 @@ describe("services catalogue", () => {
     expect(record.verification?.confidence).toBe("Medium");
   });
 
+  it("populates the typed facet carrier straight from the catalogue's own tags", () => {
+    const snapshot = loadServicesSnapshot();
+    const yarn = snapshot.services.find((service) => service.canonical_name_key === "13yarn");
+    expect(yarn).toBeTruthy();
+
+    const record = catalogToServiceRecord(yarn!);
+    // Same object the mapper builds `record.tags` (the flattened, deduped array) from — but
+    // `facets` must stay the untouched typed shape, since a facet filter built on the
+    // flattened array is wrong by construction (docs/filter-contract.md).
+    expect(record.facets).toEqual(yarn!.tags);
+  });
+
   it("compacts pipe-joined best-use blobs on summary cards", () => {
     const snapshot = loadServicesSnapshot();
     const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");

@@ -100,13 +100,24 @@ corpus of that size, and it stays.
 
 ## 5. Density is a function of option count
 
-Facet groups only. Thresholds match the rule documents already uses (`dense = groups.length > 3`).
+Facet groups only. Two states, not three — `document-search-results.tsx` never actually shipped
+a distinct "dense list, no find-a-filter" middle tier (its own `dense` boolean gates both the
+needle and the collapse together), so `ResultFilterSheet`/`ResultFilterFacetChips`
+(`src/components/clinical-dashboard/result-filter-control.tsx`) match that shipped behaviour
+rather than the wider table an earlier draft of this section implied:
 
-| Options             | Renderer                                                                |
-| ------------------- | ----------------------------------------------------------------------- |
-| ≤ 5                 | chips, single row where they fit                                        |
-| 6 – 20              | dense list: full-width rows, right-aligned count column, group headings |
-| > 20, or > 3 groups | dense list plus find-a-filter and collapse-by-default                   |
+| Options                     | Renderer                                                                                 |
+| --------------------------- | ---------------------------------------------------------------------------------------- |
+| ≤ 3 groups and ≤ 20 options | chips, single row where they fit (unchanged from before this section)                    |
+| > 3 groups, or > 20 options | chips plus find-a-filter and collapse-by-default, every group behind a disclosure header |
+
+`ResultFilterSheet` computes `dense = facetGroups.length > 3 || totalFacetOptions > 20` once
+across every facet-kind group it was handed — generalising documents' `groups.length > 3` to
+also catch a single group past 20 options, which the group-count-only version would miss.
+Services (PR C, `docs/branch-review-ledger.md`) is the first adopter: 5 facet groups / 24 total
+options trips the `> 3 groups` half. `/issues #309` tracked this decision as open before PR C;
+it is resolved by this implementation, not deferred to a documents port (PR F) — PR F instead
+converges onto the now-shared renderer, per the Rollout section below.
 
 Collapse rules, when they apply: groups start collapsed; a group holding a selection opens
 itself; an explicit user collapse beats that; an active needle forces every matched group open

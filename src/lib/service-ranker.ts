@@ -1,4 +1,5 @@
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+import type { CatalogServiceTags } from "@/lib/service-catalog";
 
 export type ServiceChipTone = "danger" | "info" | "warning" | "success" | "neutral";
 export type ServiceCriterionTone = "meet" | "caution" | "reject";
@@ -71,6 +72,11 @@ export type ServiceRecord = {
   source?: ServiceSource;
   /** Full source-specific payload retained in the registry JSONB column. */
   catalogPayload?: Record<string, unknown>;
+  /** Typed six-dimension facet carrier — derived from `catalogPayload.tags` (registry path) or
+   *  the catalogue's own `tags` (fixture/demo path). Populated once at the mapper, not parsed at
+   *  each call site. Distinct from `tags` above, which is a flattened, deduped array unsafe for
+   *  faceting (see `docs/filter-contract.md` and `src/lib/service-facets.ts`). */
+  facets?: CatalogServiceTags;
 };
 
 export type ServiceSearchMatch = {

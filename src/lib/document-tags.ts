@@ -1,3 +1,4 @@
+import { entryMatchesSelection, partitionSelectionByGroup } from "@/lib/facet-selection";
 import type { DocumentLabel, DocumentLabelType } from "@/lib/types";
 
 export type SmartDocumentTagGroup =
@@ -910,44 +911,11 @@ function facetKeyGroups<T extends ClinicalTagSource>(index: SmartDocumentTagFace
   return groups;
 }
 
-/**
- * Group the selection so it can be combined the way a reader means it.
- *
- * Two values from the *same* group are alternatives — "Lithium or Clozapine",
- * "renal or thyroid risk" — so they widen. Values from *different* groups are
- * constraints that stack — "lithium documents, about renal risk" — so they
- * narrow. That is OR within a group, AND across groups.
- *
- * Before this, everything ANDed: picking two medications asked for a document
- * about both and returned nothing almost every time, which made multi-select
- * within a group a dead affordance rather than a feature.
- */
-function partitionSelectionByGroup(selectedTagKeys: string[], keyGroups: Map<string, SmartDocumentTagGroup>) {
-  const byGroup = new Map<string, Set<string>>();
-  for (const key of new Set(selectedTagKeys)) {
-    // A key whose group cannot be resolved is kept under its own identity, so it
-    // still constrains rather than being silently dropped from the filter.
-    const group = keyGroups.get(key) ?? `\u0000${key}`;
-    const bucket = byGroup.get(group);
-    if (bucket) bucket.add(key);
-    else byGroup.set(group, new Set([key]));
-  }
-  return byGroup;
-}
-
-function entryMatchesSelection(tagKeys: Set<string>, byGroup: Map<string, Set<string>>) {
-  for (const keys of byGroup.values()) {
-    let hit = false;
-    for (const key of keys) {
-      if (tagKeys.has(key)) {
-        hit = true;
-        break;
-      }
-    }
-    if (!hit) return false;
-  }
-  return true;
-}
+// The OR-within-group/AND-across-group grouping and matching logic
+// (`partitionSelectionByGroup`, `entryMatchesSelection`) now lives in
+// `src/lib/facet-selection.ts`, imported above — shared with `src/lib/service-facets.ts` so a
+// second counting rule is never invented alongside this one. Neither function ever depended on
+// the group being a `SmartDocumentTagGroup` specifically.
 
 export function filterDocumentsBySmartTagFacetIndex<T extends ClinicalTagSource>(
   index: SmartDocumentTagFacetIndex<T>,

@@ -351,6 +351,7 @@ export function catalogToServiceRecord(service: CatalogService): ServiceRecord {
     navigatorQuery:
       cleanField(service.search_text) ?? `${service.name} ${service.provider} ${service.region_catchment}`,
     source: buildSource(service),
+    facets: service.tags,
   };
 }
 

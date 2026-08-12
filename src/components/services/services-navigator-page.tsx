@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Check, ExternalLink, GitCompareArrows, ListChecks, ShieldCheck, X } from "lucide-react";
 import { useDeferredValue, useId, useMemo, useState } from "react";
 
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
@@ -16,9 +17,11 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
+  resultFilterFacetGroup,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { ServiceGroupNav } from "@/components/services/service-group-nav";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { useResultSort } from "@/components/use-result-sort";
@@ -31,12 +34,23 @@ import {
   serviceMatchesCoreGroup,
   type ServiceCoreGroupId,
 } from "@/lib/service-core-groups";
+import {
+  buildServiceFacetIndex,
+  filterServicesByFacetIndex,
+  projectServiceFacetCounts,
+  serviceFacetGroupIds,
+  serviceFacetGroupLabels,
+} from "@/lib/service-facets";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
 import { sortResultItems } from "@/lib/result-sort";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 
 const bestFitQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
-const serviceQuickFilters = [
+// Search shortcuts, not filters: each one runs a new search and replaces the current one.
+// Evicted from the filter sheet (docs/filter-contract.md — there is deliberately no `navigate`
+// kind) and rendered as `AnswerSuggestionChips` below the header band instead, same pattern as
+// formulation's evicted `Pattern` group.
+const serviceSearchShortcuts = [
   { label: "Best fit", query: bestFitQuery },
   { label: "Crisis", query: "crisis" },
   { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
@@ -44,6 +58,12 @@ const serviceQuickFilters = [
   { label: "Free", query: "free" },
   { label: "WA", query: "WA" },
 ] as const;
+
+type ServiceSubstanceLens = "general" | "aod";
+
+function readServiceSubstanceLens(value: string | null | undefined): ServiceSubstanceLens | null {
+  return value === "general" || value === "aod" ? value : null;
+}
 
 function displayText(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
@@ -295,10 +315,6 @@ export function ServicesNavigatorPage() {
     () => rankedMatches.filter((service) => serviceMatchesCoreGroup(service, activeGroup)),
     [activeGroup, rankedMatches],
   );
-  const displayedMatches = useMemo(
-    () => sortResultItems(groupedMatches, sortValue, (service) => service.title),
-    [groupedMatches, sortValue],
-  );
   const relevanceRankMap = useMemo(() => {
     const map = new Map<string, number>();
     rankedMatches.forEach((service, index) => map.set(service.slug, index + 1));
@@ -317,12 +333,52 @@ export function ServicesNavigatorPage() {
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
   const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
   const [showComparison, setShowComparison] = useState(false);
-  const activeQuickFilter = serviceQuickFilters.find(
-    (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
-  );
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
+
+  // Five of `CatalogServiceTags`' six dimensions are facets (many-of-N, OR within group, AND
+  // across groups). `substance_flags` is an exact partition — every service carries exactly one
+  // of general/aod — so it ships as the `substance` lens below, not a sixth facet. Both are
+  // derived from `groupedMatches` (query + core-group scoped), so a facet narrows further rather
+  // than replacing that scoping. See docs/filter-contract.md and src/lib/service-facets.ts.
+  const selectedFacetKeys = useMemo(() => {
+    const raw = searchParams.get("facets");
+    if (!raw) return new Set<string>();
+    return new Set(
+      raw
+        .split(",")
+        .map((key) => key.trim())
+        .filter(Boolean),
+    );
+  }, [searchParams]);
+  const substanceLens = readServiceSubstanceLens(searchParams.get("substance"));
+  const serviceFacetIndex = useMemo(() => buildServiceFacetIndex(groupedMatches), [groupedMatches]);
+  const facetFilteredMatches = useMemo(
+    () => filterServicesByFacetIndex(serviceFacetIndex, [...selectedFacetKeys]),
+    [serviceFacetIndex, selectedFacetKeys],
+  );
+  const substanceFilteredMatches = useMemo(
+    () =>
+      substanceLens
+        ? facetFilteredMatches.filter((service) => service.facets?.substance_flags.includes(substanceLens))
+        : facetFilteredMatches,
+    [facetFilteredMatches, substanceLens],
+  );
+  const displayedMatches = useMemo(
+    () => sortResultItems(substanceFilteredMatches, sortValue, (service) => service.title),
+    [substanceFilteredMatches, sortValue],
+  );
+  const projectedFacetGroups = useMemo(
+    () => projectServiceFacetCounts(serviceFacetIndex, [...selectedFacetKeys]),
+    [serviceFacetIndex, selectedFacetKeys],
+  );
+  const catalogueTotal = searchableRecords.length;
+  // The only escape from a filtered-to-zero state that does not discard the query — see the
+  // scope segment note below. Hidden once the two segments would show the same number, which
+  // would be noise rather than an escape. docs/filter-contract.md §4.
+  const showScopeSegment = catalogueTotal > displayedMatches.length;
+  const activeFilterCount = selectedFacetKeys.size + (substanceLens ? 1 : 0);
 
   function updateParams(mutator: (params: URLSearchParams) => void, replace = false) {
     const params = new URLSearchParams(searchParams.toString());
@@ -351,12 +407,46 @@ export function ServicesNavigatorPage() {
     });
   }
 
-  function clearServiceQuery() {
+  // `onClearAll` — never touches `q`, only the facet/substance dimensions this sheet owns.
+  // Clearing filters and clearing a search are different intentions (docs/filter-contract.md §6).
+  function clearServiceFilters() {
+    setFilterOpen(false);
+    updateParams((params) => {
+      params.delete("facets");
+      params.delete("substance");
+    });
+  }
+
+  function toggleServiceFacet(key: string) {
+    const next = new Set(selectedFacetKeys);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    updateParams((params) => {
+      if (next.size) params.set("facets", [...next].join(","));
+      else params.delete("facets");
+    });
+  }
+
+  function setServiceSubstanceLens(value: ServiceSubstanceLens | null) {
+    updateParams((params) => {
+      if (value) params.set("substance", value);
+      else params.delete("substance");
+    });
+  }
+
+  // The commit the scope segment names — "Show N in all items" — clears every dimension that
+  // could be narrowing the result set at once, not just the facets/substance this sheet owns:
+  // the escape has to reach zero regardless of what put the reader there.
+  function showAllServiceItems() {
     setLocalQuery({ urlQuery, value: "" });
+    setFilterOpen(false);
     updateParams((params) => {
       params.delete("q");
       params.delete("query");
       params.delete("focus");
+      params.delete("group");
+      params.delete("facets");
+      params.delete("substance");
     }, true);
   }
 
@@ -459,7 +549,7 @@ export function ServicesNavigatorPage() {
                 testId="service-filter-trigger-phone"
                 title="Filter services"
                 open={filterOpen}
-                activeCount={activeQuickFilter ? 1 : 0}
+                activeCount={activeFilterCount}
                 onToggle={() => setFilterOpen((current) => !current)}
               />
             }
@@ -470,7 +560,7 @@ export function ServicesNavigatorPage() {
                   testId="service-filter-trigger-desktop"
                   title="Filter services"
                   open={filterOpen}
-                  activeCount={activeQuickFilter ? 1 : 0}
+                  activeCount={activeFilterCount}
                   onToggle={() => setFilterOpen((current) => !current)}
                 />
               </span>
@@ -485,45 +575,92 @@ export function ServicesNavigatorPage() {
             />
           </section>
 
+          {/* Search shortcuts, not filters — each one runs a new search and replaces the
+              current one, so they sit beside the composer as suggestions rather than inside a
+              control called "Filter". Evicted from the sheet below; see
+              docs/filter-contract.md — there is deliberately no `navigate` kind. */}
+          <AnswerSuggestionChips
+            label="Try a search"
+            labelPlacement="above"
+            layout="scroll"
+            testId="service-search-shortcuts"
+            suggestions={serviceSearchShortcuts.map((shortcut) => shortcut.label)}
+            onPick={(label) => {
+              const shortcut = serviceSearchShortcuts.find((item) => item.label === label);
+              if (shortcut) applyServiceQuery(shortcut.query);
+            }}
+          />
+
           <ResultFilterSheet
             open={filterOpen}
             onClose={() => setFilterOpen(false)}
             panelId={filterPanelId}
             testId="service-filter-panel"
             title="Filter services"
-            description="Quick filters run a focused search within the selected service group."
+            description="Combine catchment, age, setting, acuity and housing to narrow the list."
+            resetKey={`${query}|${activeGroup ?? ""}`}
+            scopeControl={
+              showScopeSegment ? (
+                <SegmentedControl
+                  label="Scope"
+                  value="these"
+                  onChange={(value) => {
+                    if (value === "all") showAllServiceItems();
+                  }}
+                  options={[
+                    { value: "these" as const, label: "These results", hint: String(displayedMatches.length) },
+                    { value: "all" as const, label: "All items", hint: String(catalogueTotal) },
+                  ]}
+                />
+              ) : undefined
+            }
             groups={[
+              ...serviceFacetGroupIds
+                .map((groupId) => projectedFacetGroups.find((group) => group.group === groupId))
+                .filter((group): group is NonNullable<typeof group> => group !== undefined && group.options.length > 0)
+                .map((group) => {
+                  const selectedForGroup = new Set(
+                    [...selectedFacetKeys].filter((key) => key.startsWith(`${group.group}:`)),
+                  );
+                  return resultFilterFacetGroup({
+                    id: group.group,
+                    label: serviceFacetGroupLabels[group.group],
+                    selected: selectedForGroup,
+                    options: group.options.map((option) => ({
+                      value: option.key,
+                      label: option.label,
+                      hint: String(option.count),
+                      disabled: option.count === 0 && !selectedForGroup.has(option.key),
+                    })),
+                    onToggle: toggleServiceFacet,
+                  });
+                }),
               resultFilterGroup({
-                id: "quick-filter",
-                label: "Quick filters",
-                value: activeQuickFilter?.query ?? "current",
+                id: "substance",
+                label: "Care type",
+                value: substanceLens ?? "all",
                 options: [
-                  ...(activeQuickFilter
-                    ? []
-                    : [
-                        {
-                          value: "current" as const,
-                          label: query.trim() ? "Current search" : serviceCoreGroupLabel(activeGroup),
-                          disabled: true,
-                        },
-                      ]),
-                  ...serviceQuickFilters.map((filter) => ({ value: filter.query, label: filter.label })),
+                  { value: "all" as const, label: "All", hint: String(facetFilteredMatches.length) },
+                  {
+                    value: "general" as const,
+                    label: "General",
+                    hint: String(
+                      facetFilteredMatches.filter((service) => service.facets?.substance_flags.includes("general"))
+                        .length,
+                    ),
+                  },
+                  {
+                    value: "aod" as const,
+                    label: "Alcohol & other drugs",
+                    hint: String(
+                      facetFilteredMatches.filter((service) => service.facets?.substance_flags.includes("aod")).length,
+                    ),
+                  },
                 ],
-                onChange: (value) => {
-                  if (value === "current") return;
-                  setFilterOpen(false);
-                  applyServiceQuery(value);
-                },
+                onChange: (value) => setServiceSubstanceLens(value === "all" ? null : value),
               }),
             ]}
-            onClearAll={
-              activeQuickFilter
-                ? () => {
-                    setFilterOpen(false);
-                    clearServiceQuery();
-                  }
-                : undefined
-            }
+            onClearAll={activeFilterCount > 0 ? clearServiceFilters : undefined}
             footerNote={`${displayedMatches.length} showing`}
           />
         </>
@@ -541,16 +678,17 @@ export function ServicesNavigatorPage() {
         />
       ) : deferredQuery === query && displayedMatches.length === 0 ? (
         <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center">
-          <h2 className="text-lg font-bold text-[color:var(--text-heading)]">No services in this group</h2>
+          <h2 className="text-lg font-bold text-[color:var(--text-heading)]">No services match</h2>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            Try All services or remove the current quick filter.
+            Nothing matches the current group and filters. Show every catalogue service instead.
           </p>
-          <Link
-            href={hrefForGroup(null)}
+          <button
+            type="button"
+            onClick={showAllServiceItems}
             className="mt-3 inline-flex min-h-12 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             Show all services
-          </Link>
+          </button>
         </section>
       ) : (
         <>

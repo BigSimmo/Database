@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/supabase/database.types";
+import { normalizeCatalogServiceTags } from "@/lib/service-catalog";
 import type {
   ServiceContact,
   ServiceCriterion,
@@ -105,6 +106,10 @@ export function rowToServiceRecord(row: RegistryRecordRow): ServiceRecord {
     navigatorQuery: row.navigator_query ?? undefined,
     source: (row.source ?? undefined) as ServiceSource | undefined,
     catalogPayload: (row.catalog_payload ?? {}) as Record<string, unknown>,
+    // Derived from the registry JSONB column, not the flattened `tags` array above — a facet
+    // filter built on `tags` would be wrong by construction (see docs/filter-contract.md).
+    // Degrades to all-empty dimensions rather than throwing when the payload lacks `tags`.
+    facets: normalizeCatalogServiceTags((row.catalog_payload as Record<string, unknown> | null)?.tags),
   };
 }
 

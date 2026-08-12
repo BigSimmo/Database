@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, Funnel, X } from "lucide-react";
-import { type ReactNode, useCallback, useRef } from "react";
+import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
+import { type ReactNode, useCallback, useId, useRef, useState } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
@@ -422,26 +422,80 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
  * option can only appear as a consequence of the current selection, never as a
  * permanent fixture of the catalogue.
  */
-export function ResultFilterFacetChips({ group, idPrefix }: { group: ResultFilterFacetGroup; idPrefix: string }) {
+export function ResultFilterFacetChips({
+  group,
+  idPrefix,
+  disclosure,
+}: {
+  group: ResultFilterFacetGroup;
+  idPrefix: string;
+  /** Turns the header into a disclosure control and gates the body on `open` — the dense tier
+      `ResultFilterSheet` renders for a mode with more than 3 facet groups or more than 20 total
+      options (`docs/filter-contract.md` §5). Omitted by every other caller (e.g. formulation's
+      always-open desktop rail), which keeps their header a static label and their body always
+      rendered — unchanged from before this prop existed. */
+  disclosure?: { open: boolean; onToggle: () => void };
+}) {
   const panelId = idPrefix;
   const groupLabelId = `${panelId}-${group.id}-label`;
+  const bodyId = `${panelId}-${group.id}-body`;
+  const open = !disclosure || disclosure.open;
 
   return (
     <section className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
-      <h3 className="flex min-h-9 items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-        {/* The id is on the label text alone, not the heading. With the badge
-            inside the labelled element the group's accessible name became
-            "Domain 1" — the selection count leaking into the dimension's name,
-            and changing it on every toggle. Caught by the DOM test. */}
-        <span id={groupLabelId}>{group.label}</span>
-        {group.selected.size > 0 ? (
-          <span className="nums rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-black tabular-nums text-[color:var(--clinical-accent)]">
-            <span className="sr-only">{group.selected.size} selected</span>
-            <span aria-hidden>{group.selected.size}</span>
+      {disclosure ? (
+        <button
+          type="button"
+          onClick={disclosure.onToggle}
+          aria-expanded={disclosure.open}
+          aria-controls={bodyId}
+          className={cn(
+            "flex min-h-tap w-full items-center gap-1.5 text-left text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)] sm:min-h-9",
+            "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          )}
+        >
+          {/* Same id-on-the-label-text-alone note as the static heading below: the
+              accessible name must not include the selection badge. */}
+          <span id={groupLabelId} className="truncate">
+            {group.label}
           </span>
-        ) : null}
-      </h3>
-      <div role="group" aria-labelledby={groupLabelId} className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5">
+          {group.selected.size > 0 ? (
+            <span className="nums ml-auto text-2xs font-semibold text-[color:var(--clinical-accent)]">
+              {group.selected.size} selected
+            </span>
+          ) : (
+            <span className="nums ml-auto text-2xs text-[color:var(--text-muted)]">{group.options.length}</span>
+          )}
+          <ChevronDown
+            aria-hidden="true"
+            className={cn(
+              "size-icon-sm shrink-0 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
+              disclosure.open ? "rotate-0" : "-rotate-90",
+            )}
+          />
+        </button>
+      ) : (
+        <h3 className="flex min-h-9 items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          {/* The id is on the label text alone, not the heading. With the badge
+              inside the labelled element the group's accessible name became
+              "Domain 1" — the selection count leaking into the dimension's name,
+              and changing it on every toggle. Caught by the DOM test. */}
+          <span id={groupLabelId}>{group.label}</span>
+          {group.selected.size > 0 ? (
+            <span className="nums rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-black tabular-nums text-[color:var(--clinical-accent)]">
+              <span className="sr-only">{group.selected.size} selected</span>
+              <span aria-hidden>{group.selected.size}</span>
+            </span>
+          ) : null}
+        </h3>
+      )}
+      <div
+        id={bodyId}
+        hidden={!open}
+        role="group"
+        aria-labelledby={groupLabelId}
+        className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5"
+      >
         {group.options.map((option) => {
           const selected = group.selected.has(option.value);
           const deadEnd = Boolean(option.disabled) && !selected;
@@ -523,6 +577,8 @@ export function ResultFilterSheet({
   groups,
   onClearAll,
   footerNote,
+  resetKey,
+  scopeControl,
 }: {
   open: boolean;
   onClose: () => void;
@@ -535,8 +591,78 @@ export function ResultFilterSheet({
       perform one, so pass this only when something is actually clearable. */
   onClearAll?: () => void;
   footerNote?: ReactNode;
+  /** Result-set identity for the dense tier's transient chrome (find-a-filter needle, per-group
+      collapse). A new submit must not carry over a stale needle or collapsed-group state —
+      mirrors `document-search-results.tsx`'s `chrome.query` keying. Omit when the sheet's groups
+      never trip the dense tier (below 4 facet groups and 21 total options); the chrome then
+      never renders and this prop is inert. */
+  resetKey?: string;
+  /** The scope segment (`docs/filter-contract.md` §4) — `These results N | All items N` — for a
+      mode whose catalogue is meaningfully larger than its current result set. Rendered at the top
+      of the sheet body, above the find-a-filter field. Omit when the mode does not qualify. */
+  scopeControl?: ReactNode;
 }) {
+  const searchId = useId();
+  const resetKeyValue = resetKey ?? "";
+  const [chrome, setChrome] = useState<{
+    key: string;
+    needle: string;
+    expanded: ReadonlySet<string>;
+    collapsed: ReadonlySet<string>;
+  }>(() => ({ key: resetKeyValue, needle: "", expanded: new Set(), collapsed: new Set() }));
+  if (chrome.key !== resetKeyValue) {
+    setChrome({ key: resetKeyValue, needle: "", expanded: new Set(), collapsed: new Set() });
+  }
+  // Prefer the scoped values even on the transitional render before the setState above
+  // commits — otherwise a typed needle from the previous result set can flash in for one frame.
+  const needle = chrome.key === resetKeyValue ? chrome.needle : "";
+  const expanded = chrome.key === resetKeyValue ? chrome.expanded : new Set<string>();
+  const collapsed = chrome.key === resetKeyValue ? chrome.collapsed : new Set<string>();
+  const setNeedle = (value: string) => setChrome((current) => ({ ...current, key: resetKeyValue, needle: value }));
+  const setExpanded = (update: (current: ReadonlySet<string>) => ReadonlySet<string>) =>
+    setChrome((current) => ({
+      ...current,
+      key: resetKeyValue,
+      expanded: update(current.key === resetKeyValue ? current.expanded : new Set()),
+    }));
+  const setCollapsed = (update: (current: ReadonlySet<string>) => ReadonlySet<string>) =>
+    setChrome((current) => ({
+      ...current,
+      key: resetKeyValue,
+      collapsed: update(current.key === resetKeyValue ? current.collapsed : new Set()),
+    }));
+
   if (groups.length === 0) return null;
+
+  const facetGroups = groups.filter(isFacetGroup);
+  const totalFacetOptions = facetGroups.reduce((sum, group) => sum + group.options.length, 0);
+  // Thresholds match `docs/filter-contract.md` §5 and the rule `document-search-results.tsx`
+  // already ships (`dense = groups.length > 3`) — same trigger, generalized to option count too
+  // since a mode can trip the ">20 options" half of §5 with 3 or fewer groups.
+  const dense = facetGroups.length > 3 || totalFacetOptions > 20;
+  const showNeedle = dense;
+  const activeNeedle = showNeedle ? needle.trim().toLowerCase() : "";
+
+  const displayGroups = groups
+    .map((group) => {
+      if (!isFacetGroup(group) || !activeNeedle) return group;
+      return {
+        ...group,
+        options: group.options.filter(
+          (option) =>
+            // A selected option must stay reachable while searching: hiding it because its
+            // label does not match the needle leaves an active constraint the reader cannot
+            // untoggle without clearing the field first.
+            group.selected.has(option.value) ||
+            option.label.toLowerCase().includes(activeNeedle) ||
+            group.label.toLowerCase().includes(activeNeedle),
+        ),
+      };
+    })
+    .filter((group) => !isFacetGroup(group) || group.options.length > 0);
+  const matchedFacets = activeNeedle
+    ? displayGroups.filter(isFacetGroup).reduce((sum, group) => sum + group.options.length, 0)
+    : 0;
 
   return (
     <Sheet
@@ -581,13 +707,83 @@ export function ResultFilterSheet({
       }
     >
       <div className="grid min-w-0 gap-1">
-        {groups.map((group) =>
-          isFacetGroup(group) ? (
-            <ResultFilterFacetChips key={group.id} group={group} idPrefix={panelId} />
-          ) : (
-            <FilterRadioGroup key={group.id} group={group} panelId={panelId} />
-          ),
-        )}
+        {scopeControl ? <div className="min-w-0 pb-2.5">{scopeControl}</div> : null}
+        {showNeedle ? (
+          <div className="min-w-0 pb-2">
+            <label htmlFor={searchId} className="sr-only">
+              Find a filter
+            </label>
+            <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]">
+              <Search aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" />
+              <input
+                id={searchId}
+                type="search"
+                value={needle}
+                onChange={(event) => setNeedle(event.target.value)}
+                placeholder="Find a filter…"
+                data-testid={`${testId}-find`}
+                className="min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-9"
+              />
+              {needle ? (
+                <button
+                  type="button"
+                  onClick={() => setNeedle("")}
+                  aria-label="Clear the filter search"
+                  className="grid min-h-tap min-w-tap place-items-center text-[color:var(--decoration-soft)] hover:text-[color:var(--text)] sm:min-h-8 sm:min-w-8"
+                >
+                  <X aria-hidden="true" className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
+            <p aria-live="polite" className="sr-only">
+              {activeNeedle ? `${matchedFacets} filter${matchedFacets === 1 ? "" : "s"} match “${needle.trim()}”` : ""}
+            </p>
+          </div>
+        ) : null}
+        {displayGroups.map((group) => {
+          if (!isFacetGroup(group)) return <FilterRadioGroup key={group.id} group={group} panelId={panelId} />;
+          // A live needle forces every matched group open and owns openness — see the note on
+          // the equivalent branch in `document-search-results.tsx`. Below the density threshold
+          // every group is open and permanently so, and a disclosure control advertising a
+          // collapse that never happens is a control that does nothing.
+          const isOpen =
+            !dense ||
+            Boolean(activeNeedle) ||
+            (!collapsed.has(group.id) && (expanded.has(group.id) || group.selected.size > 0));
+          return (
+            <ResultFilterFacetChips
+              key={group.id}
+              group={group}
+              idPrefix={panelId}
+              disclosure={
+                dense && !activeNeedle
+                  ? {
+                      open: isOpen,
+                      onToggle: () => {
+                        setExpanded((current) => {
+                          const next = new Set(current);
+                          if (isOpen) next.delete(group.id);
+                          else next.add(group.id);
+                          return next;
+                        });
+                        setCollapsed((current) => {
+                          const next = new Set(current);
+                          if (isOpen) next.add(group.id);
+                          else next.delete(group.id);
+                          return next;
+                        });
+                      },
+                    }
+                  : undefined
+              }
+            />
+          );
+        })}
+        {activeNeedle && displayGroups.filter(isFacetGroup).length === 0 ? (
+          <p className="border-t border-[color:var(--border)] py-4 text-center text-xs font-semibold text-[color:var(--text-muted)]">
+            No filter matches “{needle.trim()}”.
+          </p>
+        ) : null}
       </div>
     </Sheet>
   );
