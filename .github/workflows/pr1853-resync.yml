@@ -1,0 +1,132 @@
+name: PR 1853 current-main resync
+
+on:
+  push:
+    branches:
+      - codex/medication-did-you-mean-20260812
+
+concurrency:
+  group: pr-1853-current-main-resync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  resync:
+    name: Merge current main, verify, and publish
+    if: github.event.head_commit.message == 'chore(pr-1853): trigger current-main resync'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Capture immutable head and current main
+        id: inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head="${{ github.sha }}"
+          remote_head="$(git ls-remote origin "refs/heads/${GITHUB_REF_NAME}" | awk '{print $1}')"
+          if [ "$remote_head" != "$expected_head" ]; then
+            echo "Remote head moved before resync: expected $expected_head, found $remote_head" >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config merge.ledger.name "branch-review-ledger union with exact-row dedupe"
+          git config merge.ledger.driver "node scripts/merge-branch-review-ledger.mjs %O %A %B"
+          git fetch --no-tags origin main:refs/remotes/origin/main
+
+          echo "expected_head=$expected_head" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$(git rev-parse refs/remotes/origin/main)" >> "$GITHUB_OUTPUT"
+
+      - name: Merge current main and resolve append-only ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          git merge --no-ff --no-commit refs/remotes/origin/main
+          merge_status=$?
+          set -e
+
+          if [ "$merge_status" -ne 0 ]; then
+            echo "Merge failed. Unmerged paths:" >&2
+            git diff --name-only --diff-filter=U >&2 || true
+            git status --short >&2 || true
+            exit "$merge_status"
+          fi
+
+          git rm --ignore-unmatch .github/workflows/pr1853-resync.yml
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            echo "Unresolved merge paths remain:" >&2
+            git diff --name-only --diff-filter=U >&2
+            exit 1
+          fi
+          git diff --check
+          git diff --cached --check
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Run focused and repository verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test -- tests/medication-prescribing-workspace.dom.test.tsx
+          npx eslint \
+            src/components/clinical-dashboard/medication-prescribing-workspace.tsx \
+            src/components/clinical-dashboard/use-medication-catalog.ts \
+            tests/medication-prescribing-workspace.dom.test.tsx
+          npm run typecheck
+          npm run check:runtime
+          npm run check:installed-lock-parity
+          npx prettier --check \
+            src/components/clinical-dashboard/medication-prescribing-workspace.tsx \
+            src/components/clinical-dashboard/use-medication-catalog.ts \
+            tests/medication-prescribing-workspace.dom.test.tsx \
+            docs/branch-review-ledger.md
+          npm run check:branch-review-ledger
+          git diff --check
+          git diff --cached --check
+
+      - name: Commit merge and append fresh review evidence
+        id: prepared
+        shell: bash
+        run: |
+          set -euo pipefail
+          git commit -m "merge: sync current main into PR 1853"
+          merge_sha="$(git rev-parse HEAD)"
+
+          printf '%s\n' "| 2026-08-13 | PR-1853 | ${merge_sha} | current-main rerun and unresolved feedback | Resolved the append-only ledger conflict; no unresolved review threads; medication interpretation delta unchanged. | focused DOM tests; targeted ESLint; typecheck; runtime; installed-lock; Prettier; ledger and diff checks passed in hosted sync |" >> docs/branch-review-ledger.md
+
+          npm run check:branch-review-ledger
+          npx prettier --check docs/branch-review-ledger.md
+          git add docs/branch-review-ledger.md
+          git commit -m "docs(review): record PR 1853 current-main rerun"
+
+          echo "prepared_head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish fast-forward head
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head="${{ steps.inputs.outputs.expected_head }}"
+          remote_head="$(git ls-remote origin "refs/heads/${GITHUB_REF_NAME}" | awk '{print $1}')"
+          if [ "$remote_head" != "$expected_head" ]; then
+            echo "Remote head moved during verification: expected $expected_head, found $remote_head" >&2
+            exit 1
+          fi
+          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
