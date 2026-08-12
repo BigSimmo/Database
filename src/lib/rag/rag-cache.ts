@@ -447,6 +447,14 @@ function sharedCacheSelector(
   return query;
 }
 
+const GENERATION_FALLBACK_MARKER = /(?:^|;\s*)generation_fallback(?::|$)/i;
+function isGenerationFallbackAnswer(answer: Pick<RagAnswer, "routingReason" | "degradedMode">) {
+  return (
+    GENERATION_FALLBACK_MARKER.test(answer.routingReason ?? "") ||
+    GENERATION_FALLBACK_MARKER.test(answer.degradedMode?.reason ?? "")
+  );
+}
+
 export async function cacheIndexingVersion(
   args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId" | "accessScope" | "signal">,
   options?: { forceRefresh?: boolean },
@@ -613,6 +621,10 @@ export async function getSharedCachedAnswer(
     ).maybeSingle();
     if (error || !data?.payload) return null;
     const answer = cloneAnswer((data.payload as { answer: RagAnswer }).answer);
+    if (isGenerationFallbackAnswer(answer)) {
+      await deleteSharedCachedAnswerRow({ ...args, accessScope: retrievalAccessScopeForArgs(args) }, indexingVersion);
+      return null;
+    }
     answer.routingReason = answer.routingReason
       ? `${answer.routingReason}; shared_answer_cache_hit`
       : "shared_answer_cache_hit";
