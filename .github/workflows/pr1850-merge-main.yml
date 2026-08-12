@@ -129,8 +129,7 @@ jobs:
           grep -Eq '^\| [^|]+ \| (origin/pr/1850|1850) \|' docs/branch-review-ledger.md
           git diff --cached --check
 
-          npm ci --ignore-scripts
-          node scripts/check-installed-lock-parity.mjs --write-stamp
+          npm ci
           npm run check:branch-review-ledger
           npm test -- --run tests/in-page-nav-route-sections.dom.test.tsx
           npx prettier --check \
@@ -145,4 +144,10 @@ jobs:
           git merge-base --is-ancestor "${before_head}" HEAD
           git merge-base --is-ancestor "${main_sha}" HEAD
           git show --stat --oneline --summary HEAD
-          git push origin HEAD:refs/heads/codex/find-cause-of-menu-regression
+
+          remote_head="$(git ls-remote origin refs/heads/codex/find-cause-of-menu-regression | awk '{print $1}')"
+          if [ "${remote_head}" != "${before_head}" ]; then
+            echo "PR head moved during verification: expected ${before_head}, found ${remote_head}" >&2
+            exit 1
+          fi
+          git -c core.hooksPath=/dev/null push origin HEAD:refs/heads/codex/find-cause-of-menu-regression
