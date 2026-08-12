@@ -31,7 +31,10 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
-import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
+import {
+  useMedicationCatalog,
+  type MedicationCatalogInterpretation,
+} from "@/components/clinical-dashboard/use-medication-catalog";
 import { evaluatePatientAlerts } from "@/lib/medication-patient-alerts";
 import {
   BadgeCluster,
@@ -195,6 +198,41 @@ function StatusNotice({
       )}
     >
       {message}
+    </div>
+  );
+}
+
+function MedicationInterpretationChip({ interpretation }: { interpretation?: MedicationCatalogInterpretation }) {
+  const correctedQuery = interpretation?.correctedQuery?.trim();
+  const hasCorrection = Boolean(correctedQuery);
+  const expansions = Array.from(
+    new Set(interpretation?.appliedExpansions?.map((term) => term.trim()).filter(Boolean) ?? []),
+  );
+  if (!hasCorrection && expansions.length === 0) return null;
+
+  const displayTerms = hasCorrection && correctedQuery ? correctedQuery : expansions.slice(0, 3).join(", ");
+  const hiddenExpansionCount = hasCorrection ? 0 : Math.max(0, expansions.length - 3);
+  const accessibleLabel = hasCorrection
+    ? `Did you mean ${correctedQuery}?${
+        expansions.length ? ` Related terms were also included: ${expansions.join(", ")}.` : ""
+      }`
+    : `Did you mean a related term? Search also included: ${expansions.join(", ")}.`;
+
+  return (
+    <div className="medication-results-inset">
+      <p
+        role="note"
+        aria-label={accessibleLabel}
+        title={accessibleLabel}
+        data-testid="medication-query-interpretation"
+        className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--clinical-accent)]"
+      >
+        <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span className="shrink-0">Did you mean</span>
+        <span aria-hidden="true">·</span>
+        <span className="min-w-0 truncate">{displayTerms}</span>
+        {hiddenExpansionCount ? <span className="shrink-0">+{hiddenExpansionCount}</span> : null}
+      </p>
     </div>
   );
 }
@@ -487,6 +525,9 @@ function MedicationResults({
         }
         filterControls={<FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />}
       />
+
+      <MedicationInterpretationChip interpretation={catalog.data?.interpretation} />
+
       {/* Phone-only by construction: the trigger that opens it lives in the
           ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
       <ResultFilterSheet

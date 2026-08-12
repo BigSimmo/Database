@@ -60,6 +60,16 @@ const sertraline: Result = {
   tone: "slate",
 };
 
+const catalogInterpretation = vi.hoisted(() => ({
+  current: undefined as
+    | {
+        correctedQuery?: string;
+        corrections?: Array<{ from: string; to: string }>;
+        appliedExpansions?: string[];
+      }
+    | undefined,
+}));
+
 // Cross-mode "also matches" strip is a separate AuthProvider-backed component;
 // stub it so this test isolates the filter strip from that component's auth deps.
 vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
@@ -76,6 +86,7 @@ vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
         score: 1,
         reasons: [],
       })),
+      interpretation: catalogInterpretation.current,
       total: 3,
       governance: {},
     },
@@ -112,6 +123,7 @@ function filterButton(label: string): HTMLElement {
 }
 
 afterEach(() => {
+  catalogInterpretation.current = undefined;
   vi.restoreAllMocks();
 });
 
@@ -127,6 +139,41 @@ describe("MedicationPrescribingWorkspace — home vs submitted results", () => {
     renderWorkspace({ query: "l", showHome: false });
     expect(screen.queryByTestId("medication-home")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("medication-result-clozapine-desktop").length).toBeGreaterThan(0);
+  });
+});
+
+describe("MedicationPrescribingWorkspace — query interpretation", () => {
+  it("shows the API corrected query as a compact accessible Did you mean note", () => {
+    catalogInterpretation.current = {
+      correctedQuery: "sertraline",
+      corrections: [{ from: "sertaline", to: "sertraline" }],
+      appliedExpansions: ["zoloft"],
+    };
+
+    renderWorkspace({ query: "sertaline" });
+
+    const note = screen.getByRole("note", {
+      name: "Did you mean sertraline? Related terms were also included: zoloft.",
+    });
+    expect(note).toHaveTextContent("Did you mean");
+    expect(note).toHaveTextContent("sertraline");
+  });
+
+  it("shows applied expansions when the API did not correct the query", () => {
+    catalogInterpretation.current = { appliedExpansions: ["olanzapine", "antipsychotic"] };
+
+    renderWorkspace({ query: "zyprexa" });
+
+    expect(
+      screen.getByRole("note", {
+        name: "Did you mean a related term? Search also included: olanzapine, antipsychotic.",
+      }),
+    ).toHaveTextContent("olanzapine, antipsychotic");
+  });
+
+  it("does not add interpretation chrome when the API returns none", () => {
+    renderWorkspace();
+    expect(screen.queryByTestId("medication-query-interpretation")).not.toBeInTheDocument();
   });
 });
 
