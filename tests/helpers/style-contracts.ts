@@ -362,8 +362,6 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   "differentials-mobile-compare-fab__button": "differentials compare FAB — no effect contract yet (#094)",
   "differentials-mobile-compare-fab__button--empty": "differentials compare FAB — no effect contract yet (#094)",
   "medication-mobile-result": "prescribing phone results — no effect contract yet (#094)",
-  "medication-mobile-results": "prescribing phone results — no effect contract yet (#094)",
-  "medication-patient-strip": "prescribing patient strip — no effect contract yet (#094)",
   "pwa-install-sheet": "install sheet — presence covered by ui-pwa, effect not contracted",
   "search-band-count": "count weight/colour; the zero-result state needs a deterministic empty fixture first",
   "search-band-rule": "gradient divider — forced-colors fallback covered by ui-accessibility",

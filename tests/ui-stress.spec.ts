@@ -437,7 +437,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
 });
 
 test.describe("Medication responsive stress coverage", () => {
-  test("full-bleed phone rows and tablet cards remain safe across breakpoint boundaries", async ({ page }) => {
+  test("phone and tablet cards remain inset and safe across breakpoint boundaries", async ({ page }) => {
     test.setTimeout(90_000);
     await mockMedicationStressData(page);
     await page.setViewportSize({ width: 320, height: 720 });
@@ -447,6 +447,7 @@ test.describe("Medication responsive stress coverage", () => {
     const desktopResult = page.getByTestId("medication-result-acamprosate-desktop");
     await expect(phoneResult).toBeVisible({ timeout: 30_000 });
     await expect(phoneResult).toHaveAttribute("data-selected", "true");
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
 
     const viewports = [
       { width: 320, height: 720 },
@@ -502,12 +503,16 @@ test.describe("Medication responsive stress coverage", () => {
         expect(metrics?.filterHeight ?? 0).toBeGreaterThanOrEqual(42);
 
         if (viewport.width <= 639) {
-          expect(Math.abs(metrics?.workspaceLeft ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(1);
-          expect(Math.abs((metrics?.workspaceRight ?? 0) - viewport.width)).toBeLessThanOrEqual(1);
-          expect(Math.abs(metrics?.patientLeft ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(1);
-          expect(Math.abs((metrics?.patientRight ?? 0) - viewport.width)).toBeLessThanOrEqual(1);
-          expect(Math.abs(metrics?.cardLeft ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(1);
-          expect(Math.abs((metrics?.cardRight ?? 0) - viewport.width)).toBeLessThanOrEqual(1);
+          expect(metrics?.workspaceLeft ?? 0).toBeGreaterThanOrEqual(12);
+          expect(metrics?.workspaceRight ?? viewport.width).toBeLessThanOrEqual(viewport.width - 12);
+          expect(Math.abs((metrics?.patientLeft ?? 0) - (metrics?.workspaceLeft ?? 0))).toBeLessThanOrEqual(1);
+          expect(
+            Math.abs((metrics?.patientRight ?? 0) - (metrics?.workspaceRight ?? viewport.width)),
+          ).toBeLessThanOrEqual(1);
+          expect(Math.abs((metrics?.cardLeft ?? 0) - (metrics?.workspaceLeft ?? 0))).toBeLessThanOrEqual(1);
+          expect(Math.abs((metrics?.cardRight ?? 0) - (metrics?.workspaceRight ?? viewport.width))).toBeLessThanOrEqual(
+            1,
+          );
           expect(metrics?.cardPaddingLeft ?? 0).toBeGreaterThanOrEqual(15);
           expect(metrics?.cardPaddingRight ?? 0).toBeGreaterThanOrEqual(15);
           expect(metrics?.filterLeft ?? 0).toBeGreaterThanOrEqual(15);
