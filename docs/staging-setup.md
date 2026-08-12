@@ -2,7 +2,7 @@
 
 Turnkey runbook for standing up a staging environment. Companion to
 `docs/deployment-architecture.md` §5 (why staging is a dedicated project, not a
-prod branch) and `docs/capacity-review.md` §4 (the soak test that validates it).
+prod branch) and `docs/audit/capacity-review.md` §4 (the soak test that validates it).
 
 Staging is two independent tiers: a **staging Supabase project** (data) and a
 **staging app host** (compute). Do the data tier first — the app needs it.
@@ -132,7 +132,7 @@ Reuse the app image; only the environment variables differ.
      --confirm-staging --users 30 --duration-s 600 --ramp-s 120
    ```
 
-   Success targets are in `docs/capacity-review.md` §4 (search p95 ≤ 3 s,
+   Success targets are in `docs/audit/capacity-review.md` §4 (search p95 ≤ 3 s,
    answer p95 ≤ 25 s, non-429 error rate < 1 %).
 
 ## What is operator-only (cannot be scripted here)
@@ -142,4 +142,4 @@ Reuse the app image; only the environment variables differ.
   variables). Writing admin credentials to Railway is an operator/authorized
   action.
 - Any change to the **production** project's settings (e.g. auth
-  percentage-based connection allocation — see `docs/capacity-review.md` §3).
+  percentage-based connection allocation — see `docs/audit/capacity-review.md` §3).

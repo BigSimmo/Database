@@ -18,7 +18,7 @@ confirmed (5 narrowed, 0 refuted). Seven violations are **deterministic** — no
 concurrency required at all.
 
 Companion docs: `docs/audit/repo-audit-2026-07-01.md` (M9/M11/M13 proved this
-bug class live), `docs/scale-readiness-review.md` (phase 2),
+bug class live), `docs/audit/scale-readiness-review.md` (phase 2),
 `docs/reindex-runbook.md`.
 
 ## Lifecycle at a glance

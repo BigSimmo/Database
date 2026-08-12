@@ -2,7 +2,7 @@
 -- the actual bound parameter values each call. LANGUAGE sql + SET search_path
 -- made the body non-inlinable, so Postgres cached a generic plan that could not
 -- estimate trigram/tsv selectivity for unknown $1 and paid ~1–5s instead of
--- ~70ms (see docs/scale-readiness-review.md F1). Dynamic EXECUTE forces a
+-- ~70ms (see docs/audit/scale-readiness-review.md F1). Dynamic EXECUTE forces a
 -- one-shot custom plan. RAG impact: no retrieval behaviour change — result rows
 -- and ordering predicates are unchanged.
 
