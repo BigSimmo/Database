@@ -3172,7 +3172,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("factsheet search keeps query, view, and category filters in the universal results ribbon", async ({ page }) => {
+  test("factsheet search keeps query and category filters in the ribbon with view controls above results", async ({
+    page,
+  }) => {
     await mockDemoApi(page);
 
     for (const viewport of [
@@ -3183,8 +3185,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await gotoApp(page, "/factsheets/search?q=sertraline");
       const factsheetsPage = page.getByTestId("factsheets-search-page");
       const queryRibbon = factsheetsPage.getByTestId("search-query-ribbon");
+      const viewToolbar = factsheetsPage.getByTestId("factsheets-view-toolbar");
       await expect(queryRibbon.getByRole("heading", { name: "sertraline" })).toBeVisible();
-      await expect(queryRibbon.getByRole("group", { name: "Result view" })).toBeVisible();
+      await expect(queryRibbon.getByRole("group", { name: "Result view" })).toHaveCount(0);
+      await expect(viewToolbar.getByRole("group", { name: "Result view" })).toBeVisible();
       await expect(queryRibbon.getByRole("group", { name: "Filter factsheets by category" })).toBeVisible();
       // Phone gets the compact trigger; from `sm` up the ribbon shows the chip
       // row instead and the trigger is not rendered at all.

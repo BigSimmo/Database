@@ -65,3 +65,14 @@ npm run audit:final-merge -- --dry-run --base-ref origin/main --head-ref HEAD --
 ```
 
 The output records the local base/head and expected merge-tree. GitHub checks, labels, review threads, fresh remote refs, and deployment health are provider reads and require explicit authorization. Once authorized, add `--providers --pr <number> --repo BigSimmo/Database` and set `ALLOW_PROVIDER_READS=true`; the audit fails closed unless the repository's `pr-required` aggregate is present and settled successfully. After the squash merge, rerun with `--post-merge --expected-tree <pre-merge-tree> --health-url <production-origin>/api/health`; the audit compares the remote main tree and requires an HTTP success with JSON `status: "ok"`. The script is read-only: it never merges, pushes, reruns CI, resolves threads, or deploys.
+
+## CI observation fallback (when Checks-read is unavailable)
+
+If `gh pr checks` or the check-runs endpoint returns `Resource not accessible by personal access token`, the credential cannot read Checks. Use the Actions API as a read-only fallback (when provider access is separately authorized):
+
+1. Resolve the PR head SHA from trusted PR metadata.
+2. Query `GET /repos/{owner}/{repo}/actions/runs?head_sha={sha}` and require `head_sha` to match the PR head before attributing any result.
+3. Require a matching Actions workflow run named "CI" for the trusted PR head SHA; if none exists, report CI as unobserved rather than passing, absent, or failed.
+4. For the "CI" workflow run, query its jobs (`GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs`) and require the `PR required` job. Explicitly report whether that job is missing or has a non-success conclusion. That job is this repository's single required aggregate gate; a run that completed without it does not prove required CI passed.
+5. If neither Checks nor Actions can be read, report CI as unobserved due to credential capability — never as passing, absent, or failed.
+6. An empty `GET /commits/{sha}/status` response does not prove that Actions workflows did not run.

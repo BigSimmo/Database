@@ -27,12 +27,14 @@ import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
+  type ResultFilterOption,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
 import { Chip as DesignChip } from "@/components/ui/chip";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -242,73 +244,6 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
 }
 
 type KindFilter = "all" | "presentation" | "diagnosis";
-
-const resultTypeTabFocusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-
-function ResultTypeTabs({
-  activeFilter,
-  onFilterChange,
-  allCount,
-  presentationCount,
-  diagnosisCount,
-}: {
-  activeFilter: KindFilter;
-  onFilterChange: (filter: KindFilter) => void;
-  allCount: number;
-  presentationCount: number;
-  diagnosisCount: number;
-}) {
-  const tabs = [
-    { id: "all" as const, label: "All", count: allCount },
-    { id: "presentation" as const, label: "Presentations", count: presentationCount },
-    { id: "diagnosis" as const, label: "Diagnoses", count: diagnosisCount },
-  ];
-
-  // Single-select filters over one results list — modeled as a toggle group
-  // (role="group" + aria-pressed), not ARIA tabs (which would need tabpanels,
-  // aria-controls, and roving tabindex for content that does not exist here).
-  return (
-    <div
-      data-testid="differential-result-type-tabs"
-      role="group"
-      aria-label="Result type"
-      className="polished-scroll flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {tabs.map((tab) => {
-        const active = activeFilter === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            aria-pressed={active}
-            aria-label={`${tab.label} (${tab.count})`}
-            onClick={() => onFilterChange(tab.id)}
-            className={cn(
-              "inline-flex min-h-tap shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-bold min-[390px]:text-sm",
-              resultTypeTabFocusRing,
-              active
-                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-            )}
-          >
-            {tab.label}
-            <span
-              className={cn(
-                "nums rounded-full px-1.5 text-2xs leading-tight",
-                active
-                  ? "bg-[color:var(--clinical-accent-contrast)]/15 text-[color:var(--clinical-accent-contrast)]"
-                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-              )}
-            >
-              {tab.count}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 function MatchBadge({ label }: { label: string }) {
   // Match quality is a relevance signal, not a safety one — keep it in the
@@ -829,6 +764,14 @@ function SearchResultsView({
 
   const presentationCount = results.filter((result) => result.kind === "presentation").length;
   const diagnosisCount = results.length - presentationCount;
+  const kindFilterOptions = useMemo<ReadonlyArray<ResultFilterOption<KindFilter>>>(
+    () => [
+      { value: "all", label: "All", hint: String(results.length) },
+      { value: "presentation", label: "Presentations", hint: String(presentationCount) },
+      { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
+    ],
+    [diagnosisCount, presentationCount, results.length],
+  );
   const relevanceResults = useMemo(
     () => (kindFilter === "all" ? results : results.filter((result) => result.kind === kindFilter)),
     [kindFilter, results],
@@ -969,12 +912,11 @@ function SearchResultsView({
           />
         }
         filterControls={
-          <ResultTypeTabs
-            activeFilter={kindFilter}
-            onFilterChange={setKindFilter}
-            allCount={results.length}
-            presentationCount={presentationCount}
-            diagnosisCount={diagnosisCount}
+          <SegmentedControl
+            value={kindFilter}
+            onChange={setKindFilter}
+            options={kindFilterOptions}
+            label="Result type"
           />
         }
       />
@@ -991,11 +933,7 @@ function SearchResultsView({
             id: "result-type",
             label: "Show",
             value: kindFilter,
-            options: [
-              { value: "all", label: "All", hint: String(results.length) },
-              { value: "presentation", label: "Presentations", hint: String(presentationCount) },
-              { value: "diagnosis", label: "Diagnoses", hint: String(diagnosisCount) },
-            ],
+            options: kindFilterOptions,
             onChange: setKindFilter,
           }),
         ]}
@@ -1014,11 +952,11 @@ function SearchResultsView({
       ) : /* A failed catalogue search is reported by the band's fault panel, which
               also owns the retry copy, so the whole body is suppressed here.
               `catalogFailed` must short-circuit BEFORE the `!best` test: `best` is
-              `results[0] ?? null`, and a faulted search with no results would
+              `relevanceResults[0] ?? null`, and a faulted search with no results would
               otherwise fall through to the results grid, which dereferences
               `best.id` / `best.kind` unconditionally and throws — on exactly the
               state this component is meant to report truthfully. */
-      catalogFailed ? null : !best ? (
+      catalogFailed ? null : results.length === 0 ? (
         <section
           data-testid="differentials-empty-results"
           className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
@@ -1058,6 +996,25 @@ function SearchResultsView({
               {loading ? "Searching sources" : "Run source search"}
             </button>
           </div>
+        </section>
+      ) : !best ? (
+        <section
+          data-testid="differentials-filter-empty-results"
+          className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
+        >
+          <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
+            {kindFilter === "presentation" ? "No presentations in this result set" : "No diagnoses in this result set"}
+          </h2>
+          <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+            Other result types still match this search. Clear the result-type filter to show them.
+          </p>
+          <button
+            type="button"
+            onClick={() => setKindFilter("all")}
+            className="inline-flex min-h-tap w-fit items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            Show all results
+          </button>
         </section>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
