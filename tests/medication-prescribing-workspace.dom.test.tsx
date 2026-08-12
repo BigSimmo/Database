@@ -159,16 +159,18 @@ describe("MedicationPrescribingWorkspace — query interpretation", () => {
     expect(note).toHaveTextContent("sertraline");
   });
 
-  it("shows applied expansions when the API did not correct the query", () => {
+  it("distinguishes applied expansions from a corrected query", () => {
     catalogInterpretation.current = { appliedExpansions: ["olanzapine", "antipsychotic"] };
 
     renderWorkspace({ query: "zyprexa" });
 
     expect(
       screen.getByRole("note", {
-        name: "Did you mean a related term? Search also included: olanzapine, antipsychotic.",
+        name: "Search also included related terms: olanzapine, antipsychotic.",
       }),
     ).toHaveTextContent("olanzapine, antipsychotic");
+    expect(screen.getByRole("note")).toHaveTextContent("Search also included");
+    expect(screen.getByRole("note")).not.toHaveTextContent("Did you mean");
   });
 
   it("does not add interpretation chrome when the API returns none", () => {

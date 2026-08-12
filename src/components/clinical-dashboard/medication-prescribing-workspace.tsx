@@ -212,11 +212,12 @@ function MedicationInterpretationChip({ interpretation }: { interpretation?: Med
 
   const displayTerms = hasCorrection && correctedQuery ? correctedQuery : expansions.slice(0, 3).join(", ");
   const hiddenExpansionCount = hasCorrection ? 0 : Math.max(0, expansions.length - 3);
+  const leadingLabel = hasCorrection ? "Did you mean" : "Search also included";
   const accessibleLabel = hasCorrection
     ? `Did you mean ${correctedQuery}?${
         expansions.length ? ` Related terms were also included: ${expansions.join(", ")}.` : ""
       }`
-    : `Did you mean a related term? Search also included: ${expansions.join(", ")}.`;
+    : `Search also included related terms: ${expansions.join(", ")}.`;
 
   return (
     <div className="medication-results-inset">
@@ -228,7 +229,7 @@ function MedicationInterpretationChip({ interpretation }: { interpretation?: Med
         className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--clinical-accent)]"
       >
         <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span className="shrink-0">Did you mean</span>
+        <span className="shrink-0">{leadingLabel}</span>
         <span aria-hidden="true">·</span>
         <span className="min-w-0 truncate">{displayTerms}</span>
         {hiddenExpansionCount ? <span className="shrink-0">+{hiddenExpansionCount}</span> : null}
