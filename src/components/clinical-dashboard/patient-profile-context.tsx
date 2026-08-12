@@ -8,6 +8,7 @@ import {
   EMPTY_PATIENT_PROFILE,
   getPatientProfileSnapshot,
   getServerPatientProfileSnapshot,
+  sanitizeMedicationSlugs,
   subscribePatientProfile,
   writePatientProfile,
 } from "@/lib/patient-profile-storage";
@@ -59,7 +60,7 @@ export function PatientProfileProvider({ children }: { children: React.ReactNode
     const current = getPatientProfileSnapshot();
     const medications = current.medications ?? [];
     const next = medications.includes(slug) ? medications.filter((item) => item !== slug) : [...medications, slug];
-    writePatientProfile({ ...current, medications: next });
+    writePatientProfile({ ...current, medications: sanitizeMedicationSlugs(next) });
   }, []);
 
   const clear = useCallback(() => {
