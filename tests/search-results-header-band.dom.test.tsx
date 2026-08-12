@@ -587,6 +587,48 @@ describe("ResultFilterSheet facet groups", () => {
     expect(onToggle).toHaveBeenCalledWith("Affect");
   });
 
+  // The label and hint spans concatenate in the accessible name, and the name
+  // computation normalises inter-element whitespace away, so a text-node
+  // separator does not fix it. Both group kinds carry counts, so both need the
+  // explicit name — and it must match SegmentedControl's, because a mode now
+  // hands one option array to the desktop rail and this sheet.
+  it("names a counted option 'label (hint)' rather than concatenating to 'All8'", () => {
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="differential-panel"
+        testId="differential-filter-panel"
+        title="Filter differentials"
+        groups={[
+          resultFilterGroup({
+            id: "result-type",
+            label: "Show",
+            value: "all",
+            options: [
+              { value: "all", label: "All", hint: "8" },
+              { value: "presentation", label: "Presentations", hint: "1" },
+            ],
+            onChange: vi.fn(),
+          }),
+          resultFilterFacetGroup({
+            id: "domain",
+            label: "Domain",
+            selected: new Set<string>(),
+            options: [{ value: "Crisis", label: "Crisis", hint: "12" }],
+            onToggle: vi.fn(),
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "All (8)" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Presentations (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crisis (12)" })).toBeInTheDocument();
+    // A hintless option keeps its plain label — every pre-count call site.
+    expect(screen.queryByRole("radio", { name: "All8" })).not.toBeInTheDocument();
+  });
+
   // Every toggle must be individually reachable. The lens groups' single tab
   // stop is correct there because arrowing replaces; here it would strand
   // options behind a key binding that must not commit anything.

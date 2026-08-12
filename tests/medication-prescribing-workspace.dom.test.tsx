@@ -118,8 +118,10 @@ function rowVisible(name: string): boolean {
   return screen.queryAllByText(name).length > 0;
 }
 
+// The rail is a one-of-N lens, so its options are radios in a radiogroup, not
+// pressed toggles. The accessible name carries the count as "Best (3)".
 function filterButton(label: string): HTMLElement {
-  return screen.getByRole("button", { name: new RegExp(`^${label}`, "i") });
+  return screen.getByRole("radio", { name: new RegExp(`^${label}`, "i") });
 }
 
 afterEach(() => {
@@ -191,8 +193,8 @@ describe("MedicationPrescribingWorkspace — result filter strip", () => {
 
   it("defaults to the Best lens with every result shown", () => {
     renderWorkspace();
-    expect(filterButton("Best")).toHaveAttribute("aria-pressed", "true");
-    expect(filterButton("Safety")).toHaveAttribute("aria-pressed", "false");
+    expect(filterButton("Best")).toHaveAttribute("aria-checked", "true");
+    expect(filterButton("Safety")).toHaveAttribute("aria-checked", "false");
     expect(rowVisible("Clozapine")).toBe(true);
     expect(rowVisible("Lithium")).toBe(true);
     expect(rowVisible("Sertraline")).toBe(true);
@@ -202,8 +204,8 @@ describe("MedicationPrescribingWorkspace — result filter strip", () => {
     renderWorkspace();
     fireEvent.click(filterButton("Indication"));
 
-    expect(filterButton("Indication")).toHaveAttribute("aria-pressed", "true");
-    expect(filterButton("Best")).toHaveAttribute("aria-pressed", "false");
+    expect(filterButton("Indication")).toHaveAttribute("aria-checked", "true");
+    expect(filterButton("Best")).toHaveAttribute("aria-checked", "false");
     expect(rowVisible("Clozapine")).toBe(true);
     expect(rowVisible("Lithium")).toBe(true);
     // Sertraline is a "Related match", so it leaves the Indication lens.
@@ -214,7 +216,7 @@ describe("MedicationPrescribingWorkspace — result filter strip", () => {
     renderWorkspace();
     fireEvent.click(filterButton("Monitor"));
 
-    expect(filterButton("Monitor")).toHaveAttribute("aria-pressed", "true");
+    expect(filterButton("Monitor")).toHaveAttribute("aria-checked", "true");
     expect(rowVisible("Lithium")).toBe(true);
     expect(rowVisible("Clozapine")).toBe(false);
     expect(rowVisible("Sertraline")).toBe(false);
