@@ -2466,7 +2466,7 @@ summary::-webkit-details-marker {
   }
 
   /* Same extra clearance for the Patient details row, scaled to its shorter height. */
-  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="patient-details"][data-scroll-hidden="true"] {
+  .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-footer-addon="patient-details"][data-scroll-hidden="true"] {
     transform: translateY(calc(100% + 0.5rem + var(--safe-area-bottom)));
   }
 
