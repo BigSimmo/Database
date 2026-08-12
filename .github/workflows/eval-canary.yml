@@ -207,19 +207,6 @@ jobs:
             const fs = require("node:fs");
             const path = require("node:path");
             const { pathToFileURL } = require("node:url");
-            const { analyzeFailureText } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/productivity-core.mjs`).href);
-            const label = "eval-canary";
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const logPaths = [
-              ".local/eval-canary/golden-retrieval.log",
-              ".local/eval-canary/answer-quality.log",
-              ".local/eval-canary/answer-targeting.log",
-            ].map((item) => path.join(process.env.GITHUB_WORKSPACE, item));
-            const failureText = logPaths
-              .filter((item) => fs.existsSync(item))
-              .map((item) => fs.readFileSync(item, "utf8"))
-              .join("\n");
-            const diagnosis = analyzeFailureText(failureText);
             const stepOutcomes = {
               checkout: "${{ steps.checkout.outcome }}",
               preflight: "${{ steps.preflight.outcome }}",
@@ -231,6 +218,30 @@ jobs:
               answer_quality: "${{ steps.answer_quality.outcome }}",
               answer_targeting: "${{ steps.answer_targeting.outcome }}",
             };
+            const label = "eval-canary";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            let diagnosis = { category: "unknown", confidence: "low", reason: "Fallback diagnosis applied (analyzer unavailable)" };
+            try {
+              const { analyzeFailureText } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/productivity-core.mjs`).href);
+              const logPaths = [
+                ".local/eval-canary/golden-retrieval.log",
+                ".local/eval-canary/answer-quality.log",
+                ".local/eval-canary/answer-targeting.log",
+              ].map((item) => path.join(process.env.GITHUB_WORKSPACE, item));
+              const failureText = logPaths
+                .filter((item) => fs.existsSync(item))
+                .map((item) => fs.readFileSync(item, "utf8"))
+                .join("\n");
+              diagnosis = analyzeFailureText(failureText);
+            } catch (err) {
+              console.warn("Analyzer import failed:", err);
+              const failedStep = Object.keys(stepOutcomes).find((k) => stepOutcomes[k] === "failure") || "unknown step";
+              diagnosis = {
+                category: "infrastructure",
+                confidence: "medium",
+                reason: `Failed at ${failedStep} step (analyzer fallback)`
+              };
+            }
             const trigger = context.eventName === "schedule" ? "Weekly (scheduled)" : "Dispatched";
             const body = [
               `${trigger} eval canary failed on ${new Date().toISOString()}.`,

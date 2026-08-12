@@ -142,6 +142,7 @@ export function comparePerCaseRanks(
   const baselineIds = new Set<string>();
   const regressions: PerCaseRankRegression[] = [];
   const missingInCandidate: string[] = [];
+  const missingInBaseline: string[] = [];
   let comparedCaseCount = 0;
   for (const baselineResult of baselineResults) {
     if (typeof baselineResult.id !== "string") continue;
@@ -155,13 +156,21 @@ export function comparePerCaseRanks(
     for (const metric of metrics) {
       const baselineRank = readCaseRank(baselineResult, metric);
       const candidateRank = readCaseRank(candidateResult, metric);
+      if (baselineRank === undefined && !missingInBaseline.includes(baselineResult.id)) {
+        missingInBaseline.push(baselineResult.id);
+      }
+      if (candidateRank === undefined && !missingInCandidate.includes(baselineResult.id)) {
+        missingInCandidate.push(baselineResult.id);
+      }
       if (baselineRank === undefined || candidateRank === undefined) continue;
       if (candidateRank < baselineRank) {
         regressions.push({ caseId: baselineResult.id, metric, baseline: baselineRank, candidate: candidateRank });
       }
     }
   }
-  const missingInBaseline = [...candidateById.keys()].filter((id) => !baselineIds.has(id));
+  for (const id of candidateById.keys()) {
+    if (!baselineIds.has(id) && !missingInBaseline.includes(id)) missingInBaseline.push(id);
+  }
   return { regressions, missingInCandidate, missingInBaseline, comparedCaseCount };
 }
 
@@ -236,7 +245,7 @@ function main() {
     }
     for (const id of perCase.missingInCandidate) console.log(`  MISSING in candidate: ${id}`);
     for (const id of perCase.missingInBaseline) console.log(`  NEW in candidate (no baseline): ${id}`);
-    const notComparable = perCase.missingInCandidate.length > 0;
+    const notComparable = perCase.missingInCandidate.length > 0 || perCase.missingInBaseline.length > 0;
     if (failOnRegression && (perCase.regressions.length > 0 || notComparable)) {
       console.error(
         "\nPer-case gate failed: the canary-pair protocol (docs/rag-behaviour/safeguards.md) requires zero per-case rr regressions over an identical case set.",

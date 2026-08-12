@@ -119,4 +119,32 @@ describe("comparePerCaseRanks", () => {
     expect(comparison.missingInBaseline).toEqual(["added"]);
     expect(comparison.comparedCaseCount).toBe(1);
   });
+
+  it("surfaces candidate-only case IDs as missing in baseline", () => {
+    const comparison = comparePerCaseRanks(
+      [],
+      [perCase("added", 1, 1)],
+    );
+    expect(comparison.missingInCandidate).toEqual([]);
+    expect(comparison.missingInBaseline).toEqual(["added"]);
+    expect(comparison.comparedCaseCount).toBe(0);
+  });
+
+  it("treats missing per-case metrics as non-comparable", () => {
+    // Missing baseline metric
+    const noBaseline = comparePerCaseRanks(
+      [{ id: "case1", reciprocalRankAt10: undefined, contentReciprocalRankAt10: 1 }],
+      [perCase("case1", 1, 1)],
+    );
+    expect(noBaseline.missingInBaseline).toContain("case1");
+    expect(noBaseline.missingInCandidate).not.toContain("case1");
+    
+    // Missing candidate metric
+    const noCandidate = comparePerCaseRanks(
+      [perCase("case2", 1, 1)],
+      [{ id: "case2", reciprocalRankAt10: undefined, contentReciprocalRankAt10: 1 }],
+    );
+    expect(noCandidate.missingInBaseline).not.toContain("case2");
+    expect(noCandidate.missingInCandidate).toContain("case2");
+  });
 });
