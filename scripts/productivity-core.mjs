@@ -108,9 +108,10 @@ function baseLocalChecks(risks) {
   if (risks.ui) {
     return [
       check("npm run ensure", "Start the verified app and use the printed URL before any browser check."),
+      check("npm run test:e2e:critical", "Exercise the focused critical UI journeys in Chromium."),
       check(
         "npm run verify:pr-local",
-        "Run the single fail-closed, risk-routed PR gate; add --extended to include the full Chromium journey when shared UI foundations changed.",
+        "Run the single fail-closed, risk-routed PR gate after browser proof; add --extended only when shared UI foundations require the full Chromium matrix.",
       ),
     ];
   }

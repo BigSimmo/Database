@@ -18,12 +18,16 @@ force-push, or discard work.
 ## Steps
 
 1. **Inspect first (read-only):** `git status --short --branch`, `git diff`, `git diff --cached`,
-   and the ahead/behind from `node scripts/check-base-freshness.mjs`. If staged paths are found
-   that aren't part of the current session's own work (leftover from other sessions' WIP),
-   unstage them with `git restore --staged <path>` before proceeding.
+   and the ahead/behind from `node scripts/check-base-freshness.mjs`. Record the exact cached index
+   state with `git diff --cached --raw --no-renames` before staging. If it contains paths outside
+   this session, stop and move the handoff to an isolated worktree; never unstage or otherwise
+   mutate another session's index entries.
    Record `git branch --show-current` and `git rev-parse HEAD`; repeat both immediately before and
-   after the commit. Stop if the branch moved, HEAD changed before your commit, or another session
-   changed the index. A shared worktree/index is not safe handoff state.
+   after the commit. Immediately before committing, repeat `git diff --cached --raw --no-renames`
+   and verify that every pre-existing cached entry is unchanged and every new entry is in the
+   explicit intended-path allowlist. Stop if the branch moved, HEAD changed before your commit, or
+   the cached index differs outside those intended paths. A shared worktree/index is not safe
+   handoff state.
 2. **Stage coherent, completed changes only.** Stage explicit paths — never `git add -A`
    blindly. Do not stage `.env*`, secrets, build output, logs, or unrelated WIP; if you
    see a possible secret, report the path (never the value) and stop.

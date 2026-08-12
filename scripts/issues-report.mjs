@@ -60,7 +60,7 @@ export function classifyAgentSafeWins(rows) {
       hours !== null &&
       hours <= 4 &&
       !/\boperator\b/i.test(row.capability) &&
-      !/\b(?:provider|live |production|staging|human decision|owner decides?|approval|rag|retrieval|clinical|design.?owner|do not close automatically|the decision is a human|not for agents?|human.?only|requires? human|awaiting? (?:owner|human|operator)|operator decision)\b/i.test(
+      !/\b(?:provider|live |production|staging|hosted.?ci|ci.?uploaded|human (?:decision|review)|owner decides?|approval|rag|retrieval|clinical|design.?owner|do not close automatically|the decision is a human|not for agents?|human.?only|requires? human|awaiting? (?:owner|human|operator)|operator decision)\b/i.test(
         combined,
       )
     );
@@ -81,6 +81,7 @@ export function buildIssuesReport(markdown, source) {
         summary: cells[3],
         detail: cells[4],
         source: cells[5],
+        added: cells[6],
       };
     });
   return {
@@ -99,7 +100,18 @@ export function loadRevalidatedLedger(cwd = process.cwd()) {
   const [behind, ahead] = counts ? counts.split(/\s+/).map(Number) : [null, null];
   const remoteLedger = tryGit(["show", `origin/main:${LEDGER_PATH}`], cwd);
   if (remoteLedger !== undefined) {
-    return { markdown: remoteLedger, source: { ref: "origin/main", branch, behind, ahead, revalidated: true } };
+    return {
+      markdown: remoteLedger,
+      source: {
+        ref: "origin/main (cached)",
+        branch,
+        behind,
+        ahead,
+        revalidated: false,
+        warning:
+          "origin/main is a local remote-tracking ref; refresh it explicitly before relying on current remote state",
+      },
+    };
   }
   return {
     markdown: readFileSync(new URL(`../${LEDGER_PATH}`, import.meta.url), "utf8"),

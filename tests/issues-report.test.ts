@@ -1,6 +1,11 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { buildIssuesReport, classifyAgentSafeWins } from "../scripts/issues-report.mjs";
+import { buildIssuesReport, classifyAgentSafeWins, loadRevalidatedLedger } from "../scripts/issues-report.mjs";
 
 const queueRows = [
   {
@@ -82,6 +87,31 @@ describe("issues report", () => {
     expect(wins.map((row) => row.ids[0])).toEqual(["#012"]);
   });
 
+  it("excludes hosted-CI uploads and human-review gates from agent-safe wins", () => {
+    const gatedRows = [
+      {
+        order: 1,
+        ids: ["#118"],
+        acuity: "A3",
+        capability: "High — CI/visual/perf gates",
+        when: "Next",
+        estimate: "2–4 hours",
+        outcome: "Commit the CI-uploaded visual baselines.",
+      },
+      {
+        order: 2,
+        ids: ["#242"],
+        acuity: "A2",
+        capability: "High — design-system baselines",
+        when: "After human review of Linux baselines",
+        estimate: "1–2 hours",
+        outcome: "Commit approved Linux visual baselines.",
+      },
+    ];
+
+    expect(classifyAgentSafeWins(gatedRows)).toEqual([]);
+  });
+
   it("builds machine-readable counts and preserves the A1 blocker separately", () => {
     const markdown = [
       "# Outstanding",
@@ -105,5 +135,27 @@ describe("issues report", () => {
     expect(report.counts).toEqual({ open: 2, recommended: 2 });
     expect(report.priorityBlockers[0].ids).toEqual(["#001"]);
     expect(report.agentSafeWins.map((row) => row.ids[0])).toEqual(["#002"]);
+    expect(report.open[0].added).toBe("2026-01-01");
+  });
+
+  it("labels a readable origin/main ref as cached rather than remotely revalidated", () => {
+    const directory = mkdtempSync(join(tmpdir(), "issues-report-"));
+    try {
+      execFileSync("git", ["init", "--quiet"], { cwd: directory });
+      execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: directory });
+      execFileSync("git", ["config", "user.name", "Test"], { cwd: directory });
+      mkdirSync(join(directory, "docs"));
+      writeFileSync(join(directory, "docs", "outstanding-issues.md"), "# Cached ledger\n");
+      execFileSync("git", ["add", "docs/outstanding-issues.md"], { cwd: directory });
+      execFileSync("git", ["commit", "--quiet", "-m", "fixture"], { cwd: directory });
+      execFileSync("git", ["update-ref", "refs/remotes/origin/main", "HEAD"], { cwd: directory });
+
+      const { markdown, source } = loadRevalidatedLedger(directory);
+      expect(markdown).toBe("# Cached ledger");
+      expect(source).toMatchObject({ ref: "origin/main (cached)", revalidated: false });
+      expect(source.warning).toContain("local remote-tracking ref");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

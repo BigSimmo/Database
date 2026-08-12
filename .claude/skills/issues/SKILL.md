@@ -9,11 +9,13 @@ description: Track and recall all outstanding tasks, recommendations, and issues
 execution order, open **tasks**, **recommendations**, **issues**, provider/operator work, and archive
 history. Chat context resets; that file does not. This skill reads it back and keeps it current.
 
-**The ledger on `origin/main` is the source of truth, not chat memory or a stale worktree.** Never
-answer `/issues` from conversation recall or by reading the checkout file directly. Run
-`npm run issues:report -- --json`; it reads `origin/main:docs/outstanding-issues.md` and reports the
-checkout's `behind`/`ahead` counts. If `origin/main` is unavailable it falls back visibly to the
-local ledger with `revalidated: false`; repeat that warning instead of presenting it as current.
+**The ledger on the remote `main` branch is the source of truth, not chat memory or a stale
+worktree.** Never answer `/issues` from conversation recall or by reading the checkout file
+directly. Run `npm run issues:report -- --json`; it reads the locally cached
+`origin/main:docs/outstanding-issues.md`, reports the checkout's `behind`/`ahead` counts, and labels
+that source `revalidated: false`. Repeat its warning instead of presenting cached state as current.
+A current remote read requires an explicitly authorized `git fetch origin main` immediately before
+the report; record that fetch separately because the report itself performs no provider access.
 
 ## Trigger
 
@@ -24,7 +26,7 @@ local ledger with `revalidated: false`; repeat that warning instead of presentin
 
 ## Default: `/issues` (read-only)
 
-1. Run `npm run issues:report -- --json` and use that revalidated payload.
+1. Run `npm run issues:report -- --json` and use that payload, preserving its cached-state warning.
 2. State the **Recommended execution queue** back in order, including acuity, timing, and gate.
 3. Summarize any open items not represented in that queue, grouped by priority (P1 → P3), each as
    `#ID · type · summary — next action (source)`.
@@ -95,10 +97,12 @@ to prevent; treat it like `ledger:append` for the review ledger. It does **not**
 between concurrent branches (see `#156` / `#168`) — that needs a different id scheme, not a better
 writer.
 
-Immediately before any mutation, run `npm run issues:report -- --json` again. If it uses
-`origin/main`, rebuild the intended edit against that version rather than the worktree copy. After
-the writer returns, inspect `git diff -- docs/outstanding-issues.md` and refuse any result that drops
-or duplicates unrelated rows. Never use GitHub's Update branch button for a PR touching this file.
+Immediately before any mutation, explicitly refresh `origin/main` after provider authorization,
+then run `npm run issues:report -- --json` again and rebuild the intended edit against that cached
+ref rather than the worktree copy. Record the fetched SHA because the report deliberately does not
+claim that a local remote-tracking ref is independently revalidated. After the writer returns,
+inspect `git diff -- docs/outstanding-issues.md` and refuse any result that drops or duplicates
+unrelated rows. Never use GitHub's Update branch button for a PR touching this file.
 
 - Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
 - Add a retained task to the recommended queue with order, acuity, capability, timing, estimate,

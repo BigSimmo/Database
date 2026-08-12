@@ -106,13 +106,11 @@ describe("productivity workflow planning", () => {
     expect(plan.proof.join(" ")).toContain("Do not stack broad gates");
   });
 
-  it("includes npm run ensure before verify:pr-local for UI flightplans", () => {
+  it("orders app startup, a focused browser journey, then the PR-local gate for UI flightplans", () => {
     const plan = buildWorkflowPlan("flightplan", ["src/components/SomeComponent.tsx"]);
 
     const commands = plan.localChecks.map((item: { command: string }) => item.command);
-    expect(commands).toContain("npm run ensure");
-    expect(commands).toContain("npm run verify:pr-local");
-    expect(commands.indexOf("npm run ensure")).toBeLessThan(commands.indexOf("npm run verify:pr-local"));
+    expect(commands).toEqual(["npm run ensure", "npm run test:e2e:critical", "npm run verify:pr-local"]);
   });
 
   it("makes concurrent branch and index proof explicit at handoff", () => {
