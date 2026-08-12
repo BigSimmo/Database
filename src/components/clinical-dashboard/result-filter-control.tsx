@@ -136,7 +136,10 @@ export function resultFilterFacetGroup<Value extends string>(group: {
   selected: ReadonlySet<Value>;
   options: ReadonlyArray<ResultFilterOption<Value>>;
   onToggle: (value: Value) => void;
-}): ResultFilterGroup {
+  // Returns the narrow facet type, not the union: a mode hands the same group
+  // to `ResultFilterSheet` (which takes the union) and to
+  // `ResultFilterFacetChips` for its desktop rail (which does not).
+}): ResultFilterFacetGroup {
   return {
     kind: "facet",
     id: group.id,
@@ -396,7 +399,14 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
 }
 
 /**
- * A multi-select facet group.
+ * A multi-select facet group, exported so a mode renders the SAME control in
+ * its desktop rail as in its phone sheet.
+ *
+ * The lens modes converge on `SegmentedControl` at both breakpoints; facets had
+ * no such primitive, and the alternative was a second hand-rolled chip row per
+ * mode — which is exactly how the breakpoints came to disagree in the first
+ * place. `idPrefix` scopes the labelling ids, so the two copies can coexist in
+ * one page without colliding.
  *
  * Deliberately NOT a radio group. `aria-pressed` toggles inside a
  * `role="group"` are the honest reading of many-of-N: each control is
@@ -412,7 +422,8 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
  * option can only appear as a consequence of the current selection, never as a
  * permanent fixture of the catalogue.
  */
-function FilterFacetGroup({ group, panelId }: { group: ResultFilterFacetGroup; panelId: string }) {
+export function ResultFilterFacetChips({ group, idPrefix }: { group: ResultFilterFacetGroup; idPrefix: string }) {
+  const panelId = idPrefix;
   const groupLabelId = `${panelId}-${group.id}-label`;
 
   return (
@@ -572,7 +583,7 @@ export function ResultFilterSheet({
       <div className="grid min-w-0 gap-1">
         {groups.map((group) =>
           isFacetGroup(group) ? (
-            <FilterFacetGroup key={group.id} group={group} panelId={panelId} />
+            <ResultFilterFacetChips key={group.id} group={group} idPrefix={panelId} />
           ) : (
             <FilterRadioGroup key={group.id} group={group} panelId={panelId} />
           ),
