@@ -113,6 +113,10 @@ export function UniversalSearchAlsoMatches({
         ? matchCountLabel(matchCount)
         : "No additional matches";
 
+  // Medication search is already a tightly scoped clinical result surface. Do
+  // not add cross-mode suggestions above its prescribing results: they displace
+  // the medication count, patient details, and primary matches on phones.
+  if (modeId === "prescribing") return null;
   if (!viewportReady || trimmedQuery.length < 2) return null;
   if (modeId === "answer" && currentGroups.length === 0) return null;
   if (isWide && !searchPending && currentGroups.length === 0) return null;
