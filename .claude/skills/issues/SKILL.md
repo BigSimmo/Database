@@ -9,8 +9,11 @@ description: Track and recall all outstanding tasks, recommendations, and issues
 execution order, open **tasks**, **recommendations**, **issues**, provider/operator work, and archive
 history. Chat context resets; that file does not. This skill reads it back and keeps it current.
 
-**The ledger is the source of truth, not chat memory.** Never answer `/issues` from conversation
-recall — always read the file first, so the answer is correct even in a fresh session.
+**The ledger on `origin/main` is the source of truth, not chat memory or a stale worktree.** Never
+answer `/issues` from conversation recall or by reading the checkout file directly. Run
+`npm run issues:report -- --json`; it reads `origin/main:docs/outstanding-issues.md` and reports the
+checkout's `behind`/`ahead` counts. If `origin/main` is unavailable it falls back visibly to the
+local ledger with `revalidated: false`; repeat that warning instead of presenting it as current.
 
 ## Trigger
 
@@ -21,7 +24,7 @@ recall — always read the file first, so the answer is correct even in a fresh 
 
 ## Default: `/issues` (read-only)
 
-1. Read `docs/outstanding-issues.md`.
+1. Run `npm run issues:report -- --json` and use that revalidated payload.
 2. State the **Recommended execution queue** back in order, including acuity, timing, and gate.
 3. Summarize any open items not represented in that queue, grouped by priority (P1 → P3), each as
    `#ID · type · summary — next action (source)`.
@@ -31,6 +34,13 @@ recall — always read the file first, so the answer is correct even in a fresh 
 If a filter is given, filter the open items before rendering steps 2–3, then show only matching
 queued tasks and matching non-queued items: `/issues P1` (by priority), `/issues issues` /
 `/issues recs` / `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
+
+`/issues wins` or `/issues agent-safe` runs
+`npm run issues:report -- --agent-safe-wins --json`. The classifier includes only queued work
+estimated at no more than four hours whose capability is not Operator and whose timing/outcome names
+no provider, live environment, RAG/retrieval/clinical surface, approval, owner decision, or human
+decision. Keep report order unchanged and always state A1 priority blockers before these convenience
+wins; the filter never changes acuity.
 
 **A row being open is not evidence that nobody is working on it.** Some rows carry a progress marker
 in their prose (`IN PROGRESS`, `IMPLEMENTED in PR #1766`), but there is no structured status field and
@@ -85,6 +95,11 @@ to prevent; treat it like `ledger:append` for the review ledger. It does **not**
 between concurrent branches (see `#156` / `#168`) — that needs a different id scheme, not a better
 writer.
 
+Immediately before any mutation, run `npm run issues:report -- --json` again. If it uses
+`origin/main`, rebuild the intended edit against that version rather than the worktree copy. After
+the writer returns, inspect `git diff -- docs/outstanding-issues.md` and refuse any result that drops
+or duplicates unrelated rows. Never use GitHub's Update branch button for a PR touching this file.
+
 - Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
 - Add a retained task to the recommended queue with order, acuity, capability, timing, estimate,
   gate, success criteria, verification, and stop rule. Reorder rather than duplicate related work.
@@ -96,8 +111,8 @@ writer.
 - This file deliberately has **no** merge driver, so an overlapping edit conflicts loudly.
   `merge=union` was tried and removed: it concatenated both sides silently, duplicating rows and
   the `next-id` marker (`#133`). Never resolve a conflict by taking one side wholesale — that
-  drops the other agent's rows. Rebuild from `origin/main` and re-apply only the rows you
-  changed. `npm run check:outstanding-issues` fails on duplicate IDs, a stale next-id marker,
+  drops the other agent's rows. Rebuild from `origin/main` and re-apply only the rows you changed;
+  never take either side wholesale. `npm run check:outstanding-issues` fails on duplicate IDs, a stale next-id marker,
   or a merge driver reappearing.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
   surface — recording it here is fine, but acting on it later still needs the usual gate.

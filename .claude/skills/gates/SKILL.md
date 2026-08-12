@@ -9,7 +9,9 @@ A green exit code is not proof. Contended gates can wait a long time before fail
 leave later checks unrun, and a stale worktree makes healthy-looking runs meaningless. This skill
 exists because those failures have cost real time more than once.
 
-**Rule: never report a gate as passing without quoting the line that proves it ran.**
+**Rule: never report a gate as passing without quoting the decisive line that proves it ran. Pick
+one smallest sufficient gate first; do not stack broad gates unless each covers a distinct plausible
+failure path.**
 
 ## The false-green traps
 

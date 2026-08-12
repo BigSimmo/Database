@@ -21,13 +21,18 @@ force-push, or discard work.
    and the ahead/behind from `node scripts/check-base-freshness.mjs`. If staged paths are found
    that aren't part of the current session's own work (leftover from other sessions' WIP),
    unstage them with `git restore --staged <path>` before proceeding.
+   Record `git branch --show-current` and `git rev-parse HEAD`; repeat both immediately before and
+   after the commit. Stop if the branch moved, HEAD changed before your commit, or another session
+   changed the index. A shared worktree/index is not safe handoff state.
 2. **Stage coherent, completed changes only.** Stage explicit paths — never `git add -A`
    blindly. Do not stage `.env*`, secrets, build output, logs, or unrelated WIP; if you
    see a possible secret, report the path (never the value) and stop.
-3. **Verify** with the smallest sufficient gate:
-   - Default: `npm run verify:pr-local` (format + cheap gate, plus build/RAG when the
-     scope needs them).
-   - Touched UI/routing/styling: add `npm run verify:ui`.
+3. **Verify** by invoking `verification-router` (or the `gates` skill when scope is already clear)
+   and run the one smallest sufficient gate it selects. Default PR-ready work uses
+   `npm run verify:pr-local`; inspect its selection with `--dry-run` when uncertain. For
+   UI/routing/styling, prove the affected journey first and add `verify:ui` only for shared UI
+   foundations or when the router says its distinct coverage is necessary. Never stack
+   `verify:cheap` + `verify:ui` + `verify:release` by default.
    - Touched `src/app/`, `src/components/`, or `tests/` (or design-system adoption
      inputs): run `npm run design-system:adoption:update` and stage any regenerated
      `docs/design-system/adoption-manifest.json` / marked COMPONENTS/ADOPTION sections
@@ -35,10 +40,15 @@ force-push, or discard work.
      bypass hooks still need the explicit update or static-pr + coverage fail together
      (PR #1782).
    - Touched Supabase env/config: `npm run check:supabase-project` (provider — confirm first).
-     Do not claim a gate passed unless it actually ran.
-4. **Commit** with a clear message. End the message with:
+     Do not claim a gate passed unless it actually ran. Paste the decisive proof line (for example,
+     the test count or named check success), not only exit code 0.
+4. **Commit** with a clear message, then verify the new commit has your message, only your intended
+   paths (`git show --name-only --format=fuller HEAD`), and the same branch name recorded in step 1.
+   End the message with:
    `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
-5. **Push** the feature branch: `git push -u origin <branch>`. The pre-push guards run
+5. **Push** the feature branch: `git push -u origin <branch>`. Never pipe the push through `tail`,
+   `head`, or another command that can mask its status. Confirm the remote tip equals local HEAD
+   with `git ls-remote` before reporting success. The pre-push guards run
    (auto-merge sentinel, format, drift) — heed a block rather than overriding blindly.
 6. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
    attribution line. Write the body from `.github/pull_request_template.md` in full normal
