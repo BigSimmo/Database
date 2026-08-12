@@ -18,29 +18,27 @@ jobs:
   finalize:
     if: github.repository == 'BigSimmo/Database'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - name: Checkout exact verified head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 2
+          fetch-depth: 3
           ref: codex/windows-test-portability
           persist-credentials: false
 
-      - name: Guard verified parent
+      - name: Guard verified ancestry
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "a4e0fbe378429d73f7118e9b801945cb483e3e86"
+          test "$(git rev-parse HEAD^)" = "06757bb408f0233a7dcb2de218c3e142ece827e4"
+          test "$(git rev-parse HEAD^^^)" = "fbb4a6baff2826d8f31b549a8de7ee90c0c52df4"
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
-
-      - name: Install locked dependencies
-        run: npm ci --include=dev --prefer-offline --no-audit --no-fund
 
       - name: Append and validate review record
         shell: bash
