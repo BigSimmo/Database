@@ -37,7 +37,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "931d467033edfd9807487388ed659984a4a04540"
+          test "$(git rev-parse HEAD^)" = "91592079f67dcff48b2b13f9bd7ef68d4ebfbb67"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch --no-tags origin main
           test "$(git rev-parse origin/main)" = "5ff9b76950b887c0b66c7b6d42405a325f3be339"
 
@@ -105,8 +107,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git rm .github/workflows/merge-main-pr-1868.yml
           git add --all
           git diff --cached --check
