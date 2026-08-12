@@ -1,0 +1,109 @@
+name: PR 1845 merge repair
+
+on:
+  push:
+    branches:
+      - codex/investigate-navigation-changes-in-services
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-1845-merge-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: codex/investigate-navigation-changes-in-services
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Merge current main and verify focused repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo 'Current main is already present in the PR branch.'
+          else
+            set +e
+            git merge --no-commit --no-ff origin/main
+            merge_status=$?
+            set -e
+
+            if [ "$merge_status" -ne 0 ]; then
+              conflicts="$(git diff --name-only --diff-filter=U)"
+              unexpected="$(printf '%s\n' "$conflicts" | grep -v '^docs/branch-review-ledger.md$' || true)"
+              if [ -n "$unexpected" ]; then
+                printf 'Unexpected merge conflicts:\n%s\n' "$unexpected" >&2
+                exit 1
+              fi
+              if printf '%s\n' "$conflicts" | grep -qx 'docs/branch-review-ledger.md'; then
+                git checkout --theirs -- docs/branch-review-ledger.md
+                git add docs/branch-review-ledger.md
+              fi
+              if git diff --name-only --diff-filter=U | grep -q .; then
+                echo 'Unresolved merge conflicts remain.' >&2
+                exit 1
+              fi
+            fi
+
+            if [ ! -f .git/MERGE_HEAD ]; then
+              echo 'Main is not an ancestor and no merge state was created.' >&2
+              exit 1
+            fi
+          fi
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          page = Path("src/app/(search-app)/services/page.tsx").read_text()
+          required_page_markers = (
+              'import { redirect } from "next/navigation";',
+              'const canonicalSearchParams = toURLSearchParams(resolvedSearchParams);',
+              'canonicalSearchParams.delete("query");',
+          )
+          missing = [marker for marker in required_page_markers if marker not in page]
+          if missing:
+              raise SystemExit(f"Missing Services URL repair markers: {missing}")
+
+          tests = Path("tests/ui-tools.spec.ts").read_text()
+          if 'page.getByTestId("service-filter-panel-clear").click();' not in tests:
+              raise SystemExit("Missing stable Services clear-filter locator")
+          if 'getByRole("button", { name: "Clear all" }).click();' in tests:
+              raise SystemExit("Stale Services clear-filter locator remains")
+
+          ledger_path = Path("docs/branch-review-ledger.md")
+          ledger = ledger_path.read_text()
+          marker = "| 2026-08-13 | PR-1845 |"
+          if marker not in ledger:
+              if not ledger.endswith("\n"):
+                  ledger += "\n"
+              ledger += (
+                  "| 2026-08-13 | PR-1845 | 795ce38e165ce44e167038839a914b2efdb77dae | "
+                  "current-main merge, CI repair, and open-comment review | preserved the current-main ledger; "
+                  "canonicalized whitespace-only q to the non-empty legacy query; replaced the stale clear-filter "
+                  "Playwright locator; no unresolved review threads remained | pending fresh GitHub CI |\n"
+              )
+              ledger_path.write_text(ledger)
+          PY
+
+          git add docs/branch-review-ledger.md
+          git diff --check
+
+          if [ -f .git/MERGE_HEAD ]; then
+            git commit -m 'Merge main into PR 1845 and preserve CI repairs'
+            git push origin HEAD:codex/investigate-navigation-changes-in-services
+          else
+            echo 'No merge commit required.'
+          fi
