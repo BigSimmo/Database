@@ -3283,7 +3283,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const origin = new URL(page.url());
     await visibleByTestId(page, "differentials-search-results")
-      .getByRole("link", { name: "Open page" })
+      .locator('a[href^="/differentials/diagnoses/"], a[href^="/differentials/presentations/"]')
+      .filter({ visible: true })
       .first()
       .click();
     await expect(page).toHaveURL(/\/differentials\/(diagnoses|presentations)\//, { timeout: 30_000 });

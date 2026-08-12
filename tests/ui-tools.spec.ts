@@ -2093,6 +2093,9 @@ test.describe("Clinical KB tools launcher", () => {
     const uncheckedSelection = mobileCards.getByRole("checkbox", { name: /^Add .+ to comparison$/ }).first();
     await expect(uncheckedSelection).toBeVisible();
     await expect(uncheckedSelection).not.toBeChecked();
+    const uncheckedName = await uncheckedSelection.getAttribute("aria-label");
+    expect(uncheckedName).toMatch(/^Add .+ to comparison$/);
+    const checkedName = uncheckedName!.replace(/^Add /, "Remove ").replace(/ to comparison$/, " from comparison");
     const selectionTarget = uncheckedSelection.locator("xpath=..");
     await expectMinTouchTarget(selectionTarget, 48);
     const visibleSelectionBox = await selectionTarget.getByTestId("differential-selection-box").evaluate((element) => {
@@ -2103,8 +2106,8 @@ test.describe("Clinical KB tools launcher", () => {
     await uncheckedSelection.focus();
     await expect(uncheckedSelection).toBeFocused();
     await uncheckedSelection.press("Space");
-    await expect(uncheckedSelection).toBeChecked();
-    await expect(uncheckedSelection).toHaveAccessibleName(/^Remove .+ from comparison$/);
+    const checkedSelection = mobileCards.getByRole("checkbox", { name: checkedName, exact: true });
+    await expect(checkedSelection).toBeChecked();
 
     // Status badge sits on its own meta row below the title, never beside it.
     const titleBadgeLayout = await mobileCards.first().evaluate((card) => {
