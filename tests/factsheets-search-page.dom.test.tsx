@@ -16,9 +16,13 @@ import { filterFactsheets } from "@/components/factsheets/factsheets-data";
 // fixture that still exercises real counting rather than an empty result set.
 const query = "sertraline";
 const results = filterFactsheets(query);
+const unrelatedZeroLabels = ["Conditions (0)", "Therapies (0)", "Tests & procedures (0)"] as const;
+const selectedZeroMessage =
+  "No results in Conditions for this search. Choose All or another available category.";
 
 describe("FactsheetsSearchPage category filter", () => {
-  it("renders one shared, counted option array on both breakpoints — the desktop rail is no longer raw links", () => {
+  it("derives the shared desktop and phone options from categories available at the current query", async () => {
+    const user = userEvent.setup();
     render(<FactsheetsSearchPage query={query} results={results} />);
 
     // Desktop: a real SegmentedControl (radiogroup), not `<Link>` chips —
@@ -26,18 +30,18 @@ describe("FactsheetsSearchPage category filter", () => {
     const desktopGroup = screen.getByRole("radiogroup", { name: "Category" });
     expect(within(desktopGroup).getByRole("radio", { name: "All (1)" })).toBeChecked();
     expect(within(desktopGroup).getByRole("radio", { name: "Medications (1)" })).toBeInTheDocument();
-    expect(within(desktopGroup).getByRole("radio", { name: "Conditions (0)" })).toBeInTheDocument();
-  });
-
-  it("opens the phone sheet with the same counted options as the desktop rail", async () => {
-    const user = userEvent.setup();
-    render(<FactsheetsSearchPage query={query} results={results} />);
+    for (const label of unrelatedZeroLabels) {
+      expect(within(desktopGroup).queryByRole("radio", { name: label })).not.toBeInTheDocument();
+    }
 
     await user.click(screen.getByTestId("factsheet-filter-trigger-phone"));
     const sheet = screen.getByTestId("factsheet-filter-panel");
     const sheetGroup = within(sheet).getByRole("radiogroup", { name: "Category" });
     expect(within(sheetGroup).getByRole("radio", { name: "All (1)" })).toBeChecked();
     expect(within(sheetGroup).getByRole("radio", { name: "Medications (1)" })).toBeInTheDocument();
+    for (const label of unrelatedZeroLabels) {
+      expect(within(sheetGroup).queryByRole("radio", { name: label })).not.toBeInTheDocument();
+    }
   });
 
   it("selecting a category narrows within the query rather than replacing it", async () => {
@@ -69,12 +73,53 @@ describe("FactsheetsSearchPage category filter", () => {
     expect(href).not.toContain("category=");
   });
 
-  it("counts answer 'how many at the current query', not a permanently declared total", () => {
-    // A query with zero factsheets: every option — including a category with
-    // real catalogue members overall — must read 0, not a stale full count.
+  it("keeps a selected zero-count category as an explained, inert dead end", async () => {
+    const user = userEvent.setup();
+    push.mockClear();
+    render(
+      <FactsheetsSearchPage
+        query={query}
+        category="Conditions"
+        results={filterFactsheets(query, "Conditions")}
+      />,
+    );
+
+    const desktopGroup = screen.getByRole("radiogroup", { name: "Category" });
+    expect(within(desktopGroup).getByRole("radio", { name: "All (1)" })).toBeEnabled();
+    expect(within(desktopGroup).getByRole("radio", { name: "Medications (1)" })).toBeEnabled();
+    const selectedZero = within(desktopGroup).getByRole("radio", { name: "Conditions (0)" });
+    expect(selectedZero).toBeChecked();
+    expect(selectedZero).toBeDisabled();
+    expect(screen.getByTestId("factsheet-category-dead-end")).toHaveTextContent(selectedZeroMessage);
+    expect(within(desktopGroup).queryByRole("radio", { name: "Therapies (0)" })).not.toBeInTheDocument();
+    expect(within(desktopGroup).queryByRole("radio", { name: "Tests & procedures (0)" })).not.toBeInTheDocument();
+
+    await user.click(selectedZero);
+    expect(push).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId("factsheet-filter-trigger-phone"));
+    const sheet = screen.getByTestId("factsheet-filter-panel");
+    const sheetGroup = within(sheet).getByRole("radiogroup", { name: "Category" });
+    const sheetSelectedZero = within(sheetGroup).getByRole("radio", { name: "Conditions (0)" });
+    expect(sheetSelectedZero).toBeChecked();
+    expect(within(sheet).getByText(selectedZeroMessage)).toBeInTheDocument();
+
+    await user.click(sheetSelectedZero);
+    expect(push).not.toHaveBeenCalled();
+    await user.click(within(sheetGroup).getByRole("radio", { name: "Medications (1)" }));
+
+    expect(push).toHaveBeenCalledTimes(1);
+    const href = push.mock.calls[0][0] as string;
+    expect(href).toContain(`q=${encodeURIComponent(query)}`);
+    expect(href).toContain("category=Medications");
+  });
+
+  it("shows only the All escape when the current query has no category matches", () => {
     render(<FactsheetsSearchPage query="zzz-no-such-factsheet" results={[]} />);
     const desktopGroup = screen.getByRole("radiogroup", { name: "Category" });
-    expect(within(desktopGroup).getByRole("radio", { name: "All (0)" })).toBeInTheDocument();
-    expect(within(desktopGroup).getByRole("radio", { name: "Medications (0)" })).toBeInTheDocument();
+    expect(within(desktopGroup).getByRole("radio", { name: "All (0)" })).toBeEnabled();
+    for (const category of ["Medications", "Conditions", "Therapies", "Tests & procedures"]) {
+      expect(within(desktopGroup).queryByRole("radio", { name: `${category} (0)` })).not.toBeInTheDocument();
+    }
   });
 });

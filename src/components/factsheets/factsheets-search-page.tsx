@@ -45,6 +45,7 @@ export function FactsheetsSearchPage({
   const [view, setView] = useState<ViewMode>("list");
   const activeCategory = factsheetCategories.find((entry) => entry === category);
   const filterPanelId = useId();
+  const categoryDeadEndNoteId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
 
   // Category genuinely narrows within the current search — `filterFactsheets`
@@ -53,21 +54,41 @@ export function FactsheetsSearchPage({
   // lens (docs/filter-contract.md section 1), not something to evict.
   //
   // Query-matched, category-UNfiltered, so a hint answers "how many for this
-  // category, at the current query" for every option — including the ones not
-  // currently active — the same predicate section 3 requires for a count.
+  // category, at the current query". Derive the option list from those matches:
+  // unrelated zero-member categories do not exist. A selected category that the
+  // query has narrowed to zero stays visible as a disabled, explained dead end
+  // so URL state remains truthful and the available options provide an escape.
   const queryMatches = useMemo(() => filterFactsheets(query), [query]);
-  const categoryOptions = useMemo<ReadonlyArray<ResultFilterOption<string>>>(
-    () => [
+  const categoryOptions = useMemo<ReadonlyArray<ResultFilterOption<string>>>(() => {
+    const categoryCounts = new Map<string, number>();
+    for (const sheet of queryMatches) {
+      categoryCounts.set(sheet.category, (categoryCounts.get(sheet.category) ?? 0) + 1);
+    }
+
+    const options: ResultFilterOption<string>[] = [
       { value: "all", label: "All", hint: String(queryMatches.length) },
-      ...factsheetCategories.map((entry) => ({
+    ];
+    for (const entry of factsheetCategories) {
+      const count = categoryCounts.get(entry) ?? 0;
+      if (count === 0 && entry !== activeCategory) continue;
+      options.push({
         value: entry,
         label: entry,
-        hint: String(queryMatches.filter((sheet) => sheet.category === entry).length),
-      })),
-    ],
-    [queryMatches],
+        hint: String(count),
+        disabled: count === 0,
+      });
+    }
+    return options;
+  }, [activeCategory, queryMatches]);
+  const activeCategoryIsDeadEnd = Boolean(
+    activeCategory && categoryOptions.find((option) => option.value === activeCategory)?.disabled,
   );
+  const activeCategoryDeadEndMessage = activeCategoryIsDeadEnd
+    ? `No results in ${activeCategory} for this search. Choose All or another available category.`
+    : undefined;
   const applyCategory = (value: string) => {
+    const option = categoryOptions.find((entry) => entry.value === value);
+    if (!option || option.disabled) return;
     setFilterOpen(false);
     router.push(searchHref(query, value === "all" ? undefined : value));
   };
@@ -105,12 +126,24 @@ export function FactsheetsSearchPage({
         // here, a real radiogroup in the sheet) even though the VALUES already
         // agreed. One shared array is what stops that drifting again.
         filterControls={
-          <SegmentedControl
-            label="Category"
-            value={activeCategory ?? "all"}
-            onChange={applyCategory}
-            options={categoryOptions}
-          />
+          <div className="grid min-w-0 gap-1.5">
+            <SegmentedControl
+              label="Category"
+              value={activeCategory ?? "all"}
+              onChange={applyCategory}
+              options={categoryOptions}
+              ariaDescribedBy={activeCategoryDeadEndMessage ? categoryDeadEndNoteId : undefined}
+            />
+            {activeCategoryDeadEndMessage ? (
+              <p
+                id={categoryDeadEndNoteId}
+                data-testid="factsheet-category-dead-end"
+                className="text-xs font-medium leading-5 text-[color:var(--text-muted)]"
+              >
+                {activeCategoryDeadEndMessage}
+              </p>
+            ) : null}
+          </div>
         }
       />
 
@@ -169,7 +202,7 @@ export function FactsheetsSearchPage({
           }),
         ]}
         onClearAll={activeCategory ? () => applyCategory("all") : undefined}
-        footerNote={`${results.length} showing`}
+        footerNote={activeCategoryDeadEndMessage ?? `${results.length} showing`}
       />
 
       {results.length === 0 ? (
