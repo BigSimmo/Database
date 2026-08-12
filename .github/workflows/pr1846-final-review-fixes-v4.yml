@@ -1,0 +1,148 @@
+name: PR 1846 Final Review Fixes V4
+
+on:
+  push:
+    branches:
+      - claude/filter-popup-design-mockups-x6sbjv
+
+concurrency:
+  group: pr1846-final-review-fixes-v4
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: claude/filter-popup-design-mockups-x6sbjv
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Apply final review fixes
+        shell: bash
+        run: |
+          cat > tests/filter-sheet-restyle-mockups.test.ts <<'EOF'
+          import { describe, expect, it } from "vitest";
+
+          import {
+            filterSheetRestyleCurrentQuery,
+            filterSheetRestyleCurrentSubset,
+            filterSheetRestyleDomainProportionPercent,
+          } from "@/components/filter-sheet-restyle-mockups";
+          import { formulationMechanisms, searchFormulationMechanisms } from "@/lib/formulation";
+
+          describe("filter sheet restyle mockup scope", () => {
+            it("grounds the two-result scope comparison in the production search", () => {
+              const productionSubset = searchFormulationMechanisms(filterSheetRestyleCurrentQuery).map(
+                (result) => result.mechanism.name,
+              );
+
+              expect([...filterSheetRestyleCurrentSubset].sort()).toEqual(["Reassurance seeking", "Worry"]);
+              expect([...productionSubset].sort()).toEqual([...filterSheetRestyleCurrentSubset].sort());
+              expect(filterSheetRestyleCurrentSubset).toHaveLength(2);
+              expect(filterSheetRestyleCurrentSubset.length).toBeLessThan(formulationMechanisms.length);
+            });
+
+            it("scales dense-list proportions against the active scope", () => {
+              expect(filterSheetRestyleDomainProportionPercent(2, 2)).toBe(100);
+              expect(filterSheetRestyleDomainProportionPercent(1, 2)).toBe(50);
+              expect(filterSheetRestyleDomainProportionPercent(0, 0)).toBe(0);
+            });
+          });
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/components/filter-sheet-restyle-mockups.tsx")
+          text = path.read_text(encoding="utf-8")
+
+          def replace_once(value: str, old: str, new: str, label: str) -> str:
+              count = value.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly 1 match, found {count}")
+              return value.replace(old, new, 1)
+
+          text = replace_once(
+              text,
+              "    return { total, perDomain };",
+              "    return { total, perDomain, scopeSize: pool.length };",
+              "scope size return",
+          )
+          text = replace_once(
+              text,
+              "/** Full-width row variant for the dense direction. */\nfunction DomainRow({",
+              "export function filterSheetRestyleDomainProportionPercent(count: number, scopeSize: number) {\n  if (scopeSize <= 0) return 0;\n  return Math.round((count / scopeSize) * 100);\n}\n\n/** Full-width row variant for the dense direction. */\nfunction DomainRow({",
+              "proportion helper",
+          )
+          text = replace_once(
+              text,
+              "function DomainRow({\n  domain,\n  count,\n  selected,\n  compact,\n  onToggle,\n}: {\n  domain: string;\n  count: number;\n  selected: boolean;\n  compact: boolean;\n  onToggle: () => void;\n}) {",
+              "function DomainRow({\n  domain,\n  count,\n  scopeSize,\n  selected,\n  compact,\n  onToggle,\n}: {\n  domain: string;\n  count: number;\n  scopeSize: number;\n  selected: boolean;\n  compact: boolean;\n  onToggle: () => void;\n}) {",
+              "DomainRow scope size prop",
+          )
+          text = replace_once(
+              text,
+              "A proportion bar, not just a number: twelve mechanisms is small enough\n          that relative weight is more legible than absolute count.",
+              "A proportion bar, not just a number: relative weight within the active scope\n          is more legible than absolute count alone.",
+              "proportion comment",
+          )
+          text = replace_once(
+              text,
+              '          style={{ width: `${Math.round((count / MECHANISMS.length) * 100)}%` }}',
+              '          style={{ width: `${filterSheetRestyleDomainProportionPercent(count, scopeSize)}%` }}',
+              "scoped proportion width",
+          )
+
+          section_start = text.index("function StyleCBody(")
+          section_end = text.index("/* Today — the shipped sheet", section_start)
+          style_c = text[section_start:section_end]
+          style_c = replace_once(
+              style_c,
+              "  counts: { perDomain: Record<string, number> };",
+              "  counts: { perDomain: Record<string, number>; scopeSize: number };",
+              "StyleCBody counts type",
+          )
+          style_c = replace_once(
+              style_c,
+              "              <DomainRow\n                key={domain}\n                domain={domain}\n                count={counts.perDomain[domain] ?? 0}\n                selected={selected.has(domain)}",
+              "              <DomainRow\n                key={domain}\n                domain={domain}\n                count={counts.perDomain[domain] ?? 0}\n                scopeSize={counts.scopeSize}\n                selected={selected.has(domain)}",
+              "DomainRow scope size value",
+          )
+          text = text[:section_start] + style_c + text[section_end:]
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Format and validate focused changes
+        run: |
+          npx prettier --write src/components/filter-sheet-restyle-mockups.tsx tests/filter-sheet-restyle-mockups.test.ts
+          npx eslint src/components/filter-sheet-restyle-mockups.tsx tests/filter-sheet-restyle-mockups.test.ts --max-warnings 0
+          npx vitest run tests/filter-sheet-restyle-mockups.test.ts
+          npm run typecheck
+
+      - name: Commit fixes and remove one-use workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/pr1846-final-review-fixes*.yml
+          git add src/components/filter-sheet-restyle-mockups.tsx tests/filter-sheet-restyle-mockups.test.ts
+          git diff --cached --check
+          git -c core.hooksPath=/dev/null commit -m "fix(mockups): scale dense bars to active scope"
+          git push origin HEAD:claude/filter-popup-design-mockups-x6sbjv
