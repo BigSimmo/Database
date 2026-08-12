@@ -19,7 +19,6 @@ import {
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { ServiceGroupNav } from "@/components/services/service-group-nav";
-import { ServiceReferralFlow } from "@/components/services/service-referral-flow";
 import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { useResultSort } from "@/components/use-result-sort";
@@ -324,7 +323,6 @@ export function ServicesNavigatorPage() {
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
-  const activeStage = showComparison ? "compare" : selected.length ? "shortlist" : "search";
 
   function updateParams(mutator: (params: URLSearchParams) => void, replace = false) {
     const params = new URLSearchParams(searchParams.toString());
@@ -480,7 +478,6 @@ export function ServicesNavigatorPage() {
           />
 
           <section className="grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4">
-            <ServiceReferralFlow active={activeStage} />
             <ServiceGroupNav
               activeGroup={activeGroup}
               hrefForGroup={hrefForGroup}

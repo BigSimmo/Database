@@ -1,36 +1,93 @@
 "use client";
 
-import { FileQuestion, Loader2, ShieldAlert, Users } from "lucide-react";
+import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert, Users } from "lucide-react";
 
 import {
   ModeHomeMain,
   ModeHomeStatusNotice,
   ModeHomeTemplate,
   ModeHomeVerificationFooter,
+  type ModeHomeAction,
+  type ModeHomePill,
 } from "@/components/mode-home-template";
-import { ServiceGroupNav } from "@/components/services/service-group-nav";
-import { ServiceReferralFlow } from "@/components/services/service-referral-flow";
+import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { serviceCoreGroups, serviceMatchesCoreGroup, type ServiceCoreGroupId } from "@/lib/service-core-groups";
 import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
-function groupHref(group: ServiceCoreGroupId | null) {
-  const params = new URLSearchParams({ run: "1" });
-  if (group) params.set("group", group);
-  return `/services?${params.toString()}`;
+// The default service slug is computed server-side (app/services/page.tsx) and
+// passed as a prop: a direct `@/lib/services` value import here would compile
+// the full services snapshot (~100 KB gzip) into this client route chunk.
+function buildTaskCards(defaultServiceSlug: string | null): ModeHomeAction[] {
+  return [
+    {
+      title: "Search services",
+      description: "Need, catchment, provider, keyword.",
+      icon: FileSearch,
+      href: appModeHomeHref("services", { focus: true }),
+    },
+    {
+      title: "Check catchment",
+      description: "Region, public/private, eligibility.",
+      icon: MapPinned,
+      href: `/services/${defaultServiceSlug ?? ""}`,
+    },
+    {
+      title: "Browse referral pathways",
+      description: "Crisis, youth, Aboriginal health, telehealth.",
+      icon: Route,
+      href: appModeHomeHref("services", {
+        query: "crisis youth Aboriginal health telehealth referral pathway",
+        focus: true,
+        run: true,
+      }),
+    },
+  ];
 }
 
-export function ServicesHomePage() {
+const commonPathways: ModeHomePill[] = [
+  {
+    label: "Crisis",
+    tone: "danger",
+    href: appModeHomeHref("services", { query: "crisis support services", focus: true, run: true }),
+  },
+  {
+    label: "Aboriginal and Torres Strait Islander services",
+    shortLabel: "ATSI services",
+    tone: "rose",
+    href: appModeHomeHref("services", {
+      query: "Aboriginal Torres Strait Islander services",
+      focus: true,
+      run: true,
+    }),
+  },
+  {
+    label: "Youth",
+    tone: "purple",
+    href: appModeHomeHref("services", { query: "youth mental health services", focus: true, run: true }),
+  },
+  {
+    label: "Telehealth",
+    tone: "indigo",
+    href: appModeHomeHref("services", { query: "telehealth services", focus: true, run: true }),
+  },
+  {
+    label: "Free",
+    tone: "slate",
+    href: appModeHomeHref("services", { query: "free services", focus: true, run: true }),
+  },
+  {
+    label: "Statewide",
+    tone: "neutral",
+    href: appModeHomeHref("services", { query: "statewide services", focus: true, run: true }),
+  },
+];
+
+export function ServicesHomePage({ defaultServiceSlug = null }: { defaultServiceSlug?: string | null }) {
+  const taskCards = buildTaskCards(defaultServiceSlug);
   const registry = useRegistryRecords("service");
   const verifiedCount = countVerifiedRegistryRecords(registry);
   const registryReady = registry.status === "ready" || registry.status === "refetching";
   const hasRegistryRecords = registryReady && registry.total > 0;
-  const groupCounts = Object.fromEntries(
-    serviceCoreGroups.map((group) => [
-      group.id,
-      registry.records.filter((service) => serviceMatchesCoreGroup(service, group.id)).length,
-    ]),
-  ) as Record<ServiceCoreGroupId, number>;
   const registryNotice =
     registry.status === "loading" ? (
       <ModeHomeStatusNotice
@@ -69,50 +126,29 @@ export function ServicesHomePage() {
       // center → top when records arrive. Confirmed empty/error notices stay centred.
       contentAlign={registry.status === "loading" || hasRegistryRecords ? "startOnPhone" : "center"}
     >
-      <div className="mx-auto grid w-full max-w-[60rem] gap-4 lg:gap-5">
-        <ModeHomeTemplate
-          testId="services-home-template"
-          title="Services"
-          subtitle="Find the right service, check fit, compare options, and refer with confidence."
-          icon={Users}
-          desktopComposerSlotId={modeHomeDesktopComposerSlotId}
-          actionsLabel="Referral workflow"
-          actions={[]}
-        />
-        {hasRegistryRecords ? (
-          <>
-            <ServiceReferralFlow active="search" variant="cards" className="px-4 sm:px-0" />
-            <section className="grid gap-2.5 border-t border-[color:var(--border)]/70 px-4 pt-4 sm:px-0">
-              <div className="flex items-end justify-between gap-3">
-                <div className="text-left">
-                  <h2 className="text-sm font-bold text-[color:var(--text-heading)]">Browse core groups</h2>
-                  <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-                    Start broad, then refine by need, catchment, eligibility, and route.
-                  </p>
-                </div>
-                <span className="nums shrink-0 text-xs font-semibold text-[color:var(--text-muted)]">
-                  {registry.total} services
-                </span>
-              </div>
-              <ServiceGroupNav
-                activeGroup={null}
-                hrefForGroup={groupHref}
-                counts={{ ...groupCounts, all: registry.total }}
-              />
-            </section>
-            <div className="px-4 sm:px-0">
-              <ModeHomeVerificationFooter
-                label="Referral fit"
-                body="Confirm eligibility, availability and contact details locally"
-                verifiedCount={verifiedCount}
-                totalCount={registry.total}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="px-4 sm:px-0">{registryNotice}</div>
-        )}
-      </div>
+      <ModeHomeTemplate
+        testId="services-home-template"
+        title="Services"
+        subtitle="Search by need, catchment, or route."
+        icon={Users}
+        desktopComposerSlotId={modeHomeDesktopComposerSlotId}
+        actionsLabel="Service tasks"
+        actions={hasRegistryRecords ? taskCards : []}
+        pillsTitle="Browse by need"
+        pills={hasRegistryRecords ? commonPathways : []}
+        footer={
+          hasRegistryRecords ? (
+            <ModeHomeVerificationFooter
+              label="Referral fit"
+              body="Need, catchment, eligibility and route"
+              verifiedCount={verifiedCount}
+              totalCount={registry.total}
+            />
+          ) : (
+            registryNotice
+          )
+        }
+      />
     </ModeHomeMain>
   );
 }
