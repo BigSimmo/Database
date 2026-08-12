@@ -75,7 +75,13 @@ describe("FactsheetsSearchPage category filter", () => {
   it("keeps a selected zero-count category as an explained, inert dead end", async () => {
     const user = userEvent.setup();
     push.mockClear();
-    render(<FactsheetsSearchPage query={query} category="Conditions" results={filterFactsheets(query, "Conditions")} />);
+    render(
+      <FactsheetsSearchPage
+        query={query}
+        category="Conditions"
+        results={filterFactsheets(query, "Conditions")}
+      />,
+    );
 
     const desktopGroup = screen.getByRole("radiogroup", { name: "Category" });
     expect(within(desktopGroup).getByRole("radio", { name: "All (1)" })).toBeEnabled();
