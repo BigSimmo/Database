@@ -1,0 +1,64 @@
+name: PR 1870 focused ledger fix
+
+on:
+  push:
+    branches:
+      - claude/design-issues-triage-wnr7k9
+    paths:
+      - .github/workflows/pr-1870-ledger-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: claude/design-issues-triage-wnr7k9
+          fetch-depth: 0
+
+      - name: Correct the per-record fuzzy-trigger analysis
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("docs/outstanding-issues.md")
+          text = path.read_text(encoding="utf-8")
+
+          old_mitigation = "TWO MITIGATIONS, stated so this is not over-read: fuzzy fires only when `score === 0` (nothing matched literally), so the hazard needs the queried drug ABSENT from the catalogue while a near-miss is present; and terms under 5 characters are excluded entirely."
+          new_mitigation = "ONE MITIGATION, stated so this is not over-read: terms under 5 characters are excluded entirely. The fuzzy trigger is evaluated independently for each candidate record, so the hazard persists when both the exact drug and a two-edit near-match are present: the exact record receives a literal score while the wrong drug can independently receive a fuzzy score and appear as an additional result."
+
+          old_next = "Next: if PR #1851 is still open, raise this on it; if it merged, apply the cap directly and add a test over real catalogue drug names asserting no cross-drug match."
+          new_next = "Next: if PR #1851 is still open, raise this on it; if it merged, apply the cap directly and add a test over real catalogue drug names with both the exact and near-match records present, asserting the wrong drug is excluded while the exact drug remains."
+
+          if text.count(old_mitigation) != 1:
+              raise SystemExit(f"expected one mitigation match, found {text.count(old_mitigation)}")
+          if text.count(old_next) != 1:
+              raise SystemExit(f"expected one next-action match, found {text.count(old_next)}")
+
+          text = text.replace(old_mitigation, new_mitigation).replace(old_next, new_next)
+          path.write_text(text, encoding="utf-8")
+          PY
+
+          rm .github/workflows/pr-1870-ledger-fix.yml
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Verify PR-local contract
+        run: npm run verify:pr-local
+
+      - name: Commit focused correction and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/outstanding-issues.md .github/workflows/pr-1870-ledger-fix.yml
+          git commit -m "docs(issues): correct fuzzy-search trigger analysis"
+          git push origin HEAD:claude/design-issues-triage-wnr7k9
