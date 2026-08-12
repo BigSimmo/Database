@@ -51,7 +51,8 @@ describe("bounded HTTP readiness", () => {
     await expect(
       waitForHttpReadiness({
         url,
-        isReady: ({ statusCode, body }) => statusCode === 200 && body === "ready",
+        isReady: ({ statusCode, body }: { statusCode?: number; body: string }) =>
+          statusCode === 200 && body === "ready",
         timeoutMs: 1_000,
         requestTimeoutMs: 40,
         pollIntervalMs: 5,
