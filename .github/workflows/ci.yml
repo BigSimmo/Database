@@ -229,7 +229,11 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         env:
           LEDGER_WRITE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
-        run: npm run check:ledger-write-discipline
+        run: |
+          if [ "${LEDGER_WRITE_BASE_SHA:-}" = "0000000000000000000000000000000000000000" ]; then
+            unset LEDGER_WRITE_BASE_SHA
+          fi
+          npm run check:ledger-write-discipline
 
       - name: PR mergeability workflow contract
         if: needs.changes.outputs.workflow_changed == 'true'
