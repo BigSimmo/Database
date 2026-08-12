@@ -352,11 +352,11 @@ test("guides choices into a reviewable and copyable diagnosis", async ({ page },
   );
 
   await review.getByRole("button", { name: "Copy wording" }).click();
-  await expect(review.getByRole("button", { name: "Copied" })).toBeVisible();
-  await expect(review.getByRole("status")).toHaveText("Wording copied to the clipboard.");
   await expect
     .poll(() => page.evaluate(() => window.sessionStorage.getItem("specifier-builder-copied-text")))
     .toBe("Major depressive disorder, recurrent, with mixed features, in partial remission");
+  await expect(review.getByRole("button", { name: "Copied" })).toBeVisible();
+  await expect(review.getByRole("status")).toHaveText("Wording copied to the clipboard.");
 
   await review.getByRole("button", { name: "Edit Episode features" }).click();
   await expect(page.getByRole("checkbox", { name: /Mixed features/ })).toBeChecked();
