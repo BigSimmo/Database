@@ -1832,7 +1832,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectMinTouchTarget(firstPreviewSource);
     await expect(sourcePreview.getByRole("link", { name: /Open S1 source page/i })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
-    const copyQuoteButton = sourcePreview.getByRole("button", { name: "Copy quote" });
+    const copyQuoteButton = sourcePreview.getByRole("button", { name: "Copy passage" });
     await expect(copyQuoteButton).toBeVisible();
     await expectMinTouchTarget(copyQuoteButton);
     if (browserName === "chromium") {
@@ -1840,7 +1840,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         origin: new URL(page.url()).origin,
       });
       await copyQuoteButton.click();
-      await expect(sourcePreview.getByRole("button", { name: "Copied quote" })).toBeVisible();
+      await expect(sourcePreview.getByRole("button", { name: "Copied passage" })).toBeVisible();
     }
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");

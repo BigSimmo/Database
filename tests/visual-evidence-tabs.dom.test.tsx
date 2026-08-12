@@ -60,6 +60,15 @@ function evidenceSheetProps() {
 }
 
 describe("MobileEvidenceSheetContent tabs (jsdom)", () => {
+  it("explains the review purpose and identifies claim support without decorative placeholders", () => {
+    render(<MobileEvidenceSheetContent {...evidenceSheetProps()} />);
+
+    expect(screen.getByText(/check which claims are backed by the retrieved sources/i)).toBeVisible();
+    expect(screen.getByRole("img", { name: "Partial support" })).toBeVisible();
+    expect(screen.getByText("Is the answer supported?")).toBeVisible();
+    expect(screen.getByText(/this sends feedback for review; it does not change the answer/i)).toBeVisible();
+  });
+
   it("uses unique stable tab and panel ids with reciprocal ARIA associations", () => {
     const props = evidenceSheetProps();
     const { rerender } = render(<MobileEvidenceSheetContent {...props} />);
