@@ -8,7 +8,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,6 +21,7 @@ const APPLIED_DIR = path.posix.join(INBOX_DIR, "applied");
 const ACTIONS = new Set(["add", "done", "update", "cancel"]);
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECONCILE_LOCK_NAME = "outstanding-issues-reconcile.lock";
+const OWNERLESS_LOCK_GRACE_MS = 5 * 60 * 1000;
 
 function date() {
   return new Date().toISOString().slice(0, 10);
@@ -186,6 +187,17 @@ function canonicalLedgerIsClean() {
   return true;
 }
 
+function pendingRequestsAreTrackedAndClean(pending) {
+  for (const entry of pending) {
+    try {
+      git(["ls-files", "--error-unmatch", "--", entry.relative]);
+      git(["diff", "--quiet", "HEAD", "--", entry.relative]);
+    } catch {
+      throw new Error(`pending request ${entry.relative} is untracked or modified; commit the immutable request before reconciliation`);
+    }
+  }
+}
+
 function git(args) {
   return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 }
@@ -226,9 +238,20 @@ function acquireReconcileLock() {
     try {
       owner = JSON.parse(readFileSync(path.join(lockPath, "owner.json"), "utf8"));
     } catch {
-      // A malformed lock is not safe to delete while a concurrent process may own it.
+      // The directory creation is atomic, but owner.json is written immediately
+      // after it. Give an ownerless lock a short grace period before recovery so
+      // a concurrent process cannot be mistaken for a crashed one.
     }
-    if (!owner || processIsAlive(owner.pid)) {
+    let lockAgeMs = 0;
+    try {
+      lockAgeMs = Math.max(0, Date.now() - statSync(lockPath).mtimeMs);
+    } catch {
+      throw new Error(`could not inspect reconciliation lock at ${lockPath}`);
+    }
+    if (!owner && lockAgeMs < OWNERLESS_LOCK_GRACE_MS) {
+      throw new Error(`reconciliation lock at ${lockPath} is still initializing; retry after it completes`);
+    }
+    if (owner && processIsAlive(owner.pid)) {
       throw new Error(
         `another reconciliation is active at ${lockPath}${owner?.pid ? ` (PID ${owner.pid})` : ""}; retry after it completes`,
       );
@@ -307,6 +330,13 @@ function reconcile(argv) {
     console.log("No outstanding-issue requests to reconcile.");
     return;
   }
+  try {
+    pendingRequestsAreTrackedAndClean(pending);
+  } catch (error) {
+    console.error(`refusing to reconcile: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+    return;
+  }
   if (!dryRun && !canonicalLedgerIsClean()) {
     console.error(
       `refusing to reconcile: ${ISSUES_PATH} has staged or unstaged changes; preserve or commit them first.`,
@@ -344,6 +374,7 @@ function reconcile(argv) {
   try {
     if (!canonicalLedgerIsClean())
       throw new Error(`${ISSUES_PATH} changed while reconciliation was waiting for its lock`);
+    pendingRequestsAreTrackedAndClean(pending);
     assertFreshReconciliationBase();
     result = apply();
     writeFileSync(path.join(ROOT, ISSUES_PATH), result.markdown, "utf8");
