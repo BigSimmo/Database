@@ -94,8 +94,13 @@ async function answerFromTextSources(
   generatedAnswer?: GeneratedAnswerPayload | Error,
   options: { sourceOnly?: boolean } = {},
 ) {
+  // `src/lib/env.ts` freezes process.env at module load. The offline vitest wrapper
+  // starts every worker as RAG_PROVIDER_MODE=offline with a blank OpenAI key, so we
+  // must re-parse env after stubbing — otherwise the first test in this file keeps
+  // the runner's offline snapshot and never exercises the mocked provider path.
+  vi.resetModules();
   vi.stubEnv("OPENAI_API_KEY", options.sourceOnly ? "" : "test-key");
-  if (options.sourceOnly) vi.stubEnv("RAG_PROVIDER_MODE", "offline");
+  vi.stubEnv("RAG_PROVIDER_MODE", options.sourceOnly ? "offline" : "auto");
   vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
   vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
