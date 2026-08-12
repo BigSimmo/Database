@@ -218,6 +218,7 @@ function presetChips(): DifferentialStreamPresetChip[] {
  * the shared ranker), then dimmed non-matches. Without a query: urgency chapters
  * for diagnoses, presentation list for presentations.
  */
+
 function compareSeedIdsForMatches(matchSlugs: string[]): string[] {
   const slugs = matchSlugs.map((slug) => slug.trim().toLowerCase()).filter(Boolean);
   if (slugs.length < 2) return slugs.slice(0, 1);
