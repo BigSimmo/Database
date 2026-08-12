@@ -29,6 +29,14 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Draws its own result bands inside device frames; the shared chrome above
   // them would read as a third, real band competing with the two on offer.
   const isSearchBandDirectionsMockup = pathname === "/mockups/search-band-directions";
+  // Draws its own results band and an in-frame filter sheet inside every device
+  // frame; the shared composer would read as a second, real search bar over a
+  // study whose whole subject is the control that sits in that band.
+  const isServicesFilterRefinedMockup = pathname === "/mockups/services-filter-refined";
+  // Option 3 in this study draws its own services composer with suggestion chips
+  // beside it — that is the concept under judgement, so the shared composer
+  // above it would be a second, real search bar competing with the proposal.
+  const isServicesFilterOptionsMockup = pathname === "/mockups/services-filter-options";
   const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
   // Draws its own composer in every frame, and the notice under study is the one
   // the shared composer renders — showing both would put two different privacy
@@ -84,6 +92,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isCalculatorsSearchPageMockup &&
         !isPhoneInPageNavigationMockup &&
         !isSearchBandDirectionsMockup &&
+        !isServicesFilterRefinedMockup &&
+        !isServicesFilterOptionsMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
@@ -99,6 +109,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSearchHeadingMockup &&
         !isSearchRefineAdaptiveMockup &&
         !isSearchBandDirectionsMockup &&
+        !isServicesFilterRefinedMockup &&
+        !isServicesFilterOptionsMockup &&
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
