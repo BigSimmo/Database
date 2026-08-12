@@ -17,8 +17,7 @@ import { filterFactsheets } from "@/components/factsheets/factsheets-data";
 const query = "sertraline";
 const results = filterFactsheets(query);
 const unrelatedZeroLabels = ["Conditions (0)", "Therapies (0)", "Tests & procedures (0)"] as const;
-const selectedZeroMessage =
-  "No results in Conditions for this search. Choose All or another available category.";
+const selectedZeroMessage = "No results in Conditions for this search. Choose All or another available category.";
 
 describe("FactsheetsSearchPage category filter", () => {
   it("derives the shared desktop and phone options from categories available at the current query", async () => {
@@ -76,13 +75,7 @@ describe("FactsheetsSearchPage category filter", () => {
   it("keeps a selected zero-count category as an explained, inert dead end", async () => {
     const user = userEvent.setup();
     push.mockClear();
-    render(
-      <FactsheetsSearchPage
-        query={query}
-        category="Conditions"
-        results={filterFactsheets(query, "Conditions")}
-      />,
-    );
+    render(<FactsheetsSearchPage query={query} category="Conditions" results={filterFactsheets(query, "Conditions")} />);
 
     const desktopGroup = screen.getByRole("radiogroup", { name: "Category" });
     expect(within(desktopGroup).getByRole("radio", { name: "All (1)" })).toBeEnabled();

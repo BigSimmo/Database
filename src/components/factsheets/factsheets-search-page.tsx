@@ -65,9 +65,7 @@ export function FactsheetsSearchPage({
       categoryCounts.set(sheet.category, (categoryCounts.get(sheet.category) ?? 0) + 1);
     }
 
-    const options: ResultFilterOption<string>[] = [
-      { value: "all", label: "All", hint: String(queryMatches.length) },
-    ];
+    const options: ResultFilterOption<string>[] = [{ value: "all", label: "All", hint: String(queryMatches.length) }];
     for (const entry of factsheetCategories) {
       const count = categoryCounts.get(entry) ?? 0;
       if (count === 0 && entry !== activeCategory) continue;
