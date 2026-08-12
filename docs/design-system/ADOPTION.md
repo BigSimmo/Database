@@ -4,10 +4,10 @@
 of truth is `adoption-contract.json`; the generated manifest and marked tables in this document
 must match it exactly.
 
-- **Date:** 5 August 2026
-- **Current state:** 53 visual references are locally registered; all 47 production page routes
-  are owned across 14 surface families, with 55 route/component roots scanned; every declared
-  root remains on the compatibility shell.
+- **Date:** 12 August 2026
+- **Current state:** 54 visual references are locally registered; all 51 production page routes
+  are owned across 14 surface families, with 59 route/component roots scanned; every declared
+  root uses the v2 shell and has declared proof with no committed visual baseline.
 - **Phase 1 blockers resolved first, in their own commits:** `#207` ungrounded `AnswerState`,
   `#208` clipboard composition. See [SPEC.md](SPEC.md) §13 PR 6 clinical review, blockers 1–2.
 - **Companions:** [SPEC.md](SPEC.md) · [COMPONENTS.md](COMPONENTS.md) ·
@@ -137,7 +137,7 @@ src/components/DocumentViewer.tsx
 navigation, zoom, fit, rotation, the viewing aid and fullscreen, and `PdfCanvasViewer` renders
 source pixels only. There is exactly one toolbar and one page readout in the viewer, and the
 contract test `tests/document-frame-contract.test.ts` holds that. It is not yet design-sync
-registered among the 53 published visual exports. Do not invent a second frame or add inversion/filters; route document renders through
+registered among the 54 published visual exports. Do not invent a second frame or add inversion/filters; route document renders through
 the existing viewer + frame. Keep every `role="alert"` semantic; route announcements through
 the announcer policy rather than deleting roles, because many `role="status"` sites are
 implicit polite live regions with no `aria-live` attribute and removing the role without an
@@ -212,6 +212,19 @@ over passages no model wrote. `composeAnswerClipboardText()` now takes an explic
 tier flag, which both product callers pass. Pinned in
 `tests/answer-clipboard-product-path.dom.test.tsx` and `tests/answer-clipboard-composition.test.ts`.
 
+**Single answer-copy payload contract (`#234`).** The live dashboard answer, prior thread turn,
+and inline answer result all route clipboard output through
+`src/components/clinical-dashboard/answer-copy-payload.ts`; a fourth copy surface must reuse this
+module rather than assemble answer text independently. `resolveAnswerSources` preserves the
+populated cited source set and falls back only when it is absent/empty;
+`answerStateForAnswer` creates the shared safety projection; `citedSourcesOnly` prevents uncited
+retrieval candidates from changing attribution; `singleDocumentClipboardMetadata` emits an audit
+line only for a single cited document; and `buildAnswerClipboardText` is the final composer that
+preserves render text while adding attribution, state caveats, and eligible provenance. Source-only
+attribution comes from the answer quality tier, not `AnswerState.kind`, because an extractive answer
+may also be ungrounded. `tests/answer-copy-payload.test.ts` and
+`tests/answer-clipboard-product-path.dom.test.tsx` pin both the helper and all three callers.
+
 **Clinical-owner wording approval (2026-08-05).** The clinical owner formally approved the fixed
 clinician-facing `responsive-compact` phone wording in
 `src/components/ui/verification-notice.tsx` exactly as shipped on this branch. The approval covers
@@ -225,7 +238,7 @@ clamp, hidden instruction, retrieval change, visual baseline or patient/plain-la
 ## 3 · Registration disposition
 
 The Phase 1 local registration gap is closed. The visual symbols below are now included in the
-53-component source-derived registry; support APIs remain entry-only by design:
+54-component source-derived registry; support APIs remain entry-only by design:
 
 | Module                                        | Symbols                                                         | First adopting surface   |
 | --------------------------------------------- | --------------------------------------------------------------- | ------------------------ |
@@ -315,6 +328,25 @@ chrome differs between them.
 | docs       | `/documents/search` results + filter shelf · a document detail with section nav · the clinical summary toggle and indexed source panel · a fault/empty search state                                            |
 | provenance | the document-admin source metadata block · the answer support caution (pre-adoption baseline) · a differentials source-status chip · the source preview popover                                                |
 | answer     | a ready grounded answer · an **ungrounded** answer showing the preserved caution (`#207`) · stale-evidence and source-only banners · a copied-clipboard sample (`#208`) · progress / empty / error / streaming |
+
+### 7.1 Adoption evidence recorded for this pass (`#221`, `#235`, `#238`, `#245`)
+
+This PR records executable evidence rather than committing image baselines. The generated adoption
+manifest remains `baseline: not-committed`, and no Playwright snapshot PNG is an adoption claim.
+
+| Surface            | Current adopted evidence                                                                                                                                                                                                                                                                      | Focused owner/check                                                                                     |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| forms              | `FormField` is mounted by `TextField`/`Select`; required labels carry a text marker and optional labels remain unmarked.                                                                                                                                                                      | `tests/ui-v2-form-field.dom.test.tsx`                                                                   |
+| headers/catalogues | Shared mode status notices now delegate to DS `EmptyState`; therapy loading/empty wrappers delegate to `LoadingPanel`/`EmptyState`; differential and favourites chip wrappers delegate to DS `Chip` while retaining their surface-specific density/tone mapping.                              | `tests/design-system-target-evidence.test.ts`, `tests/mode-home-status-notice.dom.test.tsx`             |
+| overlays           | `Sheet` portals to `OverlayRoot`'s modal host by default. Settings, the mobile Clinical Guide sidebar, and the three answer-review sheets use that default; none opts out with `portal={false}`.                                                                                              | `tests/sheet.dom.test.tsx`, `tests/design-system-target-evidence.test.ts`                               |
+| answer             | The three product copy paths share the payload builder described in §2.6; answer-review overlays retain their existing content, dismissal, and focus-return props while using the portal default.                                                                                             | `tests/answer-copy-payload.test.ts`, `tests/answer-clipboard-product-path.dom.test.tsx`                 |
+| cross-mode links   | `responsive-compact` deliberately mounts a phone chip rail and an `md+` card rail so SSR and hydration agree. CSS makes only one rail visible/in the accessibility tree; selectors and analytics must target the variant rail, while `cross-mode-links-rail` remains the phone-only contract. | `tests/design-system-target-evidence.test.ts`, focused `tests/ui-smoke.spec.ts` CrossModeLinks journeys |
+
+**Residual evidence requirement.** Static and DOM checks establish portal ownership and preserve
+focus-return inputs, but they do not prove every nested overlay's keyboard sequence in a real browser.
+Before changing focus order, ancestor-scoped overlay styling, or the portal default, capture a focused
+Chromium keyboard pass for settings, sidebar, and each answer-review sheet (open, Tab/Shift+Tab,
+Escape, and return focus). This is follow-up evidence, not a visual-baseline commitment.
 
 <!-- adoption-manifest:adoption:start -->
 

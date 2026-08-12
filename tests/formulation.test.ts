@@ -7,6 +7,7 @@ import {
   formulationDomains,
   formulationDraftFor,
   formulationMechanisms,
+  formulationDomainsInUse,
   formulationQualityPrompts,
   formulationSectionsForTemplate,
   formulationSourceLibrary,
@@ -59,6 +60,54 @@ describe("clinical formulation content", () => {
 
     const defence = searchFormulationMechanisms("", { domain: "Defence" });
     expect(defence.map(({ mechanism }) => mechanism.id)).toEqual(expect.arrayContaining(["splitting", "projection"]));
+  });
+
+  // docs/filter-contract.md: derive the option list from the data, never declare
+  // it. The bundle declares 12 domains; Biological, Social and Cultural are
+  // carried by none of the 12 mechanisms, so offering them meant three controls
+  // that could never return anything — and under union counting an empty option
+  // reports the unchanged total, so it looked identical to a full one.
+  it("offers only the domains a mechanism actually carries", () => {
+    expect(formulationDomains).toHaveLength(12);
+    expect(formulationDomainsInUse).toHaveLength(9);
+    expect(formulationDomainsInUse).not.toContain("Biological");
+    expect(formulationDomainsInUse).not.toContain("Social");
+    expect(formulationDomainsInUse).not.toContain("Cultural");
+    for (const domain of formulationDomainsInUse) {
+      expect(searchFormulationMechanisms("", { domains: new Set([domain]) }).length).toBeGreaterThan(0);
+    }
+    // Taxonomy order is preserved rather than re-sorted by count.
+    expect(formulationDomainsInUse).toEqual(formulationDomains.filter((d) => formulationDomainsInUse.includes(d)));
+  });
+
+  // OR within the group. A mechanism carries 3.92 domains on average, so asking
+  // for Affect OR Risk must widen — and must not double-count the overlap.
+  it("combines domain facets as a union, never an intersection", () => {
+    const affect = searchFormulationMechanisms("", { domains: new Set(["Affect"]) }).length;
+    const risk = searchFormulationMechanisms("", { domains: new Set(["Risk"]) }).length;
+    const both = searchFormulationMechanisms("", { domains: new Set(["Affect", "Risk"]) }).length;
+
+    expect(affect).toBe(9);
+    expect(risk).toBe(4);
+    expect(both).toBe(10);
+    expect(both).toBeGreaterThanOrEqual(Math.max(affect, risk));
+    expect(both).toBeLessThan(affect + risk); // the overlap is real, not additive
+    // An empty set imposes no constraint rather than matching nothing.
+    expect(searchFormulationMechanisms("", { domains: new Set() })).toHaveLength(12);
+  });
+
+  // The count answers "how many would I have if I ticked this as well", which is
+  // the same predicate as the filter. Narrowing the current subset instead would
+  // disagree with what the click does, because adding an option widens.
+  it("keeps every add-one-more count at or above the current total", () => {
+    const selected = new Set(["Affect"]);
+    const current = searchFormulationMechanisms("", { domains: selected }).length;
+    for (const domain of formulationDomainsInUse) {
+      const withCandidate = searchFormulationMechanisms("", { domains: new Set([...selected, domain]) }).length;
+      expect(withCandidate).toBeGreaterThanOrEqual(current);
+    }
+    // Re-offering an already-selected option reports the unchanged total.
+    expect(searchFormulationMechanisms("", { domains: new Set([...selected, "Affect"]) }).length).toBe(current);
   });
 
   it("normalizes builder selections without inventing mechanisms", () => {
