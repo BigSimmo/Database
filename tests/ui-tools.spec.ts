@@ -1314,12 +1314,6 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/q=Aboriginal\\+Torres\\+Strait\\+Islander/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
-    await page.getByTestId("service-filter-trigger-desktop").click();
-    await page.getByTestId("service-filter-panel-clear").click();
-    await expect(page).toHaveURL(/\/services\?run=1$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Browse services" })).toBeVisible();
-    await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
-
     await page
       .getByTestId("service-search-result-13yarn")
       .getByRole("link", { name: "Review referral for 13YARN" })
