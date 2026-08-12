@@ -212,7 +212,7 @@ function MedicationInterpretationChip({ interpretation }: { interpretation?: Med
   if (!hasCorrection && expansions.length === 0) return null;
 
   const displayTerms = hasCorrection && correctedQuery ? correctedQuery : expansions.slice(0, 3).join(", ");
-  const hiddenExpansionCount = hasCorrection ? 0 : Math.max(0, expansions.length - 3);
+  const hiddenExpansionCount = hasCorrection ? expansions.length : Math.max(0, expansions.length - 3);
   const leadingLabel = hasCorrection ? "Did you mean" : "Search also included";
   const accessibleLabel = hasCorrection
     ? `Did you mean ${correctedQuery}?${
