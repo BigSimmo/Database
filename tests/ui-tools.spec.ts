@@ -1292,12 +1292,26 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("navigation", { name: "Service groups" })).toBeVisible();
     await expect(page.getByTestId("services-shortlist-bar")).toHaveCount(0);
 
-    await page.getByTestId("service-filter-trigger-desktop").click();
-    const culturallySafe = page.getByRole("radio", { name: "Culturally safe" });
+    const culturallySafe = page
+      .getByTestId("service-quick-search-suggestions")
+      .getByRole("button", { name: "Culturally safe" });
     await expect(culturallySafe).toBeVisible();
     await waitForReactEventHandler(culturallySafe);
     await culturallySafe.click();
-    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
+    await expect(page).toHaveURL(/q=Aboriginal\\+Torres\\+Strait\\+Islander/);
+    await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
+
+    // Quick search suggestions and facet clearing are separate contracts.
+    // Exercise a real facet, then clear only that facet while preserving q.
+    await page.getByTestId("service-filter-trigger-desktop").click();
+    const filterPanel = page.getByTestId("service-filter-panel");
+    await filterPanel.getByRole("button", { name: /^Acuity/ }).click();
+    const crisisFacet = filterPanel.getByRole("button", { name: /^Crisis \\/ urgent/ });
+    await expect(crisisFacet).toBeVisible();
+    await crisisFacet.click();
+    await expect(page).toHaveURL(/acuity_flags=crisis_high/);
+    await filterPanel.getByTestId("service-filter-panel-clear").click();
+    await expect(page).toHaveURL(/q=Aboriginal\\+Torres\\+Strait\\+Islander/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
     await page.getByTestId("service-filter-trigger-desktop").click();
