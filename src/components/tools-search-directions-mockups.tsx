@@ -337,7 +337,7 @@ function QueryTitle({
 
 /**
  * Phone shows only the areas the result set actually contains, so the row stays one line at
- * 340 px; desktop has room to show every area with its count, empty ones included.
+ * 390 px; desktop has room to show every area with its count, empty ones included.
  */
 function AreaFilterRow({ tools, device }: { tools: MockupTool[]; device: FrameDevice }) {
   const present = new Set(tools.map((tool) => tool.area));
@@ -712,7 +712,7 @@ function DeviceFrame({ direction, query, device }: { direction: DirectionId; que
       data-direction={direction}
       data-query={query}
       data-device={device}
-      className={cn("m-0 shrink-0", device === "phone" ? "w-[340px]" : "w-full max-w-[900px]")}
+      className={cn("m-0 shrink-0", device === "phone" ? "w-[390px]" : "w-[1280px]")}
     >
       <div className="overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
         <FrameTopBar device={device} />
@@ -763,6 +763,7 @@ function DirectionShowcase({ direction, number }: { direction: (typeof direction
         <DeviceFrame direction={direction.id} query="monitoring" device="phone" />
         <DeviceFrame direction={direction.id} query="compare" device="phone" />
         <DeviceFrame direction={direction.id} query="monitoring" device="desktop" />
+        <DeviceFrame direction={direction.id} query="compare" device="desktop" />
       </div>
     </section>
   );
