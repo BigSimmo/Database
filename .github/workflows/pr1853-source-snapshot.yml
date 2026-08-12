@@ -1,0 +1,39 @@
+name: PR 1853 source snapshot
+
+on:
+  push:
+    branches:
+      - codex/medication-did-you-mean-20260812
+
+concurrency:
+  group: pr-1853-source-snapshot-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    name: Export exact repository bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch current main and create bundle
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git bundle create pr1853-database.bundle HEAD refs/remotes/origin/main
+          git bundle verify pr1853-database.bundle
+
+      - name: Upload repository bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pr1853-database-bundle-${{ github.run_id }}
+          path: pr1853-database.bundle
+          if-no-files-found: error
+          retention-days: 1
