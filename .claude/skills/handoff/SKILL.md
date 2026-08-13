@@ -35,8 +35,10 @@ force-push, or discard work.
 2. **Stage coherent, completed changes only.** Stage explicit paths — never `git add -A`
    blindly. Do not stage `.env*`, secrets, build output, logs, or unrelated WIP; if you
    see a possible secret, report the path (never the value) and stop.
-3. **Verify** by invoking `verification-router` (or the `gates` skill when scope is already clear)
-   and run the one smallest sufficient gate it selects. Default PR-ready work uses
+3. **Format and verify.** From a fully owned feature worktree, run `npm run format`, inspect the
+   complete formatter diff, and include only intended formatting. Then invoke
+   `verification-router` (or the `gates` skill when scope is already clear) and run the one
+   smallest sufficient gate it selects. Default PR-ready work uses
    `npm run verify:pr-local`; inspect its selection with `--dry-run` when uncertain. For
    UI/routing/styling, prove the affected journey first and add `verify:ui` only for shared UI
    foundations or when the router says its distinct coverage is necessary. Never stack

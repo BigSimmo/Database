@@ -6,6 +6,12 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(scriptDirectory, "..");
 export const skillsRoot = path.join(repositoryRoot, ".agents", "skills");
 export const catalogPath = path.join(skillsRoot, "catalog.json");
+export const repositorySkillSurfaces = [
+  { name: "Codex", root: skillsRoot },
+  { name: "Claude", root: path.join(repositoryRoot, ".claude", "skills") },
+  { name: "Cursor", root: path.join(repositoryRoot, ".cursor", "skills") },
+  { name: "Clinical KB plugin", root: path.join(repositoryRoot, "plugins", "clinical-kb", "skills") },
+];
 
 function wordCount(value) {
   return String(value || "")
@@ -35,6 +41,167 @@ function readFrontmatter(skillFile) {
     values[line.slice(0, separator).trim()] = line.slice(separator + 1).trim();
   }
   return values;
+}
+
+function walkSkillFiles(root) {
+  if (!fs.existsSync(root)) return [];
+  const files = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const absolute = path.join(root, entry.name);
+    if (entry.isDirectory()) files.push(...walkSkillFiles(absolute));
+    else if (entry.isFile() && entry.name === "SKILL.md") files.push(absolute);
+  }
+  return files;
+}
+
+export function discoverRepositorySkillFiles(surfaces = repositorySkillSurfaces) {
+  return surfaces
+    .flatMap((surface) =>
+      walkSkillFiles(surface.root).map((file) => ({
+        file,
+        relative: path.relative(repositoryRoot, file).replaceAll(path.sep, "/"),
+        surface: surface.name,
+      })),
+    )
+    .sort((left, right) => left.relative.localeCompare(right.relative));
+}
+
+function localMarkdownLinks(content) {
+  return [...content.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)]
+    .map((match) => match[1].trim().replace(/^<|>$/g, ""))
+    .filter((target) => target && !/^(?:https?:|mailto:|#)/i.test(target))
+    .map((target) => target.split("#", 1)[0])
+    .filter(Boolean);
+}
+
+export function validateRepositorySkillPolicies(
+  files = discoverRepositorySkillFiles(),
+  packageScripts = Object.keys(JSON.parse(fs.readFileSync(path.join(repositoryRoot, "package.json"), "utf8")).scripts),
+) {
+  const errors = [];
+  const scripts = new Set(packageScripts);
+  const byRelative = new Map();
+
+  for (const skill of files) {
+    const content = fs.readFileSync(skill.file, "utf8");
+    byRelative.set(skill.relative, content);
+    let frontmatter;
+    try {
+      frontmatter = readFrontmatter(skill.file);
+    } catch (error) {
+      errors.push(`${skill.relative}: ${error.message}`);
+      continue;
+    }
+    if (!frontmatter.name?.trim()) errors.push(`${skill.relative}: missing skill name`);
+    if (!frontmatter.description?.trim()) errors.push(`${skill.relative}: missing skill description`);
+
+    for (const target of localMarkdownLinks(content)) {
+      const resolved = path.resolve(path.dirname(skill.file), target);
+      if (!fs.existsSync(resolved)) errors.push(`${skill.relative}: broken local link ${target}`);
+    }
+
+    for (const match of content.matchAll(/npm run ([A-Za-z0-9:_*-]+)/g)) {
+      const command = match[1];
+      if (command.includes("*") || command.endsWith(":")) continue;
+      if (!scripts.has(command)) errors.push(`${skill.relative}: unknown npm script ${command}`);
+    }
+
+    if (/update `docs\/branch-review-ledger\.md`/i.test(content)) {
+      errors.push(`${skill.relative}: instructs direct review-ledger mutation`);
+    }
+    if (
+      /npm run (?:verify:release|check:supabase-project)/.test(content) &&
+      !/(?:approval|confirmation)/i.test(content)
+    ) {
+      errors.push(`${skill.relative}: mentions a provider-backed gate without an approval boundary`);
+    }
+  }
+
+  const requireContract = (relative, fragments) => {
+    const content = byRelative.get(relative);
+    if (!content) {
+      errors.push(`${relative}: required skill is missing`);
+      return;
+    }
+    for (const fragment of fragments) {
+      if (!content.includes(fragment)) errors.push(`${relative}: missing policy contract ${JSON.stringify(fragment)}`);
+    }
+  };
+
+  requireContract(".claude/skills/issues/SKILL.md", [
+    "creates one validated UUID JSON file",
+    "never edit the canonical ledger",
+    "commit only the newly created request file(s)",
+  ]);
+  requireContract(".claude/skills/ledger/SKILL.md", [
+    "create no request and do not change the canonical ledger",
+    "Do not refresh",
+    "commit only the newly created request file(s)",
+  ]);
+  requireContract(".cursor/skills/supabase/SKILL.md", [
+    "prove the target is a disposable local development database",
+    "never use `execute_sql`",
+    "require explicit user approval",
+  ]);
+  requireContract(".cursor/skills/cursor-codebase-indexing/SKILL.md", [
+    "Do not delete or rename the application-wide Cursor cache automatically",
+    "Indexing is provider-backed",
+  ]);
+  requireContract(".claude/skills/handoff/SKILL.md", [
+    "never unstage",
+    "mutate another session's index entries",
+    "run `npm run format`",
+  ]);
+  requireContract(".claude/skills/prlanded/SKILL.md", [
+    "require an explicit cleanup request",
+    "does not itself authorize deletion",
+  ]);
+  requireContract(".cursor/skills/release-readiness-review/SKILL.md", [
+    "Use `npm run verify:pr-local`",
+    "requires user approval",
+    "`npm run check:supabase-project` is provider-backed",
+  ]);
+  requireContract(".cursor/skills/testing-review/SKILL.md", ["`verify:release` only after explicit user approval"]);
+  requireContract("plugins/clinical-kb/skills/clinical-kb-workflow/SKILL.md", [
+    "use `npm run verify:pr-local`",
+    "explicitly requests release confidence",
+    "do not run it without explicit user approval",
+  ]);
+
+  const cursorReviewSkills = [
+    "accessibility-review",
+    "ai-architecture-review",
+    "api-review",
+    "code-quality-review",
+    "design-review",
+    "frontend-architecture-review",
+    "performance-review",
+    "release-readiness-review",
+    "repo-auditor",
+    "security-review",
+    "supabase-postgres-best-practices",
+    "testing-review",
+    "ux-review",
+  ];
+  for (const name of cursorReviewSkills) {
+    requireContract(`.cursor/skills/${name}/SKILL.md`, [
+      "use `npm run ledger:append` to create an immutable review record",
+      "never edit the frozen `docs/branch-review-ledger.md` table",
+    ]);
+  }
+
+  const indexing = byRelative.get(".cursor/skills/cursor-codebase-indexing/SKILL.md") ?? "";
+  if (indexing.includes("Bash(cmd:*)")) {
+    errors.push(".cursor/skills/cursor-codebase-indexing/SKILL.md: grants unrestricted shell access");
+  }
+
+  const surfaceCounts = Object.fromEntries(
+    repositorySkillSurfaces.map((surface) => [
+      surface.name,
+      files.filter((file) => file.surface === surface.name).length,
+    ]),
+  );
+  return { errors, files, surfaceCounts };
 }
 
 export function loadSkillCatalog(file = catalogPath) {
@@ -176,19 +343,33 @@ export function renderSkillCatalog(catalog = loadSkillCatalog(), discovered = di
 function run(argv = process.argv.slice(2)) {
   const catalog = loadSkillCatalog();
   const validation = validateSkillCatalog(catalog);
-  if (validation.errors.length) {
-    console.error(validation.errors.map((error) => `- ${error}`).join("\n"));
+  const repositoryValidation = validateRepositorySkillPolicies();
+  const errors = [...validation.errors, ...repositoryValidation.errors];
+  if (errors.length) {
+    console.error(errors.map((error) => `- ${error}`).join("\n"));
     process.exitCode = 1;
     return;
   }
 
   if (argv.includes("--json")) {
-    console.log(JSON.stringify({ count: validation.canonical.length, categories: catalog.categories }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          count: validation.canonical.length,
+          categories: catalog.categories,
+          repositorySkillFiles: repositoryValidation.files.length,
+          surfaces: repositoryValidation.surfaceCounts,
+        },
+        null,
+        2,
+      ),
+    );
     return;
   }
   if (argv.includes("--check")) {
     console.log(
-      `Database skill catalog valid: ${validation.canonical.length} canonical skills, ${validation.aliases.length} aliases.`,
+      `Database skill system valid: ${validation.canonical.length} canonical skills, ${validation.aliases.length} aliases, ` +
+        `${repositoryValidation.files.length} repository SKILL.md files across ${Object.keys(repositoryValidation.surfaceCounts).length} surfaces.`,
     );
     return;
   }

@@ -25,6 +25,7 @@ const workflowScripts = [
   "check:ci-triage",
   "check:pr-policy",
   "check:gate-manifest",
+  "check:skills",
   "check:pr-mergeability",
   "check:verification-plan",
 ];

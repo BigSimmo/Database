@@ -9,7 +9,7 @@ Use this skill when reviewing user interface flows, search input behaviors, side
 
 ## Repository Review Protocol
 
-Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically or mutate files during pure review. After a completed branch/PR review, use `npm run ledger:append` to create an immutable review record; never edit the frozen `docs/branch-review-ledger.md` table.
 
 ## Review Checklist
 
