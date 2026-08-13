@@ -162,8 +162,10 @@ describe("header addon slot ownership", () => {
     // render `PhoneHeaderCollapsePortal` itself (DocumentViewer still does), use
     // `InPageNavHeader`, or render the shared `RegistryModeNav` directly.
     const claimsSlot = /<(PhoneHeaderCollapsePortal|InPageNavHeader|RegistryModeNav)\b/;
-    // The shared header is the mechanism, not a claimant: it has no route.
+    // The shared header and shell adapter are mechanisms, not claimants: neither
+    // represents a route that can own the slot on its own.
     const sharedHeader = "src/components/in-page-nav/in-page-nav-header.tsx";
+    const shellModeNav = "src/components/page-secondary-navigation.tsx";
     const claimants: string[] = [];
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -179,7 +181,7 @@ describe("header addon slot ownership", () => {
         // `${cwd}/` matches nothing on Windows, so both the shared-header
         // exclusion below and the comparison at the end silently missed.
         const relative = relativePath(process.cwd(), path).split(sep).join("/");
-        if (relative === sharedHeader) continue;
+        if (relative === sharedHeader || relative === shellModeNav) continue;
         if (claimsSlot.test(readFileSync(path, "utf8"))) {
           claimants.push(relative);
         }
