@@ -8,7 +8,7 @@ import { useMemo, useRef, useState, type MouseEvent } from "react";
 import { cn } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 
-import { MODE_NAV_MIN_ITEMS, planModeNavBands } from "./mode-nav-bands";
+import { MODE_NAV_MIN_ITEMS, planModeNavBands, type ModeNavDensityProfile } from "./mode-nav-bands";
 import { ModeNavHeaderPortal } from "./mode-nav-portal";
 
 export type ModeNavItem = {
@@ -119,12 +119,15 @@ function SlotInk({
 export function ModeNav({
   items,
   label,
+  densityProfile,
   activeId,
   originId,
 }: {
   items: ModeNavItem[];
   /** Names the landmark, e.g. "Therapy pages". */
   label: string;
+  /** Calibrated against this destination set's complete icon-and-label widths. */
+  densityProfile: ModeNavDensityProfile;
   /** Defaults to the item whose href matches the current path. Pass `null` to force no current page. */
   activeId?: string | null;
   /** The page arrived from; marked with a half-weight trail while on a record. */
@@ -132,13 +135,13 @@ export function ModeNav({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  // The sheet has two openers and CSS decides which one exists: below a 16rem
-  // container only the collapsed control is displayed, at 16rem and up only the
-  // More slot is. Both stay in the DOM either way, so a ref pinned to one of
-  // them hands the Sheet a `display: none` element to restore focus to half the
-  // time — the browser refuses to focus it and the keyboard user is dropped on
-  // <body>. Capture whichever button was actually clicked; by definition it is
-  // the displayed one.
+  // The sheet has two openers and CSS decides which one exists: below the
+  // profile's first safe band only the collapsed control is displayed; above
+  // it only More can open the sheet. Both stay in the DOM either way, so a ref
+  // pinned to one of them hands the Sheet a `display: none` element to restore
+  // focus to half the time — the browser refuses to focus it and the keyboard
+  // user is dropped on <body>. Capture whichever button was actually clicked;
+  // by definition it is the displayed one.
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const openSheet = (event: MouseEvent<HTMLButtonElement>) => {
     openerRef.current = event.currentTarget;
@@ -173,13 +176,13 @@ export function ModeNav({
   // More slot ~107px, of which its own box, icon, gap and chevron take ~71px —
   // a ~36px label allowance, three characters after the CI font-metric
   // headroom. "Brief Intervention" wants ~213px. Shortening labels does not
-  // rescue it either; the icon alone is most of the slack. Widening the
-  // thresholds would cost every mode a band.
+  // rescue it either; the icon alone is most of the slack. Borrowing that word
+  // would make the required width route-dependent inside one profile.
   //
   // `ModeNavItem.label`'s never-abbreviated contract is intact: the label is
   // not shortened, it is declined. The rule and the chevron say "the page you
   // are on is in here", the sheet marks the row `aria-current`, and the
-  // collapsed control below 22rem names the page in full.
+  // collapsed control below the profile's first band names the page in full.
   const activeBand = activeIndex >= 0 ? plan.firstVisibleBand.get(activeIndex) : undefined;
   const activeFrom = plan.moreUntil !== null && activeIndex >= 0 ? (activeBand ?? "none") : undefined;
 
@@ -192,7 +195,7 @@ export function ModeNav({
       data-testid="mode-nav"
       className="mode-nav-rail border-b border-[color:var(--border)] bg-[color:var(--surface)]"
     >
-      <div className="mode-nav">
+      <div className="mode-nav" data-density-profile={densityProfile}>
         {/* Collapsed: the default, and the only state that cannot overflow. */}
         <div className="mode-nav__control px-4 pb-2.5 pt-1.5">
           <button

@@ -73,7 +73,7 @@ export function InPageSectionRail({
       data-testid={`${testIdPrefix}-section-rail`}
       className="border-t border-[color:var(--border)]"
     >
-      <div className="mode-nav">
+      <div className="mode-nav" data-density-profile="extended">
         <ul className="mode-nav__bar h-12 items-stretch px-1">
           {sections.map((section, index) => {
             const band = plan.firstVisibleBand.get(index);
