@@ -1142,7 +1142,7 @@ export function MasterSearchHeader({
             {mode.label}
           </span>
           {usesPhoneSearchLayout ? (
-            <span className="mt-0.5 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-soft)]">
+            <span className="mt-0.5 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
               {mode.description}
             </span>
           ) : null}
@@ -2369,10 +2369,10 @@ export function MasterSearchHeader({
           mobilePlacement="bottom"
           mobileSize="content"
           testId="app-mode-menu-sheet"
-          contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-[1.5rem] bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"
+          contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"
           bodyClassName="bg-[color:var(--surface-lux)] px-2.5 pb-2 pt-0.5"
           headerClassName="bg-[color:var(--surface-lux)] px-4 pb-3 pt-1.5"
-          titleClassName="tracking-[-0.02em]"
+          titleClassName="tracking-[var(--tracking-display)]"
           closeButtonClassName="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition-colors duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border motion-reduce:transition-none"
         >
           <div ref={phoneModeMenuListRef} id="app-mode-menu" role="menu" aria-label="Choose app mode">
@@ -2395,7 +2395,7 @@ export function MasterSearchHeader({
                     <div className="flex min-w-0 items-baseline gap-2">
                       <h3
                         id={headingId}
-                        className="shrink-0 text-2xs font-black uppercase tracking-[0.12em] text-[color:var(--text-soft)]"
+                        className="shrink-0 text-2xs font-black uppercase tracking-kicker text-[color:var(--text-muted)]"
                       >
                         {group.label}
                       </h3>
