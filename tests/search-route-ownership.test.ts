@@ -22,6 +22,7 @@ describe("shared-search route ownership", () => {
       "specifiers",
       "formulation",
       "therapy-compass",
+      "tools",
     ] as const) {
       expect(shouldRenderDashboardSearch({ hasSubmittedSearch: true, mode, pathname: `/${mode}` })).toBe(false);
     }
@@ -79,10 +80,10 @@ describe("shared-search route ownership", () => {
     expect(isAlwaysStandaloneShellPath("/favourites")).toBe(true);
     expect(isAlwaysStandaloneShellPath("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
     expect(isAlwaysStandaloneShellPath("/medications/acamprosate")).toBe(true);
-    // `/` and documents/tools may still need searchParams for the dashboard gate.
+    expect(isAlwaysStandaloneShellPath("/tools")).toBe(true);
+    // `/` and Documents still need searchParams for the dashboard gate.
     expect(isAlwaysStandaloneShellPath("/")).toBe(false);
     expect(isAlwaysStandaloneShellPath("/documents/search")).toBe(false);
-    expect(isAlwaysStandaloneShellPath("/tools")).toBe(false);
   });
 
   it("classifies dashboard mode hrefs without parsing the destination page", () => {
