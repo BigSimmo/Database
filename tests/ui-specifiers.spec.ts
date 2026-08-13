@@ -102,11 +102,12 @@ test("searches clinical language without provenance fields and carries a result 
   await expect(page.locator("#what-matters-now")).toBeVisible();
 
   await page.getByRole("link", { name: "Use in builder", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Build the diagnosis in the right order" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Specifier wording pathway" })).toBeVisible();
-  await expect(page.getByText(/Start with the base diagnosis/i)).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Build a clear diagnosis" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Specifier builder steps" })).toBeVisible();
+  await expect(page.getByTestId("specifier-builder-episode-features")).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /Mixed features/ })).toBeChecked();
-  await expect(page.getByText(/with mixed features/i).first()).toBeVisible();
+  await expect(page.getByTestId("specifier-working-wording")).toContainText(/with mixed features/i);
   await expectNoHorizontalOverflow(page);
   await expectNoBlockingAxeViolations(page, testInfo);
 });
@@ -282,31 +283,115 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
 test("keeps the base diagnosis severity-neutral when applying a severity descriptor", async ({ page }) => {
   await gotoApp(page, "/specifiers/builder?specifier=mild-severity");
 
-  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("mdd-recurrent");
-  await expect(page.getByText("Major depressive disorder, recurrent, mild", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("specifier-builder-severity-remission")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Mild/ })).toBeChecked();
+  await expect(page.getByTestId("specifier-working-wording")).toHaveText("Major depressive disorder, recurrent, mild");
   await expect(page.getByText(/severe, mild|moderate, mild/i)).toHaveCount(0);
 
+  await page.getByRole("button", { name: /Step 2 of 4: Episode features/ }).click();
   const anxiousDistress = page.getByRole("checkbox", { name: /Anxious distress/ });
   await page.getByText("Anxious distress", { exact: true }).click();
   await expect(anxiousDistress).toBeChecked();
-  await expect(
-    page.getByText("Major depressive disorder, recurrent, with anxious distress, mild", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByTestId("specifier-working-wording")).toHaveText(
+    "Major depressive disorder, recurrent, with anxious distress, mild",
+  );
 });
 
-test("keeps the builder pathway readable without horizontal overflow on phone", async ({ page }) => {
+test("keeps the guided builder readable without horizontal overflow on phone", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoApp(page, "/specifiers/builder?specifier=mild-severity");
 
-  const pathway = page.getByRole("region", { name: "Specifier wording pathway" });
-  await expect(pathway).toBeVisible();
-  await expect(pathway.getByText("Base diagnosis", { exact: true })).toBeVisible();
-  await expect(pathway.getByText("Episode features", { exact: true })).toBeVisible();
-  await expect(pathway.getByText("Course and onset", { exact: true })).toBeVisible();
-  await expect(pathway.getByText("Severity or remission", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Build the diagnosis in the right order" })).toBeVisible();
-  await expect(page.getByText(/Start with the base diagnosis/i)).toHaveCount(0);
+  const steps = page.getByRole("list", { name: "Specifier builder steps" });
+  await expect(steps).toBeVisible();
+  await expect(steps.getByRole("button", { name: /Step 1 of 4: Base diagnosis/ })).toBeVisible();
+  await expect(steps.getByRole("button", { name: /Step 2 of 4: Episode features/ })).toBeVisible();
+  await expect(steps.getByRole("button", { name: /Step 3 of 4: Course and onset/ })).toBeVisible();
+  await expect(steps.getByRole("button", { name: /Step 4 of 4: Severity or remission/ })).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  await expect(page.getByRole("heading", { name: "Build a clear diagnosis" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Mild/ })).toBeChecked();
   await expectNoHorizontalOverflow(page);
+  await expectNoBlockingAxeViolations(page, testInfo);
+});
+
+test("guides choices into a reviewable and copyable diagnosis", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => window.sessionStorage.setItem("specifier-builder-copied-text", value),
+      },
+    });
+  });
+  await gotoApp(page, "/specifiers/builder");
+
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+  const previous = page.getByRole("button", { name: "Previous", exact: true });
+  await expect(previous).toBeDisabled();
+
+  await page.getByRole("button", { name: "Continue to features" }).click();
+  await expect(page.getByRole("heading", { name: "Add episode features" })).toBeFocused();
+  await page.getByText("Mixed features", { exact: true }).click();
+  await page.getByRole("button", { name: "Continue to course" }).click();
+  await page.getByRole("button", { name: "Continue to severity" }).click();
+
+  await page.getByText("Mild", { exact: true }).click();
+  await expect(page.getByRole("radio", { name: /Mild/ })).toBeChecked();
+  await page.getByText("Partial remission", { exact: true }).click();
+  await expect(page.getByRole("radio", { name: /Partial remission/ })).toBeChecked();
+  await expect(page.getByRole("radio", { name: /Mild/ })).not.toBeChecked();
+
+  await page.getByRole("button", { name: "Review wording" }).click();
+  const review = page.getByTestId("specifier-builder-review");
+  await expect(review.getByRole("heading", { name: "Review the wording" })).toBeVisible();
+  await expect(review.getByRole("heading", { name: "Review the wording" })).toBeFocused();
+  await expect(review.getByTestId("specifier-completed-wording")).toHaveText(
+    "Major depressive disorder, recurrent, with mixed features, in partial remission",
+  );
+
+  await review.getByRole("button", { name: "Copy wording" }).click();
+  await expect
+    .poll(() => page.evaluate(() => window.sessionStorage.getItem("specifier-builder-copied-text")))
+    .toBe("Major depressive disorder, recurrent, with mixed features, in partial remission");
+  await expect(review.getByRole("button", { name: "Copied" })).toBeVisible();
+  await expect(review.getByRole("status")).toHaveText("Wording copied to the clipboard.");
+
+  await review.getByRole("button", { name: "Edit Episode features" }).click();
+  await expect(page.getByRole("checkbox", { name: /Mixed features/ })).toBeChecked();
+  await page.getByRole("button", { name: /Step 4 of 4: Severity or remission/ }).click();
+  await page.getByRole("button", { name: "Review wording" }).click();
+  await page.getByRole("button", { name: "Start over" }).click();
+  await expect(page.getByTestId("specifier-builder-base")).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("mdd-recurrent");
+  await expect(page.getByTestId("specifier-working-wording")).toHaveText("Major depressive disorder, recurrent");
+  await expectNoBlockingAxeViolations(page, testInfo);
+});
+
+test("fits the guided builder across its responsive breakpoints", async ({ page }) => {
+  for (const width of [320, 639, 768, 1440, 1920]) {
+    await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
+    await gotoApp(page, "/specifiers/builder");
+    await expect(page.getByRole("list", { name: "Specifier builder steps" })).toBeVisible();
+    await expect(page.getByTestId("specifier-builder-base")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  }
+});
+
+test("keeps the guide usable with reduced motion and forced colors", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+  await gotoApp(page, "/specifiers/builder");
+
+  await expect
+    .poll(() => page.evaluate(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches))
+    .toBe(true);
+  await expect.poll(() => page.evaluate(() => window.matchMedia("(forced-colors: active)").matches)).toBe(true);
+  await page.getByRole("button", { name: "Continue to features" }).click();
+  await expect(page.getByRole("heading", { name: "Add episode features" })).toBeFocused();
+  await expectNoHorizontalOverflow(page);
+  await expectNoBlockingAxeViolations(page, testInfo);
 });
 
 test("blocks incompatible specifiers and preserves severe psychotic-features wording", async ({ page }) => {
@@ -314,14 +399,17 @@ test("blocks incompatible specifiers and preserves severe psychotic-features wor
   // Rapid cycling is bipolar-only, so it must remain blocked until a bipolar base is chosen.
   await gotoApp(page, "/specifiers/builder?specifier=with-psychotic-features");
 
+  await page.getByRole("button", { name: /Step 3 of 4: Course and onset/ }).click();
   const rapidCycling = page.getByRole("checkbox", { name: /Rapid cycling/ });
   await expect(rapidCycling).toBeDisabled();
   await expect(rapidCycling).not.toBeChecked();
-  await expect(
-    page.getByText("Major depressive disorder, recurrent, severe with psychotic features", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByTestId("specifier-working-wording")).toHaveText(
+    "Major depressive disorder, recurrent, severe with psychotic features",
+  );
 
+  await page.getByRole("button", { name: /Step 1 of 4: Base diagnosis/ }).click();
   await page.getByRole("combobox", { name: "Diagnostic phrase" }).selectOption("bipolar-i-manic");
+  await page.getByRole("button", { name: /Step 3 of 4: Course and onset/ }).click();
   await expect(rapidCycling).toBeEnabled();
   await page.getByText("Rapid cycling", { exact: true }).click();
   await expect(rapidCycling).toBeChecked();
@@ -330,18 +418,20 @@ test("blocks incompatible specifiers and preserves severe psychotic-features wor
 test("infers a compatible diagnosis for non-MDD builder deep links", async ({ page }) => {
   await gotoApp(page, "/specifiers/builder?specifier=with-rapid-cycling&specifier=with-psychotic-features");
 
+  await page.getByRole("button", { name: /Step 3 of 4: Course and onset/ }).click();
   const rapidCycling = page.getByRole("checkbox", { name: /Rapid cycling/ });
+  await page.getByRole("button", { name: /Step 1 of 4: Base diagnosis/ }).click();
   await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("bipolar-i-depressed");
+  await page.getByRole("button", { name: /Step 3 of 4: Course and onset/ }).click();
   await expect(rapidCycling).toBeEnabled();
   await expect(rapidCycling).toBeChecked();
-  await expect(
-    page.getByText(
-      "Bipolar I disorder, current episode depressed, severe with psychotic features, with rapid cycling",
-      { exact: true },
-    ),
-  ).toBeVisible();
+  await expect(page.getByTestId("specifier-working-wording")).toHaveText(
+    "Bipolar I disorder, current episode depressed, severe with psychotic features, with rapid cycling",
+  );
 
+  await page.getByRole("button", { name: /Step 1 of 4: Base diagnosis/ }).click();
   await page.getByRole("combobox", { name: "Diagnostic phrase" }).selectOption("bipolar-i-manic");
+  await page.getByRole("button", { name: /Step 3 of 4: Course and onset/ }).click();
   await expect(rapidCycling).toBeEnabled();
   await expect(rapidCycling).toBeChecked();
 });

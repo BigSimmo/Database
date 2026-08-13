@@ -288,7 +288,9 @@ export function partitionRouteClientChunks(serverAppDir, deps = {}) {
       if (!entry.isFile() || !entry.name.endsWith("_client-reference-manifest.js")) continue;
       const names = clientChunkNamesFromManifestSource(readFile(full, "utf8"));
       if (names == null) {
-        unparseable.push(full);
+        // Keep diagnostic paths stable across Windows and POSIX hosts. These
+        // values are surfaced in CI output and asserted by the offline suite.
+        unparseable.push(full.replaceAll("\\", "/"));
         continue;
       }
       routeCount += 1;

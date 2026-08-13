@@ -27,7 +27,7 @@ const ZERO = "0".repeat(40);
 const created: string[] = [];
 
 afterEach(() => {
-  for (const root of created.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of created.splice(0)) rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 function dependencyFixture(lockMarker: string, withPrettier = false) {

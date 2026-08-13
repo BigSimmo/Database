@@ -157,7 +157,7 @@ describe("comparePerCaseRanks", () => {
 // non-zero exit (review finding on PR #1843 — the candidate-only shape previously exited 0).
 describe("compare-retrieval-eval CLI --fail-on-regression", () => {
   const dir = mkdtempSync(join(tmpdir(), "compare-eval-"));
-  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  afterAll(() => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
 
   const summary = {
     case_count: 1,
