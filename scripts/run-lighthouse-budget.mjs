@@ -21,7 +21,7 @@
  * live workflow, which is grading a flaky public network): a route that produced no
  * report is incomplete evidence, and the grader fails closed on it.
  *
- * A cell that produced no measurement AT ALL — a non-zero exit, no report file, or a
+ * A cell that produced no measurement AT ALL — no report file, invalid JSON, or a
  * report carrying only a `runtimeError` such as Lighthouse's own `NO_NAVSTART` — gets
  * exactly ONE announced retry first (`lighthouse-measurement-outcome.mjs` draws that
  * line). That is not a softening: a run that never started measured nothing about this
@@ -426,6 +426,12 @@ try {
       let result = await measure(strategy, route, output, firstAttemptTimeout);
       let reason = measurementFailureReason(childProcessExitCode(result), readIfPresent(output));
 
+      if (!reason && childProcessExitCode(result) !== 0) {
+        console.log(
+          `::warning::lighthouse ${cell} wrote a parseable report but ${childProcessFailureSummary(result)} after measurement; grading the report`,
+        );
+      }
+
       if (reason) {
         // ONE retry, and it is announced. A cell that never started measured nothing
         // about this diff, so treating it as a regression is wrong — but so is
@@ -449,6 +455,11 @@ try {
         removePathSync(output);
         result = await measure(strategy, route, output, retryTimeout);
         const after = measurementFailureReason(childProcessExitCode(result), readIfPresent(output));
+        if (!after && childProcessExitCode(result) !== 0) {
+          console.log(
+            `::warning::lighthouse ${cell} wrote a parseable report on retry but ${childProcessFailureSummary(result)} after measurement; grading the report`,
+          );
+        }
         retried.push(`${cell} (${reason}${after ? ` -> still ${after}` : " -> recovered"})`);
         reason = after;
       }

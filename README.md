@@ -129,6 +129,9 @@ local credentials or enabling live provider access.
 - `SUPABASE_PROJECT_REF` must stay `sjrfecxgysukkwxsowpy` for the live
   `Clinical KB Database` project.
 - Documents and extracted images are stored in private Supabase buckets.
+- Application routes are intentionally excluded from search discovery: `/robots.txt`
+  disallows crawling, root metadata emits `noindex`/`nofollow`, and the app does not
+  publish an XML sitemap. `docs/site-map.md` is an internal route inventory only.
 - Initial assumptions are guideline/reference documents only, not patient
   identifiable records.
 - OpenAI receives extracted document text/images for embeddings, image captions,
