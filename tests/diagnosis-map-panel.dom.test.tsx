@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DiagnosisMapPanel } from "@/components/differentials/diagnosis-map-panel";
 import { OverlayRoot } from "@/components/ui/overlay-root";
