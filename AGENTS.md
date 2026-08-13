@@ -872,7 +872,7 @@ named PR). Future process only.
 
 ## Repository productivity skills
 
-Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 34 canonical single-word skills and `npm run check:skills` to verify catalog integrity. The older long names remain compatibility aliases and must not be counted as unique skills.
+Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 34 canonical single-word skills. `npm run check:skills` verifies those skills, their compatibility aliases, and the Claude, Cursor, and Clinical KB plugin skill surfaces. The older long names remain compatibility aliases and must not be counted as unique skills.
 
 The foundational orchestration skills are:
 
@@ -903,8 +903,11 @@ to the recommended queue.
   `npm run issues:report -- --json` to read the cached `origin/main` ledger with an explicit stale-state warning;
   refresh that ref first only with provider authorization. State the recommended queue in order, then summarize other open
   items by priority. A plain `/issues` is read-only — it mutates and commits nothing.
-- `/issues add|done|update|capture …` mutate the ledger; each mutation commits **only**
-  `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).
+- `/issues add|done|update|capture …` queue immutable request files under
+  `docs/outstanding-issues-inbox/`; ordinary branches never edit the canonical ledger. Commit a
+  request only when explicitly asked, and never push unless requested or already handing off.
+  One deliberately serialized fresh-base branch later runs `npm run issues:reconcile` and refreshes
+  the visual register after the canonical transaction succeeds.
 - Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
   before a session's context is lost — that is what keeps it a memory rather than a stale list.
 - **An open row is not evidence that nobody is building it.** Some rows do carry a progress marker in
