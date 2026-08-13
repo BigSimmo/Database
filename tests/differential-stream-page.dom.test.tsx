@@ -51,6 +51,19 @@ describe("DifferentialStreamPage", () => {
     expect(screen.getAllByText(/differential candidates?/).length).toBeGreaterThan(0);
   });
 
+  it("carries the submitted query into a presentation pathway", () => {
+    const firstCard = differentialPresentationsCards[0];
+    expect(firstCard).toBeTruthy();
+
+    render(<DifferentialStreamPage stream="presentations" query="acute confusion" />);
+
+    const card = screen.getByTestId(`differential-stream-card-${firstCard!.slug}`);
+    expect(within(card).getByRole("link", { name: "Open pathway" })).toHaveAttribute(
+      "href",
+      `${firstCard!.href}?q=acute+confusion`,
+    );
+  });
+
   it("reveals a filtered safety-shelf target before scrolling to it", async () => {
     const user = userEvent.setup();
     const scrollIntoView = vi.mocked(Element.prototype.scrollIntoView);
