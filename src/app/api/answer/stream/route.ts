@@ -168,6 +168,10 @@ function streamAnswer(
       async start(controller) {
         const streamStartedAt = Date.now();
         let completionSent = false;
+        // Verified units are append-only within one SSE response. Keep this state in
+        // the stream, never globally or across attempts, so duplicate/out-of-order
+        // progress callbacks fail closed at the public boundary.
+        let lastVerifiedUnitSequence: number | null = null;
         const send = <Name extends AnswerStreamEventName>(event: Name, data: AnswerStreamEventMap[Name]) => {
           try {
             controller.enqueue(encoder.encode(encodeSse(event, data)));
@@ -177,10 +181,11 @@ function streamAnswer(
           }
         };
         const sendProgress = (event: unknown) => {
-          const publicEvent = toPublicAnswerProgressEvent(event);
+          const publicEvent = toPublicAnswerProgressEvent(event, lastVerifiedUnitSequence);
           if (!publicEvent || (publicEvent.stage === "complete" && completionSent)) return;
           if (publicEvent.stage === "complete") completionSent = true;
           send("progress", publicEvent);
+          if (publicEvent.verifiedUnit) lastVerifiedUnitSequence = publicEvent.verifiedUnit.sequence;
         };
         const sendComplete = () => {
           sendProgress({ stage: "complete", elapsedMs: Date.now() - streamStartedAt });

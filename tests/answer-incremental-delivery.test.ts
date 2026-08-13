@@ -100,6 +100,14 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
     expect(buildEvidencePreviewUnit({ results: [outdated] })).toBeNull();
   });
 
+  it("keeps a selected source hidden when its authoritative final set has a danger warning", () => {
+    const outdated = makeSource({
+      id: "outdated-source",
+      source_metadata: { document_status: "outdated" } as SearchResult["source_metadata"],
+    });
+    expect(buildEvidencePreviewUnit({ results: [makeSource()], governanceResults: [makeSource(), outdated] })).toBeNull();
+  });
+
   it("emits zero units for empty retrieval", () => {
     expect(buildEvidencePreviewUnit({ results: [] })).toBeNull();
   });
@@ -138,6 +146,28 @@ describe("public progress DTO passthrough", () => {
     const event = toPublicAnswerProgressEvent({ stage: "retrieved", resultCount: 3, verifiedUnit: previewUnit() });
     expect(event?.verifiedUnit).toBeDefined();
     expect(event?.verifiedUnit?.kind).toBe("evidence_preview");
+  });
+
+  it("drops duplicate and out-of-order verified units once a stream has accepted sequence 0", () => {
+    const first = toPublicAnswerProgressEvent({ stage: "retrieved", verifiedUnit: previewUnit() });
+    expect(first?.verifiedUnit?.sequence).toBe(0);
+    expect(toPublicAnswerProgressEvent({ stage: "retrieved", verifiedUnit: previewUnit() }, 0)?.verifiedUnit).toBeUndefined();
+    expect(
+      toPublicAnswerProgressEvent(
+        {
+          stage: "generating",
+          verifiedUnit: {
+            schemaVersion: 1,
+            kind: "answer_section",
+            sequence: 1,
+            section: { heading: "Monitoring", content: "Check levels." },
+            citations: [],
+            supportLevel: "direct",
+          },
+        },
+        0,
+      )?.verifiedUnit?.sequence,
+    ).toBe(1);
   });
 
   it("drops malformed verified units instead of repairing them", () => {

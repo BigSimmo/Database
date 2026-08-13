@@ -30,7 +30,10 @@ function safeProgressNumber(value: unknown) {
 }
 
 /** Convert internal RAG progress into the minimal, stable DTO allowed at the browser boundary. */
-export function toPublicAnswerProgressEvent(event: unknown): PublicAnswerProgressEvent | null {
+export function toPublicAnswerProgressEvent(
+  event: unknown,
+  lastVerifiedUnitSequence: number | null = null,
+): PublicAnswerProgressEvent | null {
   if (!event || typeof event !== "object") return null;
   const value = event as Record<string, unknown>;
   const resultCount = safeProgressNumber(value.resultCount);
@@ -93,7 +96,9 @@ export function toPublicAnswerProgressEvent(event: unknown): PublicAnswerProgres
 
   // The verified unit crosses the boundary only when it passes the stream contract's
   // structural validation; a malformed or oversized unit is dropped, never repaired.
-  const verifiedUnit = isDeliverableVerifiedUnit(value.verifiedUnit) ? value.verifiedUnit : undefined;
+  const verifiedUnit = isDeliverableVerifiedUnit(value.verifiedUnit, lastVerifiedUnitSequence)
+    ? value.verifiedUnit
+    : undefined;
 
   return {
     stage,

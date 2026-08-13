@@ -2794,13 +2794,6 @@ async function answerQuestionWithScopeUncoalesced(
     smart_api_retrieval_intent: plan.answerPlan.retrievalIntent,
     smart_api_source_selection: plan.answerPlan.sourceSelection,
   });
-  // #100 Phase 1 (flag-gated, default off): the retrieval-complete verified evidence
-  // preview. Built through the same governance refusal and client-source trim as the
-  // final payload; when the gates refuse, the field is simply absent. Emission changes
-  // nothing about retrieval, ranking, generation, or the final answer.
-  const evidencePreviewUnit = env.RAG_INCREMENTAL_EVIDENCE_PREVIEW
-    ? buildEvidencePreviewUnit({ results: answerInputResults, relevance })
-    : null;
   await args.onProgress?.({
     stage: "retrieved",
     message: `${relevance.label}: retrieved ${results.length} candidate source${results.length === 1 ? "" : "s"}.`,
@@ -2810,7 +2803,6 @@ async function answerQuestionWithScopeUncoalesced(
     weakSourceCount: relevance.weakSourceCount,
     timingMs: searchLatencyMs,
     relevance,
-    ...(evidencePreviewUnit ? { verifiedUnit: evidencePreviewUnit } : {}),
   });
   await args.onProgress?.({
     stage: "routing",
@@ -3030,6 +3022,29 @@ async function answerQuestionWithScopeUncoalesced(
     const validatedExtractiveResults = validatedExtractiveShortCircuit?.resultIds?.length
       ? answerInputResults.filter((result) => validatedExtractiveShortCircuit.resultIds?.includes(result.id))
       : answerInputResults;
+    // A preview must reconcile with every extractive final path, so only emit after
+    // the short-circuit has selected its authoritative source set. Governance stays
+    // conservative over the full final-candidate set, not merely this subset.
+    const evidencePreviewUnit = env.RAG_INCREMENTAL_EVIDENCE_PREVIEW
+      ? buildEvidencePreviewUnit({
+          results: validatedExtractiveResults,
+          governanceResults: answerInputResults,
+          relevance,
+        })
+      : null;
+    const extractivePreviewSelectionSummary = summarizeAustralianSourceSelection(
+      answerInputResults,
+      validatedExtractiveResults,
+    );
+    await args.onProgress?.({
+      stage: "ranking",
+      message: "Selected governed source passages for the extractive answer.",
+      selectedContextCount: extractivePreviewSelectionSummary.selectedCount,
+      australianSourceCount: extractivePreviewSelectionSummary.australianSelectedCount,
+      waSourceCount: extractivePreviewSelectionSummary.waSelectedCount,
+      usedSupplementaryFallback: extractivePreviewSelectionSummary.usedSupplementaryFallback,
+      ...(evidencePreviewUnit ? { verifiedUnit: evidencePreviewUnit } : {}),
+    });
     const builtSourceSafeExtractiveAnswer = buildExtractiveAnswer({
       query: args.query,
       queryClass,
@@ -3491,6 +3506,16 @@ ${qualityRetryInstruction}`
     results: answerInputResults,
   });
   const generationFallbackResults = strongRetryContextResults;
+  // The strong-retry context is a subset of the normal final sources and the exact
+  // source set of the generation fallback. Emitting this intersection only after
+  // selection keeps the preview reconcilable if the fast path fails later.
+  const evidencePreviewUnit = env.RAG_INCREMENTAL_EVIDENCE_PREVIEW
+    ? buildEvidencePreviewUnit({
+        results: generationFallbackResults,
+        governanceResults: answerInputResults,
+        relevance,
+      })
+    : null;
   const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
   await args.onProgress?.({
     stage: "ranking",
@@ -3499,6 +3524,7 @@ ${qualityRetryInstruction}`
     australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
     waSourceCount: modelContextSelectionSummary.waSelectedCount,
     usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
+    ...(evidencePreviewUnit ? { verifiedUnit: evidencePreviewUnit } : {}),
   });
   // The quality-repair call below may itself fail or truncate. Preserve the first
   // deterministic verdict so fallback telemetry explains why that retry occurred,
