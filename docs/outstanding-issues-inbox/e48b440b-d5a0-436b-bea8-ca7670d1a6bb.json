@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "e48b440b-d5a0-436b-bea8-ca7670d1a6bb",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#170",
+    "outcome": "DELIVERED and verified by content on main 2d27039 (2026-08-13), not by PR state. Every mode named in this row now uses the shared ResultFilterTrigger + ResultFilterSheet under the lens/facet contract in docs/filter-contract.md. Services: src/lib/service-facets.ts exists, the navigator imports resultFilterFacetGroup, the scope segment is a SegmentedControl backed by a `scope` URL param, and the six query-replacing quick filters now feed AnswerSuggestionChips as composer suggestions instead of the sheet (PR C). Factsheets: converted to SegmentedControl with per-option counts; no eviction was needed because the earlier plan's claim that its presets discarded the query was measured false — searchHref keeps `q` and adds `category` (PR D). Therapy-compass: src/components/therapy-compass/filter-sheet.tsx DELETED, screens/search-screen.tsx converged onto the shared control (PRs #1885, #1889). Documents: converged onto the shared sheet with meterContent and footerOverride so its progress meter and Browse all sources footer survive (PR #1910). The contract also spread past the original six — dsm-search-page, forms-search-results-page, tools-search-results-page and differential-stream-workspace are on the shared sheet. Foundations: #1847 kinds + contract doc, #1848 SegmentedControl hint slot, #1857 four lens modes, #1858 formulation first facet adoption. REMAINING and tracked elsewhere, not part of this row: #275 (shared trigger's arbitrary spacing across five files) and filter-contract.md section 7 (SearchScopeFilters, 20 server-side keys editable from no panel, explicitly not a prerequisite)."
+  }
+}

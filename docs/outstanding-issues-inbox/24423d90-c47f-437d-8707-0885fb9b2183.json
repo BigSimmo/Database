@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "24423d90-c47f-437d-8707-0885fb9b2183",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#309",
+    "outcome": "DELIVERED and verified by content on main 2d27039 (2026-08-13). The density tier now lives in the shared component rather than in any one mode: src/components/clinical-dashboard/result-filter-control.tsx carries the dense branch, a find-a-filter field and collapse-by-default per facet group, with a group opening itself when it holds a selection and a live needle owning openness — the same rules documents had. Resolved by option (b) from this row: PR F (#1910) ported documents' existing implementation UP into the shared sheet rather than growing a second one, so the row's stop rule (never add a per-mode dense list) held. The component's header comment now states the contract directly: below the section 5 threshold a facet group is a plain chip row, above it the sheet grows the needle and collapse. The row's other concern — that services would hit the same rule from the >3-groups direction — is settled too, since services adopted the shared sheet with its six groups in PR C. Nothing in this row remains open."
+  }
+}
