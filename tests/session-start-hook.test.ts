@@ -1,14 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  copyFileSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -71,10 +63,7 @@ function stubEnvironment(): { home: string; project: string; hook: string } {
   writeFileSync(nodeStub, `#!/bin/bash\necho "v${NODE_VERSION}"\n`);
   chmodSync(nodeStub, 0o755);
   const npmStub = join(nodeBin, "npm");
-  writeFileSync(
-    npmStub,
-    '#!/bin/bash\nif [ "${1:-}" = "ci" ]; then exit 97; fi\necho "11.17.0"\n',
-  );
+  writeFileSync(npmStub, '#!/bin/bash\nif [ "${1:-}" = "ci" ]; then exit 97; fi\necho "11.17.0"\n');
   chmodSync(npmStub, 0o755);
 
   const lockfile = join(project, "package-lock.json");
@@ -134,11 +123,7 @@ describe("session-start hook", () => {
     // temporary project: the fallback must derive from the copied hook's path.
     const elsewhere = mkdtempSync(join(tmpdir(), "session-start-elsewhere-"));
     scratchRoots.push(elsewhere);
-    const result = runHook(
-      hook,
-      { HOME: home, CLAUDE_ENV_FILE: undefined, CLAUDE_PROJECT_DIR: undefined },
-      elsewhere,
-    );
+    const result = runHook(hook, { HOME: home, CLAUDE_ENV_FILE: undefined, CLAUDE_PROJECT_DIR: undefined }, elsewhere);
 
     expect(result.stderr).not.toContain("unbound variable");
     expect(result.status, `hook exited ${result.status}: ${result.stderr}`).toBe(0);
