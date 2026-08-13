@@ -37,8 +37,6 @@ export function SearchScreen() {
   const results = b.searchResults;
   const shown = results.slice(0, MAX_CARDS);
   const availabilityFilterCount = Number(b.search.reviewedOnly) + Number(b.search.briefOnly);
-  // Match the sheet: a non-empty query is an active narrowing control on phone,
-  // where Clear only lives inside the filter sheet (wide keeps a ribbon Clear).
   // Filters only — the query is deliberately excluded. The trigger badge is
   // labelled "N filters active" and a search term is not a filter.
   const activeFilterCount = b.search.tags.length + availabilityFilterCount;
@@ -55,7 +53,9 @@ export function SearchScreen() {
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const clearSearch = () => {
-    b.clearSearch();
+    // Clearing the search and clearing filters are independent intentions. Keep
+    // active topic/availability filters in place while removing only the query.
+    b.setQuery("");
     // Therapy owns this route family. Clearing a deep-linked query must update
     // the address bar as well as local state, otherwise the provider can reseed
     // the stale `q` value on navigation or remount.
@@ -101,8 +101,6 @@ export function SearchScreen() {
           value === "reviewed"
             ? { ...b.search, reviewedOnly: !b.search.reviewedOnly }
             : { ...b.search, briefOnly: !b.search.briefOnly };
-        // Only re-run when this toggle would turn the option on; a currently-on
-        // option being turned off still needs its own honest count.
         const count = searchTherapies(b.therapies, candidate).length;
         return { value, label, hint: String(count) };
       }),
@@ -129,14 +127,13 @@ export function SearchScreen() {
               type="button"
               onClick={clearSearch}
               data-testid="therapy-clear-search"
-              className={`${therapyBtn} search-band-ghost inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10`}
+              className={`${therapyBtn} search-band-ghost inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10 sm:min-w-10`}
             >
               <X aria-hidden="true" className="h-3.5 w-3.5" />
               <span className="max-[389px]:sr-only">Clear search</span>
             </button>
           ) : undefined
         }
-        // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"
         mobileControls={
           <ResultFilterTrigger
@@ -148,8 +145,6 @@ export function SearchScreen() {
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
-        // The same groups the sheet renders, so the two breakpoints cannot
-        // drift (formulation-home-page.tsx is the reference for this shape).
         filterControls={
           <div className="grid min-w-0 gap-1">
             <ResultFilterFacetChips group={topicsGroup} idPrefix="therapy-filter-desktop" />
@@ -158,11 +153,6 @@ export function SearchScreen() {
         }
       />
 
-      {/* Phone-only by construction: the trigger that opens it lives in the
-          ribbon's `mobileControls` slot, which the band hides from `sm` up.
-          `onClearAll` clears filters only — never the query. The query has its
-          own Therapy-owned clear action in the ribbon, so filter clearing never
-          needs to double as a query reset. */}
       <ResultFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -174,28 +164,16 @@ export function SearchScreen() {
         footerNote={`${results.length} therap${results.length === 1 ? "y" : "ies"}`}
       />
 
-      {/* The band's fault panel owns the failure. Without this guard an error
-          also renders the empty state, so the page says both "we couldn't
-          search" and "nothing matched" at once. */}
       {b.error ? null : b.loading ? (
         <LoadingState />
       ) : (
         <>
           {results.length === 0 ? (
-            // The shared surface, so the filtered-to-zero reader gets the same
-            // route out here as in documents. What it replaces was a single
-            // button labelled `Clear filters` wired to `clearSearch`, which also
-            // deleted the query — the label promised one thing and the handler
-            // did another. `Remove "X"` and `Clear all filters` are now separate
-            // controls, so each label matches its own action.
             <SearchResultsEmptyState
               modeId="therapy-compass"
               query={q}
               appliedFilters={appliedFilters}
               onClearFilters={b.clearSearchFilters}
-              // Query-only zero results otherwise have no filter chip, example,
-              // or cross-mode action. Restore a one-tap escape without relabeling
-              // a query reset as a filter operation.
               onClearSearch={clearSearch}
             />
           ) : (

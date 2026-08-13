@@ -60,15 +60,12 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(appModesSrc).toContain('inputAriaLabel: "Search therapies by problem, symptom, skill, or population"');
     expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy"');
     expect(homeSrc).toContain('title="Therapy"');
-    // Search route owns filters/results only; the results ribbon is the page h1.
     expect(searchSrc).toContain("SearchResultsHeaderBand");
     expect(searchSrc).toContain("headingLevel={1}");
-    // Documents-style gap so the band does not sit flush on the first card.
     expect(searchSrc).toContain("space-y-2.5 sm:space-y-3");
     expect(searchSrc).not.toContain("Search therapies");
     expect(searchSrc).not.toContain("Find source-grounded therapy records");
     expect(workspaceSrc).toContain("Therapy could not load");
-    // Therapy stays out of the six-item sidebar; mode discovery is via Tools/search.
     expect(sidebarSrc).not.toContain('id: "therapy-compass"');
     expect(appModesSrc).not.toContain("Therapy mode");
     expect(homeSrc).not.toContain("Therapy mode");
@@ -104,14 +101,6 @@ describe("Therapy Compass production-mode wiring", () => {
   });
 
   it("commits no catalogue assets older than the one-deploy grace generation", () => {
-    // Every regeneration mints new hashed filenames. Without pruning, each data
-    // revision strands the previous full catalogue (~2.5 MB) plus both
-    // projections in `public/` permanently — in git history and in every Docker
-    // image. PR #1489 stranded two inside a single pull request and needed a
-    // hand-deletion commit. `check:therapy-data-index` enforces the same rule;
-    // this pins it for anyone who adds a hashed file without rerunning it.
-    // Typed as string: the manifests are `as const`, so an inferred Set would be
-    // keyed to today's exact filenames and reject any other name outright.
     const manifested = new Set<string>([
       ...Object.values(THERAPY_CATALOGUE_ASSETS),
       ...Object.values(THERAPY_CATALOGUE_ASSETS_PREVIOUS),
@@ -121,22 +110,16 @@ describe("Therapy Compass production-mode wiring", () => {
     );
     expect(hashed.length).toBeGreaterThan(0);
     expect(hashed.filter((name) => !manifested.has(name))).toEqual([]);
-    // Growth is bounded at two generations per stem, not N.
     expect(hashed.length).toBeLessThanOrEqual(6);
   });
 
   it("retains the previous generation on disk so pre-deploy bundles do not 404", () => {
-    // A session that started before the last deploy has the previous
-    // content-addressed URL compiled into its bundle. Pruning it the moment the
-    // catalogue regenerates reintroduces the deployment-straddling 404 the
-    // unversioned aliases exist to prevent, one level down.
     for (const file of Object.values(THERAPY_CATALOGUE_ASSETS_PREVIOUS)) {
       expect(existsSync(new URL(file, dataDir)), file).toBe(true);
     }
   });
 
   it("falls back from a stale hashed catalogue URL to the unversioned alias", () => {
-    // Covers bundles older than the grace generation, and mid-rollout clients.
     expect(loaderSrc).toContain("async function fetchCatalogue");
     expect(loaderSrc).toContain("CATALOGUE_ALIASES[catalogue]");
     for (const alias of Object.values(legacyCatalogueAssets)) {
@@ -160,9 +143,6 @@ describe("Therapy Compass production-mode wiring", () => {
     const homeSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir)).byteLength;
     expect(indexSize).toBeLessThan(fullSize * 0.1);
     expect(homeSize).toBeLessThanOrEqual(indexSize);
-    // The loader still selects by catalogue kind from the generated manifest —
-    // the lookup moved inside fetchCatalogue when the alias fallback landed, so
-    // pin both halves rather than the old single expression.
     expect(loaderSrc).toContain("fetchCatalogue(options.catalogue)");
     expect(loaderSrc).toContain("THERAPY_CATALOGUE_ASSETS[catalogue]");
     expect(bindingsSrc).toContain("enabled: !isHome");
@@ -191,7 +171,6 @@ describe("Therapy Compass production-mode wiring", () => {
     const generatorSrc = readFileSync(new URL("../scripts/build-therapies-index.mjs", import.meta.url), "utf8");
     expect(generatorSrc).toContain("function extractConstObjectBody");
     expect(generatorSrc).toContain('extractConstObjectBody(currentManifest, "THERAPY_CATALOGUE_SUMMARY")');
-    // Nested `}` must not truncate the summary parse (previous `[^}]*` hole).
     expect(generatorSrc).not.toMatch(/THERAPY_CATALOGUE_SUMMARY = \\\{\[\^\}]\*\\\}/);
 
     const extractConstObjectBody = (source: string, name: string) =>
@@ -205,7 +184,6 @@ describe("Therapy Compass production-mode wiring", () => {
   });
 
   it("does not mangle ordinary sk- substrings like task-centred in generated JSON", () => {
-    // Regression for the old mid-word sk- → s\u006b- rewrite in the generator.
     for (const kind of ["home", "index"] as const) {
       const text = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS[kind], dataDir), "utf8");
       expect(text, kind).toContain('"slug": "task-centred-practice"');
@@ -214,7 +192,6 @@ describe("Therapy Compass production-mode wiring", () => {
   });
 
   it("keeps therapy-compass route-owned when the shared composer has a submitted query", () => {
-    // Otherwise /therapy-compass?q=…&run=1 renders ClinicalDashboard over TherapyCompassPage.
     expect(
       shouldRenderDashboardSearch({ hasSubmittedSearch: true, mode: "therapy-compass", pathname: "/therapy-compass" }),
     ).toBe(false);
@@ -226,10 +203,8 @@ describe("Therapy Compass production-mode wiring", () => {
       new URL("../src/components/therapy-compass/bindings.tsx", import.meta.url),
       "utf8",
     );
-    // The home route reads q/run and redirects a run-enabled deep link to the dedicated search route...
     expect(routeSrc).toMatch(/searchParams/);
     expect(routeSrc).toMatch(/redirect\(`\/therapy-compass\/search/);
-    // ...and the provider derives the active screen from the pathname and seeds the query from ?q.
     expect(bindingsSrc).toMatch(/resolveRoute\(pathname\)/);
     expect(bindingsSrc).toMatch(/searchParams\.get\("q"\)/);
   });
@@ -243,7 +218,6 @@ describe("Therapy Compass production-mode wiring", () => {
       new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
       "utf8",
     );
-    // Home uses ModeHomeMain; workspace must not wrap home in a second <main>.
     expect(homeSrc).toMatch(/ModeHomeMain/);
     expect(workspaceSrc).toMatch(/asMain=\{!isHome\}/);
     expect(workspaceSrc).toContain(
@@ -263,63 +237,32 @@ describe("Therapy Compass production-mode wiring", () => {
       "utf8",
     );
     expect(homeSrc).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
-    // Mode homes are pathname-gated so optimistic searchMode cannot flip hero→dock mid-nav.
     expect(shellSrc).toContain("isStandaloneModeHomePath(pathname)");
     expect(isStandaloneModeHomePath("/therapy-compass")).toBe(true);
   });
 
   it("keeps the results-band shelf Clear filter-only so it cannot delete the query", () => {
-    // Shipped defect (PR #1555): the shelf is labelled "Filtered by" and its
-    // trailing Clear was wired to `clearSearch`, which resets EMPTY_SEARCH —
-    // including `query: ""`. So Clear silently deleted the search term the user
-    // was reading, while the code comment beside it claimed the query was
-    // deliberately excluded. Only the shelf's own Clear needs to be filter-only
-    // here; see the invariant test below for every other control on the page.
     const searchScreenSrc = readFileSync(
       new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
       "utf8",
     );
     expect(searchScreenSrc).toContain("onClearFilters={b.clearSearchFilters}");
     expect(searchScreenSrc).not.toContain("onClearFilters={b.clearSearch}");
-    // The binding must preserve the query rather than reset the whole shape.
     expect(bindingsSrc).toContain(
       "clearSearchFilters: () => setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query }))",
     );
   });
 
-  it("keeps every full-reset control on the page honestly labelled, and the filter sheet filter-only", () => {
-    // The sibling of the #1555 defect above (missed on the first review pass,
-    // PR #1611): any control wired to `clearSearch` must be labelled for
-    // clearing the *search*, or it silently wipes the query the reader is
-    // reading while claiming to do something narrower. Historically this was
-    // the quick-filter ribbon's own trailing Clear button and the bespoke
-    // `TherapyFilterSheet`'s "Clear all" — both retired when therapy-compass
-    // converged onto the shared `ResultFilterSheet` (docs/filter-contract.md),
-    // whose `onClearAll` is filter-only by contract (section 6: "onClearAll
-    // never touches the query"). The only remaining full reset on this page is
-    // the zero-results empty state's dedicated "Clear search" action, which is
-    // labelled for exactly that.
+  it("keeps query clearing query-only and the filter sheet filter-only", () => {
     const searchScreenSrc = readFileSync(
       new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
       "utf8",
     );
     expect(searchScreenSrc).not.toContain("onClear={b.clearSearch}");
     expect(searchScreenSrc).not.toContain("onClearAll={b.clearSearch}");
-    expect(searchScreenSrc).toContain("onClearSearch={b.clearSearch}");
-
-    // The rule is about labels matching actions, not about a head-count of
-    // `clearSearch` calls. A full reset is fine wherever the control says so —
-    // the empty state's `Clear search` does — and is a defect wherever the
-    // control says "filters". Asserting a count instead made a correctly
-    // labelled `Clear search` look like a regression, which is the wrong
-    // signal from a guard whose whole point is intent.
-    const fullResetProps = Array.from(searchScreenSrc.matchAll(/(\w+)=\{b\.clearSearch\}/g)).map((match) => match[1]);
-    expect(fullResetProps.length).toBeGreaterThan(0);
-    expect(
-      fullResetProps.filter((prop) => !["onClearSearch"].includes(prop)),
-      "A control wired to `clearSearch` must be labelled for clearing the search. " +
-        "`onClearFilters`, `onClearAll`, `onRemove` or a bare `onClick` promising to clear " +
-        "filters must use `clearSearchFilters`, or it deletes the search term the reader is looking at.",
-    ).toEqual([]);
+    expect(searchScreenSrc).not.toContain("b.clearSearch();");
+    expect(searchScreenSrc).toContain('b.setQuery("");');
+    expect(searchScreenSrc).toContain("onClearSearch={clearSearch}");
+    expect(searchScreenSrc).toContain("min-h-tap min-w-tap");
   });
 });
