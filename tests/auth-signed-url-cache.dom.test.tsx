@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const authApi = vi.hoisted(() => {
@@ -80,8 +80,26 @@ function RenderLoggingSignedImageProbe({ enabled }: { enabled: boolean }) {
   return <span data-testid="signed-url">{url ?? ""}</span>;
 }
 
+async function emitAuthStateChange(event: string, session: unknown) {
+  await act(async () => {
+    for (const listener of authApi.listeners) listener(event, session);
+  });
+}
+
+async function flushAnimationFrames(count = 2) {
+  await act(async () => {
+    for (let frame = 0; frame < count; frame += 1) {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    }
+  });
+}
+
 describe("auth lifecycle clears signed URL cache", () => {
   beforeEach(() => {
+    // Testing Library's auto-cleanup order can vary with the jsdom environment
+    // setup. Clear before mounting as well as after unmounting so a prior
+    // provider can never satisfy a later assertion with stale auth state.
+    cleanup();
     clearSignedUrlCache();
     authApi.listeners.clear();
     authApi.signOut.mockClear();
@@ -92,6 +110,7 @@ describe("auth lifecycle clears signed URL cache", () => {
   });
 
   afterEach(() => {
+    cleanup();
     clearSignedUrlCache();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
@@ -132,7 +151,9 @@ describe("auth lifecycle clears signed URL cache", () => {
       </AuthProvider>,
     );
 
-    screen.getByRole("button", { name: "Sign out" }).click();
+    await act(async () => {
+      screen.getByRole("button", { name: "Sign out" }).click();
+    });
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed_out"));
     expect(getCachedSignedUrl(ENDPOINT)).toBeNull();
 
@@ -162,7 +183,9 @@ describe("auth lifecycle clears signed URL cache", () => {
     );
 
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
-    screen.getByRole("button", { name: "Expire session" }).click();
+    await act(async () => {
+      screen.getByRole("button", { name: "Expire session" }).click();
+    });
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("expired"));
     expect(getCachedSignedUrl(ENDPOINT)).toBeNull();
   });
@@ -190,7 +213,9 @@ describe("auth lifecycle clears signed URL cache", () => {
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
     await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(PRIVATE_URL));
 
-    screen.getByRole("button", { name: "Sign out" }).click();
+    await act(async () => {
+      screen.getByRole("button", { name: "Sign out" }).click();
+    });
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed_out"));
     // Painted URL must drop as soon as the cleared cache forces a refetch path —
     // not remain on screen until the 401 round-trip finishes.
@@ -206,11 +231,11 @@ describe("auth lifecycle clears signed URL cache", () => {
     });
 
     const userBUrl = "https://example.supabase.co/storage/v1/object/sign/private.png?token=user-b";
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ url: userBUrl }),
+    let resolveUserB!: (value: { ok: boolean; status: number; json: () => Promise<{ url: string }> }) => void;
+    const userBFetch = new Promise<{ ok: boolean; status: number; json: () => Promise<{ url: string }> }>((resolve) => {
+      resolveUserB = resolve;
     });
+    const fetchMock = vi.fn().mockReturnValue(userBFetch);
     vi.stubGlobal("fetch", fetchMock);
 
     render(
@@ -230,17 +255,20 @@ describe("auth lifecycle clears signed URL cache", () => {
       token_type: "bearer",
       user: { id: "user-b" },
     };
-    for (const listener of authApi.listeners) listener("SIGNED_IN", userBSession);
+    await emitAuthStateChange("SIGNED_IN", userBSession);
 
     await waitFor(() => expect(getCachedSignedUrl(ENDPOINT)).toBeNull());
     await waitFor(() => expect(screen.getByTestId("signed-url")).not.toHaveTextContent(PRIVATE_URL));
 
-    // Flush two animation frames: the old bug re-queued user A's cached URL here.
-    await new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => resolve());
-      });
+    resolveUserB({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: userBUrl }),
     });
+    await userBFetch;
+
+    // Flush two animation frames: the old bug re-queued user A's cached URL here.
+    await flushAnimationFrames();
     expect(screen.getByTestId("signed-url")).not.toHaveTextContent(PRIVATE_URL);
     await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(userBUrl));
   });
@@ -285,7 +313,7 @@ describe("auth lifecycle clears signed URL cache", () => {
       token_type: "bearer",
       user: { id: "user-b" },
     };
-    for (const listener of authApi.listeners) listener("SIGNED_IN", userBSession);
+    await emitAuthStateChange("SIGNED_IN", userBSession);
 
     await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(userBUrl));
     expect(getCachedSignedUrl(ENDPOINT)?.url).toBe(userBUrl);
@@ -305,11 +333,7 @@ describe("auth lifecycle clears signed URL cache", () => {
       json: async () => ({ url: PRIVATE_URL }),
     });
     await userAFetch;
-    await new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => resolve());
-      });
-    });
+    await flushAnimationFrames();
 
     expect(getCachedSignedUrl(ENDPOINT)?.url).toBe(userBUrl);
     expect(screen.getByTestId("signed-url")).toHaveTextContent(userBUrl);
@@ -346,21 +370,15 @@ describe("auth lifecycle clears signed URL cache", () => {
     renderedUrls.length = 0;
 
     // Same user id, brand-new access token — exactly what Supabase emits hourly.
-    for (const listener of authApi.listeners) {
-      listener("TOKEN_REFRESHED", {
-        access_token: "user-a-token-refreshed",
-        refresh_token: "refresh-2",
-        expires_in: 3600,
-        token_type: "bearer",
-        user: { id: "user-a" },
-      });
-    }
-
-    await new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => resolve());
-      });
+    await emitAuthStateChange("TOKEN_REFRESHED", {
+      access_token: "user-a-token-refreshed",
+      refresh_token: "refresh-2",
+      expires_in: 3600,
+      token_type: "bearer",
+      user: { id: "user-a" },
     });
+
+    await flushAnimationFrames();
 
     // The refresh must not have blanked the image at any point. Asserting only
     // the settled DOM would pass either way, because the LRU repaints it.

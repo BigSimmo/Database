@@ -82,6 +82,60 @@ export const copyButton = {
   copied: "Copied",
 } as const;
 
+export const specifierBuilderCopy = {
+  hero: {
+    eyebrow: "Diagnostic wording",
+    title: "Build a clear diagnosis",
+    body: "Choose the base diagnosis, then add only the episode, course, and severity specifiers that apply.",
+  },
+  steps: {
+    base: {
+      shortLabel: "Base",
+      detail: "Diagnosis",
+      eyebrow: "1 · Base diagnosis",
+      title: "Choose the base diagnosis",
+      body: "Start with the disorder and current episode.",
+    },
+    episodeFeatures: {
+      shortLabel: "Features",
+      detail: "Episode",
+      eyebrow: "2 · Episode features",
+      title: "Add episode features",
+      body: "Select only features supported by the current presentation.",
+    },
+    courseOnset: {
+      shortLabel: "Course",
+      detail: "Timing",
+      eyebrow: "3 · Course and onset",
+      title: "Add course and onset",
+      body: "Describe the timing or pattern when supported.",
+    },
+    severityRemission: {
+      shortLabel: "Severity",
+      detail: "Current state",
+      eyebrow: "4 · Severity or remission",
+      title: "Set severity or remission",
+      body: "Choose one current severity or remission state, if applicable.",
+    },
+  },
+  navigation: {
+    previous: "Previous",
+    continueToFeatures: "Continue to features",
+    continueToCourse: "Continue to course",
+    continueToSeverity: "Continue to severity",
+    reviewWording: "Review wording",
+  },
+  review: {
+    eyebrow: "Review",
+    title: "Review the wording",
+    body: "Check compatibility and chronology before documenting.",
+    copy: "Copy wording",
+    copied: "Wording copied to the clipboard.",
+    startOver: "Start over",
+    notSpecified: "Not specified",
+  },
+} as const;
+
 export const answerLoading = {
   ariaLabel: "Loading answer",
 } as const;
