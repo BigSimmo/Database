@@ -191,6 +191,11 @@ describe("elevation ladder", () => {
       expect(forced, `${tier} must be neutralised in forced-colors mode`).toContain(`${tier}: none;`);
     }
   });
+
+  it("pins the complete v2 forced-colors selector group", () => {
+    const forced = v2Stylesheet.slice(v2Stylesheet.indexOf("@media (forced-colors: active)"));
+    expect(forced).toMatch(/\.ckb-v2\.ckb-v2,\s+\.dark \.ckb-v2\.ckb-v2,\s+\.ckb-v2\.dark\.ckb-v2\s*\{/);
+  });
 });
 
 describe("status colour ranking", () => {
