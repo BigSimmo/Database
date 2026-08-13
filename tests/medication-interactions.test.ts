@@ -13,9 +13,7 @@ import {
 
 describe("evaluateMedicationInteractions", () => {
   it("matches a drug named outright in the counterparty sentence", () => {
-    const result = evaluateMedicationInteractions("sertraline", [
-      "tramadol-ir",
-    ]);
+    const result = evaluateMedicationInteractions("sertraline", ["tramadol-ir"]);
     expect(result.interactions).toHaveLength(1);
     expect(result.interactions[0]?.counterpartySlug).toBe("tramadol-ir");
     expect(result.interactions[0]?.severity).toBe("critical");
@@ -30,23 +28,13 @@ describe("evaluateMedicationInteractions", () => {
 
   it("renders verbatim catalogue text for a forward interaction", () => {
     const record = getMedicationRecord("sertraline");
-    const result = evaluateMedicationInteractions(
-      "sertraline",
-      ["ibuprofen"],
-      record,
-    );
+    const result = evaluateMedicationInteractions("sertraline", ["ibuprofen"], record);
     expect(result.interactions[0]?.note).toContain("NSAIDs");
   });
 
   it("evaluates a clinically material reverse-only edge", () => {
-    const result = evaluateMedicationInteractions("buprenorphine-naloxone", [
-      "naltrexone",
-    ]);
-    expect(
-      result.interactions.some(
-        (item) => item.counterpartySlug === "naltrexone",
-      ),
-    ).toBe(true);
+    const result = evaluateMedicationInteractions("buprenorphine-naloxone", ["naltrexone"]);
+    expect(result.interactions.some((item) => item.counterpartySlug === "naltrexone")).toBe(true);
     expect(result.highestTone).toBe("danger");
   });
 
@@ -72,9 +60,7 @@ describe("evaluateMedicationInteractions", () => {
   });
 
   it("keeps missing interaction data incomplete instead of green", () => {
-    const result = evaluateMedicationInteractions("not-a-real-drug", [
-      "sertraline",
-    ]);
+    const result = evaluateMedicationInteractions("not-a-real-drug", ["sertraline"]);
     expect(result.dataAvailable).toBe(false);
     expect(result.unresolvedRowCount).toBeGreaterThan(0);
     const verdict = composeMedicationVerdict({
@@ -91,11 +77,7 @@ describe("evaluateMedicationInteractions", () => {
 
   it("never reports a medication as interacting with itself", () => {
     const result = evaluateMedicationInteractions("ibuprofen", ["ibuprofen"]);
-    expect(
-      result.interactions.every(
-        (item) => item.counterpartySlug !== "ibuprofen",
-      ),
-    ).toBe(true);
+    expect(result.interactions.every((item) => item.counterpartySlug !== "ibuprofen")).toBe(true);
   });
 
   it("carries unresolved rows for incomplete parser coverage", () => {
@@ -133,9 +115,7 @@ describe("composeMedicationVerdict", () => {
   });
 
   it("degrades green to grey when interaction data is incomplete", () => {
-    expect(
-      composeMedicationVerdict({ ...base, unresolvedRowCount: 1 }),
-    ).toMatchObject({
+    expect(composeMedicationVerdict({ ...base, unresolvedRowCount: 1 })).toMatchObject({
       tone: "neutral",
       incomplete: true,
     });
@@ -155,20 +135,14 @@ describe("composeMedicationVerdict", () => {
 
 describe("interactionNoteBody", () => {
   it("drops the redundant severity prefix the badge already states", () => {
-    expect(
-      interactionNoteBody(
-        "CRITICAL — MAOIs, Tramadol. Massive risk of Serotonin Syndrome.",
-      ),
-    ).toBe("MAOIs, Tramadol. Massive risk of Serotonin Syndrome.");
+    expect(interactionNoteBody("CRITICAL — MAOIs, Tramadol. Massive risk of Serotonin Syndrome.")).toBe(
+      "MAOIs, Tramadol. Massive risk of Serotonin Syndrome.",
+    );
   });
 
   it("handles the hyphen and en-dash the catalogue also uses", () => {
-    expect(interactionNoteBody("HIGH - Benzodiazepines/Alcohol.")).toBe(
-      "Benzodiazepines/Alcohol.",
-    );
-    expect(interactionNoteBody("MODERATE – Antacids bind the drug.")).toBe(
-      "Antacids bind the drug.",
-    );
+    expect(interactionNoteBody("HIGH - Benzodiazepines/Alcohol.")).toBe("Benzodiazepines/Alcohol.");
+    expect(interactionNoteBody("MODERATE – Antacids bind the drug.")).toBe("Antacids bind the drug.");
   });
 
   it("removes nothing else — every sentence of the clinical claim survives", () => {
@@ -182,27 +156,19 @@ describe("interactionNoteBody", () => {
   });
 
   it("leaves a row with no severity prefix untouched", () => {
-    expect(
-      interactionNoteBody(
-        "Blocks the cardioprotective effect of low-dose Aspirin.",
-      ),
-    ).toBe("Blocks the cardioprotective effect of low-dose Aspirin.");
+    expect(interactionNoteBody("Blocks the cardioprotective effect of low-dose Aspirin.")).toBe(
+      "Blocks the cardioprotective effect of low-dose Aspirin.",
+    );
   });
 
   it("does not strip unknown uppercase clinical wording before a dash", () => {
-    expect(interactionNoteBody("NSAID-induced renal injury")).toBe(
-      "NSAID-induced renal injury",
-    );
-    expect(interactionNoteBody("NEVER-combine with MAOIs")).toBe(
-      "NEVER-combine with MAOIs",
-    );
+    expect(interactionNoteBody("NSAID-induced renal injury")).toBe("NSAID-induced renal injury");
+    expect(interactionNoteBody("NEVER-combine with MAOIs")).toBe("NEVER-combine with MAOIs");
   });
 
   it("does not eat an all-caps word that is part of the sentence", () => {
     // No dash, so nothing is a prefix.
-    expect(interactionNoteBody("NEVER combine with MAOIs")).toBe(
-      "NEVER combine with MAOIs",
-    );
+    expect(interactionNoteBody("NEVER combine with MAOIs")).toBe("NEVER combine with MAOIs");
   });
 
   it("labels severity for display", () => {
