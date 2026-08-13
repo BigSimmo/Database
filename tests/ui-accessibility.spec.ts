@@ -585,9 +585,10 @@ test.describe("Clinical KB accessibility coverage", () => {
     // multi-select: `value` pinned to "", a literal "✓ " prefix in option text,
     // and the placeholder row doing the reporting ("1 topics selected"). A
     // listbox cannot express "three of these are on", so assistive technology
-    // was told the opposite of what the visible text said. Both are now
-    // `aria-pressed` toggles inside a dialog, matching the wide viewport.
-    const therapyFilterTrigger = therapyRibbon.getByTestId("therapy-filter-trigger");
+    // was told the opposite of what the visible text said. Both are now the
+    // shared `aria-pressed` facet toggles every adopted mode uses, converged
+    // onto `ResultFilterSheet`/`ResultFilterTrigger` (docs/filter-contract.md).
+    const therapyFilterTrigger = therapyRibbon.getByTestId("therapy-filter-trigger-phone");
     await expect(therapyFilterTrigger).toBeVisible();
     await expect(therapyFilterTrigger).toHaveAccessibleName(/Filter/);
     await expect(therapyFilterTrigger).toHaveAttribute("aria-haspopup", "dialog");
@@ -623,35 +624,44 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(therapyFilterTrigger).toHaveAttribute("aria-controls", therapyPanelId!);
 
     // The state the old select could not express: selection is on the control
-    // itself, and turning one on leaves the others alone.
-    const cbtToggle = therapyFilterPanel.getByRole("button", { name: "CBT" });
-    const reviewedToggle = therapyFilterPanel.getByRole("button", { name: "Reviewed only" });
+    // itself, and turning one on leaves the others alone. Names carry a
+    // trailing count ("CBT (158)") via the shared facet chip's `aria-label` —
+    // section 3's "how many would I have if I ticked this as well" — so match
+    // on the prefix rather than the exact string.
+    const cbtToggle = therapyFilterPanel.getByRole("button", { name: /^CBT/ });
+    const reviewedToggle = therapyFilterPanel.getByRole("button", { name: /^Reviewed only/ });
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "false");
     await cbtToggle.click();
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
-    await reviewedToggle.click();
-    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "true");
+    // The current catalogue has no reviewed records, so the shared facet
+    // contract correctly disables a zero-count option rather than offering a
+    // control that can never produce results.
+    await expect(reviewedToggle).toBeDisabled();
+    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "false");
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
 
-    await therapyFilterPanel.getByTestId("therapy-filter-clear").click();
+    await therapyFilterPanel.getByTestId("therapy-filter-panel-clear").click();
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "false");
     await expect(reviewedToggle).toHaveAttribute("aria-pressed", "false");
 
-    await therapyFilterPanel.getByTestId("therapy-filter-done").click();
+    await therapyFilterPanel.getByTestId("therapy-filter-panel-done").click();
     await expect(therapyFilterPanel).toHaveCount(0);
 
     // End-to-end guard the component tests cannot give: it is `SearchScreen`
-    // that decides what the trigger counts. A query-only session must offer
-    // Clear all (the phone's only route to `clearSearch`) while the badge still
-    // reports no filters, because a search term is not a filter.
+    // that decides what the trigger counts, and what the sheet's Clear all
+    // can reach. A query-only session has nothing for the filter sheet to
+    // clear — the composer's own "Clear search" already covers the query, on
+    // every breakpoint — so Clear all must be absent rather than present and
+    // wiping a search the reader cannot see it is about to lose
+    // (docs/filter-contract.md section 6: "onClearAll never touches the query").
     await page.goto("/therapy-compass/search?q=anxiety", { waitUntil: "domcontentloaded" });
     await expect(therapyRibbon.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 60_000 });
-    const queryOnlyTrigger = therapyRibbon.getByTestId("therapy-filter-trigger");
+    const queryOnlyTrigger = therapyRibbon.getByTestId("therapy-filter-trigger-phone");
     await expect(queryOnlyTrigger).toHaveAccessibleName(/No filters active/);
     await queryOnlyTrigger.click();
     const queryOnlyPanel = page.getByTestId("therapy-filter-panel");
-    await expect(queryOnlyPanel.getByTestId("therapy-filter-clear")).toBeVisible();
-    await queryOnlyPanel.getByTestId("therapy-filter-done").click();
+    await expect(queryOnlyPanel.getByTestId("therapy-filter-panel-clear")).toHaveCount(0);
+    await queryOnlyPanel.getByTestId("therapy-filter-panel-done").click();
 
     await expectNoPageHorizontalOverflow(page);
 
