@@ -35,19 +35,19 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expect(mockup.locator("aside").getByRole("heading", { name: "Best for" })).toBeVisible();
     await expect(mockup.locator("aside").getByText("Selected tool")).toBeVisible();
     await expect(mockup.getByTestId("tools-search-mode-hero")).toHaveCount(0);
-    await expect(mockup.getByText("Also matches in other modes")).toHaveCount(0);
+    await expect(mockup.getByTestId("universal-also-matches")).toBeVisible();
     await expect(mockup.getByText("Dose converter")).toHaveCount(0);
 
     const categoryRail = mockup.getByRole("radiogroup", { name: "Tool category" });
     const allToolsFilter = categoryRail.getByRole("radio", { name: "All tools (1)" });
     await allToolsFilter.focus();
     await page.keyboard.press("ArrowRight");
-    await expect(categoryRail.getByRole("radio", { name: "Assessment (1)" })).toHaveAttribute("aria-checked", "true");
-    await expect(categoryRail.getByRole("radio", { name: "Treatment (0)" })).toBeDisabled();
+    await expect(categoryRail.getByRole("radio", { name: "Assess (1)" })).toHaveAttribute("aria-checked", "true");
+    await expect(categoryRail.getByRole("radio", { name: "Treat (0)" })).toBeDisabled();
 
     await page.locator('[data-testid="global-search-input"]:visible').fill("Safety");
     await expect(mockup.getByRole("heading", { level: 1, name: "Safety" })).toBeVisible();
-    const treatmentFilter = categoryRail.getByRole("radio", { name: "Treatment (2)" });
+    const treatmentFilter = categoryRail.getByRole("radio", { name: "Treat (2)" });
     await treatmentFilter.click();
     await expect(treatmentFilter).toHaveAttribute("aria-checked", "true");
     await page.locator('[data-testid="global-search-input"]:visible').fill("Compare");
@@ -73,6 +73,23 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     expect(renderedResultCount).toBeGreaterThan(4);
     await expect(mockup.getByText(`${renderedResultCount} tools`, { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page);
+  });
+
+  test("does not let persisted mockup utilities override live-route inline themes", async ({ page }) => {
+    const mockup = await gotoMockup(page, 1440);
+
+    await mockup.getByRole("link", { name: "Colour coding reference" }).click();
+    await expect(page).toHaveURL(/\/reference\/colour-coding$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Colour coding reference" })).toBeVisible();
+
+    const inlineBorderColor = await page.evaluate(() => {
+      const themedCard = document.createElement("div");
+      themedCard.className = "border border-[color:var(--border)]";
+      themedCard.style.borderTopColor = "rgb(1, 2, 3)";
+      document.body.append(themedCard);
+      return window.getComputedStyle(themedCard).borderTopColor;
+    });
+    expect(inlineBorderColor).toBe("rgb(1, 2, 3)");
   });
 
   test("desktop details use inline semantics and preserve visible programmatic focus", async ({ page }) => {
@@ -181,7 +198,7 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expect(filterSheet.getByText("2 showing", { exact: true })).toBeVisible();
     await expect(filterSheet.getByRole("radio", { name: /Evidence/ })).toHaveAttribute("aria-disabled", "true");
 
-    const treatment = filterSheet.getByRole("radio", { name: /Treatment/ });
+    const treatment = filterSheet.getByRole("radio", { name: /Treat/ });
     await treatment.click();
     await expect(treatment).toHaveAttribute("aria-checked", "true");
     await expect(filterSheet).toBeVisible();

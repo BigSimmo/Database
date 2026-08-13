@@ -327,6 +327,9 @@ default-off flags.
 
 ## 5. Sequencing summary
 
+Execution across cloud sessions is coordinated by [HANDOVER.md](HANDOVER.md): per-session
+work packets, the live status table, checklists, and paste-ready prompts.
+
 | Order | Item                                            | Depends on                      | Behaviour change?                         |
 | ----- | ----------------------------------------------- | ------------------------------- | ----------------------------------------- |
 | 1     | A1 structured fallback diagnosis (`#231`)       | —                               | No for telemetry; separate pair for fixes |

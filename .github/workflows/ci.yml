@@ -213,6 +213,10 @@ jobs:
         if: needs.changes.outputs.workflow_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:gate-manifest
 
+      - name: Repository skill contracts
+        if: needs.changes.outputs.workflow_changed == 'true'
+        run: npm run check:skills
+
       - name: Branch review ledger integrity
         # Also run for static_heavy (including .gitattributes-only edits and the
         # scheduled full-run sentinel): both checkers validate merge attributes.
@@ -746,7 +750,7 @@ jobs:
   # secrets and no providers: the server runs in demo mode with inert loopback
   # Supabase values, exactly like the Playwright runner.
   lighthouse-budget:
-    name: Lighthouse budget (advisory)
+    name: Lighthouse budget
     needs: changes
     # Runs when the diff can plausibly move LCP/TBT/CLS on the five budgeted routes,
     # and when the run is one whose result someone will act on. It used to key off
@@ -757,11 +761,8 @@ jobs:
     #   pull_request      – perf scope, non-draft. Drafts churn and this costs ~7 min;
     #                       `types:` already includes ready_for_review, so undrafting
     #                       re-triggers it without a push.
-    #   merge_group       – SKIPPED. The job is continue-on-error and is not in
-    #                       pr-required, so in the queue it can only add ~7 minutes of
-    #                       merge latency and can never change the outcome. If it is
-    #                       ever promoted (#118), merge_group MUST come back —
-    #                       tests/ci-cache-safety.test.ts enforces that pairing.
+    #   merge_group       – perf scope. This job is part of pr-required, so the
+    #                       merge queue re-verifies the exact candidate tree.
     #   push (main/…)     – perf scope, PLUS lockfile_changed. The lockfile arm is the
     #                       backstop for a runtime dependency bump: perf scope excludes
     #                       package.json / package-lock.json because ci-change-scope.mjs
@@ -798,13 +799,11 @@ jobs:
               needs.changes.outputs.lockfile_changed == 'true'
             )
           ) &&
-          github.event_name != 'merge_group' &&
           github.event.pull_request.draft != true
         )
       ) &&
       !contains(github.event.pull_request.labels.*.name, 'skip-lighthouse-budget') &&
       github.event.inputs.refresh_lighthouse_baseline != 'true'
-    continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -960,7 +959,18 @@ jobs:
   pr-required:
     name: PR required
     needs:
-      [changes, static-pr, safety, coverage, build, container-images, ui-critical-fast, ui-critical, db-reset-verify]
+      [
+        changes,
+        static-pr,
+        safety,
+        coverage,
+        build,
+        container-images,
+        ui-critical-fast,
+        ui-critical,
+        lighthouse-budget,
+        db-reset-verify,
+      ]
     # #095: keep `if: always()` — a skipped required check counts as PASSING
     # on GitHub, so `!cancelled()` would cancel-to-green a hand-cancelled tip.
     # Cancelled vs failure is distinguished in the script below (PR #1409).
@@ -985,6 +995,7 @@ jobs:
           CONTAINER_RESULT: ${{ needs.container-images.result }}
           UI_FAST_RESULT: ${{ needs.ui-critical-fast.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
+          LIGHTHOUSE_RESULT: ${{ needs.lighthouse-budget.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
         run: |
           set -euo pipefail
@@ -1082,6 +1093,8 @@ jobs:
             require_skipped_or_success "production-ui-critical" "$UI_FAST_RESULT"
             require_skipped_or_success "production-ui" "$UI_RESULT"
           fi
+
+          require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
 
           if [ "$DB_CHANGED" = "true" ]; then
             require_success "db-reset-verify" "$DB_RESULT"
