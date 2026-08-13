@@ -142,7 +142,7 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 | Gate                                      | What it is                                                                                                                                                                                   |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                                     |
-| `npm run verify:cheap`                    | The broad local gate: 31 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
+| `npm run verify:cheap`                    | The broad local gate: 32 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
 | `npm run verify:pr-local`                 | Risk-routed PR mirror: focused docs/workflow contracts for recognised light scope, fail-closed heavy checks for executable or unknown scope. `-- --dry-run --files <paths>` shows selection. |
 | `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                                    |
 | `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                                      |
@@ -150,9 +150,9 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 
 `verify:cheap` deliberately does **not** run formatting, which is why changed-file CI and the
 installed pre-push hook (`.githooks/pre-push` → `scripts/guard-push.mjs`) block on unformatted files.
-It also guards the auto-merge race on `claude/*` branches, drift-manifest staleness, and a
-static gate (lint + source typecheck; override `SKIP_STATIC_GUARD=1`). Each guard has a
-documented override env var.
+It also guards user-owned auto-merge state on every PR branch, drift-manifest staleness, and a
+static gate (lint + source typecheck; override `SKIP_STATIC_GUARD=1`). The auto-merge guard has no
+automation override; the other guards retain their documented override env vars.
 
 Domain changes (auth, Supabase, ingestion, answer generation, search/ranking, clinical
 output, source governance) additionally want the smallest relevant domain check plus
@@ -211,7 +211,7 @@ Prefer these over improvising — they encode traps this repo has already hit:
   `supabase-schema-guardian`, `ingestion-worker-reviewer`, `clinical-governance-reviewer`,
   `frontend-ui-reviewer`, `verification-router`, `repo-auditor`, `pr-ci-fixer`.
 - **Skill catalogue** (`.agents/skills/`): `npm run skills` lists the canonical single-word
-  skills; `npm run check:skills` validates the catalogue. Planners in
+  skills; `npm run check:skills` validates every repository skill surface. Planners in
   `docs/productivity-workflows.md` run without side effects unless given `-- --run`, and
   never execute `approvalRequired` commands.
 - **Session memory:** a `SessionStart` hook surfaces the recommended queue from

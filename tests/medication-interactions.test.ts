@@ -4,7 +4,9 @@ import { getMedicationRecord } from "@/lib/medication-snapshot";
 import {
   composeMedicationVerdict,
   evaluateMedicationInteractions,
+  interactionNoteBody,
   interactionRowCount,
+  severityLabel,
   medicationDisplayName,
   SEVERITY_TONE,
 } from "@/lib/medication-interactions";
@@ -34,6 +36,27 @@ describe("evaluateMedicationInteractions", () => {
     const result = evaluateMedicationInteractions("buprenorphine-naloxone", ["naltrexone"]);
     expect(result.interactions.some((item) => item.counterpartySlug === "naltrexone")).toBe(true);
     expect(result.highestTone).toBe("danger");
+  });
+
+  it("gives a reverse-only match its wording, not just a name and a severity", () => {
+    // Buprenorphine/naloxone's own rows never name naltrexone; naltrexone's row
+    // names it. The caller holds only the viewed drug's record, so this text can
+    // come from nowhere but the index — and it used to be passed as "", leaving a
+    // CRITICAL alert with nothing underneath explaining it.
+    const result = evaluateMedicationInteractions("buprenorphine-naloxone", ["naltrexone"]);
+    const reverse = result.interactions.find((item) => item.counterpartySlug === "naltrexone");
+    expect(reverse?.severity).toBe("critical");
+    expect(reverse?.note).toMatch(/Opioid analgesia is antagonised/i);
+  });
+
+  it("prefers the live record's wording over the indexed copy when both exist", () => {
+    const record = getMedicationRecord("sertraline");
+    const withRecord = evaluateMedicationInteractions("sertraline", ["ibuprofen"], record);
+    const withoutRecord = evaluateMedicationInteractions("sertraline", ["ibuprofen"]);
+    // Same text either way while the artefact is fresh — `check:medication-interactions`
+    // is what keeps that true — but the record is the authority when supplied.
+    expect(withRecord.interactions[0]?.note).toBe(withoutRecord.interactions[0]?.note);
+    expect(withoutRecord.interactions[0]?.note).toContain("NSAIDs");
   });
 
   it("keeps missing interaction data incomplete instead of green", () => {
@@ -85,7 +108,10 @@ describe("composeMedicationVerdict", () => {
   };
 
   it("is green only when both engines ran clean", () => {
-    expect(composeMedicationVerdict(base)).toMatchObject({ tone: "success", incomplete: false });
+    expect(composeMedicationVerdict(base)).toMatchObject({
+      tone: "success",
+      incomplete: false,
+    });
   });
 
   it("degrades green to grey when interaction data is incomplete", () => {
@@ -97,7 +123,56 @@ describe("composeMedicationVerdict", () => {
 
   it("keeps danger even when data is incomplete", () => {
     expect(
-      composeMedicationVerdict({ ...base, interactionTone: "danger", interactionCount: 1, unresolvedRowCount: 1 }),
+      composeMedicationVerdict({
+        ...base,
+        interactionTone: "danger",
+        interactionCount: 1,
+        unresolvedRowCount: 1,
+      }),
     ).toMatchObject({ tone: "danger", incomplete: true });
+  });
+});
+
+describe("interactionNoteBody", () => {
+  it("drops the redundant severity prefix the badge already states", () => {
+    expect(interactionNoteBody("CRITICAL — MAOIs, Tramadol. Massive risk of Serotonin Syndrome.")).toBe(
+      "MAOIs, Tramadol. Massive risk of Serotonin Syndrome.",
+    );
+  });
+
+  it("handles the hyphen and en-dash the catalogue also uses", () => {
+    expect(interactionNoteBody("HIGH - Benzodiazepines/Alcohol.")).toBe("Benzodiazepines/Alcohol.");
+    expect(interactionNoteBody("MODERATE – Antacids bind the drug.")).toBe("Antacids bind the drug.");
+  });
+
+  it("removes nothing else — every sentence of the clinical claim survives", () => {
+    const note =
+      "CRITICAL — NSAID + ACEi/ARB + Diuretic. Will virtually guarantee acute renal failure. NEVER prescribe this combination.";
+    const body = interactionNoteBody(note);
+    expect(body).toContain("Will virtually guarantee acute renal failure.");
+    expect(body).toContain("NEVER prescribe this combination.");
+    // Only the prefix is gone; the rest is byte-identical.
+    expect(note.endsWith(body)).toBe(true);
+  });
+
+  it("leaves a row with no severity prefix untouched", () => {
+    expect(interactionNoteBody("Blocks the cardioprotective effect of low-dose Aspirin.")).toBe(
+      "Blocks the cardioprotective effect of low-dose Aspirin.",
+    );
+  });
+
+  it("does not strip unknown uppercase clinical wording before a dash", () => {
+    expect(interactionNoteBody("NSAID-induced renal injury")).toBe("NSAID-induced renal injury");
+    expect(interactionNoteBody("NEVER-combine with MAOIs")).toBe("NEVER-combine with MAOIs");
+  });
+
+  it("does not eat an all-caps word that is part of the sentence", () => {
+    // No dash, so nothing is a prefix.
+    expect(interactionNoteBody("NEVER combine with MAOIs")).toBe("NEVER combine with MAOIs");
+  });
+
+  it("labels severity for display", () => {
+    expect(severityLabel("critical")).toBe("Critical");
+    expect(severityLabel("unknown")).toBe("Unknown");
   });
 });

@@ -5,9 +5,9 @@ description: Bootstrap a clean session for new work in this repo — create a fr
 
 # newtask — start a clean, current working copy
 
-This repo moves fast (`claude/*` branches auto-merge on green) and shares ~40 worktrees
-and one stash stack, so starting work on a stale base or a cold worktree is the default
-failure. This skill sets up an isolated, current worktree so new work starts clean.
+This repo moves fast and shares ~40 worktrees and one stash stack, so starting work on a
+stale base or a cold worktree is the default failure. This skill sets up an isolated,
+current worktree so new work starts clean.
 
 ## Before you start
 

@@ -21,7 +21,8 @@ re-running failed hosted CI jobs; updating a PR branch from `main`. Nothing else
 Never, even during a sweep:
 
 - Never merge a pull request into `main` or any protected branch, and never enable auto-merge;
-  the sweep fixes and reports, the user merges.
+  the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned:
+  automation must not disable it.
 - Never close a pull request, delete or rename branches, force-push (no `--force`, no
   `--force-with-lease`), or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`,
@@ -52,6 +53,11 @@ Never, even during a sweep:
    process hardening: one heavy command at a time, and never re-run an unchanged passing gate.
 
 ## Per-PR algorithm
+
+Before any branch-changing action, inspect `autoMergeRequest`. If it is non-null, treat the PR as
+mutation-frozen: do not push, update the branch/base, or otherwise change its head. Continue
+read-only diagnosis and reporting, but leave the armed state untouched until the PR merges or the
+user manually changes it. Never disable auto-merge as a workaround for maintenance.
 
 ### Step 0 — skip gates (record every skip with its reason)
 
