@@ -38,28 +38,28 @@ afterEach(() => {
   window.history.replaceState(window.history.state, "", window.location.pathname);
 });
 
-describe("useInPageSectionNav frame ordering", () => {
-  it("reasserts an explicit selection after the jump-triggered spy frame", () => {
-    const frames: FrameRequestCallback[] = [];
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      frames.push(callback);
-      return frames.length;
-    });
+describe("useInPageSectionNav explicit ordering", () => {
+  it("does not let an incidental spy result overwrite a deliberate jump", () => {
+    const { result, rerender } = renderHook(() => useInPageSectionNav(sections));
 
+    act(() => result.current.selectSection("course-onset"));
+    expect(result.current.activeId).toBe("course-onset");
+
+    rerender();
+
+    expect(result.current.activeId).toBe("course-onset");
+    expect(navigationMocks.markActive).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not treat navigation keys inside an input as scroll intent", () => {
+    const input = document.createElement("input");
+    document.body.append(input);
     const { result } = renderHook(() => useInPageSectionNav(sections));
 
     act(() => result.current.selectSection("course-onset"));
-    expect(navigationMocks.markActive).toHaveBeenCalledTimes(1);
-    expect(frames).toHaveLength(1);
+    act(() => input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" })));
 
-    act(() => frames.shift()?.(0));
-    expect(frames).toHaveLength(1);
-
-    navigationMocks.markActive("episode-features");
-    act(() => frames.shift()?.(16));
-
-    expect(navigationMocks.markActive).toHaveBeenCalledTimes(3);
-    expect(navigationMocks.markActive).toHaveBeenNthCalledWith(2, "episode-features");
-    expect(navigationMocks.markActive).toHaveBeenLastCalledWith("course-onset");
+    expect(result.current.activeId).toBe("course-onset");
+    input.remove();
   });
 });

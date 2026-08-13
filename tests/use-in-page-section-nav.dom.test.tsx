@@ -39,29 +39,36 @@ afterEach(() => {
 });
 
 describe("useInPageSectionNav", () => {
-  it("does not restore a stale explicit selection after popstate changes the fragment", () => {
-    const frames: FrameRequestCallback[] = [];
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      frames.push(callback);
-      return frames.length;
-    });
-    window.history.replaceState(window.history.state, "", "#episode-features");
-
+  it("keeps an explicit jump selected until the reader starts scrolling", () => {
     const { result } = renderHook(() => useInPageSectionNav(sections));
 
     act(() => result.current.selectSection("course-onset"));
+
+    expect(result.current.activeId).toBe("course-onset");
     expect(window.location.hash).toBe("#course-onset");
-    expect(navigationMocks.markActive).toHaveBeenCalledTimes(1);
     expect(navigationMocks.markActive).toHaveBeenLastCalledWith("course-onset");
-    expect(frames).toHaveLength(1);
+    expect(navigationMocks.jumpToDocumentSection).toHaveBeenLastCalledWith("course-onset");
+
+    act(() => window.dispatchEvent(new Event("scroll")));
+    expect(result.current.activeId).toBe("course-onset");
+
+    act(() => window.dispatchEvent(new Event("wheel")));
+    expect(result.current.activeId).toBe("episode-features");
+  });
+
+  it("replaces an explicit selection when browser history changes the fragment", () => {
+    const { result } = renderHook(() => useInPageSectionNav(sections));
+
+    act(() => result.current.selectSection("course-onset"));
+    expect(result.current.activeId).toBe("course-onset");
 
     act(() => {
       window.history.replaceState(window.history.state, "", "#episode-features");
       window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
-      frames.shift()?.(0);
     });
 
+    expect(result.current.activeId).toBe("episode-features");
+    expect(navigationMocks.markActive).toHaveBeenLastCalledWith("episode-features");
     expect(navigationMocks.jumpToDocumentSection).toHaveBeenLastCalledWith("episode-features");
-    expect(navigationMocks.markActive).toHaveBeenCalledTimes(1);
   });
 });
