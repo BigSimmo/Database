@@ -102,12 +102,18 @@ export function githubShellAccess(run = resilientShellRun) {
   const pullRequestFields = "number,state,headRefOid,headRefName,isDraft,mergeStateStatus,labels";
   const currentBranchResult = run("git", ["branch", "--show-current"]);
   const currentBranch = currentBranchResult.status === 0 ? currentBranchResult.stdout.trim() : "";
+  const currentHeadResult = run("git", ["rev-parse", "HEAD"]);
+  const currentHead = currentHeadResult.status === 0 ? currentHeadResult.stdout.trim() : "";
+  if (!currentBranch && !/^[0-9a-f]{40}$/u.test(currentHead)) return failure("GH_LOCAL_HEAD_MISSING");
   const openPullRequests = parseJson(
     run("gh", ["pr", "list", "--repo", repository, "--state", "open", "--limit", "100", "--json", pullRequestFields]),
   );
   if (!Array.isArray(openPullRequests)) return failure("GH_PR_LIST_ACCESS_MISSING");
   let pullRequestSample =
     openPullRequests.find((pullRequest) => currentBranch && pullRequest?.headRefName === currentBranch) ??
+    openPullRequests.find(
+      (pullRequest) => /^[0-9a-f]{40}$/u.test(currentHead) && pullRequest?.headRefOid === currentHead,
+    ) ??
     openPullRequests[0];
   if (!pullRequestSample) {
     const closedPullRequests = parseJson(
@@ -239,7 +245,7 @@ function fakeSuccessfulRun(command, args) {
               state: "success",
               login: expectedIdentity,
               gitProtocol: "https",
-              scopes: "repo, workflow",
+              scopes: "repo, workflow, read:org, gist",
             },
           ],
         },
@@ -252,6 +258,7 @@ function fakeSuccessfulRun(command, args) {
   }
   if (key.includes("/collaborators/")) return success(JSON.stringify({ permission: "write" }));
   if (key === "git branch --show-current") return success("codex/sample\n");
+  if (key === "git rev-parse HEAD") return success(`${"a".repeat(40)}\n`);
   if (key.includes("gh pr list") && key.includes("--state open")) return success("[]");
   if (key.includes("gh pr list") && key.includes("--state closed")) {
     return success(
@@ -269,6 +276,12 @@ function fakeSuccessfulRun(command, args) {
     );
   }
   if (key === `gh pr diff 123 --repo ${repository} --name-only`) return success("README.md\n");
+  if (/gh api repos\/BigSimmo\/Database\/(pulls\/123\/reviews|issues\/123\/comments|pulls\/123\/comments)/u.test(key)) {
+    return success("[]");
+  }
+  if (key === `gh api repos/${repository}/commits/${"a".repeat(40)}/check-runs?per_page=1`) {
+    return success('{"total_count":0,"check_runs":[]}');
+  }
   if (key === `gh api repos/${repository}/actions/permissions`) return success('{"enabled":true}');
   if (key === `gh api repos/${repository}/actions/runs?status=success&per_page=1`) {
     return success('{"workflow_runs":[{"id":456}]}');

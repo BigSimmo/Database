@@ -19,6 +19,7 @@ type FixtureOptions = {
   actionRunsAvailable?: boolean;
   afterRefPresent?: boolean;
   closedPullRequestsAvailable?: boolean;
+  detachedHead?: boolean;
   dryRunStatus?: number;
   identity?: string;
   mutations?: string[];
@@ -57,7 +58,8 @@ function fixtureRun(options: FixtureOptions = {}) {
       return success(JSON.stringify({ full_name: repository, default_branch: "main" }));
     }
     if (key.includes("/collaborators/")) return success(JSON.stringify({ permission }));
-    if (key === "git branch --show-current") return success("codex/sample\n");
+    if (key === "git branch --show-current") return success(options.detachedHead ? "" : "codex/sample\n");
+    if (key === "git rev-parse HEAD") return success(`${sha}\n`);
     if (key.includes("gh pr list") && key.includes("--state open")) {
       if (options.openPullRequestsAvailable === false) return success("[]");
       const pullRequests = [
@@ -217,6 +219,13 @@ describe("GitHub shell control-plane acceptance", () => {
 
   it("prefers the pull request for the exact local branch", () => {
     expect(githubShellAccess(fixtureRun({ unrelatedOpenPullRequestFirst: true }))).toMatchObject({
+      ok: true,
+      sampledPullRequest: 123,
+    });
+  });
+
+  it("prefers the pull request for the exact detached HEAD", () => {
+    expect(githubShellAccess(fixtureRun({ detachedHead: true, unrelatedOpenPullRequestFirst: true }))).toMatchObject({
       ok: true,
       sampledPullRequest: 123,
     });
