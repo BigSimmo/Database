@@ -69,14 +69,13 @@ suggested_improvements: optional related idea (omit if none)
 
 ## 4. Write
 
-`docs/outstanding-issues.md` exists in this repo and is a gated table — **use the writer, never
-hand-edit** (hand edits are what the gate exists to reject):
+Queue each retained item as an immutable inbox request; never edit the canonical ledger:
 
 ```bash
 npm run issues:add -- --pri P2 --type issue --summary "<title>" --detail "<detail>" --source "session YYYY-MM-DD /ledger sweep"
 ```
 
-Field mapping into the row (the repo ledger has fixed columns; the extra fields ride in Detail):
+Field mapping into the request payload (the reconciler later creates the canonical row):
 
 - `importance` → **Pri**: P0 and P1 → `P1` (note "was P0" in Detail), P2 → `P2`, P3 → `P3`.
 - `category` → **Type**: bug/risk → `issue`; follow-up/refactor/infrastructure/hygiene → `task`;
@@ -85,15 +84,12 @@ Field mapping into the row (the repo ledger has fixed columns; the extra fields 
   `Depends on:` as short clauses. Escape `|` as `\|`. Keep it one crisp cell, not a paragraph.
 - **Source** = `session YYYY-MM-DD /ledger sweep` plus the doc/PR/file:line when one exists.
 
-If **no** new items survive the filter, append one dated line to the notes block above the Open
-items table: `> Ledger sweep YYYY-MM-DD: no new outstanding items found.`
+If **no** new items survive the filter, create no request and do not change the canonical ledger.
 
-After any mutation run `npm run check:outstanding-issues` and paste its decisive line. Refresh the
-visual issue register with
-`& 'C:\Users\joshs\.codex\scripts\refresh-issues-list.ps1' -LedgerPath (Join-Path (Get-Location) 'docs\outstanding-issues.md')`
-and require its `ISSUES_LIST_UPDATED` line. Then commit
-**only** `docs/outstanding-issues.md` (`issues: /ledger sweep YYYY-MM-DD`); never push unless the
-user asks or a handoff is already in flight.
+After queueing, run `npm run check:outstanding-issues` and paste its decisive line. Do not refresh
+the visual register because the canonical ledger is unchanged. If the user explicitly asks for a
+commit, commit only the newly created request file(s); never push unless the user asks or a handoff
+is already in flight. A dedicated fresh-base branch later runs `npm run issues:reconcile`.
 
 **Fallback (other workspaces):** if `docs/outstanding-issues.md` does not exist, search for
 similarly named files (`outstanding*`, `*issues*`, `TODO.md`, `BACKLOG.md`); if none fit, propose

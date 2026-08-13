@@ -9,7 +9,6 @@ description: 'Set up and optimize Cursor codebase indexing for semantic code sea
   "@codebase", "cursor embeddings".
 
   '
-allowed-tools: Read, Write, Edit, Bash(cmd:*)
 version: 1.0.0
 license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
@@ -36,7 +35,7 @@ Your Code Files
   Embedding Generation ─── converts chunks to vector representations
       │
       ▼
-  Vector Storage (Turbopuffer) ─── cloud-hosted nearest-neighbor search
+  Hosted Vector Index ─── provider-managed semantic search
       │
       ▼
   @Codebase Query ─── your question → embedding → similarity search → relevant chunks
@@ -44,10 +43,12 @@ Your Code Files
 
 ### Key Architecture Details
 
-- **Merkle tree** for change detection: only modified files are re-indexed (every 10 minutes)
-- **No plaintext storage**: code is not stored server-side; only embeddings and obfuscated metadata
-- **Privacy Mode compatible**: with Privacy Mode on, embeddings are computed without retaining source code
-- Indexing runs in the background; small projects complete in seconds, large projects (50K+ files) may take hours initially
+- Cursor indexing behavior, storage, retention, and privacy controls can change. Verify the current
+  official Cursor documentation and the workspace's actual privacy settings before making a data-
+  governance claim.
+- Indexing is provider-backed and may transmit code-derived data. Do not enable, resync, or broaden
+  indexing scope on the user's behalf without explicit approval.
+- Repository instructions, `.gitignore`, `.cursorignore`, and secret-handling rules remain authoritative.
 
 ## Initial Setup
 
@@ -188,11 +189,10 @@ If search results are stale or indexing appears stuck:
 
 1. `Cmd+Shift+P` > `Cursor: Resync Index`
 2. Wait for status bar to show indexing progress
-3. If that fails, delete the local cache:
-   - macOS: `~/Library/Application Support/Cursor/Cache/`
-   - Linux: `~/.config/Cursor/Cache/`
-   - Windows: `%APPDATA%\Cursor\Cache\`
-4. Restart Cursor and allow full re-index
+3. If that fails, inspect Cursor's documented indexing diagnostics and restart the application.
+4. Do not delete or rename the application-wide Cursor cache automatically; it is shared state
+   outside this repository. Treat any cache reset as a separately requested operator action with
+   an exact, validated target and a recovery plan.
 
 ### File Watcher Limits (Linux)
 
@@ -212,10 +212,11 @@ sudo sysctl -p
 
 ## Enterprise Considerations
 
-- **Data residency**: Embeddings are stored in Turbopuffer (cloud). Obfuscated filenames and no plaintext code, but metadata exists
-- **Privacy Mode**: With Privacy Mode on, embeddings are computed with zero data retention at the provider
+- **Data residency and retention**: Verify the current official policy for the user's plan, region,
+  and privacy settings. Do not infer zero retention or storage behavior from this skill.
 - **Air-gapped environments**: Indexing requires network access to Cursor's embedding API. Not available offline
-- **Indexing scope**: Only files in the currently open workspace are indexed. Closing a project removes its index from active queries
+- **Indexing scope**: Confirm the current workspace and ignore configuration before describing what
+  is included or excluded.
 
 ## Troubleshooting
 
