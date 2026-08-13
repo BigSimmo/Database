@@ -133,6 +133,30 @@ function normaliseSeverity(value: string): InteractionSeverity {
   return (SEVERITY_ORDER as string[]).includes(value) ? (value as InteractionSeverity) : "unknown";
 }
 
+// The catalogue writes every interaction row as `SEVERITY — body`, e.g.
+// "CRITICAL — MAOIs, Tramadol… Massive risk of Serotonin Syndrome". The prefix
+// is the same value already carried in `severity`, so rendering it inside the
+// paragraph both repeats the badge beside it and opens every entry with a
+// shouty all-caps token and a dangling dash — which is what made the block read
+// as unformatted dump rather than prose.
+const SEVERITY_PREFIX = /^\s*[A-Z][A-Z \-/]{2,30}?\s*[—–-]\s*/;
+
+/**
+ * The interaction row's text with that redundant severity prefix removed.
+ *
+ * Deliberately NOT a summariser: no sentence is dropped, reordered or reworded,
+ * because the wording is the clinical claim and the surface promises it
+ * verbatim. A row that does not carry the prefix is returned untouched.
+ */
+export function interactionNoteBody(note: string): string {
+  return note.replace(SEVERITY_PREFIX, "").trim();
+}
+
+/** Display label for a severity, e.g. "critical" → "Critical". */
+export function severityLabel(severity: InteractionSeverity): string {
+  return severity.charAt(0).toUpperCase() + severity.slice(1);
+}
+
 export function interactionRowCount(slug: string): number {
   return INDEX.bySlug[slug]?.rows.length ?? 0;
 }

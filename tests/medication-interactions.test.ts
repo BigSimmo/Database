@@ -4,7 +4,9 @@ import { getMedicationRecord } from "@/lib/medication-snapshot";
 import {
   composeMedicationVerdict,
   evaluateMedicationInteractions,
+  interactionNoteBody,
   interactionRowCount,
+  severityLabel,
   medicationDisplayName,
   SEVERITY_TONE,
 } from "@/lib/medication-interactions";
@@ -99,5 +101,44 @@ describe("composeMedicationVerdict", () => {
     expect(
       composeMedicationVerdict({ ...base, interactionTone: "danger", interactionCount: 1, unresolvedRowCount: 1 }),
     ).toMatchObject({ tone: "danger", incomplete: true });
+  });
+});
+
+describe("interactionNoteBody", () => {
+  it("drops the redundant severity prefix the badge already states", () => {
+    expect(interactionNoteBody("CRITICAL — MAOIs, Tramadol. Massive risk of Serotonin Syndrome.")).toBe(
+      "MAOIs, Tramadol. Massive risk of Serotonin Syndrome.",
+    );
+  });
+
+  it("handles the hyphen and en-dash the catalogue also uses", () => {
+    expect(interactionNoteBody("HIGH - Benzodiazepines/Alcohol.")).toBe("Benzodiazepines/Alcohol.");
+    expect(interactionNoteBody("MODERATE – Antacids bind the drug.")).toBe("Antacids bind the drug.");
+  });
+
+  it("removes nothing else — every sentence of the clinical claim survives", () => {
+    const note =
+      "CRITICAL — NSAID + ACEi/ARB + Diuretic. Will virtually guarantee acute renal failure. NEVER prescribe this combination.";
+    const body = interactionNoteBody(note);
+    expect(body).toContain("Will virtually guarantee acute renal failure.");
+    expect(body).toContain("NEVER prescribe this combination.");
+    // Only the prefix is gone; the rest is byte-identical.
+    expect(note.endsWith(body)).toBe(true);
+  });
+
+  it("leaves a row with no severity prefix untouched", () => {
+    expect(interactionNoteBody("Blocks the cardioprotective effect of low-dose Aspirin.")).toBe(
+      "Blocks the cardioprotective effect of low-dose Aspirin.",
+    );
+  });
+
+  it("does not eat an all-caps word that is part of the sentence", () => {
+    // No dash, so nothing is a prefix.
+    expect(interactionNoteBody("NEVER combine with MAOIs")).toBe("NEVER combine with MAOIs");
+  });
+
+  it("labels severity for display", () => {
+    expect(severityLabel("critical")).toBe("Critical");
+    expect(severityLabel("unknown")).toBe("Unknown");
   });
 });
