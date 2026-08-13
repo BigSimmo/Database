@@ -13,10 +13,7 @@ beforeEach(() => {
 
 describe("MedicationInteractionCallout tap targets", () => {
   it("keeps each counterparty navigation link at the production tap-height floor", () => {
-    window.sessionStorage.setItem(
-      PATIENT_PROFILE_STORAGE_KEY,
-      JSON.stringify({ medications: ["tramadol-ir"] }),
-    );
+    window.sessionStorage.setItem(PATIENT_PROFILE_STORAGE_KEY, JSON.stringify({ medications: ["tramadol-ir"] }));
     const record = getMedicationRecord("sertraline") as MedicationRecord;
 
     render(
