@@ -286,7 +286,6 @@ describe("registry records API", () => {
     expect(payload.records.length).toBeGreaterThan(100);
   });
 
-
   it("serves mock records in demo mode without touching Supabase", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
