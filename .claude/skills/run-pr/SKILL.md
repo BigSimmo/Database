@@ -63,10 +63,13 @@ Never, even during a sweep:
   `ALREADY REVIEWED`, and current checks are green, and there are no unresolved threads, and the
   branch is not behind `main` → skip, citing the prior row in one line.
 
-### Step 1 — snapshot "before"
+### Step 1 — snapshot and repair the first head
 
 Via `mcp__github__pull_request_read` (`get` + `get_status`): head SHA, mergeable state, failing
-required checks, unresolved-thread count, and behind/ahead relative to `main`.
+required checks, unresolved-thread count, and behind/ahead relative to `main`. Enumerate the
+unresolved threads immediately and repair clear, scoped findings before waiting for CI. This puts
+the review fix on the first useful head rather than discovering it only after a long green run.
+Reply before resolving; leave ambiguous, product-sensitive, or provider-gated threads open.
 
 ### Step 2 — settle current-head CI, then repair branch drift
 
@@ -87,6 +90,9 @@ required checks, unresolved-thread count, and behind/ahead relative to `main`.
   `origin/main` (or update-branch) and push. If conflicted, `git switch <branch>` after
   fetch, then `git merge origin/main`. If the merge brings dependency changes or touches
   `package-lock.json`, run `npm install` before verification.
+- For a sweep likely to need a local repair, prepare one isolated worktree before its first local
+  gate using `node scripts/setup-codex-worktree.mjs`. Reuse only its byte-identical complete
+  installation; do not compensate for a partial install with ad-hoc dependency links.
 - Mechanically resolvable conflicts (adjacent hunks, import lists, lockfile → regenerate via
   `npm install`, generated files → re-run their generator, e.g. `sitemap:update`) → resolve, then
   run the narrowest gate covering the conflicted files.
@@ -121,8 +127,8 @@ required checks, unresolved-thread count, and behind/ahead relative to `main`.
 
 ### Step 4 — review threads
 
-- Enumerate threads via `mcp__github__pull_request_read` (`get_review_comments` +
-  `get_reviews`); work only unresolved threads against the current head.
+- Re-enumerate only after a push, review event, or final audit; otherwise use Step 1's thread
+  snapshot. Work only unresolved threads against the current head.
 - Actionable (P0/P1-grade always; P2 and below only when clear, scoped, low-risk, and testable):
   fix it, add the smallest test when behavior changed, verify narrowly, push, reply via
   `mcp__github__add_reply_to_pull_request_comment` with a concise fix summary and the commit SHA,
@@ -180,9 +186,8 @@ record — so ledger throttling lookups stay per-branch.
 
 Anti-churn rules for this file:
 
-- After `git merge origin/main`, run `npm run ledger:dedupe` before committing when the
-  ledger changed (belt-and-suspenders if `merge.ledger.driver` was not installed in that
-  checkout).
+- The historical table is frozen. Never run `ledger:dedupe` or `ledger:rotate` during a
+  sweep; each new review is an immutable record file, so a main sync creates no review-row hunk.
 - On a later sweep of the same PR, pass `--supersede` so you replace the prior Run PR row
   instead of stacking another "main sync" twin.
 - Never push a tip whose sole delta is a babysit ledger append — that marks every other
@@ -205,3 +210,11 @@ Anti-churn rules for this file:
 - Narrowest gate first; one heavy command at a time across worktrees.
 - Per-PR iteration cap (~3 fix-verify cycles or one full build).
 - Advisory jobs (`ui-advisory`, `release-browser-matrix`) are never chased.
+- Dormant CI observation: wait for a meaningful stage boundary, then take no more than one status
+  snapshot every five minutes for at most 30 minutes per run. If the run is still queued or in
+  progress at that limit, record it as deferred with its run URL and continue the sweep. Do not
+  minute-poll or stream hosted logs.
+- When the GitHub merge queue is enabled, treat its state as read-only during a Run PR sweep. Report
+  active validation capacity and failed or conflicting entries, but do not configure queue
+  concurrency/grouping or add, remove, or re-queue entries without separate explicit user
+  authorization.

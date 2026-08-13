@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { buildDifferentialStreamModel } from "@/lib/differential-stream";
-import { differentialRecords, getDifferentialRecord } from "@/lib/differentials";
+import { differentialPresentations, differentialRecords, getDifferentialRecord } from "@/lib/differentials";
 import { differentialRouteWithQuery } from "@/lib/differentials-navigation";
 
 describe("differential stream model", () => {
@@ -50,6 +50,24 @@ describe("differential stream model", () => {
     expect(model.presets.length).toBeGreaterThan(0);
     const chapterIds = new Set(model.chapters.flatMap((chapter) => chapter.itemIds));
     expect(chapterIds.size).toBe(model.items.length);
+  });
+
+  it("builds presentation pathways from supported priority, candidate, and overlap data", () => {
+    const presentations = differentialPresentations();
+    const model = buildDifferentialStreamModel("presentations", "");
+    expect(model.chapters.map((chapter) => chapter.id)).toEqual(["status-emergent", "status-urgent", "status-routine"]);
+
+    const item = model.items.find((candidate) => candidate.relatedPathways.length > 0);
+    expect(item).toBeTruthy();
+    const workflow = presentations.find((candidate) => candidate.id === item!.slug);
+    expect(item?.candidateCount).toBe(workflow?.candidates.length);
+
+    const related = item!.relatedPathways[0]!;
+    const relatedWorkflow = presentations.find((candidate) => candidate.id === related.slug);
+    const sourceSlugs = new Set(workflow!.candidates.map((candidate) => candidate.slug));
+    const exactOverlap = relatedWorkflow!.candidates.filter((candidate) => sourceSlugs.has(candidate.slug)).length;
+    expect(related.sharedCandidateCount).toBe(exactOverlap);
+    expect(exactOverlap).toBeGreaterThan(0);
   });
 
   it("exposes exclusion previews from overlap sections when present", () => {

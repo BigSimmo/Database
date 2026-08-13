@@ -1,0 +1,107 @@
+name: PR 1873 merge latest main v2
+on:
+  push:
+    branches: [codex/ledger-conflict-guards-publish]
+concurrency:
+  group: pr-1873-merge-main-v2
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  merge:
+    if: contains(github.event.head_commit.message, '[pr1873-merge2-bootstrap]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact bootstrap commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.GH_TOKEN }}
+      - name: Setup repository Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - name: Merge current main and regenerate script inventory
+        shell: bash
+        env:
+          PARENT: 95a1b59b1068ecd486d39f7797290c595adbe88f
+          BRANCH: codex/ledger-conflict-guards-publish
+          HELPER: .github/workflows/pr1873-merge-main-v2.yml
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          cleanup() {
+            set +e
+            trap - ERR
+            if git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+              git merge --abort
+            fi
+            if [ -e "$HELPER" ]; then
+              git rm -f "$HELPER"
+            fi
+            git add -A
+            if ! git diff --cached --quiet; then
+              git commit -m 'chore(pr1873): remove aborted merge helper v2'
+              git push origin "HEAD:$BRANCH"
+            fi
+          }
+          on_error() {
+            rc=$?
+            echo "Focused main merge v2 aborted with exit $rc" >&2
+            cleanup
+            exit "$rc"
+          }
+          trap on_error ERR
+
+          test "$(git rev-parse HEAD^)" = "$PARENT"
+          test "$GITHUB_REF_NAME" = "$BRANCH"
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "$HELPER"
+
+          git fetch --no-tags origin main
+          MAIN="$(git rev-parse refs/remotes/origin/main)"
+          echo "Merging main $MAIN into reviewed tree at $PARENT"
+
+          set +e
+          git merge --no-ff --no-commit "$MAIN"
+          merge_status=$?
+          set -e
+          if [ "$merge_status" -ne 0 ]; then
+            conflicts="$(git diff --name-only --diff-filter=U | sort)"
+            printf 'Unmerged paths:\n%s\n' "$conflicts"
+            if [ "$conflicts" != 'docs/scripts-index.md' ]; then
+              echo 'Refusing automatic resolution: conflict set is not exactly the generated scripts inventory.' >&2
+              false
+            fi
+            git checkout --theirs -- docs/scripts-index.md
+            git add docs/scripts-index.md
+          fi
+
+          test -z "$(git diff --name-only --diff-filter=U)"
+          git checkout "$MAIN" -- docs/branch-review-ledger.md
+          git add docs/branch-review-ledger.md
+          git show "$MAIN:docs/branch-review-ledger.md" > /tmp/main-ledger.md
+          cmp /tmp/main-ledger.md docs/branch-review-ledger.md
+
+          node scripts/update-docs-inventory.mjs
+          node scripts/update-docs-inventory.mjs --check
+          git add docs/scripts-index.md
+          git rm "$HELPER"
+
+          node --check scripts/branch-review-ledger.mjs
+          node --check scripts/check-branch-review-ledger.mjs
+          node --check scripts/check-ledger-write-discipline.mjs
+          node --check scripts/ledger-inbox.mjs
+          node scripts/branch-review-ledger.mjs --self-test
+          node scripts/check-branch-review-ledger.mjs --self-test
+          node scripts/ledger-inbox.mjs --self-test
+          node scripts/check-ledger-write-discipline.mjs --self-test
+          git diff --check
+          test "$(git rev-parse MERGE_HEAD)" = "$MAIN"
+
+          git commit -m 'Merge main into codex/ledger-conflict-guards-publish'
+          git push origin "HEAD:$BRANCH"
+          trap - ERR
