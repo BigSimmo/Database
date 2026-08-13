@@ -24,11 +24,11 @@ each session must update.
 
 - **Landed:** the reviewed/updated programme guide (`docs/rag-improvement/README.md`,
   PR #1895, merged 2026-08-13).
-- **In flight:** **A1 phase 1 is PR #1899** (`feat(rag): record the structured
-generation-quality verdict on fallback`) — structured `GenerationQualityError`
-  diagnostics, `generation_quality_gate:*` retry reasons, fallback metadata, and the
-  provider-safe `scripts/probe-generation-quality.ts` probe. Sessions S1+ must treat that
-  PR's content as existing code once merged. Do not re-implement it.
+- **Landed:** **A1 phase 1 was PR #1899** (`feat(rag): record the structured
+generation-quality verdict on fallback`), merged 2026-08-13 — structured
+`GenerationQualityError` diagnostics, `generation_quality_gate:*` retry reasons, fallback
+metadata, and the provider-safe `scripts/probe-generation-quality.ts` probe. Sessions S1+
+must treat that content as existing code. Do not re-implement it.
 - **Key issue refs:** `#231` (source-only degradation with healthy retrieval — A1), `#001`
   (semantic rerank stays off — constrains B6), `#100` (perceived latency / no token
   streaming — constrains A1), `#292` (check open PRs before acting on a queued item).
@@ -41,11 +41,13 @@ generation-quality verdict on fallback`) — structured `GenerationQualityError`
 
 | Packet | Scope                                          | Branch                                           | PR    | State                   | Canary / evidence refs |
 | ------ | ---------------------------------------------- | ------------------------------------------------ | ----- | ----------------------- | ---------------------- |
-| Guide  | Programme guide + handover                     | `claude/rag-plan-review-guide-vhrls9`            | #1895 | Merged 2026-08-13       | docs-only              |
-| S0     | A1 phase 1: structured fallback diagnostics    | `claude/lithium-generation-quality-debug-ji1vce` | #1899 | Open — driving to merge | offline 93/93 focused  |
+| Guide  | Programme guide                                | `claude/rag-plan-review-guide-vhrls9`            | #1895 | Merged 2026-08-13       | docs-only              |
+| Handover | Multi-session handover                       | `claude/rag-plan-review-guide-vhrls9`            | #1908 | Open — this PR          | docs-only              |
+| S0     | A1 phase 1: structured fallback diagnostics    | `claude/lithium-generation-quality-debug-ji1vce` | #1899 | Merged 2026-08-13       | offline 93/93 focused  |
 | S1     | A1 phase 2: evidence-chosen mitigation         | `claude/rag-a1-mitigation-<suffix>`              | —     | Not started             | —                      |
-| S2     | A2+A3: composition menu + length               | `claude/rag-a2-a3-composition-<suffix>`          | —     | Blocked on S1 evidence  | —                      |
-| S3     | A4: follow-up suggestion refinement            | `claude/rag-a4-follow-ups-<suffix>`              | —     | Blocked on S2           | —                      |
+| S2     | A2: composition menu                           | `claude/rag-a2-composition-<suffix>`             | —     | Blocked on S1 evidence  | —                      |
+| S2b    | A3: moderate length (if separate review needed)| `claude/rag-a3-length-<suffix>`                  | —     | Blocked on S2           | —                      |
+| S3     | A4: follow-up suggestion refinement            | `claude/rag-a4-follow-ups-<suffix>`              | —     | Blocked on S2 + S2b     | —                      |
 | S4     | B0: adversarial fixtures + baseline + register | `claude/rag-b0-adversarial-fixtures-<suffix>`    | —     | Ready (parallel-safe)   | —                      |
 | S5     | B1+B2: telemetry assessment + offline harness  | `claude/rag-b1-b2-harness-<suffix>`              | —     | Blocked on S4           | —                      |
 | S6     | B3: Docling lab benchmark                      | `claude/rag-b3-docling-lab-<suffix>`             | —     | Blocked on S4           | —                      |
@@ -77,13 +79,16 @@ owner merges) and never at watching CI.
 - **Files:** `src/lib/rag/rag.ts`, `src/lib/rag/rag-routing.ts` (only for option 3),
   targeted tests. `src/lib/rag/rag-route-budget.ts` out of scope unless option 4's evidence
   bar is met.
-- **Gates:** offline `eval:rag:offline` + 44-case + 30-case suites; any behaviour change →
-  `RAG impact: behaviour change — canary pair <baseline> -> <post>` (owner approves each
-  dispatch); Clinical Governance Preflight; `verify:pr-local`.
+- **Gates:** `eval:rag:offline` plus the relevant offline 44-case fixtures/contracts. The
+  30-case `eval:answer-quality` run is provider-backed (OpenAI/Supabase) and requires explicit
+  owner approval. Any behaviour change → `RAG impact: behaviour change — canary pair
+  <baseline> -> <post>` (owner approves each dispatch); Clinical Governance Preflight;
+  `verify:pr-local`; and `check:production-readiness` whenever answer routing or generation
+  behaviour changes.
 - **Done:** PR open with the mitigation, its evidence trail (which gate reasons dominated,
   why this rung of the ladder), and a fallback-rate non-inferiority argument.
 
-### S2 — A2 + A3: intent-conditioned related information + moderate length
+### S2 — A2 composition, with a separately reviewable A3 length fallback
 
 - **Precondition:** S1 merged (its evidence determines how much length headroom exists).
 - **Work:** exactly README §A2 + §A3. New pure module `src/lib/rag/answer-composition.ts`
@@ -96,10 +101,15 @@ owner merges) and never at watching CI.
 - **Hard boundaries:** grounding contract untouched (every section cites or is omitted); no
   retrieval/ranking/selection edit of any kind; no new pipeline stage, `RagAnswer` field, or
   render block.
-- **Gates:** offline 30/30 + 44-case re-baseline; 36/36 stays trivially green (retrieval
-  untouched); live canary pair (prompt change = behaviour change); Gate E before/after
-  answer comparison on the 30 `answerQualityEvalCases` + ~10 owner-chosen live questions;
-  Clinical Governance Preflight.
+- **Split fallback:** keep A2 + A3 together only while the combined diff remains reviewable. If
+  it does not, S2 ships A2 only and S2b ships A3 in a second PR, each with its own prompt
+  version bump and approved canary pair.
+- **Gates:** `eval:rag:offline` plus appropriate offline fixtures/contracts; 36/36 stays
+  trivially green (retrieval untouched). The 30 `answerQualityEvalCases` comparison is
+  `npm run eval:answer-quality`, a provider-backed OpenAI/Supabase evaluation requiring
+  explicit owner approval; the ~10 owner-chosen live questions and canary pair are also
+  approval-required. Run `check:production-readiness` for this answer-generation change and
+  include the Clinical Governance Preflight.
 - **Done:** PR open with menu table, prompt diff, offline baselines, and the canary-pair
   request spelled out for the owner (not executed without approval).
 
@@ -140,13 +150,13 @@ offline fixtures and validation only`.
 - **Work:** README §B1 + §B2. Dashboard questions first; add `RAG_TELEMETRY_EXTENDED`
   (typed, default `false`) only for proven gaps, with unit tests proving canaries never
   appear in emitted objects. Then the offline adversarial runner
-  (`eval:rag:adversarial:offline`) over S4's fixtures — Promptfoo pinned as a dev
-  dependency, or a plain Vitest harness if the dependency footprint is heavy (the fixtures
-  and assertions are the asset, not the runner). Route it via `scripts/ci-change-scope.mjs`
-  to RAG-surface PRs only; fail closed on missing fixture, network attempt, budget breach.
-  Close the Phoenix decision record as deferred.
-- **Gates:** `verify:pr-local`; dependency change (if Promptfoo) makes the PR
-  operational-risk — do not bundle anything else with it.
+  (`eval:rag:adversarial:offline`) over S4's fixtures — use a plain Vitest harness in this
+  combined packet. A Promptfoo experiment, if later owner-approved, is a separate packet and
+  PR with its package and lockfile change isolated. Route the S5 harness via
+  `scripts/ci-change-scope.mjs` to RAG-surface PRs only; fail closed on missing fixture,
+  network attempt, budget breach. Close the Phoenix decision record as deferred.
+- **Gates:** `verify:pr-local`. No dependency change is permitted in S5; any later Promptfoo
+  evaluation is operational-risk work in its dedicated PR.
 
 ### S6 — B3: Docling lab benchmark (isolated)
 
@@ -175,8 +185,9 @@ offline fixtures and validation only`.
 
 ## 4. Session-start checklist
 
-1. `git fetch origin main` and branch fresh: `git checkout -B <packet branch> origin/main`
-   (or use the `newtask` skill for a full worktree bootstrap). Never build on a stale head.
+1. Start in an isolated worktree using the `newtask` skill (or equivalent safe worktree
+   bootstrap) from current `origin/main`. Do **not** use `git checkout -B <packet branch>`
+   against an existing branch: it can discard unpushed packet commits. Never build on a stale head.
 2. Read: your packet here → the matching README section → `docs/rag-behaviour/README.md`
    (+ `safeguards.md` before touching any protected surface).
 3. Check the packet's status row AND the open PR list for a duplicate implementation
@@ -191,7 +202,9 @@ offline fixtures and validation only`.
 ## 5. Session-end checklist
 
 1. Smallest correct gate run with the decisive output line pasted (exit 0 alone is not
-   proof). `npm run format` and **commit the formatted result** before push.
+   proof). For any answer-route or generation-prompt change, also run
+   `npm run check:production-readiness`. `npm run format` and **commit the formatted result**
+   before push.
 2. PR body from `.github/pull_request_template.md` in full prose: correct `RAG impact:`
    line, Clinical Governance Preflight when the packet touches clinical/RAG surfaces,
    verification evidence, risk/rollback.
@@ -239,8 +252,9 @@ inside the session.
 > increase, per `docs/rag-improvement/README.md` §A2 and §A3. Read the S2 packet, both
 > README sections, and `docs/rag-behaviour/` first — this changes the generation prompt, a
 > protected surface; flag RAG impact before editing. Grounding contract and retrieval are
-> untouched. Re-baseline the offline answer-quality suites, bump `ragAnswerPromptVersion`,
-> and prepare (but do not dispatch) the live canary-pair request for my approval. Finish at
+> untouched. Run the relevant offline fixture/contract gates, bump `ragAnswerPromptVersion`,
+> run `check:production-readiness`, and prepare (but do not dispatch) the provider-backed
+> 30-case evaluation and live canary-pair requests for my approval. Finish at
 > an open PR with ledger append and an updated HANDOVER status row, then stop.
 
 **S3 (A4):**
