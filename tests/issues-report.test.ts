@@ -155,7 +155,7 @@ describe("issues report", () => {
       expect(source).toMatchObject({ ref: "origin/main (cached)", revalidated: false });
       expect(source.warning).toContain("local remote-tracking ref");
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

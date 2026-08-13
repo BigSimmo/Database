@@ -1,7 +1,7 @@
 #!/bin/sh
 # Pre-push safety net. Delegates to scripts/guard-push.mjs, which runs four
 # guards: auto-merge race sentinel, format-before-push, drift-manifest
-# freshness, and static gate (lint + source typecheck). Each guard has an
+# freshness, static gate (lint + source typecheck), and ledger-write discipline. Each guard has an
 # explicit override env var (see the script header) — including
 # SKIP_STATIC_GUARD=1 for the static gate.
 #

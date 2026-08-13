@@ -28,10 +28,18 @@ does today — tells the reader they cannot hold two domains at once, which is f
 
 ### There is no `navigate` kind, and that is the point
 
-Services' quick filters and factsheets' categories do not filter. They call `router.push` and
-**replace the query**, so choosing one discards the search and its results with no warning and no
-undo. A control labelled "Filter" must not do that. Query-replacing presets belong beside the
-composer as suggested searches (`AnswerSuggestionChips`), not inside the filter sheet.
+Services' quick filters do not filter. They call `router.push` and **replace the query**, so
+choosing one discards the search and its results with no warning and no undo. A control labelled
+"Filter" must not do that. Query-replacing presets belong beside the composer as suggested
+searches (`AnswerSuggestionChips`), not inside the filter sheet.
+
+Factsheets' category dimension is not this pattern, despite an earlier draft of this section
+grouping it with services' quick filters: `filterFactsheets(query, category)` ANDs the two, so
+selecting a category narrows within the current search and preserves `q` — it is a real `lens`
+(one-of-N, exactly the shape this section describes above), not a query-replacing preset. Its
+actual defect was the one section 2 names next: the desktop rail used raw `<Link>` chips while
+the phone sheet correctly used `resultFilterGroup`, so the two breakpoints disagreed on
+component even though they agreed on values. Converged, not evicted — see the Rollout section.
 
 Until a mode has real facets, it is better for its filter trigger to be absent than to open a
 sheet that throws the query away.
@@ -82,7 +90,12 @@ which choice did it.
 Where a mode has a catalogue meaningfully larger than the current result set, the sheet offers a
 scope segment — `These results N | All items N`, counts on both — built from the shared
 `SegmentedControl` (`src/components/ui/segmented-control.tsx`), which already has the roving
-tabindex and radio semantics.
+tabindex and radio semantics. `ResultFilterSheet` reserves the slot (`scopeControl`) but does not
+build the segment itself: "meaningfully larger" and what the two counts mean are per-mode
+judgements the shared renderer cannot make. Services is the first mode to use it — see
+`services-navigator-page.tsx`: the segment is gated on the catalogue exceeding the query/group
+scoped result set (not the facet-narrowed one, so the segment does not flicker away as facets are
+applied), and both counts reflect the current facet/lens selection.
 
 It earns its place because it is the only escape from a filtered-to-zero state that does not
 discard the query: the commit becomes "Show N in all items" instead of a dead end.
@@ -100,29 +113,32 @@ corpus of that size, and it stays.
 
 ## 5. Density is a function of option count
 
-Facet groups only. Two states, not three — `document-search-results.tsx` never actually shipped
-a distinct "dense list, no find-a-filter" middle tier (its own `dense` boolean gates both the
-needle and the collapse together), so `ResultFilterSheet`/`ResultFilterFacetChips`
-(`src/components/clinical-dashboard/result-filter-control.tsx`) match that shipped behaviour
-rather than the wider table an earlier draft of this section implied:
+Facet groups only. Thresholds match the rule documents already uses (`dense = groups.length > 3`).
 
-| Options                     | Renderer                                                                                 |
-| --------------------------- | ---------------------------------------------------------------------------------------- |
-| ≤ 3 groups and ≤ 20 options | chips, single row where they fit (unchanged from before this section)                    |
-| > 3 groups, or > 20 options | chips plus find-a-filter and collapse-by-default, every group behind a disclosure header |
+| Options             | Renderer                                                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| ≤ 5                 | chips, single row where they fit                                                                                                 |
+| 6 – 20              | chips, same rendering as above — the group is still small enough on its own; it is the >3-groups tier below that adds the chrome |
+| > 20, or > 3 groups | chips plus find-a-filter and collapse-by-default, per group                                                                      |
 
-`ResultFilterSheet` computes `dense = facetGroups.length > 3 || totalFacetOptions > 20` once
-across every facet-kind group it was handed — generalising documents' `groups.length > 3` to
-also catch a single group past 20 options, which the group-count-only version would miss.
-Services (PR C, `docs/branch-review-ledger.md`) is the first adopter: 5 facet groups / 24 total
-options trips the `> 3 groups` half. `/issues #309` tracked this decision as open before PR C;
-it is resolved by this implementation, not deferred to a documents port (PR F) — PR F instead
-converges onto the now-shared renderer, per the Rollout section below.
+The `> 3 groups` tier lives directly in `ResultFilterSheet` (`result-filter-control.tsx`), not as a
+second hand-rolled panel: a "Find a filter…" field appears once, above the groups, and every facet
+group becomes a disclosure. Below the threshold every group renders exactly as it did before this
+was added — formulation (one facet group) never crosses it, so its sheet is byte-for-byte
+unchanged. Services (five facet groups) is the first mode to cross it.
+
+This intentionally does not yet build the "full-width rows, right-aligned count column" list
+layout an earlier draft of this section described for the 6–20 band — a group that size still
+renders as wrapping chips, just collapsible. `document-search-results.tsx` keeps its own,
+separate dense-list implementation (needle + collapse, chip rendering) for now; porting it up as
+the shared `> 20` tier and converging both call sites is PR F's job, not this one's — see
+"Rollout" below and `docs/outstanding-issues.md` `#170`.
 
 Collapse rules, when they apply: groups start collapsed; a group holding a selection opens
 itself; an explicit user collapse beats that; an active needle forces every matched group open
 and owns openness. A selected option always survives the needle, so an active constraint can
-never become unreachable.
+never become unreachable. A group whose options are all filtered out by the needle disappears
+rather than showing an empty heading.
 
 ## 6. Invariants
 
@@ -150,8 +166,23 @@ Contract first, then one PR per mode:
 
 1. **Contract** — add the kinds, the facet renderer and the builders, changing no rendered output.
 2. **Per mode** — adopt the right kind, derive the option list, add counts, and retire that mode's
-   desktop rail so the breakpoints stop disagreeing.
-3. **Services and factsheets** — evict the query-replacing presets to the composer.
+   desktop rail so the breakpoints stop disagreeing. Done for differentials, medication,
+   applications, specifiers (all `lens`, PR A) and formulation (`facet`, PR B). Also done for
+   factsheets: its category dimension was already a real `lens` (see the corrected note above),
+   so this PR converges its desktop rail onto `SegmentedControl` sharing one counted option array
+   with the phone sheet, rather than evicting anything — there was no query-replacing preset to
+   evict.
+   applications, specifiers (all `lens`, PR A) and formulation (`facet`, PR B). Also done for
+   factsheets: its category dimension was already a real `lens` (see the corrected note above),
+   so this PR converges its desktop rail onto `SegmentedControl` sharing one counted option array
+   with the phone sheet, rather than evicting anything — there was no query-replacing preset to
+   evict.
+3. **Services** — evict the six query-replacing quick filters to the composer. Done for services:
+   five facets (catchments, age_groups, setting_flags, acuity_flags, housing_flags),
+   substance_flags as a lens (an exact partition, not an accumulating constraint — see
+   `src/lib/service-facets.ts`), a URL round-trip alongside `q`/`group`, and the scope segment
+   (section 4). Services is also the first mode dense enough (5 facet groups) to exercise the
+   `> 3 groups` chrome added to the shared sheet for this — see section 5.
 4. **Documents last** — port its needle and collapse up into the shared component as the
    `> 20` tier, then converge. It is the largest surface and should move once the contract is
    proven elsewhere.

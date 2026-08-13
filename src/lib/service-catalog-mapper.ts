@@ -351,7 +351,10 @@ export function catalogToServiceRecord(service: CatalogService): ServiceRecord {
     navigatorQuery:
       cleanField(service.search_text) ?? `${service.name} ${service.provider} ${service.region_catchment}`,
     source: buildSource(service),
-    facets: service.tags,
+    // Facet matching needs the typed tag dimensions only. Keeping the full
+    // catalogue record here would inflate every registry response with unused
+    // source text and metadata.
+    catalogPayload: { tags: service.tags } as unknown as Record<string, unknown>,
   };
 }
 

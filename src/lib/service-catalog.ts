@@ -101,25 +101,13 @@ export function splitReferralLines(text: string): string[] {
     .filter(Boolean);
 }
 
-/** Parses an untrusted `tags` payload (e.g. a registry `catalog_payload.tags` JSONB value)
- *  into the typed six-dimension shape. Degrades conservatively: a missing or malformed value
- *  yields all-empty arrays per dimension rather than throwing. */
-export function normalizeCatalogServiceTags(value: unknown): CatalogServiceTags {
-  const tagsSource =
-    typeof value === "object" && value !== null ? (value as Record<string, unknown>) : ({} as Record<string, unknown>);
-  return {
-    catchments: toStringArray(tagsSource.catchments),
-    age_groups: toStringArray(tagsSource.age_groups),
-    setting_flags: toStringArray(tagsSource.setting_flags),
-    acuity_flags: toStringArray(tagsSource.acuity_flags),
-    substance_flags: toStringArray(tagsSource.substance_flags),
-    housing_flags: toStringArray(tagsSource.housing_flags),
-  };
-}
-
 export function normalizeCatalogService(raw: unknown, index: number): CatalogService {
   const source = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
   const fallbackId = `service-${index + 1}`;
+  const tagsSource =
+    typeof source.tags === "object" && source.tags !== null
+      ? (source.tags as Record<string, unknown>)
+      : ({} as Record<string, unknown>);
 
   return {
     id: normalizeServiceId(source.id, fallbackId),
@@ -128,7 +116,14 @@ export function normalizeCatalogService(raw: unknown, index: number): CatalogSer
     inclusion_criteria: toCleanText(source.inclusion_criteria),
     exclusions: toCleanText(source.exclusions),
     referral_details: toCleanText(source.referral_details),
-    tags: normalizeCatalogServiceTags(source.tags),
+    tags: {
+      catchments: toStringArray(tagsSource.catchments),
+      age_groups: toStringArray(tagsSource.age_groups),
+      setting_flags: toStringArray(tagsSource.setting_flags),
+      acuity_flags: toStringArray(tagsSource.acuity_flags),
+      substance_flags: toStringArray(tagsSource.substance_flags),
+      housing_flags: toStringArray(tagsSource.housing_flags),
+    },
     source_files: toStringArray(source.source_files),
     provider: toCleanText(source.provider),
     region_catchment: toCleanText(source.region_catchment),
