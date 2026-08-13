@@ -28,7 +28,23 @@ export const EMPTY_PATIENT_PROFILE: PatientProfile = {
   pregnant: false,
   breastfeeding: false,
   allergies: [],
+  medications: [],
 };
+
+/**
+ * Upper bound on the stored medication list. Not a clinical limit — a guard so a
+ * corrupted or hand-edited sessionStorage value cannot make every result row
+ * evaluate an unbounded list.
+ */
+export const PATIENT_PROFILE_MAX_MEDICATIONS = 40;
+
+// Slugs are validated by SHAPE here, not against the catalogue. Importing the
+// catalogue (or the interaction index) into this module would pull it into the
+// global shell bundle via PatientProfileProvider, which mounts on every route —
+// a real weight regression for data only the medication surfaces need. An
+// unknown slug is inert downstream: it can never match an interaction row, and
+// the picker only ever offers real catalogue entries.
+const MEDICATION_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,60}$/;
 
 const SCR_UNITS: ScrUnit[] = ["umol/L", "mg/dL"];
 const HEPATIC_LEVELS: HepaticSeverity[] = ["none", "mild", "moderate", "severe"];
@@ -110,7 +126,22 @@ export function sanitizeProfile(raw: unknown): PatientProfile {
     pregnant: value.pregnant === true,
     breastfeeding: value.breastfeeding === true,
     allergies,
+    medications: sanitizeMedicationSlugs(value.medications),
   };
+}
+
+/** Shape-validate, de-duplicate, sort and cap the stored medication list. */
+export function sanitizeMedicationSlugs(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const slug = item.trim().toLowerCase();
+    if (!MEDICATION_SLUG_PATTERN.test(slug)) continue;
+    seen.add(slug);
+    if (seen.size >= PATIENT_PROFILE_MAX_MEDICATIONS) break;
+  }
+  return Array.from(seen).sort();
 }
 
 // Cache the parsed snapshot keyed by the raw string so `useSyncExternalStore`

@@ -28,10 +28,18 @@ does today — tells the reader they cannot hold two domains at once, which is f
 
 ### There is no `navigate` kind, and that is the point
 
-Services' quick filters and factsheets' categories do not filter. They call `router.push` and
-**replace the query**, so choosing one discards the search and its results with no warning and no
-undo. A control labelled "Filter" must not do that. Query-replacing presets belong beside the
-composer as suggested searches (`AnswerSuggestionChips`), not inside the filter sheet.
+Services' quick filters do not filter. They call `router.push` and **replace the query**, so
+choosing one discards the search and its results with no warning and no undo. A control labelled
+"Filter" must not do that. Query-replacing presets belong beside the composer as suggested
+searches (`AnswerSuggestionChips`), not inside the filter sheet.
+
+Factsheets' category dimension is not this pattern, despite an earlier draft of this section
+grouping it with services' quick filters: `filterFactsheets(query, category)` ANDs the two, so
+selecting a category narrows within the current search and preserves `q` — it is a real `lens`
+(one-of-N, exactly the shape this section describes above), not a query-replacing preset. Its
+actual defect was the one section 2 names next: the desktop rail used raw `<Link>` chips while
+the phone sheet correctly used `resultFilterGroup`, so the two breakpoints disagreed on
+component even though they agreed on values. Converged, not evicted — see the Rollout section.
 
 Until a mode has real facets, it is better for its filter trigger to be absent than to open a
 sheet that throws the query away.
@@ -139,8 +147,14 @@ Contract first, then one PR per mode:
 
 1. **Contract** — add the kinds, the facet renderer and the builders, changing no rendered output.
 2. **Per mode** — adopt the right kind, derive the option list, add counts, and retire that mode's
-   desktop rail so the breakpoints stop disagreeing.
-3. **Services and factsheets** — evict the query-replacing presets to the composer.
+   desktop rail so the breakpoints stop disagreeing. Done for differentials, medication,
+   applications, specifiers (all `lens`, PR A) and formulation (`facet`, PR B). Also done for
+   factsheets: its category dimension was already a real `lens` (see the corrected note above),
+   so this PR converges its desktop rail onto `SegmentedControl` sharing one counted option array
+   with the phone sheet, rather than evicting anything — there was no query-replacing preset to
+   evict.
+3. **Services** — evict the six query-replacing quick filters to the composer, alongside its own
+   facet/scope work (open as a separate PR).
 4. **Documents last** — port its needle and collapse up into the shared component as the
    `> 20` tier, then converge. It is the largest surface and should move once the contract is
    proven elsewhere.

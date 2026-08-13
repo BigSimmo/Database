@@ -26,14 +26,18 @@ import {
   dedupeLedgerMarkdown,
   findReviews,
   headMatches,
+  legacyMaintenanceAllowed,
+  migrateLegacyRows,
   mergeLedgerMarkdown,
   parseLedgerRows,
   parseFlags,
+  reviewRecordPath,
   rotateLedgerMarkdown,
   sanitizeCell,
 } from "../scripts/branch-review-ledger.mjs";
-import { LEDGER_MERGE_DRIVER, validateLedger } from "../scripts/check-branch-review-ledger.mjs";
+import { validateLedger } from "../scripts/check-branch-review-ledger.mjs";
 import { mergeAttributeProblem } from "../scripts/check-outstanding-issues.mjs";
+import { applyRequest, validateRequest } from "../scripts/ledger-inbox.mjs";
 
 describe("check-env-parity name parsing", () => {
   it("extracts UPPER_SNAKE schema keys from env.ts-style text", () => {
@@ -450,6 +454,33 @@ describe("branch-review-ledger row parsing", () => {
     expect(parseLedgerRows(built)[0].cells).toHaveLength(6);
   });
 
+  it("uses a distinct immutable path for each distinct review record", () => {
+    const first = `| 2026-08-13 | codex/a | ${"a".repeat(40)} | review | pass | test |`;
+    const second = first.replace("codex/a", "codex/b");
+    expect(reviewRecordPath(first)).toMatch(/^docs\/branch-review-records\/[0-9a-f]{64}\.record\.md$/);
+    expect(reviewRecordPath(first)).toBe(reviewRecordPath(first));
+    expect(reviewRecordPath(second)).not.toBe(reviewRecordPath(first));
+  });
+
+  it("moves only a branch-added legacy row into its immutable record", () => {
+    const preamble = "| Date | Branch or ref | Reviewed HEAD | Scope | Outcome | Checks |";
+    const baseRow = `| 2026-08-12 | codex/base | ${"a".repeat(40)} | review | pass | test |`;
+    const addedRow = `| 2026-08-13 | codex/active | ${"b".repeat(40)} | review | pass | test |`;
+    const result = migrateLegacyRows(`${preamble}\n${baseRow}\n${addedRow}\n`, `${preamble}\n${baseRow}\n`);
+    expect(result.added).toEqual([addedRow]);
+    expect(result.markdown).toContain(baseRow);
+    expect(result.markdown).not.toContain(addedRow);
+    expect(() => migrateLegacyRows(`${preamble}\n${addedRow}\n`, `${preamble}\n${baseRow}\n`)).toThrow(
+      /removes or rewrites/,
+    );
+  });
+
+  it("requires explicit approval before legacy table maintenance can write", () => {
+    expect(legacyMaintenanceAllowed({ dryRun: true })).toBe(true);
+    expect(legacyMaintenanceAllowed({ allow: "false" })).toBe(false);
+    expect(legacyMaintenanceAllowed({ allow: "true" })).toBe(true);
+  });
+
   it("refuses a row whose HEAD no lookup could ever match", () => {
     const base = { date: "2026-07-29", ref: "x", scope: "s", outcome: "o", checks: "c" };
     expect(() => buildRow({ ...base, head: "see PR head" })).toThrow(/full 40-character SHA/);
@@ -530,18 +561,24 @@ describe("branch-review-ledger row parsing", () => {
 
 describe("branch-review-ledger guard", () => {
   const valid = {
-    ledger: ["This file is append-only.", `| 2026-07-29 | codex/x | ${"a".repeat(40)} | s | o | c |`, ""].join("\n"),
-    mergeAttribute: "ledger",
-    mergeDriver: LEDGER_MERGE_DRIVER,
-    protocol: "The ledger is append-only: append corrections.",
+    ledger: [
+      "This file is a frozen historical table.",
+      "New review records are immutable.",
+      `| 2026-07-29 | codex/x | ${"a".repeat(40)} | s | o | c |`,
+      "",
+    ].join("\n"),
+    mergeAttribute: "unspecified",
+    protocol: "completed immutable review record; historical table is frozen",
   };
 
   it("accepts a well-formed ledger", () => {
     expect(validateLedger(valid).failures).toEqual([]);
   });
 
-  it("rejects a checkout where the custom merge driver is not installed", () => {
-    expect(validateLedger({ ...valid, mergeDriver: "" }).failures.join(" ")).toMatch(/hooks:install/);
+  it("rejects a checkout that reintroduces a local-only custom merge driver", () => {
+    expect(validateLedger({ ...valid, mergeAttribute: "ledger" }).failures.join(" ")).toMatch(
+      /leave merge unspecified/,
+    );
   });
 
   it("rejects mojibake left by a non-UTF-8 append", () => {
@@ -591,5 +628,49 @@ describe("outstanding-issues merge attribute", () => {
     // An empty string means check-attr output did not parse — silently accepting it
     // would make the whole check vacuous.
     expect(mergeAttributeProblem("")).toMatch(/must have NO merge driver/);
+  });
+});
+
+describe("outstanding-issues inbox", () => {
+  it("queues valid operations and rejects unassigned mutations", () => {
+    const add = {
+      version: 1,
+      id: "11111111-1111-4111-8111-111111111111",
+      createdOn: "2026-08-13",
+      action: "add",
+      payload: { pri: "P2", type: "issue", summary: "queued" },
+    };
+    expect(validateRequest(add)).toEqual([]);
+    expect(validateRequest({ ...add, action: "done", payload: { outcome: "no id" } })).not.toEqual([]);
+
+    const ledger = [
+      "<!-- issues:next-id=2 -->",
+      "",
+      "## Recommended execution queue",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| Order | ID(s) |",
+      "| --- | --- |",
+      "| 1 | `#001` |",
+      "",
+      "## Open items",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| #001 | P2 | issue | existing | detail | source | 2026-01-01 |",
+      "",
+      "## Resolved / archive",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #000 | issue | old | done | 2026-01-01 |",
+      "",
+    ].join("\n");
+    expect(applyRequest(ledger, add)).toContain("| #002 | P2 | issue | queued |");
   });
 });

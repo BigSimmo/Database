@@ -73,13 +73,27 @@ let observers: ObserverRecord[] = [];
  * `waitFor` and make "only the reader's page" unassertable.
  */
 let idleCallbacks: (() => void)[] = [];
+let animationFrameCallbacks = new Map<number, FrameRequestCallback>();
+let nextAnimationFrame = 1;
 
 async function flushIdle() {
+  await waitFor(() => expect(idleCallbacks.length).toBeGreaterThan(0));
   const pending = idleCallbacks;
   idleCallbacks = [];
   await act(async () => {
     for (const callback of pending) callback();
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await Promise.resolve();
+  });
+}
+
+async function flushAnimationFrames() {
+  await act(async () => {
+    while (animationFrameCallbacks.size > 0) {
+      const pending = [...animationFrameCallbacks.values()];
+      animationFrameCallbacks.clear();
+      for (const callback of pending) callback(Date.now());
+      await Promise.resolve();
+    }
   });
 }
 
@@ -103,6 +117,8 @@ beforeEach(() => {
   getDocumentOptions = null;
   observers = [];
   idleCallbacks = [];
+  animationFrameCallbacks = new Map();
+  nextAnimationFrame = 1;
 
   vi.stubGlobal(
     "IntersectionObserver",
@@ -153,6 +169,15 @@ beforeEach(() => {
     return idleCallbacks.length;
   });
   vi.stubGlobal("cancelIdleCallback", () => {});
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    const handle = nextAnimationFrame;
+    nextAnimationFrame += 1;
+    animationFrameCallbacks.set(handle, callback);
+    return handle;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (handle: number) => {
+    animationFrameCallbacks.delete(handle);
+  });
 });
 
 afterEach(() => {
@@ -184,13 +209,14 @@ async function renderViewer(props: Record<string, unknown> = {}) {
     ({ rerender: rerenderViewer } = render(viewer({})));
   });
   await waitFor(() => expect(screen.getAllByTestId("pdf-page-slot").length).toBe(PAGE_COUNT));
+  await flushAnimationFrames();
 
   /** Re-render as the route would: a changed `initialPage` on the same tree. */
   const navigateRouteTo = async (page: number) => {
     await act(async () => {
       rerenderViewer(viewer({ initialPage: page }));
-      await new Promise((resolve) => setTimeout(resolve, 50));
     });
+    await flushAnimationFrames();
   };
 
   return { onPageChange, navigateRouteTo };
@@ -358,16 +384,17 @@ describe("PDF reader page virtualization", () => {
     // Arriving at the target releases the gate...
     await act(async () => {
       scrollToPage(7);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await Promise.resolve();
     });
+    await waitFor(() => expect(renderedPages()).toContain(7));
     expect(onPageChange).not.toHaveBeenCalled();
 
     // ...and the reader's own scrolling is heard again immediately afterwards.
     await act(async () => {
       scrollToPage(8);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await Promise.resolve();
     });
-    expect(onPageChange).toHaveBeenCalledWith(8);
+    await waitFor(() => expect(onPageChange).toHaveBeenCalledWith(8));
   });
 
   it("reconciles a deep link past the end of the document onto its last page", async () => {

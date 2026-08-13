@@ -580,6 +580,46 @@ Coverage: `tests/header-scroll-hide-contract.test.ts` (wiring), `tests/use-hide-
 
 Run `npm run verify:phone-chrome` for phone-chrome work. For executable changes its classifier checks installed/lock parity first, runs focused static contracts and only the browser/PWA owners and route journeys implicated by the changed files, then escalates to `npm run verify:ui` automatically for shared chrome foundations. Documentation-only scopes run only documentation guards. Use `-- --dry-run` to inspect the plan, `-- --files <comma-separated paths>` for an explicit scope, and `-- --full=always|never` only for a deliberate override.
 
+## Phone dock addon slot (page-owned action above the pill)
+
+A page may dock **one** action row above the phone search pill. It is not a
+floating element: it portals into a slot rendered _inside_ the dock's `<form>`
+(`master-search-header.tsx`), so it inherits the dock's `position: fixed`,
+z-index, safe-area padding and scroll-hide transform. There is no bottom-offset
+arithmetic and no second scroll listener anywhere in an addon.
+
+Two claimants exist, and they are mutually exclusive by surface:
+
+| Addon kind              | Slot id                                   | Claimed by                                                  |
+| ----------------------- | ----------------------------------------- | ----------------------------------------------------------- |
+| `differentials-compare` | `differentials-mobile-compare-addon-slot` | Differentials submitted search / `/differentials/diagnoses` |
+| `patient-details`       | `patient-details-addon-slot`              | Prescribing submitted search (dashboard-owned)              |
+
+Rules:
+
+- **One addon at a time.** `data-footer-addon` is a single attribute value, and
+  the backdrop scrim height, the hide-transform overshoot and the content reserve
+  all key off it. Register a new kind in `PhoneDockAddonKind`
+  (`src/lib/mode-home-composer.ts`) and prove exclusivity in
+  `tests/phone-dock-addon-contract.test.ts`.
+- **Four numbers move together** for every kind: the `--phone-dock-<kind>-clearance`
+  and `-compact-clearance` tokens, the matching reserve constant and resolver
+  branches in `mobile-composer-reserve.ts`, the two backdrop scrim heights, and the
+  `[data-scroll-hidden="true"]` transform overshoot that stops a subpixel strip
+  peeping at the viewport edge.
+- **Only claim the addon where the pill actually mounts.** The reserve inflates on
+  the claim, not on the render, so claiming a route whose component never mounts
+  opens a blank band at the bottom. `/medications` is a standalone mode home with
+  the composer in the hero and no dock at all; `/medications/[slug]` already opens
+  the patient sheet from its own nav header, so neither claims the addon.
+- **Gate the portal at 639px**, matching `.phone-footer-layer`'s `sm:fixed`. The two
+  Compare bars gate at 1023px, which between 640–1023px portals into a slot on a
+  form that is not fixed. Do not copy that.
+
+Coverage: `tests/phone-dock-addon-contract.test.ts` (registry, exclusivity, CSS/TS
+value parity), `tests/patient-details-dock-action.dom.test.tsx` (portal target,
+breakpoint, sheet wiring).
+
 ## Change checklist
 
 Before changing search bar behaviour:

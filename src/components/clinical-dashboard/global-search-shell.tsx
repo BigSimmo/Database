@@ -25,7 +25,6 @@ import {
   ClinicalMobileSidebar,
   deriveSidebarIdentity,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
-import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
@@ -52,6 +51,7 @@ import {
   SidebarAccountSetupDialog,
   SidebarSettingsDialog,
 } from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
+import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
 import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -416,6 +416,12 @@ function GlobalStandaloneSearchShellBody({
   const differentialsCompareAddonActive =
     searchMode === "differentials" &&
     (pathname === "/differentials/diagnoses" || (pathname === "/differentials" && hasSubmittedModeSearch));
+  // No shell-owned route claims the Patient details dock addon. `/medications`
+  // is a standalone mode home (composer in the hero, no dock to portal into),
+  // and `/medications/[slug]` already opens the same sheet from its own nav
+  // header — a dock pill there would be a second entry point to one
+  // destination. The pill lives on the dashboard-owned prescribing results
+  // view; see ClinicalDashboard.
   // Registry and local decision-support modes own their submitted-search views on their
   // standalone routes; the shell must not swap them to the dashboard. On the
   // home route the dashboard always renders, so these exclusions only apply
@@ -876,6 +882,7 @@ function GlobalStandaloneSearchShellBody({
             mobileBottomSearchAddonSlotId={
               differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
             }
+            mobileBottomSearchAddonKind={differentialsCompareAddonActive ? "differentials-compare" : undefined}
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             showPhoneSuggestionTickerOnHome={isStandaloneModeHome || pathname === "/"}
             searchComposerVisible={shouldShowSearchComposer}
@@ -1005,13 +1012,14 @@ function GlobalStandaloneSearchShellBody({
         </div>
       </PhoneFooterLayerFrame>
 
-      <GuideDialog open={guideOpen} onClose={closeGuideWithRestore} />
+      <LazyGuideDialog open={guideOpen} onClose={closeGuideWithRestore} />
       <SidebarSettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
         onSignOut={auth.signOut}
         onOpenGuide={openGuideFromSettings}
+        onPrefetchGuide={loadGuideDialog}
         initialFocus={settingsInitialFocus}
       />
       <SidebarAccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
