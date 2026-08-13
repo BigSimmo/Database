@@ -227,6 +227,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     // Critical-first UI job (this PR); skipped when ui_changed is false.
     UI_FAST_RESULT: "skipped",
     UI_RESULT: "skipped",
+    LIGHTHOUSE_RESULT: "skipped",
     DB_RESULT: "skipped",
   };
 
