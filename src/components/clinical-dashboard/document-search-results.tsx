@@ -14,37 +14,31 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   BookOpen,
-  Check,
-  ChevronDown,
   Clock3,
   Copy,
   ExternalLink,
   FileImage,
   FileText,
-  Funnel,
   Link2,
   ListChecks,
   Loader2,
   MessageSquareText,
   MoreHorizontal,
-  Pill,
-  Route,
-  Search,
   Shield,
   ShieldAlert,
-  Sparkles,
-  Tag,
   Target,
-  Users,
-  X,
-  type LucideIcon,
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
+import {
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterFacetGroup,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
-import { Sheet } from "@/components/ui/sheet";
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
@@ -74,10 +68,8 @@ import {
   buildSmartDocumentTagFacetIndex,
   filterDocumentsBySmartTagFacetIndex,
   projectSmartTagFacetGroups,
-  smartDocumentFacetGroups,
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
-  type SmartDocumentTagGroup,
 } from "@/lib/document-tags";
 import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
@@ -147,622 +139,16 @@ const searchRecordConfig: Record<
   },
 };
 
-const documentFacetIcons: Record<SmartDocumentTagGroup, LucideIcon> = {
-  Site: FileText,
-  Medication: Pill,
-  Risk: ShieldAlert,
-  Workflow: ListChecks,
-  Topic: Tag,
-  Population: Users,
-  Setting: FileText,
-  Service: Route,
-  "Document type": FileText,
-  "Clinical action": ListChecks,
-  "Care phase": Clock3,
-  "Document intent": Sparkles,
-  "Content feature": FileText,
-  Manual: Sparkles,
-};
-
-const resultTypeIcons: Record<ResultTypeFilter, LucideIcon> = {
-  all: BookOpen,
-  tables: ListChecks,
-  images: FileImage,
-  pdfs: FileText,
-};
-
-/**
- * The single filtering surface for document results.
- *
- * It replaces two separate ones. Source type (All/Tables/Images/PDFs) used to be
- * a chip row inside the ribbon on desktop and a native `<select>` on phones,
- * while the smart-tag facets were a rail below it — and that rail was mounted
- * only when a facet was already selected, which nothing could do, so the facets
- * were unreachable in production. Both now live here, behind one trigger, so
- * "what is narrowing this list" has one answer and one place to undo it.
- *
- * Source type is single-select and the tag facets are multi-select (OR within a
- * group, AND across groups, per `filterDocumentsBySmartTagFacetIndex`), so the
- * two carry different affordances deliberately: `aria-pressed` toggles for the
- * facets, `role="radiogroup"` for the mutually exclusive source type.
- */
-function DocumentFilterPanel({
-  open,
-  panelId,
-  query,
-  groups,
-  activeKeys,
-  resultTabs,
-  activeResultType,
-  onResultTypeChange,
-  onToggle,
-  onClear,
-  resultCount,
-  documentCount,
-  onOpenLibrary,
-  onDone,
-}: {
-  open: boolean;
-  panelId: string;
-  /** Result-set identity for transient sheet chrome. A new submit must not keep
-      a prior "Find a filter…" needle or expand set over a different match list. */
-  query: string;
-  groups: Array<{ group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] }>;
-  activeKeys: string[];
-  resultTabs: Array<{ key: ResultTypeFilter; label: string; count: number }>;
-  activeResultType: ResultTypeFilter;
-  onResultTypeChange: (value: ResultTypeFilter) => void;
-  onToggle: (facet: SmartDocumentTagFacet) => void;
-  onClear: () => void;
-  resultCount: number;
-  /** The whole indexed corpus, for the readout and for Browse. */
-  documentCount: number;
-  /** Reach rather than refinement — see the footer. */
-  onOpenLibrary: () => void;
-  onDone: () => void;
-}) {
-  const active = new Set(activeKeys);
-  const showSourceType = resultTabs.length > 1;
-  const searchId = useId();
-  // Query-scope the find field and expand set the same way open state is scoped
-  // above: the panel stays mounted while closed (`Sheet` returns null), so a
-  // plain useState would otherwise leave "clozapine" typed into the find field
-  // after the reader has already submitted a different search.
-  const [chrome, setChrome] = useState<{
-    query: string;
-    needle: string;
-    expanded: ReadonlySet<SmartDocumentTagGroup>;
-    collapsed: ReadonlySet<SmartDocumentTagGroup>;
-  }>(() => ({ query, needle: "", expanded: new Set(), collapsed: new Set() }));
-  if (chrome.query !== query) {
-    setChrome({ query, needle: "", expanded: new Set(), collapsed: new Set() });
-  }
-  // Prefer the scoped values even on the transitional render before the
-  // setState above commits — otherwise a typed needle from the previous
-  // query can flash into the find field for one frame.
-  const needle = chrome.query === query ? chrome.needle : "";
-  const expanded = chrome.query === query ? chrome.expanded : new Set<SmartDocumentTagGroup>();
-  const collapsed = chrome.query === query ? chrome.collapsed : new Set<SmartDocumentTagGroup>();
-  const setNeedle = (value: string) => setChrome((current) => ({ ...current, query, needle: value }));
-  const setExpanded = (update: (current: ReadonlySet<SmartDocumentTagGroup>) => ReadonlySet<SmartDocumentTagGroup>) =>
-    setChrome((current) => ({
-      ...current,
-      query,
-      expanded: update(current.query === query ? current.expanded : new Set()),
-    }));
-  const setCollapsed = (update: (current: ReadonlySet<SmartDocumentTagGroup>) => ReadonlySet<SmartDocumentTagGroup>) =>
-    setChrome((current) => ({
-      ...current,
-      query,
-      collapsed: update(current.query === query ? current.collapsed : new Set()),
-    }));
-  const trimmedNeedle = needle.trim().toLowerCase();
-  // Both the find-a-filter field and collapse-by-default are answers to *eleven*
-  // groups in one phone column, and neither is worth its cost below that. A
-  // sheet showing two groups that are both shut is a scroll saved that did not
-  // exist and two taps added that did. Same threshold for both, so the sheet
-  // never search-but-does-not-collapse or the reverse.
-  const dense = groups.length > 3;
-  const showNeedle = dense;
-  // Only filter when the field is actually shown. Today `groups` maps
-  // one-to-one from the facet index so density cannot change mid-query, but if
-  // zero-count groups ever drop out the needle would keep filtering an
-  // invisible, unclearable field — gate on `dense` so that cannot happen.
-  const activeNeedle = showNeedle ? trimmedNeedle : "";
-
-  const ordered = useMemo(() => {
-    const selected = new Set(activeKeys);
-    return smartDocumentFacetGroups
-      .map((group) => groups.find((item) => item.group === group))
-      .filter((item): item is { group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] } => Boolean(item))
-      .map(({ group, facets }) => ({
-        group,
-        facets: activeNeedle
-          ? facets.filter(
-              (facet) =>
-                // A selected facet must stay reachable while searching: hiding it
-                // because its label does not match the needle leaves an active
-                // constraint the reader cannot untoggle without clearing the
-                // field first (or abandoning the sheet for the shelf).
-                selected.has(facet.key) ||
-                facet.label.toLowerCase().includes(activeNeedle) ||
-                facet.searchText.toLowerCase().includes(activeNeedle) ||
-                group.toLowerCase().includes(activeNeedle),
-            )
-          : facets,
-      }))
-      .filter(({ facets }) => facets.length > 0);
-  }, [groups, activeNeedle, activeKeys]);
-
-  const matchedFacets = activeNeedle ? ordered.reduce((total, item) => total + item.facets.length, 0) : 0;
-
-  if (groups.length === 0 && !showSourceType) return null;
-
-  return (
-    <Sheet
-      open={open}
-      onClose={onDone}
-      title="Filter documents"
-      portal
-      id={panelId}
-      testId="document-filter-panel"
-      headerActions={
-        activeKeys.length > 0 || activeResultType !== "all" ? (
-          <button
-            type="button"
-            onClick={onClear}
-            data-testid="document-filter-clear"
-            className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}
-          >
-            <X aria-hidden="true" className="h-3.5 w-3.5" />
-            Clear filters
-          </button>
-        ) : null
-      }
-      footer={
-        <div className="grid gap-3">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {/* The count is the point of the panel: it tells the reader whether the
-                combination they have built still returns anything before they
-                dismiss it. `aria-live` is deliberate — the number changes under
-                them as they toggle, and the sheet covers the results it
-                describes. The bare repeat of the number beside the button is gone;
-                the button carries it, and the readout at the top carries the
-                proportion. */}
-            <span aria-live="polite" className="sr-only">
-              {resultCount} document{resultCount === 1 ? "" : "s"} match the current filters
-            </span>
-            <button
-              type="button"
-              onClick={onDone}
-              data-testid="document-filter-done"
-              className={cn(
-                "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-12",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              )}
-            >
-              Show {resultCount} document{resultCount === 1 ? "" : "s"}
-            </button>
-          </div>
-          {/* Below a rule, and phrased as reach rather than refinement. Library
-              spent the utility rail competing with Filter for the same edge while
-              answering a different question — Filter narrows what this query
-              returned, Library opens the whole corpus. Here it is the actual next
-              step, and it keeps the in-context route that stopped it being
-              deleted: the documents action menu clears the query. */}
-          <button
-            type="button"
-            // Dismiss the sheet on the way out. Browsing the corpus is leaving
-            // this surface, not another thing to do on it, and the Sources
-            // drawer would otherwise open underneath a filter sheet that is
-            // still covering the results both of them describe.
-            onClick={() => {
-              onDone();
-              onOpenLibrary();
-            }}
-            data-testid="document-filter-browse-library"
-            // `border-0 border-t`, not `border-t` alone. `cn` now runs through
-            // tailwind-merge (ledger #218), which lifts half of this: the
-            // competing arbitrary border COLOURS resolve last-wins instead of by
-            // Tailwind's emission order. The width half is not lifted —
-            // tailwind-merge scores bare `border` and `border-t` as different
-            // groups, so `floatingControl`'s all-sides `border` still survives an
-            // added `border-t` and the button would still be fully bordered.
-            // Zeroing the box first is still what leaves only the separating rule.
-            className={cn(
-              floatingControl,
-              "min-h-tap justify-start gap-2 rounded-lg border-0 border-t border-[color:var(--border)] bg-transparent px-1 text-xs sm:min-h-10",
-            )}
-          >
-            <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
-            <span>Browse all sources</span>
-            {documentCount > 0 ? (
-              <span className="nums ml-auto text-2xs text-[color:var(--text-muted)]">
-                {documentCount.toLocaleString()}
-              </span>
-            ) : null}
-          </button>
-        </div>
-      }
-    >
-      {/* The proportion, once, at the top. A meter rather than a second number:
-          "12 of 2,014" is a ratio the reader is judging, not a figure they are
-          reading off. It goes to `--warning` at zero so the state that needs
-          explaining is the one that looks different. */}
-      <div className="min-w-0">
-        <div
-          className="h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
-          role="presentation"
-          aria-hidden="true"
-        >
-          <span
-            className={cn(
-              "block h-full rounded-full",
-              resultCount === 0 ? "bg-[color:var(--warning)]" : "bg-[color:var(--clinical-accent)]",
-            )}
-            style={{
-              width:
-                documentCount > 0
-                  ? `${Math.max(resultCount === 0 ? 0 : 1.5, Math.min(100, (resultCount / documentCount) * 100))}%`
-                  : "0%",
-            }}
-          />
-        </div>
-        <p className={cn("nums mt-1.5 text-xs font-semibold", resultCount === 0 ? "text-[color:var(--warning)]" : "")}>
-          <span className={resultCount === 0 ? "" : "text-[color:var(--text-heading)]"}>{resultCount}</span>{" "}
-          <span className={resultCount === 0 ? "" : textMuted}>
-            of {documentCount > 0 ? documentCount.toLocaleString() : "—"} documents shown
-          </span>
-        </p>
-      </div>
-
-      {showNeedle ? (
-        <div className="mt-3 min-w-0">
-          <label htmlFor={searchId} className="sr-only">
-            Find a filter
-          </label>
-          <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]">
-            <Search aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" />
-            <input
-              id={searchId}
-              type="search"
-              value={needle}
-              onChange={(event) => setNeedle(event.target.value)}
-              placeholder="Find a filter…"
-              data-testid="document-filter-find"
-              // `min-h-tap`, matching the facets and the disclosure headings.
-              // This shipped at `min-h-10` — 40px, below the floor — in the same
-              // commit that raised everything around it, so the one control added
-              // to make a long filter list usable was the smallest target in the
-              // sheet. The `sm:min-h-9` relaxation matches the facets exactly.
-              className="min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-9"
-            />
-            {needle ? (
-              <button
-                type="button"
-                onClick={() => setNeedle("")}
-                aria-label="Clear the filter search"
-                className="grid min-h-tap min-w-tap place-items-center text-[color:var(--decoration-soft)] hover:text-[color:var(--text)] sm:min-h-8 sm:min-w-8"
-              >
-                <X aria-hidden="true" className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-          </div>
-          <p aria-live="polite" className="sr-only">
-            {activeNeedle ? `${matchedFacets} filter${matchedFacets === 1 ? "" : "s"} match “${needle.trim()}”` : ""}
-          </p>
-        </div>
-      ) : null}
-
-      {showSourceType ? (
-        <section className="mt-4 min-w-0">
-          <div className="flex items-baseline justify-between gap-2">
-            <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-              <BookOpen aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
-              Source type
-            </h3>
-            {/* Stated, because the shape alone still has to be learned once.
-                Source type replaces; the facets below accumulate. */}
-            <span className="text-2xs font-semibold text-[color:var(--clinical-accent)]">one only</span>
-          </div>
-          {/* Radio semantics, not toggles: picking one source type replaces the
-              last, so `aria-pressed` on four buttons would describe a state the
-              filter cannot be in. Now it also LOOKS exclusive — a joined
-              segmented control reads as one-of on sight, where four separate
-              chips of the same size and radius as the additive facets below made
-              the OR-within-group, AND-across-groups model something you had to
-              discover by experiment. */}
-          <div
-            role="radiogroup"
-            aria-label="Source type"
-            className="mt-2 inline-flex max-w-full flex-wrap overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]"
-          >
-            {resultTabs.map((tab, index) => {
-              const selected = tab.key === activeResultType;
-              const Icon = resultTypeIcons[tab.key];
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => onResultTypeChange(tab.key)}
-                  className={cn(
-                    "inline-flex min-h-tap max-w-full items-center gap-1.5 px-3 text-2xs font-semibold transition motion-reduce:transition-none sm:min-h-9 lg:min-h-8",
-                    index > 0 && "border-l border-[color:var(--border)]",
-                    "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                    selected
-                      ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-                  )}
-                >
-                  <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{tab.label}</span>
-                  <span className="nums text-[color:var(--text-muted)]">{tab.count}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
-      <div className="mt-2 grid gap-0 lg:grid-cols-2 lg:gap-x-5 xl:grid-cols-3">
-        {ordered.map(({ group, facets }) => {
-          const Icon = documentFacetIcons[group];
-          const selectedCount = facets.filter((facet) => active.has(facet.key)).length;
-          // A search expands what it matched. Otherwise selected groups open by
-          // default, but an explicit collapse wins; without that third state the
-          // disclosure button updates expanded while selectedCount > 0
-          // immediately forces the panel open again.
-          const isOpen =
-            !dense || Boolean(activeNeedle) || (!collapsed.has(group) && (expanded.has(group) || selectedCount > 0));
-          const groupPanelId = `${panelId}-${group.replace(/[^A-Za-z0-9_-]/g, "-")}`;
-          return (
-            <section key={group} className="min-w-0 border-t border-[color:var(--border)] py-1">
-              <h3>
-                {/* A heading is only a disclosure control where there is
-                    something to disclose. Below the density threshold every
-                    group is open and permanently so, and a button advertising a
-                    collapse that never happens is a control that does nothing.
-
-                    A live needle is the same situation and was missed: the
-                    search forces `isOpen` true, so tapping the heading left
-                    `aria-expanded="true"`, rotated nothing, and hid nothing —
-                    while still writing the group into `collapsed`, so the
-                    collapse ambushed the reader later, once the field was
-                    cleared and the tap forgotten. While searching, the needle
-                    owns what is open, so there is nothing here to disclose. */}
-                {dense && !activeNeedle ? (
-                  <button
-                    type="button"
-                    aria-expanded={isOpen}
-                    aria-controls={groupPanelId}
-                    onClick={() => {
-                      setExpanded((current) => {
-                        const next = new Set(current);
-                        if (isOpen) next.delete(group);
-                        else next.add(group);
-                        return next;
-                      });
-                      setCollapsed((current) => {
-                        const next = new Set(current);
-                        if (isOpen) next.add(group);
-                        else next.delete(group);
-                        return next;
-                      });
-                    }}
-                    className={cn(
-                      "flex min-h-tap w-full items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)] sm:min-h-10",
-                      "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                    )}
-                  >
-                    <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
-                    <span className="truncate">{group}</span>
-                    {/* The count is what makes a collapsed group honest: a closed
-                        section that is silently narrowing the list is worse than
-                        the scroll it saves. */}
-                    {selectedCount > 0 ? (
-                      <span className="nums ml-auto text-2xs font-semibold text-[color:var(--clinical-accent)]">
-                        {selectedCount} selected
-                      </span>
-                    ) : null}
-                    <ChevronDown
-                      aria-hidden="true"
-                      className={cn(
-                        "size-icon-sm shrink-0 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
-                        selectedCount > 0 ? "ml-1.5" : "ml-auto",
-                        isOpen ? "rotate-0" : "-rotate-90",
-                      )}
-                    />
-                  </button>
-                ) : (
-                  <span className="flex min-h-9 w-full items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-                    <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
-                    <span className="truncate">{group}</span>
-                    {selectedCount > 0 ? (
-                      <span className="nums ml-auto text-2xs font-semibold text-[color:var(--clinical-accent)]">
-                        {selectedCount} selected
-                      </span>
-                    ) : null}
-                  </span>
-                )}
-              </h3>
-              <div id={groupPanelId} hidden={!isOpen}>
-                <div className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5">
-                  {facets.map((facet) => {
-                    const selected = active.has(facet.key);
-                    // Zero-count unselected facets stay visible so the list does not
-                    // jump, but they are disabled: selecting them would empty the set.
-                    const deadEnd = !selected && facet.count === 0;
-                    // Facet keys can contain spaces (e.g. "Medication:Mood stabilizer");
-                    // HTML ids must not, or aria-describedby cannot resolve them.
-                    const deadEndDescId = `facet-dead-end-${facet.key.replace(/[^A-Za-z0-9_-]/g, "-")}`;
-                    return (
-                      <button
-                        key={facet.key}
-                        type="button"
-                        // `aria-disabled` rather than `disabled`: a real disabled
-                        // button leaves the tab order, so a keyboard or screen-reader
-                        // user loses the row entirely and never learns why it went
-                        // quiet — and a `title` on a disabled control is not reliably
-                        // announced. Kept focusable and explained, with the click
-                        // guarded instead. Matches the disabled-affordance pattern in
-                        // docs/wiring-conventions.md.
-                        onClick={() => {
-                          if (deadEnd) return;
-                          onToggle(facet);
-                        }}
-                        aria-pressed={selected}
-                        aria-disabled={deadEnd || undefined}
-                        aria-describedby={deadEnd ? deadEndDescId : undefined}
-                        title={
-                          deadEnd
-                            ? `${facet.label} — no documents with the current filters`
-                            : `Filter to ${facet.label}`
-                        }
-                        className={cn(
-                          // 28px was the sheet's whole interactive surface on the
-                          // device it exists for, packed at `gap-1.5` so a
-                          // neighbouring mis-tap was likely. The floor is the tap
-                          // token here too, relaxing to compact density from `sm`
-                          // where a pointer is likely.
-                          "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:gap-1 sm:px-2 lg:min-h-8",
-                          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                          // Three mutually exclusive branches, not a base plus an
-                          // override: `cn` was a plain join, so two competing
-                          // `border-[color:…]` utilities both reached the DOM and
-                          // the winner was decided by stylesheet order rather than
-                          // by intent. That constraint is lifted (ledger #218) —
-                          // `cn` merges, and a later border colour now wins
-                          // deterministically. The branches are kept as they are
-                          // because collapsing them changes which utilities render;
-                          // that is a visual change, not a dependency swap.
-                          selected
-                            ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                            : deadEnd
-                              ? // Not `opacity-50`. Transparency multiplies against
-                                // an already-muted foreground and lands at 2.34:1 —
-                                // the disabled state was least readable exactly when
-                                // it most needed explaining. A real muted pair plus a
-                                // dashed border measures 4.72:1 and reads as a
-                                // different KIND of thing rather than a faded one,
-                                // which also survives forced colors: border-style is
-                                // preserved there and opacity is not.
-                                "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
-                              : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                        )}
-                      >
-                        {selected ? <Check aria-hidden="true" className="h-3 w-3 shrink-0" /> : null}
-                        <span className="truncate">{facet.label}</span>
-                        {deadEnd ? (
-                          <span id={deadEndDescId} className="sr-only">
-                            No documents match this with the current filters.
-                          </span>
-                        ) : null}
-                        <span className="nums text-[color:var(--text-muted)]">{facet.count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-          );
-        })}
-        {activeNeedle && ordered.length === 0 ? (
-          <p className="border-t border-[color:var(--border)] py-4 text-center text-xs font-semibold text-[color:var(--text-muted)]">
-            No filter matches “{needle.trim()}”.
-          </p>
-        ) : null}
-      </div>
-    </Sheet>
-  );
-}
-
-/**
- * Opens the filter panel and reports how many filters are active.
- *
- * Rendered into both of the ribbon's page-control slots — `filterControls` (the
- * full-width row, `sm` and up) and `mobileControls` (the utility row, below
- * `sm`) — because the ribbon hides one or the other by breakpoint and only ever
- * shows one at a time.
- */
-function DocumentFilterTrigger({
-  panelId,
-  testId,
-  open,
-  activeCount,
-  onToggle,
-}: {
-  panelId: string;
-  /** Distinct per slot: both copies are in the DOM, so a shared id would make
-      every `getByTestId` lookup ambiguous under Playwright strict mode even
-      though only one is ever displayed. */
-  testId: string;
-  open: boolean;
-  activeCount: number;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={open}
-      aria-haspopup="dialog"
-      aria-controls={open ? panelId : undefined}
-      data-testid={testId}
-      title="Filter documents"
-      className={cn(
-        // Written out rather than composed from `floatingControl`. `cn` is a plain
-        // join, not tailwind-merge, so every contradictory utility reached the DOM
-        // and stylesheet order — not intent — picked the winner. `text-sm`/`text-xs`
-        // and the two `shadow-*` happened to resolve the way the override wanted;
-        // `font-semibold` (600) and `--border-lux` never did. So the one control
-        // sitting flush against the sort group rendered a heavier label and a
-        // darker border than the group it is paired with, which is what made it
-        // read as a different component. This is the band's own control idiom —
-        // the same recipe `Save search` and `Retry` use — so the pairing is
-        // structural instead of a race between two class lists.
-        //
-        // 10px leading, 11px trailing. Symmetric padding measures right and looks
-        // wrong here: a filled pill reads flush to its own edge while a stroked
-        // funnel reads inset from its box, so equal values put the badge visibly
-        // closer to the border than the glyph is.
-        "search-band-ghost inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border pl-2.5 pr-[0.6875rem] transition-colors motion-reduce:transition-none sm:min-h-10 sm:min-w-10",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-        // Mutually exclusive branches, not a base plus an override, for the same
-        // reason the facet states became branches in #1615: competing
-        // `border-[color:…]`/`bg-[color:…]` utilities would both reach the DOM and
-        // stylesheet order would decide which of them the reader actually sees.
-        activeCount > 0
-          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]"
-          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-      )}
-    >
-      <Funnel aria-hidden="true" className="size-icon-md shrink-0" />
-      {/* The label is the first thing to go when the line is tight — but only
-          where the line is actually tight. This was a flat `max-[429px]:sr-only`,
-          which assumed every width below 430px shares one line with the count and
-          the query. Below 414px the band now gives the utilities their own row
-          (see `search-results-header-band.tsx`), and on that row there is room for
-          the wordmark several times over, so hiding it there spent nothing and
-          bought nothing. 414–429px is the one band that is genuinely single-line
-          and short of width; there a funnel carrying a badge is unambiguous. The
-          accessible name is unchanged at every width either way. */}
-      <span className="min-[414px]:max-[429px]:sr-only">Filter</span>
-      {activeCount > 0 ? (
-        // A tinted pill, not a solid disc: a saturated filled circle is the single
-        // loudest signal on a bar that is otherwise hairlines and type, and it
-        // reads as an alert rather than as a count.
-        <span className="search-band-badge nums grid h-[1.0625rem] min-w-[1.0625rem] place-items-center rounded-full bg-[color:var(--search-band-badge-bg)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
-          {activeCount}
-        </span>
-      ) : null}
-      <span className="sr-only">
-        {activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active` : "No filters active"}
-      </span>
-    </button>
-  );
-}
+// The filter sheet itself (source type as a lens, smart-tag facets as facet groups) is
+// built in DocumentSearchResultsPanelImpl below and rendered through the shared
+// ResultFilterSheet/ResultFilterTrigger (src/components/clinical-dashboard/result-filter-control.tsx),
+// which grew documents' own dense tier (find-a-filter, collapse-by-default) and a
+// meterContent/footerOverride slot for its progress meter and "Show N documents" /
+// "Browse all sources" footer during the filter-contract rollout. Source type is
+// single-select and the tag facets are multi-select (OR within a group, AND across
+// groups, per filterDocumentsBySmartTagFacetIndex), so the two still carry different
+// affordances: role="radio"+aria-checked for source type, aria-pressed for facets —
+// the shared component picks the renderer from each group's own `kind`.
 
 function documentPageLabel(document: DocumentMatch) {
   const pages = document.bestPages.filter((page) => Number.isFinite(page));
@@ -1469,12 +855,12 @@ function DocumentSearchResultsPanelImpl({
   // Stable per query so the applied-filter shelf can depend on it honestly
   // rather than suppressing the dependency check.
   const toggleTagFacet = useCallback(
-    (facet: SmartDocumentTagFacet) => {
+    (key: string) => {
       setActiveFacetState((current) => {
         const keys = current.query === query ? current.keys : [];
         return {
           query,
-          keys: keys.includes(facet.key) ? keys.filter((key) => key !== facet.key) : [...keys, facet.key],
+          keys: keys.includes(key) ? keys.filter((existing) => existing !== key) : [...keys, key],
         };
       });
     },
@@ -1532,9 +918,10 @@ function DocumentSearchResultsPanelImpl({
   );
   const renderFilterTrigger = (testId: string) =>
     showFilterControl ? (
-      <DocumentFilterTrigger
+      <ResultFilterTrigger
         panelId={filterPanelId}
         testId={testId}
+        title="Filter documents"
         open={filterPanelOpen}
         activeCount={activeFilterCount}
         onToggle={() =>
@@ -1556,7 +943,7 @@ function DocumentSearchResultsPanelImpl({
         .map((facet) => ({
           id: facet.key,
           label: facet.label,
-          onRemove: () => toggleTagFacet(facet),
+          onRemove: () => toggleTagFacet(facet.key),
         })),
     );
     if (effectiveResultType !== "all") {
@@ -1748,21 +1135,155 @@ function DocumentSearchResultsPanelImpl({
               its own open/close transition, so gating the mount here would cut
               the dismiss animation off mid-flight. */}
           {showFilterControl ? (
-            <DocumentFilterPanel
+            <ResultFilterSheet
               open={filterPanelOpen}
+              onClose={() => setFilterPanelState({ query, open: false })}
               panelId={filterPanelId}
-              query={query}
-              groups={tagFacetGroups}
-              activeKeys={activeFacetKeys}
-              resultTabs={resultTabs}
-              activeResultType={effectiveResultType}
-              onResultTypeChange={setActiveResultType}
-              onToggle={toggleTagFacet}
-              onClear={clearAllFilters}
-              resultCount={sortedMatches.length}
-              documentCount={documentCount}
-              onOpenLibrary={onOpenLibrary}
-              onDone={() => setFilterPanelState({ query, open: false })}
+              testId="document-filter-panel"
+              title="Filter documents"
+              chromeResetKey={query}
+              groups={[
+                ...(resultTabs.length > 1
+                  ? [
+                      // Radio semantics, not toggles: picking one source type replaces the
+                      // last, so `aria-pressed` on four buttons would describe a state the
+                      // filter cannot be in. `note` states the shape once, because facet
+                      // groups directly below render as near-identical chips.
+                      resultFilterGroup({
+                        id: "source-type",
+                        label: "Source type",
+                        note: "one only",
+                        value: effectiveResultType,
+                        options: resultTabs.map((tab) => ({
+                          value: tab.key,
+                          label: tab.label,
+                          hint: String(tab.count),
+                        })),
+                        onChange: setActiveResultType,
+                      }),
+                    ]
+                  : []),
+                ...tagFacetGroups.map((group) => {
+                  const selected = new Set(
+                    group.facets.filter((facet) => activeFacetKeys.includes(facet.key)).map((facet) => facet.key),
+                  );
+                  return resultFilterFacetGroup({
+                    id: group.group,
+                    label: group.group,
+                    selected,
+                    options: group.facets.map((facet) => ({
+                      value: facet.key,
+                      label: facet.label,
+                      hint: String(facet.count),
+                      searchText: facet.searchText,
+                      // Zero-count unselected facets stay visible so the list does not jump,
+                      // but they are disabled: selecting them would empty the set.
+                      disabled: facet.count === 0 && !selected.has(facet.key),
+                    })),
+                    onToggle: toggleTagFacet,
+                  });
+                }),
+              ]}
+              onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
+              meterContent={
+                // The proportion, once, at the top. A meter rather than a second number:
+                // "12 of 2,014" is a ratio the reader is judging, not a figure they are
+                // reading off. It goes to `--warning` at zero so the state that needs
+                // explaining is the one that looks different.
+                <>
+                  <div
+                    className="h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
+                    role="presentation"
+                    aria-hidden="true"
+                  >
+                    <span
+                      className={cn(
+                        "block h-full rounded-full",
+                        sortedMatches.length === 0 ? "bg-[color:var(--warning)]" : "bg-[color:var(--clinical-accent)]",
+                      )}
+                      style={{
+                        width:
+                          documentCount > 0
+                            ? `${Math.max(
+                                sortedMatches.length === 0 ? 0 : 1.5,
+                                Math.min(100, (sortedMatches.length / documentCount) * 100),
+                              )}%`
+                            : "0%",
+                      }}
+                    />
+                  </div>
+                  <p
+                    className={cn(
+                      "nums mt-1.5 text-xs font-semibold",
+                      sortedMatches.length === 0 ? "text-[color:var(--warning)]" : "",
+                    )}
+                  >
+                    <span className={sortedMatches.length === 0 ? "" : "text-[color:var(--text-heading)]"}>
+                      {sortedMatches.length}
+                    </span>{" "}
+                    <span className={sortedMatches.length === 0 ? "" : textMuted}>
+                      of {documentCount > 0 ? documentCount.toLocaleString() : "—"} documents shown
+                    </span>
+                  </p>
+                </>
+              }
+              footerOverride={
+                <div className="grid gap-3">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {/* The count is the point of the panel: it tells the reader whether the
+                        combination they have built still returns anything before they
+                        dismiss it. `aria-live` is deliberate — the number changes under
+                        them as they toggle, and the sheet covers the results it
+                        describes. The bare repeat of the number beside the button is gone;
+                        the button carries it, and the readout at the top carries the
+                        proportion. */}
+                    <span aria-live="polite" className="sr-only">
+                      {sortedMatches.length} document{sortedMatches.length === 1 ? "" : "s"} match the current filters
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFilterPanelState({ query, open: false })}
+                      data-testid="document-filter-done"
+                      className={cn(
+                        "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-12",
+                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                      )}
+                    >
+                      Show {sortedMatches.length} document{sortedMatches.length === 1 ? "" : "s"}
+                    </button>
+                  </div>
+                  {/* Below a rule, and phrased as reach rather than refinement. Library
+                      spent the utility rail competing with Filter for the same edge while
+                      answering a different question — Filter narrows what this query
+                      returned, Library opens the whole corpus. Here it is the actual next
+                      step, and it keeps the in-context route that stopped it being
+                      deleted: the documents action menu clears the query. */}
+                  <button
+                    type="button"
+                    // Dismiss the sheet on the way out. Browsing the corpus is leaving
+                    // this surface, not another thing to do on it, and the Sources
+                    // drawer would otherwise open underneath a filter sheet that is
+                    // still covering the results both of them describe.
+                    onClick={() => {
+                      setFilterPanelState({ query, open: false });
+                      onOpenLibrary();
+                    }}
+                    data-testid="document-filter-browse-library"
+                    className={cn(
+                      floatingControl,
+                      "min-h-tap justify-start gap-2 rounded-lg border-0 border-t border-[color:var(--border)] bg-transparent px-1 text-xs sm:min-h-10",
+                    )}
+                  >
+                    <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
+                    <span>Browse all sources</span>
+                    {documentCount > 0 ? (
+                      <span className="nums ml-auto text-2xs text-[color:var(--text-muted)]">
+                        {documentCount.toLocaleString()}
+                      </span>
+                    ) : null}
+                  </button>
+                </div>
+              }
             />
           ) : null}
           {showResultsControls && !hasFilters ? browseLibraryControl : null}

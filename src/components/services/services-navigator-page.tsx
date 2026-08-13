@@ -472,11 +472,18 @@ export function ServicesNavigatorPage() {
             label: "All programs",
             hint: String(serviceSubstanceLensOptionCount(facetBaseMatches, facetSelection, "all")),
           },
-          ...substanceOptionValues.map((value) => ({
-            value,
-            label: serviceSubstanceLensValueLabel(value),
-            hint: String(serviceSubstanceLensOptionCount(facetBaseMatches, facetSelection, value)),
-          })),
+          ...substanceOptionValues.map((value) => {
+            const count = serviceSubstanceLensOptionCount(facetBaseMatches, facetSelection, value);
+            return {
+              value,
+              label: serviceSubstanceLensValueLabel(value),
+              hint: String(count),
+              // Keep an active zero-count lens selectable so the reader can
+              // recover, but do not offer a different lens that would empty
+              // the current facet-constrained result set.
+              disabled: count === 0 && substanceLens !== value,
+            };
+          }),
         ],
         onChange: setSubstanceLensValue,
       }),
