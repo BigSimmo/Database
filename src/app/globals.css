@@ -3152,9 +3152,14 @@ td,
   }
 }
 
+/* 320 → 0 is equivalent to 0 → -320 modulo the dash period, without
+   WebKit's unreliable negative SVG dash-offset interpolation. */
 @keyframes answer-ecg-sweep {
+  from {
+    stroke-dashoffset: 320;
+  }
   to {
-    stroke-dashoffset: -320;
+    stroke-dashoffset: 0;
   }
 }
 
