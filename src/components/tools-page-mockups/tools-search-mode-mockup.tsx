@@ -46,10 +46,10 @@ const iconByToolId: Record<string, LucideIcon> = {
 
 const filterOptions = [
   { id: "all", label: "All tools" },
-  { id: "assessment", label: "Assessment" },
+  { id: "assessment", label: "Assess" },
   { id: "reference", label: "Evidence" },
-  { id: "care", label: "Treatment" },
-  { id: "coordination", label: "Coordination" },
+  { id: "care", label: "Treat" },
+  { id: "coordination", label: "Coordinate" },
 ] as const satisfies ReadonlyArray<{ id: "all" | ToolCatalogArea; label: string }>;
 
 type FilterId = (typeof filterOptions)[number]["id"];
@@ -376,7 +376,9 @@ export function ToolsSearchModeMockup() {
                   <ToolIcon tool={tool} />
                   <div className="min-w-0">
                     <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">{tool.title}</h2>
-                    <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">{tool.description}</p>
+                    <p className="mt-1 line-clamp-2 text-sm leading-5 text-[color:var(--text-muted)]">
+                      {tool.description}
+                    </p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                       <ToolChips tool={tool} />
                       <span className="hidden min-w-0 items-center gap-1.5 text-xs text-[color:var(--text-muted)] sm:inline-flex">
