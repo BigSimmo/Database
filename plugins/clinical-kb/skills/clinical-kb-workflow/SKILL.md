@@ -1,11 +1,11 @@
 ---
 name: clinical-kb-workflow
-description: Use when working in the C:\Dev\Apps\Database Clinical KB repo, especially for local run, UI/browser QA, Supabase/OpenAI/RAG changes, clinical governance, dependency/upload shortcuts, or choosing verification.
+description: Use when working in the D:\Repos\Database Clinical KB repo, especially for local run, UI/browser QA, Supabase/OpenAI/RAG changes, clinical governance, dependency/upload shortcuts, or choosing verification.
 ---
 
 # Clinical KB Workflow
 
-Use this skill for `C:\Dev\Apps\Database`, the Clinical KB Next.js clinical reference RAG app.
+Use this skill for `D:\Repos\Database`, the Clinical KB Next.js clinical reference RAG app.
 Root `AGENTS.md` remains authoritative. If these notes drift, inspect the repo before acting.
 
 ## Repo Basics
