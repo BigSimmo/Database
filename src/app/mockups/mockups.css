@@ -1,0 +1,9 @@
+@import "tailwindcss/utilities.css" layer(utilities) source(none) important;
+@reference "../globals.css";
+
+/* Re-emit the complete utility vocabulary for mockup routes. This preserves
+   Tailwind's responsive ordering when a mockup shares shell components with
+   production. `important` keeps the route sheet authoritative regardless of
+   whether Next orders it before or after the shared production stylesheet. */
+@source "../";
+@source "../../components";

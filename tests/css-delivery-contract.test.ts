@@ -1,0 +1,29 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
+
+describe("cold-load CSS and font delivery", () => {
+  it("keeps mockup-only Tailwind utilities out of the production global sheet", () => {
+    const globals = read("src/app/globals.css");
+    const mockups = read("src/app/mockups/mockups.css");
+    const layout = read("src/app/mockups/layout.tsx");
+
+    expect(globals).toContain('@source not "./mockups";');
+    expect(globals).toContain('@source not "../components/**/*mockup*";');
+    expect(mockups).toContain('@import "tailwindcss/utilities.css" layer(utilities) source(none) important;');
+    expect(mockups).toContain('@reference "../globals.css";');
+    expect(mockups).toContain('@source "../";');
+    expect(mockups).toContain('@source "../../components";');
+    expect(layout).toContain('import "./mockups.css";');
+  });
+
+  it("does not preload the display-swap body font ahead of render-blocking CSS", () => {
+    const rootLayout = read("src/app/layout.tsx");
+    const geistSans = rootLayout.slice(rootLayout.indexOf("const geistSans"), rootLayout.indexOf("const geistMono"));
+
+    expect(geistSans).toContain('display: "swap"');
+    expect(geistSans).toContain("preload: false");
+  });
+});
