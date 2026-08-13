@@ -35,26 +35,20 @@ export function PageSecondaryNavigation({
   hasSubmittedSearch: boolean;
   searchParamString?: string;
 }) {
-  const locallyOwnedInformationNavigation =
-    hasLocalInformationPageNavigation(pathname);
+  const locallyOwnedInformationNavigation = hasLocalInformationPageNavigation(pathname);
   const activeId = activeModeSecondaryNavigationId(modeId, pathname);
 
   // Therapy Compass owns both its workflow bindings and its dynamic detail
   // sections inside TcProvider; rendering the shell registry as well would
   // duplicate the bar and discard its URL/state-aware action bindings.
-  if (
-    pathname === "/therapy-compass" ||
-    pathname.startsWith("/therapy-compass/")
-  )
-    return null;
+  if (pathname === "/therapy-compass" || pathname.startsWith("/therapy-compass/")) return null;
   if (locallyOwnedInformationNavigation) return null;
   // A mode with no registered destinations gets no bar and no landmark. The
   // seven that used to register a lone `action` entry each rendered one
   // <button> that focused a composer already on screen; it was deleted rather
   // than ported, so there is nothing left to draw for them.
   if (!modeUsesHeaderModeNav(modeId)) return null;
-  if (!isModeSecondaryNavigationRoute({ modeId, pathname, hasSubmittedSearch }))
-    return null;
+  if (!isModeSecondaryNavigationRoute({ modeId, pathname, hasSubmittedSearch })) return null;
   // An adopted mode's bar portals into the header's single addon slot, which
   // holds ONE page-owned header. What keeps it to one is the
   // `locallyOwnedInformationNavigation` return above: every route that portals
@@ -64,11 +58,5 @@ export function PageSecondaryNavigation({
   // lists, not a stated rule — `isHeaderAddonSlotOwnedRoute` names the
   // claimants and `tests/mode-nav-addon-slot.dom.test.tsx` fails if a future one
   // falls outside that cover, which is when this needs its own guard.
-  return (
-    <RegistryModeNav
-      modeId={modeId}
-      activeId={activeId}
-      searchParamString={searchParamString}
-    />
-  );
+  return <RegistryModeNav modeId={modeId} activeId={activeId} searchParamString={searchParamString} />;
 }

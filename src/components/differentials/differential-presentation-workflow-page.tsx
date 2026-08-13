@@ -15,18 +15,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import {
-  DiagnosisTermChip,
-  DiagnosisTermInlineList,
-} from "@/components/differentials/diagnosis-term-link";
+import { DiagnosisTermChip, DiagnosisTermInlineList } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
 import { cn } from "@/components/ui-primitives";
-import {
-  isClinicalHingeLabel,
-  resolveDiagnosisTermSegments,
-} from "@/lib/differential-diagnosis-links";
+import { isClinicalHingeLabel, resolveDiagnosisTermSegments } from "@/lib/differential-diagnosis-links";
 import {
   AD_HOC_DIFFERENTIAL_COMPARE_ID,
   acuteConfusionPresentationWorkflow,
@@ -40,19 +34,9 @@ import {
 import { differentialCompareSearchHref } from "@/lib/differentials-navigation";
 
 /** Criteria whose cells are typically diagnosis-name lists rather than free prose. */
-const DIAGNOSIS_NAME_LIST_CRITERIA = new Set([
-  "mimics-overlap",
-  "what-argues-against",
-  "must-not-miss",
-]);
+const DIAGNOSIS_NAME_LIST_CRITERIA = new Set(["mimics-overlap", "what-argues-against", "must-not-miss"]);
 
-function ComparisonCellContent({
-  criterionId,
-  value,
-}: {
-  criterionId: string;
-  value: string;
-}) {
+function ComparisonCellContent({ criterionId, value }: { criterionId: string; value: string }) {
   if (!DIAGNOSIS_NAME_LIST_CRITERIA.has(criterionId)) {
     return <>{value}</>;
   }
@@ -79,15 +63,12 @@ const criterionIcon: Record<DifferentialSection["tone"], LucideIcon> = {
 
 const criterionTone: Record<DifferentialSection["tone"], string> = {
   fit: "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]",
-  warning:
-    "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
-  question:
-    "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]",
+  warning: "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
+  question: "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]",
   action:
     "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
   test: "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]",
-  overlap:
-    "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+  overlap: "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
 };
 
 const rowTone: Record<DifferentialSection["tone"], string> = {
@@ -115,28 +96,15 @@ function statusClassName(status: DifferentialRecord["status"]) {
   return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 }
 
-function CandidateGlyph({
-  record,
-  className,
-}: {
-  record: DifferentialRecord;
-  className?: string;
-}) {
-  if (record.slug.includes("substance"))
-    return <FlaskConical className={className} aria-hidden />;
-  if (record.slug.includes("post-ictal"))
-    return <Activity className={className} aria-hidden />;
-  if (record.slug.includes("hepatic"))
-    return <Stethoscope className={className} aria-hidden />;
-  if (record.slug.includes("meningitis"))
-    return <ShieldAlert className={className} aria-hidden />;
+function CandidateGlyph({ record, className }: { record: DifferentialRecord; className?: string }) {
+  if (record.slug.includes("substance")) return <FlaskConical className={className} aria-hidden />;
+  if (record.slug.includes("post-ictal")) return <Activity className={className} aria-hidden />;
+  if (record.slug.includes("hepatic")) return <Stethoscope className={className} aria-hidden />;
+  if (record.slug.includes("meningitis")) return <ShieldAlert className={className} aria-hidden />;
   return <BrainCircuit className={className} aria-hidden />;
 }
 
-function comparisonCopy(
-  workflow: DifferentialPresentationWorkflow,
-  candidates: CandidateView[],
-) {
+function comparisonCopy(workflow: DifferentialPresentationWorkflow, candidates: CandidateView[]) {
   return [
     `${workflow.title} comparison`,
     workflow.safetySnapshot.summary,
@@ -144,20 +112,14 @@ function comparisonCopy(
     ...candidates
       .filter((candidate) => candidate.selected)
       .map((candidate) => {
-        const mustNotMiss =
-          candidate.comparison["must-not-miss"] ??
-          "Review must-not-miss risks.";
-        const action =
-          candidate.comparison["immediate-action"] ??
-          "Review immediate action.";
+        const mustNotMiss = candidate.comparison["must-not-miss"] ?? "Review must-not-miss risks.";
+        const action = candidate.comparison["immediate-action"] ?? "Review immediate action.";
         return `${candidate.record.title}: ${mustNotMiss} Immediate action: ${action}`;
       }),
   ].join("\n");
 }
 
-function getCandidates(
-  workflow: DifferentialPresentationWorkflow,
-): CandidateView[] {
+function getCandidates(workflow: DifferentialPresentationWorkflow): CandidateView[] {
   return workflow.candidates.flatMap((candidate) => {
     const record = getDifferentialRecord(candidate.slug);
     if (!record) return [];
@@ -184,19 +146,12 @@ function EmergencyBadge({ status }: { status: DifferentialRecord["status"] }) {
   );
 }
 
-function CriteriaLabel({
-  criterion,
-}: {
-  criterion: DifferentialComparisonCriterion;
-}) {
+function CriteriaLabel({ criterion }: { criterion: DifferentialComparisonCriterion }) {
   const Icon = criterionIcon[criterion.tone];
   return (
     <span className="flex min-w-0 items-center gap-2">
       <span
-        className={cn(
-          "grid h-6 w-6 shrink-0 place-items-center rounded-full border",
-          criterionTone[criterion.tone],
-        )}
+        className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full border", criterionTone[criterion.tone])}
       >
         <Icon className="h-3.5 w-3.5" aria-hidden />
       </span>
@@ -235,21 +190,13 @@ function DesktopComparisonTable({
   editSelectionHref: string;
 }) {
   return (
-    <section
-      className="hidden md:block"
-      aria-label="Differential comparison table"
-    >
+    <section className="hidden md:block" aria-label="Differential comparison table">
       <div className="mb-2 flex min-h-tap flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
-          <CircleCheck
-            className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]"
-            aria-hidden
-          />
+          <CircleCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
           <p className="text-sm font-semibold text-[color:var(--text-muted)]">
-            <span className="font-extrabold text-[color:var(--text-heading)]">
-              {workflow.selectedCount}
-            </span>{" "}
-            of {workflow.totalCount} diagnoses compared
+            <span className="font-extrabold text-[color:var(--text-heading)]">{workflow.selectedCount}</span> of{" "}
+            {workflow.totalCount} diagnoses compared
           </p>
         </div>
         <Link
@@ -287,8 +234,7 @@ function DesktopComparisonTable({
                   key={candidate.record.slug}
                   className={cn(
                     "w-[8.5rem] border-b border-r border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] p-0 align-top",
-                    !candidate.selected &&
-                      "bg-[color:var(--surface-subtle)]/75",
+                    !candidate.selected && "bg-[color:var(--surface-subtle)]/75",
                   )}
                 >
                   <CandidateHeader candidate={candidate} />
@@ -315,9 +261,7 @@ function DesktopComparisonTable({
                   >
                     <ComparisonCellContent
                       criterionId={criterion.id}
-                      value={
-                        candidate.comparison[criterion.id] ?? "Review locally."
-                      }
+                      value={candidate.comparison[criterion.id] ?? "Review locally."}
                     />
                   </td>
                 ))}
@@ -327,18 +271,13 @@ function DesktopComparisonTable({
         </table>
       </div>
       <p className="mt-3 text-xs font-medium text-[color:var(--text-muted)]">
-        Scroll horizontally to review more candidate differentials. Clinical
-        decision support only. Review before use.
+        Scroll horizontally to review more candidate differentials. Clinical decision support only. Review before use.
       </p>
     </section>
   );
 }
 
-function SafetySnapshot({
-  workflow,
-}: {
-  workflow: DifferentialPresentationWorkflow;
-}) {
+function SafetySnapshot({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
   return (
     <section
       className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/85 p-3 shadow-[var(--shadow-inset)] xl:p-4"
@@ -350,9 +289,7 @@ function SafetySnapshot({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-extrabold uppercase text-[color:var(--danger)]">
-              Safety snapshot
-            </h2>
+            <h2 className="text-sm font-extrabold uppercase text-[color:var(--danger)]">Safety snapshot</h2>
             <EmergencyBadge status={workflow.status} />
           </div>
           <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)] xl:leading-6">
@@ -399,34 +336,22 @@ function SelectedDifferentialsPanel({
   workflow: DifferentialPresentationWorkflow;
   candidates: CandidateView[];
 }) {
-  const selectedCandidates = candidates.filter(
-    (candidate) => candidate.selected,
-  );
-  const remainingCount = Math.max(
-    workflow.totalCount - selectedCandidates.length,
-    0,
-  );
+  const selectedCandidates = candidates.filter((candidate) => candidate.selected);
+  const remainingCount = Math.max(workflow.totalCount - selectedCandidates.length, 0);
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">
-          Selected differentials ({selectedCandidates.length} of{" "}
-          {workflow.totalCount})
+          Selected differentials ({selectedCandidates.length} of {workflow.totalCount})
         </h2>
         {remainingCount > 0 ? (
-          <span className="text-xs font-bold text-[color:var(--clinical-accent)]">
-            +{remainingCount} not selected
-          </span>
+          <span className="text-xs font-bold text-[color:var(--clinical-accent)]">+{remainingCount} not selected</span>
         ) : null}
       </div>
       <div className="mt-3 flex flex-wrap gap-2 text-[color:var(--text-muted)]">
         {selectedCandidates.map((candidate) => {
           return (
-            <CandidateGlyph
-              key={candidate.record.slug}
-              record={candidate.record}
-              className="h-6 w-6 stroke-[1.7]"
-            />
+            <CandidateGlyph key={candidate.record.slug} record={candidate.record} className="h-6 w-6 stroke-[1.7]" />
           );
         })}
       </div>
@@ -443,16 +368,10 @@ function SelectedDifferentialsPanel({
               href={`/differentials/diagnoses/${candidate.record.slug}`}
               className="inline-flex min-w-0 items-center gap-2"
             >
-              <CircleCheck
-                className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]"
-                aria-hidden
-              />
+              <CircleCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
               <span className="truncate">{candidate.record.title}</span>
             </Link>
-            <ChevronRight
-              className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]"
-              aria-hidden
-            />
+            <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
           </li>
         ))}
       </ul>
@@ -467,17 +386,11 @@ function HighestUrgencyPanel({
   workflow: DifferentialPresentationWorkflow;
   candidates: CandidateView[];
 }) {
-  const emergent = candidates.filter(
-    (candidate) => candidate.selected && candidate.record.status === "emergent",
-  );
+  const emergent = candidates.filter((candidate) => candidate.selected && candidate.record.status === "emergent");
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">
-        Highest urgency
-      </h2>
-      <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
-        Based on current selection
-      </p>
+      <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Highest urgency</h2>
+      <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">Based on current selection</p>
       <div className="mt-3 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/80 p-3">
         <EmergencyBadge status="emergent" />
         <ul className="mt-3 grid gap-1.5 text-sm font-semibold text-[color:var(--text-heading)]">
@@ -489,42 +402,25 @@ function HighestUrgencyPanel({
                 aria-label={`Open diagnosis: ${candidate.record.title}`}
               >
                 {candidate.record.title}
-                <ChevronRight
-                  className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]"
-                  aria-hidden
-                />
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
               </Link>
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
-          {workflow.highestUrgencyNote}
-        </p>
+        <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">{workflow.highestUrgencyNote}</p>
       </div>
     </section>
   );
 }
 
-function ReviewPanel({
-  workflow,
-}: {
-  workflow: DifferentialPresentationWorkflow;
-}) {
+function ReviewPanel({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">
-        Review & handoff
-      </h2>
+      <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Review & handoff</h2>
       <ul className="mt-3 grid gap-2">
         {workflow.reviewChecklist.map((item) => (
-          <li
-            key={item}
-            className="flex gap-2 text-xs font-bold leading-5 text-[color:var(--text-heading)]"
-          >
-            <CircleCheck
-              className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]"
-              aria-hidden
-            />
+          <li key={item} className="flex gap-2 text-xs font-bold leading-5 text-[color:var(--text-heading)]">
+            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             {item}
           </li>
         ))}
@@ -543,9 +439,7 @@ function ReviewPanel({
 function CopyAfterReviewPanel({ text }: { text: string }) {
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">
-        Copy after review
-      </h2>
+      <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Copy after review</h2>
       <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
         Create a concise comparison summary for documentation or handoff.
       </p>
@@ -564,43 +458,29 @@ function ReviewPanels({
   workflow: DifferentialPresentationWorkflow;
   candidates: CandidateView[];
 }) {
-  const selectedCandidates = candidates.filter(
-    (candidate) => candidate.selected,
-  );
+  const selectedCandidates = candidates.filter((candidate) => candidate.selected);
   return (
     <>
       <SelectedDifferentialsPanel workflow={workflow} candidates={candidates} />
       <HighestUrgencyPanel workflow={workflow} candidates={candidates} />
       <ReviewPanel workflow={workflow} />
-      <CopyAfterReviewPanel
-        text={comparisonCopy(workflow, selectedCandidates)}
-      />
+      <CopyAfterReviewPanel text={comparisonCopy(workflow, selectedCandidates)} />
       <SourceStatusPanel workflow={workflow} />
     </>
   );
 }
 
-function SourceStatusPanel({
-  workflow,
-}: {
-  workflow: DifferentialPresentationWorkflow;
-}) {
+function SourceStatusPanel({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
   const status = workflow.sourceStatus;
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">
-        Source status
-      </h2>
+      <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Source status</h2>
       <p className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[color:var(--warning)]">
         <CircleHelp className="h-4 w-4" aria-hidden />
         {status.label}
       </p>
-      <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">
-        {status.version}
-      </p>
-      <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-        Last updated: {status.lastUpdated}
-      </p>
+      <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">{status.version}</p>
+      <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">Last updated: {status.lastUpdated}</p>
       <Link
         href="/differentials/diagnoses/delirium"
         className="mt-3 inline-flex min-h-9 items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
@@ -632,20 +512,14 @@ function MobileCandidateCard({
         </span>
         <span className="min-w-0">
           <span className="flex items-center gap-2">
-            <CandidateGlyph
-              record={candidate.record}
-              className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]"
-            />
+            <CandidateGlyph record={candidate.record} className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
             <span className="line-clamp-2 break-words text-base font-extrabold leading-5 text-[color:var(--text-heading)]">
               {candidate.record.title}
             </span>
           </span>
         </span>
         <EmergencyBadge status={candidate.record.status} />
-        <ChevronDown
-          className="h-4 w-4 text-[color:var(--text-muted)] transition group-open:rotate-180"
-          aria-hidden
-        />
+        <ChevronDown className="h-4 w-4 text-[color:var(--text-muted)] transition group-open:rotate-180" aria-hidden />
       </summary>
       <div className="border-t border-[color:var(--border)] px-3 pb-2">
         <div className="border-b border-[color:var(--border)] py-2">
@@ -665,23 +539,16 @@ function MobileCandidateCard({
               className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] py-3 last:border-b-0"
             >
               <span
-                className={cn(
-                  "grid h-6 w-6 place-items-center rounded-full border",
-                  criterionTone[criterion.tone],
-                )}
+                className={cn("grid h-6 w-6 place-items-center rounded-full border", criterionTone[criterion.tone])}
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden />
               </span>
               <div className="min-w-0">
-                <h3 className="text-sm-minus font-extrabold text-[color:var(--text-heading)]">
-                  {criterion.title}
-                </h3>
+                <h3 className="text-sm-minus font-extrabold text-[color:var(--text-heading)]">{criterion.title}</h3>
                 <p className="mt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
                   <ComparisonCellContent
                     criterionId={criterion.id}
-                    value={
-                      candidate.comparison[criterion.id] ?? "Review locally."
-                    }
+                    value={candidate.comparison[criterion.id] ?? "Review locally."}
                   />
                 </p>
               </div>
@@ -704,21 +571,13 @@ function MobileComparison({
 }) {
   const selected = candidates.filter((candidate) => candidate.selected);
   return (
-    <section
-      className="grid gap-3 md:hidden"
-      aria-label="Mobile differential comparison"
-    >
+    <section className="grid gap-3 md:hidden" aria-label="Mobile differential comparison">
       <div className="flex min-h-tap items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
         <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text-muted)]">
-          <BrainCircuit
-            className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]"
-            aria-hidden
-          />
+          <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
           <span>
-            <strong className="font-extrabold text-[color:var(--text-heading)]">
-              {workflow.selectedCount}
-            </strong>{" "}
-            of {workflow.totalCount} compared
+            <strong className="font-extrabold text-[color:var(--text-heading)]">{workflow.selectedCount}</strong> of{" "}
+            {workflow.totalCount} compared
           </span>
         </span>
         <Link
@@ -733,12 +592,7 @@ function MobileComparison({
       <SafetySnapshot workflow={workflow} />
       <div className="grid gap-3">
         {selected.map((candidate, index) => (
-          <MobileCandidateCard
-            key={candidate.record.slug}
-            workflow={workflow}
-            candidate={candidate}
-            index={index}
-          />
+          <MobileCandidateCard key={candidate.record.slug} workflow={workflow} candidate={candidate} index={index} />
         ))}
       </div>
       <PhoneFooterLayerPortal>
@@ -778,12 +632,8 @@ export function DifferentialPresentationWorkflowPage({
   workflow?: DifferentialPresentationWorkflow;
 }) {
   const baseWorkflow =
-    workflowOverride ??
-    getPresentationWorkflow(presentationSlug) ??
-    acuteConfusionPresentationWorkflow;
-  const requestedIds = new Set(
-    selectedIds.map((id) => id.trim().toLowerCase()).filter(Boolean),
-  );
+    workflowOverride ?? getPresentationWorkflow(presentationSlug) ?? acuteConfusionPresentationWorkflow;
+  const requestedIds = new Set(selectedIds.map((id) => id.trim().toLowerCase()).filter(Boolean));
   // Ad-hoc workflows already encode selection; overlay only applies to catalogue presentations.
   const workflow =
     workflowOverride?.id === AD_HOC_DIFFERENTIAL_COMPARE_ID
@@ -809,12 +659,8 @@ export function DifferentialPresentationWorkflowPage({
   // The presentation catalogue can supply a default comparison even when the
   // incoming URL has no ids. The shared header must receive that resolved
   // selection as well, otherwise its Compare link silently opens an empty queue.
-  if (selectedCandidateIds.length)
-    modeNavigationParams.set("ids", selectedCandidateIds.join(","));
-  const editSelectionHref = differentialCompareSearchHref(
-    query,
-    selectedCandidateIds,
-  );
+  if (selectedCandidateIds.length) modeNavigationParams.set("ids", selectedCandidateIds.join(","));
+  const editSelectionHref = differentialCompareSearchHref(query, selectedCandidateIds);
 
   return (
     <>
@@ -832,10 +678,7 @@ export function DifferentialPresentationWorkflowPage({
             <section className="mb-4">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <GitCompareArrows
-                    className="h-4 w-4 text-[color:var(--clinical-accent)]"
-                    aria-hidden
-                  />
+                  <GitCompareArrows className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
                   <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                     Presentation comparison
                   </p>
@@ -860,25 +703,14 @@ export function DifferentialPresentationWorkflowPage({
             <div className="mb-4 hidden md:block xl:hidden">
               <SafetySnapshot workflow={workflow} />
             </div>
-            <DesktopComparisonTable
-              workflow={workflow}
-              candidates={candidates}
-              editSelectionHref={editSelectionHref}
-            />
-            <MobileComparison
-              workflow={workflow}
-              candidates={candidates}
-              editSelectionHref={editSelectionHref}
-            />
+            <DesktopComparisonTable workflow={workflow} candidates={candidates} editSelectionHref={editSelectionHref} />
+            <MobileComparison workflow={workflow} candidates={candidates} editSelectionHref={editSelectionHref} />
             <div className="mt-4 hidden items-start gap-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:hidden">
               <ReviewPanels workflow={workflow} candidates={candidates} />
             </div>
           </div>
 
-          <aside
-            className="hidden min-w-0 gap-4 xl:grid"
-            aria-label="Differential review sidebar"
-          >
+          <aside className="hidden min-w-0 gap-4 xl:grid" aria-label="Differential review sidebar">
             <SafetySnapshot workflow={workflow} />
             <ReviewPanels workflow={workflow} candidates={candidates} />
           </aside>

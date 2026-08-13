@@ -6,10 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // needs a router here.
 vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 
-import {
-  hasLocalInformationPageNavigation,
-  PageSecondaryNavigation,
-} from "@/components/page-secondary-navigation";
+import { hasLocalInformationPageNavigation, PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 
 describe("PageSecondaryNavigation", () => {
   beforeEach(() => {
@@ -35,12 +32,9 @@ describe("PageSecondaryNavigation", () => {
     "/formulation/avoidance",
     "/dsm/diagnoses/major-depressive-disorder",
     "/dsm/diagnoses/major-depressive-disorder/differentials",
-  ])(
-    "recognises %s as locally controlled information navigation",
-    (pathname) => {
-      expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
-    },
-  );
+  ])("recognises %s as locally controlled information navigation", (pathname) => {
+    expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
+  });
 
   it.each([
     // Search and tool surfaces are mode routes, not records: they keep the mode
@@ -53,12 +47,9 @@ describe("PageSecondaryNavigation", () => {
     "/dsm/search",
     "/dsm/compare",
     "/factsheets/search",
-  ])(
-    "does not treat %s as locally owned information navigation",
-    (pathname) => {
-      expect(hasLocalInformationPageNavigation(pathname)).toBe(false);
-    },
-  );
+  ])("does not treat %s as locally owned information navigation", (pathname) => {
+    expect(hasLocalInformationPageNavigation(pathname)).toBe(false);
+  });
 
   it("draws no shell navigation on a route that owns an InPageNavHeader", async () => {
     // The header these routes mount is page-owned and portals into the phone
@@ -75,23 +66,13 @@ describe("PageSecondaryNavigation", () => {
       </div>,
     );
 
-    await waitFor(() =>
-      expect(screen.queryByTestId("secondary-navigation")).toBeNull(),
-    );
-    expect(
-      screen.queryByRole("navigation", { name: "On this page" }),
-    ).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId("secondary-navigation")).toBeNull());
+    expect(screen.queryByRole("navigation", { name: "On this page" })).toBeNull();
     expect(screen.queryByTestId("mode-nav")).toBeNull();
   });
 
   it("does not add a navigation row to a clean no-query landing page", () => {
-    render(
-      <PageSecondaryNavigation
-        modeId="services"
-        pathname="/services"
-        hasSubmittedSearch={false}
-      />,
-    );
+    render(<PageSecondaryNavigation modeId="services" pathname="/services" hasSubmittedSearch={false} />);
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
   });
 
@@ -102,41 +83,26 @@ describe("PageSecondaryNavigation", () => {
     // the same screen, so it was deleted rather than ported to the header bar —
     // there was no second destination to port it to. Neither surface may appear
     // now, and hasSubmittedSearch must not resurrect one.
-    render(
-      <PageSecondaryNavigation
-        modeId="answer"
-        pathname="/"
-        hasSubmittedSearch
-      />,
-    );
+    render(<PageSecondaryNavigation modeId="answer" pathname="/" hasSubmittedSearch />);
     expect(screen.queryByRole("button", { name: "Ask" })).toBeNull();
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
     expect(screen.queryByTestId("mode-nav")).toBeNull();
   });
 
   it("gives an adopted mode the shared header bar on its workflow routes", () => {
-    render(
-      <PageSecondaryNavigation
-        modeId="specifiers"
-        pathname="/specifiers/compare"
-        hasSubmittedSearch={false}
-      />,
-    );
+    render(<PageSecondaryNavigation modeId="specifiers" pathname="/specifiers/compare" hasSubmittedSearch={false} />);
     const bar = screen.getByTestId("mode-nav");
     expect(bar).toHaveAttribute("aria-label", "Specifiers pages");
-    expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(screen.getByRole("link", { name: "Build" })).toHaveAttribute(
-      "href",
-      "/specifiers/builder",
-    );
+    expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Build" })).toHaveAttribute("href", "/specifiers/builder");
     // Registry order is load-bearing: only the first two slots survive the
     // narrowest band, so Find and Build must be the ones that stay.
-    expect(
-      [...bar.querySelectorAll("li a")].map((link) => link.textContent),
-    ).toEqual(["Find", "Build", "Compare", "Map"]);
+    expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual([
+      "Find",
+      "Build",
+      "Compare",
+      "Map",
+    ]);
   });
 
   it("leaves presentation comparison navigation to the resolved page workflow", () => {
@@ -162,13 +128,8 @@ describe("PageSecondaryNavigation", () => {
     );
     const bar = screen.getByTestId("mode-nav");
     expect(bar).toHaveAttribute("aria-label", "Factsheets pages");
-    expect(
-      [...bar.querySelectorAll("li a")].map((link) => link.textContent),
-    ).toEqual(["Topics", "Search"]);
-    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual(["Topics", "Search"]);
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
     // Search is the tab you are already on. Its own link must not reset the
     // category filter you are reading, nor drop `run` — that flips
     // hasSubmittedModeSearch and re-places the composer for a no-op click.
@@ -179,10 +140,7 @@ describe("PageSecondaryNavigation", () => {
     // Topics is the browse home: it reads neither param, and carries no
     // focus=1 either — autofocusing the composer there would open the phone
     // keyboard over the topics the user just asked to browse.
-    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute(
-      "href",
-      "/factsheets",
-    );
+    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("href", "/factsheets");
   });
 
   it("keeps the newly adopted factsheets bar off its record routes", () => {
@@ -191,31 +149,17 @@ describe("PageSecondaryNavigation", () => {
     // protection expired the moment factsheets got a second one. What keeps the
     // record route clear now is only the hasLocalInformationPageNavigation
     // early return, so pin it at render rather than trusting the count.
-    expect(hasLocalInformationPageNavigation("/factsheets/sertraline")).toBe(
-      true,
-    );
-    render(
-      <PageSecondaryNavigation
-        modeId="factsheets"
-        pathname="/factsheets/sertraline"
-        hasSubmittedSearch
-      />,
-    );
+    expect(hasLocalInformationPageNavigation("/factsheets/sertraline")).toBe(true);
+    render(<PageSecondaryNavigation modeId="factsheets" pathname="/factsheets/sertraline" hasSubmittedSearch />);
     expect(screen.queryByTestId("mode-nav")).toBeNull();
     expect(screen.queryByTestId("secondary-navigation")).toBeNull();
   });
 
   it("leaves locally controlled information and Therapy workflow navigation to their page owners", async () => {
     const { rerender } = render(
-      <PageSecondaryNavigation
-        modeId="prescribing"
-        pathname="/medications/sertraline"
-        hasSubmittedSearch
-      />,
+      <PageSecondaryNavigation modeId="prescribing" pathname="/medications/sertraline" hasSubmittedSearch />,
     );
-    await waitFor(() =>
-      expect(screen.queryByTestId("secondary-navigation")).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByTestId("secondary-navigation")).toBeNull());
 
     rerender(
       <PageSecondaryNavigation
