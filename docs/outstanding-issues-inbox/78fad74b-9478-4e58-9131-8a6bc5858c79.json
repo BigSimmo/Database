@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "78fad74b-9478-4e58-9131-8a6bc5858c79",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#118",
+    "detail": "Still valid: lighthouse-budget.json remains enforce false and the only baseline-refresh run is 30548662649 from 2026-07-30 at SHA 102bb1f5, not current main or this performance change. The 2026-08-13 Windows run built successfully but failed closed with Chrome temp-profile EPERM and only 3/10 measured cells, so it is not baseline evidence. Next: with explicit CI-dispatch approval, run CI workflow_dispatch with refresh_lighthouse_baseline=true on current main; download the lighthouse-baseline-refresh artifact, review all ten cells and one pinned browser version, commit the runner-generated baseline, fix or explicitly disposition actual breaches, then set enforce true and remove the advisory continue-on-error behavior. Use the equivalent CI-uploaded artifact for visual baselines. Stop: never commit developer-machine baselines, enable enforcement on incomplete evidence, or let a workflow rewrite and commit its own gate.",
+    "source": "session 2026-08-13 CI and Lighthouse revalidation; workflow run 30548662649"
+  }
+}

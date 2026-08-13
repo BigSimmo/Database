@@ -340,9 +340,10 @@ Three gates added for the "mature repo" verification pass. Full usage is in
   bump ever lands an unnoticed LCP regression despite that, teach the classifier to read the lockfile
   diff — do not put the whole lockfile back into perf scope.
 - **Verification debt remaining.** (1) No pixel baselines are committed, so `visual-baseline` reports
-  rather than gates until an operator adopts them from the CI artifact. (2) A Lighthouse baseline is
-  committed, but `enforce` stays `false` until #147 (`/dsm` mobile CLS 0.363) and #117 are resolved —
-  enforcing today would ratify those breaches.
+  rather than gates until an operator adopts them from the CI artifact. (2) The Lighthouse budget was
+  promoted to an enforced `pr-required` dependency on 2026-08-13 after two complete pinned-Chromium
+  baselines stayed within tolerance and #147's CLS breach was resolved. This relative local-production
+  guard does not close #117's separate deployed-origin LCP work.
   (3) 37 of the 38 unlayered visual classes carry exemptions rather than effect contracts — the debt
   is enumerated in `STYLE_CONTRACT_EXEMPTIONS`, and ledger #094 stays open until the load-bearing
   ones have contracts. (4) `scripts/run-lighthouse-budget.mjs` duplicates roughly 50 lines of the

@@ -13,6 +13,7 @@ export type RegistryRecordsState = {
   status: RegistryRequestStatus;
   records: ServiceRecord[];
   total: number;
+  verifiedCount: number;
   demoMode: boolean;
   /** Authoritative validation status per slug from the API, so callers count
    *  reviewed records from governance rather than the copied fixture JSON. */
@@ -49,75 +50,84 @@ const recordLoading: RegistryRecordState = {
   demoMode: false,
   governance: null,
 };
-type RegistryRecordsKeyedState = RegistryRecordsState & { kind: RegistryRecordKind };
+export type RegistryListView = "full" | "search" | "summary";
+type RegistryRecordsKeyedState = RegistryRecordsState & { kind: RegistryRecordKind; view: RegistryListView };
 
 function recordsState(
   status: RegistryRequestStatus,
   kind: RegistryRecordKind,
+  view: RegistryListView,
   extra: Partial<RegistryRecordsState> = {},
 ): RegistryRecordsKeyedState {
-  return { status, records: [], total: 0, demoMode: false, governance: {}, kind, ...extra };
+  return { status, records: [], total: 0, verifiedCount: 0, demoMode: false, governance: {}, kind, view, ...extra };
 }
 
 /** Count records whose authoritative validation status is reviewed/approved. */
 export function countVerifiedRegistryRecords(state: RegistryRecordsState) {
-  return state.records.filter((record) => {
-    const status = state.governance[record.slug];
-    return status === "locally_reviewed" || status === "approved";
-  }).length;
+  return state.verifiedCount;
 }
 
-/** Owner-scoped registry list (Services/Forms home and search surfaces). The
- *  API serves mock fixtures in demo mode, so callers never branch on demo
- *  themselves. Pass enabled:false to skip fetching until the mode is active. */
+/** Owner-scoped registry list (Services/Forms home and search surfaces). Choose
+ *  summary for counts-only homes, search for compact identity matching, and
+ *  full for result rendering. Pass enabled:false until the mode is active. */
 export function useRegistryRecords(
   kind: RegistryRecordKind,
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; view?: RegistryListView } = {},
 ): RegistryRecordsResult {
   const enabled = options.enabled ?? true;
+  const view = options.view ?? "full";
   const { authorizationHeader, markSessionExpired, session, status: authStatus } = useAuthSession();
   const authIdentity = authSessionFingerprint(authStatus, session?.user.id);
-  const [state, setState] = useState<RegistryRecordsKeyedState>(recordsState("loading", kind));
+  const [state, setState] = useState<RegistryRecordsKeyedState>(recordsState("loading", kind, view));
   const [attempt, setAttempt] = useState(0);
-  const [lastRequestIdentity, setLastRequestIdentity] = useState({ authIdentity, authorizationHeader, enabled, kind });
+  const [lastRequestIdentity, setLastRequestIdentity] = useState({
+    authIdentity,
+    authorizationHeader,
+    enabled,
+    kind,
+    view,
+  });
   const [requestLifecycle] = useState(() => createAuthRequestLifecycle());
 
-  const resourceChanged = lastRequestIdentity.kind !== kind || lastRequestIdentity.enabled !== enabled;
+  const resourceChanged =
+    lastRequestIdentity.kind !== kind || lastRequestIdentity.enabled !== enabled || lastRequestIdentity.view !== view;
   const identityChanged = lastRequestIdentity.authIdentity !== authIdentity;
   const credentialChanged = lastRequestIdentity.authorizationHeader !== authorizationHeader;
   if (resourceChanged || identityChanged || credentialChanged) {
-    setLastRequestIdentity({ authIdentity, authorizationHeader, enabled, kind });
+    setLastRequestIdentity({ authIdentity, authorizationHeader, enabled, kind, view });
     setState((current) => {
       if (
         !resourceChanged &&
         !identityChanged &&
         credentialChanged &&
         current.kind === kind &&
+        current.view === view &&
         (current.status === "ready" || current.status === "refetching")
       ) {
         return { ...current, status: "refetching" };
       }
-      return recordsState("loading", kind);
+      return recordsState("loading", kind, view);
     });
   }
-  const visibleState: RegistryRecordsState = state.kind === kind ? state : recordsState("loading", kind);
+  const visibleState: RegistryRecordsState =
+    state.kind === kind && state.view === view ? state : recordsState("loading", kind, view);
 
   // Abort prior-identity work during commit, before paint and before passive
   // effects can start the replacement request.
   useLayoutEffect(() => {
     requestLifecycle.invalidate();
-  }, [authIdentity, authorizationHeader, enabled, kind, requestLifecycle]);
+  }, [authIdentity, authorizationHeader, enabled, kind, view, requestLifecycle]);
 
   // A same-identity refresh keeps already-authorized rows visible. Resource or
   // identity changes clear synchronously above, before another owner can paint.
   const refetch = useCallback(() => {
     setState((current) =>
-      current.kind === kind && (current.status === "ready" || current.status === "refetching")
+      current.kind === kind && current.view === view && (current.status === "ready" || current.status === "refetching")
         ? { ...current, status: "refetching" }
-        : recordsState("loading", kind),
+        : recordsState("loading", kind, view),
     );
     setAttempt((value) => value + 1);
-  }, [kind]);
+  }, [kind, view]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -125,7 +135,10 @@ export function useRegistryRecords(
     const controller = new AbortController();
     const registration = requestLifecycle.register(controller);
     const isCurrentRequest = () => active && requestLifecycle.isCurrent(registration.epoch);
-    fetch(`/api/registry/records?kind=${kind}`, { headers: authorizationHeader, signal: controller.signal })
+    fetch(`/api/registry/records?kind=${kind}&view=${view}`, {
+      headers: authorizationHeader,
+      signal: controller.signal,
+    })
       .then(async (response) => {
         if (!isCurrentRequest()) return;
         if (response.status === 401) {
@@ -136,19 +149,20 @@ export function useRegistryRecords(
           if (authStatus === "loading") return;
           if (authStatus === "authenticated") {
             markSessionExpired();
-            setState(recordsState("unauthorized", kind));
+            setState(recordsState("unauthorized", kind, view));
             return;
           }
-          setState(recordsState("error", kind));
+          setState(recordsState("error", kind, view));
           return;
         }
         if (!response.ok) {
-          setState(recordsState("error", kind));
+          setState(recordsState("error", kind, view));
           return;
         }
         const payload = (await response.json()) as {
           records?: ServiceRecord[];
           total?: number;
+          verifiedCount?: number;
           demoMode?: boolean;
           governance?: Record<string, { validationStatus?: RegistryValidationStatus }>;
         };
@@ -158,23 +172,27 @@ export function useRegistryRecords(
           if (entry?.validationStatus) governance[slug] = entry.validationStatus;
         }
         setState(
-          recordsState("ready", kind, {
+          recordsState("ready", kind, view, {
             records: payload.records ?? [],
             total: payload.total ?? payload.records?.length ?? 0,
+            verifiedCount:
+              payload.verifiedCount ??
+              Object.values(governance).filter((status) => status === "locally_reviewed" || status === "approved")
+                .length,
             demoMode: Boolean(payload.demoMode),
             governance,
           }),
         );
       })
       .catch(() => {
-        if (isCurrentRequest()) setState(recordsState("error", kind));
+        if (isCurrentRequest()) setState(recordsState("error", kind, view));
       });
     return () => {
       active = false;
       controller.abort();
       registration.release();
     };
-  }, [enabled, kind, authStatus, authorizationHeader, markSessionExpired, attempt, requestLifecycle]);
+  }, [enabled, kind, view, authStatus, authorizationHeader, markSessionExpired, attempt, requestLifecycle]);
 
   return { ...visibleState, refetch };
 }
