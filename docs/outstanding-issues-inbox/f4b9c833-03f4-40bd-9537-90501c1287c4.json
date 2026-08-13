@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "f4b9c833-03f4-40bd-9537-90501c1287c4",
+  "createdOn": "2026-08-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "67f9ce93-caf5-4cd4-89e1-742e61ce882a",
+    "reason": "Superseded by exact deployed-SHA live measurements and the shared CSS/font remediation."
+  }
+}
