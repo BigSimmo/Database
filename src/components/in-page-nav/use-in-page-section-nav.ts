@@ -46,7 +46,9 @@ export function useInPageSectionNav(declared: readonly PageSection[]): {
       // target's next-frame scroll, briefly restoring the old section. Reassert
       // the explicit selection after the jump callback; the following scroll
       // observation then owns any later manual movement.
-      window.requestAnimationFrame(() => markActive(id));
+      window.requestAnimationFrame(() => {
+        if (window.location.hash === `#${fragmentId}`) markActive(id);
+      });
     },
     [markActive, sections],
   );
