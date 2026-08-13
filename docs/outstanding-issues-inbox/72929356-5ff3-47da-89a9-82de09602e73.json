@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "72929356-5ff3-47da-89a9-82de09602e73",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#267",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** Blocked on a provenance/dose payload the answer surface does not emit, which is backend work nobody has scoped. Cannot start. VERIFIED CORRECT 2026-08-12 — re-checked against merged main during the full ledger sweep and left unchanged: Neither AnswerFooter nor DoseLine has a product importer; the provenance/dose payload the answer surface would need still does not exist. This stamp exists so a later reader can tell \"checked and still true\" from \"never looked at\"; the two were indistinguishable before. Backend-shaped work, not a component swap: the two components cannot be adopted until the answer surface emits the provenance and dose data they render. Do not stub one to make the adoption count look better. Sequence after the payload exists, then adopt via the Track B1 demand-driven route."
+  }
+}

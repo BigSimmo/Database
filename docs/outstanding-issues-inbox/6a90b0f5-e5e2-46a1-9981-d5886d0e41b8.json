@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "6a90b0f5-e5e2-46a1-9981-d5886d0e41b8",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#236",
+    "outcome": "Merged into #169 (machine-local work at risk). Its specifics are carried there: claude/ds-v2-builder-a and -b need a content check against origin/main before deletion because squash merge means they are not ancestors, and the dev servers on ports 3258, 3135 and 3672 need stopping."
+  }
+}
