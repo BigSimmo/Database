@@ -3,10 +3,10 @@
   "generatedFrom": "data/medications-snapshot.json",
   "sourceRowCount": 523,
   "stats": {
-    "resolvedRows": 355,
-    "unresolvedRows": 168,
-    "rowsWithCatalogueTarget": 417,
-    "medicationsWithUnresolvedRows": 149
+    "resolvedRows": 358,
+    "unresolvedRows": 165,
+    "rowsWithCatalogueTarget": 420,
+    "medicationsWithUnresolvedRows": 146
   },
   "names": {
     "acamprosate": "Acamprosate",
@@ -1373,13 +1373,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 2,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["lithium-carbonate-ir-sr"],
+          "termIds": ["lithium"],
+          "resolved": true,
           "note": "HIGH — Lithium (massively raises lithium levels)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "ibuprofen": {
       "rows": [
@@ -1537,8 +1537,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 2,
           "severity": "high",
-          "counterparties": ["methotrexate"],
-          "termIds": [],
+          "counterparties": ["lithium-carbonate-ir-sr", "methotrexate"],
+          "termIds": ["lithium"],
           "resolved": true,
           "note": "HIGH — Lithium and Methotrexate (Reduces their renal clearance, causing toxic spikes)."
         }
@@ -1596,8 +1596,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 2,
           "severity": "high",
-          "counterparties": ["methotrexate"],
-          "termIds": [],
+          "counterparties": ["lithium-carbonate-ir-sr", "methotrexate"],
+          "termIds": ["lithium"],
           "resolved": true,
           "note": "HIGH — Lithium and Methotrexate (Naproxen heavily blocks their renal clearance, causing toxic spikes)."
         }
@@ -2328,8 +2328,8 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["digoxin"],
-          "termIds": [],
+          "counterparties": ["digoxin", "lithium-carbonate-ir-sr"],
+          "termIds": ["lithium"],
           "resolved": true,
           "note": "HIGH — Enhances lithium toxicity. Increases risk of digoxin toxicity via hypokalemia."
         }
@@ -2342,8 +2342,8 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": ["indapamide"],
-          "termIds": ["thiazide-diuretics"],
+          "counterparties": ["indapamide", "lithium-carbonate-ir-sr"],
+          "termIds": ["lithium", "thiazide-diuretics"],
           "resolved": true,
           "note": "HIGH — Lithium (thiazides reduce lithium clearance by 25-40%, causing severe toxicity)."
         },
@@ -2374,9 +2374,9 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["lithium-carbonate-ir-sr"],
+          "termIds": ["lithium"],
+          "resolved": true,
           "note": "HIGH — Lithium (decreases clearance, high toxicity risk)."
         },
         {
@@ -2389,7 +2389,7 @@
           "note": "CRITICAL — NSAIDs + ACEi + Indapamide."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "spironolactone": {
       "rows": [
@@ -4156,8 +4156,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": ["digoxin"],
-          "termIds": [],
+          "counterparties": ["digoxin", "lithium-carbonate-ir-sr"],
+          "termIds": ["lithium"],
           "resolved": true,
           "note": "HIGH — Physically binds and traps other oral medications in the gut gel. Must separate Psyllium from ALL other drugs (especially Digoxin/Lithium) by at least 2 hours."
         }
@@ -8299,7 +8299,7 @@
             "naproxen",
             "perindopril"
           ],
-          "termIds": ["acei", "arbs", "nsaids", "thiazide-diuretics"],
+          "termIds": ["acei", "arbs", "lithium", "nsaids", "thiazide-diuretics"],
           "resolved": true,
           "note": "CRITICAL — NSAIDs, ACEi/ARBs, and Thiazide Diuretics. All three of these completely destroy the kidney's ability to excrete Lithium, doubling blood levels and causing lethal toxicity. DO NOT prescribe Ibuprofen, Perindopril, or HCTZ to a Lithium patient."
         }
@@ -9309,13 +9309,13 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["lithium-carbonate-ir-sr"],
+          "termIds": ["lithium"],
+          "resolved": true,
           "note": "HIGH — Lithium (Additive hypothyroid effect)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "iron": {
       "rows": [

@@ -61,7 +61,7 @@ corpus, not by a clinician, and has never been reviewed. `docs/medication-intera
 drugs it actually resolves to and carries a sign-off block; it is **UNREVIEWED**
 until that block is filled in.
 
-That report has already paid for itself twice:
+That report has already paid for itself three times:
 
 1. It exposed `ARB` matching _C-**arb**-apenem_, which had put ertapenem and
    meropenem in the angiotensin-receptor-blocker class across 16 CRITICAL/HIGH
@@ -74,20 +74,37 @@ That report has already paid for itself twice:
    distinguishes the two. This one is a **catalogue data defect, not a lexicon
    fault**, so it is reported rather than silently patched: merging or
    de-duplicating the records is a clinical content decision. It needs an owner.
+3. Its coverage section — which lists the medications no interaction row names —
+   exposed **lithium as unreachable**. The catalogue record is
+   "Lithium carbonate (IR/SR)"; drug-name matching derives its surfaces from the
+   record name and does not strip a parenthesised suffix, so nothing ever
+   matched the bare "Lithium" that all eight referring rows write. Lithium plus
+   an NSAID, and lithium plus a thiazide, are textbook toxicity interactions and
+   the tool was silent on both. Fixed with an explicit name alias in the lexicon
+   and pinned end-to-end through the evaluator.
 
-Neither was found by review of the code; both fell out of rendering the mappings
-in a form a human could read. That is a fair indication of what an hour of
-clinical reading would still turn up.
+None of the three was found by reviewing the code; all three fell out of
+rendering the mappings in a form a human could read. That is a fair indication of
+what an hour of clinical reading would still turn up.
+
+**The coverage section is the honest boundary of the feature and the reviewer
+should read it first.** 127 of the catalogue's 328 medications are named by no
+interaction row at all, so entering one produces silence — which on screen is
+indistinguishable from "checked, nothing found". Most of that is genuine corpus
+coverage (antibiotics, antidiabetics, aperients, vitamins) and can only be
+widened by writing interaction rows, not by editing the lexicon. Lithium was the
+exception: content that existed and could not be reached. Whether any others are
+of that kind is a question for the clinical review.
 
 Residual risk the reviewer should weigh: the lexicon is hand-curated, so a missed
 term is a false negative. It is fail-safe by construction (unresolved → grey, not
-green) but the resolution rate is not 100% — currently **355 of 523** interaction
-rows are fully read, leaving 149 of the catalogue's medications holding at grey
+green) but the resolution rate is not 100% — currently **358 of 523** interaction
+rows are fully read, leaving 146 of the catalogue's medications holding at grey
 rather than ever showing green. `tests/medication-interaction-lexicon-coverage.test.ts`
-ratchets both that figure and the underlying drug-match count (417 rows) so
+ratchets both that figure and the underlying drug-match count (420 rows) so
 neither can silently regress.
 
-Read the 355 carefully, because it went **down** from 400 deliberately. A row
+Read the 358 carefully, because it went **down** from 400 before it came back up. A row
 naming an unenumerable mechanism ("CYP3A4 inhibitors (Clarithromycin,
 Ketoconazole)") used to count as resolved once any one named drug matched,
 which implied the whole mechanism class had been checked. It is now unresolved,

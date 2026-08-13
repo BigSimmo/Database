@@ -64,8 +64,8 @@ describe("interaction lexicon coverage", () => {
     // recorded here and in the PR. Track raw drug-matching separately, which
     // rose 381 → 417 over the same period and is the number that must never
     // fall without explanation.
-    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(355);
-    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(417);
+    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(358);
+    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(420);
     expect(index.sourceRowCount).toBeGreaterThanOrEqual(523);
   });
 
@@ -160,6 +160,36 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
       }
     }
     expect(accidental).toEqual([]);
+  });
+
+  it("reaches lithium from the rows that name it", () => {
+    // The catalogue record is "Lithium carbonate (IR/SR)", so the name-derived
+    // surfaces never included the bare word every row actually uses. Lithium was
+    // named in eight HIGH rows and reachable from none — the worst silence in a
+    // psychiatry catalogue. Pinned by counterparty, not by resolved-row count,
+    // because a count can be met by unrelated coverage elsewhere.
+    const lithium = "lithium-carbonate-ir-sr";
+    const reachedFrom = Object.entries(index.bySlug)
+      .filter(([, entry]) => entry.rows.some((row) => row.counterparties.includes(lithium)))
+      .map(([slug]) => slug);
+    for (const slug of ["diclofenac", "meloxicam", "naproxen", "frusemide", "hydrochlorothiazide", "indapamide"]) {
+      expect(reachedFrom, `${slug} should reach lithium`).toContain(slug);
+    }
+    expect(slugsFor("lithium")).toEqual([lithium]);
+  });
+
+  it("has no lexicon term that can never fire", () => {
+    // `z-drugs` was exactly this: a term whose phrasing appears nowhere in the
+    // corpus, implying coverage the tool did not have. A dead term is not
+    // dangerous on its own, but it makes the review sheet claim a class was
+    // considered when nothing can ever match it.
+    const fired = new Set(
+      Object.values(index.bySlug)
+        .flatMap((entry) => entry.rows)
+        .flatMap((row) => row.termIds),
+    );
+    const dead = INTERACTION_LEXICON.filter((item) => !fired.has(item.id)).map((item) => item.id);
+    expect(dead).toEqual([]);
   });
 
   it("keeps the divergent duplicate Warfarin records visible", () => {

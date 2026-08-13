@@ -38,6 +38,22 @@ describe("evaluateMedicationInteractions", () => {
     expect(result.highestTone).toBe("danger");
   });
 
+  it("warns on lithium plus an NSAID or a thiazide", () => {
+    // Both are textbook lithium-toxicity interactions and both were silent: the
+    // catalogue record is "Lithium carbonate (IR/SR)", so no name-derived
+    // surface matched the bare "Lithium" every row writes. End-to-end through
+    // the evaluator, not just the index, because the index can carry a
+    // counterparty the evaluator never surfaces.
+    for (const drug of ["ibuprofen", "hydrochlorothiazide", "indapamide", "frusemide"]) {
+      const result = evaluateMedicationInteractions(drug, ["lithium-carbonate-ir-sr"]);
+      expect(
+        result.interactions.some((item) => item.counterpartySlug === "lithium-carbonate-ir-sr"),
+        `${drug} + lithium should warn`,
+      ).toBe(true);
+      expect(result.highestTone).toBe("danger");
+    }
+  });
+
   it("gives a reverse-only match its wording, not just a name and a severity", () => {
     // Buprenorphine/naloxone's own rows never name naltrexone; naltrexone's row
     // names it. The caller holds only the viewed drug's record, so this text can

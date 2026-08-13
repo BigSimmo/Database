@@ -36,7 +36,7 @@ const OUTPUT_PATH = "docs/medication-interaction-lexicon-review.md";
 const WIDE_EXPANSION = 25;
 
 type IndexShape = {
-  bySlug: Record<string, { rows: { termIds: string[]; severity: string }[] }>;
+  bySlug: Record<string, { rows: { termIds: string[]; severity: string; counterparties?: string[] }[] }>;
 };
 
 function escapePipes(value: string): string {
@@ -179,10 +179,14 @@ async function main(): Promise<void> {
   }
   lines.push("");
 
+  lines.push(...coverageSection(records, index));
+
   lines.push("## Flagged for a closer look");
   lines.push("");
+  const missed = missedClassMembers(catalogueTerms, expansions, records);
   const flags = [
     ...substringTraps(catalogueTerms, records),
+    ...missed,
     ...duplicateCatalogueNames(slugsByName, expansions, records),
     ...collectFlags(catalogueTerms, expansions, usage),
   ];
@@ -190,6 +194,23 @@ async function main(): Promise<void> {
     lines.push("_Nothing flagged._");
   } else {
     for (const flag of flags) lines.push(`- ${flag}`);
+  }
+  lines.push("");
+  // State what ran clean as well as what fired. A reviewer who cannot tell the
+  // difference between "checked, nothing found" and "never checked" has to redo
+  // the check by hand, which is most of the work this sheet exists to save.
+  lines.push("Checks that ran and found nothing:");
+  lines.push("");
+  lines.push(
+    "- **Accidental substring matches** — no class token matches a subclass only as a fragment of a longer" +
+      " word. (This is the check that caught `ARB` inside _Carbapenem_.)",
+  );
+  if (missed.length === 0) {
+    lines.push(
+      "- **Missed class members** — no catalogue drug whose own class or subclass names a term's phrase was" +
+        " left out of that term. Where a class resolves to a single drug, that is the catalogue holding one" +
+        " such drug, not a narrow selector.",
+    );
   }
   lines.push("");
 
@@ -353,11 +374,23 @@ function collectFlags(
     const stat = usage.get(term.id) ?? { rows: 0, severe: 0 };
     if (slugs.length === 0) {
       flags.push(`\`${term.id}\` resolves to **no drug at all** — it can never fire.`);
-    } else if (slugs.length === 1) {
-      flags.push(`\`${term.id}\` resolves to a single drug; check the class is not wider than the catalogue.`);
-    } else if (slugs.length >= WIDE_EXPANSION) {
-      flags.push(`\`${term.id}\` resolves to **${slugs.length} drugs** — broad enough to be worth re-reading.`);
+    } else if (slugs.length >= WIDE_EXPANSION && substringDriven(term)) {
+      // Scoped to substring selectors on purpose. A raw count is a bad signal
+      // for a hand-written `classes` list: `antipsychotics` legitimately covers
+      // 26 drugs in a psychiatry catalogue, and flagging it spent a reviewer's
+      // attention on a non-issue while the real finding sat below it. A
+      // substring selector is the one that can widen without anyone deciding
+      // it should, so that is where a size ceiling earns its place. Every
+      // catalogue term above 14 drugs today is an explicit `classes` list.
+      flags.push(
+        `\`${term.id}\` resolves to **${slugs.length} drugs** from a substring selector — wide enough to check` +
+          ` the match is deliberate.`,
+      );
     }
+    // No single-drug flag. It fired on `acei`, `arbs` and `loop-diuretics`,
+    // and all three were the catalogue holding exactly one such drug rather
+    // than a narrow selector. `missedClassMembers` answers that question with
+    // evidence instead of raising it as a suspicion.
     if (stat.severe > 0 && slugs.length === 0) {
       flags.push(`\`${term.id}\` appears in ${stat.severe} CRITICAL/HIGH rows but resolves to nothing.`);
     }
@@ -366,6 +399,97 @@ function collectFlags(
     }
   }
   return flags;
+}
+
+function substringDriven(term: LexiconTerm): boolean {
+  return (term.select?.subclassIncludes ?? []).length > 0;
+}
+
+/**
+ * Catalogue drugs a term should plausibly cover but does not.
+ *
+ * The mirror of `substringTraps`. That check finds drugs swept in by accident;
+ * this one finds drugs left out — the direction that produces a MISSED alert,
+ * which is the dangerous one. A record counts as missed when its own class or
+ * subclass names one of the term's phrases and the term did not select it and
+ * did not deliberately deny it.
+ *
+ * A clean run is worth as much as a hit here: it is what turns "`arbs` resolves
+ * to one drug — is the selector too narrow?" into "the catalogue holds one ARB".
+ */
+function missedClassMembers(
+  terms: readonly LexiconTerm[],
+  expansions: Map<string, string[]>,
+  records: readonly MedicationRecord[],
+): string[] {
+  const flags: string[] = [];
+  for (const term of terms) {
+    const selected = new Set(expansions.get(term.id) ?? []);
+    const denied = new Set(term.select?.denySlugs ?? []);
+    const missed: string[] = [];
+    for (const record of records) {
+      if (selected.has(record.slug) || denied.has(record.slug)) continue;
+      const haystack = `${record.class ?? ""} ${record.subclass ?? ""}`.toLowerCase();
+      const hit = term.surfaces.some((surface) => {
+        // Compare singular stems so "NSAIDs" matches a subclass reading "NSAID".
+        const stem = surface.toLowerCase().replace(/s$/, "");
+        if (stem.length < 4) return false;
+        return new RegExp(`\\b${stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(haystack);
+      });
+      if (hit) missed.push(`${record.name} (${record.subclass ?? record.class})`);
+    }
+    if (missed.length > 0) {
+      flags.push(
+        `\`${term.id}\` does **not** cover ${missed.join(", ")}, whose own catalogue class names the term.` +
+          ` A drug left out of a class is a missed alert, not a false one.`,
+      );
+    }
+  }
+  return flags;
+}
+
+/**
+ * Which catalogue drugs this tool can never warn about.
+ *
+ * The most important number on the sheet and the one hardest to see from the
+ * term table: a drug that appears as nobody's counterparty produces silence
+ * when a clinician enters it, and silence in this UI is indistinguishable from
+ * "checked, nothing found". Rendered as classes rather than 128 drug names,
+ * because the actionable question is which *kinds* of medicine are dark.
+ */
+function coverageSection(records: readonly MedicationRecord[], index: IndexShape): string[] {
+  const reachable = new Set<string>();
+  for (const entry of Object.values(index.bySlug)) {
+    for (const row of entry.rows) for (const slug of row.counterparties ?? []) reachable.add(slug);
+  }
+  const dark = records.filter((record) => !reachable.has(record.slug));
+  const byClass = new Map<string, string[]>();
+  for (const record of dark) {
+    const bucket = byClass.get(record.class ?? "(unclassified)") ?? [];
+    bucket.push(record.name);
+    byClass.set(record.class ?? "(unclassified)", bucket);
+  }
+
+  const lines: string[] = [];
+  lines.push("## What this tool can never warn about");
+  lines.push("");
+  lines.push(
+    `**${dark.length} of the catalogue's ${records.length} medications are never named as a counterparty by any`,
+    `interaction row.** Entering one of them produces no alert — not because the combination was checked and`,
+    "found clear, but because no row in the corpus mentions that drug. On screen those two outcomes look the",
+    "same, so this list is the honest boundary of the feature.",
+  );
+  lines.push("");
+  lines.push("This is a **corpus coverage** limit, not a lexicon fault: no selector can resolve a phrase the");
+  lines.push("catalogue never writes. Widening it means adding interaction rows, not editing the lexicon.");
+  lines.push("");
+  lines.push("| Class | Unreachable | Drugs |");
+  lines.push("| --- | --- | --- |");
+  for (const [className, names] of [...byClass].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))) {
+    lines.push(`| ${escapePipes(className)} | ${names.length} | ${escapePipes(names.sort().join(", "))} |`);
+  }
+  lines.push("");
+  return lines;
 }
 
 main().catch((error) => {
