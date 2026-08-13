@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "75a2729c-b0b0-4144-8d99-2c3014d4bcf1",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#190",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** Structural churn on the most safety-critical and most protected file in the repo, with no user-facing benefit and real behaviour-drift risk on a live-validated clinical answer path. Do the extractions opportunistically when a feature change already requires being inside a region, not as a standalone project. VERIFIED CORRECT 2026-08-12 — re-checked against merged main during the full ledger sweep and left unchanged: src/lib/rag/rag.ts measures 4,362 lines — still the monolith this row describes; the decomposition has not started. This stamp exists so a later reader can tell \"checked and still true\" from \"never looked at\"; the two were indistinguishable before. **Outcome:** `src/lib/rag/rag.ts` is decomposed into focused modules per `docs/maturity-backlog-workorders.md` X3, with existing offline RAG contracts green. **Status:** IN PROGRESS (DocumentViewer/Dashboard extractions done; rag.ts remains). **Next:** continue safe extractions only with the RAG flag before editing protected surfaces; one verified draft PR per unit. **Stop:** no behaviour change without canary when retrieval/answer paths move."
+  }
+}

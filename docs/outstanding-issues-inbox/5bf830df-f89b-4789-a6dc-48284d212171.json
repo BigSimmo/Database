@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "5bf830df-f89b-4789-a6dc-48284d212171",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#294",
+    "outcome": "Standing position retired into docs/plans/document-viewer-redesign-plan.md, whose OffscreenCanvas row states the do-not-implement-until-measured condition self-containedly instead of deferring to this ledger id. Verified present on main 2026-08-13."
+  }
+}

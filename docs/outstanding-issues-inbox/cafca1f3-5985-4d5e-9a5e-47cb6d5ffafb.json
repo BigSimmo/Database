@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "cafca1f3-5985-4d5e-9a5e-47cb6d5ffafb",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#033",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** The row's own analysis argues against acting: on a partially-enriched corpus the model would likely over-caveat correct sources, and finding out costs a provider eval. Keep as a finding. `buildRagSourceBlock` omits `document_status`, `clinical_validation_status`, and `extraction_quality`, so the model cannot self-caveat during generation and governance is enforced only post-hoc. Generation-surface change: needs `eval:rag` plus `eval:quality --rag-only` (grounded-supported must not drop, citation-failure 0) and explicit approval. Carries the same \"unknown Γëá bad\" hazard as #032 — on a partially-enriched corpus the model would likely over-caveat correct sources, so design the prompt wording before spending an eval."
+  }
+}
