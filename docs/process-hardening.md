@@ -636,9 +636,9 @@ Machinery added to retire repeated traps and surface live-product signal proacti
 the durable index for the tooling; `docs/operator-backlog.md` tracks the human-only enablement steps.
 
 - **Pre-push guards** (`.githooks/pre-push` → `scripts/guard-push.mjs`, auto-installed by the
-  `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): four guards,
-  each with an explicit override env var — auto-merge race sentinel (`claude/*`, blocks a push when the
-  PR's auto-merge is armed; `ALLOW_AUTOMERGE_PUSH=1`), format-before-push (closes the `verify:cheap` vs
+  `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): five guards.
+  The non-bypassable auto-merge ownership guard blocks a push on every PR branch when the PR's
+  auto-merge is armed. The other guards retain explicit overrides: format-before-push (closes the `verify:cheap` vs
   CI `format:check` gap; it reuses only an exact-lock worktree dependency tree and otherwise blocks
   with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), drift-manifest freshness
   (`SKIP_DRIFT_GUARD=1`), and static gate (changed-file lint + source-only typecheck through the run
