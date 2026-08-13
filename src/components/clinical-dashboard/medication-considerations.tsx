@@ -234,7 +234,7 @@ export function MedicationInteractionCallout({
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <Link
                   href={`/medications/${interaction.counterpartySlug}`}
-                  className="inline-flex items-center gap-1 text-sm-minus font-semibold text-[color:var(--text-heading)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  className="inline-flex min-h-tap items-center gap-1 text-sm-minus font-semibold text-[color:var(--text-heading)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 >
                   {interaction.counterpartyName}
                   <ChevronRight className="size-icon-sm text-[color:var(--decoration-soft)]" aria-hidden="true" />

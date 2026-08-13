@@ -153,6 +153,11 @@ describe("interactionNoteBody", () => {
     );
   });
 
+  it("does not strip unknown uppercase clinical wording before a dash", () => {
+    expect(interactionNoteBody("NSAID-induced renal injury")).toBe("NSAID-induced renal injury");
+    expect(interactionNoteBody("NEVER-combine with MAOIs")).toBe("NEVER-combine with MAOIs");
+  });
+
   it("does not eat an all-caps word that is part of the sentence", () => {
     // No dash, so nothing is a prefix.
     expect(interactionNoteBody("NEVER combine with MAOIs")).toBe("NEVER combine with MAOIs");
