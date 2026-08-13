@@ -138,8 +138,10 @@ function normaliseSeverity(value: string): InteractionSeverity {
 // is the same value already carried in `severity`, so rendering it inside the
 // paragraph both repeats the badge beside it and opens every entry with a
 // shouty all-caps token and a dangling dash — which is what made the block read
-// as unformatted dump rather than prose.
-const SEVERITY_PREFIX = /^\s*[A-Z][A-Z \-/]{2,30}?\s*[—–-]\s*/;
+// as unformatted dump rather than prose. Only recognised severity labels are
+// removable: a broad all-caps pattern can eat clinical acronyms or instructions
+// such as "NSAID-induced" and "NEVER-combine".
+const SEVERITY_PREFIX = new RegExp(`^\\s*(?:${SEVERITY_ORDER.join("|")})\\s*[—–-]\\s*`, "i");
 
 /**
  * The interaction row's text with that redundant severity prefix removed.
