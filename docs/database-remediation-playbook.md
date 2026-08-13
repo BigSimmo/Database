@@ -88,9 +88,11 @@ Definition of done: PR merged; `check:github-actions` and `verify:pr-local` gree
 > supabase/schema.sql changed; keep schedule + workflow_dispatch; keep concurrency
 > cancel-in-progress: false; (3) create docs/audit/live-drift-forensics-2026-08.md with headed
 > empty sections for Phases 1–5 evidence; (4) do NOT touch any Supabase code or call any provider.
-> Run npm run check:github-actions and npm run verify:pr-local, run npm run format and commit it,
-> push, open a PR (no RAG impact line needed — no RAG surface touched), and update the live-drift tracking item via
-> npm run issues:update noting Phase 0 delivered. Do not watch the PR after opening it.
+> Run npm run check:github-actions and npm run verify:pr-local, run npm run format and commit
+> locally. Stop before pushing, opening a PR, dispatching a workflow, or updating the live-drift
+> tracking item with npm run issues:update; those are provider-backed actions and require explicit
+> user confirmation. After confirmation, publish the branch, open the PR (no RAG impact line needed
+> — no RAG surface touched), update the tracking item, and do not watch the PR after opening it.
 
 Note for the operator (not the model): adding `SUPABASE_ACCESS_TOKEN` to environment secrets
 (`#183`) is dashboard work you do yourself; never paste token values into a chat.
