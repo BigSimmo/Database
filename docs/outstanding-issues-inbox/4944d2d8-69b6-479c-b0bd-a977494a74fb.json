@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "4944d2d8-69b6-479c-b0bd-a977494a74fb",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "check:ledger-write-discipline reports a pass when run against an uncommitted working tree",
+    "detail": "Found 2026-08-13 while closing #170/#309. The gate compares a committed range (it reported `Ledger write discipline passed for 2d270392f9cf..HEAD`), so when the ledger edit is still unstaged or uncommitted the range is empty and it prints a pass having evaluated nothing. I edited docs/outstanding-issues.md directly, ran the gate, saw green, and only discovered the violation after committing to a branch and re-running — at which point it correctly failed with \"does not exactly match the audited application of 0 moved inbox request(s) from the base\". The green was real but meaningless, which is the worst kind: it actively told me a forbidden edit was fine. **Outcome:** the gate either refuses to report a verdict when the working tree is dirty for the files it governs, or evaluates the working tree as well as the committed range. **Next:** make check-ledger-write-discipline.mjs detect uncommitted changes to docs/outstanding-issues.md (and the inbox directory) and either fail with an explicit \"commit before checking\" message or include them in the audited diff. Add a self-test covering the dirty-tree case, since the existing self-test passes today. **Related contributing factor worth fixing in the same pass:** `node scripts/outstanding-issues.mjs done ...` and `npm run issues:done` are different tools — the first edits the canonical ledger in place (reconcile-side), the second queues a merge-safe inbox request via scripts/ledger-inbox.mjs (branch-side). Nothing at the call site says so, and the raw script is what AGENTS.md's usage header documents. Consider making scripts/outstanding-issues.mjs refuse to run outside a reconcile context, or print a pointer to issues:done. **Stop:** do not \"fix\" this by relaxing the discipline check — the check itself was right, it just was not asked the right question.",
+    "source": "session 2026-08-13 closing #170/#309; scripts/check-ledger-write-discipline.mjs; scripts/ledger-inbox.mjs vs scripts/outstanding-issues.mjs"
+  }
+}
