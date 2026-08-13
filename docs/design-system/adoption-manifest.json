@@ -1400,6 +1400,7 @@
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/services/services-navigator-page.tsx",
         "src/components/specifiers/specifiers-home-page.tsx"
       ],
       "productImportFiles": [
@@ -1410,6 +1411,7 @@
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/services/services-navigator-page.tsx",
         "src/components/specifiers/specifiers-home-page.tsx"
       ],
       "designSync": {
