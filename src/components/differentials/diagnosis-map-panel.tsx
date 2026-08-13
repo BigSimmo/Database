@@ -643,7 +643,8 @@ function MapGraph({
                 className={cn(
                   sharedClassName,
                   "motion-safe:transition-[box-shadow,transform] hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
-                  isSelected && "outline outline-2 outline-offset-2 outline-[color:var(--focus)] forced-colors:outline-[Highlight]",
+                  isSelected &&
+                    "outline outline-2 outline-offset-2 outline-[color:var(--focus)] forced-colors:outline-[Highlight]",
                 )}
                 style={sharedStyle}
                 title={node.note}
