@@ -15,6 +15,7 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "formulation",
   "therapy-compass",
   "factsheets",
+  "tools",
 ]);
 
 /**
@@ -78,6 +79,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/therapy-compass",
   "/medications",
   "/calculators",
+  "/tools",
 ] as const;
 
 export function isAlwaysStandaloneShellPath(pathname: string): boolean {
