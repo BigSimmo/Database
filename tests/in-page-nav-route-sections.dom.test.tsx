@@ -302,6 +302,13 @@ describe("in-page navigation section contracts", () => {
       "course-onset": 320,
       "severity-remission": 640,
     };
+    const clientRectsSpy = vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return sectionTops[this.id] === undefined
+        ? ([] as unknown as DOMRectList)
+        : ([this.getBoundingClientRect()] as unknown as DOMRectList);
+    });
     const rectSpy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
       this: HTMLElement,
     ) {
