@@ -5,10 +5,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   discoverSkillDefinitions,
+  discoverRepositorySkillFiles,
   loadSkillCatalog,
   renderSkillCatalog,
   skillsRoot,
   validateSkillCatalog,
+  validateRepositorySkillPolicies,
 } from "../scripts/list-database-skills.mjs";
 
 describe("Database skill catalog", () => {
@@ -77,6 +79,20 @@ describe("Database skill catalog", () => {
     expect(rendered).toContain("- skills — List every unique Database-specific skill with a clear explanation");
     expect(rendered).not.toContain("- workflows —");
     for (const category of catalog.categories) expect(rendered).toContain(category.name);
+  });
+
+  it("validates every repository skill surface and shared safety policy", () => {
+    const files = discoverRepositorySkillFiles();
+    const result = validateRepositorySkillPolicies(files);
+
+    expect(result.errors).toEqual([]);
+    expect(files).toHaveLength(66);
+    expect(result.surfaceCounts).toEqual({
+      Codex: 42,
+      Claude: 8,
+      Cursor: 15,
+      "Clinical KB plugin": 1,
+    });
   });
 
   it("keeps prompt-perfector execution authorization and repository isolation fail-closed", () => {
