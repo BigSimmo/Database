@@ -811,6 +811,7 @@ export function validateCodexCloudSetup() {
   const commandShims = read("scripts/install-codex-cloud-command-shims.sh");
   const checkoutBaseRefresh = read("scripts/refresh-codex-cloud-base.sh");
   const rawEnvironmentProbe = read("scripts/check-codex-cloud-raw-env.sh");
+  const githubShellAccess = read("scripts/check-github-shell-access.mjs");
   const patDelete = read("scripts/delete-codex-cloud-branch-with-pat.sh");
   const guide = read("docs/codex-cloud.md");
   const agents = read("AGENTS.md");
@@ -906,6 +907,33 @@ export function validateCodexCloudSetup() {
     errors.push(
       "Cloud lifecycle scripts must not persist setup-only GitHub credentials for the agent phase; use the native connector.",
     );
+  }
+  for (const [pattern, message] of [
+    [/expectedIdentity = "BigSimmo"/, "GitHub shell acceptance must pin the intended identity."],
+    [/repository = "BigSimmo\/Database"/, "GitHub shell acceptance must pin the intended repository."],
+    [
+      /requiredScopes = new Set\(\["repo", "workflow"\]\)/,
+      "GitHub shell acceptance must require write and Actions scopes.",
+    ],
+    [/addPullRequestReviewThreadReply/, "GitHub shell acceptance must verify review-thread reply availability."],
+    [/resolveReviewThread/, "GitHub shell acceptance must verify review-thread resolution availability."],
+    [
+      /"core\.hooksPath=\/dev\/null", "push", "--dry-run"/,
+      "GitHub shell acceptance must isolate its non-mutating push from real-push hooks.",
+    ],
+    [/GH_DRY_RUN_REF_MUTATED/, "GitHub shell acceptance must verify that its dry-run probe ref stays absent."],
+    [/GH_ACTIONS_RERUN_UNAVAILABLE/, "GitHub shell acceptance must verify the failed-job rerun command surface."],
+    [/GH_ACTIONS_LOG_ACCESS_MISSING/, "GitHub shell acceptance must verify bounded Actions log access."],
+    [/GH_ACTIONS_LOG_SAMPLE_MISSING/, "GitHub shell acceptance must reject skipped-job log samples."],
+    [/GH_REVIEW_THREAD_READ_MISSING/, "GitHub shell acceptance must verify repository review-thread reads."],
+    [/runWithTransientRetry/, "GitHub shell acceptance must retry bounded transient provider failures."],
+  ]) {
+    requireMatch(errors, githubShellAccess, pattern, message);
+  }
+  for (const forbidden of ["CODEX_CLOUD_GITHUB_PAT", "gh auth token", "--force", "--force-with-lease"]) {
+    if (githubShellAccess.includes(forbidden)) {
+      errors.push(`GitHub shell acceptance must not read credentials or permit history rewriting (${forbidden}).`);
+    }
   }
   const providerScrubIndex = setup.indexOf("unset OPENAI_API_KEY");
   const accessProfileBranchIndex = setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]');
