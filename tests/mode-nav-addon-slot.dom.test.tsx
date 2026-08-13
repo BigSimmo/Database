@@ -26,7 +26,7 @@ function renderIntoHeaderWithAddonSlot(ui: React.ReactElement) {
   const result = render(ui);
   return {
     ...result,
-    occupants: () => slot.querySelectorAll('[data-testid="mode-nav"]'),
+    occupants: () => slot.querySelectorAll<HTMLElement>('[data-testid="mode-nav"]'),
     cleanupSlot: () => slot.remove(),
   };
 }
