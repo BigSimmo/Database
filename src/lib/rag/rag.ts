@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
+import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
   callVersionedRetrievalRpc,
@@ -3423,21 +3424,6 @@ ${qualityRetryInstruction}`
     if (/\bvalidation|quality gate|schema|parse|json\b/.test(normalized)) return "generation_quality_failed";
     if (/\bopenai|provider|model\b/.test(normalized)) return "provider_generation_failed";
     return "generation_failed";
-  }
-
-  /** Extract the specific deterministic gate token behind a collapsed generation failure.
-   * summarizeGenerationFailureReason folds every quality-gate failure into
-   * "generation_quality_failed" for routingReason stability; this keeps the underlying
-   * gate (e.g. provider_source_gap, numeric_faithfulness_gap) available for telemetry
-   * only, so the #231 investigation can see WHICH gate fired without changing any
-   * user-visible reason string. Tokens only — never raw provider or answer text. */
-  function generationFailureDetailToken(error: unknown) {
-    const message = (error instanceof Error ? error.message : typeof error === "string" ? error : "").toLowerCase();
-    const gate = message.match(/quality gate failed: ([a-z0-9_]+)/);
-    if (gate) return gate[1];
-    const incomplete = message.match(/generation incomplete: ([a-z0-9_]+)/);
-    if (incomplete) return incomplete[1];
-    return null;
   }
 
   /** Build generation fallback answer. */
