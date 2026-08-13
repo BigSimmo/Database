@@ -15,7 +15,8 @@ permissions:
 jobs:
   repair:
     name: Regenerate and push the reviewed repair
-    if: github.event.head_commit.message == 'chore(pr-1889): run generated inventory repair'
+    if: >-
+      github.event.head_commit.message == 'chore(pr-1889): run generated inventory repair'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
