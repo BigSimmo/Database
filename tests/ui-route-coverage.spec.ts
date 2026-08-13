@@ -364,7 +364,17 @@ test.describe("previously uncovered production routes", () => {
       "/dsm",
       async (currentPage) => {
         // Scope to the visible owner: Next streaming can leave a hidden duplicate
-        // page root (#093), and bare getByTestId then fails Playwr×¾m¢G§²ÚîÆ­yÔ expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();
+        // page root (#093), and bare getByTestId then fails Playwright strict mode
+        // (Production UI shard 2 on PR #1729).
+        await expect(visibleByTestId(currentPage, "dsm-home-main")).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "DSM-5 Diagnosis", level: 1 })).toBeVisible();
+      },
+      async (currentPage) => {
+        const compare = visibleByTestId(currentPage, "dsm-home-compare");
+        await expect(compare).toBeEnabled();
+        await compare.click();
+        await expect(currentPage).toHaveURL(/\/dsm\/compare$/);
+        await expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();
       },
     );
   });
