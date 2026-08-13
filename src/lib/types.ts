@@ -1030,6 +1030,8 @@ export type RagAnswer = {
     embedding_skip_reason?: string | null;
     embedding_latency_ms?: number;
     embedding_cache_hit?: boolean;
+    /** True when this retrieval initiated an embedding warm-up flight. */
+    embedding_prefetched?: boolean;
     vector_candidate_count?: number;
     embedding_field_count?: number;
     retrieval_query_variant_count?: number;
