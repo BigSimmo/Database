@@ -38,6 +38,22 @@ vi.mock("@/lib/answer-feedback-token", () => ({ answerFeedbackMetadata: () => ({
 
 const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
+type ParsedSseFrame = { event: string; data: Record<string, unknown> };
+
+function parseSseFrames(body: string): ParsedSseFrame[] {
+  return body
+    .split(/\n\n+/)
+    .map((frame) => frame.trim())
+    .filter(Boolean)
+    .flatMap((frame) => {
+      const lines = frame.split("\n");
+      const event = lines.find((line) => line.startsWith("event: "))?.slice("event: ".length);
+      const data = lines.find((line) => line.startsWith("data: "))?.slice("data: ".length);
+      if (!event || !data) return [];
+      return [{ event, data: JSON.parse(data) as Record<string, unknown> }];
+    });
+}
+
 beforeEach(() => {
   publicAccessContext.mockResolvedValue({
     ownerId,
@@ -68,8 +84,22 @@ describe("answer stream verified preview ordering", () => {
           schemaVersion: 1,
           kind: "evidence_preview",
           sequence: 0,
-          sources: [],
-          selectedContextCount: 0,
+          sources: [
+            {
+              id: "chunk-1",
+              document_id: "doc-1",
+              title: "Clozapine Monitoring",
+              file_name: "clozapine.pdf",
+              page_number: 3,
+              chunk_index: 1,
+              section_heading: "Monitoring",
+              content: "ANC thresholds and FBC monitoring schedule for clozapine.",
+              image_ids: [],
+              similarity: 0.82,
+              images: [],
+            },
+          ],
+          selectedContextCount: 1,
         },
       });
       onProgress?.({ stage: "generating" });
@@ -84,13 +114,17 @@ describe("answer stream verified preview ordering", () => {
         body: JSON.stringify({ query: "clozapine monitoring" }),
       }),
     );
-    const body = await response.text();
+    const frames = parseSseFrames(await response.text());
 
-    const previewIndex = body.indexOf('"stage":"ranking"');
-    const generationIndex = body.indexOf('"stage":"generating"');
-    const finalIndex = body.indexOf("event: final");
-    expect(previewIndex).toBeGreaterThan(-1);
-    expect(previewIndex).toBeLessThan(generationIndex);
+    const rankingIndex = frames.findIndex((frame) => frame.event === "progress" && frame.data.stage === "ranking");
+    const generationIndex = frames.findIndex(
+      (frame) => frame.event === "progress" && frame.data.stage === "generating",
+    );
+    const finalIndex = frames.findIndex((frame) => frame.event === "final");
+    const rankingFrame = frames[rankingIndex];
+    expect(rankingIndex).toBeGreaterThan(-1);
+    expect((rankingFrame.data.verifiedUnit as { kind?: string } | undefined)?.kind).toBe("evidence_preview");
+    expect(rankingIndex).toBeLessThan(generationIndex);
     expect(generationIndex).toBeLessThan(finalIndex);
   });
 });
