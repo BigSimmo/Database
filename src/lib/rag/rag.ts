@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
+import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
   callVersionedRetrievalRpc,
@@ -2560,6 +2561,10 @@ async function answerQuestionWithScopeUncoalesced(
   }
 
   const searchStartedAt = Date.now();
+  // Cache-version refresh plus the local/shared answer-cache lookups above run before any
+  // phase timer, so without this number the pre-retrieval window is invisible in
+  // route_budget accounting even though it spends the same 25s budget as generation.
+  const preRetrievalLatencyMs = searchStartedAt - startedAt;
   const retrievalDeadline = createAnswerRouteDeadline({
     routeMode: "strong",
     callerSignal: args.signal,
@@ -2740,6 +2745,8 @@ async function answerQuestionWithScopeUncoalesced(
     second_stage_rerank_used: search.telemetry.second_stage_rerank_used ?? null,
     second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms ?? null,
     visual_direct_image_count: search.telemetry.visual_direct_image_count ?? null,
+    retrieval_phase_latencies_ms: search.telemetry.retrieval_phase_latencies_ms ?? null,
+    search_total_latency_ms: search.telemetry.search_total_latency_ms ?? null,
   });
   const buildCurrentSmartApiPlan = (
     mode: RagAnswer["routingMode"] = route.mode,
@@ -2808,6 +2815,7 @@ async function answerQuestionWithScopeUncoalesced(
   // budget before generation could start. Additive telemetry; deadlineExceeded unchanged.
   const routeBudgetExhaustedByRetrieval = routeDeadline.budgetMs > 0 && routeDeadline.remainingMs() <= 0;
   const routeTimingDiagnostics = () => ({
+    pre_retrieval_latency_ms: preRetrievalLatencyMs,
     retrieval_latency_ms: searchLatencyMs,
     routing_latency_ms: routingLatencyMs,
     route_budget_ms: routeDeadline.budgetMs,
@@ -3893,6 +3901,7 @@ ${qualityRetryInstruction}`
           context_pack_cache_hits: contextPackCacheHits,
           answer_retry_count: answerRetryCount,
           answer_retry_reasons: answerRetryReasons,
+          ...routeTimingDiagnostics(),
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
@@ -4249,6 +4258,11 @@ ${qualityRetryInstruction}`
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           context_pack_latency_ms: contextPackLatencyMs,
+          answer_retry_count: answerRetryCount,
+          answer_retry_reasons: answerRetryReasons,
+          generation_failure_reason: sanitizedReason,
+          generation_failure_detail: generationFailureDetailToken(error),
+          ...routeTimingDiagnostics(),
           retrieval_strategy: "generation_fallback",
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
