@@ -153,6 +153,7 @@ function StreamCard({
 }: {
   item: DifferentialStreamItem;
   stream: DifferentialStreamType;
+  query: string;
   highlight: "match" | "related" | "dim" | "neutral";
   selected: boolean;
   showSelect: boolean;
@@ -261,7 +262,7 @@ function StreamCard({
 
       <div className="mt-3 flex flex-wrap gap-2">
         <Link
-          href={item.href}
+          href={differentialRouteWithQuery(item.href, query)}
           onClick={onFocus}
           className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] hover:opacity-90"
         >
@@ -608,6 +609,7 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
             key={item.id}
             item={item}
             stream={model.stream}
+            query={query}
             highlight={highlightFor(item)}
             selected={selectedIds.has(item.slug)}
             showSelect={showSelect}
