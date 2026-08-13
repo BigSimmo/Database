@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (228 files) and the `package.json` script surface (237 entries),
+Curated map of `scripts/` (229 files) and the `package.json` script surface (237 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -86,7 +86,10 @@ For executable phone-chrome changes, use `verify:phone-chrome` before the broad 
 `eval-answer-quality.ts`, `eval-search.ts`, `eval-search-api.ts`, `eval-assertions.ts`,
 `compare-retrieval-eval.ts`, `retrieval-health.ts`, `profile-retrieval-rpcs.ts`,
 `warm-retrieval-cache.ts`, `tune-search-weights.ts`, `check-rag-fixtures.mjs`, `eval-trend.mjs`
-(trend across runs), `eval-utils.ts` (shared harness helpers). Golden fixtures:
+(trend across runs), `eval-utils.ts` (shared harness helpers),
+`probe-generation-quality.ts` (one approved cache-bypassed live answer; reports the structured
+`generation_quality_gate_reasons` added for `/issues` `#231` — provider-backed, refuses demo mode).
+Golden fixtures:
 `scripts/fixtures/rag-retrieval-golden.json`, `scripts/fixtures/assertion-golden.json`.
 
 Editing anything in this section is a protected-surface change — read `docs/rag-behaviour/` and flag
