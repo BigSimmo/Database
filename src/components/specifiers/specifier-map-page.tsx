@@ -73,9 +73,7 @@ function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
                     {index + 1}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">
-                      {step.label}
-                    </span>
+                    <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">{step.label}</span>
                     <span className="mt-1 block text-xs font-medium leading-4 text-[color:var(--text-muted)]">
                       {step.description}
                     </span>
@@ -98,11 +96,7 @@ function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
             .map((family) => {
               const records = specifierRecords.filter((record) => record.family === family.id);
               return (
-                <section
-                  key={family.id}
-                  id={family.id}
-                  className={cn(specifierCard, inPageAnchor, "overflow-hidden")}
-                >
+                <section key={family.id} id={family.id} className={cn(specifierCard, inPageAnchor, "overflow-hidden")}>
                   <div className="flex items-center gap-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-3">
                     <Waypoints className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
                     <div>
