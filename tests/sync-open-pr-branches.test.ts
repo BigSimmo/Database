@@ -7,6 +7,13 @@ import {
 } from "../scripts/sync-open-pr-branches.mjs";
 
 describe("sync-open-pr-branches classifyPr", () => {
+  it("never updates a PR whose user-owned auto-merge is armed", () => {
+    expect(classifyPr({ autoMergeRequest: { enabledAt: "2026-08-13T00:00:00Z" } }, 5)).toEqual({
+      action: "skip",
+      reason: "auto-merge-armed",
+    });
+  });
+
   it("skips hold / do-not-merge / skip-branch-sync labels", () => {
     expect(classifyPr({ title: "x", labels: [{ name: "hold" }] }, 3)).toEqual({
       action: "skip",

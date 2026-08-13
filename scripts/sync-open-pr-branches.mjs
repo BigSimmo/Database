@@ -48,6 +48,7 @@ function shouldSkip(pr) {
 export function classifyPr(pr, behindBy) {
   const skip = shouldSkip(pr);
   if (skip) return { action: "skip", reason: skip };
+  if (pr.autoMergeRequest) return { action: "skip", reason: "auto-merge-armed" };
   if ((behindBy ?? 0) <= 0) return { action: "skip", reason: "already-current" };
   if (pr.requiredCiInFlight) return { action: "skip", reason: "required-ci-in-flight" };
   return { action: "update", reason: `behind=${behindBy}` };
@@ -96,7 +97,7 @@ function main() {
     "--limit",
     "100",
     "--json",
-    "number,title,headRefName,headRefOid,labels,isCrossRepository,isDraft,url",
+    "number,title,headRefName,headRefOid,labels,isCrossRepository,isDraft,url,autoMergeRequest",
   ]);
 
   const plan = [];

@@ -631,7 +631,7 @@ Nothing else inherits this authorization. Only the user's own task message can t
 
 Hard guardrails (never, even during a sweep):
 
-- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges.
+- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable it. When auto-merge is already armed, do not push, update the branch/base, or perform another head-changing action; report the frozen state and leave the PR untouched until it merges or the user manually changes that state.
 - Never close a pull request, delete or rename branches, force-push, or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, `test:live`, or anything else that touches live Supabase/OpenAI.
 - Respect the `skip-codex-review` label as a full per-PR opt-out.
@@ -707,14 +707,12 @@ A settle-then-push addition also lands after this repo's one automatic Codex rev
 already have run against the earlier head — in practice the connector re-reviews each new
 push (observed on this same PR), but if it doesn't, request a fresh review explicitly
 before merging rather than assuming the addition was covered. **If the target PR has
-auto-merge armed, settling-then-pushing races the merge itself** — `claude/*` branches
-auto-merge on green by this repo's own default (`.claude/skills/newtask/SKILL.md`), so
-"wait for CI to settle" can mean "wait for it to squash-merge and close" before the
-bundled commit ever gets pushed, silently dropping it. `guard-push.mjs`'s auto-merge
-sentinel exists to catch this but fails open without `gh` available (observed directly
-in this repo's own sessions) — don't rely on it. Before using the settle-then-push path,
-confirm the target PR does not have auto-merge enabled, or disable it first and
-re-enable only after the bundled commit is pushed.
+auto-merge armed, settling-then-pushing races the merge itself.** Treat that PR as
+mutation-frozen: do not disable or re-enable auto-merge, push, update its branch/base, or
+otherwise change its head. Let the armed merge land, or wait for the user to manually
+change the auto-merge state before doing further branch work. `guard-push.mjs` enforces
+this for every locally pushed PR branch when authenticated `gh` is available; agent
+policy remains the backstop in environments where local hooks or `gh` are unavailable.
 Bundle only when every item being combined is:
 
 - **Independently low-risk, checked two ways — neither is exhaustive alone.**
@@ -803,9 +801,9 @@ named PR). Future process only.
   `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in
   `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
   blob. Whole-tree Prettier, not a single edited file.
-- If a `claude/*` PR has auto-merge armed, disable it before a settle-then-push bundle, push,
-  then re-enable — otherwise the first green head can squash-merge before the bundled commit
-  lands.
+- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable
+  it. Treat the branch as mutation-frozen: no push, update-branch, base change, or bundled addition
+  until it merges or the user manually changes that state.
 - Missing CI checks are not a green pass. `pull_request` workflows do not run when GitHub
   cannot build `refs/pull/<n>/merge`. The `PR mergeability` check uses trusted
   `pull_request_target` events and refreshes unchanged PR heads after protected-base
