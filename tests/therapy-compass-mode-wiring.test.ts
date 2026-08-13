@@ -283,8 +283,7 @@ describe("Therapy Compass production-mode wiring", () => {
     // trailing Clear was wired to `clearSearch`, which resets EMPTY_SEARCH —
     // including `query: ""`. So Clear silently deleted the search term the user
     // was reading, while the code comment beside it claimed the query was
-    // deliberately excluded. The sheet's own "Clear all" still resets
-    // everything on purpose; only the shelf is filter-only.
+    // deliberately excluded.
     const searchScreenSrc = readFileSync(
       new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
       "utf8",
@@ -295,8 +294,14 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(bindingsSrc).toContain(
       "clearSearchFilters: () => setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query }))",
     );
-    // The sheet keeps the full reset.
-    expect(searchScreenSrc).toContain("onClear={b.clearSearch}");
+    // Filter-contract adoption (docs/filter-contract.md section 6): the phone
+    // sheet converged onto the shared `ResultFilterSheet`, whose `onClearAll`
+    // must never touch the query either — "Therapy-compass's clear wipes the
+    // search box; the shared sheet's does not" was the exact defect being
+    // fixed. The sheet's own full reset is no longer wired at all; the
+    // composer's "Clear search" control covers the query on every breakpoint.
+    expect(searchScreenSrc).toContain("onClearAll={activeFilterCount > 0 ? b.clearSearchFilters : undefined}");
+    expect(searchScreenSrc).not.toContain("onClear={b.clearSearch}");
   });
 
   it("keeps the quick-filter row's Clear filter-only too", () => {
@@ -317,14 +322,16 @@ describe("Therapy Compass production-mode wiring", () => {
     // instead made a correctly-labelled `Clear search` look like a regression,
     // which is the wrong signal from a guard whose whole point is intent.
     const fullResetProps = Array.from(searchScreenSrc.matchAll(/(\w+)=\{b\.clearSearch\}/g)).map((match) => match[1]);
-    expect(fullResetProps.length).toBeGreaterThan(0);
+    // Filter-contract adoption removed the sheet's own full reset (see the
+    // test above), so the only remaining `clearSearch` wiring is the empty
+    // state's explicit "Clear search" escape — correctly named for what it
+    // does, and the one case this guard exists to allow.
+    expect(fullResetProps).toEqual(["onClearSearch"]);
     expect(
       fullResetProps.filter((prop) => !["onClear", "onClearSearch"].includes(prop)),
       "A control wired to `clearSearch` must be labelled for clearing the search. " +
         "`onClearFilters`, `onRemove` or a bare `onClick` promising to clear filters must use " +
         "`clearSearchFilters`, or it deletes the search term the reader is looking at.",
     ).toEqual([]);
-    // The sheet keeps its deliberate full reset.
-    expect(searchScreenSrc).toContain("onClear={b.clearSearch}");
   });
 });
