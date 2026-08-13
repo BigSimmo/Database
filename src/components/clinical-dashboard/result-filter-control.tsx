@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
@@ -627,31 +627,38 @@ export function ResultFilterSheet({
 }) {
   // Hooks run unconditionally — the empty-groups early return happens below,
   // after every hook the render needs has already been declared.
-  const [chrome, setChrome] = useState<{
-    key: string;
-    needle: string;
-    expanded: ReadonlySet<string>;
-    collapsed: ReadonlySet<string>;
-  }>(() => ({ key: chromeResetKey, needle: "", expanded: new Set(), collapsed: new Set() }));
-  // Reset the chrome state when the reset key changes. Using an effect avoids
-  // calling setState during render (which React warns against and can cause
-  // loops under Strict Mode / concurrent rendering). The `scoped` fallback
-  // below already returns empty values when the key is stale, so there is no
-  // visible flash on the transitional render before the effect fires.
-  useEffect(() => {
-    setChrome({ key: chromeResetKey, needle: "", expanded: new Set(), collapsed: new Set() });
-  }, [chromeResetKey]);
-  // Prefer the scoped values even on the transitional render before the
-  // setState above commits, so a stale needle cannot flash for one frame.
-  const scoped = chrome.key === chromeResetKey;
-  const needle = scoped ? chrome.needle : "";
-  const expanded = scoped ? chrome.expanded : new Set<string>();
-  const collapsed = scoped ? chrome.collapsed : new Set<string>();
-  const setNeedle = (value: string) => setChrome((current) => ({ ...current, key: chromeResetKey, needle: value }));
+  const [chromeByKey, setChromeByKey] = useState<
+    Record<
+      string,
+      {
+        needle: string;
+        expanded: ReadonlySet<string>;
+        collapsed: ReadonlySet<string>;
+      }
+    >
+  >({});
+  // State is keyed by the caller's mode/query reset key, so a new key starts
+  // with empty chrome synchronously without an effect-side setState.
+  const chrome =
+    chromeByKey[chromeResetKey] ??
+    ({ needle: "", expanded: new Set<string>(), collapsed: new Set<string>() } satisfies {
+      needle: string;
+      expanded: ReadonlySet<string>;
+      collapsed: ReadonlySet<string>;
+    });
+  const needle = chrome.needle;
+  const expanded = chrome.expanded;
+  const collapsed = chrome.collapsed;
+  const setNeedle = (value: string) =>
+    setChromeByKey((current) => ({
+      ...current,
+      [chromeResetKey]: { ...(current[chromeResetKey] ?? chrome), needle: value },
+    }));
   const toggleGroupOpen = (groupId: string, isOpen: boolean) => {
-    setChrome((current) => {
-      const nextExpanded = new Set(current.key === chromeResetKey ? current.expanded : []);
-      const nextCollapsed = new Set(current.key === chromeResetKey ? current.collapsed : []);
+    setChromeByKey((current) => {
+      const currentChrome = current[chromeResetKey] ?? chrome;
+      const nextExpanded = new Set(currentChrome.expanded);
+      const nextCollapsed = new Set(currentChrome.collapsed);
       if (isOpen) {
         nextExpanded.delete(groupId);
         nextCollapsed.add(groupId);
@@ -660,10 +667,12 @@ export function ResultFilterSheet({
         nextCollapsed.delete(groupId);
       }
       return {
-        key: chromeResetKey,
-        needle: current.key === chromeResetKey ? current.needle : "",
-        expanded: nextExpanded,
-        collapsed: nextCollapsed,
+        ...current,
+        [chromeResetKey]: {
+          needle: currentChrome.needle,
+          expanded: nextExpanded,
+          collapsed: nextCollapsed,
+        },
       };
     });
   };
