@@ -123,11 +123,14 @@ const workflowPatterns = [
   ".github/workflows",
   ".github/actions",
   ".agents/skills",
+  ".claude/skills",
+  ".cursor/skills",
+  "plugins/clinical-kb/skills",
   ".github/pull_request_template.md",
   "AGENTS.md",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
-  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
+  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|list-database-skills|sync-skills|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
 ];
 
 const codexAutofixPatterns = [
@@ -1057,6 +1060,21 @@ function selfTest() {
     docs_only: false,
     build_changed: false,
   });
+  for (const file of [
+    ".claude/skills/issues/SKILL.md",
+    ".cursor/skills/security-review/SKILL.md",
+    "plugins/clinical-kb/skills/clinical-kb-workflow/SKILL.md",
+  ]) {
+    assertScope(`repository-skill-surface:${file}`, [file], {
+      workflow_changed: true,
+      source_changed: false,
+      coverage_changed: false,
+      workflow_only: true,
+      static_heavy_changed: false,
+      docs_only: false,
+      build_changed: false,
+    });
+  }
   assertScope(
     "executable-skill-script-stays-heavy",
     [".agents/skills/prompt-perfector/scripts/verify-repository-isolation.mjs"],

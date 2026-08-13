@@ -494,6 +494,61 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("submitting the Tools composer opens the route-owned results page", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoLauncher(page, "/?mode=tools");
+
+    await fillHydratedGlobalSearch(page, "Compare");
+    const submit = page.locator('button[aria-label="Search tools"]:visible');
+    await expect(submit).toBeEnabled();
+    await Promise.all([page.waitForURL(/\/tools\?q=Compare&run=1$/), submit.click()]);
+
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results).toBeVisible();
+    await expect(page.getByTestId("tools-home")).toHaveCount(0);
+    await expect(results.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
+    await expect(results.getByText("1 tool", { exact: true })).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
+    await expect(results.getByRole("complementary", { name: "Differentials" })).toBeVisible();
+
+    const categories = results.getByRole("radiogroup", { name: "Tool category" });
+    await expect(categories.getByRole("radio", { name: "All tools (1)" })).toHaveAttribute("aria-checked", "true");
+    await expect(categories.getByRole("radio", { name: "Assess (1)" })).toBeEnabled();
+    await expect(categories.getByRole("radio", { name: "Treat (0)" })).toBeDisabled();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("submitted Tools results use the shared phone filter and approved detail sheet", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoLauncher(page, "/tools?q=Compare&run=1");
+
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results).toBeVisible();
+    await expect(page.locator("form.answer-footer-search-dock")).toBeVisible();
+
+    const filterTrigger = results.getByTestId("tools-search-filter-trigger-phone");
+    await filterTrigger.click();
+    const filterSheet = page.locator('[data-testid="tools-search-filter-sheet"]:visible');
+    await expect(filterSheet).toBeVisible();
+    await expect(filterSheet.getByRole("radio", { name: /Assess/ })).toHaveAttribute("aria-checked", "false");
+    await expect(filterSheet.getByRole("radio", { name: /Treat/ })).toHaveAttribute("aria-disabled", "true");
+    await filterSheet.getByRole("button", { name: "Done" }).click();
+
+    const details = results.getByRole("button", { name: "View details for Differentials" });
+    await details.click();
+    const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
+    await expect(detailSheet).toBeVisible();
+    await expect(detailSheet.getByRole("heading", { name: "Differentials" })).toBeVisible();
+    await expect(detailSheet.getByRole("heading", { name: "Best for" })).toBeVisible();
+    await expect(detailSheet.getByRole("link", { name: "Compare Differentials" })).toHaveAttribute(
+      "href",
+      "/differentials",
+    );
+    await detailSheet.getByRole("button", { name: "Close Differentials" }).click();
+    await expect(details).toBeFocused();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("tool descriptions remain complete across supported breakpoints", async ({ page }) => {
     await gotoLauncher(page, "/tools");
 
