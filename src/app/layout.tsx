@@ -47,7 +47,7 @@ const geistMono = localFont({
   // The mono face is only used deep in the UI (tabular figures, `kbd`, code) and
   // never in initial/LCP text, so don't preload it on every route — it competes
   // for the critical-path connection. It still loads on-demand via `swap` when
-  // first painted. The sans face keeps the default preload.
+  // first painted, while the body sans face remains preloaded for LCP text.
   preload: false,
 });
 
