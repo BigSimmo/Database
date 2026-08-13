@@ -35,7 +35,7 @@ const atmosphere =
 const pageContainer = "mx-auto w-full max-w-[80rem]";
 const pagePadX = "px-4 sm:px-6 lg:px-8";
 /** Same safe-area top pad as `searchPageShellStandalone` — owned here for sticky chrome. */
-const pagePadTop = "pt-[max(0.75rem,var(--safe-area-top))] sm:pt-[max(1rem,var(--safe-area-top))]";
+const pagePadTop = "pt-[max(0.75rem,var(--safe-area-top))] sm:pt-[max(1.25rem,var(--safe-area-top))]";
 
 /**
  * Precision instrument — three equal cells at every width.
