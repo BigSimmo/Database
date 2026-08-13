@@ -2,7 +2,18 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { submittedToolIdsForMockup } from "../src/components/tools-search-directions-mockups";
+import { normalizeSearchText } from "../src/lib/catalog-search";
+import { toolCatalogRecords, toolSearchText } from "../src/lib/tools-catalog";
+
 const source = readFileSync(new URL("../src/components/tools-search-directions-mockups.tsx", import.meta.url), "utf8");
+
+function productionSubmittedToolIds(query: string): string[] {
+  const normalized = normalizeSearchText(query);
+  return toolCatalogRecords
+    .filter((tool) => (!normalized || toolSearchText(tool).includes(normalized)) && tool.id !== "favourites")
+    .map((tool) => tool.id);
+}
 
 describe("tools search direction mockup evidence", () => {
   it("renders frames at the widths named by their captions", () => {
@@ -17,5 +28,16 @@ describe("tools search direction mockup evidence", () => {
     expect(showcase).toContain('<DeviceFrame direction={direction.id} query="compare" device="phone" />');
     expect(showcase).toContain('<DeviceFrame direction={direction.id} query="monitoring" device="desktop" />');
     expect(showcase).toContain('<DeviceFrame direction={direction.id} query="compare" device="desktop" />');
+  });
+
+  it.each(["monitoring", "compare"])("uses the production submitted matcher for %s", (query) => {
+    expect(submittedToolIdsForMockup(query)).toEqual(productionSubmittedToolIds(query));
+  });
+
+  it("keeps the ranked filter only for multi-match frames at both widths", () => {
+    const brief = source.slice(source.indexOf("function BriefDirection"), source.indexOf("function SegmentedCountBand"));
+    expect(brief).toContain('device === "desktop" && matches.length > 1');
+    expect(brief).toContain('device === "phone" && matches.length > 1');
+    expect(brief).not.toContain('device === "desktop" ? <AreaFilterRow');
   });
 });
