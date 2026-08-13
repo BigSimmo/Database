@@ -10,6 +10,7 @@ import {
   driftVerdict,
   findPrettierBin,
   formatGuard,
+  guardBaseForRange,
   HEAVY_RUN_ADMISSION_BUSY_EXIT,
   HEAVY_RUN_ADMISSION_BUSY_MARKER,
   isCoordinatorBusyOutput,
@@ -61,7 +62,7 @@ function gitFixture() {
   writeFileSync(join(root, "README.md"), "base\n");
   git("add", "README.md");
   git("commit", "--quiet", "-m", "base");
-  return { root, git };
+  return { root, git, baseSha: git("rev-parse", "HEAD") };
 }
 
 describe("guard-push sha parity", () => {
@@ -154,7 +155,7 @@ describe("push-range parsing", () => {
   });
 
   it("keeps a Windows new-branch static command scoped to the PR side of an advanced main", () => {
-    const { root, git } = gitFixture();
+    const { root, git, baseSha } = gitFixture();
     git("switch", "--quiet", "-c", "feature");
     mkdirSync(join(root, "scripts"), { recursive: true });
     writeFileSync(join(root, "scripts", "feature.mjs"), "export const feature = true;\n");
@@ -175,6 +176,7 @@ describe("push-range parsing", () => {
     const twoDotFiles = git("diff", "--name-only", `origin/main..${featureSha}`).split("\n");
     expect(lintableFiles(twoDotFiles).join(" ").length).toBeGreaterThan(32_767);
     expect(changedFilesForRange({ localSha: featureSha, remoteSha: ZERO }, root)).toEqual(["scripts/feature.mjs"]);
+    expect(guardBaseForRange({ localSha: featureSha, remoteSha: ZERO }, root)).toBe(baseSha);
   });
 });
 

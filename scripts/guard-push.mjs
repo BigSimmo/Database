@@ -115,6 +115,15 @@ export function pushedBranchNames(ranges, fallbackBranch = "") {
   return [...branches];
 }
 
+/** Exported for tests: existing branches compare from their remote tip; new
+ * branches compare from the PR merge base so newer main-only commits are out of
+ * scope for transaction guards that accept explicit base/head commits. */
+export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
+  if (range.remoteSha && range.remoteSha !== ZERO_SHA) return range.remoteSha;
+  if (!tryGit(["rev-parse", "--verify", "--quiet", "origin/main"], cwd)) return undefined;
+  return tryGit(["merge-base", "origin/main", range.localSha], cwd);
+}
+
 export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
   const existingRemote = range.remoteSha && range.remoteSha !== ZERO_SHA;
   const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", "origin/main"], cwd);
@@ -871,10 +880,7 @@ function ledgerWriteGuard(ranges) {
   if (!hasHotLedgerWrite(collectChangedFiles(ranges))) return { name: "ledger-write", ok: true };
 
   for (const range of ranges) {
-    const base =
-      range.remoteSha && range.remoteSha !== ZERO_SHA
-        ? range.remoteSha
-        : tryGit(["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"]);
+    const base = guardBaseForRange(range);
     if (!base) {
       return {
         name: "ledger-write",
