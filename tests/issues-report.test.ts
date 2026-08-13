@@ -182,6 +182,35 @@ describe("issues report", () => {
     expect(composite!.outcome).toBe("composite stays as written");
   });
 
+  it("keeps queue-only safety gates when deriving displayed queue prose", () => {
+    const markdown = [
+      "# Outstanding",
+      "<!-- issues:next-id=255 -->",
+      "## Recommended execution queue",
+      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome, gate, verification, and stopping condition |",
+      "| ----: | ---- | ---- | ---- | ---- | ---- | ---- |",
+      "| 1 | \`#118\` | A3 | High — CI/visual/perf gates | Next | 2–4 hours | Commit CI-uploaded baselines. **Stop:** never commit developer-machine baselines. |",
+      "| 2 | \`#253\` | A2 | High — phone results UI | Next | 15–30 min | Close #1606 as superseded. **Stop:** the decision is a human's; do not close automatically. |",
+      "## Open items",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
+      "| #118 | P2 | task | visual baselines | Displayed #118 detail | src | 2026-01-01 |",
+      "| #253 | P3 | task | hand-merge | Displayed #253 detail | src | 2026-01-01 |",
+      "## Resolved / archive",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #254 | task | old | done | 2026-01-01 |",
+    ].join("\n");
+    const report = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true });
+
+    expect(report.recommended.map((row: { outcome: string }) => row.outcome)).toEqual([
+      "Displayed #118 detail",
+      "Displayed #253 detail",
+    ]);
+    expect(report.agentSafeWins.map((row: { ids: string[] }) => row.ids[0])).not.toContain("#118");
+    expect(report.agentSafeWins.map((row: { ids: string[] }) => row.ids[0])).not.toContain("#253");
+  });
+
   it("labels a readable origin/main ref as cached rather than remotely revalidated", () => {
     const directory = mkdtempSync(join(tmpdir(), "issues-report-"));
     try {

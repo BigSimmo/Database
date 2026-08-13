@@ -107,7 +107,10 @@ export function buildIssuesReport(markdown, source) {
     priorityBlockers: derived.filter((row) => row.acuity === "A1"),
     recommended: derived,
     open: openRows,
-    agentSafeWins: classifyAgentSafeWins(derived),
+    // Keep queue-only stop conditions in the safe-win classifier. `derived` is
+    // presentation text, while the queue outcome also carries safety gates that
+    // may not appear in the cited row's Detail cell.
+    agentSafeWins: classifyAgentSafeWins(queue),
   };
 }
 
