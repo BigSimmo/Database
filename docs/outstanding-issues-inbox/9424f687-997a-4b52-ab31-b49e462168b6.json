@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "9424f687-997a-4b52-ab31-b49e462168b6",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#156",
+    "outcome": "Merged into #168 — the same defect recorded twice at two priorities. #168 carries both halves: the read-modify-write allocation race and the Update-branch merge corruption (PR #1451 renumbering, the duplicated #141 rows, and the marker left at 142 below main's highest id)."
+  }
+}

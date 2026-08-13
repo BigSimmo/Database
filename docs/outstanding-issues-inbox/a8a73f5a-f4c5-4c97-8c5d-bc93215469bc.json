@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "a8a73f5a-f4c5-4c97-8c5d-bc93215469bc",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#101",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** Every candidate needs the #098 harness, the RAG flag, live-canary approval, 36/36 retrieval and recall 1.0 — provider spend and clinical-surface risk for latency nobody is currently waiting on. **Outcome:** remaining retrieval parallelisation candidates are explicit after PR #1474 shipped the metadata and memory parallelisation. **Remaining:** visual hydration triples (each migrated path still calls `attachPageVisualEvidence` after hydration — not yet parallelised, see `rag.ts:1442,1811,1857,1959,2194,2281`); nested `await`-in-loop scope enumeration (`search-scope.ts:202,328`); uncached typeahead results (`rag.ts:2698-2711`); and universal-search coalescing (`/api/search` has it; `/api/search/universal` does not). Each changes candidate assembly, truncation, or what the next keystroke returns, so each requires the #098 harness, the RAG flag, explicit live-canary approval, 36/36 retrieval, recall 1.0, and zero per-case reciprocal-rank regressions. Distinct from #001 (semantic rerank). **Completed:** PR #1474 parallelised metadata and memory (`hydrateCandidatesWithMetadataAndMemory`); do not propose that specific change again. **Stop:** no remaining candidate proceeds without its canary gate."
+  }
+}

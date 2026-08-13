@@ -29,6 +29,7 @@
     "diagnose:codex-cloud": "node scripts/diagnose-codex-cloud.mjs",
     "smoke:app-container": "node scripts/app-container-smoke.mjs",
     "check:bundle-budget": "node scripts/check-bundle-budget.mjs",
+    "check:coverage-inventory": "node scripts/check-coverage-inventory.mjs",
     "check:lighthouse-budget": "node scripts/check-lighthouse-budget.mjs",
     "verify:lighthouse": "node scripts/run-lighthouse-budget.mjs",
     "start": "node scripts/dev-free-port.mjs start",

@@ -10,6 +10,14 @@ import type { DifferentialRecord, DifferentialSection } from "@/lib/differential
 export const DETAIL_TAB_IDS = ["overview", "compare", "map", "related", "source"] as const;
 export type DifferentialDetailTabId = (typeof DETAIL_TAB_IDS)[number];
 
+export type DifferentialRelatedMapDetail = {
+  slug: string;
+  title: string;
+  status: DifferentialRecord["status"];
+  clinicalHinge: string;
+  safetySummary: string;
+};
+
 export function isDetailTabId(value: string | null | undefined): value is DifferentialDetailTabId {
   return typeof value === "string" && (DETAIL_TAB_IDS as readonly string[]).includes(value);
 }
@@ -17,6 +25,13 @@ export function isDetailTabId(value: string | null | undefined): value is Differ
 export type DifferentialDetailContext = {
   /** related[].id values verified against the diagnosis catalog (safe to link). */
   knownRelatedSlugs: string[];
+  /**
+   * Small, server-derived summaries for verified related diagnoses. Keeping this
+   * separate from `record.related` lets the map inspector show the selected
+   * diagnosis's own hinge and safety content without shipping the full catalog
+   * through the client boundary.
+   */
+  relatedMapDetails: Record<string, DifferentialRelatedMapDetail>;
   /**
    * Cleaned Watch-for tags + section item labels → diagnosis slug.
    * Exact catalog title or curated alias only (see differential-diagnosis-links).

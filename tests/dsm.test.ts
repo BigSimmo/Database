@@ -44,6 +44,10 @@ describe("DSM clinical catalogue", () => {
     ).toBe(true);
   });
 
+  it("keeps a typo-corrected diagnosis title ahead of incidental clinical mentions", () => {
+    expect(rankDsmDiagnoses("schizophrnia", 5).some((match) => match.diagnosis.slug === "schizophrenia")).toBe(true);
+  });
+
   it("links named differential considerations back to catalogue records", () => {
     const diagnosis = getDsmDiagnosis("major-depressive-disorder");
     const bipolar = diagnosis?.differentials.find((item) => item.startsWith("Bipolar I or II"));

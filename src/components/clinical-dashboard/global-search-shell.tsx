@@ -884,7 +884,7 @@ function GlobalStandaloneSearchShellBody({
             }
             mobileBottomSearchAddonKind={differentialsCompareAddonActive ? "differentials-compare" : undefined}
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
-            showPhoneSuggestionTickerOnHome={isStandaloneModeHome || pathname === "/"}
+            showPhoneSuggestionTickerOnHome={isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
             desktopPageComposerSlotId={

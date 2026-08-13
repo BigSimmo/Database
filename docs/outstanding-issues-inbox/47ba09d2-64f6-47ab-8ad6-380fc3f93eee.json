@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "47ba09d2-64f6-47ab-8ad6-380fc3f93eee",
+  "createdOn": "2026-08-14",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Four follow-up groups cover nine controls after #291",
+    "detail": "Six controls in the differential comparison page stay coupled to its planned rewrite and pinned density test. The filmstrip Page unknown control is a later mechanical change. DocumentViewer needs its persistent access reason split from transient loading before classification. The pin-limit control remains a capacity-state judgement. These are four source groups and nine controls, not four controls.",
+    "source": "PR #1778 body; verified against main 2d27039"
+  }
+}

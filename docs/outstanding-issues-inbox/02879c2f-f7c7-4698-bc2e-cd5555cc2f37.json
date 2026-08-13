@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "02879c2f-f7c7-4698-bc2e-cd5555cc2f37",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Verify registry-backed service records preserve facet metadata",
+    "detail": "#1878 introduced the services filter-contract tree and #1882 later merged the identical tree, so no merge-conflict audit is required. Current main uses ServiceRecord.catalogPayload.tags and fixture coverage verifies 219 records. Add focused offline tests that recordToRow and rowToServiceRecord preserve all six tag dimensions and degrade safely when payloads are malformed or absent. Do not add a second facets carrier unless a failing test proves the current contract inadequate.",
+    "source": "PR #1921 review; #1878/#1882 tree comparison; service-facets.ts; registry-records.ts"
+  }
+}

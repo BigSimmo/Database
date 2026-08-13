@@ -43,6 +43,7 @@ CRITICAL or HIGH. Start at the top — the table is sorted by severe usage.
 | `antihypertensives`  | antihypertensives, antihypertensive                                                   | 14   | 14     | **17** — Amlodipine, Atenolol, Bisoprolol, Candesartan, Carvedilol, Diltiazem, Eplerenone, Felodipine, Frusemide, Hydrochlorothiazide, Indapamide, Labetalol, Metoprolol, Nifedipine XR, Perindopril, Spironolactone, Verapamil                                                                                                                                                                                                                             |
 | `macrolides`         | macrolides, macrolide                                                                 | 13   | 12     | **4** — Azithromycin, Clarithromycin, Erythromycin, Roxithromycin                                                                                                                                                                                                                                                                                                                                                                                           |
 | `corticosteroids`    | corticosteroids, corticosteroid, steroids, steroid                                    | 9    | 9      | **15** — Beclometasone, Betamethasone, Budesonide, Ciclesonide, Clobetasol, Dexamethasone, Fludrocortisone, Fluticasone, Hydrocortisone, Hydrocortisone 1%, Methylprednisolone, Mometasone, Prednisolone, Prednisone, Triamcinolone                                                                                                                                                                                                                         |
+| `lithium`            | lithium, lithium carbonate                                                            | 9    | 9      | **1** — Lithium carbonate (IR/SR)                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `thiazide-diuretics` | thiazide diuretics, thiazides, thiazide                                               | 9    | 9      | **2** — Hydrochlorothiazide, Indapamide                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `ppis`               | ppis, ppi, proton pump inhibitors                                                     | 8    | 8      | **2** — Esomeprazole, Pantoprazole                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `statins`            | statins, statin                                                                       | 9    | 7      | **2** — Atorvastatin, Rosuvastatin                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -53,7 +54,6 @@ CRITICAL or HIGH. Start at the top — the table is sorted by severe usage.
 | `snris`              | snris, snri                                                                           | 4    | 3      | **5** — Atomoxetine, Desvenlafaxine, Duloxetine, Tramadol IR, Venlafaxine XR                                                                                                                                                                                                                                                                                                                                                                                |
 | `antiplatelets`      | antiplatelets, antiplatelet                                                           | 3    | 3      | **4** — Aspirin, Clopidogrel, Dipyridamole, Ticagrelor                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `gabapentinoids`     | gabapentinoids, gabapentinoid                                                         | 3    | 3      | **2** — Gabapentin, Pregabalin                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `z-drugs`            | z-drugs, z drugs, zolpidem-type hypnotics                                             | 0    | 0      | **2** — Zolpidem, Zopiclone                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ## Deliberate exclusions
 
@@ -92,14 +92,43 @@ the class cannot be enumerated, and holds the medication at grey rather than gre
 | `qtc-prolonging`    | mechanism | qtc prolonging drugs, qt prolonging drugs, concurrent qtc prolonging drugs, qt-prolonging agents                                  | 10   | The catalogue carries QTc risk per drug but not a curated interacting set.                               |
 | `serotonergic`      | mechanism | serotonergic drugs, serotonergic agents, other serotonergics                                                                      | 1    |                                                                                                          |
 
+## What this tool can never warn about
+
+**35 of the catalogue's 328 medications sit outside both ends of every resolved
+interaction row.** Entering one of them produces no alert — not because the combination was checked and
+found clear, but because no machine-resolved edge in the corpus includes that drug. On screen those
+outcomes look the same, so this list is the honest boundary of the feature.
+
+This is a **corpus coverage** limit, not necessarily a lexicon fault. Widening it means adding an
+interaction row or making an existing row machine-resolvable, with clinical review of the source content.
+
+| Class           | Unreachable | Drugs                                                                                                                         |
+| --------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Aperient        | 8           | Docusate sodium, Fortrans/PEG, Glycerol suppository, Ispaghula husk, Lactulose, Movicol/Macrogol, Osmolax, Sodium picosulfate |
+| Antibiotic      | 5           | Benzathine benzylpenicillin, Cefazolin, Ceftriaxone, Cephalexin, Clindamycin                                                  |
+| Antidiabetic    | 4           | Dulaglutide, Linagliptin, Semaglutide, Sitagliptin                                                                            |
+| Vitamin         | 3           | Riboflavin, Thiamine, Vitamin A                                                                                               |
+| Antidote        | 2           | Acetylcysteine, Dantrolene                                                                                                    |
+| Antifungal      | 2           | Clotrimazole, Nystatin                                                                                                        |
+| Urology         | 2           | Dutasteride, Finasteride                                                                                                      |
+| Antiviral       | 1           | Oseltamivir                                                                                                                   |
+| Bone Metabolism | 1           | Denosumab                                                                                                                     |
+| Haemostatic     | 1           | Tranexamic acid                                                                                                               |
+| Lipid-Lowering  | 1           | Ezetimibe                                                                                                                     |
+| Mineral         | 1           | Selenium                                                                                                                      |
+| Neurology       | 1           | Topiramate                                                                                                                    |
+| Sedative        | 1           | Zolpidem                                                                                                                      |
+| SUD             | 1           | Varenicline                                                                                                                   |
+| Topical         | 1           | Capsaicin cream                                                                                                               |
+
 ## Flagged for a closer look
 
 - The catalogue holds 2 records named **Warfarin** (`warfarin-vka`, `warfarin-anticoagulant`), and a lexicon class resolves to them. They carry **different** interaction rows (`warfarin-vka`: 3, `warfarin-anticoagulant`: 3; only 0 in common), so which record the clinician opens changes which warnings they see. Reconcile them in the catalogue.
-- `antipsychotics` resolves to **26 drugs** — broad enough to be worth re-reading.
-- `acei` resolves to a single drug; check the class is not wider than the catalogue.
-- `arbs` resolves to a single drug; check the class is not wider than the catalogue.
-- `loop-diuretics` resolves to a single drug; check the class is not wider than the catalogue.
-- `z-drugs` fires on no catalogue row — dead entry, or its phrasing never occurs.
+
+Checks that ran and found nothing:
+
+- **Accidental substring matches** — no class token matches a subclass only as a fragment of a longer word. (This is the check that caught `ARB` inside _Carbapenem_.)
+- **Missed class members** — no catalogue drug whose own class or subclass names a term's phrase was left out of that term. Where a class resolves to a single drug, that is the catalogue holding one such drug, not a narrow selector.
 
 ## Sign-off
 

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "c1218846-c99f-4d49-a44c-a97d642926aa",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#282",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** A probe to decide whether pdf.js decoder assets are needed. Worth doing eventually, but no reported rendering failure traces to JBIG2/JPX today, so it is speculative. **Outcome:** a measured decision about pdf.js's cMap/standard-font/WASM assets rather than an assumption either way. **Detail:** getDocument is configured with url plus the on-demand fetch flags and nothing else, so 'wasmUrl', 'standardFontDataUrl', 'cMapUrl' and 'iccUrl' are all unset. pdfjs-dist ships those assets (wasm 1.5 MB, standard_fonts 804 KB, cmaps 1.7 MB) and nothing copies them into public/. With wasmUrl null, 'useWorkerFetch' resolves false and the WASM image decoders cannot load, so JBIG2 and JPEG2000 images fall back to the JS decoders or fail; those are exactly the encodings a scanned guideline uses, and this repo runs an OCR pipeline, which implies scanned sources exist. Non-embedded standard-14 fonts fall back to system fonts, which is a fidelity risk on a clinical document rather than a failure. **Next:** sample the real corpus for JBIG2/JPX-encoded images and for PDFs relying on the standard 14 before shipping ~2 MB of static assets; if the corpus does use them, copy into public/pdfjs, set the URLs, and add immutable cache headers in next.config.ts (public/ is not counted by check:bundle-budget, so there is no budget risk — the cost is bytes over the wire on first use). **Stop:** do not ship the assets on the assumption alone."
+  }
+}

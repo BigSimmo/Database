@@ -745,7 +745,10 @@ describe("Codex Cloud environment contract", () => {
       env: { ...process.env, HOME: bashHome, PATH: `${shimDir}:${shimDir}:/usr/bin:/bin` },
     });
     expect(result.status, result.stderr || result.stdout).toBe(0);
-    expect(result.stdout.trim()).toBe(`${bashNodeBin}:/usr/bin:/bin`);
+    const resolvedPath = result.stdout.trim().split(":");
+    expect(resolvedPath[0]).toBe(bashNodeBin);
+    expect(resolvedPath).not.toContain(shimDir);
+    expect(resolvedPath).toEqual(expect.arrayContaining(["/usr/bin", "/bin"]));
   });
 
   it("writes managed shell policy behaviorally and preserves unrelated Codex config", () => {

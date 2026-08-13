@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "f1673818-e4fe-4733-9db4-312b11d0279c",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#027",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** Off-platform uptime monitoring for a single-user prototype that is not in clinical use and has no availability commitment to anyone. Revisit when there is a user who would notice an outage. `live-domain-monitor.yml` runs on GitHub's cron, so it won't run in exactly the outage it should catch (Actions or the deploy itself down). Add an off-platform synthetic monitor (UptimeRobot / Better Stack / Checkly) hitting `/api/health` with a webhook alert. Provider setup, not code."
+  }
+}
