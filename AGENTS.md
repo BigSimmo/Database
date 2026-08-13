@@ -304,19 +304,21 @@ action must perform one; a page that ships must be reachable.
 
 # Bundle budget
 
-`check:bundle-budget` enforces **two** baselines in `bundle-budget.json`, because one number could
-not honestly answer both questions (`#013` vs `#252`, reconciled 2026-08-09):
+`check:bundle-budget` enforces **three complementary safeguards** in `bundle-budget.json`:
 
 - **`production`** — every chunk a non-mockup route reaches, plus chunks no route manifest claims
   (framework, polyfills, runtime). This is user-facing weight and the real regression guard.
   Tolerance 10%. A failure here means find the regression; do not refresh the baseline to clear it.
+- **`routes`** — client JavaScript referenced by `/`, `/therapy-compass`, `/documents/search`,
+  `/dsm`, and `/forms`, the same journeys measured by Lighthouse. Each route has a 10% tolerance,
+  so local growth cannot hide inside a still-healthy repository aggregate.
 - **`mockups`** — chunks reachable **only** from `/mockups/**`. Nobody downloads these, so this is a
   repo-hygiene ceiling for unbounded accumulation, not a per-mockup gate. Tolerance 25%.
 
 A chunk shared by a mockup and a production route counts as production — it would be built either
 way. Attribution comes from the per-route `*_client-reference-manifest.js` files under
-`.next/server/app`; if that tree is missing or resolves no routes the check **fails closed** rather
-than collapsing the two buckets.
+`.next/server/app`; if that tree is missing, resolves no routes, or omits a configured route, the
+check **fails closed** rather than collapsing the buckets or silently dropping a route.
 
 Why the split rather than a raised ceiling: measured on `main` at `af85cbc`, the repo-wide total was
 +9.96% of the old single baseline — 576 bytes from failing `Build` — while production-only was
