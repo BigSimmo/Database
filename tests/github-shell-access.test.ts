@@ -27,6 +27,7 @@ type FixtureOptions = {
   reviewThreadsHasNextPage?: boolean;
   reviewThreadsAvailable?: boolean;
   unresolvedReviewThreadCount?: number;
+  unrelatedOpenPullRequestFirst?: boolean;
   viewerCanResolve?: boolean;
   scopes?: string;
 };
@@ -59,19 +60,29 @@ function fixtureRun(options: FixtureOptions = {}) {
     if (key === "git branch --show-current") return success("codex/sample\n");
     if (key.includes("gh pr list") && key.includes("--state open")) {
       if (options.openPullRequestsAvailable === false) return success("[]");
-      return success(
-        JSON.stringify([
-          {
-            number: 123,
-            state: "OPEN",
-            headRefOid: sha,
-            headRefName: "codex/sample",
-            isDraft: false,
-            mergeStateStatus: "CLEAN",
-            labels: [],
-          },
-        ]),
-      );
+      const pullRequests = [
+        {
+          number: 123,
+          state: "OPEN",
+          headRefOid: sha,
+          headRefName: "codex/sample",
+          isDraft: false,
+          mergeStateStatus: "CLEAN",
+          labels: [],
+        },
+      ];
+      if (options.unrelatedOpenPullRequestFirst) {
+        pullRequests.unshift({
+          number: 999,
+          state: "OPEN",
+          headRefOid: "b".repeat(40),
+          headRefName: "codex/unrelated",
+          isDraft: false,
+          mergeStateStatus: "CLEAN",
+          labels: [],
+        });
+      }
+      return success(JSON.stringify(pullRequests));
     }
     if (key.includes("gh pr list") && key.includes("--state closed")) {
       if (options.closedPullRequestsAvailable === false) return success("[]");
@@ -200,6 +211,13 @@ describe("GitHub shell control-plane acceptance", () => {
     expect(githubShellAccess(fixtureRun({ openPullRequestsAvailable: false }))).toMatchObject({
       ok: true,
       outcome: "GH_SHELL_ACCESS_READY",
+      sampledPullRequest: 123,
+    });
+  });
+
+  it("prefers the pull request for the exact local branch", () => {
+    expect(githubShellAccess(fixtureRun({ unrelatedOpenPullRequestFirst: true }))).toMatchObject({
+      ok: true,
       sampledPullRequest: 123,
     });
   });
