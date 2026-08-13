@@ -372,7 +372,7 @@ export function DsmSearchPage({
                   {results.length} {results.length === 1 ? "result" : "results"}
                 </span>
               </div>
-              <div className="hidden grid-cols-[3rem_minmax(14rem,1fr)_10rem_7rem_2.75rem] gap-4 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-5 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)] lg:grid">
+              <div className="hidden grid-cols-[3rem_minmax(0,1fr)_10rem_7rem_3rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)] lg:grid xl:grid-cols-[3rem_minmax(14rem,1fr)_10rem_7rem_3rem] xl:gap-4 xl:px-5">
                 <span>Select</span>
                 <span>Diagnosis</span>
                 <span>Category</span>
@@ -387,7 +387,7 @@ export function DsmSearchPage({
                       key={result.slug}
                       data-testid="dsm-search-result"
                       className={cn(
-                        "group grid grid-cols-[3rem_minmax(0,1fr)_2.75rem] items-start gap-3.5 px-4 py-4 transition sm:gap-4 sm:px-5 sm:py-5 lg:grid-cols-[3rem_minmax(14rem,1fr)_10rem_7rem_2.75rem] lg:items-center",
+                        "group grid grid-cols-[3rem_minmax(0,1fr)_3rem] items-start gap-3.5 px-4 py-4 transition sm:gap-4 sm:px-5 sm:py-5 lg:grid-cols-[3rem_minmax(0,1fr)_10rem_7rem_3rem] lg:items-center lg:gap-3 lg:px-4 xl:grid-cols-[3rem_minmax(14rem,1fr)_10rem_7rem_3rem] xl:gap-4 xl:px-5",
                         isSelected
                           ? "bg-[color:var(--clinical-accent-soft)]/55"
                           : "hover:bg-[color:var(--surface-subtle)]",
