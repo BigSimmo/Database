@@ -955,7 +955,7 @@ tests to run.
 
 Registered public components: 54
 Components with a valid design-sync preview: 54
-Components with product imports: 32
+Components with product imports: 31
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -1001,7 +1001,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              27 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              26 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
