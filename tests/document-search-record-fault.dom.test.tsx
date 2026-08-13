@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -133,6 +133,58 @@ describe("document search record path fault reporting", () => {
 
     fireEvent.click(within(menu).getByRole("menuitem", { name: "Search only this source" }));
     expect(baseProps.onScopeDocument).toHaveBeenCalledWith(lithiumMatch.document_id);
+  });
+
+  it("coalesces more-menu viewport events into one animation-frame measurement", () => {
+    const pendingFrames: Array<(time: number) => void> = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      pendingFrames.push(callback as (time: number) => void);
+      return pendingFrames.length;
+    });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      x: 20,
+      y: 20,
+      left: 20,
+      top: 20,
+      right: 120,
+      bottom: 60,
+      width: 100,
+      height: 40,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    try {
+      render(
+        <DocumentSearchResultsPanel
+          {...baseProps}
+          matches={[lithiumMatch]}
+          recordMatches={[]}
+          showRecordMatches={false}
+          query="lithium"
+        />,
+      );
+
+      const resultCard = screen.getByTestId("document-result-card");
+      fireEvent.click(within(resultCard).getByRole("button", { name: `More actions for ${lithiumMatch.title}` }));
+      expect(screen.getByTestId("document-result-more-menu")).toBeInTheDocument();
+      expect(pendingFrames).toHaveLength(1);
+      act(() => pendingFrames.shift()?.(0));
+      const measuredCalls = rect.mock.calls.length;
+
+      act(() => {
+        window.dispatchEvent(new Event("scroll"));
+        window.dispatchEvent(new Event("scroll"));
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(pendingFrames).toHaveLength(1);
+      expect(rect).toHaveBeenCalledTimes(measuredCalls);
+      act(() => pendingFrames.shift()?.(16));
+      expect(rect).toHaveBeenCalledTimes(measuredCalls + 2);
+    } finally {
+      raf.mockRestore();
+      rect.mockRestore();
+    }
   });
 });
 

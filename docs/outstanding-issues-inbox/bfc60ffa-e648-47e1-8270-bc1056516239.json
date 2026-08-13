@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "bfc60ffa-e648-47e1-8270-bc1056516239",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#254",
+    "outcome": "Archaeology on a settled dispute. PR #1613 was closed against PR #1617 on 2026-08-05, and the acceptance evidence is pinned to heads the branch has since moved past. Re-pinning evidence for a resolved dispute buys nothing; the Codex Cloud MCP position itself is recorded in docs/audit/cloud-connection-acceptance-2026-08-05.md."
+  }
+}

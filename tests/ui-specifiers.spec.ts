@@ -280,6 +280,36 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
   await expectNoBlockingAxeViolations(page, testInfo);
 });
 
+test("keeps the specifier map flow usable with reduced motion and forced colors", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+  await gotoApp(page, "/specifiers/map?selected=with-anxious-distress");
+
+  await expect(page.getByRole("heading", { name: "Find the right specifier", level: 1 })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+  const roleNavigation = page.getByRole("navigation", { name: "Choose a specifier role" });
+  await expect(roleNavigation.getByRole("button")).toHaveCount(3);
+  await expect(page.getByText("Base diagnosis", { exact: true })).toHaveCount(0);
+
+  const courseJump = page.getByTestId("specifier-map-jump-course-onset");
+  await courseJump.focus();
+  await expect(courseJump).toBeFocused();
+  await expect
+    .poll(() => courseJump.evaluate((button) => Number.parseFloat(getComputedStyle(button).transitionDuration)))
+    .toBeLessThanOrEqual(0.001);
+  await page.keyboard.press("Enter");
+
+  await expect(page).toHaveURL(/#course-onset$/);
+  await expect(courseJump).toHaveAttribute("aria-current", "true");
+  await expect(page.locator("#course-onset")).toBeInViewport();
+  await expectNoHorizontalOverflow(page);
+  await expectNoBlockingAxeViolations(page, testInfo);
+  await testInfo.attach("specifier-map-flow-phone-forced-colors", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+});
+
 test("keeps the base diagnosis severity-neutral when applying a severity descriptor", async ({ page }) => {
   await gotoApp(page, "/specifiers/builder?specifier=mild-severity");
 

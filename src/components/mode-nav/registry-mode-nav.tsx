@@ -10,6 +10,7 @@ import {
   Stethoscope,
   type LucideIcon,
 } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 import { ModeNav, type ModeNavItem } from "@/components/mode-nav/mode-nav";
 import { type ModeNavDensityProfile } from "@/components/mode-nav/mode-nav-bands";
@@ -78,6 +79,14 @@ export function RegistryModeNav({
   activeId: string | null;
   searchParamString?: string;
 }) {
+  const pathname = usePathname();
+  const embeddedPresentationOnCompare =
+    pathname === "/differentials/compare" || pathname.startsWith("/differentials/compare/");
+  // The ad-hoc compare workspace reuses DifferentialPresentationWorkflowPage,
+  // but its shell already owns the Compare bar. Suppress only that embedded
+  // page-owned Presentations bar so the header slot keeps one correct occupant.
+  if (modeId === "differentials" && activeId === "presentations" && embeddedPresentationOnCompare) return null;
+
   const currentSearchParams = new URLSearchParams(searchParamString);
   // Action-only entries are dropped, not adapted: `ModeNavItem` takes an href
   // by design so deep links, back and prefetch keep working.
