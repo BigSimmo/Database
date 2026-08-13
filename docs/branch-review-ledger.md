@@ -2,11 +2,13 @@
 
 Use this ledger to prevent repeated branch and PR reviews when the reviewed HEAD has not changed.
 
-This file is append-only. Never rewrite an existing review record's content; append a correction or superseding record instead. Exact duplicate rows may be removed (run `npm run ledger:dedupe` after a sync if needed). Older records are rotated into `docs/archive/branch-review-ledger-<yyyy-qN>.md` with `npm run ledger:rotate` so this live table stays navigable — that move preserves every unique row. Git uses the custom `ledger` merge driver (union + exact-row dedupe) for this live file.
+This file is a frozen historical table. New review records are immutable one-row files under `docs/branch-review-records/`, so simultaneous PRs never edit a shared hunk. Never rewrite an existing review record's content; append a correction or superseding record instead. The historical table and archives are retained for lookup, but normal PRs do not rotate, deduplicate, or add rows to them. The `merge` attribute is deliberately unspecified: GitHub cannot run a workstation-local merge driver.
 
-The merge driver is installed by `npm install` / `npm run hooks:install` (`merge.ledger.driver`). A clone that has not run install falls back to Git's default text merge for this path — if a sync leaves byte-identical twins, run `npm run ledger:dedupe`. The driver (and `ledger:dedupe`) only drop **exact** row twins; near-duplicates that differ in Checks/Outcome/Scope wording are refused by `check:branch-review-ledger` — correct those with `ledger:append --supersede`, not dedupe.
+`npm run check:ledger-write-discipline` rejects a dated-row change in this historical table. Equivalent retry records converge on the same content-addressed file; near-duplicates remain deliberate corrections and use `ledger:append --supersede`.
 
-Do not hand-edit this table. Read it with `npm run ledger:lookup` (live + archives) and write new rows with `npm run ledger:append` (live file only).
+An already-open branch that contains a pre-system table row must run `npm run ledger:migrate-legacy -- --dry-run` and then `npm run ledger:migrate-legacy` before its next push. That preserves the row in an immutable file while removing the branch's shared-table hunk; commit both changes together. This is a one-time compatibility migration, not a normal review command.
+
+Do not hand-edit this table or a record file. Read the whole corpus with `npm run ledger:lookup` and write new entries with `npm run ledger:append`; it creates one content-addressed file under `docs/branch-review-records/`.
 
 ## Lookup Procedure
 
