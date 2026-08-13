@@ -100,6 +100,16 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
     expect(buildEvidencePreviewUnit({ results: [outdated] })).toBeNull();
   });
 
+  it("suppresses a preview when another potential final source fails governance", () => {
+    const safe = makeSource();
+    const outdated = makeSource({
+      id: "chunk-outdated",
+      source_metadata: { document_status: "outdated" } as SearchResult["source_metadata"],
+    });
+
+    expect(buildEvidencePreviewUnit({ results: [safe], governanceResults: [safe, outdated] })).toBeNull();
+  });
+
   it("emits zero units for empty retrieval", () => {
     expect(buildEvidencePreviewUnit({ results: [] })).toBeNull();
   });
@@ -134,8 +144,8 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
 });
 
 describe("public progress DTO passthrough", () => {
-  it("passes a valid verified unit through the retrieved stage", () => {
-    const event = toPublicAnswerProgressEvent({ stage: "retrieved", resultCount: 3, verifiedUnit: previewUnit() });
+  it("passes a valid verified unit through the ranking stage", () => {
+    const event = toPublicAnswerProgressEvent({ stage: "ranking", resultCount: 3, verifiedUnit: previewUnit() });
     expect(event?.verifiedUnit).toBeDefined();
     expect(event?.verifiedUnit?.kind).toBe("evidence_preview");
   });

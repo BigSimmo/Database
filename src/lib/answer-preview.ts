@@ -25,10 +25,15 @@ const evidencePreviewMaxSources = 12;
  */
 export function buildEvidencePreviewUnit(args: {
   results: SearchResult[];
+  /** The full source set the final answer may expose; used to fail closed early. */
+  governanceResults?: SearchResult[];
   relevance?: EvidenceRelevance | null;
 }): VerifiedEvidencePreviewUnit | null {
   if (!args.results.length) return null;
-  const warnings = sourceGovernanceWarnings({ results: args.results, relevance: args.relevance ?? null });
+  const warnings = sourceGovernanceWarnings({
+    results: args.governanceResults ?? args.results,
+    relevance: args.relevance ?? null,
+  });
   if (hasDangerSourceGovernanceWarning(warnings)) return null;
   const selected = args.results.slice(0, evidencePreviewMaxSources);
   return {
