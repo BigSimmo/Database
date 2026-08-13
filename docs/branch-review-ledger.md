@@ -2,13 +2,11 @@
 
 Use this ledger to prevent repeated branch and PR reviews when the reviewed HEAD has not changed.
 
-This file is a frozen historical table. New review records are immutable one-row files under `docs/branch-review-records/`, so simultaneous PRs never edit a shared hunk. Never rewrite an existing review record's content; append a correction or superseding record instead. The historical table and archives are retained for lookup, but normal PRs do not rotate, deduplicate, or add rows to them. The `merge` attribute is deliberately unspecified: GitHub cannot run a workstation-local merge driver.
+This file is append-only. Never rewrite an existing review record's content; append a correction or superseding record instead. Exact duplicate rows may be removed (run `npm run ledger:dedupe` after a sync if needed). Older records are rotated into `docs/archive/branch-review-ledger-<yyyy-qN>.md` with `npm run ledger:rotate` so this live table stays navigable — that move preserves every unique row. Git uses the custom `ledger` merge driver (union + exact-row dedupe) for this live file.
 
-`npm run check:ledger-write-discipline` rejects a dated-row change in this historical table. Equivalent retry records converge on the same content-addressed file; near-duplicates remain deliberate corrections and use `ledger:append --supersede`.
+The merge driver is installed by `npm install` / `npm run hooks:install` (`merge.ledger.driver`). A clone that has not run install falls back to Git's default text merge for this path — if a sync leaves byte-identical twins, run `npm run ledger:dedupe`. The driver (and `ledger:dedupe`) only drop **exact** row twins; near-duplicates that differ in Checks/Outcome/Scope wording are refused by `check:branch-review-ledger` — correct those with `ledger:append --supersede`, not dedupe.
 
-An already-open branch that contains a pre-system table row must run `npm run ledger:migrate-legacy -- --dry-run` and then `npm run ledger:migrate-legacy` before its next push. That preserves the row in an immutable file while removing the branch's shared-table hunk; commit both changes together. This is a one-time compatibility migration, not a normal review command.
-
-Do not hand-edit this table or a record file. Read the whole corpus with `npm run ledger:lookup` and write new entries with `npm run ledger:append`; it creates one content-addressed file under `docs/branch-review-records/`.
+Do not hand-edit this table. Read it with `npm run ledger:lookup` (live + archives) and write new rows with `npm run ledger:append` (live file only).
 
 ## Lookup Procedure
 
@@ -33,15 +31,20 @@ npm run ledger:append -- --ref "PR #1234 / codex/my-branch" --head <full-40-char
   --checks "<exact gates run, with results; say so explicitly if no provider-backed check ran>"
 ```
 
-The six columns are fixed: **Date · Branch or ref · Reviewed HEAD · Scope · Outcome · Checks**. `append` stamps the date, resolves the HEAD to a full SHA, escapes prose pipes as `\|`, collapses newlines, writes UTF-8, and refuses an exact or ref/HEAD/scope duplicate (pass `--supersede` when a record deliberately replaces an earlier one). Each accepted entry gets its own content-addressed file, which is why concurrent PRs no longer conflict on ledger recording.
+The six columns are fixed: **Date · Branch or ref · Reviewed HEAD · Scope · Outcome · Checks**. `append` stamps the date, resolves the HEAD to a full SHA, escapes prose pipes as `\|`, collapses newlines, writes UTF-8, and refuses an exact or ref/HEAD/scope duplicate (pass `--supersede` when a record deliberately replaces an earlier one).
 
 Record the **Reviewed HEAD** as the full 40-character SHA. `see PR head`, `pending final head`, and 8-character abbreviations are what made the throttle unreliable: no lookup can match them, so the review runs again. When the head genuinely does not exist yet, write `n/a - <reason>` and append a real record once it does.
 
-`npm run check:branch-review-ledger` (in `verify:cheap` and CI) requires an unspecified merge attribute, six cells per record, clean UTF-8 (no mojibake from a non-UTF-8 append), table-row records only, real dates, content-addressed immutable record filenames, and no duplicates across live, archived, and immutable sources. Records dated 2026-07-29 or later must additionally carry a resolvable HEAD. `npm run check:ledger-write-discipline` rejects changed legacy table rows, so GitHub never has to resolve a normal review append. Archives under `docs/archive/branch-review-ledger-*.md` are checked for the same structural rules.
+`npm run check:branch-review-ledger` (in `verify:cheap` and CI) enforces the `ledger` merge attribute, six cells per record, clean UTF-8 (no mojibake from a non-UTF-8 append), table-row records only, real dates, and no duplicates. Records dated 2026-07-29 or later must additionally carry a resolvable HEAD. The merge driver is installed by `npm install` / `hooks:install` (`merge.ledger.driver`). Archives under `docs/archive/branch-review-ledger-*.md` are checked for the same structural rules.
 
-### Historical maintenance
+### Rotation
 
-The legacy `dedupe` and `rotate` commands are read-only with `--dry-run`. A write requires a separately authorized historical repair and `ALLOW_LEGACY_REVIEW_LEDGER_MAINTENANCE=true`; it deliberately fails `check:ledger-write-discipline` until the repair's temporary migration procedure is reviewed. They are not part of ordinary PR iteration.
+```bash
+npm run ledger:rotate -- --dry-run                  # default cutoff: current calendar-quarter start
+npm run ledger:rotate -- --before 2026-07-29        # one-time / operator cutoff
+```
+
+Default rotation archives every live row dated before the current UTC calendar-quarter start into `docs/archive/branch-review-ledger-<yyyy-qN>.md`. The 2026-07-30 L4 bootstrap used `--before 2026-07-29` because the entire history landed inside one month; going forward, run `npm run ledger:rotate` once per UTC calendar quarter (or when the live table grows unwieldy). Preview with `--dry-run` first.
 
 ### Historical note — 2026-07-28 hygiene pass
 

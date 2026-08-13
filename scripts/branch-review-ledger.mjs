@@ -194,11 +194,7 @@ export function reviewRecordPath(row) {
  * Create one content-addressed review record. If a concurrent identical append wins
  * the `wx` race, verify the existing bytes and treat the operation as idempotent.
  */
-export function writeImmutableReviewRecord(
-  target,
-  row,
-  { write = writeFileSync, read = readFileSync } = {},
-) {
+export function writeImmutableReviewRecord(target, row, { write = writeFileSync, read = readFileSync } = {}) {
   const expected = `${row}\n`;
   try {
     write(target, expected, { encoding: "utf8", flag: "wx" });

@@ -113,9 +113,7 @@ export function planRequestBatch(requests) {
     if (request.action !== "cancel") continue;
     const target = byId.get(request.payload.requestId);
     if (!target) {
-      throw new Error(
-        `cancel request ${request.id} targets missing pending request ${request.payload.requestId}`,
-      );
+      throw new Error(`cancel request ${request.id} targets missing pending request ${request.payload.requestId}`);
     }
     if (target.action === "cancel") {
       throw new Error(`cancel request ${request.id} cannot cancel another cancellation request`);
@@ -137,7 +135,7 @@ export function planRequestBatch(requests) {
     const detail = conflicts.map(([id, requestIds]) => `${id}: ${requestIds.join(", ")}`).join("; ");
     throw new Error(
       `multiple pending mutations require an explicit cancellation decision (${detail}). ` +
-        "Queue `node scripts/ledger-inbox.mjs cancel <request-uuid> --reason \"<why>\"` for each rejected mutation, land it, then reconcile again.",
+        'Queue `node scripts/ledger-inbox.mjs cancel <request-uuid> --reason "<why>"` for each rejected mutation, land it, then reconcile again.',
     );
   }
 
@@ -195,7 +193,9 @@ function pendingRequestsAreTrackedAndClean(pending) {
       git(["ls-files", "--error-unmatch", "--", entry.relative]);
       git(["diff", "--quiet", "HEAD", "--", entry.relative]);
     } catch {
-      throw new Error(`pending request ${entry.relative} is untracked or modified; commit the immutable request before reconciliation`);
+      throw new Error(
+        `pending request ${entry.relative} is untracked or modified; commit the immutable request before reconciliation`,
+      );
     }
   }
 }
@@ -392,7 +392,8 @@ function reconcile(argv) {
     process.exitCode = 1;
     return;
   }
-  const decisions = result.cancellations.length > 0 ? ` with ${result.cancellations.length} cancellation decision(s)` : "";
+  const decisions =
+    result.cancellations.length > 0 ? ` with ${result.cancellations.length} cancellation decision(s)` : "";
   console.log(
     `${dryRun ? "Would reconcile" : "Reconciling"} ${pending.length} request(s) into ${ISSUES_PATH}${decisions}.`,
   );
