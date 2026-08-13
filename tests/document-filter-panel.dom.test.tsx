@@ -94,6 +94,13 @@ function resultTitles() {
     .map((card) => within(card).getAllByRole("heading")[0]?.textContent ?? "");
 }
 
+async function openPanel(props = baseProps) {
+  const user = userEvent.setup();
+  render(<DocumentSearchResultsPanel {...props} />);
+  await user.click(screen.getByTestId("document-filter-trigger-phone"));
+  return { user, panel: screen.getByTestId("document-filter-panel") };
+}
+
 describe("document filter panel", () => {
   it("is reachable from the ribbon trigger", async () => {
     // The regression this pins: the facet rail used to be mounted only when a
@@ -150,6 +157,12 @@ describe("document filter panel", () => {
     expect(resultTitles()).toEqual([expect.stringContaining("Clozapine Monitoring Protocol")]);
   });
 
+  it("hides Clear filters until a document filter is active", async () => {
+    const { panel } = await openPanel();
+
+    expect(within(panel).queryByTestId("document-filter-panel-clear")).toBeNull();
+  });
+
   it("clears both filter kinds at once", async () => {
     const user = userEvent.setup();
     render(<DocumentSearchResultsPanel {...baseProps} />);
@@ -160,7 +173,7 @@ describe("document filter panel", () => {
     await user.click(within(panel()).getByRole("button", { name: /Clozapine/ }));
     expect(resultTitles()).toHaveLength(1);
 
-    await user.click(within(panel()).getByTestId("document-filter-clear"));
+    await user.click(within(panel()).getByTestId("document-filter-panel-clear"));
 
     expect(resultTitles()).toHaveLength(2);
     expect(within(panel()).getByRole("radio", { name: /All/ })).toHaveAttribute("aria-checked", "true");
@@ -370,16 +383,10 @@ describe("filter sheet — density, exclusivity and reach", () => {
       label("33333333-3333-4333-8333-333333333333", "community", "setting"),
       label("33333333-3333-4333-8333-333333333333", "discharge", "care_phase"),
       label("33333333-3333-4333-8333-333333333333", "suicide", "risk"),
+      label("33333333-3333-4333-8333-333333333333", "fiona stanley hospital", "site"),
     ],
   });
   const denseProps = { ...baseProps, matches: [denseDoc, clozapineDoc, lithiumDoc], documentCount: 2014 };
-
-  async function openPanel(props = baseProps) {
-    const user = userEvent.setup();
-    render(<DocumentSearchResultsPanel {...props} />);
-    await user.click(screen.getByTestId("document-filter-trigger-phone"));
-    return { user, panel: screen.getByTestId("document-filter-panel") };
-  }
 
   it("puts every facet on the tap floor, not the 28px it shipped with", async () => {
     const { panel } = await openPanel();
@@ -423,9 +430,17 @@ describe("filter sheet — density, exclusivity and reach", () => {
 
     // The field collapses an eleven-section scroll to one interaction, and
     // expands whatever it matched so the result is usable without a second tap.
-    await user.type(within(panel).getByTestId("document-filter-find"), "community");
+    await user.type(within(panel).getByTestId("document-filter-panel-find"), "community");
     expect(within(panel).getByRole("button", { name: /Community/ })).toBeVisible();
     expect(within(panel).queryByRole("button", { name: /Clozapine/ })).toBeNull();
+  });
+
+  it("finds an abbreviated site label by its canonical text", async () => {
+    const { user, panel } = await openPanel(denseProps);
+
+    await user.type(within(panel).getByTestId("document-filter-panel-find"), "fiona stanley hospital");
+
+    expect(within(panel).getByRole("button", { name: /FSH/ })).toBeVisible();
   });
 
   it("stops advertising a disclosure while the find field owns what is open", async () => {
@@ -440,7 +455,7 @@ describe("filter sheet — density, exclusivity and reach", () => {
     // the sibling comment in this panel already names.
     expect(within(panel).getByRole("button", { name: /^Setting/ })).toHaveAttribute("aria-expanded", "false");
 
-    await user.type(within(panel).getByTestId("document-filter-find"), "community");
+    await user.type(within(panel).getByTestId("document-filter-panel-find"), "community");
     expect(within(panel).queryByRole("button", { name: /^Setting/ })).toBeNull();
     const heading = within(panel).getByText("Setting", { selector: "span" });
     expect(heading).toBeVisible();
@@ -451,7 +466,7 @@ describe("filter sheet — density, exclusivity and reach", () => {
     // Clearing returns the group to exactly the state it was in before the
     // search, rather than to a collapse recorded by a tap that appeared to do
     // nothing at the time.
-    await user.clear(within(panel).getByTestId("document-filter-find"));
+    await user.clear(within(panel).getByTestId("document-filter-panel-find"));
     expect(within(panel).getByRole("button", { name: /^Setting/ })).toHaveAttribute("aria-expanded", "false");
   });
 
@@ -481,17 +496,19 @@ describe("filter sheet — density, exclusivity and reach", () => {
 
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
     await user.type(
-      within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-find"),
+      within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-panel-find"),
       "clozapine",
     );
-    expect(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-find")).toHaveValue(
+    expect(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-panel-find")).toHaveValue(
       "clozapine",
     );
     await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-done"));
 
     rerender(<DocumentSearchResultsPanel {...denseProps} query="lithium" />);
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
-    expect(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-find")).toHaveValue("");
+    expect(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-panel-find")).toHaveValue(
+      "",
+    );
   });
 
   it("keeps a selected facet reachable while the find field is narrowing the list", async () => {
@@ -499,7 +516,7 @@ describe("filter sheet — density, exclusivity and reach", () => {
 
     await user.click(within(panel).getByRole("button", { name: /^Medication/ }));
     await user.click(within(panel).getByRole("button", { name: /Lithium/ }));
-    await user.type(within(panel).getByTestId("document-filter-find"), "community");
+    await user.type(within(panel).getByTestId("document-filter-panel-find"), "community");
 
     // "Lithium" does not match "community", but it is still narrowing the list —
     // hiding it here would leave an active constraint with no in-sheet undo.
@@ -512,7 +529,7 @@ describe("filter sheet — density, exclusivity and reach", () => {
 
     // Below the threshold every group is open permanently, so a heading that
     // advertised a collapse would be a control that does nothing.
-    expect(within(panel).queryByTestId("document-filter-find")).toBeNull();
+    expect(within(panel).queryByTestId("document-filter-panel-find")).toBeNull();
     expect(within(panel).queryByRole("button", { name: /^Medication/ })).toBeNull();
     expect(within(panel).getByRole("button", { name: /Clozapine/ })).toBeVisible();
   });
@@ -554,7 +571,11 @@ describe("filter sheet — density, exclusivity and reach", () => {
 
     const suicide = within(panel).getByRole("button", { name: /Suicide/ });
     expect(suicide).toHaveAttribute("aria-disabled", "true");
-    expect(suicide).toHaveAccessibleDescription(/No documents match this with the current filters/);
+    // Copy moved to the shared component's generic dead-end reason
+    // (`result-filter-control.tsx`) when documents converged onto
+    // `ResultFilterFacetChips` — the guard mechanics (disabled, focusable,
+    // click-blocked) are unchanged and asserted below.
+    expect(suicide).toHaveAccessibleDescription(/No matches with your current filters/);
     await user.click(suicide);
 
     // Unchanged: the guarded click did not empty the list behind the reader.
