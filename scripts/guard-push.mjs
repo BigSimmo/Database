@@ -133,9 +133,15 @@ export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
     : hasOriginMain
       ? `${MAIN_REMOTE_REF}...${range.localSha}`
       : undefined;
-  const out = spec
+  let out = spec
     ? tryGit(["diff", "--name-only", spec], cwd)
     : tryGit(["show", "--name-only", "--pretty=format:", range.localSha], cwd);
+  if (out === undefined && !existingRemote && hasOriginMain) {
+    // Three-dot scope requires a merge base. Orphan branches and ancestry-
+    // incomplete clones can have origin/main without one; conservatively compare
+    // the endpoint trees so a Git error cannot become "no changed files".
+    out = tryGit(["diff", "--name-only", `${MAIN_REMOTE_REF}..${range.localSha}`], cwd);
+  }
   if (!out) return [];
   return out
     .split("\n")
