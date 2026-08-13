@@ -1,0 +1,86 @@
+name: Repair PR 1889 generated inventory
+
+on:
+  push:
+    branches:
+      - claude/filter-therapy-compass
+
+concurrency:
+  group: repair-pr-1889-generated-inventory
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    name: Regenerate and push the reviewed repair
+    if: github.event.head_commit.message == 'chore(pr-1889): run generated inventory repair'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact repair trigger
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: claude/filter-therapy-compass
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Merge latest base and regenerate source-derived files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git show -s --format=%s HEAD)" = "chore(pr-1889): run generated inventory repair"
+
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "0709965e66e04173ec0b0de1d121e85ac1ff7e04"
+          git merge --no-ff --no-commit origin/main
+
+          git rm -- src/components/therapy-compass/filter-sheet.tsx tests/therapy-filter-sheet.dom.test.tsx
+
+          npm ci
+          npm run design-system:adoption:update
+          npm run check:design-system-contract
+          npm run typecheck
+          npm run test -- tests/therapy-search-facets.test.ts tests/therapy-compass-search-filters.dom.test.tsx tests/therapy-compass-mode-wiring.test.ts
+
+          test ! -e src/components/therapy-compass/filter-sheet.tsx
+          test ! -e tests/therapy-filter-sheet.dom.test.tsx
+          if git grep -n 'from "../filter-sheet"' -- src tests; then
+            echo "::error::A runtime or test import still references the deleted legacy therapy filter module."
+            exit 1
+          fi
+
+          git rm -- .github/workflows/repair-pr-1889-generated-inventory.yml
+
+          allowed='^(docs/branch-review-records/(33f8fcf0543655449bf077fbb7595b849f39599f7d54238755ee9a649967f25a|770c855f8ddb79707f4ddb49b266ea1f4d27795aa33fcc02f099586e423c15b2)\.record\.md|docs/design-system/(ADOPTION\.md|COMPONENTS\.md|adoption-manifest\.json)|src/components/therapy-compass/filter-sheet\.tsx|tests/therapy-filter-sheet\.dom\.test\.tsx|\.github/workflows/repair-pr-1889-generated-inventory\.yml)$'
+          unexpected="$(git status --porcelain=v1 | cut -c4- | grep -Ev "$allowed" || true)"
+          if [ -n "$unexpected" ]; then
+            echo "::error::Unexpected generated-repair paths:"
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+
+          git config user.name "BigSimmo"
+          git config user.email "87357024+BigSimmo@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(filters): refresh generated adoption inventory"
+
+      - name: Push only if the PR head has not moved
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          test "$(GH_TOKEN="$GH_TOKEN" gh api user --jq .login)" = "BigSimmo"
+          remote_head="$(git ls-remote origin refs/heads/claude/filter-therapy-compass | cut -f1)"
+          test "$remote_head" = "$GITHUB_SHA"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/claude/filter-therapy-compass
