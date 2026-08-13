@@ -68,13 +68,13 @@ export function normalizedSchemaSha256(schemaSqlText) {
   return createHash("sha256").update(schemaSqlText.replace(/\r\n/g, "\n")).digest("hex");
 }
 
-function runGit(args) {
-  return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+function runGit(args, cwd = PROJECT_ROOT) {
+  return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 }
 
-function tryGit(args) {
+function tryGit(args, cwd = PROJECT_ROOT) {
   try {
-    return runGit(args);
+    return runGit(args, cwd);
   } catch {
     return undefined;
   }
@@ -87,9 +87,10 @@ function currentBranch() {
 /**
  * Resolve the set of files being pushed from the pre-push stdin payload. Each
  * line is "<localRef> <localSha> <remoteRef> <remoteSha>". For a brand-new remote
- * branch (remoteSha all-zero) we diff against origin/main so we still see the new
- * work rather than the whole history. Deletion pushes (local sha all-zero) are
- * dropped, so an empty array means "nothing to check".
+ * branch (remoteSha all-zero) we use PR-style three-dot scope against origin/main
+ * so main-only commits cannot inflate the changed-file command line. Deletion
+ * pushes (local sha all-zero) are dropped, so an empty array means "nothing to
+ * check".
  */
 export function parsePushRanges(stdinText) {
   const ranges = [];
@@ -114,17 +115,17 @@ export function pushedBranchNames(ranges, fallbackBranch = "") {
   return [...branches];
 }
 
-function changedFilesForRange(range) {
-  const base =
-    range.remoteSha && range.remoteSha !== ZERO_SHA
-      ? range.remoteSha
-      : tryGit(["rev-parse", "--verify", "--quiet", "origin/main"])
-        ? "origin/main"
-        : undefined;
-  const spec = base ? `${base}..${range.localSha}` : range.localSha;
-  const out = base
-    ? tryGit(["diff", "--name-only", spec])
-    : tryGit(["show", "--name-only", "--pretty=format:", range.localSha]);
+export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
+  const existingRemote = range.remoteSha && range.remoteSha !== ZERO_SHA;
+  const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", "origin/main"], cwd);
+  const spec = existingRemote
+    ? `${range.remoteSha}..${range.localSha}`
+    : hasOriginMain
+      ? `origin/main...${range.localSha}`
+      : undefined;
+  const out = spec
+    ? tryGit(["diff", "--name-only", spec], cwd)
+    : tryGit(["show", "--name-only", "--pretty=format:", range.localSha], cwd);
   if (!out) return [];
   return out
     .split("\n")
