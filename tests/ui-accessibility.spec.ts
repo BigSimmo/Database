@@ -633,8 +633,11 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "false");
     await cbtToggle.click();
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
-    await reviewedToggle.click();
-    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "true");
+    // The current catalogue has no reviewed records, so the shared facet
+    // contract correctly disables a zero-count option rather than offering a
+    // control that can never produce results.
+    await expect(reviewedToggle).toBeDisabled();
+    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "false");
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
 
     await therapyFilterPanel.getByTestId("therapy-filter-panel-clear").click();
