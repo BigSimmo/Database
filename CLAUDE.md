@@ -150,9 +150,9 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 
 `verify:cheap` deliberately does **not** run formatting, which is why changed-file CI and the
 installed pre-push hook (`.githooks/pre-push` → `scripts/guard-push.mjs`) block on unformatted files.
-It also guards the auto-merge race on `claude/*` branches, drift-manifest staleness, and a
-static gate (lint + source typecheck; override `SKIP_STATIC_GUARD=1`). Each guard has a
-documented override env var.
+It also guards user-owned auto-merge state on every PR branch, drift-manifest staleness, and a
+static gate (lint + source typecheck; override `SKIP_STATIC_GUARD=1`). The auto-merge guard has no
+automation override; the other guards retain their documented override env vars.
 
 Domain changes (auth, Supabase, ingestion, answer generation, search/ranking, clinical
 output, source governance) additionally want the smallest relevant domain check plus
