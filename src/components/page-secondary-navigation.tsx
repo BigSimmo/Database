@@ -10,20 +10,10 @@ import {
 } from "@/lib/mode-secondary-navigation";
 
 /**
- * Every information page now owns its own in-page navigation.
- *
- * This used to be a split: the detail families listed here owned controlled or
- * dynamic navigation inside their own page component, while services, forms,
- * specifiers, formulation and the two DSM diagnosis routes declared section
- * tables that the shell rendered as an "On this page" pill rail. Those six
- * routes mount `InPageNavHeader` instead (see
- * `docs/search-chrome-behaviour.md`, "Default in-page navigation template"), so
- * the shell has no information-page navigation left to draw and the predicate
- * collapses to the definition of an information page.
- *
- * `isInformationPage` is the right shape rather than a coincidence: it excludes
- * the builder/compare/map/search routes, which are mode surfaces and still get
- * the mode bar below.
+ * Information pages own their header navigation. Most render
+ * `InPageNavHeader`; presentation comparisons render the same shared
+ * Differentials `RegistryModeNav` with their resolved selection, so the shell
+ * must not add a second bar.
  */
 export function hasLocalInformationPageNavigation(pathname: string): boolean {
   return isInformationPage(pathname);

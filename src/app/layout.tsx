@@ -10,6 +10,7 @@ import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/l
 import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import { AppAnnouncements } from "@/components/app-announcements";
 import { OverlayRoot } from "@/components/ui/overlay-root";
+import { PRIVATE_APP_ROBOTS_METADATA } from "@/lib/crawler-policy";
 import "./globals.css";
 
 /**
@@ -47,7 +48,7 @@ const geistMono = localFont({
   // The mono face is only used deep in the UI (tabular figures, `kbd`, code) and
   // never in initial/LCP text, so don't preload it on every route — it competes
   // for the critical-path connection. It still loads on-demand via `swap` when
-  // first painted. The sans face keeps the default preload.
+  // first painted, while the body sans face remains preloaded for LCP text.
   preload: false,
 });
 
@@ -55,6 +56,7 @@ const baseMetadata: Metadata = {
   applicationName: "Clinical KB",
   title: "Clinical KB",
   description: "Private medical guideline RAG knowledge base",
+  robots: PRIVATE_APP_ROBOTS_METADATA,
   appleWebApp: {
     capable: true,
     title: "Clinical KB",

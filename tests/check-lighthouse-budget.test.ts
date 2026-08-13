@@ -469,8 +469,12 @@ describe("measurementFailureReason", () => {
     expect(measurementFailureReason(0, report())).toBeNull();
   });
 
-  it("flags a non-zero exit", () => {
+  it("flags a non-zero exit that wrote no report", () => {
     expect(measurementFailureReason(1, null)).toContain("exited 1");
+  });
+
+  it("grades a parseable report even when post-measurement cleanup exits non-zero", () => {
+    expect(measurementFailureReason(1, report())).toBeNull();
   });
 
   it("flags a run that was killed without a status", () => {

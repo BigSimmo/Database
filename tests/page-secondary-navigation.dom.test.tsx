@@ -105,6 +105,18 @@ describe("PageSecondaryNavigation", () => {
     ]);
   });
 
+  it("leaves presentation comparison navigation to the resolved page workflow", () => {
+    render(
+      <PageSecondaryNavigation
+        modeId="differentials"
+        pathname="/differentials/presentations/acute-confusion-encephalopathy"
+        hasSubmittedSearch={false}
+      />,
+    );
+
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
+  });
+
   it("gives factsheets both destinations and keeps the current tab's filter state", () => {
     render(
       <PageSecondaryNavigation

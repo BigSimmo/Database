@@ -53,6 +53,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
+const MAIN_REMOTE_REF = "refs/remotes/origin/main";
 const SCHEMA_PATH = "supabase/schema.sql";
 const MANIFEST_PATH = "supabase/drift-manifest.json";
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -68,13 +69,13 @@ export function normalizedSchemaSha256(schemaSqlText) {
   return createHash("sha256").update(schemaSqlText.replace(/\r\n/g, "\n")).digest("hex");
 }
 
-function runGit(args) {
-  return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+function runGit(args, cwd = PROJECT_ROOT) {
+  return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 }
 
-function tryGit(args) {
+function tryGit(args, cwd = PROJECT_ROOT) {
   try {
-    return runGit(args);
+    return runGit(args, cwd);
   } catch {
     return undefined;
   }
@@ -87,9 +88,10 @@ function currentBranch() {
 /**
  * Resolve the set of files being pushed from the pre-push stdin payload. Each
  * line is "<localRef> <localSha> <remoteRef> <remoteSha>". For a brand-new remote
- * branch (remoteSha all-zero) we diff against origin/main so we still see the new
- * work rather than the whole history. Deletion pushes (local sha all-zero) are
- * dropped, so an empty array means "nothing to check".
+ * branch (remoteSha all-zero) we use PR-style three-dot scope against origin/main
+ * so main-only commits cannot inflate the changed-file command line. Deletion
+ * pushes (local sha all-zero) are dropped, so an empty array means "nothing to
+ * check".
  */
 export function parsePushRanges(stdinText) {
   const ranges = [];
@@ -114,17 +116,32 @@ export function pushedBranchNames(ranges, fallbackBranch = "") {
   return [...branches];
 }
 
-function changedFilesForRange(range) {
-  const base =
-    range.remoteSha && range.remoteSha !== ZERO_SHA
-      ? range.remoteSha
-      : tryGit(["rev-parse", "--verify", "--quiet", "origin/main"])
-        ? "origin/main"
-        : undefined;
-  const spec = base ? `${base}..${range.localSha}` : range.localSha;
-  const out = base
-    ? tryGit(["diff", "--name-only", spec])
-    : tryGit(["show", "--name-only", "--pretty=format:", range.localSha]);
+/** Exported for tests: existing branches compare from their remote tip; new
+ * branches compare from the PR merge base so newer main-only commits are out of
+ * scope for transaction guards that accept explicit base/head commits. */
+export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
+  if (range.remoteSha && range.remoteSha !== ZERO_SHA) return range.remoteSha;
+  if (!tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd)) return undefined;
+  return tryGit(["merge-base", MAIN_REMOTE_REF, range.localSha], cwd);
+}
+
+export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
+  const existingRemote = range.remoteSha && range.remoteSha !== ZERO_SHA;
+  const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd);
+  const spec = existingRemote
+    ? `${range.remoteSha}..${range.localSha}`
+    : hasOriginMain
+      ? `${MAIN_REMOTE_REF}...${range.localSha}`
+      : undefined;
+  let out = spec
+    ? tryGit(["diff", "--name-only", spec], cwd)
+    : tryGit(["show", "--name-only", "--pretty=format:", range.localSha], cwd);
+  if (out === undefined && !existingRemote && hasOriginMain) {
+    // Three-dot scope requires a merge base. Orphan branches and ancestry-
+    // incomplete clones can have origin/main without one; conservatively compare
+    // the endpoint trees so a Git error cannot become "no changed files".
+    out = tryGit(["diff", "--name-only", `${MAIN_REMOTE_REF}..${range.localSha}`], cwd);
+  }
   if (!out) return [];
   return out
     .split("\n")
@@ -870,10 +887,7 @@ function ledgerWriteGuard(ranges) {
   if (!hasHotLedgerWrite(collectChangedFiles(ranges))) return { name: "ledger-write", ok: true };
 
   for (const range of ranges) {
-    const base =
-      range.remoteSha && range.remoteSha !== ZERO_SHA
-        ? range.remoteSha
-        : tryGit(["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"]);
+    const base = guardBaseForRange(range);
     if (!base) {
       return {
         name: "ledger-write",

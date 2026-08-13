@@ -75,6 +75,23 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expectNoHorizontalOverflow(page);
   });
 
+  test("does not let persisted mockup utilities override live-route inline themes", async ({ page }) => {
+    const mockup = await gotoMockup(page, 1440);
+
+    await mockup.getByRole("link", { name: "Colour coding reference" }).click();
+    await expect(page).toHaveURL(/\/reference\/colour-coding$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Colour coding reference" })).toBeVisible();
+
+    const inlineBorderColor = await page.evaluate(() => {
+      const themedCard = document.createElement("div");
+      themedCard.className = "border border-[color:var(--border)]";
+      themedCard.style.borderTopColor = "rgb(1, 2, 3)";
+      document.body.append(themedCard);
+      return window.getComputedStyle(themedCard).borderTopColor;
+    });
+    expect(inlineBorderColor).toBe("rgb(1, 2, 3)");
+  });
+
   test("desktop details use inline semantics and preserve visible programmatic focus", async ({ page }) => {
     const mockup = await gotoMockup(page, 1440);
     const details = mockup.getByRole("button", { name: "View details for Differentials" });
