@@ -213,6 +213,10 @@ jobs:
         if: needs.changes.outputs.workflow_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:gate-manifest
 
+      - name: Repository skill contracts
+        if: needs.changes.outputs.workflow_changed == 'true'
+        run: npm run check:skills
+
       - name: Branch review ledger integrity
         # Also run for static_heavy (including .gitattributes-only edits and the
         # scheduled full-run sentinel): both checkers validate merge attributes.

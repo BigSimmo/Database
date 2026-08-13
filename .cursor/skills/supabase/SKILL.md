@@ -8,6 +8,15 @@ metadata:
 
 # Supabase
 
+## Database repository override
+
+When this skill runs in `C:\Dev\Apps\Database`, root `AGENTS.md`, repository migrations, and
+committed tests take precedence over this generic guide. Documentation lookup is read-only, but
+Supabase MCP/CLI calls, linked-project inspection, SQL execution, schema pulls, advisors, storage,
+logs, and test queries are provider-backed and require explicit user approval. Before any database
+command, prove the target is a disposable local development database; never use `execute_sql`,
+`psql`, `supabase db query`, or `supabase db pull` to iterate against a linked or remote project.
+
 ## Core Principles
 
 **1. Supabase changes frequently — verify against changelog and current docs before implementing.**
@@ -16,7 +25,8 @@ Do not rely on training data for Supabase features. Function signatures, config.
 First, fetch `https://supabase.com/changelog.md` (a lightweight summary index — not a heavy pull), scan for `breaking-change` tags relevant to your task, and follow the linked page for any that apply. Then look up the relevant topic using the documentation access methods below.
 
 **2. Verify your work.**
-After implementing any fix, run a test query to confirm the change works. A fix without verification is incomplete.
+After implementing a local fix, run the smallest repository-provided offline or local-emulator
+proof. A live or linked-project test query remains approval-gated.
 
 **3. Recover from errors, don't loop.**
 If an approach fails after 2-3 attempts, stop and reconsider. Try a different method, check documentation, inspect the error more carefully, and review relevant logs when available. Supabase issues are not always solved by retrying the same command, and the answer is not always in the logs, but logs are often worth checking before proceeding.
@@ -86,8 +96,12 @@ supabase <group> <command> --help  # Flags for a specific command
 
 **Supabase CLI Known gotchas:**
 
-- `supabase db query` requires **CLI v2.79.0+** → use MCP `execute_sql` or `psql` as fallback
-- `supabase db advisors` requires **CLI v2.81.3+** → use MCP `get_advisors` as fallback
+- `supabase db query` requires **CLI v2.79.0+**. In this repository, do not fall back to MCP
+  `execute_sql` or `psql` unless the user explicitly approved the operation and the target was
+  proven to be a disposable local development database.
+- `supabase db advisors` requires **CLI v2.81.3+**. After explicit approval and proof of a
+  disposable local target, MCP `get_advisors` may be used as a provider-backed fallback; do not
+  silently switch to it.
 - When you need a new migration SQL file, **always** create it with `supabase migration new <name>` first. Never invent a migration filename or rely on memory for the expected format.
 
 **Version check and upgrade:** Run `supabase --version` to check. For CLI changelogs and version-specific features, consult the [CLI documentation](https://supabase.com/docs/reference/cli/introduction) or [GitHub releases](https://github.com/supabase/cli/releases).
@@ -118,16 +132,22 @@ Before implementing any Supabase feature, find the relevant documentation. Use t
 
 ## Making and Committing Schema Changes
 
-**To make schema changes, use `execute_sql` (MCP) or `supabase db query` (CLI).** These run SQL directly on the database without creating migration history entries, so you can iterate freely and generate a clean migration when ready.
+Outside this repository, direct SQL tools may be appropriate only after proving the target is a
+disposable local development database. Inside `C:\Dev\Apps\Database`, create and review a migration
+file first and use the repository's migration checks. Never iterate directly against a linked or
+remote project, and obtain explicit user approval before any Supabase MCP/CLI operation.
 
 Do NOT use `apply_migration` to change a local database schema — it writes a migration history entry on every call, which means you can't iterate, and `supabase db diff` / `supabase db pull` will produce empty or conflicting diffs. If you use it, you'll be stuck with whatever SQL you passed on the first try.
 
 **When ready to commit** your changes to a migration file:
 
-1. **Run advisors** → `supabase db advisors` (CLI v2.81.3+) or MCP `get_advisors`. Fix any issues.
+1. **Run advisors only after approval and local-target proof** → `supabase db advisors` (CLI
+   v2.81.3+) or the provider-backed MCP `get_advisors`. Fix any issues.
 2. **Review the Security Checklist above** if your changes involve views, functions, triggers, or storage.
-3. **Generate the migration** → `supabase db pull <descriptive-name> --local --yes`
-4. **Verify** → `supabase migration list --local`
+3. **Generate the migration** → in this repository, create the migration file through the
+   approved local workflow; treat `supabase db pull <descriptive-name> --local --yes` as an explicit
+   approval gate even when `--local` is supplied.
+4. **Verify locally after the same approval boundary** → `supabase migration list --local`
 
 ## Reference Guides
 
