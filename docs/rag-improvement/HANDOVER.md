@@ -26,9 +26,9 @@ each session must update.
   PR #1895, merged 2026-08-13).
 - **Landed:** **A1 phase 1 was PR #1899** (`feat(rag): record the structured
 generation-quality verdict on fallback`), merged 2026-08-13 — structured
-`GenerationQualityError` diagnostics, `generation_quality_gate:*` retry reasons, fallback
-metadata, and the provider-safe `scripts/probe-generation-quality.ts` probe. Sessions S1+
-must treat that content as existing code. Do not re-implement it.
+  `GenerationQualityError` diagnostics, `generation_quality_gate:*` retry reasons, fallback
+  metadata, and the provider-safe `scripts/probe-generation-quality.ts` probe. Sessions S1+
+  must treat that content as existing code. Do not re-implement it.
 - **Key issue refs:** `#231` (source-only degradation with healthy retrieval — A1), `#001`
   (semantic rerank stays off — constrains B6), `#100` (perceived latency / no token
   streaming — constrains A1), `#292` (check open PRs before acting on a queued item).
@@ -39,19 +39,19 @@ must treat that content as existing code. Do not re-implement it.
 
 ## 2. Status table — update in every programme PR
 
-| Packet | Scope                                          | Branch                                           | PR    | State                   | Canary / evidence refs |
-| ------ | ---------------------------------------------- | ------------------------------------------------ | ----- | ----------------------- | ---------------------- |
-| Guide  | Programme guide                                | `claude/rag-plan-review-guide-vhrls9`            | #1895 | Merged 2026-08-13       | docs-only              |
-| Handover | Multi-session handover                       | `claude/rag-plan-review-guide-vhrls9`            | #1908 | Open — this PR          | docs-only              |
-| S0     | A1 phase 1: structured fallback diagnostics    | `claude/lithium-generation-quality-debug-ji1vce` | #1899 | Merged 2026-08-13       | offline 93/93 focused  |
-| S1     | A1 phase 2: evidence-chosen mitigation         | `claude/rag-a1-mitigation-<suffix>`              | —     | Not started             | —                      |
-| S2     | A2: composition menu                           | `claude/rag-a2-composition-<suffix>`             | —     | Blocked on S1 evidence  | —                      |
-| S2b    | A3: moderate length (if separate review needed)| `claude/rag-a3-length-<suffix>`                  | —     | Blocked on S2           | —                      |
-| S3     | A4: follow-up suggestion refinement            | `claude/rag-a4-follow-ups-<suffix>`              | —     | Blocked on S2 + S2b     | —                      |
-| S4     | B0: adversarial fixtures + baseline + register | `claude/rag-b0-adversarial-fixtures-<suffix>`    | —     | Ready (parallel-safe)   | —                      |
-| S5     | B1+B2: telemetry assessment + offline harness  | `claude/rag-b1-b2-harness-<suffix>`              | —     | Blocked on S4           | —                      |
-| S6     | B3: Docling lab benchmark                      | `claude/rag-b3-docling-lab-<suffix>`             | —     | Blocked on S4           | —                      |
-| S7+    | B4 shadow / B5 Ragas / B6 reranker / B7 DSPy   | —                                                | —     | Gated — owner decision  | —                      |
+| Packet   | Scope                                           | Branch                                           | PR    | State                  | Canary / evidence refs |
+| -------- | ----------------------------------------------- | ------------------------------------------------ | ----- | ---------------------- | ---------------------- |
+| Guide    | Programme guide                                 | `claude/rag-plan-review-guide-vhrls9`            | #1895 | Merged 2026-08-13      | docs-only              |
+| Handover | Multi-session handover                          | `claude/rag-plan-review-guide-vhrls9`            | #1908 | Open — this PR         | docs-only              |
+| S0       | A1 phase 1: structured fallback diagnostics     | `claude/lithium-generation-quality-debug-ji1vce` | #1899 | Merged 2026-08-13      | offline 93/93 focused  |
+| S1       | A1 phase 2: evidence-chosen mitigation          | `claude/rag-a1-mitigation-<suffix>`              | —     | Not started            | —                      |
+| S2       | A2: composition menu                            | `claude/rag-a2-composition-<suffix>`             | —     | Blocked on S1 evidence | —                      |
+| S2b      | A3: moderate length (if separate review needed) | `claude/rag-a3-length-<suffix>`                  | —     | Blocked on S2          | —                      |
+| S3       | A4: follow-up suggestion refinement             | `claude/rag-a4-follow-ups-<suffix>`              | —     | Blocked on S2 + S2b    | —                      |
+| S4       | B0: adversarial fixtures + baseline + register  | `claude/rag-b0-adversarial-fixtures-<suffix>`    | —     | Ready (parallel-safe)  | —                      |
+| S5       | B1+B2: telemetry assessment + offline harness   | `claude/rag-b1-b2-harness-<suffix>`              | —     | Blocked on S4          | —                      |
+| S6       | B3: Docling lab benchmark                       | `claude/rag-b3-docling-lab-<suffix>`             | —     | Blocked on S4          | —                      |
+| S7+      | B4 shadow / B5 Ragas / B6 reranker / B7 DSPy    | —                                                | —     | Gated — owner decision | —                      |
 
 Update rule: the session that opens a packet's PR edits its row (branch, PR number,
 state) in the same PR. A later session updating another packet may also correct stale rows
@@ -82,7 +82,7 @@ owner merges) and never at watching CI.
 - **Gates:** `eval:rag:offline` plus the relevant offline 44-case fixtures/contracts. The
   30-case `eval:answer-quality` run is provider-backed (OpenAI/Supabase) and requires explicit
   owner approval. Any behaviour change → `RAG impact: behaviour change — canary pair
-  <baseline> -> <post>` (owner approves each dispatch); Clinical Governance Preflight;
+<baseline> -> <post>` (owner approves each dispatch); Clinical Governance Preflight;
   `verify:pr-local`; and `check:production-readiness` whenever answer routing or generation
   behaviour changes.
 - **Done:** PR open with the mitigation, its evidence trail (which gate reasons dominated,
