@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "a3dca734-d253-4c42-8edc-dc690dd140dc",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#248",
+    "detail": "APPEND 2026-08-13: the prior closure is withdrawn. Repository and live-drift evidence establishes that 20260705180000_reconcile_search_health_indexes.sql is recorded as applied while documents_title_trgm_idx and document_chunks_content_trgm_idx are missing on live. Supabase transaction semantics exclude a persisted partial migration, but the present record does not distinguish skipped DDL/history repair from indexes created and later dropped. In an approved read-only window, query supabase_migrations.schema_migrations for the 20260705180000 statements fingerprint and inspect the relevant audit/history evidence; retain both hypotheses until that evidence establishes the cause. Separately, scheduled check:drift did detect the missing indexes, but red runs were not routed."
+  }
+}
