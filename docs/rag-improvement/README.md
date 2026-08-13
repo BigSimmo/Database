@@ -218,7 +218,7 @@ larger menus at `medium`/`high` trust.
 - **Files:** `src/lib/answer-follow-up.ts` and its focused tests; optionally the existing
   `ClinicalDashboard.tsx` call site and A2 composition types.
 - **Gate:** `RAG impact: no retrieval behaviour change — deterministic follow-up composition
-  only` when the generation prompt is untouched; focused DOM proof for both existing chip
+only` when the generation prompt is untouched; focused DOM proof for both existing chip
   surfaces and `verify:phone-chrome` only if shared composer chrome changes.
 
 **Track A sequencing:** A1 diagnosis → (A2 + A3) → A4 refinement. Each PR:
@@ -327,18 +327,18 @@ default-off flags.
 
 ## 5. Sequencing summary
 
-| Order | Item                                             | Depends on                      | Behaviour change?                          |
-| ----- | ------------------------------------------------ | ------------------------------- | ------------------------------------------ |
-| 1     | A1 structured fallback diagnosis (`#231`)        | —                               | No for telemetry; separate pair for fixes  |
-| 2     | A2 + A3 intent-conditioned composition + length  | A1 evidence                     | Yes → canary pair + Gate E comparison      |
-| 3     | A4 improve existing follow-up suggestions        | A2                              | Deterministic composition only             |
-| 4     | B0 baseline + adversarial fixtures               | — (can run parallel to Track A) | No                                         |
-| 5     | B1 telemetry assessment                          | B0 (shares A1 instrumentation)  | No                                         |
-| 6     | B2 adversarial harness                           | B0                              | No                                         |
-| 7     | B3 Docling lab                                   | B0                              | No                                         |
-| 8     | B4 Docling shadow                                | Gate B                          | Worker-only, shadow                        |
-| 9     | B5/B6 Ragas/reranker                             | conditional                     | No until separately promoted               |
-| 10    | B7 DSPy                                          | ≥100 labelled cases             | No until separately promoted               |
+| Order | Item                                            | Depends on                      | Behaviour change?                         |
+| ----- | ----------------------------------------------- | ------------------------------- | ----------------------------------------- |
+| 1     | A1 structured fallback diagnosis (`#231`)       | —                               | No for telemetry; separate pair for fixes |
+| 2     | A2 + A3 intent-conditioned composition + length | A1 evidence                     | Yes → canary pair + Gate E comparison     |
+| 3     | A4 improve existing follow-up suggestions       | A2                              | Deterministic composition only            |
+| 4     | B0 baseline + adversarial fixtures              | — (can run parallel to Track A) | No                                        |
+| 5     | B1 telemetry assessment                         | B0 (shares A1 instrumentation)  | No                                        |
+| 6     | B2 adversarial harness                          | B0                              | No                                        |
+| 7     | B3 Docling lab                                  | B0                              | No                                        |
+| 8     | B4 Docling shadow                               | Gate B                          | Worker-only, shadow                       |
+| 9     | B5/B6 Ragas/reranker                            | conditional                     | No until separately promoted              |
+| 10    | B7 DSPy                                         | ≥100 labelled cases             | No until separately promoted              |
 
 ## 6. Verification commands (per PR, smallest first)
 
@@ -356,15 +356,15 @@ approval per run; regression → single-commit revert + confirmation run.
 
 ## 7. Rollback map
 
-| Change                     | Rollback                                                                  |
-| -------------------------- | ------------------------------------------------------------------------- |
-| A1 telemetry/diagnosis     | revert additive metadata commit; no budget change is implied              |
-| A1 behavioural mitigation | revert the separately measured routing/quality fix                        |
-| A2/A3 prompt + composition | revert commit; `ragAnswerPromptVersion` bump isolates caches              |
-| A4 suggestions             | revert changes to the existing `answer-follow-up.ts` implementation       |
-| B1 telemetry               | `RAG_TELEMETRY_EXTENDED=false`                                            |
-| B4 shadow                  | `WORKER_DOCUMENT_EXTRACTOR_MODE=legacy`; no migration or reindex needed   |
-| B6 reranker                | `RAG_LOCAL_RERANK_ENABLED=false`                                          |
+| Change                     | Rollback                                                                |
+| -------------------------- | ----------------------------------------------------------------------- |
+| A1 telemetry/diagnosis     | revert additive metadata commit; no budget change is implied            |
+| A1 behavioural mitigation  | revert the separately measured routing/quality fix                      |
+| A2/A3 prompt + composition | revert commit; `ragAnswerPromptVersion` bump isolates caches            |
+| A4 suggestions             | revert changes to the existing `answer-follow-up.ts` implementation     |
+| B1 telemetry               | `RAG_TELEMETRY_EXTENDED=false`                                          |
+| B4 shadow                  | `WORKER_DOCUMENT_EXTRACTOR_MODE=legacy`; no migration or reindex needed |
+| B6 reranker                | `RAG_LOCAL_RERANK_ENABLED=false`                                        |
 
 No item in this guide requires an irreversible action; index/database changes and any
 cloud-vendor activation remain separate, explicit approval points.
