@@ -7,6 +7,14 @@ export type EmbeddingPrefetchOptions = {
   signal?: AbortSignal;
 };
 
+/** Keeps telemetry payloads from drifting when a retrieval starts an embedding warm-up. */
+export function embeddingTelemetryFields(telemetry: { embedding_cache_hit: boolean; embedding_prefetched?: boolean }) {
+  return {
+    embedding_cache_hit: telemetry.embedding_cache_hit,
+    embedding_prefetched: telemetry.embedding_prefetched,
+  };
+}
+
 /** Starts an optional query-embedding flight without changing the awaited retrieval path. */
 export function prefetchEmbedding<T>(
   shouldPrefetch: boolean,
