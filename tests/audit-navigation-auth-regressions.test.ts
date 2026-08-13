@@ -111,7 +111,7 @@ describe("audit navigation and auth regressions", () => {
     expect(masterSearchHeaderSource).toContain(
       'contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"',
     );
-    expect(masterSearchHeaderSource).toContain('usesPhoneSearchLayout ? "min-h-14" : "min-h-[3.25rem]"');
+    expect(masterSearchHeaderSource).toMatch(/usesPhoneSearchLayout\s*\?\s*"min-h-14\b[\s\S]*:\s*"min-h-\[3\.25rem\]/);
     expect(masterSearchHeaderSource).toContain("phoneLayoutGateRef");
     // Hydration-safe: do not read matchMedia in useState (SSR/client mismatch → React #418).
     expect(masterSearchHeaderSource).toContain(
