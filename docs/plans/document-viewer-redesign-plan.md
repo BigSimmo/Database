@@ -161,15 +161,15 @@ touched. Update `docs/search-chrome-behaviour.md` only if ownership semantics ch
 
 Execution brief: [`document-viewer-phase3-handover.md`](./document-viewer-phase3-handover.md).
 
-| Capability                               | Status                                                                                                 |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Multi-page virtualization                | **Done** — windowed page column, document-wide live-canvas budget, idle ±1 render-ahead                |
-| Crop → page overlay                      | **Out of scope** — needs `bbox` through `DocumentDetailImage`; a wider contract change than this phase |
-| Keyboard reading mode                    | **Done** — Page Up/Down, Home/End, `f` fit, `r` rotate; `docs/wiring-conventions.md`                   |
-| Rail virtualization                      | **Done** — `DocumentImageList` windows `#source-images` and the audit list                             |
-| Smarter signed-URL / decode priority     | **Done** — explicit `fetchPriority`, tighter rail root margin; batch route still deferred (`#283`)     |
-| Toolbar density                          | ~~Phase 3~~ — already shipped in Phase 2 (`document-frame.tsx`, `hidden sm:inline` + overflow menu)    |
-| Optional OffscreenCanvas / worker raster | **Not implemented, by design** — the measurement it is conditioned on is now captured in CI (`#294`)   |
+| Capability                               | Status                                                                                                                                                                                                                                  |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Multi-page virtualization                | **Done** — windowed page column, document-wide live-canvas budget, idle ±1 render-ahead                                                                                                                                                 |
+| Crop → page overlay                      | **Out of scope** — needs `bbox` through `DocumentDetailImage`; a wider contract change than this phase                                                                                                                                  |
+| Keyboard reading mode                    | **Done** — Page Up/Down, Home/End, `f` fit, `r` rotate; `docs/wiring-conventions.md`                                                                                                                                                    |
+| Rail virtualization                      | **Done** — `DocumentImageList` windows `#source-images` and the audit list                                                                                                                                                              |
+| Smarter signed-URL / decode priority     | **Done** — explicit `fetchPriority`, tighter rail root margin; batch route still deferred (`#283`)                                                                                                                                      |
+| Toolbar density                          | ~~Phase 3~~ — already shipped in Phase 2 (`document-frame.tsx`, `hidden sm:inline` + overflow menu)                                                                                                                                     |
+| Optional OffscreenCanvas / worker raster | **Not implemented, by design** — virtualization already keeps the reader's page count low, so the main-thread paint cost this was conditioned on is not known to be a problem. Do not implement it until CI page-flip timings show one. |
 
 Phase 3 also closed `#279`: `tests/ui-document-canvas.spec.ts` is the first browser gate over the
 viewer's raster, reading pixels back rather than trusting canvas dimensions.
