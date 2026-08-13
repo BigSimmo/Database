@@ -25,7 +25,7 @@ export function buildDefaultServiceRows(ownerId: string): RegistryRecordInsert[]
   return defaultServiceRecords().map((record) => {
     const row = recordToRow(record, ownerId, "service");
     const payload = payloads.get(record.slug);
-    return payload ? { ...row, catalog_payload: payload } : row;
+    return payload ? { ...row, catalog_payload: { tags: payload.tags } } : row;
   });
 }
 
