@@ -24,7 +24,7 @@
 //      module has.
 //   3. An unparsed severity token → `SEVERITY_TONE.unknown` is `neutral`, never
 //      `success`.
-//   4. An entered medication that no interaction row anywhere names →
+//   4. An entered medication outside both ends of every resolved interaction edge →
 //      `unreachableCounterparties`. Case 2 covers the drug being VIEWED; this
 //      covers the drugs in the PATIENT's list. Both of that pair are uncheckable
 //      for the same reason, and only one of them used to stop green: a patient
@@ -65,7 +65,7 @@ export type MedicationInteractionResult = {
   totalRowCount: number;
   dataAvailable: boolean;
   /**
-   * Entered medications that no interaction row anywhere in the catalogue names,
+   * Entered medications outside the catalogue's resolved interaction graph,
    * so they could not be cross-checked in either direction. See
    * `UNREACHABLE_SLUGS` — this is the fourth route to an incomplete analysis.
    */
@@ -93,10 +93,10 @@ type InteractionIndexShape = {
 const INDEX = interactionIndex as unknown as InteractionIndexShape;
 
 /**
- * Catalogue medications that no interaction row names as a counterparty.
+ * Catalogue medications outside both ends of every resolved interaction edge.
  *
- * 127 of 328 today. A drug in here cannot produce an alert from any direction:
- * not from its own rows, not from anyone else's. Entering it therefore yields
+ * 35 of 328 today. A drug in here cannot produce an alert from any direction:
+ * not from its own resolved rows, not from anyone else's. Entering it therefore yields
  * silence, and silence in this UI is otherwise indistinguishable from "checked,
  * nothing found" — which is the single most misleading state this feature can
  * reach, because the reassurance is unearned.
@@ -108,13 +108,16 @@ const INDEX = interactionIndex as unknown as InteractionIndexShape;
  */
 const UNREACHABLE_SLUGS: ReadonlySet<string> = (() => {
   const reachable = new Set<string>();
-  for (const entry of Object.values(INDEX.bySlug)) {
-    for (const row of entry.rows) for (const slug of row.counterparties) reachable.add(slug);
+  for (const [sourceSlug, entry] of Object.entries(INDEX.bySlug)) {
+    for (const row of entry.rows) {
+      if (row.counterparties.length > 0) reachable.add(sourceSlug);
+      for (const slug of row.counterparties) reachable.add(slug);
+    }
   }
   return new Set(Object.keys(INDEX.names).filter((slug) => !reachable.has(slug)));
 })();
 
-/** Whether any interaction row in the catalogue names this medication. */
+/** Whether no resolved interaction edge in the catalogue includes this medication. */
 export function isUnreachableCounterparty(slug: string): boolean {
   return UNREACHABLE_SLUGS.has(slug);
 }
@@ -297,11 +300,9 @@ export function evaluateMedicationInteractions(
     unresolvedRowCount: dataAvailable ? (entry?.unresolvedRowCount ?? 0) : 1,
     totalRowCount: entry?.rows.length ?? 0,
     dataAvailable,
-    // Exclude anything that did produce a finding. "Unreachable" means no row
-    // NAMES the drug, but its own rows can still name the viewed medication and
-    // surface through the reverse pass — and telling a clinician a drug "was not
-    // cross-checked" directly above an alert about that same drug is worse than
-    // saying nothing.
+    // The graph calculation already includes both endpoints of every resolved
+    // edge. Keep this result filter as a defensive invariant so the UI can never
+    // call a medication uncheckable directly above an alert about that drug.
     unreachableCounterparties: Array.from(patient)
       .filter((value) => UNREACHABLE_SLUGS.has(value))
       .filter((value) => !resultInteractions.some((item) => item.counterpartySlug === value))
@@ -325,7 +326,7 @@ export function composeMedicationVerdict(input: {
   interactionCount: number;
   unresolvedRowCount: number;
   /**
-   * Entered medications no interaction row names. Optional so existing callers
+   * Entered medications outside the resolved interaction graph. Optional so existing callers
    * keep compiling, but a caller that omits it can still reach green while an
    * uncheckable drug sits in the patient's list.
    */

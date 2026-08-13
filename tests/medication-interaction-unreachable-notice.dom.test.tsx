@@ -1,7 +1,7 @@
 // The rendered half of the "silence is not an all-clear" guard.
 //
-// `medication-interactions.test.ts` pins that an entered drug no interaction row
-// names keeps the verdict off green. That is worth nothing if the reason never
+// `medication-interactions.test.ts` pins that an entered drug outside the
+// resolved interaction graph keeps the verdict off green. That is worth nothing if the reason never
 // reaches the screen: the clinician sees an empty interaction block either way,
 // and an empty block reads as reassurance. These cases pin that the reason is
 // stated, and — just as important — that it is NOT stated for a drug the corpus
@@ -31,15 +31,15 @@ function renderConsiderations(medications: string[], slug = "sertraline") {
   );
 }
 
-const NOTICE = /No interaction row in this catalogue mentions/i;
+const NOTICE = /no machine-resolved interaction involving/i;
 
 beforeEach(() => {
   window.sessionStorage.clear();
 });
 
 describe("unreachable-counterparty notice", () => {
-  it("says so when an entered medication is named by no interaction row", () => {
-    // Cephalexin is one of 127 catalogue drugs the corpus never mentions.
+  it("says so when an entered medication is outside the resolved interaction graph", () => {
+    // Cephalexin is one of 35 catalogue drugs outside every resolved edge.
     renderConsiderations(["cephalexin"]);
 
     const notice = screen.getByText(NOTICE);

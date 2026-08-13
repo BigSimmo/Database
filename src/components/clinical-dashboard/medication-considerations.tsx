@@ -470,12 +470,12 @@ function MedicationInteractionBlock({ record }: { record: MedicationRecord }) {
           carries no interaction rows for it at all, in which case
           `unresolvedRowCount` is a synthetic 1 against a `totalRowCount` of 0 —
           phrasing that as "1 of 0 rows" would be nonsense. The third names the
-          entered drugs the corpus never mentions, which is a statement about the
+          entered drugs outside the resolved interaction graph, which is a statement about the
           patient's list rather than about this medication, so it renders
           alongside the other two rather than instead of them. */}
       {result.unreachableCounterparties.length > 0 ? (
         <InlineNotice tone="neutral">
-          No interaction row in this catalogue mentions{" "}
+          This catalogue has no machine-resolved interaction involving{" "}
           {formatMedicationList(result.unreachableCounterparties.map(medicationDisplayName))}, so{" "}
           {result.unreachableCounterparties.length === 1 ? "it was" : "they were"} not cross-checked in either
           direction. The absence of a warning above is not evidence of safety for{" "}

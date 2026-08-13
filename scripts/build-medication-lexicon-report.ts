@@ -22,6 +22,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { format } from "prettier";
 
@@ -183,9 +184,10 @@ async function main(): Promise<void> {
 
   lines.push("## Flagged for a closer look");
   lines.push("");
+  const traps = substringTraps(catalogueTerms, records);
   const missed = missedClassMembers(catalogueTerms, expansions, records);
   const flags = [
-    ...substringTraps(catalogueTerms, records),
+    ...traps,
     ...missed,
     ...duplicateCatalogueNames(slugsByName, expansions, records),
     ...collectFlags(catalogueTerms, expansions, usage),
@@ -199,20 +201,24 @@ async function main(): Promise<void> {
   // State what ran clean as well as what fired. A reviewer who cannot tell the
   // difference between "checked, nothing found" and "never checked" has to redo
   // the check by hand, which is most of the work this sheet exists to save.
-  lines.push("Checks that ran and found nothing:");
-  lines.push("");
-  lines.push(
-    "- **Accidental substring matches** — no class token matches a subclass only as a fragment of a longer" +
-      " word. (This is the check that caught `ARB` inside _Carbapenem_.)",
-  );
-  if (missed.length === 0) {
-    lines.push(
-      "- **Missed class members** — no catalogue drug whose own class or subclass names a term's phrase was" +
-        " left out of that term. Where a class resolves to a single drug, that is the catalogue holding one" +
-        " such drug, not a narrow selector.",
-    );
+  if (traps.length === 0 || missed.length === 0) {
+    lines.push("Checks that ran and found nothing:");
+    lines.push("");
+    if (traps.length === 0) {
+      lines.push(
+        "- **Accidental substring matches** — no class token matches a subclass only as a fragment of a longer" +
+          " word. (This is the check that caught `ARB` inside _Carbapenem_.)",
+      );
+    }
+    if (missed.length === 0) {
+      lines.push(
+        "- **Missed class members** — no catalogue drug whose own class or subclass names a term's phrase was" +
+          " left out of that term. Where a class resolves to a single drug, that is the catalogue holding one" +
+          " such drug, not a narrow selector.",
+      );
+    }
+    lines.push("");
   }
-  lines.push("");
 
   lines.push("## Sign-off");
   lines.push("");
@@ -286,7 +292,7 @@ function beforeSignOff(value: string): string {
  * appears there as a whole word; if it only appears as a bare substring, the
  * match is almost certainly accidental.
  */
-function substringTraps(terms: readonly LexiconTerm[], records: readonly MedicationRecord[]): string[] {
+export function substringTraps(terms: readonly LexiconTerm[], records: readonly MedicationRecord[]): string[] {
   const subclasses = Array.from(new Set(records.map((record) => record.subclass ?? "").filter(Boolean)));
   const traps: string[] = [];
   for (const term of terms) {
@@ -452,15 +458,20 @@ function missedClassMembers(
  * Which catalogue drugs this tool can never warn about.
  *
  * The most important number on the sheet and the one hardest to see from the
- * term table: a drug that appears as nobody's counterparty produces silence
- * when a clinician enters it, and silence in this UI is indistinguishable from
- * "checked, nothing found". Rendered as classes rather than 128 drug names,
- * because the actionable question is which *kinds* of medicine are dark.
+ * term table: a drug outside both ends of every resolved interaction edge
+ * produces silence when a clinician enters it, and silence in this UI is
+ * indistinguishable from "checked, nothing found". Rendered as classes rather
+ * than individual drug names, because the actionable question is which *kinds*
+ * of medicine are dark.
  */
 function coverageSection(records: readonly MedicationRecord[], index: IndexShape): string[] {
   const reachable = new Set<string>();
-  for (const entry of Object.values(index.bySlug)) {
-    for (const row of entry.rows) for (const slug of row.counterparties ?? []) reachable.add(slug);
+  for (const [sourceSlug, entry] of Object.entries(index.bySlug)) {
+    for (const row of entry.rows) {
+      const counterparties = row.counterparties ?? [];
+      if (counterparties.length > 0) reachable.add(sourceSlug);
+      for (const slug of counterparties) reachable.add(slug);
+    }
   }
   const dark = records.filter((record) => !reachable.has(record.slug));
   const byClass = new Map<string, string[]>();
@@ -474,14 +485,16 @@ function coverageSection(records: readonly MedicationRecord[], index: IndexShape
   lines.push("## What this tool can never warn about");
   lines.push("");
   lines.push(
-    `**${dark.length} of the catalogue's ${records.length} medications are never named as a counterparty by any`,
+    `**${dark.length} of the catalogue's ${records.length} medications sit outside both ends of every resolved`,
     `interaction row.** Entering one of them produces no alert — not because the combination was checked and`,
-    "found clear, but because no row in the corpus mentions that drug. On screen those two outcomes look the",
+    "found clear, but because no machine-resolved edge in the corpus includes that drug. On screen those outcomes look the",
     "same, so this list is the honest boundary of the feature.",
   );
   lines.push("");
-  lines.push("This is a **corpus coverage** limit, not a lexicon fault: no selector can resolve a phrase the");
-  lines.push("catalogue never writes. Widening it means adding interaction rows, not editing the lexicon.");
+  lines.push("This is a **corpus coverage** limit, not necessarily a lexicon fault. Widening it means adding an");
+  lines.push(
+    "interaction row or making an existing row machine-resolvable, with clinical review of the source content.",
+  );
   lines.push("");
   lines.push("| Class | Unreachable | Drugs |");
   lines.push("| --- | --- | --- |");
@@ -492,7 +505,9 @@ function coverageSection(records: readonly MedicationRecord[], index: IndexShape
   return lines;
 }
 
-main().catch((error) => {
-  console.error(`[lexicon-report] ${error instanceof Error ? error.message : String(error)}`);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main().catch((error) => {
+    console.error(`[lexicon-report] ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  });
+}

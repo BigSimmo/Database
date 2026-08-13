@@ -52,33 +52,19 @@ describe("mobile interaction regressions", () => {
     expect(privacySource).toContain("sm:min-h-0");
   });
 
-  it("keeps presentation section tabs and compare dock honest on phone", () => {
+  it("uses the shared mode navigation and keeps the compare dock honest on phone", () => {
     const presentationSource = source("src/components/differentials/differential-presentation-workflow-page.tsx");
 
-    expect(presentationSource).toContain('label: "Overview", href: diagnosisBase');
-    expect(presentationSource).toContain('label: "Map", href: `${diagnosisBase}?tab=map`');
-    expect(presentationSource).toContain('label: "Related", href: `${diagnosisBase}?tab=related`');
-    expect(presentationSource).not.toMatch(
-      /href=\{active \? `\/differentials\/presentations\/\$\{workflow\.id\}` : `\/differentials\/diagnoses\/\$\{firstCandidate\}`\}/,
-    );
+    expect(presentationSource).not.toContain("Differential presentation sections");
+    expect(presentationSource).not.toContain("Back to differentials");
+    expect(presentationSource).not.toContain("Differential breadcrumbs");
+    expect(presentationSource).toContain("differentialCompareSearchHref(");
+    expect(presentationSource).toContain("Edit selection");
     expect(presentationSource).toContain("Comparing ({workflow.selectedCount})");
     expect(presentationSource).not.toContain("Compare ({workflow.selectedCount} selected)");
-    // Density placeholders use native disabled only (no redundant aria-disabled).
-    // Scope Compact/Detailed independently so one button cannot satisfy both asserts.
-    expect(presentationSource).toContain('aria-describedby="density-controls-unavailable"');
-    expect(presentationSource).toContain("Density controls coming soon");
-    expect(presentationSource).toMatch(
-      /<button\s+type="button"\s+disabled\s+className="[^"]*"\s*>\s*Compact\s*<\/button>/,
-    );
-    expect(presentationSource).toMatch(
-      /<button\s+type="button"\s+disabled\s+className="[^"]*"\s*>\s*Detailed\s*<\/button>/,
-    );
-    const densityButtonBlock = presentationSource.match(
-      /aria-describedby="density-controls-unavailable"[\s\S]*?Density controls coming soon/,
-    )?.[0];
-    expect(densityButtonBlock).toBeTruthy();
-    expect(densityButtonBlock).not.toContain("aria-disabled");
-    expect(densityButtonBlock?.match(/type="button"\s+disabled/g)).toHaveLength(2);
+    expect(presentationSource).not.toContain("Density controls coming soon");
+    expect(presentationSource).not.toContain("Column filters unavailable");
+    expect(presentationSource).not.toContain("Edit columns");
   });
 
   it("does not fake Add success or Tools sort/more menus", () => {

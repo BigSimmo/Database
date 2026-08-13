@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "bce5b6bd-4727-4ad5-ac5f-d05a24df43cc",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#257",
+    "outcome": "One unreproduced sighting on 2026-08-06 (PR #1647 head f5833acc) that did not reproduce in isolation or on a full-file re-run, and has not recurred since. docs/testing.md needs three reproductions on the same SHA before a flake-ledger entry, so a single-sighting row has nothing to act on and a genuine second sighting will look like a first either way."
+  }
+}

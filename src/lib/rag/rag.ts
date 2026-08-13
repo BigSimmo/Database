@@ -56,6 +56,7 @@ import {
   applyNumericVerification,
   textReferencesAdjacentBandConflict,
 } from "@/lib/answer-verification";
+import { buildEvidencePreviewProgress, type VerifiedUnit } from "@/lib/answer-preview";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
 import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
 export {
@@ -510,8 +511,8 @@ export type AnswerProgressEvent = {
   model?: string | null;
   reason?: string;
   smartApiPlan?: SmartRagApiPlan;
+  verifiedUnit?: VerifiedUnit;
 };
-
 type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
   logQuery?: boolean;
   onProgress?: (event: AnswerProgressEvent) => void | Promise<void>;
@@ -3499,6 +3500,12 @@ ${qualityRetryInstruction}`
     australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
     waSourceCount: modelContextSelectionSummary.waSelectedCount,
     usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
+    ...buildEvidencePreviewProgress({
+      normalResults: modelContextResults,
+      fallbackResults: generationFallbackResults,
+      governanceResults: answerInputResults,
+      relevance,
+    }),
   });
   // The quality-repair call below may itself fail or truncate. Preserve the first
   // deterministic verdict so fallback telemetry explains why that retry occurred,

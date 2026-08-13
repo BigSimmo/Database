@@ -45,12 +45,13 @@ Mitigations specific to the interaction surface:
   you entered", and is unreachable whenever any interaction row on that
   medication could not be machine-resolved — those degrade to a neutral
   "N rows need manual review" state instead (`composeMedicationVerdict`).
-- Green is also unreachable when an **entered** medication is one no interaction
-  row anywhere names, which is 127 of the 328 catalogue drugs. Previously only
-  the drug being _viewed_ was guarded this way, so a patient on a drug the corpus
-  never mentions produced no interactions, zero unresolved rows and a confident
-  green. The uncovered drugs are now named on screen, with the absence of a
-  warning explicitly stated not to be evidence of safety.
+- Green is also unreachable when an **entered** medication sits outside both
+  endpoints of every machine-resolved interaction row, which is 35 of the 328
+  catalogue drugs. Previously only the drug being _viewed_ was guarded this way,
+  so a patient on a drug outside the resolved graph produced no interactions,
+  zero unresolved rows and a confident green. The uncovered drugs are now named
+  on screen, with the absence of a warning explicitly stated not to be evidence
+  of safety.
 - One narrow case moves the other way and the reviewer should know it. A row
   whose entire text is `NONE.` — `triamcinolone` and `riboflavin` today — used to
   parse as an unreadable severity and hold the drug at grey, the tool claiming it
@@ -89,8 +90,8 @@ That report has already paid for itself three times:
    distinguishes the two. This one is a **catalogue data defect, not a lexicon
    fault**, so it is reported rather than silently patched: merging or
    de-duplicating the records is a clinical content decision. It needs an owner.
-3. Its coverage section — which lists the medications no interaction row names —
-   exposed **lithium as unreachable**. The catalogue record is
+3. Its original inbound-reference audit exposed **lithium as missing from rows
+   that name it**. The catalogue record is
    "Lithium carbonate (IR/SR)"; drug-name matching derives its surfaces from the
    record name and does not strip a parenthesised suffix, so nothing ever
    matched the bare "Lithium" that all eight referring rows write. Lithium plus
@@ -114,13 +115,14 @@ rendering the mappings in a form a human could read. That is a fair indication o
 what an hour of clinical reading would still turn up.
 
 **The coverage section is the honest boundary of the feature and the reviewer
-should read it first.** 127 of the catalogue's 328 medications are named by no
-interaction row at all, so entering one produces silence — which on screen is
-indistinguishable from "checked, nothing found". Most of that is genuine corpus
-coverage (antibiotics, antidiabetics, aperients, vitamins) and can only be
-widened by writing interaction rows, not by editing the lexicon. Lithium was the
-exception: content that existed and could not be reached. Whether any others are
-of that kind is a question for the clinical review.
+should read it first.** 35 of the catalogue's 328 medications sit outside both
+ends of every resolved interaction row, so entering one produces silence —
+which on screen is indistinguishable from "checked, nothing found". Most of that
+is genuine corpus coverage (including aperients, antibiotics, antidiabetics and
+vitamins) and needs a new interaction row or a clinically reviewed resolution
+of existing content. Lithium was the exception: content that existed and could
+not be reached. Whether any others are of that kind is a question for the
+clinical review.
 
 Residual risk the reviewer should weigh: the lexicon is hand-curated, so a missed
 term is a false negative. It is fail-safe by construction (unresolved → grey, not

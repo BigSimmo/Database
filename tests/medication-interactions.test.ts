@@ -55,11 +55,11 @@ describe("evaluateMedicationInteractions", () => {
     }
   });
 
-  it("never shows green when an entered medication is one no interaction row names", () => {
+  it("never shows green when an entered medication is outside the resolved interaction graph", () => {
     // The mirror of the missing-data guard, and the half that was missing. A
     // patient on a drug the corpus never mentions produced zero interactions,
     // zero unresolved rows, and a confident green — silence presented as an
-    // all-clear. Cephalexin is one of 127 such drugs.
+    // all-clear. Cephalexin is one of 35 such drugs.
     const result = evaluateMedicationInteractions("sertraline", ["cephalexin"]);
     expect(result.interactions).toHaveLength(0);
     expect(result.unreachableCounterparties).toEqual(["cephalexin"]);
@@ -84,6 +84,16 @@ describe("evaluateMedicationInteractions", () => {
     expect(result.unreachableCounterparties).toEqual([]);
     expect(isUnreachableCounterparty("ibuprofen")).toBe(false);
     expect(isUnreachableCounterparty("cephalexin")).toBe(true);
+  });
+
+  it("counts a source-only medication as a reachable interaction endpoint", () => {
+    // Celecoxib is not named by another medication's row, but its own source row
+    // names fluconazole. The evaluator scans both directions, so the reachability
+    // graph must include the source endpoint as well as its counterparty.
+    expect(isUnreachableCounterparty("celecoxib")).toBe(false);
+    const result = evaluateMedicationInteractions("fluconazole", ["celecoxib"]);
+    expect(result.interactions.some((item) => item.counterpartySlug === "celecoxib")).toBe(true);
+    expect(result.unreachableCounterparties).toEqual([]);
   });
 
   it("gives a reverse-only match its wording, not just a name and a severity", () => {

@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 
 import { INTERACTION_LEXICON, selectCatalogueSlugs, type LexiconTerm } from "@/lib/medication-interaction-lexicon";
 import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
+import { substringTraps } from "../scripts/build-medication-lexicon-report";
 
 type IndexRow = {
   rowKey: string;
@@ -160,6 +161,24 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
       }
     }
     expect(accidental).toEqual([]);
+  });
+
+  it("surfaces a synthetic substring trap instead of reporting that check clean", () => {
+    const traps = substringTraps(
+      [
+        {
+          id: "synthetic-arb",
+          kind: "catalogue",
+          surfaces: ["ARBs"],
+          select: { subclassIncludes: ["ARB"] },
+        },
+      ],
+      [{ slug: "synthetic-carbapenem", name: "Synthetic carbapenem", subclass: "Carbapenem" }] as unknown as Parameters<
+        typeof substringTraps
+      >[1],
+    );
+    expect(traps).toHaveLength(1);
+    expect(traps[0]).toContain("Carbapenem");
   });
 
   it("reaches lithium from the rows that name it", () => {
