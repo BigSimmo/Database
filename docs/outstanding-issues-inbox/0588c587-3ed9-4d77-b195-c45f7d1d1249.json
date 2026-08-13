@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "0588c587-3ed9-4d77-b195-c45f7d1d1249",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Audit the unreconciled services filter-contract merge (#1878 then #1882)",
+    "detail": "Two independent Claude sessions each fully implemented the services filter-contract adoption (docs/filter-contract.md rollout): #1878 merged first (catalogToServiceRecord/ServiceRecord.catalogPayload-based facets), then #1882 merged on top of it, claiming the same five-facet-plus-lens implementation and the same >3-groups density tier addition to result-filter-control.tsx as #1878. Whatever conflict resolution happened between the two was not reviewed line-by-line. A quick spot-check on 2026-08-13 found src/lib/registry-records.ts (last touched by an unrelated 2026-07 commit, #1776) has no normalizeCatalogServiceTags/ServiceRecord.facets carrier and no corresponding tests/registry-records.test.ts on main — #1878's catalogPayload-based approach is what survived, not #1882's typed facets carrier. Both may be functionally equivalent (same rendered facets/counts), but this was not verified. Next: diff the two PRs' src/lib/service-facets.ts, src/components/services/services-navigator-page.tsx and src/lib/registry-records.ts implementations against what actually landed on main; confirm the live services filter sheet produces correct facet counts and no dead code/unused exports remain from whichever approach lost. Gate: focused service-facets/services-catalog/registry-records tests plus a manual facet-count spot check against the live catalogue.",
+    "source": "PR #1921 (therapy-compass filter-contract bookkeeping), branch-review-records/d14328e4... (post-merge verification note)"
+  }
+}
