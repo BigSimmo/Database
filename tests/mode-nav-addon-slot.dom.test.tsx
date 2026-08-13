@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { isHeaderAddonSlotOwnedRoute } from "@/components/mode-nav/header-addon-slot";
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
 import { hasLocalInformationPageNavigation, PageSecondaryNavigation } from "@/components/page-secondary-navigation";
+import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
 import {
   MODE_NAV_ADOPTED_MODES,
@@ -14,8 +15,10 @@ import {
   modeUsesHeaderModeNav,
 } from "@/lib/mode-secondary-navigation";
 
+const navigationState = vi.hoisted(() => ({ pathname: "/" }));
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
+  usePathname: () => navigationState.pathname,
 }));
 
 /** The universal header's single addon slot, as `master-search-header` renders it. */
@@ -33,6 +36,7 @@ function renderIntoHeaderWithAddonSlot(ui: React.ReactElement) {
 
 describe("header addon slot ownership", () => {
   afterEach(() => {
+    navigationState.pathname = "/";
     for (const slot of document.querySelectorAll(`#${phoneHeaderCollapseAddonSlotId}`)) {
       slot.remove();
     }
@@ -137,6 +141,40 @@ describe("header addon slot ownership", () => {
     );
     await waitFor(() => expect(differentialView.occupants()).toHaveLength(0));
     differentialView.cleanupSlot();
+  });
+
+  it("keeps the ad-hoc compare workspace to one shell-owned Compare bar", async () => {
+    navigationState.pathname = "/differentials/compare";
+    const handoff = resolveDifferentialCompareHandoff(
+      ["medical-gi-endocrine-painful-organic-cause", "bpsd-as-unmet-need-delirium-pain-mimic"],
+      "Pain",
+    );
+    expect(handoff.kind).toBe("ad-hoc");
+    if (handoff.kind !== "ad-hoc") throw new Error("Expected an ad-hoc differential comparison");
+
+    const searchParamString = new URL(handoff.href, "http://differentials.test").searchParams.toString();
+    const view = renderIntoHeaderWithAddonSlot(
+      <>
+        <PageSecondaryNavigation
+          modeId="differentials"
+          pathname="/differentials/compare"
+          hasSubmittedSearch={false}
+          searchParamString={searchParamString}
+        />
+        <DifferentialPresentationWorkflowPage
+          query="Pain"
+          selectedIds={handoff.selection.diagnosisIds}
+          workflow={handoff.selection.workflow}
+        />
+      </>,
+    );
+
+    await waitFor(() => expect(view.occupants()).toHaveLength(1));
+    expect(within(view.occupants()[0]!).getByRole("link", { name: "Compare" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    view.cleanupSlot();
   });
 
   it("keeps a default presentation comparison selection in its shared Compare link", async () => {
