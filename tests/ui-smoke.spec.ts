@@ -3315,17 +3315,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("differentials-home")).toHaveCount(0);
 
     const origin = new URL(page.url());
-    await visibleByTestId(page, "differentials-search-results")
-      .locator('a[href^="/differentials/diagnoses/"], a[href^="/differentials/presentations/"]')
+    const presentationResult = visibleByTestId(page, "differentials-search-results")
+      .locator('a[href^="/differentials/presentations/"]')
       .filter({ visible: true })
-      .first()
-      .click();
-    await expect(page).toHaveURL(/\/differentials\/(diagnoses|presentations)\//, { timeout: 30_000 });
-    await page
-      .getByRole("link", { name: /^Back(?: to (?:diagnoses|differentials))?$/i })
-      .filter({ visible: true })
-      .first()
-      .click();
+      .first();
+    await expect(presentationResult).toBeVisible();
+    await presentationResult.click();
+    await expect(page).toHaveURL(/\/differentials\/presentations\//, { timeout: 30_000 });
+    // Presentation comparisons use the shared header navigation. It carries the
+    // submitted query (and any resolved selection) back to the search workspace.
+    await page.getByTestId("mode-nav").getByRole("link", { name: "Search" }).click();
     await expect(page).toHaveURL(
       (url) =>
         url.pathname === origin.pathname &&
