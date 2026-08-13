@@ -5,9 +5,11 @@ const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const token = "valid-token";
 const publicFixtureCacheControl = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
 
-function expectPublicFixtureCache(response: Response) {
+function expectPublicFixtureCache(response: Response, options: { variesByEncoding?: boolean } = {}) {
   expect(response.headers.get("cache-control")).toBe(publicFixtureCacheControl);
-  expect(response.headers.get("vary")).toBe("Cookie, Authorization");
+  expect(response.headers.get("vary")).toBe(
+    options.variesByEncoding ? "Accept-Encoding, Cookie, Authorization" : "Cookie, Authorization",
+  );
 }
 
 function expectPrivateCache(response: Response) {
@@ -278,7 +280,7 @@ describe("registry records API", () => {
     const payload = (await response.json()) as { records: Array<{ slug: string }>; demoMode?: boolean };
 
     expect(response.status).toBe(200);
-    expectPublicFixtureCache(response);
+    expectPublicFixtureCache(response, { variesByEncoding: true });
     expect(payload.demoMode).toBe(true);
     expect(payload.records.some((record) => record.slug === "13yarn")).toBe(true);
     expect(client.from).not.toHaveBeenCalled();
@@ -297,7 +299,7 @@ describe("registry records API", () => {
       publicAccess?: boolean;
     };
     expect(response.status).toBe(200);
-    expectPublicFixtureCache(response);
+    expectPublicFixtureCache(response, { variesByEncoding: true });
     expect(payload.publicAccess).toBe(true);
     expect(payload.records.some((record) => record.slug === "13yarn")).toBe(true);
     expect(payload.matches?.[0]?.record.slug).toBe("13yarn");
