@@ -10,7 +10,7 @@
  *    — resolved relative to the file containing the link and required to stay
  *    inside the repository.
  *
- * Scanned by default: README.md, AGENTS.md, and docs/**\/*.md excluding
+ * Scanned by default: README.md, AGENTS.md, and docs/**/*.md excluding
  * docs/archive/, docs/audit/, dated point-in-time filenames
  * (docs/README.md classifies those as historical records that intentionally
  * reference the repo as it was), and docs/prompts/codex-cloud-review/ (verbatim
@@ -47,7 +47,6 @@ const ALLOWLIST = new Set([
   "scripts/reindex-shadow.ts", // designed-only harness driver (docs/reindex-shadow-harness-design.md)
   // Planned-but-unbuilt files named by the RAG improvement guide (docs/rag-improvement/README.md):
   "src/lib/rag/answer-composition.ts",
-  "src/lib/answer-follow-up-suggestions.ts",
   "scripts/check-rag-adversarial-fixtures.mjs",
   "scripts/fixtures/rag-adversarial-cases.v1.json",
   "docs/site-map.generated.md", // hypothetical future split named in docs/process-hardening.md
