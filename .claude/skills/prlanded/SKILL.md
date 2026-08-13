@@ -11,8 +11,8 @@ work actually landed and to clean up.
 
 ## Steps
 
-Note: Step 1 is a read-only, non-mutating query exempt from the explicit-confirmation
-requirement that applies to mutating provider operations (merging, closing PRs, etc.).
+The user's explicit request to verify a named PR authorizes the read-only PR lookup for that target.
+Otherwise ask before GitHub access; never infer provider authority merely from local branch state.
 
 1. **Confirm the merge:** `gh pr view <pr> --json state,mergeCommit,mergedAt` → `MERGED`.
 2. **Verify by content, not ancestry** (squash rewrites history, so `git branch --merged`
@@ -34,12 +34,11 @@ requirement that applies to mutating provider operations (merging, closing PRs, 
 3. **Check for orphaned late commits:** if you pushed after enabling auto-merge, confirm
    those commits are in the squashed result (search the merge commit / `git log origin/main`
    for their content). If missing, fix-forward with a new PR — do not force-push.
-4. **Clean up the branch** only once the content diff is empty: the PR's
-   `--delete-branch` handles the remote; prune locally by running `git worktree remove <explicit-path>`
-   from a different worktree (not the one being removed), then use `git branch -D <branch>`
-   only after confirming the content diff is empty. For squash-merged branches, `-d` will
-   refuse (no ancestry merge) even though the content landed, so `-D` is required once
-   the empty diff confirms the work is fully landed. Do not force-delete before verification.
+4. **Prepare cleanup only after the content diff is empty.** Worktree removal, remote branch
+   deletion, and `git branch -D` are destructive and require an explicit cleanup request. Resolve
+   and validate the exact worktree path from a different worktree, then report the commands or run
+   them only within that authorization. For squash-merged branches, explain why `-d` refuses and
+   why `-D` would be needed; empty content proof is necessary but does not itself authorize deletion.
 5. **Update the ledger** with `npm run ledger:append`, passing `--ref <branch>`, `--head`
    (the merged squash commit's full 40-character SHA, not an abbreviation),
    `--scope prlanded`, `--outcome`, and `--checks`, plus any relevant memory note.

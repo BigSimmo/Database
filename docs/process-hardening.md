@@ -89,8 +89,8 @@ artifact before release; see
   required-CI bill as a large change.
 - **Rule:** see AGENTS.md "PR bundling (reduce one-task-one-PR churn)" — bundle
   same-scope, independently low-risk, separately-revertible-commit work into one PR
-  instead of minting a branch per task. Queued `docs/branch-review-ledger.md` /
-  `docs/outstanding-issues.md` append-only tasks are the best candidate.
+  instead of minting a branch per task. Review records and issue requests now use independent
+  immutable files, so they should accompany their owning product PR rather than become ledger-only PRs.
 - **Does not change:** required-check scoping, per-commit verification rigor, or the
   deliberate "1 PR per work order" convention for tracked staged rollouts (maturity
   backlog, `#086`) or anything crossing a clinical-risk/RAG-ranking-surface path.

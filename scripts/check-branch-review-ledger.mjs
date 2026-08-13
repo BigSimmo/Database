@@ -2,10 +2,9 @@
 /**
  * Keep the append-only branch review ledger machine-readable and merge-safe.
  *
- * The custom `merge=ledger` driver (union + exact-row dedupe) preserves concurrent
- * appends without reintroducing byte-identical twins; this gate catches the ways the
- * ledger has actually degraded in practice:
- *   - a missing ledger merge attribute, or conflict markers committed verbatim
+ * Immutable records now preserve concurrent review entries; this gate catches the ways
+ * the historical tables and new records can degrade in practice:
+ *   - a merge driver reintroduced on the frozen legacy table, or conflict markers committed verbatim
  *   - exact duplicate records
  *   - mojibake (`???` / U+FFFD) from an append that was not written as UTF-8, which also
  *     hides duplicates from the exact-match check by making the twin rows differ
@@ -20,19 +19,23 @@
  * cell structure on 2026-07-28 but deliberately not rewritten for content.
  *
  * Write new records with `npm run ledger:append` so these rules hold by construction.
- * After a main sync in a checkout without the merge driver installed, run
- * `npm run ledger:dedupe` before committing.
+ * The legacy table is frozen for normal PRs. Write new rows through `ledger:append`;
+ * it creates an immutable record file that GitHub can merge without custom drivers.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { listLedgerPaths, parseLedgerRows } from "./branch-review-ledger.mjs";
+import {
+  listLedgerArchivePaths,
+  listLedgerRecordPaths,
+  parseLedgerRows,
+  reviewRecordPath,
+} from "./branch-review-ledger.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LEDGER_PATH = "docs/branch-review-ledger.md";
 const PROTOCOL_PATH = "docs/codex-review-protocol.md";
-export const LEDGER_MERGE_DRIVER = "node scripts/merge-branch-review-ledger.mjs %O %A %B";
 
 /**
  * Records dated on or after this land through `ledger:append` and must be fully
@@ -56,21 +59,14 @@ function isRealDate(value) {
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
-export function validateLedger({ ledger, mergeAttribute, mergeDriver, protocol }) {
+export function validateLedger({ ledger, mergeAttribute, protocol }) {
   const failures = [];
   const lines = ledger.split(/\r?\n/);
 
-  if (mergeAttribute !== "ledger") {
+  if (mergeAttribute !== "unspecified") {
     failures.push(
-      `${LEDGER_PATH} must resolve to merge=ledger (union + exact-row dedupe; found ${JSON.stringify(
-        mergeAttribute || "unset",
-      )}).`,
-    );
-  }
-  if (mergeAttribute === "ledger" && mergeDriver !== LEDGER_MERGE_DRIVER) {
-    failures.push(
-      `${LEDGER_PATH} declares merge=ledger but merge.ledger.driver is not installed. ` +
-        `Run \`npm run hooks:install\` before merging (found ${JSON.stringify(mergeDriver || "unset")}).`,
+      `${LEDGER_PATH} must leave merge unspecified (found ${JSON.stringify(mergeAttribute || "empty")}); ` +
+        "GitHub cannot use a workstation-local merge driver, and normal review writes are immutable records.",
     );
   }
 
@@ -183,11 +179,14 @@ export function validateLedger({ ledger, mergeAttribute, mergeDriver, protocol }
     );
   }
 
-  if (!ledger.includes("This file is append-only.")) {
-    failures.push(`${LEDGER_PATH} is missing its append-only editing contract.`);
+  if (
+    !ledger.includes("This file is a frozen historical table.") ||
+    !ledger.includes("New review records are immutable")
+  ) {
+    failures.push(`${LEDGER_PATH} is missing its immutable-record editing contract.`);
   }
-  if (!protocol.includes("The ledger is append-only:")) {
-    failures.push(`${PROTOCOL_PATH} is missing its append-only reviewer instruction.`);
+  if (!protocol.includes("completed immutable review record") || !protocol.includes("historical table is frozen")) {
+    failures.push(`${PROTOCOL_PATH} is missing its immutable-record reviewer instruction.`);
   }
 
   return { failures, recordCount: rows.length, strictCount: strict.length };
@@ -200,18 +199,6 @@ function effectiveMergeAttribute() {
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
   return output.match(/:\s*merge:\s*(\S+)$/)?.[1] ?? "";
-}
-
-function configuredMergeDriver() {
-  try {
-    return execFileSync("git", ["config", "--get", "merge.ledger.driver"], {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    return "";
-  }
 }
 
 function assert(condition, label) {
@@ -231,13 +218,22 @@ function selfTest() {
     };
     return `| ${[cells.date, cells.ref, cells.head, cells.scope, cells.outcome, cells.checks].join(" | ")} |`;
   };
-  const ledgerWith = (...extra) => ["# Ledger", "", "This file is append-only.", "", row(), ...extra, ""].join("\n");
+  const ledgerWith = (...extra) =>
+    [
+      "# Ledger",
+      "",
+      "This file is a frozen historical table.",
+      "New review records are immutable.",
+      "",
+      row(),
+      ...extra,
+      "",
+    ].join("\n");
 
   const valid = {
     ledger: ledgerWith(),
-    mergeAttribute: "ledger",
-    mergeDriver: LEDGER_MERGE_DRIVER,
-    protocol: "The ledger is append-only: append corrections.",
+    mergeAttribute: "unspecified",
+    protocol: "completed immutable review record; historical table is frozen",
   };
   const fails = (input, needle, label) =>
     assert(
@@ -248,9 +244,9 @@ function selfTest() {
   assert(validateLedger(valid).failures.length === 0, "valid ledger passes");
   assert(validateLedger(valid).recordCount === 1, "counts records");
 
-  fails({ mergeAttribute: "" }, "merge=ledger", "missing ledger attribute fails");
-  fails({ mergeAttribute: "union" }, "merge=ledger", "stock union attribute fails");
-  fails({ mergeDriver: "" }, "hooks:install", "missing custom driver fails loudly");
+  fails({ mergeAttribute: "ledger" }, "leave merge unspecified", "legacy custom driver fails");
+  fails({ mergeAttribute: "union" }, "leave merge unspecified", "stock union attribute fails");
+  fails({ mergeAttribute: "unset" }, "leave merge unspecified", "explicitly unset merge fails");
   fails({ protocol: "append records" }, "reviewer instruction", "missing protocol contract fails");
   fails({ ledger: `${valid.ledger}<<<<<<< ours\n` }, "conflict marker", "conflict marker fails");
   fails({ ledger: ledgerWith(row()) }, "exact duplicate", "exact duplicate record fails");
@@ -311,6 +307,30 @@ function validateArchiveStructure(relativePath, markdown) {
   return { failures, recordCount: rows.length };
 }
 
+function validateImmutableRecord(relativePath, markdown) {
+  const failures = [];
+  if (markdown.includes("\n<<<<<<<") || markdown.includes("\n=======") || markdown.includes("\n>>>>>>>")) {
+    failures.push(`${relativePath}: conflict marker(s) found.`);
+  }
+  if (markdown.includes("???") || markdown.includes("�")) failures.push(`${relativePath}: mojibake found.`);
+  const rows = parseLedgerRows(markdown);
+  if (rows.length !== 1 || markdown.trim() !== rows[0]?.raw) {
+    failures.push(`${relativePath}: immutable record must contain exactly one table row and no prose.`);
+    return { failures, rows: [] };
+  }
+  const row = rows[0];
+  if (reviewRecordPath(row.raw) !== relativePath) {
+    failures.push(`${relativePath}: filename must be the SHA-256 content address for its record row.`);
+  }
+  if (row.cells.length !== 6) failures.push(`${relativePath}: record must have exactly 6 cells.`);
+  if (!isRealDate(row.date)) failures.push(`${relativePath}: record has an impossible date.`);
+  const head = row.head.replace(/`/g, "");
+  if (row.date >= STRICT_FROM && !/^[0-9a-f]{40}$/.test(head) && !/^n\/a\b/i.test(head)) {
+    failures.push(`${relativePath}: record must carry a full 40-character SHA or documented n/a HEAD.`);
+  }
+  return { failures, rows };
+}
+
 function main() {
   if (process.argv.includes("--self-test")) {
     selfTest();
@@ -320,16 +340,32 @@ function main() {
   const result = validateLedger({
     ledger: readFileSync(path.join(root, LEDGER_PATH), "utf8"),
     mergeAttribute: effectiveMergeAttribute(),
-    mergeDriver: configuredMergeDriver(),
     protocol: readFileSync(path.join(root, PROTOCOL_PATH), "utf8"),
   });
 
   const failures = [...result.failures];
   let archiveRecords = 0;
-  for (const relative of listLedgerPaths().slice(1)) {
+  for (const relative of listLedgerArchivePaths().slice(1)) {
     const archive = validateArchiveStructure(relative, readFileSync(path.join(root, relative), "utf8"));
     failures.push(...archive.failures);
     archiveRecords += archive.recordCount;
+  }
+
+  let immutableRecords = 0;
+  const allRows = parseLedgerRows(readFileSync(path.join(root, LEDGER_PATH), "utf8"));
+  for (const relative of listLedgerArchivePaths().slice(1)) {
+    allRows.push(...parseLedgerRows(readFileSync(path.join(root, relative), "utf8")));
+  }
+  for (const relative of listLedgerRecordPaths()) {
+    const record = validateImmutableRecord(relative, readFileSync(path.join(root, relative), "utf8"));
+    failures.push(...record.failures);
+    immutableRecords += record.rows.length;
+    allRows.push(...record.rows);
+  }
+  const exactRows = new Set();
+  for (const row of allRows) {
+    if (exactRows.has(row.raw)) failures.push(`duplicate review record across ledger sources: ${row.raw}`);
+    exactRows.add(row.raw);
   }
 
   if (failures.length > 0) {
@@ -340,8 +376,9 @@ function main() {
 
   console.log(
     `Branch review ledger guard passed: ${result.recordCount} live table records` +
-      `${archiveRecords > 0 ? ` + ${archiveRecords} archived` : ""} ` +
-      `(${result.strictCount} under the ${STRICT_FROM} machine-readable contract), ledger merge active, ` +
+      `${archiveRecords > 0 ? ` + ${archiveRecords} archived` : ""}` +
+      `${immutableRecords > 0 ? ` + ${immutableRecords} immutable` : ""} ` +
+      `(${result.strictCount} under the ${STRICT_FROM} machine-readable contract), immutable review writes, ` +
       `six cells each, no conflict markers, mojibake, heading records, or duplicates.`,
   );
 }

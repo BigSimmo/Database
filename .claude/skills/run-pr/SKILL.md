@@ -180,9 +180,8 @@ record — so ledger throttling lookups stay per-branch.
 
 Anti-churn rules for this file:
 
-- After `git merge origin/main`, run `npm run ledger:dedupe` before committing when the
-  ledger changed (belt-and-suspenders if `merge.ledger.driver` was not installed in that
-  checkout).
+- The historical table is frozen. Never run `ledger:dedupe` or `ledger:rotate` during a
+  sweep; each new review is an immutable record file, so a main sync creates no review-row hunk.
 - On a later sweep of the same PR, pass `--supersede` so you replace the prior Run PR row
   instead of stacking another "main sync" twin.
 - Never push a tip whose sole delta is a babysit ledger append — that marks every other

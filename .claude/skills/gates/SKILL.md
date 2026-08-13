@@ -24,10 +24,11 @@ Check these before believing any result.
   for exactly this reason — if installed packages do not match `package-lock.json`, treat any test,
   lint, or typecheck result as void until `npm ci` has run. Its own failure message says as much.
 - **`verify:cheap` stops at the first failing check.** Everything after that point never ran. Do not
-  describe the change as broadly verified when the gate died at check 2 of 33.
-- **Changed-file formatting is required in CI but is not part of `verify:cheap`.** A locally green
-  `verify:cheap` can still fail CI on formatting. Run `npx prettier --write <changed files>` before
-  pushing — scoped to your files, never `prettier --write .`, which sweeps the whole tree.
+  describe the change as broadly verified when the gate died at check 2 of 35.
+- **Changed-file formatting is required in CI but is not part of `verify:cheap`.** During iteration,
+  format only task-owned files. Before a push, follow `AGENTS.md`: from an isolated or otherwise
+  fully owned worktree run `npm run format`, review the complete formatter diff, and commit it.
+  Never sweep a shared dirty checkout that contains another task's work.
 - **Piping a gate into `tail` or `head` masks its exit code.** In Bash, capture `${PIPESTATUS[0]}`,
   or check the exit status before piping.
 

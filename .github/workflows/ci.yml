@@ -200,6 +200,10 @@ jobs:
         if: needs.changes.outputs.workflow_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:gate-manifest
 
+      - name: Repository skill contracts
+        if: needs.changes.outputs.workflow_changed == 'true'
+        run: npm run check:skills
+
       - name: Branch review ledger integrity
         # Also run for static_heavy (including .gitattributes-only edits and the
         # scheduled full-run sentinel): both checkers validate merge attributes.
@@ -211,6 +215,12 @@ jobs:
         env:
           OUTSTANDING_ISSUES_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
         run: npm run check:outstanding-issues
+
+      - name: Ledger write discipline
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
+        env:
+          LEDGER_WRITE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: npm run check:ledger-write-discipline
 
       - name: PR mergeability workflow contract
         if: needs.changes.outputs.workflow_changed == 'true'

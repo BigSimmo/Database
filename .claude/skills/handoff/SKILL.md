@@ -19,12 +19,13 @@ force-push, or discard work.
 
 1. **Inspect first (read-only):** `git status --short --branch`, `git diff`, `git diff --cached`,
    and the ahead/behind from `node scripts/check-base-freshness.mjs`. If staged paths are found
-   that aren't part of the current session's own work (leftover from other sessions' WIP),
-   unstage them with `git restore --staged <path>` before proceeding.
+   that aren't part of the current session's own work, preserve them and stop or move this task to
+   an isolated worktree; never unstage or otherwise move another session's work.
 2. **Stage coherent, completed changes only.** Stage explicit paths — never `git add -A`
    blindly. Do not stage `.env*`, secrets, build output, logs, or unrelated WIP; if you
    see a possible secret, report the path (never the value) and stop.
-3. **Verify** with the smallest sufficient gate:
+3. **Format and verify.** From the fully owned feature worktree, run `npm run format`, inspect the
+   complete formatter diff, and include only intended formatting. Then use the smallest sufficient gate:
    - Default: `npm run verify:pr-local` (format + cheap gate, plus build/RAG when the
      scope needs them).
    - Touched UI/routing/styling: add `npm run verify:ui`.
