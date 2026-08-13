@@ -8,27 +8,29 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // asserted without real storage or auth; useTheme/useAppPreferences run
 // unmocked in jsdom.
 
-const { clearRecentQueries, clearFavourites, signInWithEmail, mockRecentCount, mockFavourites } = vi.hoisted(() => {
-  let recentCount = 3;
-  let favouritesData = { medications: [{ id: "m1" }] };
-  return {
-    clearRecentQueries: vi.fn(),
-    clearFavourites: vi.fn(async () => true),
-    signInWithEmail: vi.fn(),
-    mockRecentCount: {
-      get: () => recentCount,
-      set: (count: number) => {
-        recentCount = count;
+const { clearRecentQueries, clearFavourites, signInWithEmail, signInWithOAuth, mockRecentCount, mockFavourites } =
+  vi.hoisted(() => {
+    let recentCount = 3;
+    let favouritesData = { medications: [{ id: "m1" }] };
+    return {
+      clearRecentQueries: vi.fn(),
+      clearFavourites: vi.fn(async () => true),
+      signInWithEmail: vi.fn(),
+      signInWithOAuth: vi.fn(),
+      mockRecentCount: {
+        get: () => recentCount,
+        set: (count: number) => {
+          recentCount = count;
+        },
       },
-    },
-    mockFavourites: {
-      get: () => favouritesData,
-      set: (data: { medications: Array<{ id: string }> }) => {
-        favouritesData = data;
+      mockFavourites: {
+        get: () => favouritesData,
+        set: (data: { medications: Array<{ id: string }> }) => {
+          favouritesData = data;
+        },
       },
-    },
-  };
-});
+    };
+  });
 
 vi.mock("@/lib/recent-query-storage", () => ({
   clearRecentQueries: () => clearRecentQueries(),
@@ -56,7 +58,7 @@ vi.mock("@/lib/supabase/client", () => ({
     notice: null,
     session: null,
     signInWithEmail,
-    signInWithOAuth: vi.fn(),
+    signInWithOAuth,
     signOut: vi.fn(),
   }),
 }));
@@ -182,23 +184,17 @@ describe("SettingsDialog — destructive and account actions", () => {
     expect(signInWithEmail).toHaveBeenCalledWith("clinician@clinic.example");
   });
 
-  it("clearly disables unavailable Apple sign-in", () => {
+  it("signs in with Apple from account settings", () => {
     renderDialog({ signedIn: false });
     fireEvent.click(screen.getAllByRole("button", { name: "Sign in" })[0]);
 
-    const apple = screen.getByRole("button", { name: "Apple sign-in unavailable" });
-    // `aria-disabled` keeps the row focusable so the reason is announced; the
-    // native attribute would drop it out of the tab order entirely.
-    expect(apple).toHaveAttribute("aria-disabled", "true");
-    expect(apple).not.toBeDisabled();
-    expect(apple).toHaveAttribute(
-      "title",
-      "Apple sign-in is unavailable. Continue with email, Google, or Microsoft — coming soon",
-    );
-    expect(apple).toHaveAccessibleDescription(
-      "Apple sign-in is unavailable. Continue with email, Google, or Microsoft.",
-    );
-    expect(screen.getByRole("button", { name: "Google" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Microsoft" })).toBeEnabled();
+    const apple = screen.getByRole("button", { name: "Continue with Apple" });
+    expect(apple).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
+    expect(screen.queryByText(/Apple sign-in is unavailable/i)).toBeNull();
+
+    fireEvent.click(apple);
+    expect(signInWithOAuth).toHaveBeenCalledWith("apple");
   });
 });
