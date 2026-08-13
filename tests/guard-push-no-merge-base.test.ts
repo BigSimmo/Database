@@ -33,26 +33,24 @@ if (args[0] === "rev-parse") {
 afterEach(() => {
   if (originalPath === undefined) delete process.env.PATH;
   else process.env.PATH = originalPath;
-  for (const root of cleanups.splice(0))
-    rmSync(root, { recursive: true, force: true });
+  for (const root of cleanups.splice(0)) {
+    rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
 });
 
 describe("changedFilesForRange without a merge base", () => {
   // Node cannot launch a .cmd PATH stub through execFileSync, so this fixture is POSIX-only.
-  it.runIf(process.platform !== "win32")(
-    "falls back to a conservative endpoint-tree diff for a new branch",
-    () => {
-      installGitStub();
+  it.runIf(process.platform !== "win32")("falls back to a conservative endpoint-tree diff for a new branch", () => {
+    installGitStub();
 
-      expect(
-        changedFilesForRange(
-          {
-            localSha: "feature-sha",
-            remoteSha: ZERO,
-          },
-          process.cwd(),
-        ),
-      ).toEqual(["README.md", "scripts/feature.mjs"]);
-    },
-  );
+    expect(
+      changedFilesForRange(
+        {
+          localSha: "feature-sha",
+          remoteSha: ZERO,
+        },
+        process.cwd(),
+      ),
+    ).toEqual(["README.md", "scripts/feature.mjs"]);
+  });
 });

@@ -2462,7 +2462,8 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByText("Transport order")).toHaveCount(0);
     await expect(page.getByLabel("Differential review sidebar").getByText("Local content only").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Copy after review" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Edit columns" })).toBeDisabled();
+    await expect(page.getByTestId("differential-presentation-edit-selection-desktop")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edit columns" })).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
 
     const tableScrolls = await page.getByTestId("differential-comparison-scroll").evaluate((element) => {
@@ -2486,10 +2487,24 @@ test.describe("Clinical KB tools launcher", () => {
       .getByTestId("mobile-composer-reserve-pad")
       .getByTestId("differential-presentation-page");
     await expect(presentationPage).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("link", { name: "Back to differentials" })).toBeVisible();
+    const differentialModeNav = page.getByRole("navigation", { name: "Differentials pages" });
+    await expect(differentialModeNav).toBeVisible();
+    const modeOverflow = differentialModeNav.getByRole("button", { name: /More/ });
+    await expect(modeOverflow).toBeVisible();
+    await modeOverflow.click();
+    const modeSheet = page.getByRole("dialog", { name: "Differentials pages" });
+    await expect(modeSheet).toBeVisible();
+    await expect(modeSheet.getByRole("link", { name: "Presentations" })).toHaveAttribute("aria-current", "page");
+    await expect(modeSheet.getByRole("link", { name: "Compare" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(modeSheet).toBeHidden();
+    await expect(page.getByRole("link", { name: "Back to differentials" })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Differential breadcrumbs" })).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
     const mobileComparison = page.getByLabel("Mobile differential comparison");
-    await expect(mobileComparison.getByRole("button", { name: "Column filters unavailable" })).toBeDisabled();
+    const editSelection = mobileComparison.getByRole("link", { name: "Edit" });
+    await expect(editSelection).toBeVisible();
+    await expect(editSelection).toHaveAttribute("href", /\/differentials\?.*ids=wernicke-encephalopathy/);
     await expect(mobileComparison.getByText("Wernicke encephalopathy", { exact: true }).first()).toBeVisible();
     const languageControl = page.getByRole("button", { name: "Language and region settings (coming soon)" });
     await expect(languageControl).toBeVisible();
@@ -2498,6 +2513,28 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
     await expect(page.getByText("Service details")).toHaveCount(0);
     await expect(page.getByText("Transport order")).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+
+    for (const viewport of [
+      { width: 320, height: 740 },
+      { width: 390, height: 844 },
+      { width: 639, height: 900 },
+      { width: 768, height: 1024 },
+      { width: 1440, height: 920 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Differentials pages" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Safety snapshot" }).first()).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+    }
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Differentials pages" })).toBeVisible();
+    await expect(page.getByTestId("differential-presentation-edit-selection-mobile")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
