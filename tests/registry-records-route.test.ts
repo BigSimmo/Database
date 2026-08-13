@@ -271,6 +271,22 @@ describe("registry records API", () => {
     expect(response.headers.get("vary")).toContain("Accept-Encoding");
   });
 
+  it("honors an explicit gzip exclusion before a wildcard acceptance", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(
+      request("/api/registry/records?kind=service", { headers: { "Accept-Encoding": "gzip;q=0, *;q=1" } }),
+    );
+    const payload = (await response.json()) as { records: unknown[] };
+
+    expect(response.headers.get("content-encoding")).toBeNull();
+    expect(response.headers.get("vary")).toContain("Accept-Encoding");
+    expect(payload.records.length).toBeGreaterThan(100);
+  });
+
+
   it("serves mock records in demo mode without touching Supabase", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });

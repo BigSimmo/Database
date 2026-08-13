@@ -55,11 +55,20 @@ function rankRecords(kind: RegistryRecordKind, records: ServiceRecord[], query: 
 function acceptsGzip(request: Request | undefined) {
   const header = request?.headers.get("accept-encoding");
   if (!header) return false;
-  return header.split(",").some((entry) => {
+
+  const encodings = header.split(",").map((entry) => {
     const [encoding, ...parameters] = entry.trim().toLowerCase().split(";");
-    if (encoding !== "gzip" && encoding !== "*") return false;
-    return !parameters.some((parameter) => /^q=0(?:\.0+)?$/.test(parameter.trim()));
+    return { encoding, parameters };
   });
+  const allows = ({ parameters }: { parameters: string[] }) =>
+    !parameters.some((parameter) => /^q=0(?:\.0+)?$/.test(parameter.trim()));
+
+  // A client can exclude gzip explicitly while accepting other encodings via
+  // `*`. Resolve that explicit preference before the wildcard fallback.
+  const gzip = encodings.find((entry) => entry.encoding === "gzip");
+  if (gzip) return allows(gzip);
+
+  return encodings.some((entry) => entry.encoding === "*" && allows(entry));
 }
 
 async function registryResponse(
