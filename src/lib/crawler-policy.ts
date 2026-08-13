@@ -18,12 +18,13 @@ export const PRIVATE_APP_ROBOTS_METADATA = {
 } satisfies Metadata["robots"];
 
 /**
- * Do not advertise a sitemap for private application routes, and ask compliant
- * crawlers not to fetch them.
+ * Let compliant crawlers fetch application routes so they can observe the global
+ * `noindex` metadata. Search exclusion is not access control; private content must
+ * remain protected by authentication. Do not advertise an XML sitemap.
  */
 export const PRIVATE_APP_ROBOTS_TXT = {
   rules: {
     userAgent: "*",
-    disallow: "/",
+    allow: "/",
   },
 } satisfies MetadataRoute.Robots;
