@@ -18,6 +18,7 @@ describe("PageSecondaryNavigation", () => {
   it.each([
     "/medications/sertraline",
     "/differentials/diagnoses/delirium",
+    "/differentials/presentations/acute-confusion-encephalopathy",
     "/factsheets/sertraline",
     "/therapy-compass/cbt",
     "/documents/11111111-1111-4111-8111-111111111111",
@@ -46,9 +47,6 @@ describe("PageSecondaryNavigation", () => {
     "/dsm/search",
     "/dsm/compare",
     "/factsheets/search",
-    // Presentation comparisons suppress the composer as information pages, but
-    // own no local header; the shared Differentials mode bar navigates them.
-    "/differentials/presentations/acute-confusion-encephalopathy",
   ])("does not treat %s as locally owned information navigation", (pathname) => {
     expect(hasLocalInformationPageNavigation(pathname)).toBe(false);
   });
@@ -107,29 +105,16 @@ describe("PageSecondaryNavigation", () => {
     ]);
   });
 
-  it("gives a presentation comparison the shared Differentials mode bar", () => {
+  it("leaves presentation comparison navigation to the resolved page workflow", () => {
     render(
       <PageSecondaryNavigation
         modeId="differentials"
         pathname="/differentials/presentations/acute-confusion-encephalopathy"
         hasSubmittedSearch={false}
-        searchParamString="q=confusion&ids=delirium,wernicke-encephalopathy"
       />,
     );
 
-    const bar = screen.getByTestId("mode-nav");
-    expect(bar).toHaveAttribute("aria-label", "Differentials pages");
-    expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual([
-      "Search",
-      "Diagnoses",
-      "Presentations",
-      "Compare",
-    ]);
-    expect(screen.getByRole("link", { name: "Presentations" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute(
-      "href",
-      "/differentials/compare?q=confusion&ids=delirium%2Cwernicke-encephalopathy",
-    );
+    expect(screen.queryByTestId("mode-nav")).toBeNull();
   });
 
   it("gives factsheets both destinations and keeps the current tab's filter state", () => {

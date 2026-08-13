@@ -18,6 +18,7 @@ import {
 import { DiagnosisTermChip, DiagnosisTermInlineList } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
 import { cn } from "@/components/ui-primitives";
 import { isClinicalHingeLabel, resolveDiagnosisTermSegments } from "@/lib/differential-diagnosis-links";
 import {
@@ -649,12 +650,25 @@ export function DifferentialPresentationWorkflowPage({
           })()
         : baseWorkflow;
   const candidates = getCandidates(workflow);
-  const editSelectionHref = differentialCompareSearchHref(
-    query,
-    candidates.filter((candidate) => candidate.selected).map((candidate) => candidate.record.slug),
-  );
+  const selectedCandidateIds = candidates
+    .filter((candidate) => candidate.selected)
+    .map((candidate) => candidate.record.slug);
+  const modeNavigationParams = new URLSearchParams();
+  const trimmedQuery = query.trim();
+  if (trimmedQuery) modeNavigationParams.set("q", trimmedQuery);
+  // The presentation catalogue can supply a default comparison even when the
+  // incoming URL has no ids. The shared header must receive that resolved
+  // selection as well, otherwise its Compare link silently opens an empty queue.
+  if (selectedCandidateIds.length) modeNavigationParams.set("ids", selectedCandidateIds.join(","));
+  const editSelectionHref = differentialCompareSearchHref(query, selectedCandidateIds);
 
   return (
+    <>
+      <RegistryModeNav
+        modeId="differentials"
+        activeId="presentations"
+        searchParamString={modeNavigationParams.toString()}
+      />
     <main
       data-testid="differential-presentation-page"
       className="min-h-0 overflow-x-clip bg-[color:var(--background)] px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 md:pb-8 xl:px-7 xl:pt-6"
@@ -708,5 +722,6 @@ export function DifferentialPresentationWorkflowPage({
         </p>
       </div>
     </main>
+    </>
   );
 }

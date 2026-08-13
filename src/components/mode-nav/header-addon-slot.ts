@@ -21,14 +21,15 @@ import { isSlugDetail } from "@/lib/information-pages";
  *
  * Claimants are named individually rather than derived, because the only
  * evidence that a route claims the slot is that its component renders
- * `PhoneHeaderCollapsePortal`.
+ * `PhoneHeaderCollapsePortal`, `InPageNavHeader`, or `RegistryModeNav`.
  */
 export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // DocumentViewer.tsx
   if (isDocumentViewerOwnedRoute(pathname)) return true;
-  // differentials/differential-detail-page.tsx (diagnoses detail only — the
-  // presentations workflow page renders no portal).
-  if (pathname.startsWith("/differentials/diagnoses/")) return true;
+  // Differentials detail and presentation workflows both provide their own
+  // header navigation. Presentation workflows use the shared RegistryModeNav
+  // with the workflow-resolved selection.
+  if (pathname.startsWith("/differentials/diagnoses/") || pathname.startsWith("/differentials/presentations/")) return true;
   // factsheets/factsheet-nav-header.tsx, mounted by the detail page.
   if (isSlugDetail(pathname, "/factsheets", ["search"])) return true;
   // clinical-dashboard/medication-nav-header.tsx, mounted by

@@ -1,10 +1,11 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative as relativePath, sep } from "node:path";
 
-import { render, waitFor } from "@testing-library/react";
+import { render, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isHeaderAddonSlotOwnedRoute } from "@/components/mode-nav/header-addon-slot";
+import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
 import { hasLocalInformationPageNavigation, PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
 import {
@@ -52,9 +53,9 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/medications/sertraline")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/medications")).toBe(false);
 
-    // The presentations workflow page renders no portal, and the shell index is
-    // not a document detail route.
-    expect(isHeaderAddonSlotOwnedRoute("/differentials/presentations/acute-confusion-encephalopathy")).toBe(false);
+    // The presentations workflow owns the shared mode bar with its resolved
+    // catalogue selection, while the shell index is not a document detail route.
+    expect(isHeaderAddonSlotOwnedRoute("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/documents/search")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/differentials/diagnoses")).toBe(false);
     // Mode homes and the builder/compare/map/search surfaces keep the mode bar,
@@ -78,6 +79,7 @@ describe("header addon slot ownership", () => {
     // the fix is an explicit guard at the mode branch.
     for (const pathname of [
       "/differentials/diagnoses/delirium",
+      "/differentials/presentations/acute-confusion-encephalopathy",
       "/documents/11111111-1111-4111-8111-111111111111",
       "/documents/11111111-1111-4111-8111-111111111111/source",
       "/services/community-team",
@@ -123,10 +125,8 @@ describe("header addon slot ownership", () => {
     view.cleanupSlot();
 
     expect(modeUsesHeaderModeNav("differentials")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/differentials/presentations/acute-confusion-encephalopathy")).toBe(false);
-    expect(hasLocalInformationPageNavigation("/differentials/presentations/acute-confusion-encephalopathy")).toBe(
-      false,
-    );
+    expect(isHeaderAddonSlotOwnedRoute("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
+    expect(hasLocalInformationPageNavigation("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
 
     const differentialView = renderIntoHeaderWithAddonSlot(
       <PageSecondaryNavigation
@@ -135,8 +135,21 @@ describe("header addon slot ownership", () => {
         hasSubmittedSearch={false}
       />,
     );
-    await waitFor(() => expect(differentialView.occupants()).toHaveLength(1));
+    await waitFor(() => expect(differentialView.occupants()).toHaveLength(0));
     differentialView.cleanupSlot();
+  });
+
+  it("keeps a default presentation comparison selection in its shared Compare link", async () => {
+    const view = renderIntoHeaderWithAddonSlot(
+      <DifferentialPresentationWorkflowPage presentationSlug="acute-confusion-encephalopathy" />,
+    );
+
+    await waitFor(() => expect(view.occupants()).toHaveLength(1));
+    expect(within(view.occupants()[0]!).getByRole("link", { name: "Compare" })).toHaveAttribute(
+      "href",
+      "/differentials/compare?ids=delirium%2Csubstance-intoxication%2Csubstance-withdrawal%2Cpost-ictal-confusion",
+    );
+    view.cleanupSlot();
   });
 
   it("names every component that claims the slot", () => {
@@ -145,13 +158,10 @@ describe("header addon slot ownership", () => {
     // the claimants instead: a new one fails here until
     // `isHeaderAddonSlotOwnedRoute` is given its route.
     //
-    // There are two forms of that evidence, and both must be scanned. A page can
-    // render `PhoneHeaderCollapsePortal` itself (DocumentViewer still does), or
-    // it can render `InPageNavHeader`, which portals on its behalf. Scanning only
-    // for the portal would have gone quiet the moment the shared header was
-    // extracted — every future adopter would claim the slot invisibly to this
-    // guard, which is the exact failure it exists to prevent.
-    const claimsSlot = /<(PhoneHeaderCollapsePortal|InPageNavHeader)\b/;
+    // There are three forms of that evidence, and all must be scanned. A page can
+    // render `PhoneHeaderCollapsePortal` itself (DocumentViewer still does), use
+    // `InPageNavHeader`, or render the shared `RegistryModeNav` directly.
+    const claimsSlot = /<(PhoneHeaderCollapsePortal|InPageNavHeader|RegistryModeNav)\b/;
     // The shared header is the mechanism, not a claimant: it has no route.
     const sharedHeader = "src/components/in-page-nav/in-page-nav-header.tsx";
     const claimants: string[] = [];
@@ -188,6 +198,7 @@ describe("header addon slot ownership", () => {
       "src/components/DocumentViewer.tsx",
       "src/components/clinical-dashboard/medication-nav-header.tsx",
       "src/components/differentials/differential-detail-page.tsx",
+      "src/components/differentials/differential-presentation-workflow-page.tsx",
       "src/components/dsm/dsm-diagnosis-nav-header.tsx",
       "src/components/dsm/dsm-differential-considerations-page.tsx",
       "src/components/factsheets/factsheet-nav-header.tsx",

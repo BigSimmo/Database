@@ -10,24 +10,12 @@ import {
 } from "@/lib/mode-secondary-navigation";
 
 /**
- * Information pages that own their own in-page navigation.
- *
- * This used to be a split: the detail families listed here owned controlled or
- * dynamic navigation inside their own page component, while services, forms,
- * specifiers, formulation and the two DSM diagnosis routes declared section
- * tables that the shell rendered as an "On this page" pill rail. Those six
- * routes mount `InPageNavHeader` instead (see
- * `docs/search-chrome-behaviour.md`, "Default in-page navigation template"), so
- * the shell has no information-page navigation left to draw for those routes.
- *
- * The presentation comparison is deliberately the exception. It remains an
- * information page so the shell suppresses its composer, but it owns no
- * `InPageNavHeader`/header-addon portal. Its former breadcrumb and local tabs
- * were replaced by the shared Differentials mode bar, so swallowing it here
- * would leave the route without navigation again.
+ * Information pages own their header navigation. Most render
+ * `InPageNavHeader`; presentation comparisons render the same shared
+ * Differentials `RegistryModeNav` with their resolved selection, so the shell
+ * must not add a second bar.
  */
 export function hasLocalInformationPageNavigation(pathname: string): boolean {
-  if (pathname.startsWith("/differentials/presentations/")) return false;
   return isInformationPage(pathname);
 }
 
