@@ -1040,9 +1040,7 @@ function selfTest() {
   assertScope(
     "ingestion-sast-gate-contract",
     [".github/workflows/ci.yml", "scripts/ci-change-scope.mjs"],
-    {
-      ingestion_sast_changed: true,
-    },
+    { ingestion_sast_changed: true },
   );
   assertScope("non-ingestion-source-skips-sast", ["src/lib/rag.ts"], {
     ingestion_sast_changed: false,
