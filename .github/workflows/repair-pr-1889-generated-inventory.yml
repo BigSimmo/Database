@@ -44,7 +44,7 @@ jobs:
           git config user.email "87357024+BigSimmo@users.noreply.github.com"
 
           git fetch --no-tags origin main
-          test "$(git rev-parse origin/main)" = "1fbcc2340a305e6aae172a0c30274cd2400ad39b"
+          test "$(git rev-parse origin/main)" = "2ae5a0aa5d339a7dc9089db134c2d9d0220444ae"
 
           set +e
           git merge --no-ff --no-commit origin/main
@@ -198,6 +198,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          ALLOW_AUTOMERGE_PUSH: "1"
         run: |
           set -euo pipefail
           test -n "$GH_TOKEN"
