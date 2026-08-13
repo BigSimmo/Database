@@ -5,6 +5,7 @@ import {
   privacySafeTransactionEvent,
   resolveTracesSampleRate,
 } from "../src/lib/observability/error-tracking";
+import { resolveSentryRelease } from "../src/lib/observability/sentry-release";
 
 /**
  * Ingestion-worker error tracking.
@@ -32,7 +33,7 @@ export function initWorkerErrorTracking(): boolean {
   try {
     Sentry.init({
       dsn,
-      release: process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? "dev",
+      release: resolveSentryRelease(),
       environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development",
       tracesSampleRate: resolveTracesSampleRate(),
       sendDefaultPii: false,
