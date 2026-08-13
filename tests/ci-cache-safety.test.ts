@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -18,6 +18,10 @@ const liveWebVitalsWorkflow = readFileSync(
 const opsDigestWorkflow = readFileSync(new URL("../.github/workflows/ops-digest.yml", import.meta.url), "utf8");
 
 describe("CI cache safety", () => {
+  it("does not add a PR workflow that changes user-owned auto-merge state", () => {
+    expect(existsSync(new URL("../.github/workflows/keep-pr-auto-merge.yml", import.meta.url))).toBe(false);
+  });
+
   it("uses npm's download cache but recreates node_modules on every job", () => {
     expect(nodeSetup).toContain("cache: npm");
     expect(nodeSetup).toContain("cache-dependency-path: package-lock.json");

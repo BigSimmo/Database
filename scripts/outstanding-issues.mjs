@@ -30,7 +30,15 @@
 //     --summary "..." --detail "..." --source "..."
 //   node scripts/outstanding-issues.mjs done '#151' --outcome "Resolved ..."
 //   node scripts/outstanding-issues.mjs update '#151' --detail "..."
+//   node scripts/outstanding-issues.mjs update '#151' --pri P3
 //   node scripts/outstanding-issues.mjs --self-test
+//
+// `update --pri` exists because re-prioritising is the mutation triage performs
+// most often, and until ledger #313 it was the only one the writer could not
+// do — so every demotion was hand-authored against a rule that forbids exactly
+// that. Deliberately per-row: there is no bulk re-prioritise mode, because a
+// sweep that moves many rows at once is the kind of change that should be
+// visible row by row in review.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -247,9 +255,16 @@ export function resolveIssue(markdown, id, outcome, options = {}) {
 }
 
 export function updateIssue(markdown, id, fields) {
-  const editable = { summary: 3, detail: 4, source: 5 };
+  const editable = { pri: 1, summary: 3, detail: 4, source: 5 };
   const requested = Object.keys(editable).filter((key) => fields[key] !== undefined);
-  if (requested.length === 0) throw new Error("pass at least one of --summary, --detail, --source");
+  if (requested.length === 0) throw new Error("pass at least one of --pri, --summary, --detail, --source");
+  // Validate before guarded() so a bad priority fails with this message rather
+  // than as a gate refusal about a malformed row. Re-prioritising is the single
+  // most common triage mutation, and it is the one that used to force a hand
+  // edit — the exact path this writer exists to close (ledger #313).
+  if (fields.pri !== undefined && !PRIORITIES.has(String(fields.pri))) {
+    throw new Error(`--pri must be one of ${[...PRIORITIES].join(", ")}, got ${fields.pri}`);
+  }
 
   return guarded(markdown, (current) => {
     const parsed = parseIssues(current);
@@ -407,6 +422,40 @@ function selfTest() {
   check("update keeps the width", splitCells(updatedRow.raw).length === OPEN_CELLS);
   check("update escapes the new text", updatedRow.raw.includes("replaced \\| detail"));
 
+  // update --pri (#313): the Pri cell moves and nothing else does. The second
+  // assertion is the one that matters — an off-by-one in the editable map would
+  // write the priority over the ID or the Type and still produce a valid row.
+  const reprioritised = updateIssue(fixture, "#006", { pri: "P1" });
+  const reprioritisedCells = splitCells(parseIssues(reprioritised).rows.find((r) => r.id === "#006").raw);
+  check("update --pri writes the Pri cell", reprioritisedCells[1] === "P1");
+  check(
+    "update --pri leaves every other cell alone",
+    reprioritisedCells[0] === "#006" &&
+      reprioritisedCells[2] === "task" &&
+      reprioritisedCells[3] === "second" &&
+      reprioritisedCells[4] === "detail two" &&
+      reprioritisedCells[5] === "src" &&
+      reprioritisedCells[6] === "2026-01-02",
+  );
+  check("update --pri keeps the width", reprioritisedCells.length === OPEN_CELLS);
+  check(
+    "update --pri stays in the open table",
+    parseIssues(reprioritised).rows.find((r) => r.id === "#006").table === "open",
+  );
+
+  // Promotion and demotion are the same code path; assert both directions so a
+  // future guard cannot accidentally allow only one.
+  const promoted = updateIssue(fixture, "#013", { pri: "P1" });
+  const demoted = updateIssue(fixture, "#005", { pri: "P3" });
+  check("update --pri promotes", splitCells(parseIssues(promoted).rows.find((r) => r.id === "#013").raw)[1] === "P1");
+  check("update --pri demotes", splitCells(parseIssues(demoted).rows.find((r) => r.id === "#005").raw)[1] === "P3");
+
+  // Combined with another field in one call, since triage usually records the
+  // reason in the same breath as the move.
+  const both = updateIssue(fixture, "#006", { pri: "P3", detail: "demoted because ..." });
+  const bothCells = splitCells(parseIssues(both).rows.find((r) => r.id === "#006").raw);
+  check("update --pri combines with --detail", bothCells[1] === "P3" && bothCells[4] === "demoted because ...");
+
   // refusals
   const rejects = (label, run) => {
     try {
@@ -422,6 +471,9 @@ function selfTest() {
   rejects("bad type", () => addIssue(fixture, { type: "nope", summary: "x" }));
   rejects("missing summary", () => addIssue(fixture, {}));
   rejects("empty update", () => updateIssue(fixture, "#006", {}));
+  rejects("bad update priority", () => updateIssue(fixture, "#006", { pri: "P9" }));
+  rejects("lowercase update priority", () => updateIssue(fixture, "#006", { pri: "p1" }));
+  rejects("archived row cannot be re-prioritised", () => updateIssue(resolved, "#005", { pri: "P1" }));
 
   if (failures.length > 0) {
     console.error("outstanding-issues writer self-test FAILED:");
@@ -456,6 +508,7 @@ function main() {
       next = resolveIssue(markdown, positional, argValue(argv, "outcome"));
     } else if (command === "update") {
       next = updateIssue(markdown, positional, {
+        pri: argValue(argv, "pri"),
         summary: argValue(argv, "summary"),
         detail: argValue(argv, "detail"),
         source: argValue(argv, "source"),
