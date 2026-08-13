@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "id": "67f9ce93-caf5-4cd4-89e1-742e61ce882a",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#117",
+    "summary": "Mobile LCP breaches every measured route; Therapy catalogue remains one contributor",
+    "detail": "Outcome: mobile LCP breaches budget across every measured route, not just Therapy. Latest live three-sample medians on 2026-08-13 were root 5711 ms, Therapy 5077 ms, Services 4887 ms, Forms 4620 ms, DSM 4547 ms, and Documents search 4015 ms; 89-96% of LCP was render delay. Therapy remains a catalogue-specific contributor, but it is no longer the sole outlier. The current performance branch removes the Therapy workspace graph from the exact home and non-Therapy routes; this still needs deployed exact-SHA proof. Next: deploy the scoped fixes, rerun the live three-sample workflow, prioritize shared-shell/root render delay, then retain the existing per-field safety review for Therapy search/pathways. Gate: focused tests, production build, complete CI Lighthouse and live three-sample evidence. Stop: do not strip clinical fields or close this row from local/incomplete Lighthouse.",
+    "source": "session 2026-08-13 live latency review and performance-fixes branch"
+  }
+}

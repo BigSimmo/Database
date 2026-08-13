@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "a4bf50b9-95bf-458f-9a16-a80acf0830c0",
+  "createdOn": "2026-08-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "3f38592b-8346-48dc-87d9-acc585ffe5b8",
+    "reason": "Superseded by 67f9ce93-caf5-4cd4-89e1-742e61ce882a, which preserves the Therapy field-safety stop while incorporating newer 2026-08-13 route-wide live LCP evidence."
+  }
+}

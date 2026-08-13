@@ -130,6 +130,7 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
       embedding_skipped: false,
       embedding_skip_reason: null,
       embedding_cache_hit: false,
+      embedding_prefetched: true,
       text_fast_path_latency_ms: 0,
       text_candidate_budget: 24,
       text_candidate_count: 3,
@@ -304,6 +305,7 @@ describe("private RAG API access", () => {
       text_candidate_count: 3,
       text_fast_path_reason: null,
       embedding_skip_reason: null,
+      embedding_prefetched: true,
       vector_candidate_count: 5,
       embedding_field_count: 1,
       retrieval_provenance_counts: { chunk: 1, title: 1 },
@@ -318,6 +320,7 @@ describe("private RAG API access", () => {
         return (
           insertPayload.metadata.retrieval_plan === "document_lookup:title_label_section_then_chunks" &&
           insertPayload.metadata.text_candidate_budget === 24 &&
+          insertPayload.metadata.embedding_prefetched === true &&
           insertPayload.metadata.second_stage_rerank_used === true
         );
       }),

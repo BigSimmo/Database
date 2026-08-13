@@ -6,11 +6,11 @@ import {
   resolveTracesSampleRate,
 } from "@/lib/observability/error-tracking";
 import { isSentryLoggingEnabled, privacySafeLog } from "@/lib/observability/sentry-logging";
+import { resolveSentryRelease } from "@/lib/observability/sentry-release";
 
 const sentryEnvironment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
 const sentryDsn = process.env.SENTRY_DSN?.trim();
-const sentryRelease =
-  process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
+const sentryRelease = resolveSentryRelease();
 
 try {
   Sentry.init({

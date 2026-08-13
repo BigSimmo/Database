@@ -1,6 +1,6 @@
 # Productivity workflows
 
-The repository also exposes a validated catalog of 32 single-word Database skills. Run `npm run skills` to list them by category, or `npm run check:skills` to verify that the catalog, skill folders, descriptions, and compatibility aliases agree.
+The repository exposes a validated catalog of 34 canonical Database skills. Run `npm run skills` to list them by category. `npm run check:skills` validates the 34 canonical skills, 8 compatibility aliases, and every Claude, Cursor, and Clinical KB plugin `SKILL.md` for metadata, local links, npm commands, frozen-ledger discipline, provider approval boundaries, and destructive-action safeguards.
 
 The repository exposes seven offline-first workflow planners. Each planner inspects the current change through `scripts/ci-change-scope.mjs`, prints a minimal local verification sequence, and separates provider-backed commands into an explicit approval section.
 
