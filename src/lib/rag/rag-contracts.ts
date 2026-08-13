@@ -61,6 +61,8 @@ export type SearchTelemetry = {
   embedding_skip_reason?: string | null;
   embedding_latency_ms: number;
   embedding_cache_hit: boolean;
+  /** True when the query-embedding warm-up flight was started ahead of the lexical stages. */
+  embedding_prefetched?: boolean;
   supabase_rpc_latency_ms: number;
   rerank_latency_ms: number;
   memory_card_count?: number;

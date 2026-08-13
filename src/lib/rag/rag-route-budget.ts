@@ -16,7 +16,10 @@ export const generationRecoveryReserveMs = 2_000;
 // A truncation self-heal retry needs at least this much wall time to be worth attempting:
 // truncated attempts measure ~20s+ before hitting max_output_tokens, and the strong retry
 // spends MORE reasoning under a boosted cap, so anything shorter is a guaranteed-discard.
-export const minimumGenerationRetryMs = 5_000;
+// Aligned to that ~20s measurement (was 5s): a retry admitted with less time burns the
+// remaining budget on a doomed strong generation and delays the source-backed recovery
+// to the deadline instead of returning it as soon as the first attempt fails.
+export const minimumGenerationRetryMs = 20_000;
 
 // Keep in lockstep with rag-cache / isProviderGenerationDegraded: bare
 // `generation_fallback` (no `:reason`) and case variants must refuse the cache.

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -76,5 +76,15 @@ describe("services scope segment vs the query-empty state", () => {
     const results = screen.getByTestId("service-search-results");
     expect(results).toBeInTheDocument();
     expect(results.children.length).toBe(registryRecords.length);
+  });
+
+  it("marks a zero-count care lens as unavailable from the active facet set", () => {
+    // The committed catalogue has three General-setting services and none of
+    // them are AOD-specific. The AOD lens would therefore be a dead end.
+    paramsState.search = "setting_flags=general";
+    render(<ServicesNavigatorPage />);
+
+    fireEvent.click(screen.getByTestId("service-filter-trigger-desktop"));
+    expect(screen.getByRole("radio", { name: "Alcohol & other drugs (0)" })).toHaveAttribute("aria-disabled", "true");
   });
 });

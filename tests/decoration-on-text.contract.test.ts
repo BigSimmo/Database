@@ -10,24 +10,31 @@ import { describe, expect, it } from "vitest";
 const primitives = readFileSync(new URL("../src/components/ui-primitives.tsx", import.meta.url), "utf8");
 
 /**
- * The same rule, applied to the two search surfaces that carry counts, labels
+ * The same rule, applied to the search surfaces that carry counts, labels
  * and disabled-facet copy. They are checked by source scan rather than by
  * rendering because the tier is chosen in a class string: a DOM assertion in
  * jsdom sees the class, not the resolved colour, so it would pass either way.
  *
- * Why these two files specifically: the results-bar redesign introduced eight
+ * Why these files specifically: the results-bar redesign introduced eight
  * new `--text-soft` text nodes, and `--text-soft` is a deprecated alias of
  * `--decoration-soft` that `ckb-v2-token-contract` pins *below* 4.5:1 on
  * purpose. Under the v1 palette they measured 4.72:1 and looked fine; under the
  * v2 palette the identical markup measures 2.99:1, which would have silently
  * undone the dead-end-facet contrast fix the moment the v2 layer activated.
+ *
+ * The dead-end facet, the count/hint span, and the find-a-filter field moved
+ * out of `document-search-results.tsx` and into the shared
+ * `result-filter-control.tsx` when documents converged onto
+ * `ResultFilterSheet`/`ResultFilterFacetChips` (`docs/filter-contract.md`).
+ * The markup relocated; the token rule these checks enforce did not change,
+ * so the checks move with it rather than being deleted.
  */
-const documentSearch = readFileSync(
-  new URL("../src/components/clinical-dashboard/document-search-results.tsx", import.meta.url),
-  "utf8",
-);
 const resultsBand = readFileSync(
   new URL("../src/components/clinical-dashboard/search-results-header-band.tsx", import.meta.url),
+  "utf8",
+);
+const resultFilterControl = readFileSync(
+  new URL("../src/components/clinical-dashboard/result-filter-control.tsx", import.meta.url),
   "utf8",
 );
 
@@ -61,7 +68,7 @@ describe("decoration-on-text contracts", () => {
   // the decoration tier reads as fixed under the v1 palette (4.72:1) and is
   // broken again under v2 (2.99:1) — the same markup, a different shell.
   it("keeps the disabled-facet copy on a text tier in both palettes", () => {
-    const deadEnd = lineContaining(documentSearch, "cursor-default border-dashed");
+    const deadEnd = lineContaining(resultFilterControl, "cursor-default border-dashed");
     expect(deadEnd).toContain("text-[color:var(--text-muted)]");
     expect(deadEnd).not.toContain("var(--text-soft)");
     expect(deadEnd).not.toContain("var(--decoration-soft)");
@@ -70,12 +77,14 @@ describe("decoration-on-text contracts", () => {
     expect(deadEnd).toContain("border-dashed");
   });
 
+  // Facet counts (`{facet.count}`) and the source-type tab count
+  // (`{tab.count}`) both render through the same `option.hint` slot once a
+  // mode builds its groups with `resultFilterGroup`/`resultFilterFacetGroup`
+  // — one check now covers both call shapes.
   it("keeps facet and scope counts on a text tier", () => {
-    for (const marker of ["{facet.count}", "{tab.count}"]) {
-      const line = lineContaining(documentSearch, marker);
-      expect(line, `${marker} must not use the decoration tier`).not.toContain("var(--text-soft)");
-      expect(line).toContain("text-[color:var(--text-muted)]");
-    }
+    const line = lineContaining(resultFilterControl, ">{option.hint}<");
+    expect(line, "{option.hint} must not use the decoration tier").not.toContain("var(--text-soft)");
+    expect(line).toContain("text-[color:var(--text-muted)]");
   });
 
   it("keeps the find-a-filter placeholder on --text-placeholder", () => {
@@ -84,8 +93,11 @@ describe("decoration-on-text contracts", () => {
     // original form took 600 characters and broke the moment a comment was added
     // between the two — a guard that fails when someone documents the line it
     // guards trains people to delete the guard.
-    const lines = documentSearch.split("\n");
-    const start = lines.findIndex((line) => line.includes('data-testid="document-filter-find"'));
+    const lines = resultFilterControl.split("\n");
+    // The shared component derives this testid as a template literal
+    // (`` `${testId}-find` ``), not a literal string — every mode's find
+    // field carries the same class recipe because there is only one of them.
+    const start = lines.findIndex((line) => line.includes("data-testid={`${testId}-find`}"));
     expect(start, "find-a-filter field missing").toBeGreaterThan(-1);
     const className = lines.slice(start, start + 12).find((line) => line.includes("className="));
     expect(className, "find-a-filter field has no className within 12 lines of its testid").toBeTruthy();
