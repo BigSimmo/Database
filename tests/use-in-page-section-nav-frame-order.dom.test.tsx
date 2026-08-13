@@ -35,6 +35,7 @@ afterEach(() => {
   navigationMocks.jumpToDocumentSection.mockReset();
   navigationMocks.markActive.mockReset();
   vi.restoreAllMocks();
+  window.history.replaceState(window.history.state, "", window.location.pathname);
 });
 
 describe("useInPageSectionNav frame ordering", () => {
