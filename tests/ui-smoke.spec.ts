@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
@@ -890,10 +891,10 @@ async function openGuide(page: Page) {
   await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
   await settings.getByRole("button", { name: "Guide & help", exact: true }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Ask and verify")).toBeVisible();
-  await expect(dialog.getByText("Top source and citations")).toBeVisible();
-  await expect(dialog.getByText("Upload and indexing")).toBeVisible();
-  await expect(dialog.getByText("Copying text")).toBeVisible();
+  await expect(dialog.getByPlaceholder("Search the guide")).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Verify an answer" })).toBeVisible();
+  await expect(dialog.getByText("3-minute guided tour")).toBeVisible();
   await expectNoPageHorizontalOverflow(page);
   return dialog;
 }
@@ -983,16 +984,42 @@ async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
   await expect(setup.getByLabel("Email address")).toBeVisible();
   await expect(setup.getByRole("button", { name: "Continue with email" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue with Apple" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
-  await expect(setup.getByRole("button", { name: /Apple/i })).toHaveCount(0);
-  await expect(setup.getByText("Apple sign-in is not available yet.")).toBeVisible();
+  await expect(setup.getByText(/Apple sign-in is not available/i)).toHaveCount(0);
   await expect(setup.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Saved to your account" })).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Stays on this device" })).toBeVisible();
+  await expect(setup.getByText("Account", { exact: true })).toHaveCount(2);
+  await expect(setup.getByText("This device", { exact: true })).toBeVisible();
   await expect(setup.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
-  await expect(setup.getByText("No PHI required")).toBeVisible();
-  await expect(setup).toContainText("Do not enter patient-identifying information.");
+  await expect(setup.getByText(/No PHI required\./i)).toBeVisible();
+  await expect(setup).toContainText("Do not enter patient-identifying information during sign-in.");
+}
+
+async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stack") {
+  const providers = ["Apple", "Google", "Microsoft"].map((provider) =>
+    setup.getByRole("button", { name: `Continue with ${provider}` }),
+  );
+  const boxes = await Promise.all(providers.map((provider) => provider.boundingBox()));
+  expect(boxes.every(Boolean)).toBe(true);
+  const [apple, google, microsoft] = boxes as NonNullable<(typeof boxes)[number]>[];
+
+  expect(boxes.every((box) => box!.height >= 48)).toBe(true);
+  if (layout === "row") {
+    expect(Math.max(apple.y, google.y, microsoft.y) - Math.min(apple.y, google.y, microsoft.y)).toBeLessThanOrEqual(1);
+    expect(apple.x + apple.width).toBeLessThanOrEqual(google.x);
+    expect(google.x + google.width).toBeLessThanOrEqual(microsoft.x);
+    expect(
+      Math.max(apple.width, google.width, microsoft.width) - Math.min(apple.width, google.width, microsoft.width),
+    ).toBeLessThanOrEqual(1);
+    return;
+  }
+
+  expect(apple.y + apple.height).toBeLessThanOrEqual(google.y);
+  expect(google.y + google.height).toBeLessThanOrEqual(microsoft.y);
+  expect(
+    Math.max(apple.width, google.width, microsoft.width) - Math.min(apple.width, google.width, microsoft.width),
+  ).toBeLessThanOrEqual(1);
 }
 
 async function expectAdminOnlyUploadNotice(page: Page) {
@@ -1393,6 +1420,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.locator("#clinical-tools-sidebar").getByTestId("sidebar-account-settings").click();
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
+    await expectAccountProviderLayout(setup, "row");
     await expectNoPageHorizontalOverflow(page);
     await setup.getByRole("button", { name: "Close account setup" }).click();
     await expect(setup).toBeHidden();
@@ -1559,6 +1587,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(accountMenu).toHaveCount(0);
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
+    await expectAccountProviderLayout(setup, "stack");
     await expect(setup.getByLabel("Email address")).toBeFocused();
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
@@ -3198,9 +3227,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         await expect(categoryTrigger).toHaveAccessibleName(/No filters active/);
         await categoryTrigger.click();
         const categoryGroup = page.getByRole("radiogroup", { name: "Category" });
-        // "All (1)" — the count is a live per-query total (docs/filter-contract.md
-        // §3), not a static catalogue count, so it reflects the "sertraline" query.
-        await expect(categoryGroup.getByRole("radio", { name: "All (1)" })).toBeChecked();
+        await expect(categoryGroup.getByRole("radio", { name: "All" })).toBeChecked();
         await page.getByTestId("factsheet-filter-panel-done").click();
         await expect(categoryGroup).toBeHidden();
       } else {
@@ -5239,9 +5266,53 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(restoredSettings.getByRole("button", { name: "Guide & help", exact: true })).toBeFocused();
 
       const reopenedDialog = await openGuide(page);
-      await tapOutsideActiveSurface(page);
+      if (viewport.width >= 1024) {
+        await tapOutsideActiveSurface(page);
+      } else {
+        await page.keyboard.press("Escape");
+      }
       await expect(reopenedDialog).toBeHidden();
       await expectNoPageHorizontalOverflow(page);
     });
   }
+
+  test("guide centre search, topic navigation, and tour progress remain accessible", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+
+    const dialog = await openGuide(page);
+    const search = dialog.getByPlaceholder("Search the guide");
+    await search.fill("privacy");
+    await expect(dialog.getByText(/topics? found for “privacy”\./)).toBeVisible();
+    await dialog.getByRole("button", { name: /Privacy and safe use/ }).click();
+    await expect(dialog.getByRole("heading", { name: "Privacy and safe use" })).toBeFocused();
+
+    await dialog.getByRole("button", { name: "Guide home" }).click();
+    await dialog.getByRole("button", { name: "Start guided tour" }).first().click();
+    await expect(dialog.getByRole("heading", { level: 2, name: "The evidence-first workflow" })).toBeFocused();
+    await dialog.getByRole("button", { name: "Continue" }).click();
+    await expect(dialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" })).toBeFocused();
+
+    const axeResults = await new AxeBuilder({ page })
+      .include('[data-testid="clinical-kb-guide-centre"]')
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(
+      axeResults.violations
+        .filter((violation) => violation.impact === "critical" || violation.impact === "serious")
+        .map((violation) => violation.id),
+    ).toEqual([]);
+
+    await dialog.getByRole("button", { name: "Close guide" }).click();
+    await expect(dialog).toBeHidden();
+    const reopenedDialog = await openGuide(page);
+    await expect(reopenedDialog.getByPlaceholder("Search the guide")).toHaveValue("");
+    await reopenedDialog.getByRole("button", { name: "Resume guided tour" }).first().click();
+    await expect(
+      reopenedDialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" }),
+    ).toBeFocused();
+    await expectNoPageHorizontalOverflow(page);
+  });
 });

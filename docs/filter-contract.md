@@ -33,17 +33,16 @@ choosing one discards the search and its results with no warning and no undo. A 
 "Filter" must not do that. Query-replacing presets belong beside the composer as suggested
 searches (`AnswerSuggestionChips`), not inside the filter sheet.
 
+Factsheets' category dimension is not this pattern, despite an earlier draft of this section
+grouping it with services' quick filters: `filterFactsheets(query, category)` ANDs the two, so
+selecting a category narrows within the current search and preserves `q` — it is a real `lens`
+(one-of-N, exactly the shape this section describes above), not a query-replacing preset. Its
+actual defect was the one section 2 names next: the desktop rail used raw `<Link>` chips while
+the phone sheet correctly used `resultFilterGroup`, so the two breakpoints disagreed on
+component even though they agreed on values. Converged, not evicted — see the Rollout section.
+
 Until a mode has real facets, it is better for its filter trigger to be absent than to open a
 sheet that throws the query away.
-
-**Correction, verified by reading the code rather than assumed:** an earlier draft of this
-section named factsheets' categories alongside services' quick filters as another `navigate`-kind
-offender. That was wrong. `searchHref(query, category)`
-(`src/components/factsheets/factsheets-search-page.tsx`) preserves `q` and _adds_ `category` —
-factsheets never discards the search. Its category chips are a genuine `lens` (one-of-N,
-query-preserving) at both breakpoints; they were never a contract violation and needed no
-eviction. See the desktop-rail note under §2 for the one place factsheets deliberately does not
-converge on the shared component.
 
 ## 2. Accessibility follows from the kind
 
@@ -60,23 +59,6 @@ never asked for, and where every toggle must be individually reachable.
 
 Both breakpoints use the same contract. The per-mode desktop chip rails that use `aria-pressed`
 for one-of-N dimensions are wrong and are replaced as each mode adopts.
-
-### One deliberate exception: factsheets' desktop rail stays real `<Link>`s
-
-Every other lens mode's desktop rail (`SegmentedControl`, `role="radio"` buttons) filters an
-already-fetched result set held in client-side state — nothing about the URL is load-bearing.
-Factsheets' category is different in kind, not just in current implementation: `/factsheets/search`
-is a Next.js Server Component route (`src/app/(search-app)/factsheets/search/page.tsx`) that reads
-`category` from `searchParams` and filters server-side before the client ever mounts. A real
-`<a href>` is the correct primitive for a server-driven route change — native prefetch,
-right-click/open-in-new-tab, works with no JS — and `SegmentedControl` cannot render one; adopting
-it would mean giving that up for a narrow "breakpoint mechanism consistency" gain with no
-correctness benefit (the phone sheet already agrees with the rail on _meaning_ — both are
-query-preserving one-of-N — they only differ in _mechanism_, unlike the four lens modes PR #1857
-converged, where the breakpoints disagreed on meaning itself). The phone sheet stays
-`resultFilterGroup`/`ResultFilterSheet` as normal; only the desktop rail is the exception, and it
-is exempt from the "chip rails are wrong" rule above for this reason alone. Do not use this as
-precedent for keeping a bespoke rail anywhere the URL is not genuinely server-owned like this.
 
 ## 3. Counts, and the rule that makes them safe
 
@@ -165,8 +147,14 @@ Contract first, then one PR per mode:
 
 1. **Contract** — add the kinds, the facet renderer and the builders, changing no rendered output.
 2. **Per mode** — adopt the right kind, derive the option list, add counts, and retire that mode's
-   desktop rail so the breakpoints stop disagreeing.
-3. **Services and factsheets** — evict the query-replacing presets to the composer.
+   desktop rail so the breakpoints stop disagreeing. Done for differentials, medication,
+   applications, specifiers (all `lens`, PR A) and formulation (`facet`, PR B). Also done for
+   factsheets: its category dimension was already a real `lens` (see the corrected note above),
+   so this PR converges its desktop rail onto `SegmentedControl` sharing one counted option array
+   with the phone sheet, rather than evicting anything — there was no query-replacing preset to
+   evict.
+3. **Services** — evict the six query-replacing quick filters to the composer, alongside its own
+   facet/scope work (open as a separate PR).
 4. **Documents last** — port its needle and collapse up into the shared component as the
    `> 20` tier, then converge. It is the largest surface and should move once the contract is
    proven elsewhere.

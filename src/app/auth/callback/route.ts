@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Handles the PKCE code return for OAuth (Google/Microsoft), email-confirmation,
+// Handles the PKCE code return for OAuth (Apple/Google/Microsoft), email-confirmation,
 // and magic-link sign-in. Exchanges `?code=` for a session, writing the session
 // cookies via the cookie-aware server client, then redirects into the app.
 export async function GET(request: Request) {
