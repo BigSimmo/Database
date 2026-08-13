@@ -42,12 +42,16 @@ export function useInPageSectionNav(declared: readonly PageSection[]): {
       alignedHash.current = fragmentId;
       markActive(id);
       jumpToDocumentSection(id);
-      // The observer may resolve once between this immediate selection and the
-      // target's next-frame scroll, briefly restoring the old section. Reassert
-      // the explicit selection after the jump callback; the following scroll
-      // observation then owns any later manual movement.
+      // The jump performs its scroll on the next frame. That scroll queues the
+      // spy's geometry pass for the following frame, where it can briefly report
+      // the section above the target while phone chrome settles. Wait through
+      // that induced pass, then reassert the explicit selection. Later manual
+      // scrolling still owns any subsequent active-section change.
       window.requestAnimationFrame(() => {
-        if (window.location.hash === `#${fragmentId}`) markActive(id);
+        if (window.location.hash !== `#${fragmentId}`) return;
+        window.requestAnimationFrame(() => {
+          if (window.location.hash === `#${fragmentId}`) markActive(id);
+        });
       });
     },
     [markActive, sections],
