@@ -267,4 +267,3 @@ describe("header addon slot ownership", () => {
     }
   });
 });
-
