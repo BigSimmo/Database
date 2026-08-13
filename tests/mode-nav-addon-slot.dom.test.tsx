@@ -170,10 +170,9 @@ describe("header addon slot ownership", () => {
     );
 
     await waitFor(() => expect(view.occupants()).toHaveLength(1));
-    expect(within(view.occupants()[0]!).getByRole("link", { name: "Compare" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    const shellBar = within(view.occupants()[0]!);
+    expect(shellBar.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
+    expect(shellBar.getByRole("link", { name: "Presentations" })).not.toHaveAttribute("aria-current");
     view.cleanupSlot();
   });
 
