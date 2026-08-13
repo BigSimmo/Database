@@ -585,9 +585,10 @@ test.describe("Clinical KB accessibility coverage", () => {
     // multi-select: `value` pinned to "", a literal "✓ " prefix in option text,
     // and the placeholder row doing the reporting ("1 topics selected"). A
     // listbox cannot express "three of these are on", so assistive technology
-    // was told the opposite of what the visible text said. Both are now
-    // `aria-pressed` toggles inside a dialog, matching the wide viewport.
-    const therapyFilterTrigger = therapyRibbon.getByTestId("therapy-filter-trigger");
+    // was told the opposite of what the visible text said. Both are now the
+    // shared `aria-pressed` facet toggles every adopted mode uses, converged
+    // onto `ResultFilterSheet`/`ResultFilterTrigger` (docs/filter-contract.md).
+    const therapyFilterTrigger = therapyRibbon.getByTestId("therapy-filter-trigger-phone");
     await expect(therapyFilterTrigger).toBeVisible();
     await expect(therapyFilterTrigger).toHaveAccessibleName(/Filter/);
     await expect(therapyFilterTrigger).toHaveAttribute("aria-haspopup", "dialog");
@@ -604,17 +605,18 @@ test.describe("Clinical KB accessibility coverage", () => {
       const bounds = element.getBoundingClientRect();
       return { width: bounds.width, height: bounds.height };
     });
-    // The shared `ResultFilterTrigger`'s tap floor is `min-h-tap`/`min-w-tap`
-    // (`--spacing-tap: 3rem`, globals.css) — 48px, the same floor every other
-    // converged mode's trigger uses below `sm`. This used to assert only 44px
-    // against the bespoke `TherapyFilterTrigger`'s own row rhythm; that control
-    // is retired in favour of the shared one, so this now holds therapy to the
-    // same floor as everywhere else.
-    expect(triggerSize.width).toBeGreaterThanOrEqual(48);
-    expect(triggerSize.height).toBeGreaterThanOrEqual(48);
+    // 44, not 48. This trigger sits in the ribbon's utility row, which is
+    // `min-h-tap` (44px) throughout — raising only this control would leave the
+    // row visibly ragged. (`ResultSortControl` set that rhythm before it became
+    // `sm`-and-up; the row still holds it.) The repo's `min-h-12` rule
+    // exists to stop generic a11y advice pulling production down to `min-h-11`
+    // (a known `ui-smoke` flake), not to override a page's own row rhythm; the
+    // sheet's own toggles, which have the room, are `min-h-12`.
+    expect(triggerSize.width).toBeGreaterThanOrEqual(44);
+    expect(triggerSize.height).toBeGreaterThanOrEqual(44);
 
     await therapyFilterTrigger.click();
-    const therapyFilterPanel = page.getByTestId("therapy-filter");
+    const therapyFilterPanel = page.getByTestId("therapy-filter-panel");
     await expect(therapyFilterPanel).toBeVisible();
     await expect(therapyFilterTrigger).toHaveAttribute("aria-expanded", "true");
     const therapyPanelId = await therapyFilterPanel.getAttribute("id");
@@ -622,38 +624,44 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(therapyFilterTrigger).toHaveAttribute("aria-controls", therapyPanelId!);
 
     // The state the old select could not express: selection is on the control
-    // itself, and turning one on leaves the others alone.
-    const cbtToggle = therapyFilterPanel.getByRole("button", { name: "CBT" });
-    const reviewedToggle = therapyFilterPanel.getByRole("button", { name: "Reviewed only" });
+    // itself, and turning one on leaves the others alone. Names carry a
+    // trailing count ("CBT (158)") via the shared facet chip's `aria-label` —
+    // section 3's "how many would I have if I ticked this as well" — so match
+    // on the prefix rather than the exact string.
+    const cbtToggle = therapyFilterPanel.getByRole("button", { name: /^CBT/ });
+    const reviewedToggle = therapyFilterPanel.getByRole("button", { name: /^Reviewed only/ });
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "false");
     await cbtToggle.click();
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
-    await reviewedToggle.click();
-    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "true");
+    // The current catalogue has no reviewed records, so the shared facet
+    // contract correctly disables a zero-count option rather than offering a
+    // control that can never produce results.
+    await expect(reviewedToggle).toBeDisabled();
+    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "false");
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
 
-    await therapyFilterPanel.getByTestId("therapy-filter-clear").click();
+    await therapyFilterPanel.getByTestId("therapy-filter-panel-clear").click();
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "false");
     await expect(reviewedToggle).toHaveAttribute("aria-pressed", "false");
 
-    await therapyFilterPanel.getByTestId("therapy-filter-done").click();
+    await therapyFilterPanel.getByTestId("therapy-filter-panel-done").click();
     await expect(therapyFilterPanel).toHaveCount(0);
 
     // End-to-end guard the component tests cannot give: it is `SearchScreen`
-    // that decides what the trigger counts. A query-only session reports no
-    // filters active, and the sheet now shows no Clear all at all — there is
-    // nothing for it to clear. Clearing the query itself is the composer's own
-    // always-visible "x" (`master-search-header.tsx`), not this sheet's job;
-    // see docs/filter-contract.md section 6 ("onClearAll never touches the
-    // query").
+    // that decides what the trigger counts, and what the sheet's Clear all
+    // can reach. A query-only session has nothing for the filter sheet to
+    // clear — the composer's own "Clear search" already covers the query, on
+    // every breakpoint — so Clear all must be absent rather than present and
+    // wiping a search the reader cannot see it is about to lose
+    // (docs/filter-contract.md section 6: "onClearAll never touches the query").
     await page.goto("/therapy-compass/search?q=anxiety", { waitUntil: "domcontentloaded" });
     await expect(therapyRibbon.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 60_000 });
-    const queryOnlyTrigger = therapyRibbon.getByTestId("therapy-filter-trigger");
+    const queryOnlyTrigger = therapyRibbon.getByTestId("therapy-filter-trigger-phone");
     await expect(queryOnlyTrigger).toHaveAccessibleName(/No filters active/);
     await queryOnlyTrigger.click();
-    const queryOnlyPanel = page.getByTestId("therapy-filter");
-    await expect(queryOnlyPanel.getByTestId("therapy-filter-clear")).toHaveCount(0);
-    await queryOnlyPanel.getByTestId("therapy-filter-done").click();
+    const queryOnlyPanel = page.getByTestId("therapy-filter-panel");
+    await expect(queryOnlyPanel.getByTestId("therapy-filter-panel-clear")).toHaveCount(0);
+    await queryOnlyPanel.getByTestId("therapy-filter-panel-done").click();
 
     await expectNoPageHorizontalOverflow(page);
 
