@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "f23c14ec-e386-4910-ba60-fd488cc0a83b",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Re-land PR #1800 (fuzzy catalogue search), applying the #310 one-edit cap in the same commit",
+    "detail": "PR #1800 squash-merged as 022c83b on 2026-08-10 and its entire content is absent from main: git show origin/main:src/lib/catalog-search.ts | grep -c typoDistanceLimit returns 0, and all 11 source and test files it touched are byte-identical to their pre-#1800 state. Cause and evidence in the merge-loss detector row filed alongside this one. Consequence today is a MISSING FEATURE, not a live hazard: because the matcher is gone, the #310 cross-drug defect is not reachable on main. Do not close #310 on that basis, and do not re-land #1800 unchanged. RE-LAND WITH THE FIX: #310 measured that the tier term.length >= 8 -> 2 edits is the problem, because Damerau scores an adjacent transposition as one edit, so fluoxetine to duloxetine is distance 2 and both are ten characters. Re-run 2026-08-13 against the algorithm confirms it, and confirms prednisone to prednisolone as the second real cross-drug hit. Capping that tier at 1 edit removes both while preserving sertraline to sertralin style recovery. The row's other claims also held on re-run: citalopram and escitalopram do not fuzzy-match, because the substring guard fires first, and clozapine/clonazepam and quetiapine/olanzapine are correctly out of range. Next: cherry-pick 022c83b onto current main, change typoDistanceLimit's >= 8 tier from 2 to 1, and add a test over real catalogue drug names with both the exact and the near-match record present, asserting the wrong drug is excluded while the exact drug remains. Gate: focused vitest on tests/catalog-search.ts plus the other four test files #1800 touched. Stop: this path is clinicalRisk true under classifyPullRequestFiles because catalog-search.ts feeds medications.ts and prescribing, so the PR needs a complete Clinical Governance Preflight and must not be bundled with unrelated chores. ragRanking is correctly false; this is catalogue ranking, not pgvector retrieval.",
+    "source": "session 2026-08-13; 022c83b; origin/main at 63526ee; row #310; algorithm re-run locally against real drug-name pairs"
+  }
+}

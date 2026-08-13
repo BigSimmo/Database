@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "210e3db5-f863-4dc8-8d6e-4d75d044e661",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Re-land PR #1803 (--shadow-tight retirement onto --e1); 67 files on main still use the retired alias",
+    "detail": "PR #1803 squash-merged as 9d8370a on 2026-08-10, retiring the --shadow-tight role alias onto the --e1 elevation tier across 49 files. All 49 are byte-identical to their pre-#1803 state on main. Independent confirmation that does not rely on blob identity: git grep -l shadow-tight over src/ on main returns 67 files. Cause is the same merge, acf78bf; see the merge-loss detector row filed alongside this one. Commit 6f8c70d 'fix(pr-1815) resolve main merge conflict and keep shadow-tight switch migration' shows the migration was consciously preserved once and reverted again by a later merge in the same chain. Interaction with existing rows: #302 records scripts/design-system-contract-baseline.json pinning legacyShadowAliases at 220 while the checker measures 193 -- that gap is partly this loss, so re-landing #1803 should move the measurement sharply and #302 should be re-measured afterwards rather than actioned on its current numbers. #262 (DS Track A3, design-token debt) is also downstream of this. Next: cherry-pick 9d8370a onto current main and resolve against the token work that has landed since; this is mechanical but wide. Gate: npm run test on the design-token contract tests plus tests/tailwind-merge-config.test.ts, then check:design-system-contract. Stop: do not refresh the design-system contract baseline to absorb the change -- the point is that the measurement moves. Do not bundle with the #1800 re-land; that one carries a clinical governance preflight and this one does not.",
+    "source": "session 2026-08-13; 9d8370a; acf78bf; 6f8c70d; git grep shadow-tight on origin/main at 63526ee; rows #302 and #262"
+  }
+}
