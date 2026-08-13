@@ -37,8 +37,11 @@ Default to running **only** offline-safe gates. For any provider-touching comman
 
 - **Retrieval / ranking / selection / chunking / scoring:** offline gate is `verify:cheap`; note that the merge gate `eval:retrieval:quality` (36/36) is provider-touching → report and ask.
 - **Ingestion / answer-gen / source-governance / privacy / production env:** smallest relevant domain check + `check:production-readiness` (runs fail-closed offline).
-- **UI / frontend / a11y / routing / styling:** `npm run ensure` then `verify:ui`.
+- **UI / frontend / a11y / routing / styling:** `npm run ensure`, then the affected journey;
+  add `verify:ui` only for shared UI foundations or a distinct unclosed failure class.
 - **Supabase env/config change:** `check:supabase-project` (provider — report and ask).
-- **Default source/config/test change:** `verify:cheap` first, `verify:pr-local` before PR handoff.
+- **Default source/config/test change:** `verify:pr-local` at PR handoff; do not pre-run
+  `verify:cheap` because the routed handoff gate already owns that coverage.
 
-Report the chosen gate, why it fits the diff, and any provider command that the author must run manually with confirmation.
+Report the chosen gate, why it fits the diff, its decisive proof line (not exit 0 alone), checks
+deliberately not stacked, and any provider command that requires confirmation.

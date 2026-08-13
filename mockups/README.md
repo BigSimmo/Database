@@ -20,7 +20,7 @@ Mockups use the Clinical White / Sky Graphite role tokens (`--command`, `--clini
 Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header and bottom search composer from `src/app/mockups/layout.tsx`.
 
 - Put the mockup content between the global header and bottom composer; do not copy the header or composer into new pages.
-- Tool and favourites mockups keep the shared app header but hide the bottom composer because they provide their own primary search surface.
+- Favourites mockups and Tools mockups that provide their own primary search surface keep the shared app header but hide the bottom composer.
 - Use `?mode=answer`, `?mode=documents`, `?mode=prescribing`, `?mode=evidence`, or `?mode=favourites` to preview the active search mode.
 - The bottom composer routes live searches to the dashboard with `mode`, `q`, and `run=1`; New chat routes to `/?mode=answer&focus=1`.
 - If a future mockup must be standalone, move it outside the `/mockups` route shell or add an explicit opt-out route group before implementing it.
@@ -60,6 +60,10 @@ Static desktop/phone comps for the pages that need redesign (not ModeHome mockup
 These are PNGs for design review only. Runnable `/mockups/*` routes are a separate implementation step.
 
 **Perfected combined comps** (desktop + phone in one image, recommended directions only) live in [`public/mockups/mode-page-redesign-2026-07/perfected-combined/`](../public/mockups/mode-page-redesign-2026-07/perfected-combined/README.md).
+
+## Perfected Tools search mode
+
+`/mockups/tools-search-mode?mode=tools&q=Compare` is the interactive responsive Tools results-mode study. It uses the site's universal header and search composer, the shared results ribbon and filter conventions, compact Tools result cards, a contextual detail panel on desktop, and a bottom sheet on phones. It intentionally excludes the Tools home hero, quick actions, medication-list treatment, and cross-mode suggestion blocks.
 
 ## Breadcrumb header study (2026-08-09) — shipped, route retired
 
@@ -127,3 +131,35 @@ has to be unpicked afterwards.
 The facet engine, chips, band and sheet shell are imported from the round-one study rather than
 copied — the ~1KB bitmask table would otherwise be duplicated against a finite `mockups` bundle
 budget, and two studies quoting different numbers for the same catalogue would discredit both.
+
+### Round three — restyle, and a job for the segment bar (2026-08-12)
+
+Runnable study at [`/mockups/filter-sheet-restyle`](../src/app/mockups/filter-sheet-restyle/page.tsx). Rounds one and
+two settled the information architecture; this one is about craft, drawn on the **formulation** sheet because that is
+the specimen that stresses the layout hardest — four domain themes, twelve domains, twelve mechanisms, four presets, thirteen domain chips, and the longest title in the app.
+
+**The segment bar carries scope, not a verb.** Round two used it for "narrow these / start a new search", which is a
+mode set once and rarely changed — a poor use of the most valuable strip in the sheet. Here it is
+`These results 2 | All mechanisms 12`, with live counts on both segments. That is a decision the reader makes
+constantly and which nothing in the product currently answers: filtering two results by twelve domains is close to
+pointless, and today the only way to reach the full set is to clear the query and lose it. It also makes the empty
+state recoverable — the commit button becomes "Show N in all mechanisms" instead of a dead end.
+
+| Style                | Shape                                                                                                       | Best for                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| A — Refined clinical | Shipped structure, craft fixed: tinted header, eyebrow/title/live-count, ghost close, uniform counted chips | Cheapest adoption, no new containers |
+| B — Themed cards     | Each theme a card with icon, label and the library's own description, tinting when it holds a selection     | Many options without a word cloud    |
+| C — Dense list       | Full-width rows, proportion bar, right-aligned count column, sticky group headings                          | Scanning to a known domain           |
+
+Three defects the study documents, all verifiable in source:
+
+1. **Biological, Social and Cultural match zero of the twelve mechanisms.** They are offered as domain chips and can
+   never return anything. Counts expose this on sight; without them it is invisible.
+2. **`formulationDomainGroups` already exists** in `src/lib/formulation.ts` — four themes, each with a written
+   description — and the sheet ignores it, rendering one flat ragged wrap of twelve chips.
+3. **`formulationSearchPresets.slice(0, 4)` of five** means "If it is not perfect" is unreachable from the filter.
+
+One deliberate departure from the services study: the per-option count here is the **intrinsic** count (how many
+mechanisms carry that domain), not "the total if I added this". Domains are a single OR group, so the union contract
+reports the unchanged total for an empty domain — Cultural would read `7`, indistinguishable from a full one. The
+commit button remains the thing that predicts the outcome.

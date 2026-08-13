@@ -744,6 +744,63 @@ export function pythonWorkerVersionLine(pythonCommand, run = spawnSync) {
     : "python.worker_versions=unavailable";
 }
 
+export function validateCloudNpmInstallContract(setupText) {
+  const errors = [];
+  const setup = setupText.replace(/\\\r?\n[\t ]*/gu, " ");
+  const logicalLines = setup
+    .split(/\r?\n/gu)
+    .map((line, index) => ({ text: line.trim(), index }))
+    .filter(({ text }) => text && !text.startsWith("#"));
+  const installCommands = logicalLines.filter(({ text }) => /\bnpm\s+(?:ci|install|i)(?:\s|$)/u.test(text));
+  const projectInstallCommands = installCommands.filter(({ text }) => {
+    const tokens = text.split(/\s+/u);
+    return !tokens.includes("--global") && !tokens.includes("-g");
+  });
+
+  if (projectInstallCommands.length !== 1) {
+    errors.push(
+      `Cloud setup must contain exactly one project dependency install; found ${projectInstallCommands.length}.`,
+    );
+    return errors;
+  }
+
+  const command = projectInstallCommands[0];
+  const nodeDependenciesStart = logicalLines.findIndex(({ text }) => text === 'setup_step="node-dependencies"');
+  const nextStep = logicalLines.findIndex(
+    ({ text }, index) => index > nodeDependenciesStart && /^setup_step=/u.test(text),
+  );
+  const commandPosition = logicalLines.indexOf(command);
+  if (
+    nodeDependenciesStart === -1 ||
+    commandPosition <= nodeDependenciesStart ||
+    (nextStep !== -1 && commandPosition >= nextStep)
+  ) {
+    errors.push('Cloud project dependency install must run inside the "node-dependencies" setup step.');
+  }
+
+  if (/[;&|`$()]/u.test(command.text)) {
+    errors.push("Cloud project dependency install must be a direct, unchained command without expansion.");
+    return errors;
+  }
+
+  const tokens = command.text.split(/\s+/u);
+  const expectedFlags = ["--include=dev", "--prefer-offline", "--no-audit", "--no-fund"];
+  const actualFlags = tokens.slice(2);
+  if (
+    tokens[0] !== "npm" ||
+    tokens[1] !== "ci" ||
+    actualFlags.length !== expectedFlags.length ||
+    expectedFlags.some((flag) => !actualFlags.includes(flag)) ||
+    new Set(actualFlags).size !== expectedFlags.length
+  ) {
+    errors.push(
+      `Cloud project dependency install must be npm ci with exactly these flags: ${expectedFlags.join(" ")}.`,
+    );
+  }
+
+  return errors;
+}
+
 export function validateCodexCloudSetup() {
   const errors = [];
   const packageJson = JSON.parse(read("package.json"));
@@ -752,6 +809,7 @@ export function validateCodexCloudSetup() {
   const setup = read("scripts/setup-codex-cloud.sh");
   const maintenance = read("scripts/maintain-codex-cloud.sh");
   const commandShims = read("scripts/install-codex-cloud-command-shims.sh");
+  const checkoutBaseRefresh = read("scripts/refresh-codex-cloud-base.sh");
   const rawEnvironmentProbe = read("scripts/check-codex-cloud-raw-env.sh");
   const patDelete = read("scripts/delete-codex-cloud-branch-with-pat.sh");
   const guide = read("docs/codex-cloud.md");
@@ -788,7 +846,6 @@ export function validateCodexCloudSetup() {
       /node_version_supported "\$actual_node_version" \|\| fail/,
       "Cloud setup must fail closed if provisioning does not satisfy the Node engine range.",
     ],
-    [/npm ci --include=dev/, "Cloud setup must install the exact lockfile with dev dependencies."],
     [/deno@2/, "Cloud setup must install Deno 2.x."],
     [/worker\/python\/requirements-cloud\.txt/, "Cloud setup must install the Python 3.12 Cloud worker lock."],
     [/CODEX_CLOUD_OCR_PYTHON/, "Cloud setup must expose the Python worker environment."],
@@ -799,6 +856,7 @@ export function validateCodexCloudSetup() {
     [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
     [/@openai\/codex/, "Cloud setup must install the Codex CLI."],
     [/ensure-codex-cloud-git-remote\.mjs/, "Cloud setup must restore a safe origin remote."],
+    [/refresh-codex-cloud-base\.sh/, "Cloud setup must refresh and pin the task checkout base."],
     [/check:codex-cloud -- --runtime/, "Cloud setup must run runtime acceptance."],
     [
       /BEGIN clinical-kb-codex-cloud shell policy/,
@@ -818,6 +876,7 @@ export function validateCodexCloudSetup() {
   ]) {
     requireMatch(errors, setup, pattern, message);
   }
+  errors.push(...validateCloudNpmInstallContract(setup));
   if (!setup.includes(`codex_cli_version="${expectedCloudCliVersions.codex}"`)) {
     errors.push("Cloud setup Codex CLI version must match the checked runtime contract.");
   }
@@ -842,6 +901,11 @@ export function validateCodexCloudSetup() {
   }
   if (setup.includes("@railway/cli") || setup.includes('setup_step="railway-cli"')) {
     errors.push("Cloud setup must not install or invoke Railway CLI; hosted access comes from the authenticated app.");
+  }
+  if (/gh auth login|configure-codex-cloud-github-shell\.sh/.test(`${setup}\n${maintenance}`)) {
+    errors.push(
+      "Cloud lifecycle scripts must not persist setup-only GitHub credentials for the agent phase; use the native connector.",
+    );
   }
   const providerScrubIndex = setup.indexOf("unset OPENAI_API_KEY");
   const accessProfileBranchIndex = setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]');
@@ -870,9 +934,21 @@ export function validateCodexCloudSetup() {
   );
   requireMatch(
     errors,
+    maintenance,
+    /refresh-codex-cloud-base\.sh/,
+    "Maintenance must refresh and pin the task checkout base.",
+  );
+  requireMatch(
+    errors,
     commandShims,
-    /nvm which/,
-    "Cloud command shims must resolve the selected Node version through nvm.",
+    /nvm version/,
+    "Cloud command shims must resolve the selected Node version without following their own wrappers.",
+  );
+  requireMatch(
+    errors,
+    commandShims,
+    /clean_path=.*\.local.*bin/,
+    "Cloud command shims must remove their directory before running child npm scripts.",
   );
   requireMatch(
     errors,
@@ -889,6 +965,18 @@ export function validateCodexCloudSetup() {
   if (!commandShims.includes('exec "$node_bin/$command_name" "\\$@"')) {
     errors.push("Cloud command shims must execute absolute Node commands.");
   }
+  requireMatch(
+    errors,
+    checkoutBaseRefresh,
+    /git merge-base HEAD refs\/remotes\/origin\/main/,
+    "Checkout-base refresh must pin the merge base shared by the task and origin/main.",
+  );
+  requireMatch(
+    errors,
+    checkoutBaseRefresh,
+    /cloud-expected-base-sha/,
+    "Checkout-base refresh must persist the verified base outside the repository.",
+  );
   requireMatch(
     errors,
     patDelete,

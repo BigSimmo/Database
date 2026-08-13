@@ -5,7 +5,6 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
-  rmSync,
   statSync,
   utimesSync,
   writeFileSync,
@@ -13,6 +12,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { removePathSync } from "./retryable-fs.mjs";
 import { redactSensitiveText } from "./sensitive-text.mjs";
 
 const tokenEnvironmentKey = "CLINICAL_KB_HEAVY_LOCK_TOKEN";
@@ -119,7 +119,7 @@ function writeJson(filePath, value) {
     writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
     renameSync(temporaryPath, filePath);
   } catch (error) {
-    rmSync(temporaryPath, { force: true });
+    removePathSync(temporaryPath);
     throw error;
   }
 }
@@ -190,13 +190,13 @@ function acquireGate(lockPath, processId) {
       const token = randomUUID();
       writeJson(path.join(gate, "owner.json"), { pid: processId, token, startedAt: new Date().toISOString() });
       return () => {
-        if (readOwner(gate)?.token === token) rmSync(gate, { recursive: true, force: true });
+        if (readOwner(gate)?.token === token) removePathSync(gate, { recursive: true });
       };
     } catch (error) {
       if (error?.code === "ENOENT") return null;
       if (error?.code !== "EEXIST") throw error;
       if (ownerDirectoryIsStale(gate)) {
-        rmSync(gate, { recursive: true, force: true });
+        removePathSync(gate, { recursive: true });
         continue;
       }
       sleepSync(25);
@@ -226,7 +226,7 @@ function ensureCoordinator(lockPath, bootstrapOwner, forceLockRelease) {
         console.warn(
           `[AUDIT] Breaking ${stale ? "stale" : "forced"} heavyweight lock at ${lockPath} (was PID ${legacyOwner?.pid || "unknown"})`,
         );
-        rmSync(lockPath, { recursive: true, force: true });
+        removePathSync(lockPath, { recursive: true });
         continue;
       }
       return { initializing: !legacyOwner, legacyOwner };
@@ -249,11 +249,11 @@ function leaseRecords(lockPath) {
 function cleanupCoordinator(lockPath) {
   const paths = coordinatorPaths(lockPath);
   for (const directory of listDirectories(paths.leases)) {
-    if (ownerDirectoryIsStale(directory)) rmSync(directory, { recursive: true, force: true });
+    if (ownerDirectoryIsStale(directory)) removePathSync(directory, { recursive: true });
   }
   for (const filePath of listJsonFiles(paths.queue)) {
     const ticket = readJson(filePath);
-    if (!ticket || !processIsAlive(ticket.pid)) rmSync(filePath, { force: true });
+    if (!ticket || !processIsAlive(ticket.pid)) removePathSync(filePath);
   }
 }
 
@@ -310,12 +310,12 @@ function cleanupTimedOutTicket(lockPath, token, processId) {
   if (!releaseGate) return;
   try {
     const paths = coordinatorPaths(lockPath);
-    rmSync(path.join(paths.queue, `${token}.json`), { force: true });
+    removePathSync(path.join(paths.queue, `${token}.json`));
     cleanupCoordinator(lockPath);
     const hasLeases = leaseRecords(lockPath).length > 0;
     const hasTickets = queueRecords(lockPath).length > 0;
     if (!hasLeases && !hasTickets) {
-      rmSync(lockPath, { recursive: true, force: true });
+      removePathSync(lockPath, { recursive: true });
       return;
     }
     updateSentinel(lockPath);
@@ -427,8 +427,8 @@ export function acquireHeavyRunLock({
         console.warn(
           `[AUDIT] Breaking forced heavyweight coordinator leases at ${lockPath} (owners ${owners.map((owner) => owner.pid).join(", ") || "unknown"})`,
         );
-        for (const directory of listDirectories(paths.leases)) rmSync(directory, { recursive: true, force: true });
-        for (const filePath of listJsonFiles(paths.queue)) rmSync(filePath, { force: true });
+        for (const directory of listDirectories(paths.leases)) removePathSync(directory, { recursive: true });
+        for (const filePath of listJsonFiles(paths.queue)) removePathSync(filePath);
       }
       const ticketPath = path.join(paths.queue, `${token}.json`);
       if (!ticketCreated || !existsSync(ticketPath)) {
@@ -442,7 +442,7 @@ export function acquireHeavyRunLock({
         leasePath = path.join(paths.leases, `${token}.lock`);
         mkdirSync(leasePath);
         writeJson(path.join(leasePath, "owner.json"), owner);
-        rmSync(ticketPath, { force: true });
+        removePathSync(ticketPath);
         updateSentinel(lockPath);
         admitted = true;
       }
@@ -483,12 +483,12 @@ export function acquireHeavyRunLock({
           const releaseCoordinatorGate = acquireGate(lockPath, processId);
           if (!releaseCoordinatorGate) return;
           try {
-            if (readOwner(leasePath)?.token === token) rmSync(leasePath, { recursive: true, force: true });
+            if (readOwner(leasePath)?.token === token) removePathSync(leasePath, { recursive: true });
             cleanupCoordinator(lockPath);
             const hasLeases = leaseRecords(lockPath).length > 0;
             const hasTickets = queueRecords(lockPath).length > 0;
             if (!hasLeases && !hasTickets) {
-              rmSync(lockPath, { recursive: true, force: true });
+              removePathSync(lockPath, { recursive: true });
               return;
             }
             updateSentinel(lockPath);
