@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 
 import { INTERACTION_LEXICON, selectCatalogueSlugs, type LexiconTerm } from "@/lib/medication-interaction-lexicon";
 import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
+import { substringTraps } from "../scripts/build-medication-lexicon-report";
 
 type IndexRow = {
   rowKey: string;
@@ -64,8 +65,8 @@ describe("interaction lexicon coverage", () => {
     // recorded here and in the PR. Track raw drug-matching separately, which
     // rose 381 → 417 over the same period and is the number that must never
     // fall without explanation.
-    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(355);
-    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(417);
+    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(362);
+    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(422);
     expect(index.sourceRowCount).toBeGreaterThanOrEqual(523);
   });
 
@@ -160,6 +161,134 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
       }
     }
     expect(accidental).toEqual([]);
+  });
+
+  it("surfaces a synthetic substring trap instead of reporting that check clean", () => {
+    const traps = substringTraps(
+      [
+        {
+          id: "synthetic-arb",
+          kind: "catalogue",
+          surfaces: ["ARBs"],
+          select: { subclassIncludes: ["ARB"] },
+        },
+      ],
+      [{ slug: "synthetic-carbapenem", name: "Synthetic carbapenem", subclass: "Carbapenem" }] as unknown as Parameters<
+        typeof substringTraps
+      >[1],
+    );
+    expect(traps).toHaveLength(1);
+    expect(traps[0]).toContain("Carbapenem");
+  });
+
+  it("reaches lithium from the rows that name it", () => {
+    // The catalogue record is "Lithium carbonate (IR/SR)", so the name-derived
+    // surfaces never included the bare word every row actually uses. Lithium was
+    // named in eight HIGH rows and reachable from none — the worst silence in a
+    // psychiatry catalogue. Pinned by counterparty, not by resolved-row count,
+    // because a count can be met by unrelated coverage elsewhere.
+    const lithium = "lithium-carbonate-ir-sr";
+    const reachedFrom = Object.entries(index.bySlug)
+      .filter(([, entry]) => entry.rows.some((row) => row.counterparties.includes(lithium)))
+      .map(([slug]) => slug);
+    for (const slug of ["diclofenac", "meloxicam", "naproxen", "frusemide", "hydrochlorothiazide", "indapamide"]) {
+      expect(reachedFrom, `${slug} should reach lithium`).toContain(slug);
+    }
+    expect(slugsFor("lithium")).toEqual([lithium]);
+  });
+
+  it("resolves every row that writes a drug's own name", () => {
+    // The generalised lithium bug, and the one pin that would have caught it.
+    //
+    // Name-derived surfaces came from splitting the raw catalogue name, so a
+    // parenthesised suffix swallowed the drug's own name: "Lithium carbonate
+    // (IR/SR)" yielded "Lithium carbonate (IR" and "SR)". Nine rows across five
+    // drugs named a counterparty in plain English and resolved none of it —
+    // naloxone naming Buprenorphine, codeine and midazolam naming Morphine, the
+    // carbapenems naming Sodium valproate, four rows naming Olanzapine.
+    //
+    // The invariant is deliberately about content that EXISTS: if a row writes a
+    // catalogue drug's name, that row must resolve to that drug. It says nothing
+    // about drugs the corpus never mentions — that is coverage, not a defect,
+    // and is reported in the review sheet instead.
+    const plainName = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, "").trim();
+    const names = (value: string, needle: string) =>
+      new RegExp(`(^|[^A-Za-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9])`, "i").test(value);
+
+    const rowsFor = (slug: string) =>
+      records.find((item) => item.slug === slug)?.sections.find((section) => section.type === "inter")?.rows ?? [];
+
+    const misses: string[] = [];
+    for (const record of records) {
+      const name = plainName(record.name);
+      if (name.length < 4) continue;
+      for (const [slug, entry] of Object.entries(index.bySlug)) {
+        if (slug === record.slug) continue;
+        const sourceRows = rowsFor(slug);
+        for (const row of entry.rows) {
+          const text = sourceRows[row.rowIndex]?.val ?? "";
+          if (!names(text, name)) continue;
+          if (!row.counterparties.includes(record.slug)) {
+            misses.push(`${slug} row ${row.rowIndex} writes "${name}" but does not resolve ${record.slug}`);
+          }
+        }
+      }
+    }
+    expect(misses).toEqual([]);
+  });
+
+  it("reads a bare NONE row rather than reporting it unreadable", () => {
+    // triamcinolone and riboflavin each carry one row whose entire text is
+    // "NONE.". The severity parser wants a dash, so both parsed as `unknown`
+    // and counted unresolved — the tool claiming it could not read a row that
+    // says exactly one thing, and holding both drugs at "needs manual review"
+    // over it. Safe direction, but still wrong.
+    for (const slug of ["triamcinolone", "riboflavin"]) {
+      const entry = index.bySlug[slug];
+      expect(entry, slug).toBeDefined();
+      expect(
+        entry.rows.every((row) => row.resolved),
+        `${slug} rows should resolve`,
+      ).toBe(true);
+      expect(
+        entry.rows.some((row) => row.severity === "none"),
+        `${slug} should carry severity none`,
+      ).toBe(true);
+      expect(entry.unresolvedRowCount, `${slug} should not be held at grey`).toBe(0);
+    }
+  });
+
+  it("only lets a declaration of ABSENCE resolve without classifying anything", () => {
+    // The guard on the rule above. Resolving a row that named no counterparty
+    // and matched no term is only defensible when the row asserts there is
+    // nothing to find. A bare "CRITICAL." names a severity without naming what
+    // interacts — genuinely unreadable, and it must stay unresolved. This fails
+    // if that carve-out is ever widened past absence.
+    const bare = Object.entries(index.bySlug).flatMap(([slug, entry]) =>
+      entry.rows
+        .filter((row) => row.resolved && row.counterparties.length === 0 && row.termIds.length === 0)
+        .map((row) => ({ slug, row })),
+    );
+    expect(bare.length).toBeGreaterThan(0);
+    for (const { slug, row } of bare) {
+      expect(["none", "safe"], `${slug} row ${row.rowIndex} resolved on severity "${row.severity}"`).toContain(
+        row.severity,
+      );
+    }
+  });
+
+  it("has no lexicon term that can never fire", () => {
+    // `z-drugs` was exactly this: a term whose phrasing appears nowhere in the
+    // corpus, implying coverage the tool did not have. A dead term is not
+    // dangerous on its own, but it makes the review sheet claim a class was
+    // considered when nothing can ever match it.
+    const fired = new Set(
+      Object.values(index.bySlug)
+        .flatMap((entry) => entry.rows)
+        .flatMap((row) => row.termIds),
+    );
+    const dead = INTERACTION_LEXICON.filter((item) => !fired.has(item.id)).map((item) => item.id);
+    expect(dead).toEqual([]);
   });
 
   it("keeps the divergent duplicate Warfarin records visible", () => {
