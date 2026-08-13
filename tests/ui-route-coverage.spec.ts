@@ -433,7 +433,9 @@ test.describe("previously uncovered production routes", () => {
       "/specifiers/compare?a=with-mixed-features&b=with-anxious-distress",
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Compare specifiers", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Compare two specifiers", level: 1 })).toBeVisible();
+        await expect(currentPage.getByText("Find the deciding clinical difference.", { exact: true })).toBeVisible();
+        await expect(currentPage.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
       },
       async (currentPage) => {
         const selects = currentPage.locator("select");
@@ -454,9 +456,15 @@ test.describe("previously uncovered production routes", () => {
       "/specifiers/map?selected=with-anxious-distress",
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Specifier map", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Find the right specifier", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
       },
       async (currentPage) => {
+        const courseJump = currentPage.getByTestId("specifier-map-jump-course-onset");
+        await courseJump.click();
+        await expect(courseJump).toHaveAttribute("aria-current", "true");
+        await expect(currentPage).toHaveURL(/#course-onset$/);
+
         const mixedFeatures = currentPage.getByRole("button", { name: "Mixed features" });
         await expect(mixedFeatures).toBeEnabled();
         await mixedFeatures.click();
