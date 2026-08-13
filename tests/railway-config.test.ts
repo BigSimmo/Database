@@ -41,6 +41,9 @@ describe("Railway config as code", () => {
   it("ships the local modules imported by next.config.ts in the app runner", () => {
     expect(appDockerfile).toContain("COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts");
     expect(appDockerfile).toContain("COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts");
+    expect(appDockerfile).toContain(
+      "COPY --from=build /app/src/components/therapy-compass/data/generated-assets.ts ./src/components/therapy-compass/data/generated-assets.ts",
+    );
   });
 
   it("uses the deep readiness endpoint for app rolling deploys", () => {

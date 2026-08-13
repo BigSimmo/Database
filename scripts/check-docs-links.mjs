@@ -26,6 +26,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { applyRequestBatch, validateRequest } from "./ledger-inbox.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const scanAll = process.argv.includes("--all");
 
@@ -66,6 +68,8 @@ const HISTORICAL_DIRS = new Set(["archive", "audit"]);
 // references cannot be corrected. Only scanned with --all.
 const VERBATIM_DIRS = new Set(["codex-cloud-review"]);
 const APP_ROUTE_GROUPS = ["(search-app)"];
+const OUTSTANDING_ISSUES = "docs/outstanding-issues.md";
+const OUTSTANDING_ISSUES_INBOX = "docs/outstanding-issues-inbox";
 
 function repoPathExists(repoRelative) {
   const cleaned = repoRelative.replace(/\/$/, "");
@@ -96,6 +100,30 @@ function defaultTargets() {
   const targets = ["README.md", "AGENTS.md"];
   collectDocs("docs", targets);
   return targets;
+}
+
+function markdownForTarget(target, absoluteTarget) {
+  const markdown = readFileSync(absoluteTarget, "utf8");
+  if (target !== OUTSTANDING_ISSUES) return markdown;
+
+  // Feature branches are forbidden from editing the canonical issues ledger.
+  // Validate links against the deterministic projection of its pending immutable
+  // inbox instead, which is the content `issues:reconcile` will write after the
+  // relevant PRs land. This keeps docs-link validation compatible with the
+  // conflict-free ledger architecture without weakening either gate.
+  const inbox = path.join(repoRoot, OUTSTANDING_ISSUES_INBOX);
+  const requests = readdirSync(inbox)
+    .filter((name) => name.endsWith(".json"))
+    .sort()
+    .map((name) => {
+      const request = JSON.parse(readFileSync(path.join(inbox, name), "utf8"));
+      const problems = validateRequest(request);
+      if (problems.length > 0) {
+        throw new Error(`${OUTSTANDING_ISSUES_INBOX}/${name}: ${problems.join("; ")}`);
+      }
+      return request;
+    });
+  return requests.length > 0 ? applyRequestBatch(markdown, requests).markdown : markdown;
 }
 
 function codeSpanCandidates(markdown) {
@@ -158,7 +186,7 @@ let checked = 0;
 for (const target of defaultTargets()) {
   const absoluteTarget = path.join(repoRoot, target);
   if (!existsSync(absoluteTarget)) continue;
-  const markdown = readFileSync(absoluteTarget, "utf8");
+  const markdown = markdownForTarget(target, absoluteTarget);
   const targetDir = path.posix.dirname(target);
   const failures = [];
 
