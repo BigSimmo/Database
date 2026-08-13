@@ -23,42 +23,45 @@ export const productionSpecFilePattern =
 
 /**
  * One source of truth for shard membership and its latest hosted timing sample.
- * Durations are summed from the list reporter in CI run 31285952061 (2026-08-09).
- * `criticalSeconds` is removed on PR/merge-queue runs because the preceding
- * fail-fast job already proved those exact tests. Re-measure after suite growth.
+ * Durations are summed from the list reporter in CI run 31658845383 (2026-08-13).
+ * `criticalSeconds` is removed on PR/merge-queue runs because the companion
+ * required critical job proves those exact tests. Re-measure after suite growth.
  */
 export const prUiSpecProfiles = Object.freeze([
-  { file: "tests/ui-smoke.spec.ts", shard: 1, fullSeconds: 149.0, criticalSeconds: 21.7 },
-  // Added after the 2026-08-09 timing sample; remeasure with the next hosted shard sample.
-  { file: "tests/dsm-ui-smoke.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
-  { file: "tests/ui-mode-nav-density.spec.ts", shard: 1, fullSeconds: 47.1, criticalSeconds: 0 },
-  { file: "tests/ui-accessibility.spec.ts", shard: 1, fullSeconds: 17.7, criticalSeconds: 0 },
-  { file: "tests/ui-route-coverage.spec.ts", shard: 1, fullSeconds: 12.6, criticalSeconds: 0 },
-  { file: "tests/ui-formulation.spec.ts", shard: 1, fullSeconds: 12.9, criticalSeconds: 0 },
+  // Hosted shard timings exclude @critical; add the separately measured
+  // critical seconds back to fullSeconds so both execution modes stay modeled.
+  { file: "tests/ui-smoke.spec.ts", shard: 1, fullSeconds: 134.4, criticalSeconds: 21.7 },
+  { file: "tests/ui-mode-nav-density.spec.ts", shard: 1, fullSeconds: 36.5, criticalSeconds: 0 },
+  { file: "tests/ui-phone-scroll-page-owned.spec.ts", shard: 1, fullSeconds: 42.5, criticalSeconds: 0 },
+  { file: "tests/ui-accessibility.spec.ts", shard: 1, fullSeconds: 17.1, criticalSeconds: 0 },
+  { file: "tests/ui-route-coverage.spec.ts", shard: 1, fullSeconds: 21.1, criticalSeconds: 0 },
+  { file: "tests/ui-formulation.spec.ts", shard: 1, fullSeconds: 11.0, criticalSeconds: 0 },
 
-  { file: "tests/ui-phone-scroll-routes.spec.ts", shard: 2, fullSeconds: 129.2, criticalSeconds: 0 },
-  { file: "tests/ui-phone-scroll.spec.ts", shard: 2, fullSeconds: 63.7, criticalSeconds: 0 },
-  { file: "tests/ui-universal-search.spec.ts", shard: 2, fullSeconds: 19.7, criticalSeconds: 0 },
-  { file: "tests/answer-progress-ui-smoke.spec.ts", shard: 2, fullSeconds: 10.8, criticalSeconds: 0 },
+  { file: "tests/ui-phone-scroll-routes.spec.ts", shard: 2, fullSeconds: 129.6, criticalSeconds: 0 },
+  { file: "tests/ui-phone-scroll.spec.ts", shard: 2, fullSeconds: 66.3, criticalSeconds: 0 },
+  { file: "tests/ui-universal-search.spec.ts", shard: 2, fullSeconds: 24.3, criticalSeconds: 0 },
+  { file: "tests/answer-progress-ui-smoke.spec.ts", shard: 2, fullSeconds: 13.7, criticalSeconds: 0 },
+  // Added after the timing sample; place it on the lightest measured shard and
+  // replace this zero with hosted evidence at the next timing refresh.
+  { file: "tests/dsm-ui-smoke.spec.ts", shard: 2, fullSeconds: 0, criticalSeconds: 0 },
 
-  { file: "tests/ui-tools.spec.ts", shard: 3, fullSeconds: 83.9, criticalSeconds: 3.1 },
-  { file: "tests/ui-chrome-scroll.spec.ts", shard: 3, fullSeconds: 44.9, criticalSeconds: 0 },
-  { file: "tests/ui-phone-scroll-page-owned.spec.ts", shard: 3, fullSeconds: 42.7, criticalSeconds: 0 },
-  { file: "tests/ui-overlap.spec.ts", shard: 3, fullSeconds: 7.6, criticalSeconds: 0 },
-  { file: "tests/ui-stress.spec.ts", shard: 3, fullSeconds: 7.6, criticalSeconds: 0 },
-  { file: "tests/ui-specifiers.spec.ts", shard: 3, fullSeconds: 7.3, criticalSeconds: 0 },
-  { file: "tests/ui-formulation-result-cards.spec.ts", shard: 3, fullSeconds: 8.0, criticalSeconds: 0 },
-  { file: "tests/ui-style-contract.spec.ts", shard: 3, fullSeconds: 6.3, criticalSeconds: 0 },
-  { file: "tests/ui-hydration.spec.ts", shard: 3, fullSeconds: 4.5, criticalSeconds: 0 },
-  { file: "tests/ui-pwa.spec.ts", shard: 3, fullSeconds: 3.8, criticalSeconds: 0 },
-  { file: "tests/ui-phone-scroll-document-rail.spec.ts", shard: 3, fullSeconds: 3.7, criticalSeconds: 0 },
-  { file: "tests/ui-visual-artifacts.spec.ts", shard: 3, fullSeconds: 2.7, criticalSeconds: 0 },
-  { file: "tests/ui-forms-section-nav.spec.ts", shard: 3, fullSeconds: 2.5, criticalSeconds: 0 },
-  { file: "tests/ui-therapy-nav-scroll.spec.ts", shard: 3, fullSeconds: 1.9, criticalSeconds: 0 },
+  { file: "tests/ui-tools.spec.ts", shard: 3, fullSeconds: 110.5, criticalSeconds: 3.1 },
+  { file: "tests/ui-chrome-scroll.spec.ts", shard: 3, fullSeconds: 60.7, criticalSeconds: 0 },
+  { file: "tests/ui-overlap.spec.ts", shard: 3, fullSeconds: 10.1, criticalSeconds: 0 },
+  { file: "tests/ui-stress.spec.ts", shard: 3, fullSeconds: 8.2, criticalSeconds: 0 },
+  { file: "tests/ui-specifiers.spec.ts", shard: 3, fullSeconds: 17.6, criticalSeconds: 0 },
+  { file: "tests/ui-formulation-result-cards.spec.ts", shard: 3, fullSeconds: 2.2, criticalSeconds: 0 },
+  { file: "tests/ui-style-contract.spec.ts", shard: 3, fullSeconds: 7.2, criticalSeconds: 0 },
+  { file: "tests/ui-hydration.spec.ts", shard: 3, fullSeconds: 4.6, criticalSeconds: 0 },
+  { file: "tests/ui-pwa.spec.ts", shard: 3, fullSeconds: 3.7, criticalSeconds: 0 },
+  { file: "tests/ui-phone-scroll-document-rail.spec.ts", shard: 3, fullSeconds: 3.6, criticalSeconds: 0 },
+  { file: "tests/ui-visual-artifacts.spec.ts", shard: 3, fullSeconds: 2.6, criticalSeconds: 0 },
+  { file: "tests/ui-forms-section-nav.spec.ts", shard: 3, fullSeconds: 6.0, criticalSeconds: 0 },
+  { file: "tests/ui-therapy-nav-scroll.spec.ts", shard: 3, fullSeconds: 2.1, criticalSeconds: 0 },
   // Critical-only regression; use a conservative estimate until the next hosted timing sample.
   { file: "tests/ui-phone-scroll-submitted-root.spec.ts", shard: 3, fullSeconds: 1.0, criticalSeconds: 1.0 },
   // Skipped in the sampled runner because pdf.js could not raster there.
-  { file: "tests/ui-document-canvas.spec.ts", shard: 3, fullSeconds: 0, criticalSeconds: 0 },
+  { file: "tests/ui-document-canvas.spec.ts", shard: 3, fullSeconds: 4.7, criticalSeconds: 0 },
 ]);
 
 export const prUiShardGroups = Object.freeze(

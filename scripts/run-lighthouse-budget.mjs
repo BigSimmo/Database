@@ -28,13 +28,16 @@
  * diff, and if the retry also produces nothing the grader still fails closed. Every
  * retry is reported to the run summary and written to `retries.txt` whether or not it
  * recovered, so a chronically flaky route cannot hide behind a green run. A cell that
- * DID measure and produced bad numbers is never retried.
+ * DID measure outside its numeric budget gets exactly two targeted confirmations.
+ * Only that cell is repeated, all three reports are retained in the artifact, and
+ * the required gate uses their majority so neither one noisy spike nor one lucky
+ * recheck decides the result.
  *
  * Flags: --dry-run (print the plan and exit), --update (refresh the baseline),
  *        --keep (leave reports in place), --dir <path>.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -44,7 +47,13 @@ import { childProcessExitCode, childProcessFailureSummary } from "./child-proces
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 import { removePathSync } from "./retryable-fs.mjs";
-import { loadBudget } from "./check-lighthouse-budget.mjs";
+import {
+  compareToLighthouseBudget,
+  loadBudget,
+  majorityBreachDecision,
+  numericBreachConfirmationRuns,
+  readReports,
+} from "./check-lighthouse-budget.mjs";
 import { measurementFailureReason } from "./lighthouse-measurement-outcome.mjs";
 import {
   deadlineAfter,
@@ -363,6 +372,7 @@ try {
   const chromePath = process.env.CHROME_PATH ?? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ?? "";
   const failures = [];
   const retried = [];
+  const cellsByRun = new Map();
 
   const suiteDeadline = deadlineAfter(LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS);
   console.log(`Lighthouse measurement suite has ${LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS / 60_000} minutes.`);
@@ -416,6 +426,7 @@ try {
     for (const route of routes) {
       const cell = `${strategy} ${route}`;
       const output = path.join(reportDirectory, `${strategy}-${slugFor(route)}.json`);
+      cellsByRun.set(`${strategy}-${slugFor(route)}`, { strategy, route, cell, output });
       const firstAttemptTimeout = processTimeoutMs(suiteDeadline, LIGHTHOUSE_PROCESS_TIMEOUT_MS);
       if (firstAttemptTimeout === 0) {
         failures.push(cell);
@@ -488,6 +499,71 @@ try {
   }
 
   if (failures.length > 0) console.log(`::warning::lighthouse failed for ${failures.join(", ")}`);
+
+  // Local Lighthouse numbers are noisy enough that one isolated spike should not
+  // block a merge, while one lucky recheck must not clear a real regression. Confirm
+  // only cells with a real numeric breach; never repeat cells that passed. The
+  // initial sample plus two confirmations form a majority decision. If either
+  // confirmation is unavailable or incomplete, retain the initial failing report so
+  // the required gate fails closed. All samples stay in the artifact for diagnosis.
+  const confirmations = [];
+  if (!update && failures.length === 0) {
+    const breachRuns = numericBreachConfirmationRuns(readReports(reportDirectory), budget);
+    if (breachRuns.length > 0) {
+      const confirmationDirectory = path.join(reportDirectory, "confirmations");
+      mkdirSync(confirmationDirectory, { recursive: true });
+      for (const run of breachRuns) {
+        const target = cellsByRun.get(run);
+        if (!target) continue;
+        const initial = path.join(confirmationDirectory, `${run}-initial.json`);
+        copyFileSync(target.output, initial);
+        const samples = [true];
+        let unavailable = null;
+        console.log(`::warning::lighthouse ${target.cell} breached its numeric budget; collecting two confirmations`);
+        for (let attempt = 1; attempt <= 2; attempt += 1) {
+          const confirmation = path.join(confirmationDirectory, `${run}-confirmation-${attempt}.json`);
+          const timeoutMs = processTimeoutMs(suiteDeadline, LIGHTHOUSE_PROCESS_TIMEOUT_MS);
+          if (timeoutMs === 0) {
+            unavailable = "suite deadline expired";
+            break;
+          }
+          const result = await measure(target.strategy, target.route, confirmation, timeoutMs);
+          const reason = measurementFailureReason(childProcessExitCode(result), readIfPresent(confirmation));
+          if (reason) {
+            unavailable = reason;
+            break;
+          }
+          copyFileSync(confirmation, target.output);
+          const comparison = compareToLighthouseBudget(readReports(reportDirectory), budget);
+          if (comparison.incomplete.length > 0) {
+            unavailable = `incomplete evidence: ${comparison.incomplete.join("; ")}`;
+            break;
+          }
+          samples.push(comparison.breaches.some((breach) => breach.run === run));
+        }
+
+        const decision = majorityBreachDecision(samples);
+        if (unavailable || !decision) {
+          copyFileSync(initial, target.output);
+          confirmations.push(`${target.cell} (confirmation unavailable: ${unavailable ?? "incomplete sample set"})`);
+          continue;
+        }
+
+        if (decision.breached) copyFileSync(initial, target.output);
+        confirmations.push(
+          `${target.cell} (${decision.breached ? "confirmed regression" : "transient first measurement"}; ` +
+            `${decision.breachCount}/${decision.sampleCount} samples breached)`,
+        );
+      }
+    }
+  }
+
+  if (confirmations.length > 0) {
+    const line = `lighthouse evaluated ${confirmations.length} numeric breach cell(s): ${confirmations.join("; ")}`;
+    console.log(`::warning::${line}`);
+    writeFileSync(path.join(reportDirectory, "confirmations.txt"), `${confirmations.join("\n")}\n`, "utf8");
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n> ${line}\n`);
+  }
 
   // --require-reports: this runner OWNS the directory and has just tried to measure
   // every route, so an empty directory means every Lighthouse invocation failed (e.g.
