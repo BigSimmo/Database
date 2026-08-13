@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "dcb1ba9e-18ea-4ae4-9594-8b7cbb6cbbcc",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A row can outlive its own completion — nothing closes a ledger row when its work merges",
+    "detail": "**Found during the 2026-08-12 yield review; re-confirmed on main 2026-08-13.** The then-#304 row described a ranking-snapshot freshness fuse due to trip around 2026-08-19 and sat in the recommended queue as time-critical, but its work had already landed as commit d182844 (PR #1876) — the snapshot's generatedAt and sourceRunId no longer matched anything the row said. Nothing closes a row when its work merges: `issues:done` is a manual call, and the session that ships the work is often not the session that owns the row. This is the mirror of #292, which covers duplication BEFORE work starts; this is staleness AFTER it finishes, and it is more dangerous because the row keeps advertising urgency to every session that reads the queue. **Next:** the cheapest useful guard is a periodic re-verification pass that re-measures each open row against current main and flags rows whose stated evidence no longer reproduces — several rows already carry a hand-written VERIFIED CORRECT stamp, which shows the need but does it manually and unevenly. A stronger version has the handoff skill close the row in the same commit that lands the work. **Stop:** do not auto-close on keyword match; a row can be partially delivered (#215, #231) and auto-closing those would lose real remaining work.",
+    "source": "session 2026-08-12 ledger yield review; re-verified 2026-08-13"
+  }
+}

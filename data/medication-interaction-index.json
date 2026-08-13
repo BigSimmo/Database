@@ -3,10 +3,10 @@
   "generatedFrom": "data/medications-snapshot.json",
   "sourceRowCount": 523,
   "stats": {
-    "resolvedRows": 355,
-    "unresolvedRows": 168,
-    "rowsWithCatalogueTarget": 417,
-    "medicationsWithUnresolvedRows": 149
+    "resolvedRows": 362,
+    "unresolvedRows": 161,
+    "rowsWithCatalogueTarget": 423,
+    "medicationsWithUnresolvedRows": 142
   },
   "names": {
     "acamprosate": "Acamprosate",
@@ -520,7 +520,8 @@
             "nicotine-mouth-spray",
             "nicotine-patch",
             "nicotine-sublingual-tablet",
-            "olanzapine-pamoate-lai"
+            "olanzapine-pamoate-lai",
+            "olanzapine-wafer-odt"
           ],
           "termIds": ["acidic-drinks", "smoking"],
           "resolved": true,
@@ -544,7 +545,8 @@
             "nicotine-mouth-spray",
             "nicotine-patch",
             "nicotine-sublingual-tablet",
-            "olanzapine-pamoate-lai"
+            "olanzapine-pamoate-lai",
+            "olanzapine-wafer-odt"
           ],
           "termIds": ["acidic-drinks", "smoking"],
           "resolved": true,
@@ -592,7 +594,8 @@
             "nicotine-lozenge",
             "nicotine-mouth-spray",
             "nicotine-sublingual-tablet",
-            "olanzapine-pamoate-lai"
+            "olanzapine-pamoate-lai",
+            "olanzapine-wafer-odt"
           ],
           "termIds": ["smoking"],
           "resolved": true,
@@ -952,7 +955,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["bupropion-sr", "fluoxetine", "morphine-sr-mr", "paroxetine"],
+          "counterparties": ["bupropion-sr", "fluoxetine", "morphine-ir-iv", "morphine-sr-mr", "paroxetine"],
           "termIds": ["cyp-inhibitors"],
           "resolved": false,
           "note": "CRITICAL — **CYP2D6** Inhibitors (Fluoxetine, Paroxetine, Bupropion). These completely block the liver from converting Codeine to Morphine. The patient will get zero pain relief."
@@ -1373,13 +1376,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 2,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["lithium-carbonate-ir-sr"],
+          "termIds": ["lithium"],
+          "resolved": true,
           "note": "HIGH — Lithium (massively raises lithium levels)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "ibuprofen": {
       "rows": [
@@ -1537,8 +1540,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 2,
           "severity": "high",
-          "counterparties": ["methotrexate"],
-          "termIds": [],
+          "counterparties": ["lithium-carbonate-ir-sr", "methotrexate"],
+          "termIds": ["lithium"],
           "resolved": true,
           "note": "HIGH — Lithium and Methotrexate (Reduces their renal clearance, causing toxic spikes)."
         }
@@ -1596,8 +1599,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 2,
           "severity": "high",
-          "counterparties": ["methotrexate"],
-          "termIds": [],
+          "counterparties": ["lithium-carbonate-ir-sr", "methotrexate"],
+          "termIds": ["lithium"],
           "resolved": true,
           "note": "HIGH — Lithium and Methotrexate (Naproxen heavily blocks their renal clearance, causing toxic spikes)."
         }
@@ -2128,12 +2131,9 @@
             "atenolol",
             "bisoprolol",
             "carvedilol",
-            "hydromorphone-ir-iv",
             "labetalol",
             "metoprolol",
-            "morphine-ir-iv",
             "propranolol",
-            "sodium-valproate-oral-iv",
             "sotalol"
           ],
           "termIds": ["beta-blockers"],
@@ -2328,8 +2328,8 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["digoxin"],
-          "termIds": [],
+          "counterparties": ["digoxin", "lithium-carbonate-ir-sr"],
+          "termIds": ["lithium"],
           "resolved": true,
           "note": "HIGH — Enhances lithium toxicity. Increases risk of digoxin toxicity via hypokalemia."
         }
@@ -2342,8 +2342,8 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": ["indapamide"],
-          "termIds": ["thiazide-diuretics"],
+          "counterparties": ["indapamide", "lithium-carbonate-ir-sr"],
+          "termIds": ["lithium", "thiazide-diuretics"],
           "resolved": true,
           "note": "HIGH — Lithium (thiazides reduce lithium clearance by 25-40%, causing severe toxicity)."
         },
@@ -2374,9 +2374,9 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["lithium-carbonate-ir-sr"],
+          "termIds": ["lithium"],
+          "resolved": true,
           "note": "HIGH — Lithium (decreases clearance, high toxicity risk)."
         },
         {
@@ -2389,7 +2389,7 @@
           "note": "CRITICAL — NSAIDs + ACEi + Indapamide."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "spironolactone": {
       "rows": [
@@ -2757,14 +2757,14 @@
         {
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
-          "severity": "unknown",
+          "severity": "none",
           "counterparties": [],
           "termIds": [],
-          "resolved": false,
+          "resolved": true,
           "note": "NONE."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "dulaglutide": {
       "rows": [
@@ -4156,8 +4156,8 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": ["digoxin"],
-          "termIds": [],
+          "counterparties": ["digoxin", "lithium-carbonate-ir-sr"],
+          "termIds": ["lithium"],
           "resolved": true,
           "note": "HIGH — Physically binds and traps other oral medications in the gut gel. Must separate Psyllium from ALL other drugs (especially Digoxin/Lithium) by at least 2 hours."
         }
@@ -5260,13 +5260,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["sodium-valproate-oral-iv"],
           "termIds": [],
-          "resolved": false,
+          "resolved": true,
           "note": "CRITICAL — Sodium Valproate. Ertapenem rapidly destroys valproate blood levels, dropping them to sub-therapeutic levels within 24 hours, guaranteeing breakthrough seizures in epileptics. AVOID."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "meropenem": {
       "rows": [
@@ -5274,13 +5274,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["sodium-valproate-oral-iv"],
           "termIds": [],
-          "resolved": false,
+          "resolved": true,
           "note": "CRITICAL — Sodium Valproate (Epilim). Meropenem rapidly accelerates the hepatic breakdown of Valproate. Blood levels drop to zero within 24 hours. The interaction cannot be overcome by increasing Valproate dose. Use alternative antibiotic or antiepileptic."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "metronidazole": {
       "rows": [
@@ -6446,7 +6446,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["fentanyl", "morphine-sr-mr"],
+          "counterparties": ["fentanyl", "morphine-ir-iv", "morphine-sr-mr"],
           "termIds": [],
           "resolved": true,
           "note": "CRITICAL — Fentanyl / Morphine. The combination of Midazolam + Fentanyl is synergistic for procedural sedation but synergistic for fatal apnoea."
@@ -8131,7 +8131,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
+          "counterparties": ["olanzapine-wafer-odt"],
           "termIds": ["smoking"],
           "resolved": true,
           "note": "HIGH — Smoking induces CYP1A2, accelerating olanzapine clearance."
@@ -8299,7 +8299,7 @@
             "naproxen",
             "perindopril"
           ],
-          "termIds": ["acei", "arbs", "nsaids", "thiazide-diuretics"],
+          "termIds": ["acei", "arbs", "lithium", "nsaids", "thiazide-diuretics"],
           "resolved": true,
           "note": "CRITICAL — NSAIDs, ACEi/ARBs, and Thiazide Diuretics. All three of these completely destroy the kidney's ability to excrete Lithium, doubling blood levels and causing lethal toxicity. DO NOT prescribe Ibuprofen, Perindopril, or HCTZ to a Lithium patient."
         }
@@ -8960,7 +8960,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["buprenorphine-patch"],
+          "counterparties": ["buprenorphine-patch", "buprenorphine-sl-depot"],
           "termIds": [],
           "resolved": true,
           "note": "CRITICAL — Buprenorphine (Suboxone). Buprenorphine binds so tightly to the receptor that standard doses of Naloxone cannot displace it. Massive doses (or continuous infusions) are required."
@@ -9309,13 +9309,13 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "high",
-          "counterparties": [],
-          "termIds": [],
-          "resolved": false,
+          "counterparties": ["lithium-carbonate-ir-sr"],
+          "termIds": ["lithium"],
+          "resolved": true,
           "note": "HIGH — Lithium (Additive hypothyroid effect)."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "iron": {
       "rows": [
@@ -9453,14 +9453,14 @@
         {
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
-          "severity": "unknown",
+          "severity": "none",
           "counterparties": [],
           "termIds": [],
-          "resolved": false,
+          "resolved": true,
           "note": "NONE."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "selenium": {
       "rows": [

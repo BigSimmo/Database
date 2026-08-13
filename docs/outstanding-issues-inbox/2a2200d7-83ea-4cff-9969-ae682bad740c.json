@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "2a2200d7-83ea-4cff-9969-ae682bad740c",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#039",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** States an intent (converge repeated toolbar behaviour) with no measured defect and no named surfaces. Needs a concrete inventory before it is work. Catalogue/search pages have independently evolved filter, sort, result-count and mobile toolbar behavior. Inventory the existing implementations and converge only the repeated interaction contract; do not flatten mode-specific search semantics."
+  }
+}

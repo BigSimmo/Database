@@ -173,13 +173,13 @@ if (!/^          src worker scripts supabase\/functions\s*$/m.test(semgrepScanSt
 // Maturity X4: the untrusted-document parsing surface has a BLOCKING Semgrep
 // gate — the inverse policy of the advisory repo-wide job above. yamlBlock
 // returns "" when the job is missing, so every assertion below fails closed.
-const semgrepGateJob = yamlBlock(sastWorkflow, "semgrep-ingestion-gate:", 2);
+const semgrepGateJob = yamlBlock(ciWorkflow, "ingestion-sast:", 2);
 const semgrepGateStep = yamlBlock(semgrepGateJob, "- name: Semgrep scan (blocking)", 6);
 if (!semgrepGateJob) {
-  failures.push("sast.yml: the semgrep-ingestion-gate job must exist (maturity X4).");
+  failures.push("ci.yml: the ingestion-sast job must exist (maturity X4).");
 }
 if (/^\s*continue-on-error\s*:/m.test(semgrepGateJob)) {
-  failures.push("sast.yml: the Semgrep ingestion gate must block — no continue-on-error anywhere in the job.");
+  failures.push("ci.yml: the Semgrep ingestion gate must block — no continue-on-error anywhere in the job.");
 }
 for (const target of [
   "worker",
@@ -189,14 +189,14 @@ for (const target of [
   "src/app/api/upload",
 ]) {
   if (!semgrepGateStep.includes(target)) {
-    failures.push(`sast.yml: the ingestion gate must keep scanning ${target}.`);
+    failures.push(`ci.yml: the ingestion gate must keep scanning ${target}.`);
   }
 }
 if (!semgrepGateStep.includes("--config p/python")) {
-  failures.push("sast.yml: the ingestion gate must include p/python for the worker OCR stack.");
+  failures.push("ci.yml: the ingestion gate must include p/python for the worker OCR stack.");
 }
 if (!/^      image: semgrep\/semgrep@sha256:[0-9a-f]{64}\s*$/m.test(semgrepGateJob)) {
-  failures.push("sast.yml: the blocking ingestion gate container must be digest-pinned (semgrep/semgrep@sha256:...).");
+  failures.push("ci.yml: the blocking ingestion gate container must be digest-pinned (semgrep/semgrep@sha256:...).");
 }
 
 // One SHA per action across every workflow AND composite action. Dependabot bumps

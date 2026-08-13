@@ -8,7 +8,7 @@
  * client chunks and compares total gzip size against a committed baseline
  * (bundle-budget.json), failing when growth exceeds the tolerance.
  *
- * WHICH QUESTION THIS ANSWERS — two, separately, on purpose.
+ * WHICH QUESTIONS THIS ANSWERS — three complementary views, on purpose.
  *
  * It used to answer one blurred question. `totalGzipBytes` summed EVERY built
  * client chunk, including `src/app/mockups/**` design scratch that 404s in
@@ -29,6 +29,8 @@
  *     route manifest claims (framework, polyfills, runtime). This is user-facing
  *     weight and the regression guard the budget was written for. Enforced at
  *     `production.tolerancePct` (default 10%).
+ *   - `routes` — chunks referenced by each configured user journey. These catch
+ *     route-local growth that can be diluted by the aggregate production total.
  *   - `mockups` — chunks reachable ONLY from `/mockups/**`. Nobody downloads
  *     these, so this is a repo-hygiene ceiling that exists to catch unbounded
  *     accumulation (66 mockup routes today), not to gate the next mockup.
@@ -39,9 +41,9 @@
  * buckets.
  *
  * STATUS: enforced. `bundle-budget.json` carries `enforce: true` and committed
- * `production.gzipBytes` / `mockups.gzipBytes` baselines.
+ * `production.gzipBytes`, route, and `mockups.gzipBytes` baselines.
  *   - After an intentional, known-good production build, run
- *     `npm run check:bundle-budget -- --update` to refresh both baselines.
+ *     `npm run check:bundle-budget -- --update` to refresh every baseline.
  *   - Set `enforce: false` to fall back to warn-only.
  * Reads .next/static/chunks/**.js. If no build output exists it prints a note and
  * exits 0 (so it never breaks a run that didn't build).
@@ -54,6 +56,7 @@
  * goes through {@link exitProcess} (stdio drain + hard failsafe).
  */
 import { gzipSync } from "node:zlib";
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -223,6 +226,11 @@ function loadRootPageClientReferenceManifest() {
  * @returns {Set<string>|null} chunk names relative to `.next/static/chunks`, or null
  */
 export function clientChunkNamesFromManifestSource(source) {
+  return clientRouteAndChunkNamesFromManifestSource(source)?.chunks ?? null;
+}
+
+/** Decode the route key and client chunks from one Next.js RSC manifest. */
+export function clientRouteAndChunkNamesFromManifestSource(source) {
   const names = new Set();
   const marker = "globalThis.__RSC_MANIFEST[";
   const start = source.indexOf(marker);
@@ -232,11 +240,14 @@ export function clientChunkNamesFromManifestSource(source) {
   const end = source.lastIndexOf(";");
   if (end <= assign) return null;
   let manifest;
+  let route;
   try {
+    route = JSON.parse(source.slice(start + marker.length, assign));
     manifest = JSON.parse(source.slice(assign + 2, end));
   } catch {
     return null;
   }
+  if (typeof route !== "string") return null;
   for (const clientModule of Object.values(manifest?.clientModules ?? {})) {
     for (const chunk of Array.isArray(clientModule?.chunks) ? clientModule.chunks : []) {
       if (typeof chunk === "string" && chunk.endsWith(".js")) {
@@ -244,7 +255,17 @@ export function clientChunkNamesFromManifestSource(source) {
       }
     }
   }
-  return names;
+  return { route: normalizeManifestRoute(route), chunks: names };
+}
+
+/** Convert Next's `/segment/page` RSC key into its public route pathname. */
+export function normalizeManifestRoute(route) {
+  const withoutGroups = route
+    .split("/")
+    .filter((segment) => segment && !(segment.startsWith("(") && segment.endsWith(")")))
+    .join("/");
+  const withoutPage = withoutGroups === "page" ? "" : withoutGroups.replace(/\/page$/, "");
+  return `/${withoutPage}`.replace(/\/{2,}/g, "/");
 }
 
 /**
@@ -268,6 +289,7 @@ export function clientChunkNamesFromManifestSource(source) {
  *   routeCount: number,
  *   mockupRouteCount: number,
  *   unparseable: string[],
+ *   routeChunks: Map<string, Set<string>>,
  * }}
  */
 export function partitionRouteClientChunks(serverAppDir, deps = {}) {
@@ -275,6 +297,7 @@ export function partitionRouteClientChunks(serverAppDir, deps = {}) {
   const mockupChunks = new Set();
   const productionChunks = new Set();
   const unparseable = [];
+  const routeChunks = new Map();
   let routeCount = 0;
   let mockupRouteCount = 0;
 
@@ -286,8 +309,8 @@ export function partitionRouteClientChunks(serverAppDir, deps = {}) {
         continue;
       }
       if (!entry.isFile() || !entry.name.endsWith("_client-reference-manifest.js")) continue;
-      const names = clientChunkNamesFromManifestSource(readFile(full, "utf8"));
-      if (names == null) {
+      const parsed = clientRouteAndChunkNamesFromManifestSource(readFile(full, "utf8"));
+      if (parsed == null) {
         // Keep diagnostic paths stable across Windows and POSIX hosts. These
         // values are surfaced in CI output and asserted by the offline suite.
         unparseable.push(full.replaceAll("\\", "/"));
@@ -296,13 +319,18 @@ export function partitionRouteClientChunks(serverAppDir, deps = {}) {
       routeCount += 1;
       if (isMockup) mockupRouteCount += 1;
       const target = isMockup ? mockupChunks : productionChunks;
-      for (const name of names) target.add(name);
+      const routeTarget = routeChunks.get(parsed.route) ?? new Set();
+      for (const name of parsed.chunks) {
+        target.add(name);
+        routeTarget.add(name);
+      }
+      routeChunks.set(parsed.route, routeTarget);
     }
   };
   walk(serverAppDir, false);
 
   const mockupExclusive = new Set([...mockupChunks].filter((name) => !productionChunks.has(name)));
-  return { mockupExclusive, routeCount, mockupRouteCount, unparseable };
+  return { mockupExclusive, routeCount, mockupRouteCount, unparseable, routeChunks };
 }
 
 /** Sum the gzip bytes of the measured chunks whose names are in `names`. */
@@ -311,6 +339,21 @@ export function gzipBytesOf(measuredFiles, names) {
     (sum, file) => (names.has(file.name.replace(/\\/g, "/")) ? sum + file.gzipBytes : sum),
     0,
   );
+}
+
+/** Measure the client JavaScript referenced by each configured public route. */
+export function measureBudgetRoutes(measuredFiles, routeChunks, routeBudgets) {
+  const measured = {};
+  const missing = [];
+  for (const route of Object.keys(routeBudgets ?? {})) {
+    const names = routeChunks.get(route);
+    if (!names) {
+      missing.push(route);
+      continue;
+    }
+    measured[route] = { gzipBytes: gzipBytesOf(measuredFiles, names), chunks: names.size };
+  }
+  return { measured, missing };
 }
 
 /** Identify large fixture payloads from stable groups of serialized keys/slugs.
@@ -333,6 +376,35 @@ function loadBudget() {
   } catch {
     return { enforce: false, tolerancePct: 10, totalGzipBytes: null };
   }
+}
+
+function readCurrentGitHead() {
+  try {
+    return execFileSync("git", ["-C", root, "rev-parse", "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve immutable provenance for an intentional baseline refresh.
+ * @param {Record<string, string | undefined>} [environment]
+ * @param {() => string | null} [readHead]
+ */
+export function resolveBaselineSource(environment = process.env, readHead = readCurrentGitHead) {
+  for (const candidate of [environment.BUNDLE_BUDGET_SOURCE_SHA, environment.GITHUB_SHA]) {
+    if (typeof candidate === "string" && /^[0-9a-f]{40}$/i.test(candidate.trim())) {
+      return candidate.trim().toLowerCase();
+    }
+  }
+  const candidate = readHead();
+  if (typeof candidate === "string" && /^[0-9a-f]{40}$/i.test(candidate.trim())) {
+    return candidate.trim().toLowerCase();
+  }
+  return null;
 }
 
 /**
@@ -457,7 +529,8 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
     );
     return 1;
   }
-  const { mockupExclusive, routeCount, mockupRouteCount, unparseable } = partitionRouteClientChunks(SERVER_APP_DIR);
+  const { mockupExclusive, routeCount, mockupRouteCount, unparseable, routeChunks } =
+    partitionRouteClientChunks(SERVER_APP_DIR);
   if (unparseable.length > 0) {
     console.error(
       `[bundle-budget] FAIL — ${unparseable.length} route manifest(s) could not be decoded; chunk attribution is broken.`,
@@ -482,18 +555,42 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
   const mockupGzipBytes = gzipBytesOf(current.measured, mockupExclusive);
   const productionGzipBytes = current.totalGzipBytes - mockupGzipBytes;
   const budget = loadBudget();
+  const routeMeasurements = measureBudgetRoutes(current.measured, routeChunks, budget?.routes);
+  if (routeMeasurements.missing.length > 0) {
+    console.error(
+      `[bundle-budget] FAIL — configured route manifest(s) were not resolved: ${routeMeasurements.missing.join(", ")}.`,
+    );
+    return 1;
+  }
 
   if (update) {
+    const baselineSource = resolveBaselineSource();
+    if (!baselineSource) {
+      console.error(
+        "[bundle-budget] FAIL — could not resolve a 40-character source SHA for the baseline refresh. " +
+          "Run inside a Git checkout or set BUNDLE_BUDGET_SOURCE_SHA.",
+      );
+      return 1;
+    }
     const next = {
       ...budget,
       production: { ...(budget.production ?? {}), gzipBytes: productionGzipBytes },
       mockups: { ...(budget.mockups ?? {}), gzipBytes: mockupGzipBytes },
+      routes: Object.fromEntries(
+        Object.entries(budget.routes ?? {}).map(([route, config]) => [
+          route,
+          { ...config, gzipBytes: routeMeasurements.measured[route].gzipBytes },
+        ]),
+      ),
       totalGzipBytes: current.totalGzipBytes,
       updatedAt: new Date().toISOString(),
+      baselineSource,
     };
+    delete next.routeBaselinesUpdatedAt;
+    delete next.routeBaselinesSource;
     writeFileSync(BUDGET_PATH, JSON.stringify(next, null, 2) + "\n");
     console.log(
-      `[bundle-budget] baselines updated — production ${kb(productionGzipBytes)}, ${MOCKUP_ROUTE_SEGMENT} ${kb(mockupGzipBytes)}, total ${kb(current.totalGzipBytes)} gzip (${current.files} chunks).`,
+      `[bundle-budget] baselines updated — production ${kb(productionGzipBytes)}, ${Object.keys(routeMeasurements.measured).length} routes, ${MOCKUP_ROUTE_SEGMENT} ${kb(mockupGzipBytes)}, total ${kb(current.totalGzipBytes)} gzip (${current.files} chunks).`,
     );
     return 0;
   }
@@ -514,6 +611,19 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
     { totalGzipBytes: mockupGzipBytes },
     { totalGzipBytes: budget?.mockups?.gzipBytes ?? null, tolerancePct: budget?.mockups?.tolerancePct ?? 25, enforce },
   );
+  const routeVerdicts = Object.fromEntries(
+    Object.entries(routeMeasurements.measured).map(([route, measurement]) => [
+      route,
+      compareToBudget(
+        { totalGzipBytes: measurement.gzipBytes },
+        {
+          totalGzipBytes: budget?.routes?.[route]?.gzipBytes ?? null,
+          tolerancePct: budget?.routes?.[route]?.tolerancePct ?? 10,
+          enforce,
+        },
+      ),
+    ]),
+  );
 
   if (asJson) {
     console.log(
@@ -527,6 +637,12 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
             routes: mockupRouteCount,
             verdict: mockupVerdict,
           },
+          routes: Object.fromEntries(
+            Object.entries(routeMeasurements.measured).map(([route, measurement]) => [
+              route,
+              { ...measurement, verdict: routeVerdicts[route] },
+            ]),
+          ),
           initialDashboardChunks: initialDashboardChunks.length,
         },
         null,
@@ -551,6 +667,15 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
           ? ` — baseline ${kb(mockupVerdict.baseline)}, ${mockupVerdict.reason}.`
           : " — no baseline recorded."),
     );
+    for (const [route, measurement] of Object.entries(routeMeasurements.measured)) {
+      const verdict = routeVerdicts[route];
+      console.log(
+        `[bundle-budget] route ${route}: ${kb(measurement.gzipBytes)} gzip (${measurement.chunks} chunks)` +
+          (verdict.baseline != null
+            ? ` — baseline ${kb(verdict.baseline)}, ${verdict.reason}.`
+            : " — no baseline recorded."),
+      );
+    }
     console.log("[bundle-budget] largest chunks (gzip):");
     for (const c of current.largest) console.log(`  ${kb(c.gzipBytes).padStart(12)}  ${c.name}`);
     console.log(
@@ -571,11 +696,17 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
     );
     failed = true;
   }
+  for (const [route, verdict] of Object.entries(routeVerdicts)) {
+    if (verdict.status !== "fail") continue;
+    console.error(`[bundle-budget] FAIL — route ${route} client JavaScript ${verdict.reason}.`);
+    failed = true;
+  }
   if (failed) return 1;
 
   for (const [label, verdict] of [
     ["production bundle", productionVerdict],
     [`${MOCKUP_ROUTE_SEGMENT} scratch`, mockupVerdict],
+    ...Object.entries(routeVerdicts).map(([route, verdict]) => [`route ${route}`, verdict]),
   ]) {
     if (verdict.status !== "warn") continue;
     if (verdict.baseline == null) {

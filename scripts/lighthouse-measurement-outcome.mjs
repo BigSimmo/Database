@@ -36,11 +36,10 @@
  *   measured something real (including something real and slow).
  */
 export function measurementFailureReason(exitCode, reportText) {
-  if (typeof exitCode !== "number" || exitCode !== 0) {
-    return `lighthouse exited ${exitCode ?? "without a status"}`;
-  }
   if (reportText === null || reportText === undefined || reportText === "") {
-    return "no report file was written";
+    return typeof exitCode !== "number" || exitCode !== 0
+      ? `lighthouse exited ${exitCode ?? "without a status"}`
+      : "no report file was written";
   }
 
   let parsed;
@@ -56,5 +55,10 @@ export function measurementFailureReason(exitCode, reportText) {
   // cell that produced no comparable numbers.
   if (typeof code === "string" && code.length > 0) return `lighthouse runtimeError ${code}`;
 
+  // Chrome can finish the audit, write a complete report, then fail to remove its
+  // temporary profile on Windows with EPERM. The report is still the evidence: the
+  // grader independently rejects missing metrics, runtime errors, wrong pages and
+  // unverified browser identities. Do not discard that evidence based only on the
+  // wrapper's cleanup exit status.
   return null;
 }

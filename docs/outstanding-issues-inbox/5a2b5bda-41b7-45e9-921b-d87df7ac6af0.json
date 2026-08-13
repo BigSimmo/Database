@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "5a2b5bda-41b7-45e9-921b-d87df7ac6af0",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#300",
+    "outcome": "Do-not-convert caution retired into the code it protects. src/components/clinical-dashboard/differentials-home.tsx carries a comment above the sourcesChecked block explaining that '0 matches' / 'No matches' are correct empty results rather than failed-request guards, and that an ErrorState there would tell a clinician the system broke when it did not. Verified present on main 2026-08-13."
+  }
+}

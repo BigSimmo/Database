@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* Design-scratch routes have their own route-scoped utility sheet. Keeping
+   their rapidly growing utility vocabulary out of every production page cuts
+   the shared render-blocking stylesheet without changing mockup rendering. */
+@source not "./mockups";
+@source not "../components/**/*mockup*";
 /* Opt-in v2 design-system token layer. Every rule is scoped to `.ckb-v2`, so
    importing it cannot change any surface that does not carry the class. */
 @import "./ckb-v2-tokens.css";
@@ -58,6 +63,13 @@
      the edge-to-edge dock keeps its height (see the max-width: 430px block,
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
+
+  /* Specifier-map layout roles: jump target height, numbered step column, and
+     wide-screen detail rail. These stay together so the page cannot drift back
+     to unrelated one-off dimensions. */
+  --spacing-specifier-map-jump: 5.25rem;
+  --spacing-specifier-map-step-number: 2.25rem;
+  --spacing-specifier-map-aside: 22rem;
 
   /* Mode-home composer slots reserve their settled portal geometry before the
      client host adopts them. Without this structural reserve, Therapy moved the
