@@ -1772,13 +1772,20 @@ export async function searchChunksWithTelemetry(
   // (expandedQuery may still gain candidate-metadata terms — then this warm flight is
   // simply unused), await point, and failure handling, so retrieval output is unchanged.
   // No signal: an abandoned warm flight completing into the LRU is harmless.
+  let prefetchedEmbedding: Promise<Awaited<ReturnType<typeof embedTextWithTelemetry>>> | null = null;
+  let prefetchedEmbeddingQuery: string | null = null;
   if (!sourceOnlyRetrieval && !args.lexicalOnly) {
     telemetry.embedding_prefetched = true;
-    // Promise.resolve + try/catch guard mocked or synchronous returns; a warm-up must never throw.
+    // Preserve the warm flight, including a rejection, so the awaited stage below
+    // shares its result instead of starting a second provider request.
     try {
-      void Promise.resolve(embedTextWithTelemetry(expandedQuery)).catch(() => undefined);
-    } catch {
-      // Warm-up only — the awaited embedding call below owns real failure handling.
+      prefetchedEmbedding = Promise.resolve(embedTextWithTelemetry(expandedQuery));
+      prefetchedEmbeddingQuery = expandedQuery;
+      void prefetchedEmbedding.catch(() => undefined);
+    } catch (error) {
+      prefetchedEmbedding = Promise.reject(error);
+      prefetchedEmbeddingQuery = expandedQuery;
+      void prefetchedEmbedding.catch(() => undefined);
     }
   }
   const textSearchQuery = queryVariants[0] ?? buildClinicalTextSearchQuery(retrievalQuery);
@@ -2065,7 +2072,12 @@ export async function searchChunksWithTelemetry(
   embeddingStartedAt = Date.now();
   let embeddingResult: Awaited<ReturnType<typeof embedTextWithTelemetry>> | null = null;
   try {
-    embeddingResult = await embedTextWithTelemetry(expandedQuery, { signal: args.signal });
+    embeddingResult = await (
+      prefetchedEmbeddingQuery === expandedQuery && prefetchedEmbedding
+        ? prefetchedEmbedding
+        : embedTextWithTelemetry(expandedQuery, { signal: args.signal })
+    );
+    throwIfAborted(args.signal);
   } catch (error) {
     throwIfAborted(args.signal);
     // In auto mode a failed embedding call (e.g. quota exhausted) degrades to the lexical
@@ -2760,6 +2772,7 @@ async function answerQuestionWithScopeUncoalesced(
     text_candidate_count: search.telemetry.text_candidate_count ?? null,
     text_fast_path_reason: search.telemetry.text_fast_path_reason ?? null,
     embedding_skip_reason: search.telemetry.embedding_skip_reason ?? null,
+    embedding_prefetched: search.telemetry.embedding_prefetched ?? false,
     vector_candidate_count: search.telemetry.vector_candidate_count ?? null,
     embedding_field_count: search.telemetry.embedding_field_count ?? null,
     retrieval_provenance_counts: search.telemetry.retrieval_provenance_counts ?? null,
@@ -2887,6 +2900,7 @@ async function answerQuestionWithScopeUncoalesced(
           text_fast_path_reason: search.telemetry.text_fast_path_reason,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          embedding_prefetched: search.telemetry.embedding_prefetched,
           vector_candidate_count: search.telemetry.vector_candidate_count,
           embedding_field_count: search.telemetry.embedding_field_count,
           retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
@@ -2957,6 +2971,7 @@ async function answerQuestionWithScopeUncoalesced(
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          embedding_prefetched: search.telemetry.embedding_prefetched,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
@@ -3017,6 +3032,7 @@ async function answerQuestionWithScopeUncoalesced(
       text_fast_path_reason: search.telemetry.text_fast_path_reason,
       embedding_latency_ms: search.telemetry.embedding_latency_ms,
       embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          embedding_prefetched: search.telemetry.embedding_prefetched,
       vector_candidate_count: search.telemetry.vector_candidate_count,
       embedding_field_count: search.telemetry.embedding_field_count,
       retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
@@ -3156,6 +3172,7 @@ async function answerQuestionWithScopeUncoalesced(
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          embedding_prefetched: search.telemetry.embedding_prefetched,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
@@ -3446,6 +3463,7 @@ ${qualityRetryInstruction}`
         text_fast_path_reason: search.telemetry.text_fast_path_reason,
         embedding_latency_ms: search.telemetry.embedding_latency_ms,
         embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          embedding_prefetched: search.telemetry.embedding_prefetched,
         vector_candidate_count: search.telemetry.vector_candidate_count,
         embedding_field_count: search.telemetry.embedding_field_count,
         retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
@@ -3733,6 +3751,7 @@ ${qualityRetryInstruction}`
       text_fast_path_reason: search.telemetry.text_fast_path_reason,
       embedding_latency_ms: search.telemetry.embedding_latency_ms,
       embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          embedding_prefetched: search.telemetry.embedding_prefetched,
       vector_candidate_count: search.telemetry.vector_candidate_count,
       embedding_field_count: search.telemetry.embedding_field_count,
       retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
@@ -3882,6 +3901,7 @@ ${qualityRetryInstruction}`
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          embedding_prefetched: search.telemetry.embedding_prefetched,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
@@ -4250,6 +4270,7 @@ ${qualityRetryInstruction}`
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          embedding_prefetched: search.telemetry.embedding_prefetched,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
