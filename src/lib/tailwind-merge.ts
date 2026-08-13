@@ -120,6 +120,7 @@ export const CLINICAL_TWMERGE_THEME = {
     "action-tray-in",
     "shimmer",
     "answer-ecg",
+    "answer-ecg-compact",
   ],
 } as const;
 

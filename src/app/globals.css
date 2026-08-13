@@ -210,7 +210,8 @@
   --animate-dialog-rise: dialog-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-action-tray-in: action-tray-in var(--swipe-duration, 160ms) cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
-  --animate-answer-ecg: answer-ecg-sweep 2.6s linear infinite;
+  --animate-answer-ecg: answer-ecg-sweep 1.8s linear infinite;
+  --animate-answer-ecg-compact: answer-ecg-sweep 1.6s linear infinite;
 }
 
 /* Theme tokens */
@@ -2979,6 +2980,10 @@ td,
 
   .answer-activity-trace__sweep {
     animation: var(--animate-answer-ecg);
+  }
+
+  .answer-activity-trace[data-density="compact"] .answer-activity-trace__sweep {
+    animation: var(--animate-answer-ecg-compact);
   }
 
   .app-edge-backdrop {
