@@ -152,8 +152,8 @@ function routePathname(routeAbs: string): string {
  * the band through their own page:
  * - `isAlwaysStandaloneShellPath` — never mounts the dashboard (services, forms, …)
  * - `isStandaloneModeHomePath` — mode homes with their own results page, including
- *   `/tools`, which is intentionally outside the always-standalone Suspense list
- *   but still mounts `ApplicationsLauncherPage` rather than the dashboard body
+ *   `/tools`, whose page switches between `ApplicationsLauncherPage` and its
+ *   route-owned submitted-results component
  */
 function reachabilityRoots(routeAbs: string): string[] {
   const pathname = routePathname(routeAbs);
