@@ -4,7 +4,7 @@
 **Branch seed:** `cursor/document-viewer-redesign-plan-1db8`  
 **Flightplan evidence:** `.local/workflow-evidence/2026-08-06T17-27-05-553Z-flightplan.json`  
 **Related ledger:** `#214` / `#219` resolved; `#215` residual (PWA/demo WebP) optional  
-**Landed:** Phase 0 [#1660](https://github.com/BigSimmo/Database/pull/1660), Phase 1 [#1665](https://github.com/BigSimmo/Database/pull/1665), Phase 2 [#1741](https://github.com/BigSimmo/Database/pull/1741), Phase 3 (this branch)  
+**Landed:** Phase 0 [#1660](https://github.com/BigSimmo/Database/pull/1660), Phase 1 [#1665](https://github.com/BigSimmo/Database/pull/1665), Phase 2 [#1741](https://github.com/BigSimmo/Database/pull/1741), Phase 3 [#1772](https://github.com/BigSimmo/Database/pull/1772)  
 **Phase details:** [`document-viewer-phase2-unified-chrome.md`](./document-viewer-phase2-unified-chrome.md) · [`document-viewer-phase3-handover.md`](./document-viewer-phase3-handover.md)
 
 This is the execution plan for a dramatic improvement of design, style, approach,
@@ -161,15 +161,15 @@ touched. Update `docs/search-chrome-behaviour.md` only if ownership semantics ch
 
 Execution brief: [`document-viewer-phase3-handover.md`](./document-viewer-phase3-handover.md).
 
-| Capability                               | Status                                                                                                 |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Multi-page virtualization                | **Done** — windowed page column, document-wide live-canvas budget, idle ±1 render-ahead                |
-| Crop → page overlay                      | **Out of scope** — needs `bbox` through `DocumentDetailImage`; a wider contract change than this phase |
-| Keyboard reading mode                    | **Done** — Page Up/Down, Home/End, `f` fit, `r` rotate; `docs/wiring-conventions.md`                   |
-| Rail virtualization                      | **Done** — `DocumentImageList` windows `#source-images` and the audit list                             |
-| Smarter signed-URL / decode priority     | **Done** — explicit `fetchPriority`, tighter rail root margin; batch route still deferred (`#283`)     |
-| Toolbar density                          | ~~Phase 3~~ — already shipped in Phase 2 (`document-frame.tsx`, `hidden sm:inline` + overflow menu)    |
-| Optional OffscreenCanvas / worker raster | **Not implemented, by design** — the measurement it is conditioned on is now captured in CI (`#294`)   |
+| Capability                               | Status                                                                                                    |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Multi-page virtualization                | **Done** — windowed page column, document-wide live-canvas budget, idle ±1 render-ahead                   |
+| Crop → page overlay                      | **Out of scope, tracked as `#295`** — needs `bbox` through `DocumentDetailImage`; a wider contract change |
+| Keyboard reading mode                    | **Done** — Page Up/Down, Home/End, `f` fit, `r` rotate; `docs/wiring-conventions.md`                      |
+| Rail virtualization                      | **Done** — `DocumentImageList` windows `#source-images` and the audit list                                |
+| Smarter signed-URL / decode priority     | **Done** — explicit `fetchPriority`, tighter rail root margin; batch route still deferred (`#283`)        |
+| Toolbar density                          | ~~Phase 3~~ — already shipped in Phase 2 (`document-frame.tsx`, `hidden sm:inline` + overflow menu)       |
+| Optional OffscreenCanvas / worker raster | **Not implemented, by design** — the measurement it is conditioned on is now captured in CI (`#294`)      |
 
 Phase 3 also closed `#279`: `tests/ui-document-canvas.spec.ts` is the first browser gate over the
 viewer's raster, reading pixels back rather than trusting canvas dimensions.
@@ -303,7 +303,7 @@ Aligned with repo design rules and COMPONENTS §6:
 3. ~~**Phase 1** extraction.~~ Done (#1665).
 4. ~~Execute **Phase 2**~~ Done (#1741, with Phase 0–2 squashed as `42f87ca`).
 5. ~~Execute **Phase 3**~~ Done, except crop → page overlay — see the Phase 3 table above.
-6. Crop → page overlay is the one remaining Phase 3 capability. It needs `bbox` plumbed from
+6. Crop → page overlay is the one remaining Phase 3 capability, tracked as `#295`. It needs `bbox` plumbed from
    `src/lib/document-detail.ts` (already SELECTed) through `DocumentDetailImage` in
    `src/lib/document-detail-contract.ts`; scope it as a contract change, not a viewer change.
 7. Do not invent a second phone composer or change hide-reserve semantics.
