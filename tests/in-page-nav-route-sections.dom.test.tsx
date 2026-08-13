@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -26,7 +26,8 @@ import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { sectionTargetIds, type PageSection } from "@/components/in-page-nav/page-section-index";
 import { ServiceDetailPage, serviceNavSections } from "@/components/services/service-detail-page";
 import { specifierNavSections } from "@/components/specifiers/specifier-nav-header";
-import { SpecifierMapPage, specifierMapSections } from "@/components/specifiers/specifier-map-page";
+import { specifierMapSections } from "@/components/specifiers/specifier-map-nav-header";
+import { SpecifierMapPage } from "@/components/specifiers/specifier-map-page";
 import { SpecifierRecordPage } from "@/components/specifiers/specifier-record-page";
 import { SpecifierReferencePage } from "@/components/specifiers/specifier-reference-page";
 import { dsmDiagnoses } from "@/lib/dsm";
@@ -277,6 +278,59 @@ describe("in-page navigation section contracts", () => {
     // routes plus one factsheet case per `kind`; the medication page swaps
     // panels rather than scrolling and is guarded by the suite below.
     expect(routes).toHaveLength(13);
+  });
+
+  it("keeps the specifier map header and role buttons synchronized during ordinary scrolling", async () => {
+    class TestIntersectionObserver {
+      readonly root = null;
+      readonly rootMargin = "";
+      readonly thresholds = [];
+
+      observe(_target: Element) {}
+      unobserve(_target: Element) {}
+      disconnect() {}
+      takeRecords(): IntersectionObserverEntry[] {
+        return [];
+      }
+    }
+
+    vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
+    let scrollY = 0;
+    const scrollSpy = vi.spyOn(window, "scrollY", "get").mockImplementation(() => scrollY);
+    const sectionTops: Record<string, number> = {
+      "episode-features": 0,
+      "course-onset": 320,
+      "severity-remission": 640,
+    };
+    const rectSpy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      const top = (sectionTops[this.id] ?? 1_000) - scrollY;
+      return {
+        x: 0,
+        y: top,
+        top,
+        right: 100,
+        bottom: top + 100,
+        left: 0,
+        width: 100,
+        height: 100,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+
+    try {
+      render(<SpecifierMapPage />);
+      scrollY = 160;
+      fireEvent.scroll(window);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("specifier-map-jump-course-onset")).toHaveAttribute("aria-current", "true");
+        expect(screen.getByTestId("specifier-map-section-trigger")).toHaveTextContent("Course and onset");
+      });
+    } finally {
+      rectSpy.mockRestore();
+      scrollSpy.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 });
 
