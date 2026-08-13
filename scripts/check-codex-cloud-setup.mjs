@@ -912,8 +912,8 @@ export function validateCodexCloudSetup() {
     [/expectedIdentity = "BigSimmo"/, "GitHub shell acceptance must pin the intended identity."],
     [/repository = "BigSimmo\/Database"/, "GitHub shell acceptance must pin the intended repository."],
     [
-      /requiredScopes = new Set\(\["repo", "workflow"\]\)/,
-      "GitHub shell acceptance must require write and Actions scopes.",
+      /requiredScopes = new Set\(\["repo", "workflow", "read:org", "gist"\]\)/,
+      "GitHub shell acceptance must require the complete gh login and Actions scope set.",
     ],
     [/addPullRequestReviewThreadReply/, "GitHub shell acceptance must verify review-thread reply availability."],
     [/resolveReviewThread/, "GitHub shell acceptance must verify review-thread resolution availability."],
@@ -926,6 +926,12 @@ export function validateCodexCloudSetup() {
     [/GH_ACTIONS_LOG_ACCESS_MISSING/, "GitHub shell acceptance must verify bounded Actions log access."],
     [/GH_ACTIONS_LOG_SAMPLE_MISSING/, "GitHub shell acceptance must reject skipped-job log samples."],
     [/GH_REVIEW_THREAD_READ_MISSING/, "GitHub shell acceptance must verify repository review-thread reads."],
+    [
+      /GH_REVIEW_THREAD_RESOLVE_PERMISSION_MISSING/,
+      "GitHub shell acceptance must verify resolution permission on sampled unresolved threads.",
+    ],
+    [/GH_PR_SAMPLE_MISSING/, "GitHub shell acceptance must fail closed without a readable PR sample."],
+    [/providerProbeTimeoutMilliseconds/, "GitHub shell acceptance must bound every provider subprocess."],
     [/runWithTransientRetry/, "GitHub shell acceptance must retry bounded transient provider failures."],
   ]) {
     requireMatch(errors, githubShellAccess, pattern, message);

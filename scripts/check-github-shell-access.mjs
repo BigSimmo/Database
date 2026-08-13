@@ -11,20 +11,22 @@ const expectedOrigin = `https://github.com/${repository}.git`;
 const allowProviderFlag = "--allow-provider";
 const allowProviderEnv = "ALLOW_GITHUB_SHELL_ACCESS";
 const writablePermissions = new Set(["admin", "maintain", "write"]);
-const requiredScopes = new Set(["repo", "workflow"]);
+const requiredScopes = new Set(["repo", "workflow", "read:org", "gist"]);
 const requiredReviewMutations = new Set(["addPullRequestReviewThreadReply", "resolveReviewThread"]);
+export const providerProbeTimeoutMilliseconds = 30_000;
 
-function shellRun(command, args, cwd = process.cwd()) {
+export function shellRun(command, args, cwd = process.cwd(), timeout = providerProbeTimeoutMilliseconds) {
   return spawnSync(command, args, {
     cwd,
     encoding: "utf8",
     shell: false,
+    timeout,
     windowsHide: true,
   });
 }
 
 const transientFailurePattern =
-  /(?:HTTP\s+(?:429|5\d\d)|timed?\s*out|timeout|connection reset|connection refused|temporary failure|TLS handshake|unexpected EOF|remote end hung up|could not resolve host)/iu;
+  /(?:HTTP\s+(?:429|5\d\d)|ETIMEDOUT|timed?\s*out|timeout|connection reset|connection refused|temporary failure|TLS handshake|unexpected EOF|remote end hung up|could not resolve host)/iu;
 
 function wait(milliseconds) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
@@ -35,7 +37,7 @@ export function runWithTransientRetry(run, command, args, attempts = 3) {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     result = run(command, args);
     if (result.status === 0) return result;
-    const diagnostic = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+    const diagnostic = `${result.stdout ?? ""}\n${result.stderr ?? ""}\n${result.error?.message ?? ""}`;
     if (attempt === attempts || !transientFailurePattern.test(diagnostic)) return result;
     wait(250 * 2 ** (attempt - 1));
   }
@@ -97,26 +99,50 @@ export function githubShellAccess(run = resilientShellRun) {
     return failure("GH_REPO_WRITE_MISSING");
   }
 
-  const pullRequests = parseJson(
-    run("gh", ["pr", "list", "--repo", repository, "--state", "open", "--limit", "1", "--json", "number,headRefOid"]),
+  const pullRequestFields = "number,state,headRefOid,headRefName,isDraft,mergeStateStatus,labels";
+  const currentBranchResult = run("git", ["branch", "--show-current"]);
+  const currentBranch = currentBranchResult.status === 0 ? currentBranchResult.stdout.trim() : "";
+  const openPullRequests = parseJson(
+    run("gh", ["pr", "list", "--repo", repository, "--state", "open", "--limit", "100", "--json", pullRequestFields]),
   );
-  if (!Array.isArray(pullRequests)) return failure("GH_PR_LIST_ACCESS_MISSING");
-  let selectedPullRequestNumber = null;
-  if (pullRequests.length > 0) {
-    const number = pullRequests[0]?.number;
-    const sha = pullRequests[0]?.headRefOid;
-    if (!Number.isInteger(number) || !/^[0-9a-f]{40}$/u.test(String(sha ?? ""))) {
-      return failure("GH_PR_METADATA_INVALID");
-    }
-    selectedPullRequestNumber = number;
-    for (const endpoint of [
-      `repos/${repository}/pulls/${number}/reviews?per_page=1`,
-      `repos/${repository}/issues/${number}/comments?per_page=1`,
-      `repos/${repository}/pulls/${number}/comments?per_page=1`,
-      `repos/${repository}/commits/${sha}/check-runs?per_page=1`,
-    ]) {
-      if (run("gh", ["api", endpoint]).status !== 0) return failure("GH_PR_DETAIL_ACCESS_MISSING");
-    }
+  if (!Array.isArray(openPullRequests)) return failure("GH_PR_LIST_ACCESS_MISSING");
+  let pullRequestSample =
+    openPullRequests.find((pullRequest) => currentBranch && pullRequest?.headRefName === currentBranch) ??
+    openPullRequests[0];
+  if (!pullRequestSample) {
+    const closedPullRequests = parseJson(
+      run("gh", ["pr", "list", "--repo", repository, "--state", "closed", "--limit", "1", "--json", pullRequestFields]),
+    );
+    if (!Array.isArray(closedPullRequests)) return failure("GH_PR_LIST_ACCESS_MISSING");
+    pullRequestSample = closedPullRequests[0];
+  }
+  if (!pullRequestSample) return failure("GH_PR_SAMPLE_MISSING");
+
+  const selectedPullRequestNumber = pullRequestSample.number;
+  const selectedPullRequestSha = pullRequestSample.headRefOid;
+  const selectedPullRequestState = pullRequestSample.state;
+  if (
+    !Number.isInteger(selectedPullRequestNumber) ||
+    !/^[0-9a-f]{40}$/u.test(String(selectedPullRequestSha ?? "")) ||
+    !["OPEN", "CLOSED", "MERGED"].includes(selectedPullRequestState) ||
+    typeof pullRequestSample.headRefName !== "string" ||
+    pullRequestSample.headRefName.length === 0 ||
+    typeof pullRequestSample.isDraft !== "boolean" ||
+    typeof pullRequestSample.mergeStateStatus !== "string" ||
+    !Array.isArray(pullRequestSample.labels)
+  ) {
+    return failure("GH_PR_METADATA_INVALID");
+  }
+  if (run("gh", ["pr", "diff", String(selectedPullRequestNumber), "--repo", repository, "--name-only"]).status !== 0) {
+    return failure("GH_PR_DIFF_ACCESS_MISSING");
+  }
+  for (const endpoint of [
+    `repos/${repository}/pulls/${selectedPullRequestNumber}/reviews?per_page=1`,
+    `repos/${repository}/issues/${selectedPullRequestNumber}/comments?per_page=1`,
+    `repos/${repository}/pulls/${selectedPullRequestNumber}/comments?per_page=1`,
+    `repos/${repository}/commits/${selectedPullRequestSha}/check-runs?per_page=1`,
+  ]) {
+    if (run("gh", ["api", endpoint]).status !== 0) return failure("GH_PR_DETAIL_ACCESS_MISSING");
   }
 
   const actionsPermission = parseJson(run("gh", ["api", `repos/${repository}/actions/permissions`]));
@@ -140,20 +166,26 @@ export function githubShellAccess(run = resilientShellRun) {
   }
   if (run("gh", ["run", "rerun", "--help"]).status !== 0) return failure("GH_ACTIONS_RERUN_UNAVAILABLE");
 
-  const pullRequestSelection = selectedPullRequestNumber
-    ? `repository(owner: "BigSimmo", name: "Database") { pullRequest(number: ${selectedPullRequestNumber}) { reviewThreads(first: 1) { totalCount nodes { id isResolved } } } }`
-    : "";
+  const pullRequestSelection = `repository(owner: "BigSimmo", name: "Database") { pullRequest(number: ${selectedPullRequestNumber}) { reviewThreads(first: 100) { totalCount nodes { id isResolved viewerCanResolve } pageInfo { hasNextPage } } } }`;
   const mutationQuery = `query { __type(name: "Mutation") { fields { name } } ${pullRequestSelection} }`;
   const mutationSchema = parseJson(run("gh", ["api", "graphql", "-f", `query=${mutationQuery}`]));
   const mutationNames = new Set(mutationSchema?.data?.__type?.fields?.map((field) => field.name) ?? []);
   if ([...requiredReviewMutations].some((name) => !mutationNames.has(name))) {
     return failure("GH_REVIEW_THREAD_MUTATIONS_UNAVAILABLE");
   }
-  if (
-    selectedPullRequestNumber &&
-    !Number.isInteger(mutationSchema?.data?.repository?.pullRequest?.reviewThreads?.totalCount)
-  ) {
+  const reviewThreads = mutationSchema?.data?.repository?.pullRequest?.reviewThreads;
+  if (!Number.isInteger(reviewThreads?.totalCount) || !Array.isArray(reviewThreads?.nodes)) {
     return failure("GH_REVIEW_THREAD_READ_MISSING");
+  }
+  if (reviewThreads.pageInfo?.hasNextPage === true || reviewThreads.nodes.length !== reviewThreads.totalCount) {
+    return failure("GH_REVIEW_THREAD_SAMPLE_UNBOUNDED");
+  }
+  const unresolvedReviewThreads = reviewThreads.nodes.filter((thread) => thread?.isResolved === false);
+  if (
+    selectedPullRequestState === "OPEN" &&
+    unresolvedReviewThreads.some((thread) => thread?.viewerCanResolve !== true)
+  ) {
+    return failure("GH_REVIEW_THREAD_RESOLVE_PERMISSION_MISSING");
   }
 
   const origin = run("git", ["config", "--get", "remote.origin.url"]);
@@ -181,6 +213,8 @@ export function githubShellAccess(run = resilientShellRun) {
     identity: expectedIdentity,
     permission: String(permission.permission).toLowerCase(),
     repository,
+    sampledPullRequest: selectedPullRequestNumber,
+    unresolvedReviewThreads: unresolvedReviewThreads.length,
     reviewThreadMutations: "available",
     actionsRerun: "capability-verified",
     featureBranchPush: "dry-run-verified",
@@ -217,7 +251,24 @@ function fakeSuccessfulRun(command, args) {
     return success(JSON.stringify({ full_name: repository, default_branch: "main" }));
   }
   if (key.includes("/collaborators/")) return success(JSON.stringify({ permission: "write" }));
-  if (key.startsWith("gh pr list")) return success("[]");
+  if (key === "git branch --show-current") return success("codex/sample\n");
+  if (key.includes("gh pr list") && key.includes("--state open")) return success("[]");
+  if (key.includes("gh pr list") && key.includes("--state closed")) {
+    return success(
+      JSON.stringify([
+        {
+          number: 123,
+          state: "MERGED",
+          headRefOid: "a".repeat(40),
+          headRefName: "codex/sample",
+          isDraft: false,
+          mergeStateStatus: "UNKNOWN",
+          labels: [],
+        },
+      ]),
+    );
+  }
+  if (key === `gh pr diff 123 --repo ${repository} --name-only`) return success("README.md\n");
   if (key === `gh api repos/${repository}/actions/permissions`) return success('{"enabled":true}');
   if (key === `gh api repos/${repository}/actions/runs?status=success&per_page=1`) {
     return success('{"workflow_runs":[{"id":456}]}');
@@ -229,7 +280,16 @@ function fakeSuccessfulRun(command, args) {
   if (key === "gh run rerun --help") return success("Usage: gh run rerun");
   if (key.startsWith("gh api graphql")) {
     return success(
-      JSON.stringify({ data: { __type: { fields: [...requiredReviewMutations].map((name) => ({ name })) } } }),
+      JSON.stringify({
+        data: {
+          __type: { fields: [...requiredReviewMutations].map((name) => ({ name })) },
+          repository: {
+            pullRequest: {
+              reviewThreads: { totalCount: 0, nodes: [], pageInfo: { hasNextPage: false } },
+            },
+          },
+        },
+      }),
     );
   }
   if (key === "git config --get remote.origin.url") return success(`${expectedOrigin}\n`);
@@ -288,6 +348,8 @@ function main() {
     console.log(`GITHUB_IDENTITY=${result.identity}`);
     console.log(`GITHUB_REPOSITORY=${result.repository}`);
     console.log(`GITHUB_REPOSITORY_PERMISSION=${result.permission}`);
+    console.log(`GITHUB_PR_SAMPLE=${result.sampledPullRequest}`);
+    console.log(`GITHUB_UNRESOLVED_REVIEW_THREADS=${result.unresolvedReviewThreads}`);
     console.log(`GITHUB_FEATURE_BRANCH_PUSH=${result.featureBranchPush}`);
     console.log(`GITHUB_REVIEW_THREAD_MUTATIONS=${result.reviewThreadMutations}`);
     console.log(`GITHUB_ACTIONS_RERUN=${result.actionsRerun}`);

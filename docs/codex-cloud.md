@@ -209,16 +209,18 @@ explicit shell fallback necessarily leaves an authenticated `gh` credential help
 the agent, so it has a wider trust boundary than the connector or operator. The setup secret itself
 is still excluded from the agent environment and the generated shell profile. The live gate never
 reads or prints the credential: it verifies the exact `BigSimmo` identity, `BigSimmo/Database`
-write permission, `repo` and `workflow` scopes, PR/check/comment/Actions reads, review-thread reply
-and resolution schema, repository review-thread reads, successful Actions job metadata, log access
+write permission, `repo`, `workflow`, `read:org`, and `gist` scopes, PR metadata/diff/check/comment/Actions
+reads, review-thread reply and resolution schema, repository review-thread reads and resolve permission,
+successful Actions job metadata, log access
 through a body-free HTTP `HEAD` against a non-skipped job, the rerun command surface, the
 credential-free origin, authenticated fetch,
 and an ordinary feature-branch push through `--dry-run`. The probe alone disables local hooks so
 the real-push verification suite cannot make setup hang; actual pushes retain those guards. It
 uses an unguessable task-local probe name, checks that exact ref before and afterward, and fails if
 any remote ref appears.
-Provider failures classified as transient (rate limiting, GitHub 5xx, DNS/TLS, timeout, or connection
-reset) receive at most three attempts with short exponential backoff. Authentication, permission,
+Each provider subprocess has a 30-second bound. Provider failures classified as transient (rate
+limiting, GitHub 5xx, DNS/TLS, timeout, or connection reset) receive at most three attempts with
+short exponential backoff. Authentication, permission,
 schema, unsafe-origin, and branch-policy failures fail immediately rather than being hidden by retries.
 
 `bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>` is retained only for
@@ -266,7 +268,9 @@ bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command
 
 For the explicitly authorised GitHub shell fallback, store the credential only as the encrypted
 setup secret named `CODEX_CLOUD_GITHUB_PAT` and use these complete commands instead. Keep the
-single quotes around `printf` and never substitute a literal credential:
+single quotes around `printf` and never substitute a literal credential. The token must carry
+`repo`, `workflow`, `read:org`, and `gist`: `gh auth login --with-token` requires the latter two in
+addition to the repository scope, while failed-job reruns require `workflow`.
 
 ```bash
 bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh && test -n "${CODEX_CLOUD_GITHUB_PAT:-}" && printf '%s' "$CODEX_CLOUD_GITHUB_PAT" | GH_PROMPT_DISABLED=1 gh auth login --hostname github.com --git-protocol https --with-token && unset CODEX_CLOUD_GITHUB_PAT && gh auth setup-git --hostname github.com && npm run check:github-shell-access:live

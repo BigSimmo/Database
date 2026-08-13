@@ -4,6 +4,7 @@ import {
   githubShellAccess,
   providerAccessAuthorized,
   runWithTransientRetry,
+  shellRun,
 } from "../scripts/check-github-shell-access.mjs";
 
 const repository = "BigSimmo/Database";
@@ -17,11 +18,16 @@ type FixtureOptions = {
   actionJobConclusion?: string;
   actionRunsAvailable?: boolean;
   afterRefPresent?: boolean;
+  closedPullRequestsAvailable?: boolean;
   dryRunStatus?: number;
   identity?: string;
   mutations?: string[];
+  openPullRequestsAvailable?: boolean;
   permission?: string;
+  reviewThreadsHasNextPage?: boolean;
   reviewThreadsAvailable?: boolean;
+  unresolvedReviewThreadCount?: number;
+  viewerCanResolve?: boolean;
   scopes?: string;
 };
 
@@ -29,7 +35,7 @@ function fixtureRun(options: FixtureOptions = {}) {
   let refReadCount = 0;
   const identity = options.identity ?? "BigSimmo";
   const permission = options.permission ?? "write";
-  const scopes = options.scopes ?? "repo, workflow";
+  const scopes = options.scopes ?? "repo, workflow, read:org, gist";
   const mutations = options.mutations ?? ["addPullRequestReviewThreadReply", "resolveReviewThread"];
   const success = (stdout = "") => ({ status: 0, stdout, stderr: "" });
 
@@ -50,7 +56,40 @@ function fixtureRun(options: FixtureOptions = {}) {
       return success(JSON.stringify({ full_name: repository, default_branch: "main" }));
     }
     if (key.includes("/collaborators/")) return success(JSON.stringify({ permission }));
-    if (key.startsWith("gh pr list")) return success(JSON.stringify([{ number: 123, headRefOid: sha }]));
+    if (key === "git branch --show-current") return success("codex/sample\n");
+    if (key.includes("gh pr list") && key.includes("--state open")) {
+      if (options.openPullRequestsAvailable === false) return success("[]");
+      return success(
+        JSON.stringify([
+          {
+            number: 123,
+            state: "OPEN",
+            headRefOid: sha,
+            headRefName: "codex/sample",
+            isDraft: false,
+            mergeStateStatus: "CLEAN",
+            labels: [],
+          },
+        ]),
+      );
+    }
+    if (key.includes("gh pr list") && key.includes("--state closed")) {
+      if (options.closedPullRequestsAvailable === false) return success("[]");
+      return success(
+        JSON.stringify([
+          {
+            number: 123,
+            state: "MERGED",
+            headRefOid: sha,
+            headRefName: "codex/sample",
+            isDraft: false,
+            mergeStateStatus: "UNKNOWN",
+            labels: [],
+          },
+        ]),
+      );
+    }
+    if (key === `gh pr diff 123 --repo ${repository} --name-only`) return success("README.md\n");
     if (
       /gh api repos\/BigSimmo\/Database\/(pulls\/123\/reviews|issues\/123\/comments|pulls\/123\/comments)/u.test(key)
     ) {
@@ -77,6 +116,7 @@ function fixtureRun(options: FixtureOptions = {}) {
     }
     if (key === "gh run rerun --help") return success("Usage: gh run rerun");
     if (key.startsWith("gh api graphql")) {
+      const unresolvedReviewThreadCount = options.unresolvedReviewThreadCount ?? 0;
       return success(
         JSON.stringify({
           data: {
@@ -84,7 +124,19 @@ function fixtureRun(options: FixtureOptions = {}) {
             repository:
               options.reviewThreadsAvailable === false
                 ? null
-                : { pullRequest: { reviewThreads: { totalCount: 0, nodes: [] } } },
+                : {
+                    pullRequest: {
+                      reviewThreads: {
+                        totalCount: unresolvedReviewThreadCount,
+                        nodes: Array.from({ length: unresolvedReviewThreadCount }, (_, index) => ({
+                          id: `thread-${index}`,
+                          isResolved: false,
+                          viewerCanResolve: options.viewerCanResolve ?? true,
+                        })),
+                        pageInfo: { hasNextPage: options.reviewThreadsHasNextPage ?? false },
+                      },
+                    },
+                  },
           },
         }),
       );
@@ -110,6 +162,8 @@ describe("GitHub shell control-plane acceptance", () => {
       identity: "BigSimmo",
       permission: "write",
       repository,
+      sampledPullRequest: 123,
+      unresolvedReviewThreads: 0,
       reviewThreadMutations: "available",
       actionsRerun: "capability-verified",
       featureBranchPush: "dry-run-verified",
@@ -127,16 +181,40 @@ describe("GitHub shell control-plane acceptance", () => {
     [{ actionLogsStatus: 1 }, "GH_ACTIONS_LOG_ACCESS_MISSING"],
     [{ mutations: ["resolveReviewThread"] }, "GH_REVIEW_THREAD_MUTATIONS_UNAVAILABLE"],
     [{ reviewThreadsAvailable: false }, "GH_REVIEW_THREAD_READ_MISSING"],
+    [{ unresolvedReviewThreadCount: 1, viewerCanResolve: false }, "GH_REVIEW_THREAD_RESOLVE_PERMISSION_MISSING"],
+    [{ reviewThreadsHasNextPage: true }, "GH_REVIEW_THREAD_SAMPLE_UNBOUNDED"],
+    [
+      {
+        openPullRequestsAvailable: false,
+        closedPullRequestsAvailable: false,
+      },
+      "GH_PR_SAMPLE_MISSING",
+    ],
     [{ dryRunStatus: 1 }, "GH_FEATURE_BRANCH_PUSH_REJECTED"],
     [{ afterRefPresent: true }, "GH_DRY_RUN_REF_MUTATED"],
   ] satisfies Array<[FixtureOptions, string]>)("fails closed for %j", (options, expectedOutcome) => {
     expect(githubShellAccess(fixtureRun(options))).toEqual({ ok: false, outcome: expectedOutcome });
   });
 
+  it("falls back to a closed PR when no open PR is available", () => {
+    expect(githubShellAccess(fixtureRun({ openPullRequestsAvailable: false }))).toMatchObject({
+      ok: true,
+      outcome: "GH_SHELL_ACCESS_READY",
+      sampledPullRequest: 123,
+    });
+  });
+
   it("keeps live provider calls behind an explicit opt-in", () => {
-    expect(providerAccessAuthorized(["node", "script.mjs"], {})).toBe(false);
-    expect(providerAccessAuthorized(["node", "script.mjs", "--allow-provider"], {})).toBe(true);
-    expect(providerAccessAuthorized(["node", "script.mjs"], { ALLOW_GITHUB_SHELL_ACCESS: "true" })).toBe(true);
+    const environment = { NODE_ENV: "test" } satisfies NodeJS.ProcessEnv;
+
+    expect(providerAccessAuthorized(["node", "script.mjs"], environment)).toBe(false);
+    expect(providerAccessAuthorized(["node", "script.mjs", "--allow-provider"], environment)).toBe(true);
+    expect(
+      providerAccessAuthorized(["node", "script.mjs"], {
+        ...environment,
+        ALLOW_GITHUB_SHELL_ACCESS: "true",
+      }),
+    ).toBe(true);
   });
 
   it("retries bounded transient failures but not authorization failures", () => {
@@ -165,5 +243,12 @@ describe("GitHub shell control-plane acceptance", () => {
     );
     expect(authorization.status).toBe(1);
     expect(authorizationAttempts).toBe(1);
+  });
+
+  it("bounds a stalled provider subprocess", () => {
+    const result = shellRun(process.execPath, ["-e", "setTimeout(() => {}, 250)"], process.cwd(), 25);
+
+    expect(result.status).not.toBe(0);
+    expect(result.error?.message).toMatch(/ETIMEDOUT|timed out|timeout/iu);
   });
 });
