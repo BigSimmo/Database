@@ -67,6 +67,8 @@ type IndexRow = {
   counterparties: string[];
   termIds: string[];
   resolved: boolean;
+  /** Verbatim row text, carried so the reverse direction has wording too. */
+  note: string;
 };
 
 type InteractionIndexShape = {
@@ -202,7 +204,10 @@ export function evaluateMedicationInteractions(
     for (const row of entry.rows) {
       for (const counterpartySlug of row.counterparties) {
         if (!patient.has(counterpartySlug)) continue;
-        interactions.push(interactionFromRow(slug, row, counterpartySlug, sourceRows[row.rowIndex]?.val ?? ""));
+        // Prefer the live record's wording; fall back to the indexed copy when no
+        // record was supplied. The two are kept identical by
+        // `check:medication-interactions`, which fails on a stale artefact.
+        interactions.push(interactionFromRow(slug, row, counterpartySlug, sourceRows[row.rowIndex]?.val || row.note));
       }
     }
   }
@@ -215,7 +220,11 @@ export function evaluateMedicationInteractions(
     if (!reverseEntry) continue;
     for (const row of reverseEntry.rows) {
       if (!row.counterparties.includes(slug)) continue;
-      interactions.push(interactionFromRow(patientSlug, row, patientSlug, "", true));
+      // The reverse row belongs to the PATIENT's medication, whose record this
+      // caller does not hold — so its wording can only come from the index. It
+      // used to be passed as "", which rendered a drug name and a severity chip
+      // with nothing underneath explaining either.
+      interactions.push(interactionFromRow(patientSlug, row, patientSlug, row.note, true));
     }
   }
 

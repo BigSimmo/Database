@@ -38,6 +38,27 @@ describe("evaluateMedicationInteractions", () => {
     expect(result.highestTone).toBe("danger");
   });
 
+  it("gives a reverse-only match its wording, not just a name and a severity", () => {
+    // Buprenorphine/naloxone's own rows never name naltrexone; naltrexone's row
+    // names it. The caller holds only the viewed drug's record, so this text can
+    // come from nowhere but the index — and it used to be passed as "", leaving a
+    // CRITICAL alert with nothing underneath explaining it.
+    const result = evaluateMedicationInteractions("buprenorphine-naloxone", ["naltrexone"]);
+    const reverse = result.interactions.find((item) => item.counterpartySlug === "naltrexone");
+    expect(reverse?.severity).toBe("critical");
+    expect(reverse?.note).toMatch(/Opioid analgesia is antagonised/i);
+  });
+
+  it("prefers the live record's wording over the indexed copy when both exist", () => {
+    const record = getMedicationRecord("sertraline");
+    const withRecord = evaluateMedicationInteractions("sertraline", ["ibuprofen"], record);
+    const withoutRecord = evaluateMedicationInteractions("sertraline", ["ibuprofen"]);
+    // Same text either way while the artefact is fresh — `check:medication-interactions`
+    // is what keeps that true — but the record is the authority when supplied.
+    expect(withRecord.interactions[0]?.note).toBe(withoutRecord.interactions[0]?.note);
+    expect(withoutRecord.interactions[0]?.note).toContain("NSAIDs");
+  });
+
   it("keeps missing interaction data incomplete instead of green", () => {
     const result = evaluateMedicationInteractions("not-a-real-drug", ["sertraline"]);
     expect(result.dataAvailable).toBe(false);
