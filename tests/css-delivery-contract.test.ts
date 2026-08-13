@@ -12,7 +12,8 @@ describe("cold-load CSS and font delivery", () => {
 
     expect(globals).toContain('@source not "./mockups";');
     expect(globals).toContain('@source not "../components/**/*mockup*";');
-    expect(mockups).toContain('@import "tailwindcss/utilities.css" layer(utilities) source(none) important;');
+    expect(mockups).toContain('@import "tailwindcss/utilities.css" layer(utilities) source(none);');
+    expect(mockups).not.toMatch(/source\(none\)\s+important/);
     expect(mockups).toContain('@reference "../globals.css";');
     expect(mockups).toContain('@source "../";');
     expect(mockups).toContain('@source "../../components";');
