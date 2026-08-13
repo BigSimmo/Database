@@ -1,3 +1,5 @@
+import { isDeliverableVerifiedUnit, type VerifiedUnit } from "@/lib/answer-stream-contract";
+
 export type PublicAnswerProgressStage =
   | "scoping"
   | "retrieving"
@@ -18,6 +20,9 @@ export type PublicAnswerProgressEvent = {
   australianSourceCount?: number;
   waSourceCount?: number;
   elapsedMs?: number;
+  /** #100: optional verified unit (already governed + client-trimmed server-side).
+   * Old clients ignore it; it only crosses the boundary when it validates. */
+  verifiedUnit?: VerifiedUnit;
 };
 
 function safeProgressNumber(value: unknown) {
@@ -86,9 +91,14 @@ export function toPublicAnswerProgressEvent(event: unknown): PublicAnswerProgres
       return null;
   }
 
+  // The verified unit crosses the boundary only when it passes the stream contract's
+  // structural validation; a malformed or oversized unit is dropped, never repaired.
+  const verifiedUnit = isDeliverableVerifiedUnit(value.verifiedUnit) ? value.verifiedUnit : undefined;
+
   return {
     stage,
     message,
+    ...(verifiedUnit === undefined ? {} : { verifiedUnit }),
     ...(resultCount === undefined ? {} : { resultCount }),
     ...(selectedContextCount === undefined ? {} : { selectedContextCount }),
     ...(australianSourceCount === undefined ? {} : { australianSourceCount }),

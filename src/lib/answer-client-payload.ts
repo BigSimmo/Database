@@ -53,7 +53,9 @@ const sourceFieldPolicy = {
   images: "server",
 } as const satisfies Record<keyof SearchResult, "client" | "server">;
 
-function trimSourceForClient(source: SearchResult): SearchResult {
+/** Exported for the verified evidence preview (#100), which must cross the route
+ * boundary through the exact same trim as the final payload — never a copy of it. */
+export function trimSourceForClient(source: SearchResult): SearchResult {
   const trimmed = Object.fromEntries(
     (Object.keys(sourceFieldPolicy) as Array<keyof SearchResult>)
       .filter((key) => sourceFieldPolicy[key] === "client" && key in source)

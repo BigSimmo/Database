@@ -246,6 +246,8 @@ import {
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
+import { buildEvidencePreviewUnit } from "@/lib/answer-preview";
+import type { VerifiedUnit } from "@/lib/answer-stream-contract";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { buildRetrievalIntent, selectRetrievalEvidence } from "@/lib/retrieval-selection";
 import { resultsHaveReleaseRankScore, stabilizeReleasedSearchOrder } from "@/lib/released-search-order";
@@ -503,6 +505,8 @@ export type AnswerProgressEvent = {
   model?: string | null;
   reason?: string;
   smartApiPlan?: SmartRagApiPlan;
+  /** #100: governed, client-trimmed verified unit riding the progress event (flag-gated). */
+  verifiedUnit?: VerifiedUnit;
 };
 
 type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
@@ -2784,6 +2788,13 @@ async function answerQuestionWithScopeUncoalesced(
     smart_api_retrieval_intent: plan.answerPlan.retrievalIntent,
     smart_api_source_selection: plan.answerPlan.sourceSelection,
   });
+  // #100 Phase 1 (flag-gated, default off): the retrieval-complete verified evidence
+  // preview. Built through the same governance refusal and client-source trim as the
+  // final payload; when the gates refuse, the field is simply absent. Emission changes
+  // nothing about retrieval, ranking, generation, or the final answer.
+  const evidencePreviewUnit = env.RAG_INCREMENTAL_EVIDENCE_PREVIEW
+    ? buildEvidencePreviewUnit({ results: answerInputResults, relevance })
+    : null;
   await args.onProgress?.({
     stage: "retrieved",
     message: `${relevance.label}: retrieved ${results.length} candidate source${results.length === 1 ? "" : "s"}.`,
@@ -2793,6 +2804,7 @@ async function answerQuestionWithScopeUncoalesced(
     weakSourceCount: relevance.weakSourceCount,
     timingMs: searchLatencyMs,
     relevance,
+    ...(evidencePreviewUnit ? { verifiedUnit: evidencePreviewUnit } : {}),
   });
   await args.onProgress?.({
     stage: "routing",
