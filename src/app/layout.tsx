@@ -10,6 +10,7 @@ import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/l
 import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import { AppAnnouncements } from "@/components/app-announcements";
 import { OverlayRoot } from "@/components/ui/overlay-root";
+import { PRIVATE_APP_ROBOTS_METADATA } from "@/lib/crawler-policy";
 import "./globals.css";
 
 /**
@@ -55,6 +56,7 @@ const baseMetadata: Metadata = {
   applicationName: "Clinical KB",
   title: "Clinical KB",
   description: "Private medical guideline RAG knowledge base",
+  robots: PRIVATE_APP_ROBOTS_METADATA,
   appleWebApp: {
     capable: true,
     title: "Clinical KB",

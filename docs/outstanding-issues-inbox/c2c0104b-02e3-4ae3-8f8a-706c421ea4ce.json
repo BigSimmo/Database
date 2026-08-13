@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "c2c0104b-02e3-4ae3-8f8a-706c421ea4ce",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#244",
+    "outcome": "Standing caution retired into the code it protects, and now additionally pinned by a test. The forced-colours comment in src/app/ckb-v2-tokens.css states that trimming the three-selector group silently drops dark high-contrast mode, and tests/design-token-contract.test.ts asserts the complete selector group. Both verified present on main 2026-08-13."
+  }
+}

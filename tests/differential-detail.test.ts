@@ -249,8 +249,35 @@ describe("getDifferentialDetailContext", () => {
     const context = getDifferentialDetailContext(delirium!);
     expect(context.comparePresentation?.slug).toBe("acute-confusion-encephalopathy");
     expect(context.knownRelatedSlugs).toContain("akathisia");
+    expect(context.relatedMapDetails.akathisia).toMatchObject({
+      slug: "akathisia",
+      title: "Akathisia",
+    });
+    expect(context.relatedMapDetails.akathisia?.clinicalHinge.length).toBeGreaterThan(0);
+    expect(context.relatedMapDetails.akathisia?.safetySummary.length).toBeGreaterThan(0);
     expect(context.source.version.length).toBeGreaterThan(0);
     expect(context.source.sourceStatus).toBe("review_due");
+  });
+
+  it("omits incomplete owner-catalog clinical summaries instead of falling back across owner scope", () => {
+    const delirium = getDifferentialRecord("delirium");
+    const akathisia = getDifferentialRecord("akathisia");
+    expect(delirium).not.toBeNull();
+    expect(akathisia).not.toBeNull();
+
+    const context = getDifferentialDetailContext(delirium!, {
+      records: [
+        {
+          ...akathisia!,
+          clinicalHinge: "",
+          safetySnapshot: { ...akathisia!.safetySnapshot, summary: "" },
+        },
+      ],
+      presentations: [],
+    });
+
+    expect(context.knownRelatedSlugs).toContain("akathisia");
+    expect(context.relatedMapDetails.akathisia).toBeUndefined();
   });
 
   it("produces catalog-consistent context for every record", () => {
@@ -260,6 +287,7 @@ describe("getDifferentialDetailContext", () => {
       expect(context.comparePresentation, `${record.slug} should belong to a presentation`).not.toBeNull();
       for (const slug of context.knownRelatedSlugs) {
         expect(catalogSlugs.has(slug), `related slug ${slug} on ${record.slug}`).toBe(true);
+        expect(context.relatedMapDetails[slug]?.slug, `map detail ${slug} on ${record.slug}`).toBe(slug);
       }
       for (const slug of Object.values(context.termLinks)) {
         expect(getDifferentialRecord(slug), `term link ${slug} from ${record.slug}`).not.toBeNull();
