@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "id": "155e96f9-c111-4d18-b4d8-5f83b3f79907",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#118",
+    "summary": "Adopt the remaining visual baselines; Lighthouse now gates regressions",
+    "detail": "Lighthouse half resolved in PR #1915: authorized CI refresh run 31697669596 on current main produced all 10 route/strategy cells with one pinned HeadlessChrome/151 identity. The reviewed artifact was committed, lighthouse-budget.json enforce is true, the job no longer uses continue-on-error, merge_group coverage is restored, and pr-required now fails on a selected Lighthouse failure. The 2026-08-08 and 2026-08-13 complete baselines stayed within tolerance; the latter puts mobile LCP at 2357-2388 ms and Therapy is no longer an outlier. This relative local-production gate does not close #117 deployed-origin LCP work. Remaining #118 scope: adopt the CI-generated Linux visual snapshots and promote visual-baseline only after design-owner review and stable reruns. Stop: never use developer-machine snapshots or let a workflow update its own gate.",
+    "source": "PR #1915; CI run 31697669596 artifact lighthouse-baseline-refresh-31697669596"
+  }
+}

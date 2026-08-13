@@ -31,6 +31,7 @@ import {
   openAISafetyIdentifier,
   type OpenAITextResult,
 } from "@/lib/openai";
+import { embeddingTelemetryFields, prefetchEmbedding } from "@/lib/rag/rag-embedding-prefetch";
 import {
   SOURCE_ONLY_EMBEDDING_SKIP_REASON,
   allowsAutoDegrade,
@@ -1770,6 +1771,13 @@ export async function searchChunksWithTelemetry(
   }
 
   let expandedQuery = normalizeRetrievalVariant([expandClinicalQuery(retrievalQuery), ...ragAliasExpansions].join(" "));
+  const { promise: prefetchedEmbedding, query: prefetchedEmbeddingQuery } = prefetchEmbedding(
+    !(sourceOnlyRetrieval || args.lexicalOnly),
+    expandedQuery,
+    (options) => embedTextWithTelemetry(expandedQuery, options),
+    { signal: args.signal },
+  );
+  if (prefetchedEmbedding) telemetry.embedding_prefetched = true;
   const textSearchQuery = queryVariants[0] ?? buildClinicalTextSearchQuery(retrievalQuery);
   const candidateMultiplier = queryClassification.queryClass === "comparison" ? 7 : 5;
   const candidateFloor = queryClassification.queryClass === "comparison" ? 72 : 48;
@@ -2054,7 +2062,10 @@ export async function searchChunksWithTelemetry(
   embeddingStartedAt = Date.now();
   let embeddingResult: Awaited<ReturnType<typeof embedTextWithTelemetry>> | null = null;
   try {
-    embeddingResult = await embedTextWithTelemetry(expandedQuery, { signal: args.signal });
+    embeddingResult = await (prefetchedEmbeddingQuery === expandedQuery && prefetchedEmbedding
+      ? prefetchedEmbedding
+      : embedTextWithTelemetry(expandedQuery, { signal: args.signal }));
+    throwIfAborted(args.signal);
   } catch (error) {
     throwIfAborted(args.signal);
     // In auto mode a failed embedding call (e.g. quota exhausted) degrades to the lexical
@@ -2749,6 +2760,7 @@ async function answerQuestionWithScopeUncoalesced(
     text_candidate_count: search.telemetry.text_candidate_count ?? null,
     text_fast_path_reason: search.telemetry.text_fast_path_reason ?? null,
     embedding_skip_reason: search.telemetry.embedding_skip_reason ?? null,
+    embedding_prefetched: search.telemetry.embedding_prefetched ?? false,
     vector_candidate_count: search.telemetry.vector_candidate_count ?? null,
     embedding_field_count: search.telemetry.embedding_field_count ?? null,
     retrieval_provenance_counts: search.telemetry.retrieval_provenance_counts ?? null,
@@ -2875,7 +2887,7 @@ async function answerQuestionWithScopeUncoalesced(
           text_candidate_count: search.telemetry.text_candidate_count,
           text_fast_path_reason: search.telemetry.text_fast_path_reason,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
-          embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          ...embeddingTelemetryFields(search.telemetry),
           vector_candidate_count: search.telemetry.vector_candidate_count,
           embedding_field_count: search.telemetry.embedding_field_count,
           retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
@@ -2945,7 +2957,7 @@ async function answerQuestionWithScopeUncoalesced(
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
-          embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          ...embeddingTelemetryFields(search.telemetry),
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
@@ -3005,7 +3017,7 @@ async function answerQuestionWithScopeUncoalesced(
       text_candidate_count: search.telemetry.text_candidate_count,
       text_fast_path_reason: search.telemetry.text_fast_path_reason,
       embedding_latency_ms: search.telemetry.embedding_latency_ms,
-      embedding_cache_hit: search.telemetry.embedding_cache_hit,
+      ...embeddingTelemetryFields(search.telemetry),
       vector_candidate_count: search.telemetry.vector_candidate_count,
       embedding_field_count: search.telemetry.embedding_field_count,
       retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
@@ -3144,7 +3156,7 @@ async function answerQuestionWithScopeUncoalesced(
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
-          embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          ...embeddingTelemetryFields(search.telemetry),
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
@@ -3434,7 +3446,7 @@ ${qualityRetryInstruction}`
         text_candidate_count: search.telemetry.text_candidate_count,
         text_fast_path_reason: search.telemetry.text_fast_path_reason,
         embedding_latency_ms: search.telemetry.embedding_latency_ms,
-        embedding_cache_hit: search.telemetry.embedding_cache_hit,
+        ...embeddingTelemetryFields(search.telemetry),
         vector_candidate_count: search.telemetry.vector_candidate_count,
         embedding_field_count: search.telemetry.embedding_field_count,
         retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
@@ -3735,7 +3747,7 @@ ${qualityRetryInstruction}`
       text_candidate_count: search.telemetry.text_candidate_count,
       text_fast_path_reason: search.telemetry.text_fast_path_reason,
       embedding_latency_ms: search.telemetry.embedding_latency_ms,
-      embedding_cache_hit: search.telemetry.embedding_cache_hit,
+      ...embeddingTelemetryFields(search.telemetry),
       vector_candidate_count: search.telemetry.vector_candidate_count,
       embedding_field_count: search.telemetry.embedding_field_count,
       retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
@@ -3884,7 +3896,7 @@ ${qualityRetryInstruction}`
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
-          embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          ...embeddingTelemetryFields(search.telemetry),
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
@@ -4252,7 +4264,7 @@ ${qualityRetryInstruction}`
           text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
           embedding_skipped: search.telemetry.embedding_skipped,
           embedding_latency_ms: search.telemetry.embedding_latency_ms,
-          embedding_cache_hit: search.telemetry.embedding_cache_hit,
+          ...embeddingTelemetryFields(search.telemetry),
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
           hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,

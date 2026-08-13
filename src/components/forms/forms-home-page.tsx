@@ -83,7 +83,7 @@ const commonTasks: ModeHomePill[] = [
 
 export function FormsHomePage({ defaultFormSlug = null }: { defaultFormSlug?: string | null }) {
   const taskCards = buildTaskCards(defaultFormSlug);
-  const registry = useRegistryRecords("form");
+  const registry = useRegistryRecords("form", { view: "summary" });
   const verifiedCount = countVerifiedRegistryRecords(registry);
   const registryReady = registry.status === "ready" || registry.status === "refetching";
   const hasRegistryRecords = registryReady && registry.total > 0;
