@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "9a3ea3c5-31ed-4a89-a035-e6d364b906bf",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Ship compact compressed registry projections and verify live transfer",
+    "detail": "Next: land the existing view=summary/search and gzip implementation, deploy it, then verify /api/registry/records on the exact deployment SHA returns counts-only home responses and compressed compact search responses. Why: the live full payloads measured on 2026-08-13 were 482786 bytes for Forms and 1096689 bytes for Services and were downloaded by count/search-only consumers without Content-Encoding. The local projections reduce raw search data by about 91.3% and 82.0%, with gzip responses about 4.9 KB and 27.3 KB. Context: latency and Sentry review. Owner: assistant. Confidence: high. Depends on: #013 and #016. Gate: focused registry/consumer tests, production build and bundle budget, then post-deploy headers/bytes and live LCP rerun. Stop: do not close from local-only payload measurements or deploy without explicit authorization.",
+    "source": "session 2026-08-13 latency review; src/app/api/registry/records/route.ts"
+  }
+}
