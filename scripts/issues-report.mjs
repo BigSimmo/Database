@@ -84,13 +84,30 @@ export function buildIssuesReport(markdown, source) {
         added: cells[6],
       };
     });
+  // Report each queue row's prose from the cited row's own Detail cell rather
+  // than the queue's Outcome cell. They were independent copies of the same
+  // prose and drifted, and since this report is what /issues reads back, the
+  // drifted copy was the one acted on — the #231 queue cell spent days pointing
+  // at an approach that row had already refuted. The queue cell cannot be
+  // re-corrected in place (no inbox request type reaches it, and
+  // check:ledger-write-discipline rejects a direct edit), so the duplication is
+  // removed at the point of use instead. Order, acuity, capability, when and
+  // estimate stay from the queue, which is the only place they exist.
+  const detailById = new Map(openRows.map((row) => [row.id, row.detail]));
+  const derived = queue.map((row) => {
+    // A composite ID(s) cell has no single row to speak for it; keep the queue
+    // text there rather than arbitrarily picking one of the cited rows.
+    if (row.ids.length !== 1) return row;
+    const detail = detailById.get(row.ids[0]);
+    return detail ? { ...row, outcome: detail } : row;
+  });
   return {
     source,
-    counts: { open: openRows.length, recommended: queue.length },
-    priorityBlockers: queue.filter((row) => row.acuity === "A1"),
-    recommended: queue,
+    counts: { open: openRows.length, recommended: derived.length },
+    priorityBlockers: derived.filter((row) => row.acuity === "A1"),
+    recommended: derived,
     open: openRows,
-    agentSafeWins: classifyAgentSafeWins(queue),
+    agentSafeWins: classifyAgentSafeWins(derived),
   };
 }
 
