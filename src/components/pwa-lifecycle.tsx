@@ -298,7 +298,10 @@ export function PwaLifecycle() {
           setActivatedUpdateReady(true);
         }
       });
-    } catch {}
+    } catch {
+      // Swallowing is correct: BroadcastChannel is unsupported in some embedded/private
+      // browsing contexts; cross-tab update notices are a progressive enhancement.
+    }
 
     const exposeWaitingWorker = (worker: ServiceWorker | null) => {
       if (!cancelled && worker && !updateDismissedRef.current) setWaitingWorker(worker);
@@ -338,7 +341,10 @@ export function PwaLifecycle() {
         setActivatedUpdateReady(true);
         try {
           broadcastChannel?.postMessage("sw-updated");
-        } catch {}
+        } catch {
+          // Swallowing is correct: postMessage throws once the channel is closed during
+          // teardown; the local setActivatedUpdateReady above already handled this tab.
+        }
       }
     };
 
@@ -398,7 +404,10 @@ export function PwaLifecycle() {
       registrationRef.current = null;
       try {
         broadcastChannel?.close();
-      } catch {}
+      } catch {
+        // Swallowing is correct: close() on an already-closed channel throws in some
+        // browsers; there is nothing to recover during effect cleanup.
+      }
     };
   }, []);
 
