@@ -51,6 +51,15 @@ Mitigations specific to the interaction surface:
   never mentions produced no interactions, zero unresolved rows and a confident
   green. The uncovered drugs are now named on screen, with the absence of a
   warning explicitly stated not to be evidence of safety.
+- One narrow case moves the other way and the reviewer should know it. A row
+  whose entire text is `NONE.` — `triamcinolone` and `riboflavin` today — used to
+  parse as an unreadable severity and hold the drug at grey, the tool claiming it
+  could not read a row that says exactly one thing. Such a row is now honoured,
+  so those two drugs became eligible for green on the strength of the catalogue's
+  own explicit statement. Restricted to tokens asserting **absence** (`NONE`,
+  `SAFE`): a bare `CRITICAL.` names a severity without naming what interacts, is
+  genuinely unreadable, and still resolves to grey. Pinned both ways in
+  `tests/medication-interaction-lexicon-coverage.test.ts`.
 - Every alert renders the **verbatim** catalogue row text; the tool never
   paraphrases a clinical statement.
 - The medication picker accepts catalogue drugs only, so a clinician cannot type
@@ -115,13 +124,13 @@ of that kind is a question for the clinical review.
 
 Residual risk the reviewer should weigh: the lexicon is hand-curated, so a missed
 term is a false negative. It is fail-safe by construction (unresolved → grey, not
-green) but the resolution rate is not 100% — currently **360 of 523** interaction
-rows are fully read, leaving 144 of the catalogue's medications holding at grey
+green) but the resolution rate is not 100% — currently **362 of 523** interaction
+rows are fully read, leaving 142 of the catalogue's medications holding at grey
 rather than ever showing green. `tests/medication-interaction-lexicon-coverage.test.ts`
 ratchets both that figure and the underlying drug-match count (422 rows) so
 neither can silently regress.
 
-Read the 360 carefully, because it went **down** from 400 before it came back up. A row
+Read the 362 carefully, because it went **down** from 400 before it came back up. A row
 naming an unenumerable mechanism ("CYP3A4 inhibitors (Clarithromycin,
 Ketoconazole)") used to count as resolved once any one named drug matched,
 which implied the whole mechanism class had been checked. It is now unresolved,

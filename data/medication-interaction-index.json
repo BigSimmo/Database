@@ -3,10 +3,10 @@
   "generatedFrom": "data/medications-snapshot.json",
   "sourceRowCount": 523,
   "stats": {
-    "resolvedRows": 360,
-    "unresolvedRows": 163,
+    "resolvedRows": 362,
+    "unresolvedRows": 161,
     "rowsWithCatalogueTarget": 423,
-    "medicationsWithUnresolvedRows": 144
+    "medicationsWithUnresolvedRows": 142
   },
   "names": {
     "acamprosate": "Acamprosate",
@@ -2757,14 +2757,14 @@
         {
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
-          "severity": "unknown",
+          "severity": "none",
           "counterparties": [],
           "termIds": [],
-          "resolved": false,
+          "resolved": true,
           "note": "NONE."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "dulaglutide": {
       "rows": [
@@ -9453,14 +9453,14 @@
         {
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
-          "severity": "unknown",
+          "severity": "none",
           "counterparties": [],
           "termIds": [],
-          "resolved": false,
+          "resolved": true,
           "note": "NONE."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "selenium": {
       "rows": [

@@ -28,6 +28,30 @@ const SEVERITY_BY_TOKEN: Record<string, string> = {
 };
 
 const SEVERITY_PATTERN = /^\s*([A-Z][A-Z \-/]{2,30}?)\s*[—–-]\s*([\s\S]*)$/;
+
+/**
+ * A row whose entire content is a severity token asserting that nothing
+ * interacts: today `triamcinolone` and `riboflavin`, both written "NONE.".
+ *
+ * `SEVERITY_PATTERN` needs a dash, so these parsed as severity `unknown` and
+ * counted as unresolved — the tool reporting it could not read a row that says
+ * exactly one thing, and holding both drugs at "needs manual review" over it.
+ *
+ * Restricted to tokens that assert ABSENCE, which is the whole safety argument.
+ * A bare "CRITICAL." would name a severity without naming what interacts, and
+ * that genuinely is unreadable; it must stay unresolved. Only a declaration that
+ * there is nothing to find can be honoured with no counterparty attached.
+ */
+const ABSENCE_TOKENS = new Set(["NONE", "SAFE"]);
+const BARE_TOKEN_PATTERN = /^\s*([A-Za-z]{3,12})\s*[.!]?\s*$/;
+
+function bareAbsenceDeclaration(value: string): string | null {
+  const match = BARE_TOKEN_PATTERN.exec(value.replace(/\*\*/g, ""));
+  if (!match) return null;
+  const token = match[1].toUpperCase();
+  if (!ABSENCE_TOKENS.has(token)) return null;
+  return SEVERITY_BY_TOKEN[token] ?? null;
+}
 type IndexCounterparty = { slug: string; name: string; via: string };
 type IndexRow = {
   rowKey: string;
@@ -199,7 +223,8 @@ function main(): void {
         sourceRowCount += 1;
         const value = row.val ?? "";
         const { severityToken, segments } = counterpartySegments(value);
-        const severity = severityToken ? (SEVERITY_BY_TOKEN[severityToken] ?? "unknown") : "unknown";
+        const bareAbsence = bareAbsenceDeclaration(value);
+        const severity = bareAbsence ?? (severityToken ? (SEVERITY_BY_TOKEN[severityToken] ?? "unknown") : "unknown");
         const counterparties = new Map<string, IndexCounterparty>();
         const termIds = new Set<string>();
         let sawClassifiableTerm = false;
@@ -232,7 +257,10 @@ function main(): void {
         }
 
         const hasUnenumeratedMechanism = Array.from(termIds).some((id) => UNENUMERATED_MECHANISM_TERM_IDS.has(id));
-        const resolved = sawClassifiableTerm && !hasUnenumeratedMechanism;
+        // A bare absence declaration is fully read despite naming no party —
+        // that is what it asserts. Every other route still requires having
+        // classified something.
+        const resolved = bareAbsence !== null || (sawClassifiableTerm && !hasUnenumeratedMechanism);
         if (resolved) resolvedRows += 1;
         else unresolvedRows += 1;
         if (counterparties.size > 0) rowsWithCatalogueTarget += 1;

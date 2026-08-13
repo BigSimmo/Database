@@ -64,7 +64,7 @@ describe("interaction lexicon coverage", () => {
     // recorded here and in the PR. Track raw drug-matching separately, which
     // rose 381 → 417 over the same period and is the number that must never
     // fall without explanation.
-    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(360);
+    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(362);
     expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(422);
     expect(index.sourceRowCount).toBeGreaterThanOrEqual(523);
   });
@@ -216,6 +216,46 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
       }
     }
     expect(misses).toEqual([]);
+  });
+
+  it("reads a bare NONE row rather than reporting it unreadable", () => {
+    // triamcinolone and riboflavin each carry one row whose entire text is
+    // "NONE.". The severity parser wants a dash, so both parsed as `unknown`
+    // and counted unresolved — the tool claiming it could not read a row that
+    // says exactly one thing, and holding both drugs at "needs manual review"
+    // over it. Safe direction, but still wrong.
+    for (const slug of ["triamcinolone", "riboflavin"]) {
+      const entry = index.bySlug[slug];
+      expect(entry, slug).toBeDefined();
+      expect(
+        entry.rows.every((row) => row.resolved),
+        `${slug} rows should resolve`,
+      ).toBe(true);
+      expect(
+        entry.rows.some((row) => row.severity === "none"),
+        `${slug} should carry severity none`,
+      ).toBe(true);
+      expect(entry.unresolvedRowCount, `${slug} should not be held at grey`).toBe(0);
+    }
+  });
+
+  it("only lets a declaration of ABSENCE resolve without classifying anything", () => {
+    // The guard on the rule above. Resolving a row that named no counterparty
+    // and matched no term is only defensible when the row asserts there is
+    // nothing to find. A bare "CRITICAL." names a severity without naming what
+    // interacts — genuinely unreadable, and it must stay unresolved. This fails
+    // if that carve-out is ever widened past absence.
+    const bare = Object.entries(index.bySlug).flatMap(([slug, entry]) =>
+      entry.rows
+        .filter((row) => row.resolved && row.counterparties.length === 0 && row.termIds.length === 0)
+        .map((row) => ({ slug, row })),
+    );
+    expect(bare.length).toBeGreaterThan(0);
+    for (const { slug, row } of bare) {
+      expect(["none", "safe"], `${slug} row ${row.rowIndex} resolved on severity "${row.severity}"`).toContain(
+        row.severity,
+      );
+    }
   });
 
   it("has no lexicon term that can never fire", () => {
