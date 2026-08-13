@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "4b95979b-65e8-474d-bc53-6f69e7eb5acf",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Two catalogue records are both named Warfarin and share no interaction rows, so which one a clinician opens changes the warnings",
+    "detail": "data/medications-snapshot.json holds warfarin-vka and warfarin-anticoagulant, both displayed as 'Warfarin', both class Anticoagulant / subclass Vitamin K Antagonist. They carry three interaction rows each with ZERO in common, so the alerts a clinician sees depend on which record they happened to open, and nothing on screen distinguishes them. A lexicon class term resolves to both. This is a catalogue DATA defect, not a lexicon fault - merging, deleting one, or relabelling them is a clinical content decision, which is why it is reported rather than patched. Surfaced automatically by duplicateCatalogueNames in scripts/build-medication-lexicon-report.ts, which compares the row sets and states the divergence rather than asking about it, and pinned by a test in tests/medication-interaction-lexicon-coverage.test.ts that goes red when the records are reconciled so the flag can be retired with it. Next: a named clinical owner decides the disposition. Stop: do not de-duplicate by display name in the report or the UI - that hides the divergence rather than resolving it.",
+    "source": "PR #1923; docs/medication-interaction-lexicon-review.md flag section; tests/medication-interaction-lexicon-coverage.test.ts"
+  }
+}

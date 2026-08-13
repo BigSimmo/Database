@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "f6e5fe24-02f4-4a49-beea-2f8bf20e0a0e",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#301",
+    "outcome": "Merged into #292 — the same failure mode (two sessions build the same queued item because the ledger has no claim mechanism), recorded twice from two incidents. #292 carries both the in-page-nav duplication (PR #1766 merged, #1767 closed) and the #262 part-3 ratchet collision, plus the understated-GATES.md-row contribution this row identified."
+  }
+}

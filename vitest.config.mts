@@ -1,4 +1,5 @@
 import { vitestCacheDirectory } from "./scripts/test-cache-path.mjs";
+import { COVERAGE_INCLUDE_GLOBS } from "./scripts/coverage-contract.mjs";
 
 const liveProviderTests = process.env.ALLOW_PROVIDER_TESTS === "true";
 
@@ -24,9 +25,15 @@ const config = {
       // mockups, scripts, the worker, and Supabase Edge Functions. The existing
       // core threshold remains scoped to its historical files so expanding the
       // inventory cannot weaken that regression floor.
-      include: ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}", "worker/**/*.ts", "supabase/functions/**/*.ts"],
+      include: [...COVERAGE_INCLUDE_GLOBS],
       exclude: ["src/lib/supabase/database.types.ts"],
       thresholds: {
+        // Whole-repository floors sit below the 2026-08-13 current-main measurement
+        // (54.41/51.51/56.37/55.79) but close the previous no-global-floor gap.
+        statements: 52,
+        branches: 49,
+        functions: 54,
+        lines: 53,
         // Broad regression floor. Re-ratcheted 2026-07-29: the previous values
         // (48/38/43/50) had drifted 14-17pp below measured coverage
         // (63.99/55.29/57.6/66.19), so a change could delete a large amount of

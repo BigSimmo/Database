@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "0d8735c6-1950-4fef-8880-007063bbf662",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "The recommended queue's Outcome cells are now unrendered dead text",
+    "detail": "**Residual of the queue-misdirection fix (PR #1902).** Both consumers — .claude/hooks/issues-surface.sh and scripts/issues-report.mjs — now derive each queue row's prose from the cited row's own Detail cell, so the queue's Outcome column no longer reaches any reader through tooling. That killed the drift class: the #231 cell had spent days telling every session to pursue an approach that row itself recorded as refuted, and re-correcting it was impossible because no inbox request type reaches the queue and check:ledger-write-discipline rejects a direct canonical edit. **What remains is cosmetic but real:** the stale prose is still sitting in the file, so a human who opens docs/outstanding-issues.md can still read and act on it. **Next:** drop the Outcome column from the queue table (or replace each cell with a pointer to the row), which is a canonical ledger edit and therefore has to go through a deliberate reconciliation branch rather than an inbox request. **Stop:** do not delete the queue table itself — order, acuity, capability, when and estimate exist nowhere else.",
+    "source": "PR #1902; session 2026-08-13"
+  }
+}

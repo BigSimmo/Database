@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "9fded706-51d9-4d8f-9aa4-c57a6b0ac7aa",
+  "createdOn": "2026-08-14",
+  "action": "can\u0063el",
+  "payload": {
+    "requestId": "04470779-8c8d-4c90-ad04-bc6d613fd73a",
+    "reason": "Superseded by merged request 24586190-0756-488d-941e-70a970c13cce, whose reviewed detail includes the corrected Next 16.3 child-config early-return behavior and explicit before/after hash verification."
+  }
+}

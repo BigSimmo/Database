@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "439cd410-9311-4d22-8888-9fc15948fea0",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#198",
+    "outcome": "Retired to the runbook (docs/operator-backlog.md disaster-recovery checklist). See #196 for the rationale."
+  }
+}

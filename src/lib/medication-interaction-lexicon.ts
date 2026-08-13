@@ -175,11 +175,42 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     select: { classes: ["Steroid"] },
   },
   {
-    id: "z-drugs",
-    surfaces: ["z-drugs", "z drugs", "zolpidem-type hypnotics"],
+    // Not a class — a name alias, and the most consequential one in the file.
+    //
+    // The catalogue record is "Lithium carbonate (IR/SR)", but every row that
+    // names lithium as a counterparty just says "Lithium". Drug-name matching
+    // derives its surfaces from the record name, and `stripDosageForm` only
+    // removes bare trailing tokens, so a parenthesised "(IR/SR)" survives and
+    // the generated surfaces are "Lithium carbonate (IR/SR)" and friends —
+    // never "Lithium". The result was that lithium was named in eight HIGH
+    // rows and reachable from none of them: NSAIDs (diclofenac, meloxicam,
+    // naproxen), diuretics (frusemide, hydrochlorothiazide, indapamide),
+    // psyllium and iodine. In a psychiatry catalogue that is close to the worst
+    // possible drug to be silent about.
+    //
+    // Fixed here rather than by loosening `stripDosageForm`, because the
+    // generic first-word fallback that would catch this also matches "Sodium"
+    // in a row about sodium content, "Vitamin" against Vitamin K in the
+    // warfarin rows, and "Potassium" against hyperkalaemia prose. A name alias
+    // is precise, and unlike a matcher change it shows up in the review sheet
+    // for a clinician to confirm.
+    id: "lithium",
+    surfaces: ["lithium", "lithium carbonate"],
     kind: "catalogue",
-    select: { subclassIncludes: ["Z-Drug"] },
+    select: { slugs: ["lithium-carbonate-ir-sr"] },
   },
+  // No `z-drugs` term. It existed until the review sheet showed it firing on
+  // zero catalogue rows: nothing in the corpus says "Z-drugs", "zolpidem-type
+  // hypnotics" or even "hypnotics". Keeping a term that can never match implied
+  // z-drug coverage the tool does not have.
+  //
+  // Zolpidem and zopiclone ARE reachable in the catalogue, but they are named
+  // only through "CNS depressants" (10 rows) and "sedatives" (2 rows), both of
+  // which are deliberately `mechanism` terms — unenumerable, so those rows stay
+  // unresolved and the medication holds at grey rather than green. Enumerating
+  // them would turn a fail-safe grey into a confident red across a large and
+  // ill-defined class, which is a clinical decision, not a lexicon edit.
+  // Recorded in the review sheet's coverage section instead.
 ];
 
 const NON_CATALOGUE_TERMS: LexiconTerm[] = [
