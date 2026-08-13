@@ -1041,6 +1041,9 @@ export type RagAnswer = {
     context_pack_cache_hits?: number;
     answer_retry_count?: number;
     answer_retry_reasons?: string[];
+    /** Cache-version refresh plus answer-cache lookups before retrieval starts. These run
+     * inside the route budget but outside every retrieval phase timer. Additive. */
+    pre_retrieval_latency_ms?: number;
     retrieval_latency_ms?: number;
     routing_latency_ms?: number;
     search_latency_ms?: number;
