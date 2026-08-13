@@ -1760,6 +1760,21 @@ export async function searchChunksWithTelemetry(
   }
 
   let expandedQuery = normalizeRetrievalVariant([expandClinicalQuery(retrievalQuery), ...ragAliasExpansions].join(" "));
+  // Warm-up only: start the query embedding while the lexical stages run so the real call
+  // below usually resolves from the LRU / in-flight coalescing instead of paying a full
+  // provider round trip inside the route budget. The awaited call keeps its exact input
+  // (expandedQuery may still gain candidate-metadata terms — then this warm flight is
+  // simply unused), await point, and failure handling, so retrieval output is unchanged.
+  // No signal: an abandoned warm flight completing into the LRU is harmless.
+  if (!sourceOnlyRetrieval && !args.lexicalOnly) {
+    telemetry.embedding_prefetched = true;
+    // Promise.resolve + try/catch guard mocked or synchronous returns; a warm-up must never throw.
+    try {
+      void Promise.resolve(embedTextWithTelemetry(expandedQuery)).catch(() => undefined);
+    } catch {
+      // Warm-up only — the awaited embedding call below owns real failure handling.
+    }
+  }
   const textSearchQuery = queryVariants[0] ?? buildClinicalTextSearchQuery(retrievalQuery);
   const candidateMultiplier = queryClassification.queryClass === "comparison" ? 7 : 5;
   const candidateFloor = queryClassification.queryClass === "comparison" ? 72 : 48;

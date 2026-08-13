@@ -110,7 +110,7 @@ describe("RAG route deadlines", () => {
 describe("budget-aware generation deadlines (E-3b)", () => {
   it("pins the reserve and retry-floor constants", () => {
     expect(generationRecoveryReserveMs).toBe(2_000);
-    expect(minimumGenerationRetryMs).toBe(5_000);
+    expect(minimumGenerationRetryMs).toBe(20_000);
   });
 
   it("holds back the recovery reserve from generation timeouts", async () => {
@@ -135,10 +135,10 @@ describe("budget-aware generation deadlines (E-3b)", () => {
   it("gates generation retries on reserve + viability floor", async () => {
     vi.useFakeTimers();
     const deadline = createAnswerRouteDeadline({ routeMode: "fast", startedAt: Date.now() });
-    // 25_000 budget: allowed until remaining < 7_000 (2_000 reserve + 5_000 floor).
+    // 25_000 budget: allowed until remaining < 22_000 (2_000 reserve + 20_000 floor).
     expect(deadlineAllowsGenerationRetry(deadline)).toBe(true);
-    await vi.advanceTimersByTimeAsync(18_000);
-    expect(deadline.remainingMs()).toBe(7_000);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(deadline.remainingMs()).toBe(22_000);
     expect(deadlineAllowsGenerationRetry(deadline)).toBe(true);
     await vi.advanceTimersByTimeAsync(1);
     expect(deadlineAllowsGenerationRetry(deadline)).toBe(false);

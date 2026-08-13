@@ -4908,7 +4908,7 @@ describe("budget-aware generation deadlines", () => {
     vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
     // Burn 20_000ms of the 25_000ms fast budget inside the first attempt before it
     // resolves truncated: the 5_000ms left is below generationRecoveryReserveMs +
-    // minimumGenerationRetryMs (7_000ms), so the strong self-heal must be skipped
+    // minimumGenerationRetryMs (22_000ms), so the strong self-heal must be skipped
     // instead of spending the recovery reserve on a guaranteed-discard retry.
     const { answer, generateStructuredTextResult } = await lithiumTruncatedGenerationAnswer(20_000);
 
