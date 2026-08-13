@@ -57,7 +57,9 @@ describe("DifferentialStreamPage", () => {
 
     render(<DifferentialStreamPage stream="presentations" query="acute confusion" />);
 
-    const card = screen.getByTestId(`differential-stream-card-${firstCard!.slug}`);
+    const slug = firstCard!.href.split("/").at(-1) ?? "";
+    expect(slug).toBeTruthy();
+    const card = screen.getByTestId(`differential-stream-card-${slug}`);
     expect(within(card).getByRole("link", { name: "Open pathway" })).toHaveAttribute(
       "href",
       `${firstCard!.href}?q=acute+confusion`,
