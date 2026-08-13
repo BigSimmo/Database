@@ -7,7 +7,7 @@ import { resolveTsxCli } from "../scripts/resolve-tsx-cli.mjs";
 
 const created: string[] = [];
 afterEach(() => {
-  for (const path of created.splice(0)) rmSync(path, { recursive: true, force: true });
+  for (const path of created.splice(0)) rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 describe("resolveTsxCli", () => {

@@ -13,6 +13,12 @@ export type DifferentialStreamRelatedRef = {
   likelihood: DifferentialLikelihood;
 };
 
+export type DifferentialStreamPathwayRef = {
+  slug: string;
+  label: string;
+  sharedCandidateCount: number;
+};
+
 export type DifferentialStreamItem = {
   id: string;
   slug: string;
@@ -25,6 +31,8 @@ export type DifferentialStreamItem = {
   isMatch: boolean;
   score: number;
   related: DifferentialStreamRelatedRef[];
+  relatedPathways: DifferentialStreamPathwayRef[];
+  candidateCount: number | null;
   exclusionPreview: string | null;
   chapterId: string;
   chapterTitle: string;

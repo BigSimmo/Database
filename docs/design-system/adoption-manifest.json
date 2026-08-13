@@ -253,7 +253,8 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/in-page-nav-playwright-contract.test.ts",
-        "tests/information-page-shell.dom.test.tsx"
+        "tests/information-page-shell.dom.test.tsx",
+        "tests/ui-specifiers.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1493,6 +1494,7 @@
         "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
@@ -1521,6 +1523,7 @@
         "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
