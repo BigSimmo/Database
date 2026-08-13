@@ -53,6 +53,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
+const MAIN_REMOTE_REF = "refs/remotes/origin/main";
 const SCHEMA_PATH = "supabase/schema.sql";
 const MANIFEST_PATH = "supabase/drift-manifest.json";
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -120,17 +121,17 @@ export function pushedBranchNames(ranges, fallbackBranch = "") {
  * scope for transaction guards that accept explicit base/head commits. */
 export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
   if (range.remoteSha && range.remoteSha !== ZERO_SHA) return range.remoteSha;
-  if (!tryGit(["rev-parse", "--verify", "--quiet", "origin/main"], cwd)) return undefined;
-  return tryGit(["merge-base", "origin/main", range.localSha], cwd);
+  if (!tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd)) return undefined;
+  return tryGit(["merge-base", MAIN_REMOTE_REF, range.localSha], cwd);
 }
 
 export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
   const existingRemote = range.remoteSha && range.remoteSha !== ZERO_SHA;
-  const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", "origin/main"], cwd);
+  const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd);
   const spec = existingRemote
     ? `${range.remoteSha}..${range.localSha}`
     : hasOriginMain
-      ? `origin/main...${range.localSha}`
+      ? `${MAIN_REMOTE_REF}...${range.localSha}`
       : undefined;
   const out = spec
     ? tryGit(["diff", "--name-only", spec], cwd)

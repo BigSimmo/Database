@@ -172,8 +172,9 @@ describe("push-range parsing", () => {
     git("add", "src");
     git("commit", "--quiet", "-m", "advance main");
     git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("branch", "origin/main", baseSha);
 
-    const twoDotFiles = git("diff", "--name-only", `origin/main..${featureSha}`).split("\n");
+    const twoDotFiles = git("diff", "--name-only", `refs/remotes/origin/main..${featureSha}`).split("\n");
     expect(lintableFiles(twoDotFiles).join(" ").length).toBeGreaterThan(32_767);
     expect(changedFilesForRange({ localSha: featureSha, remoteSha: ZERO }, root)).toEqual(["scripts/feature.mjs"]);
     expect(guardBaseForRange({ localSha: featureSha, remoteSha: ZERO }, root)).toBe(baseSha);
