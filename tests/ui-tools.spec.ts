@@ -309,6 +309,34 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function expectMapLabelsContained(canvas: Locator) {
+  await expect
+    .poll(async () =>
+      canvas.locator("[data-map-node]").evaluateAll((nodes) => {
+        if (nodes.length === 0) return false;
+        return nodes.every((node) => {
+          const card = node.getBoundingClientRect();
+          const labels = Array.from(node.querySelectorAll<HTMLElement>("[data-map-node-label]"));
+          return (
+            labels.length > 0 &&
+            labels.every((label) => {
+              const range = document.createRange();
+              range.selectNodeContents(label);
+              return Array.from(range.getClientRects()).every(
+                (rect) =>
+                  rect.left >= card.left - 1 &&
+                  rect.right <= card.right + 1 &&
+                  rect.top >= card.top - 1 &&
+                  rect.bottom <= card.bottom + 1,
+              );
+            })
+          );
+        });
+      }),
+    )
+    .toBe(true);
+}
+
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
@@ -2360,6 +2388,84 @@ test.describe("Clinical KB tools launcher", () => {
       return lines;
     });
     expect(overviewLineCount).toBe(1);
+  });
+
+  test("diagnosis map keeps labels contained and the selected inspector out of the canvas", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await gotoLauncher(page, "/differentials/diagnoses/catatonia-in-mood-disorder?tab=map");
+    await visibleByTestId(page, "open-diagnosis-map").click();
+
+    const dialog = page.getByTestId("diagnosis-map-dialog");
+    const canvas = dialog.getByTestId("diagnosis-map-full-canvas");
+    const inspector = dialog.getByTestId("diagnosis-map-node-details");
+    await expect(dialog).toBeVisible();
+    await expect(canvas).toBeVisible();
+    await expectMapLabelsContained(canvas);
+    await expectNoPageHorizontalOverflow(page);
+
+    // All five related nodes are "Possible" for this record, so an empty
+    // must-not-miss filter must not be advertised as a working control.
+    await expect(dialog.getByRole("button", { name: "Must-not-miss" })).toHaveCount(0);
+    await expect(dialog.getByLabel("Map legend")).toContainText("Focus diagnosis");
+    await expect(dialog.getByLabel("Map legend")).toContainText("Possible");
+
+    await canvas.getByTestId("diagnosis-map-node-catatonia-in-psychotic-disorder").click();
+    await expect(inspector).toContainText("Psychosis plus marked motor syndrome");
+    await expect(inspector).toContainText("Characteristic motor syndrome");
+    await expect(inspector).not.toContainText(
+      "Refusal of intake, immobility complications, dehydration, autonomic change, hyperthermia, DVT/PE, rhabdomyolysis.",
+    );
+    await expect(inspector.getByRole("button", { name: "Collapse selected diagnosis details" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    const nonOverlap = await Promise.all([canvas.boundingBox(), inspector.boundingBox()]);
+    expect(nonOverlap[0]).not.toBeNull();
+    expect(nonOverlap[1]).not.toBeNull();
+    expect(nonOverlap[1]!.y).toBeGreaterThanOrEqual(nonOverlap[0]!.y + nonOverlap[0]!.height - 1);
+
+    await inspector.getByRole("button", { name: "Add to compare" }).click();
+    await expect(inspector.getByRole("link", { name: "Compare (2)" })).toHaveAttribute(
+      "href",
+      "/differentials/compare?ids=catatonia-in-mood-disorder%2Ccatatonia-in-psychotic-disorder",
+    );
+
+    const zoom = dialog.getByLabel("Map zoom");
+    await expect(zoom).toHaveText("100%");
+    await dialog.getByRole("button", { name: "Zoom in" }).click();
+    await expect(zoom).toHaveText("114%");
+    await dialog.getByRole("button", { name: "Reset map view" }).click();
+    await expect(zoom).toHaveText("100%");
+
+    await canvas.focus();
+    await expect(canvas).toBeFocused();
+    const focusNode = canvas.getByTestId("diagnosis-map-node-diagnosis");
+    const fittedFocusBox = await focusNode.boundingBox();
+    await page.keyboard.press("ArrowRight");
+    await expect
+      .poll(async () => (await focusNode.boundingBox())?.x ?? Number.POSITIVE_INFINITY)
+      .toBeLessThan((fittedFocusBox?.x ?? 0) - 20);
+    await page.keyboard.press("Home");
+    await expect
+      .poll(async () => Math.abs(((await focusNode.boundingBox())?.x ?? 0) - (fittedFocusBox?.x ?? 0)))
+      .toBeLessThanOrEqual(1);
+
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 639, height: 900 },
+      { width: 768, height: 1024 },
+      { width: 1440, height: 900 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expectMapLabelsContained(canvas);
+      await expectNoPageHorizontalOverflow(page);
+    }
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await expectMapLabelsContained(canvas);
+    await expect(canvas.getByTestId("diagnosis-map-node-diagnosis")).toBeVisible();
   });
 
   test("differentials compare queue launches presentation comparison", async ({ page }) => {
