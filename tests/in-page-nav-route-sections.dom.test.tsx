@@ -321,6 +321,8 @@ describe("in-page navigation section contracts", () => {
 
     try {
       render(<SpecifierMapPage />);
+      await waitFor(() => expect(screen.getByTestId("specifier-map-section-trigger")).toBeInTheDocument());
+
       scrollY = 160;
       fireEvent.scroll(window);
 
@@ -329,6 +331,7 @@ describe("in-page navigation section contracts", () => {
         expect(screen.getByTestId("specifier-map-section-trigger")).toHaveTextContent("Course and onset");
       });
     } finally {
+      clientRectsSpy.mockRestore();
       rectSpy.mockRestore();
       scrollSpy.mockRestore();
       vi.unstubAllGlobals();

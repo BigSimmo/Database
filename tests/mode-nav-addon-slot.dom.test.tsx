@@ -178,6 +178,7 @@ describe("header addon slot ownership", () => {
       "src/components/forms/form-detail-page.tsx",
       "src/components/formulation/formulation-nav-header.tsx",
       "src/components/services/service-detail-page.tsx",
+      "src/components/specifiers/specifier-map-nav-header.tsx",
       "src/components/specifiers/specifier-nav-header.tsx",
     ]);
   });
