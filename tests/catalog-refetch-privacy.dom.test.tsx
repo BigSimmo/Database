@@ -47,6 +47,19 @@ afterEach(() => {
 });
 
 describe("auth-backed catalogue background refresh", () => {
+  it("requests the selected lightweight projection", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ total: 54, verifiedCount: 42 }));
+
+    const { result } = renderHook(() => useRegistryRecords("form", { view: "summary" }));
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/registry/records?kind=form&view=summary",
+      expect.objectContaining({ headers: authSession.authorizationHeader }),
+    );
+    expect(result.current).toMatchObject({ status: "ready", records: [], total: 54, verifiedCount: 42 });
+  });
+
   it("preserves registry rows for a same-user refresh and clears them immediately on identity change", async () => {
     const record = { slug: "cmht", title: "Community Mental Health Team" };
     fetchMock.mockResolvedValueOnce(jsonResponse({ records: [record], total: 1, governance: {} }));
