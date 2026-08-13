@@ -143,6 +143,7 @@ function StreamMobileCompareBar({
 function StreamCard({
   item,
   stream,
+  query,
   highlight,
   selected,
   showSelect,
