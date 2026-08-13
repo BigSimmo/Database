@@ -199,5 +199,4 @@ describe("DiagnosisMapPanel", () => {
 
     expect(wheel.defaultPrevented).toBe(true);
   });
-
 });
