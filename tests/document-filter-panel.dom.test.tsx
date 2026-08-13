@@ -94,6 +94,13 @@ function resultTitles() {
     .map((card) => within(card).getAllByRole("heading")[0]?.textContent ?? "");
 }
 
+async function openPanel(props = baseProps) {
+  const user = userEvent.setup();
+  render(<DocumentSearchResultsPanel {...props} />);
+  await user.click(screen.getByTestId("document-filter-trigger-phone"));
+  return { user, panel: screen.getByTestId("document-filter-panel") };
+}
+
 describe("document filter panel", () => {
   it("is reachable from the ribbon trigger", async () => {
     // The regression this pins: the facet rail used to be mounted only when a
@@ -381,12 +388,6 @@ describe("filter sheet — density, exclusivity and reach", () => {
   });
   const denseProps = { ...baseProps, matches: [denseDoc, clozapineDoc, lithiumDoc], documentCount: 2014 };
 
-  async function openPanel(props = baseProps) {
-    const user = userEvent.setup();
-    render(<DocumentSearchResultsPanel {...props} />);
-    await user.click(screen.getByTestId("document-filter-trigger-phone"));
-    return { user, panel: screen.getByTestId("document-filter-panel") };
-  }
 
   it("puts every facet on the tap floor, not the 28px it shipped with", async () => {
     const { panel } = await openPanel();

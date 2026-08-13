@@ -1141,7 +1141,7 @@ function DocumentSearchResultsPanelImpl({
               panelId={filterPanelId}
               testId="document-filter-panel"
               title="Filter documents"
-              resetKey={query}
+              chromeResetKey={query}
               groups={[
                 ...(resultTabs.length > 1
                   ? [
