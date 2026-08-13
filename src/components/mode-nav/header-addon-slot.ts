@@ -29,7 +29,11 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // Differentials detail and presentation workflows both provide their own
   // header navigation. Presentation workflows use the shared RegistryModeNav
   // with the workflow-resolved selection.
-  if (pathname.startsWith("/differentials/diagnoses/") || pathname.startsWith("/differentials/presentations/")) return true;
+  if (
+    pathname.startsWith("/differentials/diagnoses/") ||
+    pathname.startsWith("/differentials/presentations/")
+  )
+    return true;
   // factsheets/factsheet-nav-header.tsx, mounted by the detail page.
   if (isSlugDetail(pathname, "/factsheets", ["search"])) return true;
   // clinical-dashboard/medication-nav-header.tsx, mounted by

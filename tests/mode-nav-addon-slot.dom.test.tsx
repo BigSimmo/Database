@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isHeaderAddonSlotOwnedRoute } from "@/components/mode-nav/header-addon-slot";
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
-import { hasLocalInformationPageNavigation, PageSecondaryNavigation } from "@/components/page-secondary-navigation";
+import {
+  hasLocalInformationPageNavigation,
+  PageSecondaryNavigation,
+} from "@/components/page-secondary-navigation";
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
 import {
   MODE_NAV_ADOPTED_MODES,
@@ -33,21 +36,39 @@ function renderIntoHeaderWithAddonSlot(ui: React.ReactElement) {
 
 describe("header addon slot ownership", () => {
   afterEach(() => {
-    for (const slot of document.querySelectorAll(`#${phoneHeaderCollapseAddonSlotId}`)) {
+    for (const slot of document.querySelectorAll(
+      `#${phoneHeaderCollapseAddonSlotId}`,
+    )) {
       slot.remove();
     }
   });
 
   it("recognises the routes whose page portals its own header", () => {
-    expect(isHeaderAddonSlotOwnedRoute("/differentials/diagnoses/delirium")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/documents/11111111-1111-4111-8111-111111111111")).toBe(true);
+    expect(
+      isHeaderAddonSlotOwnedRoute("/differentials/diagnoses/delirium"),
+    ).toBe(true);
+    expect(
+      isHeaderAddonSlotOwnedRoute(
+        "/documents/11111111-1111-4111-8111-111111111111",
+      ),
+    ).toBe(true);
     // The six information routes converted onto `InPageNavHeader`.
     expect(isHeaderAddonSlotOwnedRoute("/services/community-team")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/forms/transport-crisis-form")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/specifiers/with-anxious-distress")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/forms/transport-crisis-form")).toBe(
+      true,
+    );
+    expect(
+      isHeaderAddonSlotOwnedRoute("/specifiers/with-anxious-distress"),
+    ).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/formulation/rumination")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder/differentials")).toBe(true);
+    expect(
+      isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder"),
+    ).toBe(true);
+    expect(
+      isHeaderAddonSlotOwnedRoute(
+        "/dsm/diagnoses/major-depressive-disorder/differentials",
+      ),
+    ).toBe(true);
     // Factsheet and medication detail, converted onto the shared header.
     expect(isHeaderAddonSlotOwnedRoute("/factsheets/sertraline")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/medications/sertraline")).toBe(true);
@@ -55,7 +76,11 @@ describe("header addon slot ownership", () => {
 
     // The presentations workflow owns the shared mode bar with its resolved
     // catalogue selection, while the shell index is not a document detail route.
-    expect(isHeaderAddonSlotOwnedRoute("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
+    expect(
+      isHeaderAddonSlotOwnedRoute(
+        "/differentials/presentations/acute-confusion-encephalopathy",
+      ),
+    ).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/documents/search")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/differentials/diagnoses")).toBe(false);
     // Mode homes and the builder/compare/map/search surfaces keep the mode bar,
@@ -119,14 +144,26 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/dsm/compare")).toBe(false);
 
     const view = renderIntoHeaderWithAddonSlot(
-      <PageSecondaryNavigation modeId="dsm" pathname="/dsm/compare" hasSubmittedSearch={false} />,
+      <PageSecondaryNavigation
+        modeId="dsm"
+        pathname="/dsm/compare"
+        hasSubmittedSearch={false}
+      />,
     );
     await waitFor(() => expect(view.occupants()).toHaveLength(1));
     view.cleanupSlot();
 
     expect(modeUsesHeaderModeNav("differentials")).toBe(true);
-    expect(isHeaderAddonSlotOwnedRoute("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
-    expect(hasLocalInformationPageNavigation("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
+    expect(
+      isHeaderAddonSlotOwnedRoute(
+        "/differentials/presentations/acute-confusion-encephalopathy",
+      ),
+    ).toBe(true);
+    expect(
+      hasLocalInformationPageNavigation(
+        "/differentials/presentations/acute-confusion-encephalopathy",
+      ),
+    ).toBe(true);
 
     const differentialView = renderIntoHeaderWithAddonSlot(
       <PageSecondaryNavigation
@@ -145,7 +182,9 @@ describe("header addon slot ownership", () => {
     );
 
     await waitFor(() => expect(view.occupants()).toHaveLength(1));
-    expect(within(view.occupants()[0]!).getByRole("link", { name: "Compare" })).toHaveAttribute(
+    expect(
+      within(view.occupants()[0]!).getByRole("link", { name: "Compare" }),
+    ).toHaveAttribute(
       "href",
       "/differentials/compare?ids=delirium%2Csubstance-intoxication%2Csubstance-withdrawal%2Cpost-ictal-confusion",
     );
@@ -161,7 +200,8 @@ describe("header addon slot ownership", () => {
     // There are three forms of that evidence, and all must be scanned. A page can
     // render `PhoneHeaderCollapsePortal` itself (DocumentViewer still does), use
     // `InPageNavHeader`, or render the shared `RegistryModeNav` directly.
-    const claimsSlot = /<(PhoneHeaderCollapsePortal|InPageNavHeader|RegistryModeNav)\b/;
+    const claimsSlot =
+      /<(PhoneHeaderCollapsePortal|InPageNavHeader|RegistryModeNav)\b/;
     // The shared header is the mechanism, not a claimant: it has no route.
     const sharedHeader = "src/components/in-page-nav/in-page-nav-header.tsx";
     const claimants: string[] = [];
@@ -220,7 +260,12 @@ describe("header addon slot ownership", () => {
     // `factsheets` left this list when it gained a real second destination:
     // `/factsheets` (browse) and `/factsheets/search` are separate components,
     // so it was a port rather than a deletion.
-    for (const modeId of ["documents", "answer", "prescribing", "tools"] as const) {
+    for (const modeId of [
+      "documents",
+      "answer",
+      "prescribing",
+      "tools",
+    ] as const) {
       expect(modeSecondaryNavigationEntries(modeId)).toEqual([]);
       expect([...MODE_NAV_ADOPTED_MODES]).not.toContain(modeId);
       expect(modeUsesHeaderModeNav(modeId)).toBe(false);
