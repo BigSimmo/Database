@@ -388,7 +388,6 @@ describe("filter sheet — density, exclusivity and reach", () => {
   });
   const denseProps = { ...baseProps, matches: [denseDoc, clozapineDoc, lithiumDoc], documentCount: 2014 };
 
-
   it("puts every facet on the tap floor, not the 28px it shipped with", async () => {
     const { panel } = await openPanel();
 
