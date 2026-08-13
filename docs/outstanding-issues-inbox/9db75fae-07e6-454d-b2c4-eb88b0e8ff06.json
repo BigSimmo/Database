@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "9db75fae-07e6-454d-b2c4-eb88b0e8ff06",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#278",
+    "outcome": "Resolved by PR #1743 (65cd909f, 'mask the pinned chrome in the document-viewer baseline, and add a baseline adopt helper'). Confirmed by inspection against main 2d270392 on 2026-08-13: tests/ui-visual-baseline.spec.ts carries mask: [\"[data-document-sticky-header]\", \".document-viewer-composer\"] on the document-viewer target, which is the second of the two remedies this row proposed. The header selector is the document-specific data attribute rather than .edge-glass-header, because the universal search header also carries that class and would have kept the fail-loud mask guard green after a DocumentViewer rename. The clip was NOT narrowed and fullPage was NOT used — the latter correctly avoided because ledger #093 leaves a hidden duplicate page root under CI load. Residual, deliberately not reopened: a mask is a hole in the gate, so those two elements' geometry is now covered only by the phone-chrome contracts in docs/search-chrome-behaviour.md, which is the trade the fix's own comment records."
+  }
+}

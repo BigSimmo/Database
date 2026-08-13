@@ -24,6 +24,9 @@ describe("runtime release gate", () => {
     const result = checkNodeRuntime("24.13.0");
     expect(result.ok).toBe(false);
     expect(result.message).toContain(NODE_MINIMUM_VERSION);
+    expect(result.message).toContain("Claude Code remote");
+    expect(result.message).toContain("export PATH=");
+    expect(result.message).toContain("current shell");
   });
 
   it("accepts runtimes at or above the floor", () => {
