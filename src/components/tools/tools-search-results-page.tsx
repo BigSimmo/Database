@@ -24,6 +24,7 @@ import {
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { cn, controlBase, floatingControl } from "@/components/ui-primitives";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -65,7 +66,7 @@ function ToolIcon({ tool, large = false }: { tool: ToolCatalogRecord; large?: bo
     <span
       className={cn(
         "grid shrink-0 place-items-center rounded-xl border border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)] shadow-[var(--shadow-inset)] forced-colors:border",
-        large ? "h-14 w-14" : "h-11 w-11",
+        large ? "h-14 w-14" : "h-tap w-tap",
       )}
     >
       <Icon className={large ? "h-7 w-7" : "h-5 w-5"} aria-hidden="true" />
@@ -205,7 +206,7 @@ function DetailActions({ tool }: { tool: ToolCatalogRecord }) {
         href={tool.href}
         className={cn(
           controlBase,
-          "min-h-12 w-full rounded-xl bg-[color:var(--clinical-accent)] px-4 font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)]",
+          "min-h-12 w-full rounded-xl bg-[color:var(--clinical-accent)] px-4 font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--clinical-accent-hover)]",
         )}
       >
         {tool.actionLabel} {tool.title}
@@ -379,7 +380,7 @@ export function ToolsSearchResultsPage({
                   key={tool.id}
                   data-selected={tool.id === selectedTool?.id || undefined}
                   className={cn(
-                    "relative grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 overflow-hidden rounded-2xl border bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-card)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center",
+                    "relative grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 overflow-hidden rounded-2xl border bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center",
                     tool.id === selectedTool?.id
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35"
                       : "border-[color:var(--border)]",
@@ -418,7 +419,7 @@ export function ToolsSearchResultsPage({
                     onClick={(event) => openTool(tool, event.currentTarget)}
                     className={cn(
                       controlBase,
-                      "col-span-2 min-h-11 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] sm:col-span-1",
+                      "col-span-2 min-h-tap rounded-xl bg-[color:var(--clinical-accent)] px-4 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] sm:col-span-1",
                     )}
                   >
                     Details
@@ -436,6 +437,7 @@ export function ToolsSearchResultsPage({
               </div>
             )}
           </section>
+          <UniversalSearchAlsoMatches modeId="tools" query={query} className="mt-4" />
         </div>
 
         {selectedTool ? (
@@ -443,7 +445,7 @@ export function ToolsSearchResultsPage({
             ref={desktopPanelRef}
             tabIndex={-1}
             aria-labelledby="desktop-tool-detail-title"
-            className="sticky top-4 hidden max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-lux)] focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-[color:var(--focus)] lg:block"
+            className="sticky top-4 hidden max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] shadow-[var(--e4)] focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-[color:var(--focus)] lg:block"
           >
             <div className="border-b border-[color:var(--border)] p-5">
               <div className="flex items-start gap-3">
