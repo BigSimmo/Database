@@ -185,10 +185,7 @@ function SmartRotatingHint({
   const activeExample = examples[activeExampleIndex % examples.length];
 
   useEffect(() => {
-    if (isTickerHeld) {
-      return;
-    }
-
+    if (isTickerHeld) return;
     if (examples.length <= 1) return;
     const intervalId = window.setInterval(() => {
       setActiveExampleIndex((current) => (current + 1) % examples.length);
@@ -200,12 +197,13 @@ function SmartRotatingHint({
     setHeldTickerExample(activeExample);
     setIsTickerHeld(true);
   }, [activeExample]);
-
-  const releaseTicker = useCallback(() => {
-    setIsTickerHeld(false);
-  }, []);
-
-  const resolvedTickerExample = isTickerHeld ? (heldTickerExample ?? activeExample) : activeExample;
+  const releaseTicker = useCallback(() => setIsTickerHeld(false), []);
+  // A mode change can replace the examples while a pointer/focus hold is
+  // active. Never keep displaying or submit a held value that is no longer in
+  // the current mode's suggestion set.
+  const currentHeldTickerExample =
+    heldTickerExample && examples.includes(heldTickerExample) ? heldTickerExample : activeExample;
+  const resolvedTickerExample = isTickerHeld ? currentHeldTickerExample : activeExample;
 
   if (!activeExample) return null;
 
