@@ -45,6 +45,12 @@ Mitigations specific to the interaction surface:
   you entered", and is unreachable whenever any interaction row on that
   medication could not be machine-resolved — those degrade to a neutral
   "N rows need manual review" state instead (`composeMedicationVerdict`).
+- Green is also unreachable when an **entered** medication is one no interaction
+  row anywhere names, which is 127 of the 328 catalogue drugs. Previously only
+  the drug being _viewed_ was guarded this way, so a patient on a drug the corpus
+  never mentions produced no interactions, zero unresolved rows and a confident
+  green. The uncovered drugs are now named on screen, with the absence of a
+  warning explicitly stated not to be evidence of safety.
 - Every alert renders the **verbatim** catalogue row text; the tool never
   paraphrases a clinical statement.
 - The medication picker accepts catalogue drugs only, so a clinician cannot type
@@ -83,6 +89,17 @@ That report has already paid for itself three times:
    the tool was silent on both. Fixed with an explicit name alias in the lexicon
    and pinned end-to-end through the evaluator.
 
+   Lithium turned out to be one instance of a general fault, not a one-off.
+   Surfaces were built by splitting the raw catalogue name, so **any**
+   parenthesised qualifier swallowed the drug's own name. Nine further rows
+   across four more drugs were affected — naloxone naming Buprenorphine, codeine
+   and midazolam naming Morphine, the carbapenems naming Sodium valproate, and
+   four rows naming Olanzapine. The builder now derives surfaces from the
+   parenthetical-free form as well, and a test asserts the general invariant:
+   **if a row writes a catalogue drug's name, that row must resolve to that
+   drug.** That is deliberately a statement about content that exists, and says
+   nothing about drugs the corpus never mentions.
+
 None of the three was found by reviewing the code; all three fell out of
 rendering the mappings in a form a human could read. That is a fair indication of
 what an hour of clinical reading would still turn up.
@@ -98,13 +115,13 @@ of that kind is a question for the clinical review.
 
 Residual risk the reviewer should weigh: the lexicon is hand-curated, so a missed
 term is a false negative. It is fail-safe by construction (unresolved → grey, not
-green) but the resolution rate is not 100% — currently **358 of 523** interaction
-rows are fully read, leaving 146 of the catalogue's medications holding at grey
+green) but the resolution rate is not 100% — currently **360 of 523** interaction
+rows are fully read, leaving 144 of the catalogue's medications holding at grey
 rather than ever showing green. `tests/medication-interaction-lexicon-coverage.test.ts`
-ratchets both that figure and the underlying drug-match count (420 rows) so
+ratchets both that figure and the underlying drug-match count (422 rows) so
 neither can silently regress.
 
-Read the 358 carefully, because it went **down** from 400 before it came back up. A row
+Read the 360 carefully, because it went **down** from 400 before it came back up. A row
 naming an unenumerable mechanism ("CYP3A4 inhibitors (Clarithromycin,
 Ketoconazole)") used to count as resolved once any one named drug matched,
 which implied the whole mechanism class had been checked. It is now unresolved,

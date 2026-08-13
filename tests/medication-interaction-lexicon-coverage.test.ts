@@ -64,8 +64,8 @@ describe("interaction lexicon coverage", () => {
     // recorded here and in the PR. Track raw drug-matching separately, which
     // rose 381 → 417 over the same period and is the number that must never
     // fall without explanation.
-    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(358);
-    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(420);
+    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(360);
+    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(422);
     expect(index.sourceRowCount).toBeGreaterThanOrEqual(523);
   });
 
@@ -176,6 +176,46 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
       expect(reachedFrom, `${slug} should reach lithium`).toContain(slug);
     }
     expect(slugsFor("lithium")).toEqual([lithium]);
+  });
+
+  it("resolves every row that writes a drug's own name", () => {
+    // The generalised lithium bug, and the one pin that would have caught it.
+    //
+    // Name-derived surfaces came from splitting the raw catalogue name, so a
+    // parenthesised suffix swallowed the drug's own name: "Lithium carbonate
+    // (IR/SR)" yielded "Lithium carbonate (IR" and "SR)". Nine rows across five
+    // drugs named a counterparty in plain English and resolved none of it —
+    // naloxone naming Buprenorphine, codeine and midazolam naming Morphine, the
+    // carbapenems naming Sodium valproate, four rows naming Olanzapine.
+    //
+    // The invariant is deliberately about content that EXISTS: if a row writes a
+    // catalogue drug's name, that row must resolve to that drug. It says nothing
+    // about drugs the corpus never mentions — that is coverage, not a defect,
+    // and is reported in the review sheet instead.
+    const plainName = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, "").trim();
+    const names = (value: string, needle: string) =>
+      new RegExp(`(^|[^A-Za-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9])`, "i").test(value);
+
+    const rowsFor = (slug: string) =>
+      records.find((item) => item.slug === slug)?.sections.find((section) => section.type === "inter")?.rows ?? [];
+
+    const misses: string[] = [];
+    for (const record of records) {
+      const name = plainName(record.name);
+      if (name.length < 4) continue;
+      for (const [slug, entry] of Object.entries(index.bySlug)) {
+        if (slug === record.slug) continue;
+        const sourceRows = rowsFor(slug);
+        for (const row of entry.rows) {
+          const text = sourceRows[row.rowIndex]?.val ?? "";
+          if (!names(text, name)) continue;
+          if (!row.counterparties.includes(record.slug)) {
+            misses.push(`${slug} row ${row.rowIndex} writes "${name}" but does not resolve ${record.slug}`);
+          }
+        }
+      }
+    }
+    expect(misses).toEqual([]);
   });
 
   it("has no lexicon term that can never fire", () => {

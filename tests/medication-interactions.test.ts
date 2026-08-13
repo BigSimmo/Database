@@ -6,6 +6,7 @@ import {
   evaluateMedicationInteractions,
   interactionNoteBody,
   interactionRowCount,
+  isUnreachableCounterparty,
   severityLabel,
   medicationDisplayName,
   SEVERITY_TONE,
@@ -52,6 +53,37 @@ describe("evaluateMedicationInteractions", () => {
       ).toBe(true);
       expect(result.highestTone).toBe("danger");
     }
+  });
+
+  it("never shows green when an entered medication is one no interaction row names", () => {
+    // The mirror of the missing-data guard, and the half that was missing. A
+    // patient on a drug the corpus never mentions produced zero interactions,
+    // zero unresolved rows, and a confident green — silence presented as an
+    // all-clear. Cephalexin is one of 127 such drugs.
+    const result = evaluateMedicationInteractions("sertraline", ["cephalexin"]);
+    expect(result.interactions).toHaveLength(0);
+    expect(result.unreachableCounterparties).toEqual(["cephalexin"]);
+
+    const verdict = composeMedicationVerdict({
+      considerationTone: null,
+      considerationCount: 0,
+      unassessedCount: 0,
+      interactionTone: result.highestTone,
+      interactionCount: result.interactions.length,
+      unresolvedRowCount: 0,
+      unreachableCounterpartyCount: result.unreachableCounterparties.length,
+    });
+    expect(verdict.tone).not.toBe("success");
+    expect(verdict.incomplete).toBe(true);
+  });
+
+  it("does not call a reachable medication unreachable", () => {
+    // The guard has to stay narrow, or it degrades every verdict to grey and
+    // stops meaning anything. Ibuprofen is named by many rows.
+    const result = evaluateMedicationInteractions("sertraline", ["ibuprofen"]);
+    expect(result.unreachableCounterparties).toEqual([]);
+    expect(isUnreachableCounterparty("ibuprofen")).toBe(false);
+    expect(isUnreachableCounterparty("cephalexin")).toBe(true);
   });
 
   it("gives a reverse-only match its wording, not just a name and a severity", () => {

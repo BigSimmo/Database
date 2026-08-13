@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "5c830d16-5076-4435-9903-6f3e7a71daa4",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "127 of 328 catalogue medications are named by no interaction row, so the tool can never warn about them",
+    "detail": "Measured 2026-08-13 from data/medication-interaction-index.json: 127 of the catalogue's 328 medications never appear as a counterparty in any interaction row. Concentrated in antibiotics (17), antidiabetics (17), aperients (12) and vitamins (8), but it also includes psychiatry-relevant drugs - mirtazapine, moclobemide, vortioxetine, dosulepin, reboxetine, methylphenidate, lisdexamfetamine, dexamfetamine, topiramate, oxcarbazepine. This is CORPUS coverage, not a lexicon fault: no selector can resolve a phrase the catalogue never writes, so widening it means authoring interaction rows. PR #1923 closed the safety half - evaluateMedicationInteractions now reports unreachableCounterparties, composeMedicationVerdict treats it as incomplete so green is unreachable, and MedicationInteractionBlock names the uncovered drugs and says the absence of a warning is not evidence of safety. What remains is content. The generated list by class is the 'What this tool can never warn about' section of docs/medication-interaction-lexicon-review.md and refreshes with the report. Next: decide whether to author rows for the psychiatry-relevant subset first, since that is the prescribing surface this app is for. Stop: do not close this by widening lexicon selectors - the drugs are absent from the prose, not mis-mapped, and loosening the matcher to reach them reintroduces the false-positive class (Sodium content, Vitamin K, hyperkalaemia prose) that was deliberately rejected.",
+    "source": "PR #1923; docs/medication-interaction-lexicon-review.md coverage section; src/lib/medication-interactions.ts UNREACHABLE_SLUGS"
+  }
+}

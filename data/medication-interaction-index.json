@@ -3,10 +3,10 @@
   "generatedFrom": "data/medications-snapshot.json",
   "sourceRowCount": 523,
   "stats": {
-    "resolvedRows": 358,
-    "unresolvedRows": 165,
-    "rowsWithCatalogueTarget": 420,
-    "medicationsWithUnresolvedRows": 146
+    "resolvedRows": 360,
+    "unresolvedRows": 163,
+    "rowsWithCatalogueTarget": 423,
+    "medicationsWithUnresolvedRows": 144
   },
   "names": {
     "acamprosate": "Acamprosate",
@@ -520,7 +520,8 @@
             "nicotine-mouth-spray",
             "nicotine-patch",
             "nicotine-sublingual-tablet",
-            "olanzapine-pamoate-lai"
+            "olanzapine-pamoate-lai",
+            "olanzapine-wafer-odt"
           ],
           "termIds": ["acidic-drinks", "smoking"],
           "resolved": true,
@@ -544,7 +545,8 @@
             "nicotine-mouth-spray",
             "nicotine-patch",
             "nicotine-sublingual-tablet",
-            "olanzapine-pamoate-lai"
+            "olanzapine-pamoate-lai",
+            "olanzapine-wafer-odt"
           ],
           "termIds": ["acidic-drinks", "smoking"],
           "resolved": true,
@@ -592,7 +594,8 @@
             "nicotine-lozenge",
             "nicotine-mouth-spray",
             "nicotine-sublingual-tablet",
-            "olanzapine-pamoate-lai"
+            "olanzapine-pamoate-lai",
+            "olanzapine-wafer-odt"
           ],
           "termIds": ["smoking"],
           "resolved": true,
@@ -952,7 +955,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["bupropion-sr", "fluoxetine", "morphine-sr-mr", "paroxetine"],
+          "counterparties": ["bupropion-sr", "fluoxetine", "morphine-ir-iv", "morphine-sr-mr", "paroxetine"],
           "termIds": ["cyp-inhibitors"],
           "resolved": false,
           "note": "CRITICAL — **CYP2D6** Inhibitors (Fluoxetine, Paroxetine, Bupropion). These completely block the liver from converting Codeine to Morphine. The patient will get zero pain relief."
@@ -2128,12 +2131,9 @@
             "atenolol",
             "bisoprolol",
             "carvedilol",
-            "hydromorphone-ir-iv",
             "labetalol",
             "metoprolol",
-            "morphine-ir-iv",
             "propranolol",
-            "sodium-valproate-oral-iv",
             "sotalol"
           ],
           "termIds": ["beta-blockers"],
@@ -5260,13 +5260,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["sodium-valproate-oral-iv"],
           "termIds": [],
-          "resolved": false,
+          "resolved": true,
           "note": "CRITICAL — Sodium Valproate. Ertapenem rapidly destroys valproate blood levels, dropping them to sub-therapeutic levels within 24 hours, guaranteeing breakthrough seizures in epileptics. AVOID."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "meropenem": {
       "rows": [
@@ -5274,13 +5274,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": [],
+          "counterparties": ["sodium-valproate-oral-iv"],
           "termIds": [],
-          "resolved": false,
+          "resolved": true,
           "note": "CRITICAL — Sodium Valproate (Epilim). Meropenem rapidly accelerates the hepatic breakdown of Valproate. Blood levels drop to zero within 24 hours. The interaction cannot be overcome by increasing Valproate dose. Use alternative antibiotic or antiepileptic."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 0
     },
     "metronidazole": {
       "rows": [
@@ -6446,7 +6446,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["fentanyl", "morphine-sr-mr"],
+          "counterparties": ["fentanyl", "morphine-ir-iv", "morphine-sr-mr"],
           "termIds": [],
           "resolved": true,
           "note": "CRITICAL — Fentanyl / Morphine. The combination of Midazolam + Fentanyl is synergistic for procedural sedation but synergistic for fatal apnoea."
@@ -8131,7 +8131,7 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": [],
+          "counterparties": ["olanzapine-wafer-odt"],
           "termIds": ["smoking"],
           "resolved": true,
           "note": "HIGH — Smoking induces CYP1A2, accelerating olanzapine clearance."
@@ -8960,7 +8960,7 @@
           "rowKey": "Pharmacodynamic",
           "rowIndex": 0,
           "severity": "critical",
-          "counterparties": ["buprenorphine-patch"],
+          "counterparties": ["buprenorphine-patch", "buprenorphine-sl-depot"],
           "termIds": [],
           "resolved": true,
           "note": "CRITICAL — Buprenorphine (Suboxone). Buprenorphine binds so tightly to the receptor that standard doses of Naloxone cannot displace it. Massive doses (or continuous infusions) are required."

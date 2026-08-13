@@ -70,6 +70,28 @@ type InteractionIndex = {
 const DOSAGE_FORM_TOKEN =
   /^(ir|sr|xr|mr|cr|odt|lai|im|iv|sl|po|pr|depot|patch|wafer|nasal|mouth|spray|inhaler|topical|cream|gel|drops|syrup|liquid|injection|infusion|oral|buccal|sublingual|transdermal|suppository|tablet|capsule|lozenge|pamoate)$/i;
 
+/**
+ * Drop a trailing parenthesised qualifier: "Morphine (IR/IV)" -> "Morphine".
+ *
+ * Without this, name-derived surfaces were built by splitting the raw name on
+ * "/", so "Lithium carbonate (IR/SR)" produced "Lithium carbonate (IR" and
+ * "SR)" and never the drug's actual name. `stripDosageForm` could not repair it
+ * either: it only pops bare trailing tokens, and "(IR/SR)" is not one.
+ *
+ * That silently cost nine interaction rows across five drugs — naloxone naming
+ * Buprenorphine, codeine and midazolam naming Morphine, the carbapenems naming
+ * Sodium valproate, and four rows naming Olanzapine — plus every row naming
+ * Lithium. Each was content that existed and could not be reached.
+ *
+ * Deliberately narrower than a first-word fallback, which is the other way to
+ * catch these and is unsafe: it yields "Sodium" for a row about sodium content,
+ * "Vitamin" against Vitamin K in the warfarin rows, and "Potassium" against
+ * hyperkalaemia prose. Removing a parenthetical leaves a whole drug name.
+ */
+function stripParenthetical(name: string): string {
+  return name.replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
+
 function stripDosageForm(name: string): string {
   const tokens = name.split(/\s+/).filter(Boolean);
   while (tokens.length > 1) {
@@ -142,16 +164,23 @@ function main(): void {
       // enforces alphanumeric boundaries, so dropping them here only creates
       // avoidable false negatives. Two-character route/form tokens remain below
       // the floor to avoid indexing abbreviations such as IR/IM/IV as drugs.
-      const parts = record.name
-        .split("/")
+      // Derive from the parenthetical-free form as well as the raw name, so a
+      // "(IR/SR)" suffix cannot swallow the drug's own name (see
+      // `stripParenthetical`).
+      const parts = [record.name, stripParenthetical(record.name)]
+        .flatMap((value) => value.split("/"))
         .map((part) => part.trim())
         .filter((part) => part.length >= 3);
       const surfaces = new Set(parts);
       for (const part of parts) surfaces.add(stripDosageForm(part));
-      surfaces.add(stripDosageForm(record.name));
-      return Array.from(surfaces)
-        .filter((surface) => surface.length >= 3)
-        .map((surface) => ({ surface, slug: record.slug, name: record.name }));
+      return (
+        Array.from(surfaces)
+          .filter((surface) => surface.length >= 3)
+          // A fragment carrying an unbalanced bracket ("Lithium carbonate (IR",
+          // "SR)") is splitting debris, never something a catalogue row writes.
+          .filter((surface) => !/[()]/.test(surface))
+          .map((surface) => ({ surface, slug: record.slug, name: record.name }))
+      );
     })
     .sort((a, b) => b.surface.length - a.surface.length);
 
