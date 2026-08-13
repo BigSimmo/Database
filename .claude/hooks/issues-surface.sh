@@ -44,11 +44,38 @@ rows="$(awk '
 ' "$ledger" 2>/dev/null || true)"
 
 # --- parse the recommended execution queue ----------------------------------
+# The prose shown per queue row is taken from the cited row's own Detail cell,
+# NOT from the queue's Outcome cell. The two used to be independent copies of
+# the same prose, so they drifted — and because this hook prints the queue, the
+# drifted copy was the one every session read and acted on. That is not
+# hypothetical: the queue cell for #231, the top clinical P1, spent days telling
+# sessions to pursue an approach #231's own detail records as tested and
+# rejected. The queue cell cannot simply be re-corrected, because the ledger
+# inbox has no request type that reaches it and check:ledger-write-discipline
+# rejects a direct edit — so the duplication is removed instead of re-synced.
+# The queue keeps what only it carries: order, acuity, capability, timing.
+# Falls back to the queue cell for a composite ID(s) row or an id with no open
+# row, which is the only case where there is no single detail to show.
+# Two passes over the file: the queue table is printed BEFORE "## Open items",
+# so a single forward pass would read every queue row while the detail lookup
+# was still empty and silently fall back to the stale cell every time.
 queue_rows="$(awk '
+  NR==FNR {
+    if ($0 ~ /^## Open items/)                  { inopen=1; next }
+    if ($0 ~ /^## /)                            { inopen=0 }
+    if (inopen && $0 ~ /^\| #[0-9]/) {
+      split($0, oc, "|")
+      oid=oc[2]; odetail=oc[6]
+      gsub(/^[ \t]+|[ \t]+$/, "", oid)
+      gsub(/^[ \t]+|[ \t]+$/, "", odetail)
+      detail[oid]=odetail
+    }
+    next
+  }
   /^## Recommended execution queue/ { inqueue=1; next }
   /^## /                            { if (inqueue) inqueue=0 }
   inqueue && /^\|[[:space:]]*[0-9]+[[:space:]]*\|/ {
-    n=split($0, c, "|")
+    split($0, c, "|")
     ord=c[2]; ids=c[3]; acuity=c[4]; capability=c[5]; timing=c[6]; summary=c[8]
     gsub(/^[ \t]+|[ \t]+$/, "", ord)
     gsub(/^[ \t]+|[ \t]+$/, "", ids)
@@ -56,10 +83,13 @@ queue_rows="$(awk '
     gsub(/^[ \t]+|[ \t]+$/, "", capability)
     gsub(/^[ \t]+|[ \t]+$/, "", timing)
     gsub(/^[ \t]+|[ \t]+$/, "", summary)
+    lookup=ids
+    gsub(/`/, "", lookup)
+    if (lookup !~ /,/ && lookup in detail && length(detail[lookup]) > 0) summary=detail[lookup]
     if (length(summary) > 110) summary=substr(summary, 1, 107) "..."
     printf "%s\t%s\t%s\t%s\t%s\t%s\n", ord, ids, acuity, capability, timing, summary
   }
-' "$ledger" 2>/dev/null || true)"
+' "$ledger" "$ledger" 2>/dev/null || true)"
 
 total="$(printf '%s' "$rows" | grep -c . || true)"
 queue_total="$(printf '%s' "$queue_rows" | grep -c . || true)"
