@@ -152,6 +152,21 @@ Contract first, then one PR per mode:
 2. **Per mode** — adopt the right kind, derive the option list, add counts, and retire that mode's
    desktop rail so the breakpoints stop disagreeing.
 3. **Services and factsheets** — evict the query-replacing presets to the composer.
-4. **Documents last** — port its needle and collapse up into the shared component as the
-   `> 20` tier, then converge. It is the largest surface and should move once the contract is
-   proven elsewhere.
+4. **Documents last** — converge onto the shared component. Its needle and collapse-by-default
+   mechanics moved up into `ResultFilterSheet` first, as part of services (§5); documents itself
+   deleted its ~500-line bespoke `DocumentFilterPanel` and rebuilt on `ResultFilterSheet` with
+   three small additive extensions the other six modes never needed:
+   - `meterContent` — the `N of M documents shown` progress bar, rendered first in the body.
+   - `footerOverride` — replaces the default `footerNote` + Done button entirely, for a mode whose
+     commit needs its own label (`Show N documents`) and a second action beside it
+     (`Browse all sources`).
+   - `note` on `resultFilterGroup()` — a short label-adjacent annotation (`"one only"`) that
+     distinguishes a `lens` group from the `facet` groups sitting beside it in the same sheet.
+     Source type is the first lens to share a sheet with facets; services' `substance` lens beside
+     five facet groups (PR C) has the identical shape without this annotation — a follow-up worth
+     tracking, not a contradiction this PR resolves. The annotation is scoped to documents' call
+     site for now, not a general convention.
+
+   All three are optional and default to inert — the six modes that adopted earlier render
+   byte-identical output. This closes the rollout: every filter surface in the audit now shares
+   one component.
