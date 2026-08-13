@@ -51,9 +51,10 @@ if [ -x "$NODE_BIN/node" ]; then
   # CLAUDE_ENV_FILE and CLAUDE_PROJECT_DIR below are set by Claude Code when this
   # runs as a hook, and unset when a human or agent runs it by hand. Under
   # `set -u` an unguarded expansion aborts the script — and it aborts *here*,
-  # after the tarball has downloaded and extracted but before PATH is exported
-  # and before the install below, so the operator sees a failure, gets no
-  # runtime, and has no way to tell the download actually succeeded.
+  # after the tarball has downloaded and after PATH is exported only inside this
+  # soon-to-exit child process, but before that PATH can be persisted for the
+  # caller and before the install below. The operator sees a failure and cannot
+  # tell the download actually succeeded.
   #
   # That matters because manual invocation is not a hypothetical: SessionStart
   # hooks do not re-fire when a long-lived session re-bases onto a newer main, so
@@ -64,8 +65,9 @@ if [ -x "$NODE_BIN/node" ]; then
   if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
     echo "export PATH=\"$NODE_BIN:\$PATH\"" >> "$CLAUDE_ENV_FILE"
   else
-    echo "[session-start] CLAUDE_ENV_FILE is unset (run by hand?); PATH is exported for this process only."
-    echo "[session-start] To keep it: export PATH=\"$NODE_BIN:\$PATH\""
+    echo "[session-start] CLAUDE_ENV_FILE is unset (run by hand?); PATH is active only inside this hook process."
+    echo "[session-start] To keep it in your invoking shell, run this command there:"
+    echo "export PATH=\"$NODE_BIN:\$PATH\""
   fi
 fi
 

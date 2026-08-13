@@ -81,7 +81,8 @@ export function checkNodeRuntime(
       // exclusive major ceiling that a manual install of "latest" would miss.
       message:
         `Node ${version} is below the ${minimumVersion} floor this project requires (package.json engines.node). ` +
-        `Run \`bash .claude/hooks/session-start.sh\` to provision a supported Node, or install ${minimumVersion} or newer yourself.`,
+        `In a Claude Code remote session, run \`bash .claude/hooks/session-start.sh\`, then run the printed ` +
+        `\`export PATH=...\` command in your current shell before retrying. Otherwise install ${minimumVersion} or newer yourself.`,
     };
   }
 
