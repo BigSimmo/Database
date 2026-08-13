@@ -3533,6 +3533,10 @@ ${qualityRetryInstruction}`
     waSourceCount: modelContextSelectionSummary.waSelectedCount,
     usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
   });
+  // The quality-repair call below may itself fail or truncate. Preserve the first
+  // deterministic verdict so fallback telemetry explains why that retry occurred,
+  // rather than only reporting its terminal transport/output failure.
+  let initialGenerationQualityFailure: ReturnType<typeof generationQualityFailureDiagnostics> = null;
   try {
     await args.onProgress?.({
       stage: "generating",
@@ -3710,7 +3714,12 @@ ${qualityRetryInstruction}`
       // valid (if imperfect) cited strong answer instead of spending a third generation
       // and risking a truncation -> unsupported tail. Recorded for observability.
       answerRetryReasons.push(`strong_quality_repair_skipped_time_budget:${strongQualityFailureReason}`);
-    } else if (answerNeedsStrongQualityRepair) {
+    } else if (answerNeedsStrongQualityRepair && strongQualityFailureReason) {
+      initialGenerationQualityFailure = {
+        stage: "strong_gate",
+        gateReason: strongQualityFailureReason,
+        answerShape: summarizeGenerationQualityAnswerShape(answer),
+      };
       routingReason = `${routingReason}; strong_quality_retry`;
       answerRetryCount += 1;
       answerRetryReasons.push("strong_quality_retry");
@@ -3954,7 +3963,7 @@ ${qualityRetryInstruction}`
     // single `generation_quality_failed` token. Metadata only — the degraded reason the
     // UI/cache sees is unchanged; the structured verdict rides alongside in
     // answer_retry_reasons and the fallback log fields below.
-    const generationQualityFailure = generationQualityFailureDiagnostics(error);
+    const generationQualityFailure = initialGenerationQualityFailure ?? generationQualityFailureDiagnostics(error);
     if (generationQualityFailure) {
       answerRetryReasons.push(`generation_quality_gate:${generationQualityFailure.gateReason}`);
     }

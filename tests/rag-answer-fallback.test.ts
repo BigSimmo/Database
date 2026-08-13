@@ -88,10 +88,12 @@ type GeneratedAnswerPayload = {
   conflictsOrGaps?: unknown[];
 };
 
+type GeneratedAnswerAttempt = GeneratedAnswerPayload | Error | "truncated";
+
 async function answerFromTextSources(
   query: string,
   sources: SearchResult[],
-  generatedAnswer?: GeneratedAnswerPayload | Error,
+  generatedAnswer?: GeneratedAnswerAttempt | GeneratedAnswerAttempt[],
   options: { sourceOnly?: boolean } = {},
 ) {
   // `src/lib/env.ts` freezes process.env at module load. The offline vitest wrapper
@@ -116,11 +118,28 @@ async function answerFromTextSources(
       from: vi.fn(() => new EmptyQuery()),
     }),
   }));
+  let generatedAnswerAttemptIndex = 0;
   const generateStructuredTextResult = vi.fn(async () => {
-    if (generatedAnswer instanceof Error) throw generatedAnswer;
+    const attempt = Array.isArray(generatedAnswer)
+      ? generatedAnswer[generatedAnswerAttemptIndex++]
+      : generatedAnswer;
+    if (attempt === "truncated") {
+      return {
+        text: "",
+        model: "gpt-4.1-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: "req_answer_from_text_sources_truncated",
+        usage: { input_tokens: 120, output_tokens: 80, total_tokens: 200 },
+        status: "incomplete" as const,
+        truncated: true,
+        incompleteReason: "max_output_tokens",
+      };
+    }
+    if (attempt instanceof Error) throw attempt;
     return {
       text: JSON.stringify(
-        generatedAnswer ?? {
+        attempt ?? {
           answer: "No current source with specific guidance for this query was found.",
           grounded: false,
           confidence: "unsupported",
@@ -204,6 +223,40 @@ describe("RAG structured-output fallback", () => {
     // The unverified figure never reaches the delivered answer unmarked as verified text.
     expect(answer.grounded).toBe(true);
     expect(answer.citations.length).toBeGreaterThan(0);
+  });
+
+  it("preserves the initial strong quality verdict when its repair attempt truncates", async () => {
+    const sources = [
+      source({
+        id: "quality-retry-source-a",
+        document_id: "quality-retry-guide-a",
+        content: "Guide A outlines routine monitoring steps and referral thresholds.",
+      }),
+      source({
+        id: "quality-retry-source-b",
+        document_id: "quality-retry-guide-b",
+        content: "Guide B outlines a second monitoring pathway and escalation thresholds.",
+      }),
+    ];
+    const templateLikeAnswer: GeneratedAnswerPayload = {
+      answer: "Compare the document monitoring pathways using the source-backed guidance.",
+      grounded: true,
+      confidence: "high",
+      answerSections: [],
+      citations: [{ chunk_id: "quality-retry-source-a" }],
+      quoteCards: [],
+      conflictsOrGaps: [],
+    };
+
+    const answer = await answerFromTextSources(
+      "Compare document monitoring pathways across two guides",
+      sources,
+      [templateLikeAnswer, templateLikeAnswer, "truncated"],
+    );
+
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain("fast_template_retry_strong");
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain("strong_quality_retry");
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain("generation_quality_gate:template_like_answer");
   });
 
   it("records the cited-refusal verdict when generation returns a provider source gap (#231)", async () => {
