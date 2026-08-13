@@ -56,7 +56,7 @@ function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
                   aria-current={active ? "true" : undefined}
                   data-testid={`specifier-map-jump-${step.id}`}
                   className={cn(
-                    "group grid min-h-[5.25rem] w-full grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3.5 py-3 text-left shadow-[var(--shadow-inset)] transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                    "group grid min-h-specifier-map-jump w-full grid-cols-[var(--spacing-specifier-map-step-number)_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3.5 py-3 text-left shadow-[var(--shadow-inset)] transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                     active
                       ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
@@ -89,7 +89,7 @@ function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
         </ol>
       </nav>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_var(--spacing-specifier-map-aside)]">
         <section className="grid min-w-0 gap-4" aria-label="Specifier families">
           {specifierFamilies
             .filter((family) => family.id !== "all")
