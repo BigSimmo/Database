@@ -19,7 +19,10 @@ vi.mock("@/lib/answer-response", () => ({
   buildGovernedAnswerClientResponse: (answer: unknown) => ({ payload: answer, telemetryAnswer: answer }),
   buildGovernedDemoAnswerClientResponse: vi.fn(),
 }));
-vi.mock("@/lib/search-scope", () => ({ resolveSearchScope }));
+vi.mock("@/lib/search-scope", async (importOriginal) => ({
+  ...(await importOriginal()),
+  resolveSearchScope,
+}));
 vi.mock("@/lib/owner-scope", () => ({
   resolveRetrievalAccessScope: (ownerId?: string) => ({ ownerId }),
 }));
