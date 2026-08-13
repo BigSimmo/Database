@@ -112,6 +112,13 @@ export type TcBindings = {
   // ---- search ---------------------------------------------------------
   search: SearchOptions;
   searchResults: Therapy[];
+  /**
+   * Query-only matches — same query, tags/reviewedOnly/briefOnly reset to
+   * `EMPTY_SEARCH`. The base for a facet option's count ("how many would I
+   * have if I ticked this as well" — docs/filter-contract.md section 3),
+   * which must never be narrowed by the very selection it is counting.
+   */
+  queryMatches: Therapy[];
   setQuery: (q: string) => void;
   submitQuery: (q: string) => void; // set query + go search
   toggleTag: (tag: string) => void;
@@ -328,6 +335,16 @@ export function TcProvider({ children }: { children: ReactNode }) {
     // match aria-pressed state without waiting for useDeferredValue.
     return searchTherapies(therapies, { ...search, query: deferredSearch.query });
   }, [therapies, deferredSearch.query, search]);
+  // Same query-deferral shape as `searchResults`, tags/reviewedOnly/briefOnly
+  // reset — so a facet count never lags behind or races ahead of the query
+  // typing the reader can see.
+  const queryMatches = useMemo(() => {
+    const liveQuery = search.query.trim();
+    const deferredQuery = deferredSearch.query.trim();
+    if (!liveQuery) return searchTherapies(therapies, EMPTY_SEARCH);
+    if (!deferredQuery) return [];
+    return searchTherapies(therapies, { ...EMPTY_SEARCH, query: deferredSearch.query });
+  }, [therapies, deferredSearch.query, search.query]);
   const compareTherapies = useMemo(
     () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),
     [compareSlugs, bySlug],
@@ -429,6 +446,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
 
       search,
       searchResults,
+      queryMatches,
       setQuery: (q) => patchSearch({ query: q }),
       submitQuery: (q) => {
         patchSearch({ query: q });
@@ -545,6 +563,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
     relatedForSelected,
     search,
     searchResults,
+    queryMatches,
     compareSlugs,
     compareTherapies,
     recQuery,
