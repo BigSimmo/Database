@@ -1,9 +1,9 @@
 #!/bin/sh
-# Pre-push safety net. Delegates to scripts/guard-push.mjs, which runs four
-# guards: auto-merge race sentinel, format-before-push, drift-manifest
-# freshness, and static gate (lint + source typecheck). Each guard has an
-# explicit override env var (see the script header) — including
-# SKIP_STATIC_GUARD=1 for the static gate.
+# Pre-push safety net. Delegates to scripts/guard-push.mjs, which runs five
+# guards: auto-merge ownership, format-before-push, drift-manifest freshness,
+# static gate (lint + source typecheck), and ledger-write discipline. The
+# auto-merge guard is not bypassable; the other guards have explicit override
+# env vars (see the script header), including SKIP_STATIC_GUARD=1.
 #
 # Installed by scripts/install-git-hooks.mjs via `git config core.hooksPath
 # .githooks` (run automatically on npm install/ci). Git passes the pushed refs
@@ -11,12 +11,15 @@
 # script reads to scope the format, drift, and static checks to what is
 # actually pushed.
 #
-# Set GUARD_PUSH_DISABLE=1 to bypass every guard at once (individual guards also
-# have their own override flags).
+# Set GUARD_PUSH_DISABLE=1 to bypass every guard except auto-merge ownership.
+# Individual non-auto-merge guards also have their own override flags.
 set -eu
 
 if [ "${GUARD_PUSH_DISABLE:-}" = "1" ]; then
-  exit 0
+  export SKIP_FORMAT_GUARD=1
+  export SKIP_DRIFT_GUARD=1
+  export SKIP_STATIC_GUARD=1
+  export SKIP_LEDGER_WRITE_GUARD=1
 fi
 
 # Resolve node; if unavailable, do not block the push (fail open).

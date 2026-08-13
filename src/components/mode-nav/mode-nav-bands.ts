@@ -1,11 +1,20 @@
 /**
- * Slot capacities for the mode navigation bar, narrowest first. These mirror
- * the `@container mode-nav (min-width: …)` bands in `globals.css`; changing one
- * without the other is what `tests/mode-nav-contract.test.ts` guards against.
+ * Slot capacities for the mode navigation bar, narrowest first. Every density
+ * profile uses this same progression; the profile only decides how much
+ * container width its real labels need before each capacity is safe.
  */
 export const MODE_NAV_BANDS = [3, 4, 5] as const;
 
 export type ModeNavBand = (typeof MODE_NAV_BANDS)[number];
+
+/**
+ * Calibrated label families for the shared bar. A profile is chosen from the
+ * declared destinations, never measured at runtime, so navigation stays stable
+ * through hydration, rotation, and browser zoom.
+ */
+export const MODE_NAV_DENSITY_PROFILES = ["two-item", "compact-four", "balanced-four", "extended"] as const;
+
+export type ModeNavDensityProfile = (typeof MODE_NAV_DENSITY_PROFILES)[number];
 
 /** Below this a bar is a label, not navigation, so nothing renders. */
 export const MODE_NAV_MIN_ITEMS = 2;

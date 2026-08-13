@@ -521,7 +521,7 @@ describe("readReports", () => {
 
       expect(readReports(directory).map((entry: { run: string }) => entry.run)).toEqual(["mobile-root"]);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

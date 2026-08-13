@@ -88,3 +88,22 @@ free real estate for ordering keys (see §2's critical property).
   `generatedAt` provenance with an active 30-day freshness gate; regenerate from the latest
   `eval-canary-output` artifact via `npm run build:ranking-snapshot`.
 - Run-over-run trends: `npm run eval:trend -- <artifact.json...>`.
+
+## 7. Generation-quality failure diagnostics (#231, metadata-only)
+
+- "Generation quality" is not one gate: `generatedAnswerQualityFailureReason`
+  (`src/lib/rag/rag-extractive-answer.ts`) is a 14-branch first-match-wins classifier, plus
+  the post-finalize source-safe gates in `rag.ts` (`claim_support_high_risk_gap`,
+  `material_source_governance_gap`, `numeric_band_coherence_gap`, `numeric_faithfulness_gap`)
+  and the `finalizeRagAnswerQualityCore` gates.
+- Since 2026-08-12 the quality-gate throw sites raise `GenerationQualityError`
+  (`src/lib/rag/rag-generation-quality-diagnostics.ts`) carrying `{stage, gateReason,
+answerShape}` where `answerShape` is provider-safe counts/lengths only — never prose. The
+  catch path records `generation_quality_gate:<reason>` in `answer_retry_reasons`, the
+  fallback `rag_queries` log gains `generation_quality_gate_reason`,
+  `generation_quality_gate_stage` and `generation_quality_answer_shape`, and eval
+  diagnostics gain `generation_quality_gate_reasons`.
+- This is instrumentation, not behaviour: the error message, the flattened
+  `generation_fallback:generation_quality_failed` degraded token, cache exclusion, and the
+  source-only fallback are byte-for-byte unchanged. Do not use these fields to relax a gate;
+  they exist so a live degraded answer can name the gate that rejected it.

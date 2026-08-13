@@ -1,8 +1,13 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { DsmSearchPage } from "@/components/dsm/dsm-search-page";
 import type { DsmCategory } from "@/lib/dsm";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+}));
 
 // `/dsm/search` rendered "No diagnosis matches" as an `<h2>` until it adopted
 // `EmptyState`, whose title was a `<p>` — so heading navigation silently
@@ -19,7 +24,8 @@ describe("DsmSearchPage empty state", () => {
     expect(screen.getByRole("heading", { level: 2, name: "No diagnosis matches" })).toBeVisible();
   });
 
-  it("drops the catalogue page header and owns the query as the page heading", () => {
+  it("drops the catalogue page header and offers the shared phone filter control", async () => {
+    const user = userEvent.setup();
     render(<DsmSearchPage query="Delirium" categories={categories} results={[]} totalCount={12} />);
 
     expect(screen.queryByRole("link", { name: /DSM-5 Diagnosis home/i })).toBeNull();
@@ -31,5 +37,12 @@ describe("DsmSearchPage empty state", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Delirium" })).toBeVisible();
     expect(screen.getByTestId("dsm-category-filter")).toBeVisible();
     expect(screen.getByTestId("dsm-category-filter")).toHaveTextContent("12");
+
+    const phoneFilter = screen.getByTestId("dsm-category-filter-phone");
+    expect(phoneFilter).toHaveAccessibleName(/Filter\s*No filters active/);
+    await user.click(phoneFilter);
+    expect(screen.getByRole("dialog", { name: "Filter DSM diagnoses" })).toBeVisible();
+    expect(screen.getByRole("radiogroup", { name: "Category" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "All categories (12)" })).toHaveAttribute("aria-checked", "true");
   });
 });

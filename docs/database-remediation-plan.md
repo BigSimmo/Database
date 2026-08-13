@@ -1,7 +1,8 @@
 # Database remediation & future-proofing plan — 2026-08
 
-Owner: operator (Josh) + specialist session. Source findings: ledger `#248` (closed 2026-08-13)
-and `#312` (P1, open). Companion evidence: live-drift Actions runs `30763871562` (2026-08-02) and
+Owner: operator (Josh) + specialist session. Source findings: ledger `#248` (closure queued by
+this PR) and the queued P1 live-drift follow-up. Companion evidence: live-drift Actions runs
+`30763871562` (2026-08-02) and
 `31330856982` (2026-08-09), PR #1614, `supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql`.
 
 **Scope.** Fixes, in dependency order: the live-vs-repo schema gap (21 missing indexes, 2

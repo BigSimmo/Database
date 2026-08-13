@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "b9c97f0e-c175-437e-812d-b70054c666b2",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#248",
+    "outcome": "Investigation complete 2026-08-13 (session, Fable). Determined from repo + PR #1614 + live-drift workflow history, no hosted access needed: 20260705180000's DDL NEVER EXECUTED on live — its history row was recorded out-of-band (mark-applied/repair or hand-apply of the function half only). Evidence: (1) Supabase wraps each migration in one transaction, so a persisted partial apply is impossible; (2) the later 20260706010000/20260706200000 migrations are behaviorally live (alias-aware health function; schema_drift_snapshot RPC), which requires 20260705180000's history row recorded first; (3) of its 10 create-index statements, the only ones 'present' before the 08-04 repair were those satisfied by legacy-named aliases, and TWO MORE of its indexes (documents_title_trgm_idx, document_chunks_content_trgm_idx) are STILL missing on live per the 2026-08-09 live-drift run — impossible if the migration had run. 'Manually dropped later' and 'partial transaction' are excluded. check:drift DID catch this class: scheduled live-drift red on 2026-07-26 and 2026-08-02 with exactly these missing_live findings, before the 08-04 runtime discovery — the gap was 07-19 green under a pre-07-31 stale manifest plus no routing of red scheduled runs to anyone. Residual one-query operator confirmation (statements IS NULL fingerprint in supabase_migrations.schema_migrations for version 20260705180000) folded into the new follow-up row with the live drift backlog."
+  }
+}

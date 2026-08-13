@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useId,
   useMemo,
@@ -22,6 +23,11 @@ import {
 } from "lucide-react";
 
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, codeText, EmptyState, metadataPill, pageContainer, searchFocusRing } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
@@ -243,7 +249,10 @@ export function DsmSearchPage({
   totalCount: number;
   initialIds?: string[];
 }) {
+  const router = useRouter();
   const [selected, setSelected] = useState<string[]>(initialIds.slice(0, 3));
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterPanelId = useId();
   const activeCategory = categories.find((item) => item.key === category);
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const canCompare = selected.length >= 2;
@@ -265,6 +274,17 @@ export function DsmSearchPage({
           matchCount={results.length}
           headingLevel={1}
           filterLabel="Filter diagnoses by category"
+          mobileControlsPlacement="inline"
+          mobileControls={
+            <ResultFilterTrigger
+              panelId={filterPanelId}
+              testId="dsm-category-filter-phone"
+              title="Filter DSM diagnoses"
+              open={filterOpen}
+              activeCount={activeCategory ? 1 : 0}
+              onToggle={() => setFilterOpen((current) => !current)}
+            />
+          }
           utilityControls={
             canCompare ? (
               <Link
@@ -278,7 +298,7 @@ export function DsmSearchPage({
             ) : null
           }
           filterControls={
-            <div className="flex w-full flex-wrap items-center gap-x-2 gap-y-1.5">
+            <div className="hidden w-full flex-wrap items-center gap-x-2 gap-y-1.5 sm:flex">
               <CategoryFilterDropdown
                 query={query}
                 categories={categories}
@@ -302,13 +322,49 @@ export function DsmSearchPage({
           }
         />
 
+        <ResultFilterSheet
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          panelId={filterPanelId}
+          testId="dsm-category-filter-panel"
+          title="Filter DSM diagnoses"
+          groups={[
+            resultFilterGroup({
+              id: "category",
+              label: "Category",
+              value: activeCategory?.key ?? "all",
+              options: [
+                { value: "all", label: "All categories", hint: String(totalCount) },
+                ...categories.map((item) => ({
+                  value: item.key,
+                  label: item.label,
+                  hint: String(item.diagnosis_count),
+                })),
+              ],
+              onChange: (value) => {
+                setFilterOpen(false);
+                router.push(categoryHref(query, value === "all" ? undefined : value, selected));
+              },
+            }),
+          ]}
+          onClearAll={
+            activeCategory
+              ? () => {
+                  setFilterOpen(false);
+                  router.push(categoryHref(query, undefined, selected));
+                }
+              : undefined
+          }
+          footerNote={`${results.length} ${results.length === 1 ? "diagnosis" : "diagnoses"} showing`}
+        />
+
         {results.length ? (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
             <section
               aria-label="DSM diagnosis results"
               className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
             >
-              <div className="flex items-baseline justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+              <div className="flex items-baseline justify-between gap-4 border-b border-[color:var(--border)] px-4 py-4 sm:px-5">
                 <h2 className="text-base font-extrabold text-[color:var(--text-heading)] sm:text-lg">
                   {query ? "Matching diagnoses" : "Diagnosis catalogue"}
                 </h2>
@@ -316,7 +372,7 @@ export function DsmSearchPage({
                   {results.length} {results.length === 1 ? "result" : "results"}
                 </span>
               </div>
-              <div className="hidden grid-cols-[2.5rem_minmax(14rem,1fr)_10rem_7rem_1.25rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)] lg:grid">
+              <div className="hidden grid-cols-[3rem_minmax(0,1fr)_10rem_7rem_3rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)] lg:grid xl:grid-cols-[3rem_minmax(14rem,1fr)_10rem_7rem_3rem] xl:gap-4 xl:px-5">
                 <span>Select</span>
                 <span>Diagnosis</span>
                 <span>Category</span>
@@ -331,7 +387,7 @@ export function DsmSearchPage({
                       key={result.slug}
                       data-testid="dsm-search-result"
                       className={cn(
-                        "group grid grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-start gap-3 px-3 py-3.5 transition sm:px-4 lg:grid-cols-[2.5rem_minmax(14rem,1fr)_10rem_7rem_1.25rem] lg:items-center",
+                        "group grid grid-cols-[3rem_minmax(0,1fr)_3rem] items-start gap-3.5 px-4 py-4 transition sm:gap-4 sm:px-5 sm:py-5 lg:grid-cols-[3rem_minmax(0,1fr)_10rem_7rem_3rem] lg:items-center lg:gap-3 lg:px-4 xl:grid-cols-[3rem_minmax(14rem,1fr)_10rem_7rem_3rem] xl:gap-4 xl:px-5",
                         isSelected
                           ? "bg-[color:var(--clinical-accent-soft)]/55"
                           : "hover:bg-[color:var(--surface-subtle)]",
@@ -345,7 +401,7 @@ export function DsmSearchPage({
                           isSelected ? "from" : "to"
                         } comparison`}
                         className={cn(
-                          "grid h-tap w-tap place-items-center rounded-lg border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                          "grid h-12 w-12 place-items-center rounded-xl border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                           isSelected
                             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                             : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--decoration-soft)] hover:border-[color:var(--clinical-accent)]",
@@ -357,14 +413,17 @@ export function DsmSearchPage({
                           <GitCompareArrows className="h-4 w-4" aria-hidden />
                         )}
                       </button>
-                      <Link href={`/dsm/diagnoses/${result.slug}`} className="min-w-0 focus-visible:outline-none">
+                      <Link
+                        href={`/dsm/diagnoses/${result.slug}`}
+                        className={cn("min-w-0 rounded-md", searchFocusRing)}
+                      >
                         <h3 className="text-sm font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)] sm:text-base-minus">
                           {result.title}
                         </h3>
-                        <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                        <p className="mt-1.5 line-clamp-2 max-w-[48rem] text-xs font-medium leading-5 text-[color:var(--text-muted)]">
                           {result.summary}
                         </p>
-                        <div className="mt-2 flex flex-wrap gap-1.5 lg:hidden">
+                        <div className="mt-2.5 flex flex-wrap gap-2 lg:hidden">
                           <span className={metadataPill}>{result.category.label}</span>
                           <span className={cn(metadataPill, codeText)}>{result.icd_code}</span>
                         </div>
@@ -380,7 +439,10 @@ export function DsmSearchPage({
                       <Link
                         href={`/dsm/diagnoses/${result.slug}`}
                         aria-label={`Open ${result.title}`}
-                        className="grid h-tap w-tap -translate-y-0.5 place-items-center rounded-lg text-[color:var(--decoration-soft)] transition group-hover:text-[color:var(--clinical-accent)] lg:translate-y-0"
+                        className={cn(
+                          "grid h-tap w-tap place-items-center self-center rounded-lg text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transform-none",
+                          searchFocusRing,
+                        )}
                       >
                         <ChevronRight className="h-5 w-5" aria-hidden />
                       </Link>

@@ -2,14 +2,14 @@
 /**
  * guard-push — pre-push safety net for this repo's known, repeated traps.
  *
- * Runs four independent guards; any one can BLOCK the push (non-zero exit) and
- * each honours an explicit override env var so you are never truly stuck:
+ * Runs five independent guards; any one can BLOCK the push (non-zero exit).
+ * All except the auto-merge ownership guard have an explicit override env var:
  *
- *   1. Auto-merge race sentinel (claude/* branches only)
- *      This repo auto-merges claude/* PRs on green. Pushing a late follow-up
- *      commit to a PR whose auto-merge is already armed races the merge and has
- *      orphaned commits before. If `gh` reports an armed autoMergeRequest for the
- *      current branch's open PR, block. Override: ALLOW_AUTOMERGE_PUSH=1.
+ *   1. Auto-merge ownership guard (all PR branches)
+ *      Per-PR auto-merge state is user-owned. Pushing to a PR whose auto-merge is
+ *      already armed can race the merge and, for actors without write permission,
+ *      GitHub disables auto-merge. If `gh` reports an armed autoMergeRequest for
+ *      the current branch's open PR, block without an automation override.
  *      Fails OPEN (never blocks) when gh is missing/unauthenticated, so
  *      contributors without gh can still push.
  *
@@ -36,6 +36,11 @@
  *      defect that is not in the push. Both are incremental (seconds when warm).
  *      Skips loudly when node_modules is absent. Override: SKIP_STATIC_GUARD=1.
  *
+ *   5. Ledger write discipline
+ *      The historical Markdown ledgers are serial-only. Feature PRs add immutable
+ *      review records or issue-inbox JSON; only a verified transaction may change
+ *      the canonical issue ledger. Override: SKIP_LEDGER_WRITE_GUARD=1.
+ *
  * The .githooks/pre-push hook invokes this with the raw `git push` stdin (lines of
  * "<localRef> <localSha> <remoteRef> <remoteSha>"). Run `--self-test` for the
  * offline unit checks used by tests/guard-push.test.ts.
@@ -51,6 +56,8 @@ const ZERO_SHA = "0000000000000000000000000000000000000000";
 const SCHEMA_PATH = "supabase/schema.sql";
 const MANIFEST_PATH = "supabase/drift-manifest.json";
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const LEDGER_WRITE_CHECK = path.join(PROJECT_ROOT, "scripts", "check-ledger-write-discipline.mjs");
+const LEDGER_HOT_PATHS = new Set(["docs/branch-review-ledger.md", "docs/outstanding-issues.md"]);
 
 /**
  * sha256 over CRLF-normalized schema text. MUST stay byte-identical to
@@ -89,11 +96,22 @@ export function parsePushRanges(stdinText) {
   for (const raw of stdinText.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
-    const [localRef, localSha, , remoteSha] = line.split(/\s+/);
+    const [localRef, localSha, remoteRef, remoteSha] = line.split(/\s+/);
     if (!localSha || localSha === ZERO_SHA) continue; // branch deletion — nothing to push
-    ranges.push({ localRef, localSha, remoteSha: remoteSha ?? ZERO_SHA });
+    ranges.push({ localRef, localSha, remoteRef, remoteSha: remoteSha ?? ZERO_SHA });
   }
   return ranges;
+}
+
+/** Exported for tests: resolve the remote PR branches a push will mutate. */
+export function pushedBranchNames(ranges, fallbackBranch = "") {
+  const branches = new Set();
+  for (const range of ranges) {
+    const ref = range.remoteRef || range.localRef || "";
+    if (ref.startsWith("refs/heads/")) branches.add(ref.slice("refs/heads/".length));
+  }
+  if (branches.size === 0 && fallbackBranch) branches.add(fallbackBranch);
+  return [...branches];
 }
 
 function changedFilesForRange(range) {
@@ -155,7 +173,6 @@ function ghIsAvailable() {
 
 /** Exported for tests: decide from a parsed `gh pr view` payload. */
 export function autoMergeVerdict(branch, prPayload) {
-  if (!branch.startsWith("claude/")) return { block: false, reason: "not-a-claude-branch" };
   if (!prPayload) return { block: false, reason: "no-open-pr" };
   if (prPayload.state && prPayload.state !== "OPEN") return { block: false, reason: "pr-not-open" };
   if (prPayload.autoMergeRequest) {
@@ -164,36 +181,33 @@ export function autoMergeVerdict(branch, prPayload) {
   return { block: false, reason: "auto-merge-not-armed" };
 }
 
-function autoMergeGuard(branch) {
-  if (process.env.ALLOW_AUTOMERGE_PUSH === "1") {
-    return { name: "auto-merge", ok: true, skipped: "ALLOW_AUTOMERGE_PUSH=1" };
-  }
-  if (!branch.startsWith("claude/")) return { name: "auto-merge", ok: true };
+function autoMergeGuard(branches) {
   if (!ghIsAvailable()) {
     return { name: "auto-merge", ok: true, note: "gh not available — auto-merge check skipped (fail-open)" };
   }
-  let payload;
-  try {
-    const raw = execFileSync("gh", ["pr", "view", "--json", "autoMergeRequest,state,number"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    payload = JSON.parse(raw);
-  } catch {
-    // No PR for this branch, or gh unauthenticated: fail open.
-    return { name: "auto-merge", ok: true, note: "no open PR resolvable — auto-merge check skipped" };
-  }
-  const verdict = autoMergeVerdict(branch, payload);
-  if (verdict.block) {
-    return {
-      name: "auto-merge",
-      ok: false,
-      message:
-        `PR #${verdict.number} on ${branch} has auto-merge ARMED.\n` +
-        `  Pushing now races the squash-merge and can orphan this commit (it has happened before).\n` +
-        `  Let the armed merge land first, or disable auto-merge on the PR, then push.\n` +
-        `  To push anyway: ALLOW_AUTOMERGE_PUSH=1 git push`,
-    };
+  for (const branch of branches) {
+    let payload;
+    try {
+      const raw = execFileSync("gh", ["pr", "view", branch, "--json", "autoMergeRequest,state,number"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+      payload = JSON.parse(raw);
+    } catch {
+      // No PR for this branch, or gh unauthenticated: fail open.
+      continue;
+    }
+    const verdict = autoMergeVerdict(branch, payload);
+    if (verdict.block) {
+      return {
+        name: "auto-merge",
+        ok: false,
+        message:
+          `PR #${verdict.number} on ${branch} has auto-merge ARMED.\n` +
+          `  Auto-merge state is user-owned; automation must not disable it or push through it.\n` +
+          `  Leave this PR untouched until it merges or the user manually changes that state.`,
+      };
+    }
   }
   return { name: "auto-merge", ok: true };
 }
@@ -843,6 +857,52 @@ export function staticGuard(changedFiles, options = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Guard 5: ledger write discipline
+// ---------------------------------------------------------------------------
+export function hasHotLedgerWrite(changedFiles) {
+  return changedFiles.some((file) => LEDGER_HOT_PATHS.has(file.replaceAll("\\", "/")));
+}
+
+function ledgerWriteGuard(ranges) {
+  if (process.env.SKIP_LEDGER_WRITE_GUARD === "1") {
+    return { name: "ledger-write", ok: true, skipped: "SKIP_LEDGER_WRITE_GUARD=1" };
+  }
+  if (!hasHotLedgerWrite(collectChangedFiles(ranges))) return { name: "ledger-write", ok: true };
+
+  for (const range of ranges) {
+    const base =
+      range.remoteSha && range.remoteSha !== ZERO_SHA
+        ? range.remoteSha
+        : tryGit(["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"]);
+    if (!base) {
+      return {
+        name: "ledger-write",
+        ok: true,
+        note: "could not resolve a base commit for the ledger transaction check; CI will verify it",
+      };
+    }
+    try {
+      execFileSync(process.execPath, [LEDGER_WRITE_CHECK, "--base", base, "--head", range.localSha], {
+        cwd: PROJECT_ROOT,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (error) {
+      const output = `${error?.stdout ?? ""}${error?.stderr ?? ""}`.trim();
+      return {
+        name: "ledger-write",
+        ok: false,
+        message:
+          `${output || "ledger transaction check failed"}\n\n` +
+          "Use immutable ledger records/inbox requests, or reconcile from a fresh ledger branch. " +
+          "To push a deliberate emergency repair: SKIP_LEDGER_WRITE_GUARD=1 git push",
+      };
+    }
+  }
+  return { name: "ledger-write", ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Orchestration
 // ---------------------------------------------------------------------------
 function report(results) {
@@ -865,13 +925,15 @@ function main() {
   const ranges = parsePushRanges(stdin);
   if (ranges.length === 0) process.exit(0); // deletion-only push or nothing to do
   const branch = currentBranch();
+  const pushedBranches = pushedBranchNames(ranges, branch);
   const changedFiles = collectChangedFiles(ranges);
   // formatGuard reads the pushed blobs; drift/static only need the paths.
   const results = [
-    autoMergeGuard(branch),
+    autoMergeGuard(pushedBranches),
     formatGuard(collectChangedBlobs(ranges)),
     driftGuard(changedFiles),
     staticGuard(changedFiles, { ranges }),
+    ledgerWriteGuard(ranges),
   ];
   process.exit(report(results));
 }
@@ -897,7 +959,10 @@ function assert(condition, label) {
 
 function selfTest() {
   // auto-merge verdicts
-  assert(autoMergeVerdict("main", { autoMergeRequest: {} }).block === false, "non-claude branch never blocks");
+  assert(
+    autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).block === true,
+    "armed auto-merge on codex/* blocks",
+  );
   assert(
     autoMergeVerdict("claude/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 7 }).block === true,
     "armed auto-merge on claude/* blocks",
@@ -975,6 +1040,8 @@ function selfTest() {
     staticGuard(["src/lib/a.ts"], { ranges: [{ localSha: "deadbeef", localRef: "refs/heads/other" }] }).ok === false,
     "push tip that is not HEAD fails closed",
   );
+  assert(hasHotLedgerWrite(["docs/outstanding-issues.md"]) === true, "canonical issue ledger is hot");
+  assert(hasHotLedgerWrite(["docs/outstanding-issues-inbox/request.json"]) === false, "inbox writes are merge-safe");
 
   if (process.exitCode !== 1) console.error("[guard-push] self-test passed");
   return process.exitCode ?? 0;

@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -19,6 +19,7 @@ import {
   needsTypecheck,
   normalizedSchemaSha256 as guardSha,
   parsePushRanges,
+  pushedBranchNames,
   pushedTipMatchesHead,
   staticGuard,
 } from "../scripts/guard-push.mjs";
@@ -27,7 +28,7 @@ const ZERO = "0".repeat(40);
 const created: string[] = [];
 
 afterEach(() => {
-  for (const root of created.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of created.splice(0)) rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 function dependencyFixture(lockMarker: string, withPrettier = false) {
@@ -60,8 +61,10 @@ describe("guard-push sha parity", () => {
 });
 
 describe("auto-merge verdict", () => {
-  it("never blocks a non-claude branch", () => {
-    expect(autoMergeVerdict("main", { autoMergeRequest: {}, state: "OPEN" }).block).toBe(false);
+  it("blocks any PR branch with armed auto-merge", () => {
+    expect(autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).block).toBe(
+      true,
+    );
   });
 
   it("blocks a claude/* branch with an armed auto-merge on an open PR", () => {
@@ -83,6 +86,23 @@ describe("auto-merge verdict", () => {
   });
 });
 
+describe("manual auto-merge ownership policy", () => {
+  it("keeps active agent policies aligned on preserving an armed PR", () => {
+    const policyFiles = [
+      "../AGENTS.md",
+      "../.claude/skills/run-pr/SKILL.md",
+      "../.claude/skills/handoff/SKILL.md",
+      "../.cursor/agents/pr-babysit.md",
+    ];
+
+    for (const file of policyFiles) {
+      const policy = readFileSync(new URL(file, import.meta.url), "utf8");
+      expect(policy, file).toContain("auto-merge state is user-owned");
+      expect(policy, file).toContain("must not disable");
+    }
+  });
+});
+
 describe("drift verdict", () => {
   const text = "create table t();\n";
   it("is fresh when the manifest sha matches", () => {
@@ -100,7 +120,13 @@ describe("push-range parsing", () => {
   it("parses a new-branch push (zero remote sha)", () => {
     const ranges = parsePushRanges(`refs/heads/x abc123 refs/heads/x ${ZERO}\n`);
     expect(ranges).toHaveLength(1);
+    expect(ranges[0].remoteRef).toBe("refs/heads/x");
     expect(ranges[0].remoteSha).toBe(ZERO);
+  });
+
+  it("guards the remote branch even when a different branch is checked out", () => {
+    const ranges = parsePushRanges(`refs/heads/local abc123 refs/heads/pr-head ${ZERO}\n`);
+    expect(pushedBranchNames(ranges, "main")).toEqual(["pr-head"]);
   });
 
   it("skips a branch-deletion push (zero local sha)", () => {

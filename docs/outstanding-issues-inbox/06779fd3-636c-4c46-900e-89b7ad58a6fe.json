@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "06779fd3-636c-4c46-900e-89b7ad58a6fe",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Live DB is missing 21 repo-defined indexes and 10 retrieval RPC bodies diverge; weekly live-drift has been red since 2026-07-26 with no routing",
+    "detail": "APPEND 2026-08-13: full remediation + future-proofing plan authored at docs/database-remediation-plan.md (phases 0-7: routing + post-migration drift trigger first, read-only forensics, staging rehearsal #056, RPC reconciliation before index restoration, batched CREATE INDEX CONCURRENTLY + 20260804110240-pattern guard migrations, EXPLAIN/#231 re-measure, history-integrity probe in schema_drift_snapshot, guard-migration contract, DR codification #196-#200, deferred #022/#025/#036/#191). This row remains the tracking anchor; execute per the plan's approval map. Prior detail: Found while closing #248 (2026-08-13). The 20260804110240/#1614 repair fixed only the 4 search_schema_health-monitored indexes. The 2026-08-09 scheduled live-drift run (Actions run 31330856982) still reports 21 missing_live indexes spanning many migrations, 2 unexpected_live indexes, and def_hash mismatches on 10 match_* retrieval RPCs (protected RAG surface — diff before touching). Root cause: migration-history rows recorded without their DDL executing. No hosted mutation without approval.",
+    "source": "session 2026-08-13 / Actions runs 30763871562 + 31330856982 / #248 closure"
+  }
+}

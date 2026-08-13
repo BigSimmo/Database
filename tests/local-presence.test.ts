@@ -27,7 +27,7 @@ describe("check-local-presence", () => {
       writeFileSync(path.join(unrelatedRoot, "package.json"), JSON.stringify({ name: "unrelated-project" }));
       expect(() => resolveTargetRoot(["--root", unrelatedRoot])).toThrow("--root is not a Database checkout");
     } finally {
-      rmSync(unrelatedRoot, { recursive: true, force: true });
+      rmSync(unrelatedRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
