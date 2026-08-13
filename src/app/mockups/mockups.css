@@ -1,0 +1,9 @@
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@reference "../globals.css";
+
+/* Re-emit the complete utility vocabulary for mockup routes. This preserves
+   Tailwind's responsive ordering when a mockup shares shell components with
+   production. The complete theme-aware sheet retains Tailwind's own base and
+   responsive ordering without overriding inline theming on later live routes. */
+@source "../";
+@source "../../components";

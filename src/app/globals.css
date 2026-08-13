@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* Design-scratch routes have their own route-scoped utility sheet. Keeping
+   their rapidly growing utility vocabulary out of every production page cuts
+   the shared render-blocking stylesheet without changing mockup rendering. */
+@source not "./mockups";
+@source not "../components/**/*mockup*";
 /* Opt-in v2 design-system token layer. Every rule is scoped to `.ckb-v2`, so
    importing it cannot change any surface that does not carry the class. */
 @import "./ckb-v2-tokens.css";
