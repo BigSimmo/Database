@@ -258,6 +258,17 @@ describe("registry records API", () => {
     expect(compressed.byteLength).toBeLessThan(gunzipSync(compressed).byteLength / 2);
   });
 
+  it("varies a large uncompressed response by Accept-Encoding", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(request("/api/registry/records?kind=service"));
+
+    expect(response.headers.get("content-encoding")).toBeNull();
+    expect(response.headers.get("vary")).toContain("Accept-Encoding");
+  });
+
   it("serves mock records in demo mode without touching Supabase", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });

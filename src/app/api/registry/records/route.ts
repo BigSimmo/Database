@@ -67,24 +67,24 @@ async function registryResponse(
   options: { request?: Request; fixture?: boolean } = {},
 ) {
   const json = JSON.stringify(payload);
-  if (json.length < REGISTRY_COMPRESSION_THRESHOLD_BYTES || !acceptsGzip(options.request)) {
-    return NextResponse.json(payload, { headers: fixtureResponseHeaders(options.request, options) });
+  const jsonBytes = Buffer.from(json);
+  const shouldVaryByEncoding = jsonBytes.byteLength >= REGISTRY_COMPRESSION_THRESHOLD_BYTES;
+  const headers = fixtureResponseHeaders(options.request, {
+    ...options,
+    headers: shouldVaryByEncoding ? { Vary: "Accept-Encoding" } : undefined,
+  });
+  if (!shouldVaryByEncoding || !acceptsGzip(options.request)) {
+    return NextResponse.json(payload, { headers });
   }
 
   // Next's documented `compress` default did not produce Content-Encoding on
   // the live registry route. Compress this catalogue response explicitly and
   // vary the CDN/browser cache by encoding so the full search payload is not a
   // megabyte-scale transfer on first use.
-  const compressed = await gzipAsync(Buffer.from(json));
-  const headers = fixtureResponseHeaders(options.request, {
-    ...options,
-    headers: {
-      "Content-Encoding": "gzip",
-      "Content-Length": String(compressed.byteLength),
-      "Content-Type": "application/json; charset=utf-8",
-      Vary: "Accept-Encoding",
-    },
-  });
+  const compressed = await gzipAsync(jsonBytes);
+  headers.set("Content-Encoding", "gzip");
+  headers.set("Content-Length", String(compressed.byteLength));
+  headers.set("Content-Type", "application/json; charset=utf-8");
   return new NextResponse(new Uint8Array(compressed), { headers });
 }
 
