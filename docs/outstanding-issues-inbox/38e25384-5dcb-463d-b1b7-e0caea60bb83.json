@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "38e25384-5dcb-463d-b1b7-e0caea60bb83",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Four placeholder controls still carry native disabled after the #291 conversion",
+    "detail": "**Outcome:** every control that is unavailable for a stated reason uses the aria-disabled + inert-handler shape decided in #291, or has a recorded reason why it does not. **Detail:** PR #1778 converted 25 sites and settled the encoding, but deliberately left four, and they were recorded only in that PR body — this row exists so they survive it. All four verified still native on main at 2d27039. (1) differentials/differential-presentation-workflow-page.tsx — four 'not available in this comparison view' placeholders (lines 216, 226, 607, 619) plus the Compact/Detailed density pair at 798; they qualify for conversion, but the page is scheduled for a rewrite and tests/mobile-interaction-regressions.test.ts:80 still pins the density pair as native-only (not.toContain aria-disabled), so converting means editing that pin too. Do it with the rewrite, not before. (2) document-viewer/document-image-filmstrip.tsx:45 'Page unknown' — untouched because a parallel session owned that subtree during #1778. (3) DocumentViewer.tsx summarizeTitle (907, used at 1215) is genuinely ambiguous and is the only one needing a decision rather than an edit: it folds a persistent auth reason ('Sign in before answering from this document') and a transient loading state behind one canSummarizeDocument flag, so it is half stated-reason and half transient. Split the flag before classifying it. (4) clinical-dashboard/search-pins-menu.tsx:453 'Maximum N pins reached' — states a reason but is a capacity state the user clears by deleting a pin; left native as transient. Recorded as a judgement call, not an oversight. **Next:** (3) is the only one with real design content — split the summarize flag, then classify each half. (1) rides the presentation-page rewrite. (2) is a mechanical conversion once the subtree is free. (4) needs no action unless the transient reading is rejected. **Stop:** do not convert (1) ahead of the rewrite while that test pins the old shape, and do not 'tidy' (4) into aria-disabled without deciding that a capacity limit is a stated reason — that is the same category question #291 settled for placeholders, not for limits.",
+    "source": "PR #1778 body; session 2026-08-13; verified against main 2d27039"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "05b0c32b-07f7-4ca2-9361-4d7bc5490661",
+  "createdOn": "2026-08-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "0d8735c6-1950-4fef-8880-007063bbf662",
+    "reason": "Superseded by a re-filed version of the same row carrying the implementation design and the composite-row trap, both established by building it on 2026-08-13. The original text proposed dropping the Outcome column, which would break issues-report."
+  }
+}

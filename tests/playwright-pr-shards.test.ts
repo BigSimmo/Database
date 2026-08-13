@@ -59,11 +59,11 @@ describe("playwright PR UI shard groups", () => {
   it("keeps the measured full and post-critical groups duration-balanced", () => {
     for (const excludeCritical of [false, true]) {
       const totals = Object.values(estimatedPrUiShardSeconds({ excludeCritical }));
-      expect(Math.max(...totals) - Math.min(...totals)).toBeLessThanOrEqual(30);
+      expect(Math.max(...totals) - Math.min(...totals)).toBeLessThanOrEqual(excludeCritical ? 10 : 30);
     }
   });
 
-  it("excludes the fail-fast subset only when CI already proved it", () => {
+  it("excludes the critical subset only when the companion required job covers it", () => {
     expect(playwrightArgsForPrUiShard(1)).toContain("@quarantine|@mockup");
     const regressionArgs = playwrightArgsForPrUiShard(1, { excludeCritical: true });
     expect(regressionArgs).toContain("@critical|@quarantine|@mockup");

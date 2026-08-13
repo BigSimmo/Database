@@ -771,13 +771,16 @@ describe("provider-safe test environment", () => {
 
   it("keeps residual source surfaces visible without lowering the core coverage floor", () => {
     const config = readFileSync(new URL("../vitest.config.mts", import.meta.url), "utf8");
+    const coverageContract = readFileSync(new URL("../scripts/coverage-contract.mjs", import.meta.url), "utf8");
+    expect(config).toContain('import { COVERAGE_INCLUDE_GLOBS } from "./scripts/coverage-contract.mjs"');
+    expect(config).toContain("include: [...COVERAGE_INCLUDE_GLOBS]");
     for (const pattern of [
       '"src/**/*.{ts,tsx}"',
       '"scripts/**/*.{ts,mjs,cjs}"',
       '"worker/**/*.ts"',
       '"supabase/functions/**/*.ts"',
     ]) {
-      expect(config).toContain(pattern);
+      expect(coverageContract).toContain(pattern);
     }
     expect(config).toContain('"src/{lib/**/*.ts,app/**/route.ts,components/**/*.{ts,tsx}}"');
     expect(config).not.toContain('"src/app/**/{page,layout,loading,error,not-found}.tsx"');

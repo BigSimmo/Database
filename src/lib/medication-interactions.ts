@@ -13,7 +13,7 @@
 // into the index — it is read back off the `MedicationRecord` by `rowIndex`.
 //
 // THE ONE INVARIANT THAT MATTERS
-// `success` (green) must be unreachable on incomplete analysis. Three separate
+// `success` (green) must be unreachable on incomplete analysis. Four separate
 // things can make the analysis incomplete, and each has to keep green off:
 //
 //   1. A row whose counterparty could not be resolved → `unresolvedRowCount`.
@@ -24,6 +24,12 @@
 //      module has.
 //   3. An unparsed severity token → `SEVERITY_TONE.unknown` is `neutral`, never
 //      `success`.
+//   4. An entered medication outside both ends of every resolved interaction edge →
+//      `unreachableCounterparties`. Case 2 covers the drug being VIEWED; this
+//      covers the drugs in the PATIENT's list. Both of that pair are uncheckable
+//      for the same reason, and only one of them used to stop green: a patient
+//      on a drug the corpus never mentions produced no interactions, zero
+//      unresolved rows, and a confident green.
 //
 // Missing analysis is not the same as a negative finding. `composeMedicationVerdict`
 // is where that is finally enforced.
@@ -58,6 +64,12 @@ export type MedicationInteractionResult = {
   unresolvedRowCount: number;
   totalRowCount: number;
   dataAvailable: boolean;
+  /**
+   * Entered medications outside the catalogue's resolved interaction graph,
+   * so they could not be cross-checked in either direction. See
+   * `UNREACHABLE_SLUGS` — this is the fourth route to an incomplete analysis.
+   */
+  unreachableCounterparties: string[];
 };
 
 type IndexRow = {
@@ -79,6 +91,36 @@ type InteractionIndexShape = {
 };
 
 const INDEX = interactionIndex as unknown as InteractionIndexShape;
+
+/**
+ * Catalogue medications outside both ends of every resolved interaction edge.
+ *
+ * 35 of 328 today. A drug in here cannot produce an alert from any direction:
+ * not from its own resolved rows, not from anyone else's. Entering it therefore yields
+ * silence, and silence in this UI is otherwise indistinguishable from "checked,
+ * nothing found" — which is the single most misleading state this feature can
+ * reach, because the reassurance is unearned.
+ *
+ * Most of it is genuine corpus coverage (antibiotics, antidiabetics, aperients,
+ * vitamins) that only new interaction rows can fix. It is derived here rather
+ * than baked into the generated index so the two cannot drift, and computed once
+ * at module load — a single pass over ~520 rows.
+ */
+const UNREACHABLE_SLUGS: ReadonlySet<string> = (() => {
+  const reachable = new Set<string>();
+  for (const [sourceSlug, entry] of Object.entries(INDEX.bySlug)) {
+    for (const row of entry.rows) {
+      if (row.counterparties.length > 0) reachable.add(sourceSlug);
+      for (const slug of row.counterparties) reachable.add(slug);
+    }
+  }
+  return new Set(Object.keys(INDEX.names).filter((slug) => !reachable.has(slug)));
+})();
+
+/** Whether no resolved interaction edge in the catalogue includes this medication. */
+export function isUnreachableCounterparty(slug: string): boolean {
+  return UNREACHABLE_SLUGS.has(slug);
+}
 
 export function medicationDisplayName(slug: string): string {
   return INDEX.names[slug] ?? slug;
@@ -258,6 +300,13 @@ export function evaluateMedicationInteractions(
     unresolvedRowCount: dataAvailable ? (entry?.unresolvedRowCount ?? 0) : 1,
     totalRowCount: entry?.rows.length ?? 0,
     dataAvailable,
+    // The graph calculation already includes both endpoints of every resolved
+    // edge. Keep this result filter as a defensive invariant so the UI can never
+    // call a medication uncheckable directly above an alert about that drug.
+    unreachableCounterparties: Array.from(patient)
+      .filter((value) => UNREACHABLE_SLUGS.has(value))
+      .filter((value) => !resultInteractions.some((item) => item.counterpartySlug === value))
+      .sort((a, b) => medicationDisplayName(a).localeCompare(medicationDisplayName(b))),
   };
 }
 
@@ -276,8 +325,15 @@ export function composeMedicationVerdict(input: {
   interactionTone: SemanticTone | null;
   interactionCount: number;
   unresolvedRowCount: number;
+  /**
+   * Entered medications outside the resolved interaction graph. Optional so existing callers
+   * keep compiling, but a caller that omits it can still reach green while an
+   * uncheckable drug sits in the patient's list.
+   */
+  unreachableCounterpartyCount?: number;
 }): MedicationVerdict {
-  const incomplete = input.unassessedCount > 0 || input.unresolvedRowCount > 0;
+  const incomplete =
+    input.unassessedCount > 0 || input.unresolvedRowCount > 0 || (input.unreachableCounterpartyCount ?? 0) > 0;
   const candidates = [input.considerationTone, input.interactionTone].filter(
     (tone): tone is SemanticTone => tone !== null,
   );

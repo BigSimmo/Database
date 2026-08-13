@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "7fc8d67c-e2e4-4e6c-9bcf-6ac65fe9adc7",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#183",
+    "pri": "P3",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** A production DB p95 latency alert for a system with one user; the alert has nobody to wake. Revisit alongside #027 when real usage exists. Still blocked 2026-08-01 closeout: SUPABASE_ACCESS_TOKEN and SENTRY_AUTH_TOKEN missing from session env; Sentry MCP OAuth can list/get alerts but has no create tool; browser hits login wall; no metric rules exist yet on clinibase-xz. Create Metric Alert: p95(span.duration), filter span.op:db, environment production, threshold >500ms, notify Active Members. Provide SENTRY_AUTH_TOKEN in session to finish via sentry alert metrics create."
+  }
+}

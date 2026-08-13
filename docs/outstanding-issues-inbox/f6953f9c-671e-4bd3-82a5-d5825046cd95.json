@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "f6953f9c-671e-4bd3-82a5-d5825046cd95",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#299",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** Three surfaces hand-roll a guard that works. Converting them is consistency, not a fix. VERIFIED CORRECT 2026-08-12 — re-checked against merged main during the full ledger sweep and left unchanged: ErrorState has no product importer beyond src/components/ui/error-state.tsx, so the three hand-rolled surfaces are still unconverted. (Its ENFORCEMENT is closed — see archived #298.) This stamp exists so a later reader can tell \"checked and still true\" from \"never looked at\"; the two were indistinguishable before. Three surfaces hand-roll the guard and their comments state the rule outright: src/components/clinical-dashboard/search-results-header-band.tsx:210 ('no number may reach the DOM'), src/components/services/services-navigator-page.tsx:634 ('a blocked registry must not reach the band as 0 matches'), src/components/clinical-dashboard/favourites-command-library-page.tsx:1182. They are CORRECT today, just not shared, so this is convergence rather than a bug fix. The band's fault panel is the richest existing implementation (role=alert, warning tokens, AsyncButton retry with busy state, faultAction slot) and ErrorState was modelled on it, so the shapes already line up. Live-look change: own PR, Chromium pass. Per the M4 brief it sits DOWNSTREAM of design decisions the owner has not made, so doing it before the site-wide redesign risks redoing it. Do NOT bundle with the enforcement check. Stop: only these three - see the sibling row for three sites that were miscarried as guards."
+  }
+}

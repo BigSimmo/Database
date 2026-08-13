@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "e7d125c0-98a4-45db-883e-b19937bd4550",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#188",
+    "outcome": "Umbrella index only, and its children are retired to the runbook in the same batch. The disaster-recovery checklist is canonical in docs/operator-backlog.md and fires only after a schema restore, which is a runbook trigger rather than queued work. Note main separately opened a single consolidated DR row to keep the work visible; that supersedes both this umbrella and its five children."
+  }
+}
