@@ -290,9 +290,11 @@ const ragEvalPatterns = [
 ];
 
 // Untrusted-document parsing and ingestion surfaces are guarded by a narrow,
-// blocking Semgrep job in required CI. Keep this selector aligned with that
-// job's explicit scan targets so unrelated changes avoid its container startup.
+// blocking Semgrep job in required CI. Keep scan targets aligned with that job,
+// and keep the gate's executable workflow/selector self-selecting.
 const ingestionSastPatterns = [
+  ".github/workflows/ci.yml",
+  "scripts/ci-change-scope.mjs",
   "worker",
   /^src\/lib\/ingestion[^/]*\.ts$/,
   "src/lib/extractors",
@@ -1035,6 +1037,13 @@ function selfTest() {
   assertScope("ingestion-sast-library", ["src/lib/ingestion-queue.ts", "src/lib/extractors/pdf.ts"], {
     ingestion_sast_changed: true,
   });
+  assertScope(
+    "ingestion-sast-gate-contract",
+    [".github/workflows/ci.yml", "scripts/ci-change-scope.mjs"],
+    {
+      ingestion_sast_changed: true,
+    },
+  );
   assertScope("non-ingestion-source-skips-sast", ["src/lib/rag.ts"], {
     ingestion_sast_changed: false,
   });
