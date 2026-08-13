@@ -154,3 +154,30 @@ describe("production mockup boundary", () => {
     expect(shouldBlockProductionMockups("/applications", { NODE_ENV: "production" })).toBe(false);
   });
 });
+
+describe("document-source fallback redirects", () => {
+  const demoId = "11111111-1111-4111-8111-111111111111";
+
+  it("redirects /documents/source with a valid id as a single HTTP 307 carrying the CSP", async () => {
+    const response = await proxy(requestFor(`/documents/source?id=${demoId}&page=2&chunk=safety%20plan`));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe(`/documents/${demoId}`);
+    expect(location.searchParams.get("page")).toBe("2");
+    expect(location.searchParams.get("chunk")).toBe("safety plan");
+    expect(response.headers.get("content-security-policy")).toBeTruthy();
+  });
+
+  it("redirects the evidence alias with an invalid id to /documents/search with an empty query", async () => {
+    const response = await proxy(requestFor("/documents/source/evidence?id=not-a-uuid&page=2"));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/documents/search");
+    expect(location.search).toBe("");
+  });
+
+  it("leaves the document reader route itself untouched", async () => {
+    const response = await proxy(requestFor(`/documents/${demoId}?page=2`));
+    expect(response.headers.get("location")).toBeNull();
+  });
+});

@@ -2771,8 +2771,9 @@ td,
    Density is chosen by CONTAINER width in `rem` — never by device width, and
    never by runtime measurement. The unit is the mechanism: raising the browser
    or OS text size grows the root font, so a phone crosses a threshold exactly
-   when its labels would stop fitting. A 320px phone is 20rem at 100% text and
-   keeps three slots; at 200% it resolves to 10rem and collapses to one control.
+   when its labels would stop fitting. Each declared label family has a
+   calibrated profile: short Specifier labels can use space that Therapy's
+   longer labels cannot, without either set changing under the user at runtime.
 
    The collapsed control is the DEFAULT and the bar is the enhancement, so
    anything unmeasured, unsupported or mid-load renders the one state that
@@ -2787,24 +2788,11 @@ td,
    430px was WORSE at three of four labels clipped, because crossing a band adds
    a slot to the same space. See ledger #113.
 
-   Budgets are therefore the sum of the slots' intrinsic widths, remeasured:
-   Search 92.4px, Compare 144.3px, Recommend 125.6px, Pathways 108.5px, More
-   ~77px, plus the bar's own 8px inline padding. Three slots (first two + More)
-   need ~322px; four need ~479px.
-
-   The thresholds carry ~8% over those numbers rather than a pixel or two, and
-   that margin is not padding for its own sake: the SAME labels measure wider on
-   a CI runner than on a development box, because the variable face rasterises
-   differently per environment. A first attempt at 21/31rem passed locally and
-   failed on CI by exactly one pixel ("Compare" needed 59px and had 58px, having
-   needed 56px locally). A threshold calibrated to one machine's font metrics is
-   calibrated to nothing, so these sit clear of the whole spread.
-
-   These are calibrated to the widest label set currently shipped, which a fixed
-   `rem` threshold cannot generalise to an arbitrary item list. That gap is held
-   by a gate, not by hope: `ui-mode-nav-density.spec.ts` asserts no label
-   truncates at either band boundary, so a mode whose labels are longer fails CI
-   rather than shipping clipped words.
+   The thresholds retain font-metric headroom rather than sitting on one local
+   rasterisation. `ui-mode-nav-density.spec.ts` loads every consumer at every
+   profile boundary and fails if a complete label clips, the bar scrolls, or a
+   destination disappears. Adding or renaming a destination therefore requires
+   deliberate profile calibration instead of inheriting an unsafe default.
    ───────────────────────────────────────────────────────────────────────── */
 
 /* The centred column, and the ONLY container-query container. Measuring the
@@ -2816,8 +2804,8 @@ td,
    80rem is the header row's own `max-w-7xl`; the ink offset is added back on
    both sides because the bar's first tab sits that far inside its box. Below
    `lg` the rail's gutter computes to zero, so the container is exactly the
-   viewport and the calibrated 22/33/42rem bands are untouched on phone and
-   tablet. */
+   viewport and every calibrated profile reads the same available width on
+   phone and tablet. */
 @utility mode-nav {
   container-type: inline-size;
   container-name: mode-nav;
@@ -2867,6 +2855,8 @@ td,
    attributes that CSS then switches on:
      `data-band="3|4|5"`  the narrowest band at which this destination appears
      `data-until="3|4"`   the widest band at which More still appears
+   `data-density-profile` only changes the rem width at which a band becomes
+   active; it never changes order or hides an item independently.
    Slots are never re-ordered, so the ones that stay do not move as the
    container narrows; the overflow only ever fills from the tail. */
 .mode-nav__slot[data-band="4"],
@@ -2916,62 +2906,133 @@ td,
   background-color: transparent;
 }
 
-@container mode-nav (min-width: 22rem) {
-  .mode-nav__control {
+@container mode-nav (min-width: 16rem) {
+  .mode-nav[data-density-profile="two-item"] .mode-nav__control {
     display: none;
   }
 
-  /* Content-sized and left-aligned at EVERY band, which is what the widest band
-     always did: "the bar reads as a continuation of the header rather than four
-     columns stretched across it". Extending it downward is the fix for #113 —
-     one layout mode instead of two, and no track can be narrower than its own
-     label. */
-  .mode-nav__bar {
+  .mode-nav[data-density-profile="two-item"] .mode-nav__bar {
     display: flex;
   }
 }
 
-@container mode-nav (min-width: 33rem) {
-  .mode-nav__slot[data-band="4"] {
+@container mode-nav (min-width: 17rem) {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__control {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__bar {
+    display: flex;
+  }
+}
+
+@container mode-nav (min-width: 20rem) {
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__control {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__bar {
+    display: flex;
+  }
+}
+
+@container mode-nav (min-width: 22rem) {
+  .mode-nav[data-density-profile="extended"] .mode-nav__control {
+    display: none;
+  }
+
+  /* Content-sized and left-aligned at EVERY band, so the bar reads as a
+     continuation of the header rather than columns stretched across it. */
+  .mode-nav[data-density-profile="extended"] .mode-nav__bar {
+    display: flex;
+  }
+}
+
+@container mode-nav (min-width: 23rem) {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__slot[data-band="4"] {
     display: flex;
   }
 
-  .mode-nav__slot[data-until="3"] {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__slot[data-until="3"] {
     display: none;
   }
 
   /* The page's own slot is on screen from here, so it owns the mark. */
-  .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
     display: none;
   }
 
-  .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
     color: var(--text-muted);
   }
 
-  .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+  .mode-nav[data-density-profile="compact-four"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
+}
+
+@container mode-nav (min-width: 31rem) {
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__slot[data-band="4"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__slot[data-until="3"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="balanced-four"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
+}
+
+@container mode-nav (min-width: 33rem) {
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="4"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="3"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
     background-color: transparent;
   }
 }
 
 @container mode-nav (min-width: 42rem) {
-  .mode-nav__slot[data-band="5"] {
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="5"] {
     display: flex;
   }
 
-  .mode-nav__slot[data-until="4"] {
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="4"] {
     display: none;
   }
 
-  .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
     display: none;
   }
 
-  .mode-nav__more[data-active-from="5"] .mode-nav__ink {
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__ink {
     color: var(--text-muted);
   }
 
-  .mode-nav__more[data-active-from="5"] .mode-nav__rule {
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__rule {
     background-color: transparent;
   }
 }

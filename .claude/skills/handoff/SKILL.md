@@ -35,8 +35,10 @@ force-push, or discard work.
 2. **Stage coherent, completed changes only.** Stage explicit paths — never `git add -A`
    blindly. Do not stage `.env*`, secrets, build output, logs, or unrelated WIP; if you
    see a possible secret, report the path (never the value) and stop.
-3. **Verify** by invoking `verification-router` (or the `gates` skill when scope is already clear)
-   and run the one smallest sufficient gate it selects. Default PR-ready work uses
+3. **Format and verify.** From a fully owned feature worktree, run `npm run format`, inspect the
+   complete formatter diff, and include only intended formatting. Then invoke
+   `verification-router` (or the `gates` skill when scope is already clear) and run the one
+   smallest sufficient gate it selects. Default PR-ready work uses
    `npm run verify:pr-local`; inspect its selection with `--dry-run` when uncertain. For
    UI/routing/styling, prove the affected journey first and add `verify:ui` only for shared UI
    foundations or when the router says its distinct coverage is necessary. Never stack
@@ -54,7 +56,10 @@ force-push, or discard work.
    paths (`git show --name-only --format=fuller HEAD`), and the same branch name recorded in step 1.
    End the message with:
    `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
-5. **Push** the feature branch: `git push -u origin <branch>`. Never pipe the push through `tail`,
+5. **Push** the feature branch: `git push -u origin <branch>`. Per-PR auto-merge state is user-owned:
+   automation must not disable it. If the branch already has an open PR with auto-merge armed,
+   leave it mutation-frozen; do not push or change the branch/base until it merges or the user
+   manually changes that state. Never pipe the push through `tail`,
    `head`, or another command that can mask its status. Confirm the remote tip equals local HEAD
    with `git ls-remote` before reporting success. The pre-push guards run
    (auto-merge sentinel, format, drift) — heed a block rather than overriding blindly.

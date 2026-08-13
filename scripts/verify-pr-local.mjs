@@ -25,6 +25,7 @@ const workflowScripts = [
   "check:ci-triage",
   "check:pr-policy",
   "check:gate-manifest",
+  "check:skills",
   "check:pr-mergeability",
   "check:verification-plan",
 ];
@@ -127,6 +128,9 @@ export function selectedScripts(scope, extended) {
   // old safety verdict. Cheap and deterministic, so it rides every executable
   // scope rather than needing its own path classification.
   if (scope.static_heavy_changed) add("check:medication-interactions");
+  // The lexicon review sheet is the artefact a clinician signs off; if it does
+  // not describe the current lexicon, the sign-off covers something else.
+  if (scope.static_heavy_changed) add("check:medication-lexicon-report");
   if (extended && scope.ui_changed) add("verify:ui");
   return scripts;
 }
@@ -211,6 +215,7 @@ function selfTest() {
       ...staticHeavyScripts,
       "check:rag:fixtures",
       "check:medication-interactions",
+      "check:medication-lexicon-report",
     ],
   );
   assertPlan("unknown-or-product-change-fails-heavy", { static_heavy_changed: true }, [
@@ -218,17 +223,26 @@ function selfTest() {
     ...staticHeavyScripts,
     "check:rag:fixtures",
     "check:medication-interactions",
+    "check:medication-lexicon-report",
   ]);
   assertPlan("rag-change", { static_heavy_changed: true, rag_eval_changed: true }, [
     ...commonScripts,
     ...staticHeavyScripts,
     "eval:rag:offline",
     "check:medication-interactions",
+    "check:medication-lexicon-report",
   ]);
   assertPlan(
     "ui-extended",
     { static_heavy_changed: true, ui_changed: true },
-    [...commonScripts, ...staticHeavyScripts, "check:rag:fixtures", "check:medication-interactions", "verify:ui"],
+    [
+      ...commonScripts,
+      ...staticHeavyScripts,
+      "check:rag:fixtures",
+      "check:medication-interactions",
+      "check:medication-lexicon-report",
+      "verify:ui",
+    ],
     true,
   );
   assertPlan(
@@ -241,6 +255,7 @@ function selfTest() {
       "build",
       "check:rag:fixtures",
       "check:medication-interactions",
+      "check:medication-lexicon-report",
     ],
   );
   assertPlan(
@@ -253,6 +268,7 @@ function selfTest() {
       "build",
       "check:rag:fixtures",
       "check:medication-interactions",
+      "check:medication-lexicon-report",
     ],
   );
   console.log("PR-local verification plan self-test passed.");

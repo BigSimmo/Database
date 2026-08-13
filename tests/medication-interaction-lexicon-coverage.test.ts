@@ -123,6 +123,68 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
     expect(opioids).not.toContain("naloxone");
   });
 
+  it("never resolves a carbapenem antibiotic as an ARB", () => {
+    // "ARB" is a substring of "C-arb-apenem". `subclassIncludes` is a substring
+    // match, so it swept ertapenem and meropenem into the ARB class across 16
+    // CRITICAL/HIGH rows until the review report surfaced it. The selector is
+    // `subclassEquals` now; this pins the outcome by name.
+    const arbs = slugsFor("arbs");
+    expect(arbs).toContain("candesartan");
+    expect(arbs).not.toContain("ertapenem");
+    expect(arbs).not.toContain("meropenem");
+    expect(arbs.every((slug) => records.find((item) => item.slug === slug)?.class !== "Antibiotic")).toBe(true);
+  });
+
+  it("keeps every subclass substring token a whole-word match", () => {
+    // The systemic form of the ARB trap: a `subclassIncludes` token that only
+    // appears inside a longer word is matching by accident. Legitimate uses —
+    // "NSAID" inside "NSAID (COX-2 preferential)" — are whole words.
+    const subclasses = Array.from(new Set(records.map((record) => record.subclass ?? "").filter(Boolean)));
+    const accidental: string[] = [];
+    for (const term of INTERACTION_LEXICON) {
+      for (const token of term.select?.subclassIncludes ?? []) {
+        const tokenWords = token
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter(Boolean);
+        for (const subclass of subclasses) {
+          if (!subclass.toLowerCase().includes(token.toLowerCase())) continue;
+          const words = subclass
+            .toLowerCase()
+            .split(/[^a-z0-9]+/)
+            .filter(Boolean);
+          if (!tokenWords.every((part) => words.includes(part))) {
+            accidental.push(`${term.id}: "${token}" inside "${subclass}"`);
+          }
+        }
+      }
+    }
+    expect(accidental).toEqual([]);
+  });
+
+  it("keeps the divergent duplicate Warfarin records visible", () => {
+    // The catalogue holds two records named "Warfarin" whose interaction rows
+    // have nothing in common, so which one a clinician opens changes which
+    // warnings they see. That is a catalogue defect, not a lexicon one, and it
+    // is deliberately left unpatched pending a clinical decision — but it must
+    // not become invisible. If someone reconciles the records, this test goes
+    // red and the review sheet's flag can be retired with it.
+    const duplicates = records.filter((record) => record.name === "Warfarin");
+    expect(duplicates.map((record) => record.slug).sort()).toEqual(["warfarin-anticoagulant", "warfarin-vka"]);
+
+    const rowSet = (slug: string) =>
+      new Set(
+        (
+          records.find((record) => record.slug === slug)?.sections.find((section) => section.type === "inter")?.rows ??
+          []
+        ).map((row) => `${row.key}::${row.val}`),
+      );
+    const [a, b] = [rowSet("warfarin-vka"), rowSet("warfarin-anticoagulant")];
+    expect(a.size).toBeGreaterThan(0);
+    expect(b.size).toBeGreaterThan(0);
+    expect([...a].filter((row) => b.has(row))).toEqual([]);
+  });
+
   it("resolves beta blockers across both catalogue spellings", () => {
     const betaBlockers = slugsFor("beta-blockers");
     // "Beta Blocker" (metoprolol) and "Beta-Blocker" (propranolol).
