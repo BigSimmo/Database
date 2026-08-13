@@ -2,18 +2,15 @@ import Link from "next/link";
 import { Fragment } from "react";
 import {
   Activity,
-  ArrowLeft,
   BrainCircuit,
   CircleCheck,
   ChevronDown,
   ChevronRight,
   CircleHelp,
-  Filter,
   FlaskConical,
   GitCompareArrows,
   MoreHorizontal,
   ShieldAlert,
-  SlidersHorizontal,
   Stethoscope,
   type LucideIcon,
 } from "lucide-react";
@@ -21,7 +18,6 @@ import {
 import { DiagnosisTermChip, DiagnosisTermInlineList } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
-import { ContextualBackLink } from "@/components/contextual-back-link";
 import { cn } from "@/components/ui-primitives";
 import { isClinicalHingeLabel, resolveDiagnosisTermSegments } from "@/lib/differential-diagnosis-links";
 import {
@@ -34,7 +30,7 @@ import {
   type DifferentialRecord,
   type DifferentialSection,
 } from "@/lib/differentials";
-import { differentialRouteWithQuery } from "@/lib/differentials-navigation";
+import { differentialCompareSearchHref } from "@/lib/differentials-navigation";
 
 /** Criteria whose cells are typically diagnosis-name lists rather than free prose. */
 const DIAGNOSIS_NAME_LIST_CRITERIA = new Set(["mimics-overlap", "what-argues-against", "must-not-miss"]);
@@ -149,22 +145,6 @@ function EmergencyBadge({ status }: { status: DifferentialRecord["status"] }) {
   );
 }
 
-function Breadcrumbs() {
-  return (
-    <nav aria-label="Differential breadcrumbs" className="flex min-w-0 items-center gap-2 text-xs font-semibold">
-      <Link href="/differentials" className="text-[color:var(--clinical-accent)] hover:underline">
-        Differentials
-      </Link>
-      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
-      <Link href="/differentials/presentations" className="text-[color:var(--text-muted)] hover:underline">
-        Presentation
-      </Link>
-      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
-      <span className="truncate text-[color:var(--text-muted)]">Compare</span>
-    </nav>
-  );
-}
-
 function CriteriaLabel({ criterion }: { criterion: DifferentialComparisonCriterion }) {
   const Icon = criterionIcon[criterion.tone];
   return (
@@ -202,39 +182,28 @@ function CandidateHeader({ candidate }: { candidate: CandidateView }) {
 function DesktopComparisonTable({
   workflow,
   candidates,
+  editSelectionHref,
 }: {
   workflow: DifferentialPresentationWorkflow;
   candidates: CandidateView[];
+  editSelectionHref: string;
 }) {
   return (
     <section className="hidden md:block" aria-label="Differential comparison table">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            disabled
-            title="Selection editing is not available in this comparison view"
-            className="inline-flex min-h-tap cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
-          >
-            <CircleCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
-            {workflow.selectedCount} of {workflow.totalCount} selected
-            <ChevronDown className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
-          </button>
-          <button
-            type="button"
-            disabled
-            title="Column editing is not available in this comparison view"
-            className="inline-flex min-h-tap cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
-          >
-            <SlidersHorizontal className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
-            Edit columns
-          </button>
+      <div className="mb-2 flex min-h-tap flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <CircleCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+          <p className="text-sm font-semibold text-[color:var(--text-muted)]">
+            <span className="font-extrabold text-[color:var(--text-heading)]">{workflow.selectedCount}</span> of{" "}
+            {workflow.totalCount} diagnoses compared
+          </p>
         </div>
         <Link
-          href="/differentials/diagnoses"
-          className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+          href={editSelectionHref}
+          data-testid="differential-presentation-edit-selection-desktop"
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--surface)]"
         >
-          More differentials
+          Edit selection
           <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
       </div>
@@ -593,35 +562,31 @@ function MobileCandidateCard({
 function MobileComparison({
   workflow,
   candidates,
+  editSelectionHref,
 }: {
   workflow: DifferentialPresentationWorkflow;
   candidates: CandidateView[];
+  editSelectionHref: string;
 }) {
   const selected = candidates.filter((candidate) => candidate.selected);
   return (
     <section className="grid gap-3 md:hidden" aria-label="Mobile differential comparison">
-      <div className="grid grid-cols-[minmax(0,1fr)_3rem] gap-2">
-        <button
-          type="button"
-          disabled
-          title="Selection editing is not available in this comparison view"
-          className="inline-flex min-h-tap cursor-not-allowed items-center justify-between gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
-        >
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-            {workflow.selectedCount} of {workflow.totalCount} selected
+      <div className="flex min-h-tap items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
+        <span className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text-muted)]">
+          <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+          <span>
+            <strong className="font-extrabold text-[color:var(--text-heading)]">{workflow.selectedCount}</strong> of{" "}
+            {workflow.totalCount} compared
           </span>
-          <ChevronDown className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
-        </button>
-        <button
-          type="button"
-          disabled
-          title="Column filters are not available in this comparison view"
-          className="grid h-tap w-12 cursor-not-allowed place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
-          aria-label="Column filters unavailable"
+        </span>
+        <Link
+          href={editSelectionHref}
+          data-testid="differential-presentation-edit-selection-mobile"
+          className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-lg px-2 text-sm font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--surface)]"
         >
-          <Filter className="h-4 w-4" aria-hidden />
-        </button>
+          Edit
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </Link>
       </div>
       <SafetySnapshot workflow={workflow} />
       <div className="grid gap-3">
@@ -650,55 +615,6 @@ function MobileComparison({
         </div>
       </PhoneFooterLayerPortal>
     </section>
-  );
-}
-
-function MobileTabs({
-  workflow,
-  query,
-  selectedIds,
-}: {
-  workflow: DifferentialPresentationWorkflow;
-  query: string;
-  selectedIds: string[];
-}) {
-  const firstCandidate = workflow.candidates[0]?.slug ?? "delirium";
-  const diagnosisBase = `/differentials/diagnoses/${firstCandidate}`;
-  const compareHref =
-    workflow.id === AD_HOC_DIFFERENTIAL_COMPARE_ID
-      ? differentialRouteWithQuery("/differentials/compare", query, selectedIds)
-      : differentialRouteWithQuery(`/differentials/presentations/${workflow.id}`, query, selectedIds);
-  const tabs = [
-    { label: "Overview", href: diagnosisBase },
-    { label: "Compare", href: compareHref },
-    { label: "Map", href: `${diagnosisBase}?tab=map` },
-    { label: "Related", href: `${diagnosisBase}?tab=related` },
-  ] as const;
-
-  return (
-    <nav
-      aria-label="Differential presentation sections"
-      className="mb-4 grid grid-cols-4 border-b border-[color:var(--border)] text-center text-sm font-bold xl:hidden"
-    >
-      {tabs.map((tab) => {
-        const active = tab.label === "Compare";
-        return (
-          <Link
-            key={tab.label}
-            href={tab.href}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "min-h-tap border-b-2 px-1 py-3",
-              active
-                ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
-                : "border-transparent text-[color:var(--text-muted)]",
-            )}
-          >
-            {tab.label}
-          </Link>
-        );
-      })}
-    </nav>
   );
 }
 
@@ -733,6 +649,10 @@ export function DifferentialPresentationWorkflowPage({
           })()
         : baseWorkflow;
   const candidates = getCandidates(workflow);
+  const editSelectionHref = differentialCompareSearchHref(
+    query,
+    candidates.filter((candidate) => candidate.selected).map((candidate) => candidate.record.slug),
+  );
 
   return (
     <main
@@ -741,95 +661,36 @@ export function DifferentialPresentationWorkflowPage({
     >
       <div className="mx-auto grid w-full max-w-[94rem] gap-5 xl:grid-cols-[minmax(0,1fr)_23.5rem]">
         <div className="min-w-0">
-          <div className="mb-4 hidden items-center gap-5 xl:flex">
-            <ContextualBackLink
-              fallbackHref="/differentials"
-              className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              Back
-            </ContextualBackLink>
-            <div className="h-8 w-px bg-[color:var(--border)]" aria-hidden />
-            <Breadcrumbs />
-          </div>
-
-          <div className="mb-4 grid gap-3 xl:hidden">
-            <ContextualBackLink
-              fallbackHref="/differentials"
-              className="inline-flex min-h-12 w-fit items-center gap-2 rounded-lg text-sm font-bold text-[color:var(--clinical-accent)]"
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              Back to differentials
-            </ContextualBackLink>
-            <Breadcrumbs />
-          </div>
-
-          <section className="mb-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+          <section className="mb-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="max-w-[58rem] text-balance text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-3xl xl:text-2xl-minus">
-                  {workflow.title}
-                </h1>
+                <GitCompareArrows className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
+                <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
+                  Presentation comparison
+                </p>
                 <EmergencyBadge status={workflow.status} />
               </div>
-              <p className="mt-2 hidden max-w-[44rem] text-sm font-medium leading-6 text-[color:var(--text-muted)] xl:block">
+              <h1 className="mt-2 max-w-[58rem] text-balance text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-3xl xl:text-2xl-minus">
+                {workflow.title}
+              </h1>
+              <p className="mt-2 hidden max-w-[48rem] text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:block">
                 {workflow.subtitle}
               </p>
               {query ? (
-                <p className="mt-2 text-sm font-bold text-[color:var(--clinical-accent)]">Query: {query}</p>
+                <p className="mt-2 inline-flex max-w-full rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-xs font-bold text-[color:var(--clinical-accent)]">
+                  <span className="truncate">Search context: {query}</span>
+                </p>
               ) : null}
-            </div>
-            <div className="hidden items-center gap-2 xl:flex">
-              <Link
-                href="/differentials/diagnoses"
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
-              >
-                <GitCompareArrows className="h-4 w-4" aria-hidden />
-                Switch differential
-              </Link>
-              <span className="inline-flex min-h-10 items-center rounded-lg px-3 text-sm font-bold text-[color:var(--text-muted)]">
-                {workflow.selectedCount} selected
-              </span>
-              <div className="grid gap-1">
-                <div
-                  className="inline-flex rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
-                  role="group"
-                  aria-label="Comparison density"
-                  aria-describedby="density-controls-unavailable"
-                >
-                  <button
-                    type="button"
-                    disabled
-                    className="min-h-9 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Compact
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    className="min-h-9 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Detailed
-                  </button>
-                </div>
-                <span
-                  id="density-controls-unavailable"
-                  className="px-1 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]"
-                >
-                  Density controls coming soon
-                </span>
-              </div>
             </div>
           </section>
 
-          <MobileTabs workflow={workflow} query={query} selectedIds={selectedIds} />
           {/* Tablet / mid (md–lg): safety leads, then the scrollable table, then
               the review panels reflow into a grid below — no fixed side rail. */}
           <div className="mb-4 hidden md:block xl:hidden">
             <SafetySnapshot workflow={workflow} />
           </div>
-          <DesktopComparisonTable workflow={workflow} candidates={candidates} />
-          <MobileComparison workflow={workflow} candidates={candidates} />
+          <DesktopComparisonTable workflow={workflow} candidates={candidates} editSelectionHref={editSelectionHref} />
+          <MobileComparison workflow={workflow} candidates={candidates} editSelectionHref={editSelectionHref} />
           <div className="mt-4 hidden items-start gap-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:hidden">
             <ReviewPanels workflow={workflow} candidates={candidates} />
           </div>

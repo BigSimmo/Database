@@ -112,7 +112,7 @@ describe("header addon slot ownership", () => {
     view.cleanupSlot();
   });
 
-  it("gives an adopted mode's own workflow route exactly one bar in the slot", async () => {
+  it("gives adopted modes' own workflow routes exactly one bar in the slot", async () => {
     expect(modeUsesHeaderModeNav("dsm")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/compare")).toBe(false);
 
@@ -121,6 +121,22 @@ describe("header addon slot ownership", () => {
     );
     await waitFor(() => expect(view.occupants()).toHaveLength(1));
     view.cleanupSlot();
+
+    expect(modeUsesHeaderModeNav("differentials")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/differentials/presentations/acute-confusion-encephalopathy")).toBe(false);
+    expect(hasLocalInformationPageNavigation("/differentials/presentations/acute-confusion-encephalopathy")).toBe(
+      false,
+    );
+
+    const differentialView = renderIntoHeaderWithAddonSlot(
+      <PageSecondaryNavigation
+        modeId="differentials"
+        pathname="/differentials/presentations/acute-confusion-encephalopathy"
+        hasSubmittedSearch={false}
+      />,
+    );
+    await waitFor(() => expect(differentialView.occupants()).toHaveLength(1));
+    differentialView.cleanupSlot();
   });
 
   it("names every component that claims the slot", () => {
