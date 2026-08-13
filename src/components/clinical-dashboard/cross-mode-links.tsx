@@ -137,8 +137,8 @@ export function CrossModeLinksSection({
   variant?: CrossModeLinksVariant;
 }) {
   const router = useRouter();
-  const services = useRegistryRecords("service", { enabled });
-  const forms = useRegistryRecords("form", { enabled });
+  const services = useRegistryRecords("service", { enabled, view: "search" });
+  const forms = useRegistryRecords("form", { enabled, view: "search" });
   // fields=index keeps this to the ~30 KB identity slice of the catalog.
   const medications = useMedicationCatalog(undefined, { enabled, fields: "index" });
   const [differentials, setDifferentials] = useState<CrossModeDifferentialCatalog | null>(null);

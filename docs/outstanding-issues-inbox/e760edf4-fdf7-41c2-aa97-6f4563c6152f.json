@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "id": "e760edf4-fdf7-41c2-aa97-6f4563c6152f",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#013",
+    "summary": "Route catalogue weight remains measurement-gated; public field INP is unavailable",
+    "detail": "Keep the payload work open, but correct the measurement state: on 2026-08-13 the official Chrome UX Report current-record API returned 404 no-data for the psychiatry.tools origin and every reviewed URL (root, Therapy, Documents search, DSM, Forms, Services, Specifiers, and Formulation). Field INP is therefore unavailable because the site does not meet CrUX eligibility/coverage, not unverified and not a pass. The production app deliberately has no browser Sentry bundle, so adding RUM would expand the approved telemetry and privacy envelope. Next: continue lab LCP/TBT and interaction traces; request a separate privacy/operator decision before adding browser RUM, or recheck CrUX after traffic eligibility changes. Do not block route payload fixes waiting for a field dataset that does not exist, and do not infer an INP pass from absence.",
+    "source": "session 2026-08-13 official CrUX current-record queries; https://cruxvis.withgoogle.com/"
+  }
+}
