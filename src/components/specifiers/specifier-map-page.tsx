@@ -1,60 +1,112 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, GitCompareArrows, Tags, Waypoints } from "lucide-react";
+import { ArrowDown, ArrowRight, CheckCircle2, GitCompareArrows, Tags, Waypoints } from "lucide-react";
 import { useState } from "react";
 
+import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
+import {
+  SpecifierMapNavHeader,
+  specifierMapSteps,
+  useSpecifierMapNavigation,
+} from "@/components/specifiers/specifier-map-nav-header";
 import {
   DiagnosisChips,
-  SpecifierBreadcrumbs,
   SpecifierFamilyBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierWordingPathway,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { findSpecifier, specifierFamilies, specifierRecords } from "@/lib/specifiers";
 
 export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
+  return (
+    <SpecifierMapNavHeader>
+      <SpecifierMapPageContent initialSlug={initialSlug} />
+    </SpecifierMapNavHeader>
+  );
+}
+
+function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
   const [selectedSlug, setSelectedSlug] = useState(findSpecifier(initialSlug ?? "")?.slug ?? specifierRecords[0].slug);
   const selected = findSpecifier(selectedSlug) ?? specifierRecords[0];
+  const { activeId, selectSection } = useSpecifierMapNavigation();
 
   return (
     <SpecifierPageShell>
-      <SpecifierBreadcrumbs current="Map" />
-
-      <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
-        <p className={eyebrowText}>Diagnostic architecture</p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-          Specifier map
+      <header className="grid gap-1.5 border-b border-[color:var(--border)] pb-4 sm:pb-5">
+        <h1 className="text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
+          Find the right specifier
         </h1>
         <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Browse by the job each specifier performs. The sequence keeps diagnostic wording clear without implying that
-          every diagnosis uses every category.
+          Choose a clinical role, then select a specifier.
         </p>
       </header>
 
-      <SpecifierWordingPathway />
+      <nav aria-label="Choose a specifier role">
+        <ol className="grid gap-2.5 md:grid-cols-3">
+          {specifierMapSteps.map((step, index) => {
+            const active = activeId === step.id;
+            return (
+              <li key={step.id}>
+                <button
+                  type="button"
+                  onClick={() => selectSection(step.id)}
+                  aria-current={active ? "true" : undefined}
+                  data-testid={`specifier-map-jump-${step.id}`}
+                  className={cn(
+                    "group grid min-h-specifier-map-jump w-full grid-cols-[var(--spacing-specifier-map-step-number)_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3.5 py-3 text-left shadow-[var(--shadow-inset)] transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                    active
+                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]"
+                      : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "nums grid h-9 w-9 place-items-center rounded-full text-sm font-extrabold",
+                      active
+                        ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                        : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+                    )}
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">{step.label}</span>
+                    <span className="mt-1 block text-xs font-medium leading-4 text-[color:var(--text-muted)]">
+                      {step.description}
+                    </span>
+                  </span>
+                  <ArrowDown
+                    className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none"
+                    aria-hidden
+                  />
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <section className="grid min-w-0 gap-4 lg:grid-cols-3" aria-label="Specifier families">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_var(--spacing-specifier-map-aside)]">
+        <section className="grid min-w-0 gap-4" aria-label="Specifier families">
           {specifierFamilies
             .filter((family) => family.id !== "all")
             .map((family) => {
               const records = specifierRecords.filter((record) => record.family === family.id);
               return (
-                <div key={family.id} className={cn(specifierCard, "overflow-hidden")}>
+                <section key={family.id} id={family.id} className={cn(specifierCard, inPageAnchor, "overflow-hidden")}>
                   <div className="flex items-center gap-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-3">
                     <Waypoints className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
                     <div>
-                      <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">{family.label}</h2>
+                      <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">{family.label}</h2>
                       <p className="nums mt-0.5 text-2xs font-semibold text-[color:var(--text-muted)]">
                         {records.length} options
                       </p>
                     </div>
                   </div>
-                  <div className="divide-y divide-[color:var(--border)]">
+                  <div className="grid gap-px bg-[color:var(--border)] sm:grid-cols-2">
                     {records.map((record) => {
                       const active = selected.slug === record.slug;
                       return (
@@ -64,7 +116,7 @@ export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
                           onClick={() => setSelectedSlug(record.slug)}
                           aria-pressed={active}
                           className={cn(
-                            "group flex min-h-[4.5rem] w-full items-center gap-3 px-4 py-3 text-left transition focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
+                            "group flex min-h-[4.5rem] w-full items-center gap-3 px-4 py-3 text-left transition motion-reduce:transition-none focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
                             active
                               ? "bg-[color:var(--clinical-accent-soft)]"
                               : "bg-[color:var(--surface)] hover:bg-[color:var(--surface-subtle)]",
@@ -98,7 +150,7 @@ export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
                       );
                     })}
                   </div>
-                </div>
+                </section>
               );
             })}
         </section>

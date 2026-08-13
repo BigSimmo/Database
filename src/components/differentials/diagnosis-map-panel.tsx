@@ -76,8 +76,7 @@ const likelihoodTone: Record<DifferentialLikelihood, string> = {
   possible:
     "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
   "less-likely": "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-  "must-not-miss":
-    "border-[color:var(--danger)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
+  "must-not-miss": "border-[color:var(--danger)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
 };
 
 const lineTone: Record<DifferentialLikelihood, string> = {
@@ -761,10 +760,7 @@ function NodeInspector({
       <div
         id={contentId}
         inert={!expanded && !isWideLayout ? true : undefined}
-        className={cn(
-          "grid min-h-0 flex-1",
-          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr] lg:grid-rows-[1fr]",
-        )}
+        className={cn("grid min-h-0 flex-1", expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr] lg:grid-rows-[1fr]")}
       >
         <div className="flex min-h-0 flex-col overflow-hidden">
           <div

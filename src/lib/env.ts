@@ -169,6 +169,14 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  // #100 Phase 1: emit a governed, client-trimmed evidence preview as a verified unit on
+  // the answer stream once retrieval + ranking complete. Default OFF: server emission is
+  // enabled deliberately after the offline contract proof; rendering is a separate client
+  // flag per docs/verified-answer-incremental-delivery-design.md.
+  RAG_INCREMENTAL_EVIDENCE_PREVIEW: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   RAG_REGISTRY_CORPUS_EMBEDDING: z
     .enum(["true", "false"])
     .default("false")
