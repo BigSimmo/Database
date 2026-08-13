@@ -37,7 +37,12 @@ function answer(overrides: Partial<AnswerTelemetrySource> = {}): AnswerTelemetry
       reasoning_output_tokens: 120,
     },
     openAIRequestIds: ["req_1", "req_2"],
-    latencyTimings: { generation_latency_ms: 900, total_latency_ms: 1400, answer_retry_count: 1 },
+    latencyTimings: {
+      generation_latency_ms: 900,
+      total_latency_ms: 1400,
+      answer_retry_count: 1,
+      embedding_prefetched: true,
+    },
     retrievalDiagnostics: undefined,
     ...overrides,
   };
@@ -63,6 +68,7 @@ describe("buildAnswerLogRow (per-answer observability)", () => {
     });
     expect(meta.answer.request_ids).toEqual(["req_1", "req_2"]);
     expect(meta.answer.generation_latency_ms).toBe(900);
+    expect(meta.answer.embedding_prefetched).toBe(true);
     expect(row.total_latency_ms).toBe(1400);
     expect(row.candidate_count).toBe(1);
     expect(row.is_miss).toBe(false);
