@@ -30,6 +30,25 @@ export function setModeHomeComposerReservePending(slot: Element | null | undefin
 /** Mobile/tablet search-composer slot for differentials compare actions. */
 export const differentialsMobileCompareAddonSlotId = "differentials-mobile-compare-addon-slot";
 
+/** Phone search-composer slot for the medication surfaces' Patient details pill. */
+export const patientDetailsAddonSlotId = "patient-details-addon-slot";
+
+/**
+ * Which page-owned action currently occupies the phone dock's addon slot.
+ *
+ * The dock carries exactly ONE addon at a time — `data-footer-addon` is a single
+ * attribute value, and the scrim height, hide transform, and content reserve are
+ * all keyed off it. The two claimants are mutually exclusive by surface
+ * (differentials vs medications/prescribing) and `tests/phone-dock-addon-contract.test.ts`
+ * pins that, so the slot never has to hold two.
+ */
+export type PhoneDockAddonKind = "differentials-compare" | "patient-details";
+
+export const phoneDockAddonSlotId: Record<PhoneDockAddonKind, string> = {
+  "differentials-compare": differentialsMobileCompareAddonSlotId,
+  "patient-details": patientDetailsAddonSlotId,
+};
+
 /**
  * The one page-owned phone navigation host inside `universal-header-collapse`.
  * Portaled chrome here shares the universal header's scroll signal, safe-area

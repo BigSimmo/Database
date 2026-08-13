@@ -155,8 +155,8 @@ describe("adopt-visual-baselines.mjs", () => {
       const trackedFiles = new Set([...baselinePaths, "tests/__screenshots__/linux/provenance.json"]);
       expect(validateLinuxVisualBaselineSet(baselinePaths, { root: fixtureRoot, trackedFiles })).toEqual([]);
     } finally {
-      fs.rmSync(fixtureRoot, { force: true, recursive: true });
-      fs.rmSync(artifactDir, { force: true, recursive: true });
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
+      fs.rmSync(artifactDir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -187,8 +187,8 @@ describe("adopt-visual-baselines.mjs", () => {
       const trackedFiles = new Set([...baselinePaths, "tests/__screenshots__/linux/provenance.json"]);
       expect(validateLinuxVisualBaselineSet(baselinePaths, { root: fixtureRoot, trackedFiles })).toEqual([]);
     } finally {
-      fs.rmSync(fixtureRoot, { force: true, recursive: true });
-      fs.rmSync(artifactDir, { force: true, recursive: true });
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
+      fs.rmSync(artifactDir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -207,8 +207,8 @@ describe("adopt-visual-baselines.mjs", () => {
 
       expect(() => adoptBaselines(fixtureRoot, { artifactDir, head })).toThrow(/visual-junit\.xml/);
     } finally {
-      fs.rmSync(fixtureRoot, { force: true, recursive: true });
-      fs.rmSync(artifactDir, { force: true, recursive: true });
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
+      fs.rmSync(artifactDir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -237,8 +237,8 @@ describe("adopt-visual-baselines.mjs", () => {
         expect(candidate.sha256).toBe(createHash("sha256").update(image).digest("hex"));
       }
     } finally {
-      fs.rmSync(fixtureRoot, { force: true, recursive: true });
-      fs.rmSync(artifactDir, { force: true, recursive: true });
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
+      fs.rmSync(artifactDir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

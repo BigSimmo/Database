@@ -46,7 +46,7 @@ describe("measureChunkPaths", () => {
       expect(m.totalRawBytes).toBe(5000);
       expect(m.largest[0].name.endsWith("b.js")).toBe(true);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });
@@ -166,7 +166,7 @@ describe("check-bundle-budget CLI exit", () => {
       expect(result.stdout).toContain("[bundle-budget] done.");
       expect(Date.now() - started).toBeLessThan(5_000);
     } finally {
-      rmSync(sandbox, { recursive: true, force: true });
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -179,7 +179,7 @@ describe("check-bundle-budget CLI exit", () => {
       expect(result.stdout).toContain("production (what users download");
       expect(result.stdout).toContain(`${MOCKUP_ROUTE_SEGMENT} (design scratch, 404s in production`);
     } finally {
-      rmSync(sandbox, { recursive: true, force: true });
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -192,7 +192,7 @@ describe("check-bundle-budget CLI exit", () => {
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("cannot separate production weight");
     } finally {
-      rmSync(sandbox, { recursive: true, force: true });
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -209,7 +209,7 @@ describe("check-bundle-budget CLI exit", () => {
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("could not be decoded");
     } finally {
-      rmSync(sandbox, { recursive: true, force: true });
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });
@@ -316,7 +316,11 @@ describe("production vs mockup chunk attribution", () => {
   /** Build an injectable fake of `.next/server/app` from a path -> contents map. */
   function fakeTree(files: Record<string, string>) {
     const readDir = (dir: string) => {
-      const prefix = dir.endsWith("/") ? dir : `${dir}/`;
+      // `partitionRouteClientChunks` correctly uses the host path separator.
+      // The fixture map is deliberately repository-style POSIX paths, so make
+      // the fake filesystem accept Windows paths as well.
+      const normalizedDir = dir.replaceAll("\\", "/");
+      const prefix = normalizedDir.endsWith("/") ? normalizedDir : `${normalizedDir}/`;
       const names = new Set<string>();
       const out: { name: string; isDirectory: () => boolean; isFile: () => boolean }[] = [];
       for (const full of Object.keys(files)) {
@@ -330,7 +334,7 @@ describe("production vs mockup chunk attribution", () => {
       }
       return out;
     };
-    return { readDir, readFile: (p: string) => files[p] };
+    return { readDir, readFile: (p: string) => files[p.replaceAll("\\", "/")] };
   }
 
   it("parses chunk names out of a route client-reference manifest", () => {

@@ -361,6 +361,12 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Mode-specific surfaces.
   "differentials-mobile-compare-fab__button": "differentials compare FAB — no effect contract yet (#094)",
   "differentials-mobile-compare-fab__button--empty": "differentials compare FAB — no effect contract yet (#094)",
+  // Same shape as the compare FAB above, and the same gap: a rendered-effect
+  // contract needs a phone-viewport route with the medication catalogue loaded.
+  // The tap floor (min-height: 3rem) is the regression worth catching here.
+  "patient-details-fab__button": "patient details dock pill — no effect contract yet (#094)",
+  "patient-details-fab__button--active": "patient details dock pill, populated state — no effect contract yet (#094)",
+  "patient-details-fab__count": "patient details count badge — no effect contract yet (#094)",
   "medication-mobile-result": "prescribing phone results — no effect contract yet (#094)",
   "pwa-install-sheet": "install sheet — presence covered by ui-pwa, effect not contracted",
   "search-band-count": "count weight/colour; the zero-result state needs a deterministic empty fixture first",

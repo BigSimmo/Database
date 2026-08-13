@@ -955,7 +955,7 @@ tests to run.
 
 Registered public components: 54
 Components with a valid design-sync preview: 54
-Components with product imports: 31
+Components with product imports: 32
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -973,7 +973,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ConfirmDialog`          | layout   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DateDisplay`            | source   | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
-| `Disclosure`             | layout   | yes   | yes                | no                    | yes            | no                 |               0 |
+| `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `DoseLine`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DownloadLink`           | controls | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -999,9 +999,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
+| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              25 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              26 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |

@@ -21,6 +21,7 @@ vi.mock("@/components/clinical-dashboard/patient-profile-panel", () => ({
 }));
 vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({
   MedicationConsiderations: () => <p>medication-considerations</p>,
+  MedicationInteractionCallout: () => <p>medication-interaction-callout</p>,
 }));
 
 function mockDetail(state: { data: unknown; loading: boolean; error: string | null }) {

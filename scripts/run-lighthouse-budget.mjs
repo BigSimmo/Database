@@ -34,7 +34,7 @@
  *        --keep (leave reports in place), --dir <path>.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -43,6 +43,7 @@ import { fileURLToPath } from "node:url";
 import { childProcessExitCode, childProcessFailureSummary } from "./child-process-result.mjs";
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
+import { removePathSync } from "./retryable-fs.mjs";
 import { loadBudget } from "./check-lighthouse-budget.mjs";
 import { measurementFailureReason } from "./lighthouse-measurement-outcome.mjs";
 import {
@@ -225,7 +226,7 @@ function cleanup() {
     }
   }
   try {
-    rmSync(absoluteRunRoot, { recursive: true, force: true });
+    removePathSync(absoluteRunRoot, { recursive: true });
   } catch {
     /* best effort */
   }
@@ -305,7 +306,7 @@ try {
   // Clear any reports retained by a previous --keep run. Otherwise a route that
   // fails to measure this time leaves the stale file in place, and the grader would
   // treat the evidence as complete — or bake it into a refreshed baseline.
-  rmSync(reportDirectory, { recursive: true, force: true });
+  removePathSync(reportDirectory, { recursive: true });
   mkdirSync(reportDirectory, { recursive: true });
   // The isolated build needs its own tsconfig for the same reason the Playwright
   // runner writes one: `@/*` must still resolve from the repository root while the
@@ -445,7 +446,7 @@ try {
         // Never leave the first attempt's file behind: a runtimeError report would
         // otherwise be graded, or baked into a refreshed baseline, if the retry fails
         // before writing.
-        rmSync(output, { force: true });
+        removePathSync(output);
         result = await measure(strategy, route, output, retryTimeout);
         const after = measurementFailureReason(childProcessExitCode(result), readIfPresent(output));
         retried.push(`${cell} (${reason}${after ? ` -> still ${after}` : " -> recovered"})`);
@@ -496,7 +497,7 @@ try {
     },
   );
 
-  if (!keep) rmSync(reportDirectory, { recursive: true, force: true });
+  if (!keep) removePathSync(reportDirectory, { recursive: true });
   const exitCode = childProcessExitCode(grade);
   cleanup();
   process.exit(exitCode);
