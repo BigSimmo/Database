@@ -8,6 +8,7 @@ import {
   resolveTracesSampleRate,
 } from "@/lib/observability/error-tracking";
 import { registerSentryLogForwarder } from "@/lib/logger";
+import { resolveSentryRelease } from "@/lib/observability/sentry-release";
 import {
   forwardAppLogToSentry,
   isSentryLoggingEnabled,
@@ -18,8 +19,7 @@ import {
 const sentryEnvironment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
 const sentryDsn = process.env.SENTRY_DSN?.trim();
 const tracesSampleRate = resolveTracesSampleRate();
-const sentryRelease =
-  process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
+const sentryRelease = resolveSentryRelease();
 
 const ignoredServerErrors = [
   /404/,

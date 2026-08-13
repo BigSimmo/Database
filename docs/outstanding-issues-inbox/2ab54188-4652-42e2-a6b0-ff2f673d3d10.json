@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "2ab54188-4652-42e2-a6b0-ff2f673d3d10",
+  "createdOn": "2026-08-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "78fad74b-9478-4e58-9131-8a6bc5858c79",
+    "reason": "Superseded after authorized CI refresh run 31697669596 produced a complete pinned-Chromium baseline and the Lighthouse half was promoted to required enforcement."
+  }
+}

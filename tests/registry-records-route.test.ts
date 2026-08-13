@@ -1,12 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { gunzipSync } from "node:zlib";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const token = "valid-token";
 const publicFixtureCacheControl = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
 
-function expectPublicFixtureCache(response: Response) {
+function expectPublicFixtureCache(response: Response, options: { variesByEncoding?: boolean } = {}) {
   expect(response.headers.get("cache-control")).toBe(publicFixtureCacheControl);
-  expect(response.headers.get("vary")).toBe("Cookie, Authorization");
+  expect(response.headers.get("vary")).toBe(
+    options.variesByEncoding ? "Accept-Encoding, Cookie, Authorization" : "Cookie, Authorization",
+  );
 }
 
 function expectPrivateCache(response: Response) {
@@ -193,6 +196,98 @@ afterEach(() => {
 });
 
 describe("registry records API", () => {
+  it("serves a counts-only summary projection for mode homes", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(request("/api/registry/records?kind=service&view=summary"));
+    const payload = (await response.json()) as {
+      total: number;
+      verifiedCount: number;
+      records?: unknown[];
+      governance?: unknown;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.total).toBeGreaterThan(100);
+    expect(payload.verifiedCount).toBeGreaterThanOrEqual(0);
+    expect(payload.verifiedCount).toBeLessThanOrEqual(payload.total);
+    expect(payload).not.toHaveProperty("records");
+    expect(payload).not.toHaveProperty("governance");
+  });
+
+  it("serves a compact title-and-tag search projection", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const [fullResponse, searchResponse] = await Promise.all([
+      GET(request("/api/registry/records?kind=form")),
+      GET(request("/api/registry/records?kind=form&view=search")),
+    ]);
+    const full = (await fullResponse.json()) as { records: Array<Record<string, unknown>> };
+    const search = (await searchResponse.json()) as { records: Array<Record<string, unknown>> };
+
+    expect(search.records).toHaveLength(full.records.length);
+    expect(Object.keys(search.records[0] ?? {}).sort()).toEqual(
+      ["catchments", "primaryContact", "route", "slug", "statusChips", "subtitle", "tags", "title"].sort(),
+    );
+    expect(search.records[0]).not.toHaveProperty("catalogPayload");
+    expect(search.records[0]).not.toHaveProperty("summaryCards");
+    expect(JSON.stringify(search).length).toBeLessThan(JSON.stringify(full).length / 2);
+
+    const { rankFormRecords } = await import("../src/lib/forms");
+    const fullTop = rankFormRecords(full.records as never, "transport crisis", 1)[0]?.service.slug;
+    const searchTop = rankFormRecords(search.records as never, "transport crisis", 1)[0]?.service.slug;
+    expect(searchTop).toBe(fullTop);
+  });
+
+  it("gzip-compresses catalogue responses when the caller accepts gzip", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(
+      request("/api/registry/records?kind=service", { headers: { "Accept-Encoding": "gzip" } }),
+    );
+    const compressed = Buffer.from(await response.arrayBuffer());
+    const payload = JSON.parse(gunzipSync(compressed).toString("utf8")) as { records: unknown[] };
+
+    expect(response.headers.get("content-encoding")).toBe("gzip");
+    expect(response.headers.get("vary")).toContain("Accept-Encoding");
+    expect(payload.records.length).toBeGreaterThan(100);
+    expect(compressed.byteLength).toBeLessThan(gunzipSync(compressed).byteLength / 2);
+  });
+
+  it("varies a large uncompressed response by Accept-Encoding", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(request("/api/registry/records?kind=service"));
+
+    expect(response.headers.get("content-encoding")).toBeNull();
+    expect(response.headers.get("vary")).toContain("Accept-Encoding");
+  });
+
+  it("honors an explicit gzip exclusion before a wildcard acceptance", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(
+      request("/api/registry/records?kind=service", {
+        headers: { "Accept-Encoding": "gzip;q=0, *;q=1" },
+      }),
+    );
+    const payload = (await response.json()) as { records: unknown[] };
+
+    expect(response.headers.get("content-encoding")).toBeNull();
+    expect(response.headers.get("vary")).toContain("Accept-Encoding");
+    expect(payload.records.length).toBeGreaterThan(100);
+  });
+
   it("serves mock records in demo mode without touching Supabase", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
@@ -202,7 +297,7 @@ describe("registry records API", () => {
     const payload = (await response.json()) as { records: Array<{ slug: string }>; demoMode?: boolean };
 
     expect(response.status).toBe(200);
-    expectPublicFixtureCache(response);
+    expectPublicFixtureCache(response, { variesByEncoding: true });
     expect(payload.demoMode).toBe(true);
     expect(payload.records.some((record) => record.slug === "13yarn")).toBe(true);
     expect(client.from).not.toHaveBeenCalled();
@@ -221,7 +316,7 @@ describe("registry records API", () => {
       publicAccess?: boolean;
     };
     expect(response.status).toBe(200);
-    expectPublicFixtureCache(response);
+    expectPublicFixtureCache(response, { variesByEncoding: true });
     expect(payload.publicAccess).toBe(true);
     expect(payload.records.some((record) => record.slug === "13yarn")).toBe(true);
     expect(payload.matches?.[0]?.record.slug).toBe("13yarn");
