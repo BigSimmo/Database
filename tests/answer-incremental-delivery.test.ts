@@ -24,7 +24,9 @@ function makeSource(overrides: Partial<SearchResult> = {}): SearchResult {
     file_name: "clozapine.pdf",
     page_number: 3,
     chunk_index: 1,
+    section_heading: "Monitoring",
     content: "ANC thresholds and FBC monitoring schedule for clozapine.",
+    image_ids: [],
     similarity: 0.82,
     // Server-only fields that must never cross the route boundary.
     adjacent_context: "SERVER-ONLY adjacent context",
@@ -44,9 +46,28 @@ const previewUnit = (): VerifiedEvidencePreviewUnit => ({
   selectedContextCount: 1,
 });
 
+const sectionUnit = () => ({
+  schemaVersion: 1,
+  kind: "answer_section",
+  sequence: 2,
+  section: { heading: "Monitoring", body: "Check levels.", citation_chunk_ids: ["chunk-1"] },
+  citations: [
+    {
+      chunk_id: "chunk-1",
+      document_id: "doc-1",
+      title: "Clozapine Monitoring",
+      file_name: "clozapine.pdf",
+      page_number: 3,
+      chunk_index: 1,
+    },
+  ],
+  supportLevel: "direct",
+});
+
 describe("verified-unit stream contract (#100 Phase 0)", () => {
-  it("accepts a well-formed evidence preview", () => {
+  it("accepts well-formed evidence and section previews", () => {
     expect(isDeliverableVerifiedUnit(previewUnit())).toBe(true);
+    expect(isDeliverableVerifiedUnit(sectionUnit(), 1)).toBe(true);
   });
 
   it("rejects unknown schema versions and kinds", () => {
@@ -58,14 +79,7 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
   });
 
   it("enforces strictly increasing sequences within one response", () => {
-    const section = {
-      schemaVersion: 1,
-      kind: "answer_section",
-      sequence: 2,
-      section: { heading: "h", content: "c" },
-      citations: [],
-      supportLevel: "direct",
-    };
+    const section = sectionUnit();
     expect(isDeliverableVerifiedUnit(section, 1)).toBe(true);
     expect(isDeliverableVerifiedUnit(section, 2)).toBe(false);
     expect(isDeliverableVerifiedUnit(section, 3)).toBe(false);
@@ -75,12 +89,59 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
     expect(isDeliverableVerifiedUnit({ ...previewUnit(), sequence: 1 })).toBe(false);
   });
 
+  it("rejects empty, over-cap, non-finite, and non-integer evidence previews", () => {
+    expect(isDeliverableVerifiedUnit({ ...previewUnit(), sources: [] })).toBe(false);
+    expect(
+      isDeliverableVerifiedUnit({
+        ...previewUnit(),
+        sources: Array.from({ length: 13 }, (_, index) => trimSourceForClient(makeSource({ id: `chunk-${index}` }))),
+        selectedContextCount: 13,
+      }),
+    ).toBe(false);
+    expect(isDeliverableVerifiedUnit({ ...previewUnit(), selectedContextCount: Number.POSITIVE_INFINITY })).toBe(false);
+    expect(isDeliverableVerifiedUnit({ ...previewUnit(), selectedContextCount: 1.5 })).toBe(false);
+  });
+
+  it("rejects raw server fields at the stream boundary", () => {
+    expect(
+      isDeliverableVerifiedUnit({
+        ...previewUnit(),
+        sources: [makeSource()],
+      }),
+    ).toBe(false);
+    expect(
+      isDeliverableVerifiedUnit({
+        ...previewUnit(),
+        sources: [{ ...previewUnit().sources[0], adjacent_context: "private generation context" }],
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects malformed answer sections, citations, and support levels", () => {
+    const valid = sectionUnit();
+    expect(isDeliverableVerifiedUnit({ ...valid, section: { heading: "Monitoring", content: "wrong field" } }, 1)).toBe(
+      false,
+    );
+    expect(isDeliverableVerifiedUnit({ ...valid, citations: [{ chunk_id: "incomplete" }] }, 1)).toBe(false);
+    expect(isDeliverableVerifiedUnit({ ...valid, supportLevel: "unverified" }, 1)).toBe(false);
+    expect(isDeliverableVerifiedUnit({ ...valid, section: { ...valid.section, supportLevel: "partial" } }, 1)).toBe(
+      false,
+    );
+  });
+
   it("rejects unbounded payloads", () => {
     const oversized = {
       ...previewUnit(),
-      sources: Array.from({ length: 200 }, (_, index) =>
-        trimSourceForClient(makeSource({ id: `chunk-${index}`, content: "x".repeat(900) })),
+      sources: Array.from({ length: 12 }, (_, index) =>
+        trimSourceForClient(
+          makeSource({
+            id: `chunk-${index}`,
+            content: "x".repeat(900),
+            match_explanation: { reasons: ["y".repeat(5_000)] },
+          }),
+        ),
       ),
+      selectedContextCount: 12,
     };
     expect(isDeliverableVerifiedUnit(oversized)).toBe(false);
   });
@@ -160,14 +221,7 @@ describe("public progress DTO passthrough", () => {
       toPublicAnswerProgressEvent(
         {
           stage: "generating",
-          verifiedUnit: {
-            schemaVersion: 1,
-            kind: "answer_section",
-            sequence: 1,
-            section: { heading: "Monitoring", content: "Check levels." },
-            citations: [],
-            supportLevel: "direct",
-          },
+          verifiedUnit: { ...sectionUnit(), sequence: 1 },
         },
         0,
       )?.verifiedUnit?.sequence,
