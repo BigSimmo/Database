@@ -22,10 +22,14 @@ import { cn } from "@/components/ui-primitives";
  * - `ResultFilterTrigger` — the compact badged control that goes in the ribbon's
  *   `mobileControls` slot (with `mobileControlsPlacement="inline"`, which is what
  *   makes the one-line band legal — see `search-results-header-band.tsx`).
- * - `ResultFilterSheet` — a single-choice sheet for the modes whose filters are
- *   one-of-N per dimension. Documents keeps its own panel: its filters are
- *   multi-select facet groups with counts, a find-a-filter field and
- *   collapse-by-default, none of which a radio sheet can express.
+ * - `ResultFilterSheet` — the shared sheet for every mode's filters, lens and
+ *   facet alike. Below the density threshold (`docs/filter-contract.md` §5) a
+ *   facet group is a plain chip row; above it, the sheet grows a find-a-filter
+ *   field and collapse-by-default per group. Documents (the largest surface —
+ *   up to 11 facet groups) converged onto this in PR F; `meterContent` and
+ *   `footerOverride` exist because its progress meter and "Show N documents" /
+ *   "Browse all sources" footer are richer than every other mode's plain
+ *   `footerNote` + "Done".
  *
  * Desktop is untouched. The ribbon renders `filterControls` from `sm` up and
  * `mobileControls` below it, never both, so each mode keeps the chip row or tab
@@ -37,6 +41,8 @@ export type ResultFilterOption<Value extends string> = {
   label: string;
   /** Trailing detail — a count, a qualifier. Never the only thing distinguishing two options. */
   hint?: string;
+  /** Canonical text used to find an abbreviated display label. */
+  searchText?: string;
   /** Renders as a dead end: focusable and explained, but not selectable. */
   disabled?: boolean;
 };
@@ -72,6 +78,13 @@ export type ResultFilterLensGroup = ResultFilterGroupBase & {
   kind?: "lens";
   value: string;
   onChange: (value: string) => void;
+  /** Short annotation beside the group's heading — e.g. "one only". For a lens
+      sitting directly beside facet groups in the same sheet, both render as
+      chips of near-identical size and colour, so the OR-within/AND-across
+      facet model and the lens's own exclusivity have to be told apart by more
+      than role alone. Omit for a sheet with no facet groups; the roving
+      radiogroup already says "one active" on its own there. */
+  note?: string;
 };
 
 export type ResultFilterFacetGroup = ResultFilterGroupBase & {
@@ -103,6 +116,7 @@ export function resultFilterGroup<Value extends string>(group: {
   value: Value;
   options: ReadonlyArray<ResultFilterOption<Value>>;
   onChange: (value: Value) => void;
+  note?: string;
 }): ResultFilterGroup {
   return {
     kind: "lens",
@@ -110,6 +124,7 @@ export function resultFilterGroup<Value extends string>(group: {
     label: group.label,
     value: group.value,
     options: group.options,
+    note: group.note,
     // The one narrowing, isolated here rather than repeated at seven call sites.
     onChange: (value) => group.onChange(value as Value),
   };
@@ -311,11 +326,13 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
 
   return (
     <section className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
-      <h3
-        id={groupLabelId}
-        className="flex min-h-9 items-center text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]"
-      >
-        {group.label}
+      <h3 className="flex min-h-9 items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        {/* The id is on the label text alone, not the heading — same fix as
+            ResultFilterFacetChips' own badge: with the id on the h3 itself, a
+            sibling `note` would concatenate into the group's accessible name
+            ("Source type" -> "Source type one only"). */}
+        <span id={groupLabelId}>{group.label}</span>
+        {group.note ? <span className="ml-auto text-[color:var(--clinical-accent)]">{group.note}</span> : null}
       </h3>
       <div
         role="radiogroup"
@@ -610,6 +627,8 @@ export function ResultFilterSheet({
       counts mean are per-mode judgements, not something a shared filter
       renderer can decide. */
   scopeControl,
+  meterContent,
+  footerOverride,
 }: {
   open: boolean;
   onClose: () => void;
@@ -624,6 +643,15 @@ export function ResultFilterSheet({
   footerNote?: ReactNode;
   chromeResetKey?: string;
   scopeControl?: ReactNode;
+  /** Content rendered first in the body, above `scopeControl` and the find-a-filter field —
+      documents' `N of M documents shown` progress meter. No other mode needs this; omit
+      otherwise. */
+  meterContent?: ReactNode;
+  /** Replaces the entire default footer (the `footerNote` span plus the "Done" button) rather
+      than composing with it. For a mode whose commit action needs its own label/count (documents'
+      "Show N documents") or a secondary action beside it (its "Browse all sources"), supplying
+      those loses nothing the default footer offered. `footerNote` is ignored when this is set. */
+  footerOverride?: ReactNode;
 }) {
   // Hooks run unconditionally — the empty-groups early return happens below,
   // after every hook the render needs has already been declared.
@@ -679,8 +707,9 @@ export function ResultFilterSheet({
 
   if (groups.length === 0) return null;
 
-  const facetGroupCount = groups.filter(isFacetGroup).length;
-  const dense = facetGroupCount > 3;
+  const facetGroups = groups.filter(isFacetGroup);
+  const totalFacetOptions = facetGroups.reduce((total, group) => total + group.options.length, 0);
+  const dense = facetGroups.length > 3 || totalFacetOptions > 20;
   const trimmedNeedle = needle.trim().toLowerCase();
   const activeNeedle = dense ? trimmedNeedle : "";
   const findFieldId = `${panelId}-find`;
@@ -702,6 +731,7 @@ export function ResultFilterSheet({
       (option) =>
         group.selected.has(option.value) ||
         option.label.toLowerCase().includes(activeNeedle) ||
+        option.searchText?.toLowerCase().includes(activeNeedle) ||
         group.label.toLowerCase().includes(activeNeedle),
     );
     facetOptionsById.set(group.id, filtered);
@@ -735,23 +765,26 @@ export function ResultFilterSheet({
         ) : null
       }
       footer={
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="min-w-0 text-2xs font-semibold text-[color:var(--text-muted)]">{footerNote}</span>
-          <button
-            type="button"
-            onClick={onClose}
-            data-testid={`${testId}-done`}
-            className={cn(
-              "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:min-h-9",
-              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-            )}
-          >
-            Done
-          </button>
-        </div>
+        footerOverride ?? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="min-w-0 text-2xs font-semibold text-[color:var(--text-muted)]">{footerNote}</span>
+            <button
+              type="button"
+              onClick={onClose}
+              data-testid={`${testId}-done`}
+              className={cn(
+                "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:min-h-9",
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              )}
+            >
+              Done
+            </button>
+          </div>
+        )
       }
     >
       <div className="grid min-w-0 gap-1">
+        {meterContent ? <div className="min-w-0">{meterContent}</div> : null}
         {scopeControl ? (
           <div className="min-w-0 border-b border-[color:var(--border)] pb-2.5">{scopeControl}</div>
         ) : null}

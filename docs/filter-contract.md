@@ -113,26 +113,17 @@ corpus of that size, and it stays.
 
 ## 5. Density is a function of option count
 
-Facet groups only. Thresholds match the rule documents already uses (`dense = groups.length > 3`).
+Facet groups only. Two states, not three: the shared renderer uses the same threshold for its
+find-a-filter field and collapse-by-default disclosures.
 
-| Options             | Renderer                                                                                                                         |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| ≤ 5                 | chips, single row where they fit                                                                                                 |
-| 6 – 20              | chips, same rendering as above — the group is still small enough on its own; it is the >3-groups tier below that adds the chrome |
-| > 20, or > 3 groups | chips plus find-a-filter and collapse-by-default, per group                                                                      |
+| Options                     | Renderer                                                                                 |
+| --------------------------- | ---------------------------------------------------------------------------------------- |
+| ≤ 3 groups and ≤ 20 options | chips, single row where they fit (unchanged from before this section)                    |
+| > 3 groups, or > 20 options | chips plus find-a-filter and collapse-by-default, every group behind a disclosure header |
 
-The `> 3 groups` tier lives directly in `ResultFilterSheet` (`result-filter-control.tsx`), not as a
-second hand-rolled panel: a "Find a filter…" field appears once, above the groups, and every facet
-group becomes a disclosure. Below the threshold every group renders exactly as it did before this
-was added — formulation (one facet group) never crosses it, so its sheet is byte-for-byte
-unchanged. Services (five facet groups) is the first mode to cross it.
-
-This intentionally does not yet build the "full-width rows, right-aligned count column" list
-layout an earlier draft of this section described for the 6–20 band — a group that size still
-renders as wrapping chips, just collapsible. `document-search-results.tsx` keeps its own,
-separate dense-list implementation (needle + collapse, chip rendering) for now; porting it up as
-the shared `> 20` tier and converging both call sites is PR F's job, not this one's — see
-"Rollout" below and `docs/outstanding-issues.md` `#170`.
+`ResultFilterSheet` computes the threshold once across all facet groups. The option-count limb
+catches a small number of very large groups, while the group-count limb covers services' five
+facet groups. Below the threshold every group renders as before.
 
 Collapse rules, when they apply: groups start collapsed; a group holding a selection opens
 itself; an explicit user collapse beats that; an active needle forces every matched group open
@@ -168,17 +159,9 @@ Contract first, then one PR per mode:
 1. **Contract** — add the kinds, the facet renderer and the builders, changing no rendered output.
 2. **Per mode** — adopt the right kind, derive the option list, add counts, and retire that mode's
    desktop rail so the breakpoints stop disagreeing. Done for differentials, medication,
-   applications, specifiers (all `lens`, PR A) and formulation (`facet`, PR B). Also done for
-   factsheets: its category dimension was already a real `lens` (see the corrected note above),
-   so this PR converges its desktop rail onto `SegmentedControl` sharing one counted option array
-   with the phone sheet, rather than evicting anything — there was no query-replacing preset to
-   evict.
-   applications, specifiers (all `lens`, PR A) and formulation (`facet`, PR B). Also done for
-   factsheets: its category dimension was already a real `lens` (see the corrected note above),
-   so this PR converges its desktop rail onto `SegmentedControl` sharing one counted option array
-   with the phone sheet, rather than evicting anything — there was no query-replacing preset to
-   evict.
-3. **Services** — evict the six query-replacing quick filters to the composer. Done for services:
+   applications and specifiers (all `lens`), formulation (`facet`), and factsheets, whose real
+   category lens now shares one counted option array between desktop and phone.
+3. **Services** — move its query-replacing quick filters to the composer. Done for services:
    five facets (catchments, age_groups, setting_flags, acuity_flags, housing_flags),
    substance_flags as a lens (an exact partition, not an accumulating constraint — see
    `src/lib/service-facets.ts`), a URL round-trip alongside `q`/`group`, and the scope segment
@@ -189,6 +172,21 @@ Contract first, then one PR per mode:
    within their group. Review status and handout availability are independent one-option groups
    that AND with Topics and with each other. Option counts and filtering share
    `matchesTopics`/`matchesAvailability`, and Clear filters preserves the query.
-5. **Documents last** — port its needle and collapse up into the shared component as the
-   `> 20` tier, then converge. It is the largest surface and should move once the contract is
-   proven elsewhere.
+5. **Documents last** — converged onto the shared component. Its needle and collapse-by-default
+   mechanics moved up into `ResultFilterSheet` first, as part of services (§5); documents itself
+   deleted its ~500-line bespoke `DocumentFilterPanel` and rebuilt on `ResultFilterSheet` with
+   three small additive extensions the other six modes never needed:
+   - `meterContent` — the `N of M documents shown` progress bar, rendered first in the body.
+   - `footerOverride` — replaces the default `footerNote` + Done button entirely, for a mode whose
+     commit needs its own label (`Show N documents`) and a second action beside it
+     (`Browse all sources`).
+   - `note` on `resultFilterGroup()` — a short label-adjacent annotation (`"one only"`) that
+     distinguishes a `lens` group from the `facet` groups sitting beside it in the same sheet.
+     Source type is the first lens to share a sheet with facets; services' `substance` lens beside
+     five facet groups (PR C) has the identical shape without this annotation — a follow-up worth
+     tracking, not a contradiction this PR resolves. The annotation is scoped to documents' call
+     site for now, not a general convention.
+
+   All three are optional and default to inert — the six modes that adopted earlier render
+   byte-identical output. This closes the rollout: every filter surface in the audit now shares
+   one component.
