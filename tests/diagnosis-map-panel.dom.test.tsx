@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -168,4 +168,36 @@ describe("DiagnosisMapPanel", () => {
     expect(within(dialog).getByTestId("diagnosis-map-node-diagnosis")).toHaveAttribute("aria-pressed", "true");
     expect(within(dialog).getByText(/Showing 1 must-not-miss differential/)).toBeInTheDocument();
   });
+
+  it("keeps collapsed inspector controls inert and preserves modified browser shortcuts", async () => {
+    const user = userEvent.setup();
+    renderMap();
+
+    expect(screen.getByRole("group", { name: "Map legend" })).toBeInTheDocument();
+    await user.click(screen.getByTestId("open-diagnosis-map"));
+    const dialog = await screen.findByTestId("diagnosis-map-dialog");
+    const inspector = within(dialog).getByTestId("diagnosis-map-node-details");
+    const inspectorBody = within(inspector).getByTestId("diagnosis-map-inspector-body");
+    const inspectorContent = inspectorBody.parentElement?.parentElement;
+
+    expect(inspectorContent).toHaveAttribute("inert");
+
+    const canvas = within(dialog).getByTestId("diagnosis-map-full-canvas");
+    const modifiedReset = createEvent.keyDown(canvas, { key: "0", ctrlKey: true, cancelable: true });
+    fireEvent(canvas, modifiedReset);
+
+    expect(modifiedReset.defaultPrevented).toBe(false);
+
+    const wheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 195,
+      clientY: 260,
+      deltaY: -80,
+    });
+    canvas.dispatchEvent(wheel);
+
+    expect(wheel.defaultPrevented).toBe(true);
+  });
+
 });
