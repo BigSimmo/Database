@@ -277,7 +277,9 @@ describe("registry records API", () => {
     const { GET } = await import("../src/app/api/registry/records/route");
 
     const response = await GET(
-      request("/api/registry/records?kind=service", { headers: { "Accept-Encoding": "gzip;q=0, *;q=1" } }),
+      request("/api/registry/records?kind=service", {
+        headers: { "Accept-Encoding": "gzip;q=0, *;q=1" },
+      }),
     );
     const payload = (await response.json()) as { records: unknown[] };
 
