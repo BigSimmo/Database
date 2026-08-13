@@ -143,7 +143,9 @@ describe("public progress DTO passthrough", () => {
   it("drops duplicate and out-of-order verified units once a stream has accepted sequence 0", () => {
     const first = toPublicAnswerProgressEvent({ stage: "retrieved", verifiedUnit: previewUnit() });
     expect(first?.verifiedUnit?.sequence).toBe(0);
-    expect(toPublicAnswerProgressEvent({ stage: "retrieved", verifiedUnit: previewUnit() }, 0)?.verifiedUnit).toBeUndefined();
+    expect(
+      toPublicAnswerProgressEvent({ stage: "retrieved", verifiedUnit: previewUnit() }, 0)?.verifiedUnit,
+    ).toBeUndefined();
     expect(
       toPublicAnswerProgressEvent(
         {
