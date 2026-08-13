@@ -1,4 +1,5 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
+import { Circle } from "lucide-react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
@@ -24,10 +25,9 @@ vi.mock("@/components/in-page-nav/use-resolved-page-sections", () => ({
   useResolvedPageSections: (declared: readonly PageSection[]) => [...declared],
 }));
 
-const TestIcon = (() => null) as PageSection["icon"];
 const sections: readonly PageSection[] = [
-  { id: "episode-features", label: "Episode features", icon: TestIcon },
-  { id: "course-onset", label: "Course and onset", icon: TestIcon },
+  { id: "episode-features", label: "Episode features", icon: Circle },
+  { id: "course-onset", label: "Course and onset", icon: Circle },
 ];
 
 afterEach(() => {
