@@ -64,6 +64,13 @@
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
 
+  /* Specifier-map layout roles: jump target height, numbered step column, and
+     wide-screen detail rail. These stay together so the page cannot drift back
+     to unrelated one-off dimensions. */
+  --spacing-specifier-map-jump: 5.25rem;
+  --spacing-specifier-map-step-number: 2.25rem;
+  --spacing-specifier-map-aside: 22rem;
+
   /* Mode-home composer slots reserve their settled portal geometry before the
      client host adopts them. Without this structural reserve, Therapy moved the
      entire action stack when hydration relocated the composer (CLS 0.248).
