@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "4bb5ba0d-ca46-454e-97f4-5a49f5c87f22",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#309",
+    "detail": "Raised by the Codex reviewer on PR #1858 and correct. docs/filter-contract.md section 5 sets density by option count: <=5 chips, 6-20 dense full-width list with a right-aligned count column and group headings, >20 or >3 groups adds find-a-filter and collapse-by-default. **PARTIALLY DELIVERED 2026-08-13, and the part this row was opened for is NOT done.** PR F (#1910) ported documents' implementation up into the shared ResultFilterSheet, so the >20-or->3-groups tier now exists there: find-a-filter, per-group collapse-by-default, a group opening itself when it holds a selection, and a live needle owning openness. That is the tier documents needed. **The 6-20 band is still unimplemented.** result-filter-control.tsx computes `const dense = facetGroups.length > 3 || totalFacetOptions > 20`, so a mode with one facet group of nine options — formulation, the exact case that opened this row — evaluates dense=false and still renders ResultFilterFacetChips as a wrapping chip row. Verified 2026-08-13 on main 2d27039: formulation passes one group with formulationDomainsInUse.length === 9, so neither condition fires. An earlier attempt to close this row as delivered was wrong and was caught in review on PR #1925; the mistake was conflating \"the dense tier landed\" with \"this row's band landed\" — section 5 has two thresholds and only the upper one shipped. **Next:** either implement the 6-20 full-width renderer with the right-aligned count column and add the nine-option DOM assertion this row already asked for, or amend section 5 to drop the middle band deliberately and record that the contract was reversed rather than satisfied. **Stop:** do not close this row on the strength of the >20 tier, and do not add a per-mode dense list — a second hand-rolled facet layout is the drift the shared renderer was extracted to remove."
+  }
+}
