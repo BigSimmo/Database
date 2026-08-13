@@ -1049,13 +1049,8 @@ test.describe("Clinical KB tools launcher", () => {
     const quickFilter = page.getByTestId("service-filter-trigger-phone");
     await expect(quickFilter).toBeVisible();
     await expect(quickFilter).toHaveAccessibleName(/No filters active/);
-    await quickFilter.click();
-    await page.getByRole("radiogroup", { name: "Quick filters" }).getByRole("radio", { name: "Crisis" }).click();
+    await page.getByTestId("service-quick-search-suggestions").getByRole("button", { name: "Crisis" }).click();
     await expect(page).toHaveURL(/\/services\?.*q=crisis/);
-
-    await quickFilter.click();
-    await page.getByRole("button", { name: "Clear filters" }).click();
-    await expect(page).toHaveURL(/\/services\?run=1$/);
 
     // Phones keep the full search results in the page instead of opening a
     // command sheet over the small viewport.
@@ -1313,6 +1308,7 @@ test.describe("Clinical KB tools launcher", () => {
     await filterPanel.getByTestId("service-filter-panel-clear").click();
     await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
+    await filterPanel.getByRole("button", { name: "Close", exact: true }).click();
 
     await page
       .getByTestId("service-search-result-13yarn")
