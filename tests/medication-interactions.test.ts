@@ -6,6 +6,7 @@ import {
   evaluateMedicationInteractions,
   interactionNoteBody,
   interactionRowCount,
+  isUnreachableCounterparty,
   severityLabel,
   medicationDisplayName,
   SEVERITY_TONE,
@@ -36,6 +37,63 @@ describe("evaluateMedicationInteractions", () => {
     const result = evaluateMedicationInteractions("buprenorphine-naloxone", ["naltrexone"]);
     expect(result.interactions.some((item) => item.counterpartySlug === "naltrexone")).toBe(true);
     expect(result.highestTone).toBe("danger");
+  });
+
+  it("warns on lithium plus an NSAID or a thiazide", () => {
+    // Both are textbook lithium-toxicity interactions and both were silent: the
+    // catalogue record is "Lithium carbonate (IR/SR)", so no name-derived
+    // surface matched the bare "Lithium" every row writes. End-to-end through
+    // the evaluator, not just the index, because the index can carry a
+    // counterparty the evaluator never surfaces.
+    for (const drug of ["ibuprofen", "hydrochlorothiazide", "indapamide", "frusemide"]) {
+      const result = evaluateMedicationInteractions(drug, ["lithium-carbonate-ir-sr"]);
+      expect(
+        result.interactions.some((item) => item.counterpartySlug === "lithium-carbonate-ir-sr"),
+        `${drug} + lithium should warn`,
+      ).toBe(true);
+      expect(result.highestTone).toBe("danger");
+    }
+  });
+
+  it("never shows green when an entered medication is outside the resolved interaction graph", () => {
+    // The mirror of the missing-data guard, and the half that was missing. A
+    // patient on a drug the corpus never mentions produced zero interactions,
+    // zero unresolved rows, and a confident green — silence presented as an
+    // all-clear. Cephalexin is one of 35 such drugs.
+    const result = evaluateMedicationInteractions("sertraline", ["cephalexin"]);
+    expect(result.interactions).toHaveLength(0);
+    expect(result.unreachableCounterparties).toEqual(["cephalexin"]);
+
+    const verdict = composeMedicationVerdict({
+      considerationTone: null,
+      considerationCount: 0,
+      unassessedCount: 0,
+      interactionTone: result.highestTone,
+      interactionCount: result.interactions.length,
+      unresolvedRowCount: 0,
+      unreachableCounterpartyCount: result.unreachableCounterparties.length,
+    });
+    expect(verdict.tone).not.toBe("success");
+    expect(verdict.incomplete).toBe(true);
+  });
+
+  it("does not call a reachable medication unreachable", () => {
+    // The guard has to stay narrow, or it degrades every verdict to grey and
+    // stops meaning anything. Ibuprofen is named by many rows.
+    const result = evaluateMedicationInteractions("sertraline", ["ibuprofen"]);
+    expect(result.unreachableCounterparties).toEqual([]);
+    expect(isUnreachableCounterparty("ibuprofen")).toBe(false);
+    expect(isUnreachableCounterparty("cephalexin")).toBe(true);
+  });
+
+  it("counts a source-only medication as a reachable interaction endpoint", () => {
+    // Celecoxib is not named by another medication's row, but its own source row
+    // names fluconazole. The evaluator scans both directions, so the reachability
+    // graph must include the source endpoint as well as its counterparty.
+    expect(isUnreachableCounterparty("celecoxib")).toBe(false);
+    const result = evaluateMedicationInteractions("fluconazole", ["celecoxib"]);
+    expect(result.interactions.some((item) => item.counterpartySlug === "celecoxib")).toBe(true);
+    expect(result.unreachableCounterparties).toEqual([]);
   });
 
   it("gives a reverse-only match its wording, not just a name and a severity", () => {

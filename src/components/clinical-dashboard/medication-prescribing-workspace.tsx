@@ -435,6 +435,7 @@ function MedicationResults({
           interactionTone: interactions.highestTone,
           interactionCount: interactions.interactions.length,
           unresolvedRowCount: interactions.unresolvedRowCount,
+          unreachableCounterpartyCount: interactions.unreachableCounterparties.length,
         });
         const verdictBadge = verdictSummaryBadge(verdict);
         return { result, badges: verdictBadge ? [verdictBadge, ...badges] : badges, accent, verdict };

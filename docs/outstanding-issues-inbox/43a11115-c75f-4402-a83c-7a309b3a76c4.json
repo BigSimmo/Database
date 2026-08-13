@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "43a11115-c75f-4402-a83c-7a309b3a76c4",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#304",
+    "outcome": "RESOLVED 2026-08-13 without a new dispatch. Main already contains the refreshed snapshot from successful weekly canary run 31329507691 via commit d1828441 (36/36 cases, document/content recall 1.0/1.0, zero failed cases). This inbox request closes stale task #304. The provenance gate is anchored to sourceRunStartedAt 2026-08-09T18:37:32Z, so the effective 30-day boundary is 2026-09-08T18:37:32Z; rebuilding from the same artifact does not extend it. Zero provider spend. Future refreshes must use a newer successful eval-canary artifact, update the snapshot and provenance together, and rerun ranking-tuning, ranking-snapshot-provenance, and rag-imputation-contract tests."
+  }
+}

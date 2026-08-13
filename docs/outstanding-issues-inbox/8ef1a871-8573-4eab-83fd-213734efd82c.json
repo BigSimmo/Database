@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "8ef1a871-8573-4eab-83fd-213734efd82c",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#272",
+    "outcome": "No code change needed — the caution is already fully stated at src/components/page-secondary-navigation.tsx:62-70, including the two-lists-by-coincidence framing and the tests/mode-nav-addon-slot.dom.test.tsx guard. Verified present on main 2026-08-13. The ledger row duplicated a comment that already exists."
+  }
+}

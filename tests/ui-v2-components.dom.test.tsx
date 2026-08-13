@@ -792,6 +792,44 @@ describe("Tooltip", () => {
     }
   });
 
+  it("coalesces capture scroll events into one passive animation-frame measurement", async () => {
+    const pendingFrames: Array<(time: number) => void> = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      pendingFrames.push(callback as (time: number) => void);
+      return pendingFrames.length;
+    });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect");
+
+    try {
+      render(
+        <Tooltip content="Batched placement">
+          <button type="button">Batched trigger</button>
+        </Tooltip>,
+      );
+
+      screen.getByRole("button", { name: "Batched trigger" }).focus();
+      await screen.findByTestId("tooltip");
+      expect(pendingFrames).toHaveLength(1);
+      act(() => pendingFrames.shift()?.(0));
+      await waitFor(() => expect(screen.getByRole("tooltip")).toBeVisible());
+      const measuredCalls = rect.mock.calls.length;
+
+      act(() => {
+        window.dispatchEvent(new Event("scroll"));
+        window.dispatchEvent(new Event("scroll"));
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(pendingFrames).toHaveLength(1);
+      expect(rect).toHaveBeenCalledTimes(measuredCalls);
+      act(() => pendingFrames.shift()?.(16));
+      await waitFor(() => expect(rect.mock.calls.length).toBe(measuredCalls + 2));
+    } finally {
+      raf.mockRestore();
+      rect.mockRestore();
+    }
+  });
+
   it("composes over existing child event handlers instead of replacing them", async () => {
     const onFocus = vi.fn();
     const onKeyDown = vi.fn();

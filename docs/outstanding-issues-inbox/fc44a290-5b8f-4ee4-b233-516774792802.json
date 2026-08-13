@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "fc44a290-5b8f-4ee4-b233-516774792802",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#304",
+    "outcome": "Already done before this sweep — commit d182844 (PR #1876) refreshed the ranking snapshot from the 2026-08-09 green canary. Re-verified on current main 2026-08-13: generatedAt is 1 day old with sourceRunId 31329507691, not the 2026-07-20 / 29763761133 this row describes, so the 30-day freshness fuse in tests/ranking-tuning.test.ts is not armed. The row outlived its own completion."
+  }
+}

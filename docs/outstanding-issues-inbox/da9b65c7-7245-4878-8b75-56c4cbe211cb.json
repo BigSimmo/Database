@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "da9b65c7-7245-4878-8b75-56c4cbe211cb",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#036",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** A compensating control already exists (unverified_source stays in the frontend-visible warning set) and the change touches RLS plus the clinical-risk-gated retrieval RPCs. Cost and blast radius exceed the residual risk. Public-corpus visibility is implicit: `owner_id IS NULL` on an `indexed` document (`resolveSearchScope`). The `metadata.public_corpus` marker is written by the promotion migrations but never used as a retrieval filter. Promotion is unconditional on `clinical_validation_status`, so unverified documents are publicly searchable — compensated by keeping `unverified_source` in the frontend-visible warning set. A hard schema flag touches RLS and the clinical-risk-gated retrieval RPCs; weigh against the existing compensating control before acting."
+  }
+}

@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getDifferentialRecord } from "@/lib/differentials";
+import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
 
 const catalogState = vi.hoisted(() => ({
   status: "loading" as "loading" | "ready" | "error" | "unauthorized" | "refetching",
@@ -12,7 +12,11 @@ const catalogState = vi.hoisted(() => ({
       score: number;
       reasons: string[];
     }>,
-    presentations: [] as Array<never>,
+    presentations: [] as Array<{
+      workflow: NonNullable<ReturnType<typeof getPresentationWorkflow>>;
+      score: number;
+      reasons: string[];
+    }>,
   },
 }));
 
@@ -135,5 +139,28 @@ describe("DifferentialsHome compare selection URL handoff", () => {
 
     expect(screen.queryByTestId("differentials-filter-empty-results")).not.toBeInTheDocument();
     expect(screen.getAllByText("Anorexia nervosa").length).toBeGreaterThan(0);
+  });
+
+  it("keeps the submitted query when opening a presentation comparison", async () => {
+    const presentation = getPresentationWorkflow("acute-confusion-encephalopathy");
+    expect(presentation).toBeTruthy();
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [],
+      presentations: [{ workflow: presentation!, score: 20, reasons: ["title"] }],
+    };
+
+    render(<DifferentialsHome query="acute confusion" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    await waitFor(() => {
+      const presentationLinks = screen.getAllByRole("link", { name: /Acute confusion/i });
+      expect(presentationLinks.length).toBeGreaterThan(0);
+      for (const link of presentationLinks) {
+        expect(link).toHaveAttribute(
+          "href",
+          "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion",
+        );
+      }
+    });
   });
 });
