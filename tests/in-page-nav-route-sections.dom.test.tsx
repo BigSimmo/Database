@@ -26,6 +26,7 @@ import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { sectionTargetIds, type PageSection } from "@/components/in-page-nav/page-section-index";
 import { ServiceDetailPage, serviceNavSections } from "@/components/services/service-detail-page";
 import { specifierNavSections } from "@/components/specifiers/specifier-nav-header";
+import { SpecifierMapPage, specifierMapSections } from "@/components/specifiers/specifier-map-page";
 import { SpecifierRecordPage } from "@/components/specifiers/specifier-record-page";
 import { SpecifierReferencePage } from "@/components/specifiers/specifier-reference-page";
 import { dsmDiagnoses } from "@/lib/dsm";
@@ -154,6 +155,11 @@ const routes: RouteCase[] = [
     render: () => <FormDetailPage form={formRecords[0]} />,
   },
   {
+    name: "/specifiers/map",
+    sections: specifierMapSections,
+    render: () => <SpecifierMapPage />,
+  },
+  {
     name: "/specifiers/[slug] (curated record)",
     sections: specifierNavSections,
     render: () => <SpecifierRecordPage record={specifierRecord} />,
@@ -267,10 +273,10 @@ describe("in-page navigation section contracts", () => {
 
   it("covers every route that mounts the shared header", () => {
     // A component converted without a case here would leave its declared
-    // sections unguarded, which is the whole failure mode. Seven anchor-scrolling
+    // sections unguarded, which is the whole failure mode. Eight anchor-scrolling
     // routes plus one factsheet case per `kind`; the medication page swaps
     // panels rather than scrolling and is guarded by the suite below.
-    expect(routes).toHaveLength(12);
+    expect(routes).toHaveLength(13);
   });
 });
 
