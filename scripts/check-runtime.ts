@@ -74,7 +74,14 @@ export function checkNodeRuntime(
       ok: false,
       expectedMajor,
       actualVersion: version,
-      message: `Node ${version} is below the ${minimumVersion} floor this project requires (package.json engines.node). Install Node ${minimumVersion} or newer.`,
+      // Name the remedy the repo already ships. This check is the first step of
+      // verify:pr-local, so it is where a stale-runtime session lands for every
+      // diff — and "install Node yourself" sends the reader off to do by hand
+      // what `.claude/hooks/session-start.sh` does correctly, including the
+      // exclusive major ceiling that a manual install of "latest" would miss.
+      message:
+        `Node ${version} is below the ${minimumVersion} floor this project requires (package.json engines.node). ` +
+        `Run \`bash .claude/hooks/session-start.sh\` to provision a supported Node, or install ${minimumVersion} or newer yourself.`,
     };
   }
 
