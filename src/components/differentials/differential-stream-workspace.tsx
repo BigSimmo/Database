@@ -263,7 +263,7 @@ function StreamCard({
 
       <div className="mt-3 flex flex-wrap gap-2">
         <Link
-          href={differentialRouteWithQuery(item.href, query)}
+          href={isPresentation ? differentialRouteWithQuery(item.href, query) : item.href}
           onClick={onFocus}
           className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] hover:opacity-90"
         >
