@@ -1,15 +1,16 @@
 # Database remediation & future-proofing plan — 2026-08
 
-Owner: operator (Josh) + specialist session. Source findings: ledger `#248` (closure queued by
-this PR) and the queued P1 live-drift follow-up. Companion evidence: live-drift Actions runs
+Owner: operator (Josh) + specialist session. Source findings: open ledger `#248` (whose causal
+conclusion awaits a read-only history and audit check) and the queued P1 live-drift follow-up.
+Companion evidence: live-drift Actions runs
 `30763871562` (2026-08-02) and
 `31330856982` (2026-08-09), PR #1614, `supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql`.
 
 **Scope.** Fixes, in dependency order: the live-vs-repo schema gap (21 missing indexes, 2
-unexpected indexes, 10 diverged `match_*` RPC bodies), the migration-history integrity defect that
-caused it, drift-detection routing, and the surrounding database debt (`#102`, `#011`, `#036`,
+unexpected indexes, 10 diverged `match_*` RPC bodies), the unresolved cause of the affected
+migration history, drift-detection routing, and the surrounding database debt (`#102`, `#011`, `#036`,
 `#022`, `#025`, `#056`/`#057`, `#183`, `#188`/`#196`–`#200`, `#191`, `#098`/`#099`). Ends with
-standing protections so a history row can never again be recorded without its DDL being verified.
+standing protections so unverified history repairs remain visible and cannot silently mask drift.
 
 **Standing rules for every phase.** No hosted mutation without explicit approval for that phase.
 Never raw-SQL a drift fix — every live change is codified (migration + `schema.sql` mirror +
@@ -51,9 +52,10 @@ from supabase_migrations.schema_migrations
 order by version;
 ```
 
-Every `no_statements = true` row is a mark-applied/repair fingerprint. Expected: `20260705180000`
-and plausibly the ancestors of the other 19 missing indexes. This converts "systemic pattern" from
-inference to a named list.
+Treat every `no_statements = true` row as a candidate mark-applied/repair signal, not proof of
+cause. Record whether `20260705180000` has that signal, then pair it with relevant audit history
+to distinguish skipped DDL from indexes that were created and later dropped. This turns the current
+hypothesis into a named, evidence-backed conclusion.
 
 1.2 **RPC divergence dossier.** For each of the 10 mismatched `match_*` functions:
 `select pg_get_functiondef(oid)` on live, diff against the repo's canonical body, classify:
@@ -140,7 +142,7 @@ Run `check:production-readiness` once at the end of the window.
 6.1 **History-integrity probe in drift.** Extend `schema_drift_snapshot()` (new migration) to
 also return `schema_migrations` versions with `statements IS NULL`, and teach `check:drift` to
 report any such row not on a reviewed allowlist (each allowlisted version needs a pointer to its
-guard migration). A mark-applied row without a validating guard migration becomes permanent,
+guard migration). A history-repair row without a validating guard migration becomes permanent,
 visible drift.
 
 6.2 **Guard-migration contract.** Document in `AGENTS.md`/`docs/database-drift-detection.md`:

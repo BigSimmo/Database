@@ -11,13 +11,13 @@ numeric ID by exact title before updating it; never assume an ID.
 
 ## Context briefing (paste-adjacent background every session can rely on)
 
-**What happened.** Investigation of ledger `#248` (closure queued by this PR) proved that migration
-`20260705180000_reconcile_search_health_indexes.sql` was recorded as applied on the live Supabase
-project (`Clinical KB Database`, ref `sjrfecxgysukkwxsowpy`) **without its DDL ever executing**.
-The history row was recorded out-of-band (mark-applied/repair). Evidence: Supabase wraps each
-migration in one transaction (partial persistence impossible); later 2026-07-06 migrations are
-behaviorally live, requiring that history row to pre-exist; and two of its indexes are still
-missing on live today. This is systemic, not one-off.
+**What happened.** Ledger `#248` remains open. Current evidence shows that migration
+`20260705180000_reconcile_search_health_indexes.sql` is recorded as applied on the live Supabase
+project (`Clinical KB Database`, ref `sjrfecxgysukkwxsowpy`) while two of its indexes are
+currently missing. Supabase's transaction model excludes a persisted partial application, and later
+migrations show that history advanced, but neither point distinguishes skipped DDL/mark-applied
+history from indexes that were created and later dropped. The Phase 1 read-only history and audit
+check must establish that cause before the row is closed or remediation is attributed to it.
 
 **Current live state** (from scheduled `live-drift.yml` Actions run `31330856982`, 2026-08-09):
 
@@ -99,7 +99,8 @@ Note for the operator (not the model): adding `SUPABASE_ACCESS_TOKEN` to environ
 
 Deliverables: migration-history fingerprint list, RPC divergence dossier (10 diffs classified),
 index sizing + `EXPLAIN` baselines. Definition of done: all three recorded in the forensics doc;
-The live-drift tracking item is updated with the named mark-applied version list; no writes performed.
+The live-drift tracking item is updated with the no-statements version list and the evidence-based
+conclusion for `#248`; no writes performed.
 
 **Prompt to paste:**
 
@@ -108,7 +109,9 @@ The live-drift tracking item is updated with the named mark-applied version list
 > (sjrfecxgysukkwxsowpy) for Phase 1. Absolutely no INSERT/UPDATE/DELETE/DDL — SELECT and EXPLAIN
 > only; stop and report if any step would write. Execute: (1) run the migration-history
 > fingerprint query from the plan (statements IS NULL over supabase_migrations.schema_migrations)
-> and list every no-statements version with its name; (2) for each of the 10 match_* RPCs named in
+> and list every no-statements version with its name. For `#248`, record whether that result
+> supports a mark-applied/repair history; otherwise retain the alternative that the indexes were
+> created and later dropped. (2) for each of the 10 match_* RPCs named in
 > the 2026-08-09 live-drift log, fetch pg_get_functiondef from live and diff against the repo's
 > canonical body (search supabase/migrations for the latest create-or-replace of each), then
 > classify each as live-ahead, repo-ahead, or normalization noise, quoting the decisive diff hunks
