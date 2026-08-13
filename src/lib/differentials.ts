@@ -395,6 +395,32 @@ export function getDifferentialDetailContext(
   const knownRelatedSlugs = [
     ...new Set(record.related.map((node) => node.id).filter((id) => routableDiagnosisSlugs.has(id))),
   ];
+  const catalogRecordBySlug = new Map(catalogRecords.map((entry) => [entry.slug, entry]));
+  const relatedMapDetails: DifferentialDetailContext["relatedMapDetails"] = {};
+  for (const slug of knownRelatedSlugs) {
+    const related = catalogRecordBySlug.get(slug);
+    const title = typeof related?.title === "string" ? related.title.trim() : "";
+    const clinicalHinge = typeof related?.clinicalHinge === "string" ? related.clinicalHinge.trim() : "";
+    const safetySummary =
+      typeof related?.safetySnapshot?.summary === "string" ? related.safetySnapshot.summary.trim() : "";
+    const status = related?.status;
+    if (
+      !related ||
+      !title ||
+      !clinicalHinge ||
+      !safetySummary ||
+      (status !== "emergent" && status !== "urgent" && status !== "routine")
+    ) {
+      continue;
+    }
+    relatedMapDetails[slug] = {
+      slug: related.slug,
+      title,
+      status,
+      clinicalHinge,
+      safetySummary,
+    };
+  }
 
   const titleMap = buildDiagnosisTitleSlugMap(catalogRecords);
   // Owner-row payloads can be partial in tests/live drift — never assume tags/items exist.
@@ -429,6 +455,7 @@ export function getDifferentialDetailContext(
   const governance = deriveGovernanceFromSnapshot(snapshot);
   return {
     knownRelatedSlugs,
+    relatedMapDetails,
     termLinks,
     overlapLinks,
     comparePresentation: presentation ? { slug: presentation.id, title: presentation.title } : null,

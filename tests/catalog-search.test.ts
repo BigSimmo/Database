@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { compactSearchText, normalizeSearchText, rankCatalogRecords } from "../src/lib/catalog-search";
+import {
+  compactSearchText,
+  fuzzySearchTokenCount,
+  normalizeSearchText,
+  rankCatalogRecords,
+} from "../src/lib/catalog-search";
 
 type Item = { title: string; slug: string; tags: string[]; body: string };
 
@@ -54,6 +59,62 @@ describe("rankCatalogRecords", () => {
   it("drops records with no matching signal", () => {
     const results = rank("clozapine");
     expect(results.some((match) => match.record.slug === "lithium-levels")).toBe(false);
+  });
+
+  it("finds close catalogue words after an insertion, omission, or transposition", () => {
+    expect(rank("clozpaine")[0]?.record.slug).toBe("clozapine-monitoring");
+    expect(rank("lithum")[0]?.record.slug).toBe("lithium-levels");
+    expect(fuzzySearchTokenCount("monitroing", "Clozapine monitoring guidance")).toBe(1);
+  });
+
+  it("weights and reports a fuzzy title above an incidental full-text mention", () => {
+    const records = [
+      { title: "Schizophrenia", body: "Core diagnostic record" },
+      { title: "Other condition", body: "Consider schizophrenia in the differential" },
+    ];
+    const results = rankCatalogRecords(records, "schizophrnia", {
+      fields: [{ id: "title", weight: 8, text: (record) => normalizeSearchText(record.title) }],
+      fullText: (record) => normalizeSearchText(`${record.title} ${record.body}`),
+    });
+
+    expect(results[0]?.record.title).toBe("Schizophrenia");
+    expect(results[0]?.signals.fuzzy).toBe(1);
+    expect(results[0]?.signals.fields.title).toBe(1);
+  });
+
+  it("does not fuzz short clinical abbreviations or unrelated words", () => {
+    expect(fuzzySearchTokenCount("GAD", "Major depressive disorder")).toBe(0);
+    expect(fuzzySearchTokenCount("SSRI", "SNRI")).toBe(0);
+    expect(rank("transport").some((match) => match.record.slug === "clozapine-monitoring")).toBe(false);
+  });
+
+  it("never cross-matches a distinct drug two edits away, even with both records present", () => {
+    // Ledger #310: with a >=8-char / 2-edit tier, fluoxetine matched duloxetine (substitute
+    // f->d + transpose lu->ul counts as 2 Damerau edits) and prednisone matched prednisolone.
+    // The 1-edit cap must exclude the wrong drug while the exact drug still ranks, and while
+    // genuine single-edit typo recovery keeps working.
+    const drugs = [
+      { title: "Fluoxetine", body: "SSRI dosing" },
+      { title: "Duloxetine", body: "SNRI dosing" },
+      { title: "Prednisone", body: "Corticosteroid taper" },
+      { title: "Prednisolone", body: "Corticosteroid taper" },
+      { title: "Sertraline", body: "SSRI dosing" },
+    ];
+    const rankDrugs = (query: string) =>
+      rankCatalogRecords(drugs, query, {
+        fields: [{ id: "title", weight: 8, text: (record) => normalizeSearchText(record.title) }],
+        fullText: (record) => normalizeSearchText(record.title),
+      });
+
+    const fluoxetine = rankDrugs("fluoxetine");
+    expect(fluoxetine[0]?.record.title).toBe("Fluoxetine");
+    expect(fluoxetine.some((match) => match.record.title === "Duloxetine")).toBe(false);
+
+    const prednisone = rankDrugs("prednisone");
+    expect(prednisone[0]?.record.title).toBe("Prednisone");
+    expect(prednisone.some((match) => match.record.title === "Prednisolone")).toBe(false);
+
+    expect(rankDrugs("setraline")[0]?.record.title).toBe("Sertraline");
   });
 
   it("applies the whole-phrase bonus on top of term matches", () => {

@@ -1199,7 +1199,7 @@ export function DifferentialDetailPage({
           {activeTab === "compare" ? <ComparePanel record={record} detailContext={detailContext} /> : null}
 
           {activeTab === "map" ? (
-            <DiagnosisMapPanel record={record} knownRelatedSlugs={detailContext.knownRelatedSlugs} />
+            <DiagnosisMapPanel key={record.slug} record={record} relatedMapDetails={detailContext.relatedMapDetails} />
           ) : null}
 
           {activeTab === "related" ? (

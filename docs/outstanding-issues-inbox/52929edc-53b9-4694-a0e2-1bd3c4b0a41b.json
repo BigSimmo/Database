@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "52929edc-53b9-4694-a0e2-1bd3c4b0a41b",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#035",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** Deliberately narrow by design, with a code comment saying so, and broadening it carries real false-positive risk on a clinical warning path. Keep as a finding, not queued work. `detectThresholdDisagreements` checks only ANC, WBC, and platelets paired with withholding verbs, so cross-source conflicts on medication doses, lithium/thyroid levels, or vital signs go undetected. Deliberately narrow (see the comment at `:469-474`). Broadening changes when an answer is classified `conflicting` and adds warnings — real false-positive risk. Needs new fixtures plus a behaviour review before any change."
+  }
+}

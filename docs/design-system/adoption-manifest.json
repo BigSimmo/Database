@@ -254,6 +254,7 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/in-page-nav-playwright-contract.test.ts",
         "tests/information-page-shell.dom.test.tsx",
+        "tests/ui-route-coverage.spec.ts",
         "tests/ui-specifiers.spec.ts"
       ],
       "baseline": {
@@ -1092,6 +1093,7 @@
         "tests/app-announcements-root.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-target-evidence.test.ts",
+        "tests/diagnosis-map-panel.dom.test.tsx",
         "tests/sheet.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],

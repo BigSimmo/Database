@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "abd14d84-e4d6-4f8c-8384-a97817aafcb7",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#212",
+    "pri": "P3",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** 40 casts at trust boundaries. Same reasoning as #211: worth doing, no measured defect traces to it, and it competes with clinical work for review attention. VERIFIED CORRECT 2026-08-12 — re-checked against merged main during the full ledger sweep and left unchanged: 40 `as unknown as` casts remain under src/ — the row's population is intact. This stamp exists so a later reader can tell \"checked and still true\" from \"never looked at\"; the two were indistinguishable before. 48 as unknown as casts and ~24 unvalidated JSON.parse calls across src/ trust Supabase, OpenAI, localStorage, file metadata and extraction boundaries. Start with src/lib/rag/rag.ts and src/app/api/* routes, mirroring existing Zod use in src/lib/validation/body.ts and src/lib/extractors/document.ts. See docs/review-findings-2026-08-02.md sections 2.2, 2.3 and 8."
+  }
+}
