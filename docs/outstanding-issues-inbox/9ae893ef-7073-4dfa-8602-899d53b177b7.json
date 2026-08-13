@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "9ae893ef-7073-4dfa-8602-899d53b177b7",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "A queued update request can silently clobber a row that changed after the request was written",
+    "detail": "**Outcome:** the inbox cannot apply a stale rewrite over someone else's newer content without anyone noticing. **Detail:** the inbox intake fixed ID allocation — ids are assigned at reconciliation, so two branches can no longer collide on a number, which was the sharper of the two hazards. It does not address content staleness. An 'update' request carries a full replacement '--detail' string written against whatever the author read at queue time; reconciliation applies it verbatim. If the target row changed on main between queueing and reconciling, the newer content is overwritten with no signal. The multiple-pending-mutations guard does not catch this: it fires only when two requests target the same id, not when one request is simply old. **Live near-miss, 2026-08-13:** a document-viewer ledger pass was drafted against a base four days stale, and its '#215' restatement was composed from that stale reading. It was caught only because the author re-read every row against current main before queueing — a discipline, not a gate. The same pass had already had to discard a directly-allocated '#295' because main had since claimed it; that half is now structurally impossible, this half is not. **Next:** consider fingerprinting the target row at queue time — the request schema is versioned ('version: 1'), so a 'baseRow' hash could be added to add/update/done payloads and compared at reconcile, refusing (or requiring an explicit override) when the row moved underneath. Weigh against just documenting the re-read discipline: this costs a schema bump plus writer, reconcile and self-test changes, and the failure needs a multi-day-stale base to bite. **Stop:** do not make reconciliation merge or three-way-diff detail text — a replacement that silently becomes a merge is harder to reason about than one that refuses.",
+    "source": "session 2026-08-13 document-viewer ledger truth pass, PR #1930; scripts/ledger-inbox.mjs request schema"
+  }
+}

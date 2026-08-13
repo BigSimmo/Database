@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "5af9a8bf-6136-4347-bcae-8433c8c9e686",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#269",
+    "pri": "P3",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** Blocked on #118 baselines, and proves a per-component state matrix for a design system on a single-user prototype. High cost, low yield at this stage. hover / active / disabled / busy / invalid / 320px / dark / forced-colours / print, per component. Currently proven for none. Blocked on #118: zero visual baselines are committed and the harness is continue-on-error, so nothing in Track B is safe at scale until baselines exist. CORRECTION 2026-08-08: the claim that baselines cannot be generated on Windows is half true and led to the wrong conclusion. It is true that snapshotPathTemplate carries {platform}, so win32 PNGs are invisible to the ubuntu CI job — but the CI job already produces the ubuntu ones. .github/workflows/ci.yml job visual-baseline runs on ubuntu-24.04 whenever ui_changed, runs npm run test:e2e:visual, and uploads tests/__screenshots__/ as artifact visual-baseline-<run_id>; playwright.visual.config.ts records that on a missing baseline Playwright writes the golden and fails the first attempt, which is why retries are pinned at 0. So the mechanism exists and adoption is mechanical — see #118. Stop rule unchanged: do not commit baselines until the owner declares the design final, and do not adopt them from a developer machine."
+  }
+}

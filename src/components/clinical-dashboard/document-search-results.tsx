@@ -312,6 +312,16 @@ function DocumentResultMoreMenu({
   useEffect(() => {
     if (!open) return;
 
+    let positionFrame: number | null = null;
+    const scheduleMenuPositionUpdate = () => {
+      if (positionFrame !== null) return;
+      positionFrame = window.requestAnimationFrame(() => {
+        positionFrame = null;
+        updateMenuPosition();
+      });
+    };
+    const scrollOptions: AddEventListenerOptions = { capture: true, passive: true };
+
     function closeOutside(event: PointerEvent) {
       if (menuRef.current?.contains(event.target as Node) || buttonRef.current?.contains(event.target as Node)) return;
       setOpen(false);
@@ -325,14 +335,15 @@ function DocumentResultMoreMenu({
 
     window.document.addEventListener("pointerdown", closeOutside);
     window.addEventListener("keydown", closeOnEscape);
-    window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
+    window.addEventListener("resize", scheduleMenuPositionUpdate);
+    window.addEventListener("scroll", scheduleMenuPositionUpdate, scrollOptions);
     updateMenuPosition();
     return () => {
+      if (positionFrame !== null) window.cancelAnimationFrame(positionFrame);
       window.document.removeEventListener("pointerdown", closeOutside);
       window.removeEventListener("keydown", closeOnEscape);
-      window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
+      window.removeEventListener("resize", scheduleMenuPositionUpdate);
+      window.removeEventListener("scroll", scheduleMenuPositionUpdate, scrollOptions);
     };
   }, [open, updateMenuPosition]);
 

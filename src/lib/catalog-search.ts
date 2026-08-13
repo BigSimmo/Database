@@ -24,6 +24,66 @@ export function compactSearchText(value: string) {
   return value.replace(/\s+/g, "");
 }
 
+function typoDistanceLimit(term: string) {
+  // One edit recovers common clinical typos without allowing exact long drug
+  // names to cross-match distinct catalogue entries (for example fluoxetine
+  // and duloxetine, or prednisone and prednisolone).
+  if (term.length >= 5) return 1;
+  // Four-character clinical abbreviations (SSRI/SNRI, ADHD/ODD, etc.) are
+  // often one edit apart; require five characters before allowing a typo.
+  return 0;
+}
+
+/** Bounded Damerau-Levenshtein distance for conservative catalogue typo recovery. */
+function boundedTypoDistance(left: string, right: string, limit: number) {
+  if (Math.abs(left.length - right.length) > limit) return limit + 1;
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  let previousPrevious: number[] | undefined;
+
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex];
+    let rowMinimum = current[0];
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      let distance = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + substitutionCost,
+      );
+      if (
+        previousPrevious &&
+        leftIndex > 1 &&
+        rightIndex > 1 &&
+        left[leftIndex - 1] === right[rightIndex - 2] &&
+        left[leftIndex - 2] === right[rightIndex - 1]
+      ) {
+        distance = Math.min(distance, previousPrevious[rightIndex - 2] + 1);
+      }
+      current[rightIndex] = distance;
+      rowMinimum = Math.min(rowMinimum, distance);
+    }
+    if (rowMinimum > limit) return limit + 1;
+    previousPrevious = previous.slice();
+    previous.splice(0, previous.length, ...current);
+  }
+  return previous[right.length];
+}
+
+/** Number of query tokens with a conservative near-word match in normalized text. */
+function fuzzySearchTokens(query: string, text: string) {
+  const queryTokens = normalizeSearchText(query).split(/\s+/).filter(Boolean);
+  const words = Array.from(new Set(normalizeSearchText(text).split(/\s+/).filter(Boolean)));
+  return queryTokens.filter((term) => {
+    if (words.some((word) => word.includes(term))) return false;
+    const limit = typoDistanceLimit(term);
+    return limit > 0 && words.some((word) => boundedTypoDistance(term, word, limit) <= limit);
+  });
+}
+
+export function fuzzySearchTokenCount(query: string, text: string) {
+  return fuzzySearchTokens(query, text).length;
+}
+
 export type CatalogField<T> = {
   // Wrapper-facing key used to build human-readable reasons (e.g. "title", "contact").
   id: string;
@@ -32,13 +92,15 @@ export type CatalogField<T> = {
 };
 
 export type CatalogMatchSignals = {
-  // Matched term count per field id (only fields with at least one match are present).
+  // Literal or conservative fuzzy matched term count per field id
+  // (only fields with at least one match are present).
   fields: Record<string, number>;
   // Matched term count against the full-text haystack.
   content: number;
   // Matched term count for terms introduced by expandTokens (e.g. symptom
   // aliases) that were not part of the raw query.
   expanded: number;
+  fuzzy: number;
   compact: boolean;
   phrase: boolean;
   prefix: boolean;
@@ -113,6 +175,14 @@ export function rankCatalogRecords<T>(
       const text = options.fullText(record);
       const fields: Record<string, number> = {};
       let score = 0;
+      let fuzzy = 0;
+      const compact =
+        compactBonus > 0 &&
+        compactQuery.length >= compactMinLength &&
+        (compactSearchText(text).includes(compactQuery) ||
+          (options.compactExtraText
+            ? compactSearchText(options.compactExtraText(record)).includes(compactQuery)
+            : false));
 
       for (const field of options.fields) {
         const haystack = field.text(record);
@@ -121,23 +191,32 @@ export function rankCatalogRecords<T>(
         // align with a word boundary — substring hits ("renal" inside
         // "adrenaline") stay confined to the low-weight content haystack.
         const matched = terms.filter((term) => matchesTermAtWordBoundary(haystack, term)).length;
-        if (!matched) continue;
-        fields[field.id] = matched;
-        score += matched * field.weight;
+        if (matched) {
+          fields[field.id] = matched;
+          score += matched * field.weight;
+        }
+
+        // A typo in a title/name/code field must retain that field's weight.
+        // Otherwise an intended record ties incidental full-text mentions and
+        // a limited universal-search result can omit the best match entirely.
+        const fuzzyFieldMatches = compact ? 0 : fuzzySearchTokenCount(normalizedQuery, haystack);
+        if (fuzzyFieldMatches) {
+          fields[field.id] = (fields[field.id] ?? 0) + fuzzyFieldMatches;
+        }
+        fuzzy += fuzzyFieldMatches;
+        score += fuzzyFieldMatches * field.weight;
       }
 
       const content = terms.filter((term) => text.includes(term)).length;
       score += content * contentWeight;
 
       const expanded = expandedTerms.filter((term) => text.includes(term)).length;
+      const fuzzyContentFallback = !compact && fuzzy === 0 ? fuzzySearchTokenCount(normalizedQuery, text) : 0;
+      fuzzy += fuzzyContentFallback;
+      // Broad full-text fuzzy evidence is only a fallback and stays weaker than
+      // literal content or a weighted field match.
+      score += fuzzyContentFallback * Math.max(1, contentWeight * 0.5);
 
-      const compact =
-        compactBonus > 0 &&
-        compactQuery.length >= compactMinLength &&
-        (compactSearchText(text).includes(compactQuery) ||
-          (options.compactExtraText
-            ? compactSearchText(options.compactExtraText(record)).includes(compactQuery)
-            : false));
       if (compact) score += compactBonus;
 
       const phrase = phraseBonus > 0 && text.includes(normalizedQuery);
@@ -158,7 +237,17 @@ export function rankCatalogRecords<T>(
         record,
         index,
         score,
-        signals: { fields, content, expanded, compact, phrase, prefix, exact, broad } satisfies CatalogMatchSignals,
+        signals: {
+          fields,
+          content,
+          expanded,
+          fuzzy,
+          compact,
+          phrase,
+          prefix,
+          exact,
+          broad,
+        } satisfies CatalogMatchSignals,
       };
     })
     .filter((match) => match.score > 0)

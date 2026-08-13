@@ -239,6 +239,26 @@ export function compareToLighthouseBudget(rows, budget) {
   };
 }
 
+/** Unique Lighthouse cells whose numeric breach warrants targeted confirmation. */
+export function numericBreachConfirmationRuns(rows, budget) {
+  const result = compareToLighthouseBudget(rows, budget);
+  if (result.incomplete.length > 0) return [];
+  return [...new Set(result.breaches.map((breach) => breach.run))].sort();
+}
+
+/**
+ * Decide a breached cell from its initial sample plus two confirmations.
+ * Null means the evidence set is incomplete and callers must retain the initial
+ * failing sample rather than clearing a required gate from partial evidence.
+ */
+export function majorityBreachDecision(samples) {
+  if (!Array.isArray(samples) || samples.length !== 3 || samples.some((sample) => typeof sample !== "boolean")) {
+    return null;
+  }
+  const breachCount = samples.filter(Boolean).length;
+  return { breached: breachCount >= 2, breachCount, sampleCount: samples.length };
+}
+
 /** The baseline object to commit for a set of measured rows. */
 export function baselineFromRows(rows) {
   return Object.fromEntries(

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "1752caad-7fac-4089-a415-d20a26e5984a",
+  "createdOn": "2026-08-14",
+  "action": "can\u0063el",
+  "payload": {
+    "requestId": "38e25384-5dcb-463d-b1b7-e0caea60bb83",
+    "reason": "Superseded by request 47ba09d2-64f6-47ab-8ad6-380fc3f93eee with count-accurate wording."
+  }
+}

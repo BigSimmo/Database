@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   clientChunkNamesFromManifestSource,
+  clientRouteAndChunkNamesFromManifestSource,
   compareToBudget,
   EXIT_FAILSAFE_MS,
   exitProcess,
@@ -13,8 +14,11 @@ import {
   initialDashboardChunkNames,
   measureChunkPaths,
   measureChunks,
+  measureBudgetRoutes,
   MOCKUP_ROUTE_SEGMENT,
+  normalizeManifestRoute,
   partitionRouteClientChunks,
+  resolveBaselineSource,
 } from "../scripts/check-bundle-budget.mjs";
 
 const buf = (n: number) => Buffer.alloc(n, "a"); // highly compressible; gzip < raw
@@ -259,6 +263,34 @@ describe("compareToBudget", () => {
   });
 });
 
+describe("bundle baseline provenance", () => {
+  const gitHead = "A".repeat(40);
+
+  it("prefers an explicit measurement source and normalizes it", () => {
+    const readHead = vi.fn(() => "b".repeat(40));
+    expect(resolveBaselineSource({ BUNDLE_BUDGET_SOURCE_SHA: gitHead }, readHead)).toBe(gitHead.toLowerCase());
+    expect(readHead).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the current Git head and rejects malformed candidates", () => {
+    expect(resolveBaselineSource({ GITHUB_SHA: "not-a-sha" }, () => "b".repeat(40))).toBe("b".repeat(40));
+    expect(resolveBaselineSource({}, () => "still-not-a-sha")).toBeNull();
+  });
+});
+
+describe("committed route bundle budgets", () => {
+  it("covers the same five journeys as Lighthouse with enforced numeric baselines", () => {
+    const bundle = JSON.parse(readFileSync(path.resolve("bundle-budget.json"), "utf8"));
+    const lighthouse = JSON.parse(readFileSync(path.resolve("lighthouse-budget.json"), "utf8"));
+
+    expect(Object.keys(bundle.routes)).toEqual(lighthouse.routes);
+    for (const routeBudget of Object.values(bundle.routes) as Array<{ gzipBytes: unknown; tolerancePct: unknown }>) {
+      expect(routeBudget.gzipBytes).toEqual(expect.any(Number));
+      expect(routeBudget.tolerancePct).toBe(10);
+    }
+  });
+});
+
 describe("initial dashboard fixture boundary", () => {
   it("resolves root layout, page, and shared chunks without dynamic route chunks", () => {
     expect(
@@ -343,6 +375,12 @@ describe("production vs mockup chunk attribution", () => {
     expect([...(names ?? [])]).toEqual(["a.js", "b.js"]);
   });
 
+  it("normalizes route groups and page manifest keys", () => {
+    expect(normalizeManifestRoute("/page")).toBe("/");
+    expect(normalizeManifestRoute("/(search-app)/documents/search/page")).toBe("/documents/search");
+    expect(clientRouteAndChunkNamesFromManifestSource(manifest("/forms/page", ["forms.js"]))?.route).toBe("/forms");
+  });
+
   it("returns null rather than an empty set on an unparseable manifest", () => {
     // Empty set means "decoded, no client chunks"; null is the fail-closed signal.
     expect(clientChunkNamesFromManifestSource("module.exports = {}")).toBeNull();
@@ -364,6 +402,37 @@ describe("production vs mockup chunk attribution", () => {
     expect(result.routeCount).toBe(2);
     expect(result.mockupRouteCount).toBe(1);
     expect(result.unparseable).toEqual([]);
+    expect([...result.routeChunks.get("/")!]).toEqual(["shared.js"]);
+  });
+
+  it("measures shared and route-local chunks for every configured route", () => {
+    const measured = [
+      { name: "shared.js", gzipBytes: 100 },
+      { name: "root.js", gzipBytes: 40 },
+      { name: "forms.js", gzipBytes: 60 },
+    ];
+    const routeChunks = new Map([
+      ["/", new Set(["shared.js", "root.js"])],
+      ["/forms", new Set(["shared.js", "forms.js"])],
+    ]);
+    const result = measureBudgetRoutes(measured, routeChunks, {
+      "/": { gzipBytes: 140 },
+      "/forms": { gzipBytes: 160 },
+    });
+
+    expect(result.missing).toEqual([]);
+    expect(result.measured).toEqual({
+      "/": { gzipBytes: 140, chunks: 2 },
+      "/forms": { gzipBytes: 160, chunks: 2 },
+    });
+  });
+
+  it("fails closed when a configured route has no manifest", () => {
+    const result = measureBudgetRoutes([], new Map([["/", new Set()]]), {
+      "/": { gzipBytes: 0 },
+      "/missing": { gzipBytes: 0 },
+    });
+    expect(result.missing).toEqual(["/missing"]);
   });
 
   it("treats nested mockup routes as scratch and API route manifests as production", () => {
