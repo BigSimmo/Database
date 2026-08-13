@@ -46,9 +46,11 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/components/ui-primitives";
+import { normalizeSearchText } from "@/lib/catalog-search";
 import {
   rankToolRecords,
   toolCatalogRecordsForSession,
+  toolSearchText,
   type ToolCatalogArea,
   type ToolCatalogRecord,
 } from "@/lib/tools-catalog";
@@ -99,20 +101,19 @@ const session = { authenticated: true, demoMode: false } as const;
 const catalogue: MockupTool[] = toolCatalogRecordsForSession(session).map(withIcon);
 
 /**
- * The matcher the page ships today: one lowercase `.includes()` over a joined string
- * (`applications-launcher-page.tsx:769-788`). Reproduced verbatim so directions 01 and 03 show
- * the real current result set and ordering, and 02's ranked list can be read against it.
+ * The matcher used by the submitted /tools results route. Reuse its normalizer and shared
+ * catalogue search text so the study cannot drift back to the retired launcher matcher.
  */
-function substringMatches(query: string): MockupTool[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return catalogue;
-  return catalogue.filter((tool) =>
-    [tool.title, tool.mobileTitle, tool.description, tool.bestFor, tool.detail, areaLabels[tool.area], ...tool.keywords]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(needle),
+function submittedMatches(query: string): MockupTool[] {
+  const normalized = normalizeSearchText(query);
+  return catalogue.filter(
+    (tool) => (!normalized || toolSearchText(tool).includes(normalized)) && tool.id !== "favourites",
   );
+}
+
+/** Focused contract surface: demo-query IDs must stay aligned with the production results route. */
+export function submittedToolIdsForMockup(query: string): string[] {
+  return submittedMatches(query).map((tool) => tool.id);
 }
 
 /** Reason labels as `rankToolRecords` emits them, mapped to reader-facing copy. */
@@ -130,7 +131,7 @@ const rankedMatches = (query: string) =>
 const queryCopy: Record<FrameQuery, { label: string; note: string }> = {
   monitoring: {
     label: "monitoring",
-    note: "Substring finds 3 and ranks the exactly-named tool last. Ranked finds 4, Monitoring first.",
+    note: "Submitted search finds 4 and puts the exactly-named tool last. Ranked keeps 4, Monitoring first.",
   },
   compare: {
     label: "compare",
@@ -171,7 +172,7 @@ const directions: Array<{
     description:
       "Everything in 01, plus the page finally calls rankToolRecords — which the catalogue already exports and this page has never used. The top match is promoted into an inline brief built from the four catalogue fields the results state currently hides, so the likely answer needs no dialog at all.",
     changes: [
-      "rankToolRecords replaces the substring filter: `monitoring` now returns Monitoring first, not last, and surfaces a fourth match the substring misses.",
+      "rankToolRecords replaces submitted-order ranking: `monitoring` keeps all four matches and moves Monitoring from last to first.",
       "Rows carry why they matched, from the ranker's own reasons array, as neutral metadata chips.",
       "The top match expands inline into Best for / Check first / You'll need / Output — real per-tool catalogue fields, authored for all 13 tools and currently invisible.",
       "Match-reason chips deliberately use categorical --type-* tones, never the semantic source-backed treatment: a keyword hit must not be able to read as a grounding claim.",
@@ -450,7 +451,7 @@ function InstrumentRow({ tool, device }: { tool: MockupTool; device: FrameDevice
 }
 
 function InstrumentDirection({ query, device }: { query: FrameQuery; device: FrameDevice }) {
-  const tools = substringMatches(queryCopy[query].label);
+  const tools = submittedMatches(queryCopy[query].label);
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3.5">
       <BackRow />
@@ -516,10 +517,15 @@ function BriefDirection({ query, device }: { query: FrameQuery; device: FrameDev
         countLabel={`${matches.length} ${matches.length === 1 ? "tool" : "tools"} · ranked`}
         device={device}
         trailing={
-          device === "desktop" ? <AreaFilterRow tools={matches.map((m) => m.tool)} device={device} /> : undefined
+          device === "desktop" && matches.length > 1 ? (
+            <AreaFilterRow tools={matches.map((match) => match.tool)} device={device} />
+          ) : undefined
         }
       />
       <FrameComposer query={query} device={device} />
+      {device === "phone" && matches.length > 1 ? (
+        <AreaFilterRow tools={matches.map((match) => match.tool)} device={device} />
+      ) : null}
 
       {/* Promoted top match — the inline brief that removes the dialog for the likely answer. */}
       <section className="rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/40 p-3">
@@ -677,7 +683,7 @@ function DeckRow({ tool, device, open }: { tool: MockupTool; device: FrameDevice
 }
 
 function DeckDirection({ query, device }: { query: FrameQuery; device: FrameDevice }) {
-  const tools = substringMatches(queryCopy[query].label);
+  const tools = submittedMatches(queryCopy[query].label);
   return (
     <div className="flex flex-col gap-3.5 px-3 py-3.5">
       <BackRow />
