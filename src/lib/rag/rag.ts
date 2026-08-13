@@ -1770,7 +1770,8 @@ export async function searchChunksWithTelemetry(
   const { promise: prefetchedEmbedding, query: prefetchedEmbeddingQuery } = prefetchEmbedding(
     !(sourceOnlyRetrieval || args.lexicalOnly),
     expandedQuery,
-    () => embedTextWithTelemetry(expandedQuery),
+    (options) => embedTextWithTelemetry(expandedQuery, options),
+    { signal: args.signal },
   );
   if (prefetchedEmbedding) telemetry.embedding_prefetched = true;
   const textSearchQuery = queryVariants[0] ?? buildClinicalTextSearchQuery(retrievalQuery);
