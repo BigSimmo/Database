@@ -1401,7 +1401,8 @@
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/services/services-navigator-page.tsx",
-        "src/components/specifiers/specifiers-home-page.tsx"
+        "src/components/specifiers/specifiers-home-page.tsx",
+        "src/components/tools/tools-search-results-page.tsx"
       ],
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
@@ -1412,7 +1413,8 @@
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/services/services-navigator-page.tsx",
-        "src/components/specifiers/specifiers-home-page.tsx"
+        "src/components/specifiers/specifiers-home-page.tsx",
+        "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1496,7 +1498,6 @@
         "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
-        "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
@@ -1513,6 +1514,7 @@
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/services/service-group-nav.tsx",
+        "src/components/tools/tools-search-results-page.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
       "productImportFiles": [
@@ -1525,7 +1527,6 @@
         "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
-        "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
@@ -1541,7 +1542,8 @@
         "src/components/forms/forms-search-results-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
-        "src/components/services/service-group-nav.tsx"
+        "src/components/services/service-group-nav.tsx",
+        "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,

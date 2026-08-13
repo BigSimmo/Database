@@ -307,7 +307,7 @@ export async function initializeErrorTracking(): Promise<boolean> {
   return process.env.NODE_ENV === "production" && process.env.NEXT_RUNTIME === "nodejs" && Boolean(dsn);
 }
 
-export const captureRequestError: Instrumentation.onRequestError = async (error, _request, context) => {
+export const captureRequestError: Instrumentation.onRequestError = async (error, request, context) => {
   if (
     process.env.NODE_ENV !== "production" ||
     process.env.NEXT_RUNTIME !== "nodejs" ||
@@ -326,7 +326,10 @@ export const captureRequestError: Instrumentation.onRequestError = async (error,
     // beforeSend rebuilds a privacy-safe fingerprint from route + runtime type + frame.
     const errorType = error instanceof Error ? privacySafeExceptionType(error.name) : typeof error;
     scope.setFingerprint([context.routePath, String(errorType)]);
-    Sentry.captureException(error);
+    // Use the SDK's Next-aware capture path so the event carries the standard
+    // request-error mechanism and framework context. `privacySafeErrorEvent`
+    // still strips request headers, raw paths, and all non-allowlisted context.
+    Sentry.captureRequestError(error, request, context);
   });
   await Sentry.flush(2_000);
 };
