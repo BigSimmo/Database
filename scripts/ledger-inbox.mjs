@@ -8,7 +8,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,8 +18,12 @@ import { ISSUES_PATH, checkIssues } from "./check-outstanding-issues.mjs";
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INBOX_DIR = "docs/outstanding-issues-inbox";
 const APPLIED_DIR = path.posix.join(INBOX_DIR, "applied");
-const ACTIONS = new Set(["add", "done", "update"]);
+const ACTIONS = new Set(["add", "done", "update", "cancel"]);
+const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECONCILE_LOCK_NAME = "outstanding-issues-reconcile.lock";
+const OWNERLESS_LOCK_GRACE_MS = 5 * 60 * 1000;
+const RECONCILE_TRANSACTION_NAME = "transaction.json";
+const RECONCILE_BACKUP_NAME = "ledger.before";
 
 function date() {
   return new Date().toISOString().slice(0, 10);
@@ -38,11 +42,9 @@ export function validateRequest(request) {
   const problems = [];
   if (!request || typeof request !== "object") return ["request must be an object"];
   if (request.version !== 1) problems.push("version must be 1");
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(request.id ?? "")) {
-    problems.push("id must be a UUID");
-  }
+  if (!REQUEST_ID.test(request.id ?? "")) problems.push("id must be a UUID");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(request.createdOn ?? "")) problems.push("createdOn must be YYYY-MM-DD");
-  if (!ACTIONS.has(request.action)) problems.push("action must be add, done, or update");
+  if (!ACTIONS.has(request.action)) problems.push("action must be add, done, update, or cancel");
   if (!request.payload || typeof request.payload !== "object") problems.push("payload must be an object");
   if (request.action === "add") {
     for (const field of ["pri", "type", "summary"])
@@ -58,16 +60,95 @@ export function validateRequest(request) {
       problems.push("update requires summary, detail, or source");
     }
   }
+  if (request.action === "cancel") {
+    if (!REQUEST_ID.test(request.payload?.requestId ?? "")) {
+      problems.push("cancel requires a pending request UUID");
+    }
+    if (!String(request.payload?.reason ?? "").trim()) problems.push("cancel requires reason");
+  }
   return problems;
 }
 
 export function applyRequest(markdown, request) {
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
+  if (request.action === "cancel") {
+    throw new Error("cancel requests must be applied through batch reconciliation");
+  }
   const options = { date: request.createdOn };
   if (request.action === "add") return addIssue(markdown, request.payload, options);
   if (request.action === "done") return resolveIssue(markdown, request.payload.id, request.payload.outcome, options);
   return updateIssue(markdown, request.payload.id, request.payload);
+}
+
+function mutationConflicts(requests) {
+  const byIssue = new Map();
+  for (const request of requests) {
+    if (request.action === "add" || request.action === "cancel") continue;
+    const id = request.payload.id;
+    const requestIds = byIssue.get(id) ?? [];
+    requestIds.push(request.id);
+    byIssue.set(id, requestIds);
+  }
+  return [...byIssue.entries()].filter(([, requestIds]) => requestIds.length > 1);
+}
+
+/**
+ * Resolve immutable cancellation decisions before applying a pending request batch.
+ * A cancellation request is itself retained in the applied audit trail, while the
+ * targeted request is moved unchanged but deliberately not applied to the ledger.
+ */
+export function planRequestBatch(requests) {
+  const byId = new Map();
+  for (const request of requests) {
+    const problems = validateRequest(request);
+    if (problems.length > 0) throw new Error(`${request?.id ?? "unknown request"}: ${problems.join("; ")}`);
+    if (byId.has(request.id)) throw new Error(`duplicate immutable request id: ${request.id}`);
+    byId.set(request.id, request);
+  }
+
+  const cancelledIds = new Set();
+  const cancellations = [];
+  for (const request of requests) {
+    if (request.action !== "cancel") continue;
+    const target = byId.get(request.payload.requestId);
+    if (!target) {
+      throw new Error(
+        `cancel request ${request.id} targets missing pending request ${request.payload.requestId}`,
+      );
+    }
+    if (target.action === "cancel") {
+      throw new Error(`cancel request ${request.id} cannot cancel another cancellation request`);
+    }
+    if (cancelledIds.has(target.id)) {
+      throw new Error(`pending request ${target.id} is cancelled more than once`);
+    }
+    cancelledIds.add(target.id);
+    cancellations.push({
+      requestId: request.id,
+      targetId: target.id,
+      reason: String(request.payload.reason).trim(),
+    });
+  }
+
+  const active = requests.filter((request) => request.action !== "cancel" && !cancelledIds.has(request.id));
+  const conflicts = mutationConflicts(active);
+  if (conflicts.length > 0) {
+    const detail = conflicts.map(([id, requestIds]) => `${id}: ${requestIds.join(", ")}`).join("; ");
+    throw new Error(
+      `multiple pending mutations require an explicit cancellation decision (${detail}). ` +
+        "Queue `node scripts/ledger-inbox.mjs cancel <request-uuid> --reason \"<why>\"` for each rejected mutation, land it, then reconcile again.",
+    );
+  }
+
+  return { active, cancellations, cancelledIds: [...cancelledIds] };
+}
+
+export function applyRequestBatch(markdown, requests) {
+  const plan = planRequestBatch(requests);
+  let next = markdown;
+  for (const request of plan.active) next = applyRequest(next, request);
+  return { markdown: next, ...plan };
 }
 
 function loadPending() {
@@ -94,18 +175,6 @@ function allRequestEntries() {
   return [...loadPending(), ...loadRequestsIn(APPLIED_DIR)];
 }
 
-function mutationConflicts(pending) {
-  const byId = new Map();
-  for (const entry of pending) {
-    if (entry.request.action === "add") continue;
-    const id = entry.request.payload.id;
-    const requests = byId.get(id) ?? [];
-    requests.push(entry.relative);
-    byId.set(id, requests);
-  }
-  return [...byId.entries()].filter(([, requests]) => requests.length > 1);
-}
-
 function canonicalLedgerIsClean() {
   for (const args of [
     ["diff", "--quiet", "--", ISSUES_PATH],
@@ -120,14 +189,27 @@ function canonicalLedgerIsClean() {
   return true;
 }
 
+function pendingRequestsAreTrackedAndClean(pending) {
+  for (const entry of pending) {
+    try {
+      git(["ls-files", "--error-unmatch", "--", entry.relative]);
+      git(["diff", "--quiet", "HEAD", "--", entry.relative]);
+    } catch {
+      throw new Error(`pending request ${entry.relative} is untracked or modified; commit the immutable request before reconciliation`);
+    }
+  }
+}
+
 function git(args) {
   return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 }
 
-function processIsAlive(pid) {
+export function processIsAlive(pid) {
+  const numericPid = typeof pid === "string" && /^\d+$/.test(pid) ? Number(pid) : pid;
+  if (!Number.isSafeInteger(numericPid) || numericPid <= 0) return false;
   try {
-    process.kill(pid, 0);
-    return Number.isInteger(pid) && pid > 0;
+    process.kill(numericPid, 0);
+    return true;
   } catch (error) {
     return error?.code === "EPERM";
   }
@@ -136,6 +218,26 @@ function processIsAlive(pid) {
 function reconcileLockPath() {
   const commonDir = git(["rev-parse", "--path-format=absolute", "--git-common-dir"]);
   return path.join(commonDir, RECONCILE_LOCK_NAME);
+}
+
+function recoverReconcileTransaction(lockPath) {
+  const transactionPath = path.join(lockPath, RECONCILE_TRANSACTION_NAME);
+  if (!existsSync(transactionPath)) return false;
+  const journal = JSON.parse(readFileSync(transactionPath, "utf8"));
+  const backupPath = path.join(lockPath, journal.backup ?? RECONCILE_BACKUP_NAME);
+  if (!existsSync(backupPath) || !Array.isArray(journal.pending)) {
+    throw new Error(`incomplete reconciliation journal at ${transactionPath}; refusing automatic recovery`);
+  }
+
+  writeFileSync(path.join(ROOT, ISSUES_PATH), readFileSync(backupPath, "utf8"), "utf8");
+  for (const relative of journal.pending) {
+    const pendingPath = path.join(ROOT, relative);
+    const appliedPath = path.join(ROOT, APPLIED_DIR, path.basename(relative));
+    if (!existsSync(pendingPath) && existsSync(appliedPath)) renameSync(appliedPath, pendingPath);
+  }
+  rmSync(transactionPath, { force: true });
+  rmSync(backupPath, { force: true });
+  return true;
 }
 
 function acquireReconcileLock() {
@@ -158,12 +260,28 @@ function acquireReconcileLock() {
     try {
       owner = JSON.parse(readFileSync(path.join(lockPath, "owner.json"), "utf8"));
     } catch {
-      // A malformed lock is not safe to delete while a concurrent process may own it.
+      // The directory creation is atomic, but owner.json is written immediately
+      // after it. Give an ownerless lock a short grace period before recovery so
+      // a concurrent process cannot be mistaken for a crashed one.
     }
-    if (!owner || processIsAlive(owner.pid)) {
+    let lockAgeMs = 0;
+    try {
+      lockAgeMs = Math.max(0, Date.now() - statSync(lockPath).mtimeMs);
+    } catch {
+      throw new Error(`could not inspect reconciliation lock at ${lockPath}`);
+    }
+    if (!owner && lockAgeMs < OWNERLESS_LOCK_GRACE_MS) {
+      throw new Error(`reconciliation lock at ${lockPath} is still initializing; retry after it completes`);
+    }
+    if (owner && processIsAlive(owner.pid)) {
       throw new Error(
         `another reconciliation is active at ${lockPath}${owner?.pid ? ` (PID ${owner.pid})` : ""}; retry after it completes`,
       );
+    }
+    try {
+      recoverReconcileTransaction(lockPath);
+    } catch (recoveryError) {
+      throw new Error(`stale reconciliation requires recovery before retry: ${recoveryError.message}`);
     }
     rmSync(lockPath, { recursive: true, force: true });
     try {
@@ -205,12 +323,14 @@ function createRequest(action, argv) {
         }
       : action === "done"
         ? { id: argv[1], outcome: argValue(argv, "outcome") }
-        : {
-            id: argv[1],
-            summary: argValue(argv, "summary"),
-            detail: argValue(argv, "detail"),
-            source: argValue(argv, "source"),
-          };
+        : action === "cancel"
+          ? { requestId: argv[1], reason: argValue(argv, "reason") }
+          : {
+              id: argv[1],
+              summary: argValue(argv, "summary"),
+              detail: argValue(argv, "detail"),
+              source: argValue(argv, "source"),
+            };
   const request = { version: 1, id: randomUUID(), createdOn: date(), action, payload };
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
@@ -237,13 +357,10 @@ function reconcile(argv) {
     console.log("No outstanding-issue requests to reconcile.");
     return;
   }
-  const conflicts = mutationConflicts(pending);
-  if (conflicts.length > 0) {
-    for (const [id, paths] of conflicts)
-      console.error(`${id} is mutated by multiple pending requests: ${paths.join(", ")}`);
-    console.error(
-      "Reconcile one intended mutation for each existing issue at a time; do not choose a UUID sort order as policy.",
-    );
+  try {
+    pendingRequestsAreTrackedAndClean(pending);
+  } catch (error) {
+    console.error(`refusing to reconcile: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
     return;
   }
@@ -257,39 +374,72 @@ function reconcile(argv) {
   assertFreshReconciliationBase();
 
   const apply = () => {
-    let markdown = readFileSync(path.join(ROOT, ISSUES_PATH), "utf8");
-    for (const entry of pending) markdown = applyRequest(markdown, entry.request);
-    const problems = checkIssues(markdown);
+    const current = readFileSync(path.join(ROOT, ISSUES_PATH), "utf8");
+    const result = applyRequestBatch(
+      current,
+      pending.map((entry) => entry.request),
+    );
+    const problems = checkIssues(result.markdown, { prettierIgnored: true });
     if (problems.length > 0) throw new Error(`invalid ${ISSUES_PATH}: ${problems.join("; ")}`);
-    return markdown;
+    return result;
   };
 
-  let markdown;
+  let result;
   try {
-    markdown = apply();
+    result = apply();
   } catch (error) {
     console.error(`refusing to reconcile: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
     return;
   }
-  console.log(`${dryRun ? "Would reconcile" : "Reconciling"} ${pending.length} request(s) into ${ISSUES_PATH}.`);
+  const decisions = result.cancellations.length > 0 ? ` with ${result.cancellations.length} cancellation decision(s)` : "";
+  console.log(
+    `${dryRun ? "Would reconcile" : "Reconciling"} ${pending.length} request(s) into ${ISSUES_PATH}${decisions}.`,
+  );
   if (dryRun) return;
   const release = acquireReconcileLock();
+  const lockPath = reconcileLockPath();
+  const transactionPath = path.join(lockPath, RECONCILE_TRANSACTION_NAME);
+  let transactionOpen = false;
   try {
     if (!canonicalLedgerIsClean())
       throw new Error(`${ISSUES_PATH} changed while reconciliation was waiting for its lock`);
+    pendingRequestsAreTrackedAndClean(pending);
     assertFreshReconciliationBase();
-    markdown = apply();
-    writeFileSync(path.join(ROOT, ISSUES_PATH), markdown, "utf8");
+    result = apply();
+
+    const current = readFileSync(path.join(ROOT, ISSUES_PATH), "utf8");
+    writeFileSync(path.join(lockPath, RECONCILE_BACKUP_NAME), current, "utf8");
+    writeFileSync(
+      transactionPath,
+      `${JSON.stringify({
+        backup: RECONCILE_BACKUP_NAME,
+        pending: pending.map((entry) => entry.relative),
+      })}\n`,
+      "utf8",
+    );
+    transactionOpen = true;
+    writeFileSync(path.join(ROOT, ISSUES_PATH), result.markdown, "utf8");
     mkdirSync(path.join(ROOT, APPLIED_DIR), { recursive: true });
     for (const entry of pending)
       renameSync(path.join(ROOT, entry.relative), path.join(ROOT, APPLIED_DIR, path.basename(entry.relative)));
+    rmSync(transactionPath, { force: true });
+    rmSync(path.join(lockPath, RECONCILE_BACKUP_NAME), { force: true });
+    transactionOpen = false;
     console.log(`Applied ${pending.length} request(s); their immutable audit records are under ${APPLIED_DIR}.`);
   } catch (error) {
+    if (transactionOpen) {
+      try {
+        recoverReconcileTransaction(lockPath);
+        transactionOpen = false;
+      } catch (recoveryError) {
+        console.error(`reconciliation recovery is required: ${recoveryError.message}`);
+      }
+    }
     console.error(`refusing to reconcile: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
   } finally {
-    release();
+    if (!transactionOpen) release();
   }
 }
 
@@ -336,6 +486,20 @@ function selfTest() {
     action: "done",
     payload: { id: "#001", outcome: "done" },
   };
+  const update = {
+    version: 1,
+    id: "33333333-3333-4333-8333-333333333333",
+    createdOn: "2026-08-13",
+    action: "update",
+    payload: { id: "#001", summary: "updated" },
+  };
+  const cancel = {
+    version: 1,
+    id: "44444444-4444-4444-8444-444444444444",
+    createdOn: "2026-08-13",
+    action: "cancel",
+    payload: { requestId: done.id, reason: "prefer the later update" },
+  };
   const added = applyRequest(base, add);
   if (!added.includes("#002")) throw new Error("self-test failed: queued add did not preserve ledger invariants");
   const resolved = applyRequest(base, done);
@@ -343,6 +507,31 @@ function selfTest() {
     throw new Error("self-test failed: queued resolve did not preserve ledger invariants");
   if (validateRequest({ ...add, payload: {} }).length === 0)
     throw new Error("self-test failed: invalid request accepted");
+
+  let conflictRejected = false;
+  try {
+    applyRequestBatch(base, [done, update]);
+  } catch (error) {
+    conflictRejected = /explicit cancellation decision/.test(String(error));
+  }
+  if (!conflictRejected) throw new Error("self-test failed: colliding mutations were not rejected");
+  const planned = applyRequestBatch(base, [done, update, cancel]);
+  if (!planned.markdown.includes("updated") || planned.cancelledIds[0] !== done.id) {
+    throw new Error("self-test failed: cancellation did not select the intended mutation");
+  }
+  let missingTargetRejected = false;
+  try {
+    planRequestBatch([{ ...cancel, payload: { requestId: add.id, reason: "missing" } }]);
+  } catch (error) {
+    missingTargetRejected = /missing pending request/.test(String(error));
+  }
+  if (!missingTargetRejected) throw new Error("self-test failed: missing cancellation target was accepted");
+  if (!processIsAlive(process.pid) || !processIsAlive(String(process.pid))) {
+    throw new Error("self-test failed: current numeric or numeric-string PID was not treated as alive");
+  }
+  if (processIsAlive(0) || processIsAlive("not-a-pid")) {
+    throw new Error("self-test failed: invalid PID was treated as alive");
+  }
   console.log("ledger inbox self-test passed.");
 }
 
@@ -374,7 +563,7 @@ function main() {
       );
       return;
     }
-    throw new Error("usage: ledger-inbox.mjs <add|done|update|reconcile|check> [args]");
+    throw new Error("usage: ledger-inbox.mjs <add|done|update|cancel|reconcile|check> [args]");
   } catch (error) {
     console.error(`ledger inbox: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

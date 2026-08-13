@@ -190,6 +190,29 @@ export function reviewRecordPath(row) {
   return path.posix.join(RECORDS_DIR, `${hash}${RECORD_SUFFIX}`);
 }
 
+/**
+ * Create one content-addressed review record. If a concurrent identical append wins
+ * the `wx` race, verify the existing bytes and treat the operation as idempotent.
+ */
+export function writeImmutableReviewRecord(
+  target,
+  row,
+  { write = writeFileSync, read = readFileSync } = {},
+) {
+  const expected = `${row}\n`;
+  try {
+    write(target, expected, { encoding: "utf8", flag: "wx" });
+    return "created";
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+    const existing = read(target, "utf8");
+    if (existing !== expected) {
+      throw new Error("immutable review record path already exists with different content");
+    }
+    return "existing";
+  }
+}
+
 /** Concatenate every ledger source for consumers that parse one markdown blob. */
 export function readLedgerCorpus() {
   return listLedgerPaths()
@@ -254,8 +277,6 @@ export function rotateLedgerMarkdown(liveMarkdown, { before, existingArchives = 
 
   const archives = [];
   for (const [label, moved] of [...byLabel.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    // Repository-relative paths are serialized into docs and command output, so
-    // keep them stable across Windows and POSIX hosts.
     const relative = path.posix.join(ARCHIVE_DIR, `${ARCHIVE_PREFIX}${label}.md`);
     const prior = existingArchives.get(relative) ?? "";
     const priorRecords = prior ? splitLedgerMarkdown(prior).records : [];
@@ -527,7 +548,6 @@ function runAppend(markdown, argv) {
     normalizeScope(existing.scope) === normalizeScope(scopeValue) &&
     [...appendTokens].some((token) => refTokens(existing.ref).has(token));
 
-  // Near-duplicate checks cover live + archives so a rotated row cannot be re-appended silently.
   const rows = parseLedgerRows(readLedgerCorpus());
   let scope = String(flags.scope);
   const near = rows.filter((existing) => sameRefHeadScope(existing, scope));
@@ -540,7 +560,6 @@ function runAppend(markdown, argv) {
       process.exitCode = 1;
       return;
     }
-    // Guard keys on ref/HEAD/scope; keep the correction append-only by minting a distinct scope.
     const priorDate = near.at(-1).date;
     let suffix = 1;
     do {
@@ -570,8 +589,14 @@ function runAppend(markdown, argv) {
   const relative = reviewRecordPath(row);
   const target = path.join(root, relative);
   mkdirSync(path.dirname(target), { recursive: true });
-  writeFileSync(target, `${row}\n`, { encoding: "utf8", flag: "wx" });
-  console.log(`Recorded immutable review entry at ${relative}:\n${row}`);
+  try {
+    const status = writeImmutableReviewRecord(target, row);
+    const verb = status === "created" ? "Recorded" : "Verified existing";
+    console.log(`${verb} immutable review entry at ${relative}:\n${row}`);
+  } catch (error) {
+    console.error(`refusing to append: ${error.message}`);
+    process.exitCode = 1;
+  }
 }
 
 /**
@@ -836,6 +861,41 @@ function selfTest() {
     "documented n/a HEAD accepted",
   );
 
+  const expected = `${built}\n`;
+  assert(
+    writeImmutableReviewRecord("unused", built, { write() {}, read() {} }) === "created",
+    "first immutable record write is created",
+  );
+  assert(
+    writeImmutableReviewRecord("unused", built, {
+      write() {
+        const error = new Error("exists");
+        error.code = "EEXIST";
+        throw error;
+      },
+      read() {
+        return expected;
+      },
+    }) === "existing",
+    "concurrent identical immutable record is idempotent",
+  );
+  let mismatchedRecordRejected = false;
+  try {
+    writeImmutableReviewRecord("unused", built, {
+      write() {
+        const error = new Error("exists");
+        error.code = "EEXIST";
+        throw error;
+      },
+      read() {
+        return "different\n";
+      },
+    });
+  } catch {
+    mismatchedRecordRejected = true;
+  }
+  assert(mismatchedRecordRejected, "existing immutable record with different bytes is rejected");
+
   assert(calendarQuarterStart("2026-07-30") === "2026-07-01", "Q3 start");
   assert(calendarQuarterStart("2026-10-01") === "2026-10-01", "Q4 start");
   assert(archiveQuarterLabel("2026-07-15") === "2026-q3", "July is q3");
@@ -909,8 +969,6 @@ function main() {
   process.exitCode = 2;
 }
 
-// Use a path-segment match: `check-branch-review-ledger.mjs`.endsWith("branch-review-ledger.mjs")
-// is true and would wrongly run this CLI when the checker imports the module.
 const isMain =
   process.argv[1]?.endsWith("/branch-review-ledger.mjs") || process.argv[1]?.endsWith("\\branch-review-ledger.mjs");
 if (isMain) main();

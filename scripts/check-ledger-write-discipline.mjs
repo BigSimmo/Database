@@ -15,7 +15,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { applyRequest, validateRequest } from "./ledger-inbox.mjs";
+import { applyRequestBatch, validateRequest } from "./ledger-inbox.mjs";
 import { parseLedgerRows } from "./branch-review-ledger.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -94,10 +94,14 @@ export function verifyIssueReconciliation({
   );
 
   const moved = [];
+  const retained = [];
   for (const [name, text] of basePending) {
     const targetPending = headPending.get(name);
     const targetApplied = headApplied.get(name);
-    if (targetPending === text) continue;
+    if (targetPending === text) {
+      retained.push(name);
+      continue;
+    }
     if (targetPending !== undefined) {
       failures.push(`${INBOX}/${name} changed in place; requests are immutable.`);
       continue;
@@ -125,10 +129,18 @@ export function verifyIssueReconciliation({
     }
   }
 
+  if (moved.length > 0 && retained.length > 0) {
+    failures.push(
+      `reconciliation moved only part of the base inbox and left ${retained.length} request(s) pending: ${retained.join(", ")}. ` +
+        "Process the complete batch and use an immutable cancel request for each rejected mutation.",
+    );
+  }
+
   if (failures.length > 0) return failures;
-  let expected = baseIssues;
+  let expected;
   try {
-    for (const name of moved.sort()) expected = applyRequest(expected, basePendingParsed.requests.get(name));
+    const requests = moved.sort().map((name) => basePendingParsed.requests.get(name));
+    expected = applyRequestBatch(baseIssues, requests).markdown;
   } catch (error) {
     failures.push(
       `queued reconciliation cannot be applied safely: ${error instanceof Error ? error.message : String(error)}`,
@@ -137,7 +149,7 @@ export function verifyIssueReconciliation({
   }
   if (expected !== headIssues) {
     failures.push(
-      `${ISSUES_LEDGER} does not exactly match the serial application of ${moved.length} moved inbox request(s) from the base. ` +
+      `${ISSUES_LEDGER} does not exactly match the audited application of ${moved.length} moved inbox request(s) from the base. ` +
         "Run npm run issues:reconcile from a fresh ledger branch; do not edit the canonical ledger directly.",
     );
   }
@@ -202,7 +214,8 @@ function selfTest() {
     action: "add",
     payload: { pri: "P2", type: "issue", summary: "queued" },
   });
-  const head = applyRequest(base, JSON.parse(request));
+  const parsed = JSON.parse(request);
+  const head = applyRequestBatch(base, [parsed]).markdown;
   const options = {
     baseIssues: base,
     headIssues: head,
@@ -216,6 +229,65 @@ function selfTest() {
   if (verifyIssueReconciliation({ ...options, headIssues: base }).length === 0) {
     throw new Error("self-test failed: manual canonical edit accepted");
   }
+
+  const doneName = "22222222-2222-4222-8222-222222222222.json";
+  const updateName = "33333333-3333-4333-8333-333333333333.json";
+  const cancelName = "44444444-4444-4444-8444-444444444444.json";
+  const done = JSON.stringify({
+    version: 1,
+    id: doneName.slice(0, -5),
+    createdOn: "2026-08-13",
+    action: "done",
+    payload: { id: "#001", outcome: "superseded" },
+  });
+  const update = JSON.stringify({
+    version: 1,
+    id: updateName.slice(0, -5),
+    createdOn: "2026-08-13",
+    action: "update",
+    payload: { id: "#001", summary: "updated" },
+  });
+  const cancel = JSON.stringify({
+    version: 1,
+    id: cancelName.slice(0, -5),
+    createdOn: "2026-08-13",
+    action: "cancel",
+    payload: { requestId: doneName.slice(0, -5), reason: "prefer the update" },
+  });
+  const cancellationRequests = [done, update, cancel].map(JSON.parse);
+  const cancellationHead = applyRequestBatch(base, cancellationRequests).markdown;
+  const cancellationOptions = {
+    baseIssues: base,
+    headIssues: cancellationHead,
+    basePending: new Map([
+      [doneName, done],
+      [updateName, update],
+      [cancelName, cancel],
+    ]),
+    headPending: new Map(),
+    baseApplied: new Map(),
+    headApplied: new Map([
+      [doneName, done],
+      [updateName, update],
+      [cancelName, cancel],
+    ]),
+  };
+  if (verifyIssueReconciliation(cancellationOptions).length !== 0) {
+    throw new Error("self-test failed: audited cancellation reconciliation rejected");
+  }
+  const partial = verifyIssueReconciliation({
+    ...cancellationOptions,
+    headIssues: applyRequestBatch(base, [JSON.parse(update)]).markdown,
+    headPending: new Map([
+      [doneName, done],
+      [cancelName, cancel],
+    ]),
+    headApplied: new Map([[updateName, update]]),
+  });
+  if (!partial.some((failure) => failure.includes("only part of the base inbox"))) {
+    throw new Error("self-test failed: partial reconciliation was accepted");
+  }
+
   const review = `| 2026-08-13 | codex/a | ${"a".repeat(40)} | review | pass | test |\n`;
   if (!reviewLedgerRowsChanged("", review) || reviewLedgerRowsChanged(review, review)) {
     throw new Error("self-test failed: legacy review row change detection is incorrect");
