@@ -44,6 +44,9 @@ describe("Railway config as code", () => {
       "COPY --from=build /app/src/lib/observability/sentry-release.ts ./src/lib/observability/sentry-release.ts",
     );
     expect(appDockerfile).toContain("COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts");
+    expect(appDockerfile).toContain(
+      "COPY --from=build /app/src/components/therapy-compass/data/generated-assets.ts ./src/components/therapy-compass/data/generated-assets.ts",
+    );
   });
 
   it("admits Railway's non-secret deployment SHA into the build release", () => {

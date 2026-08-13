@@ -37,6 +37,7 @@ describe("playwright PR UI shard groups", () => {
     expect(basenames.filter((file) => productionSpecFilePattern.test(file)).sort()).toEqual(
       basenames.filter((file) => fromConfig.test(file)).sort(),
     );
+    expect(productionSpecFilePattern.test("dsm-ui-smoke.spec.ts")).toBe(true);
     expect(productionSpecFilePattern.test("ui-document-canvas.spec.ts")).toBe(true);
     expect(productionSpecFilePattern.test("ui-tools-collapse.spec.ts")).toBe(false);
   });

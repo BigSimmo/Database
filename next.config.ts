@@ -5,6 +5,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 import { resolveSentryRelease } from "./src/lib/observability/sentry-release";
 import { expectedSupabaseProject } from "./src/lib/supabase/project";
+import { THERAPY_CATALOGUE_ASSETS } from "./src/components/therapy-compass/data/generated-assets";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const requestedDistDir = process.env.NEXT_DIST_DIR?.trim();
@@ -136,11 +137,40 @@ const nextConfig: NextConfig = {
       {
         // Compatibility aliases for deployment-straddling clients. These names
         // stay stable across regenerations, so force revalidation instead of
-        // inheriting the hashed-asset immutable policy above.
+        // inheriting the hashed-asset immutable policy above. Matched on the
+        // REQUEST path, so the rewrite below does not pull the destination's
+        // immutable policy onto the alias.
         source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\.json)",
         headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
       },
     ];
+  },
+  // Serve the unversioned catalogue aliases from the current content-addressed
+  // asset instead of writing a byte-identical duplicate to disk. `useTherapyData`
+  // falls back to these names when a bundle older than the one-deploy grace
+  // generation names a hashed file that no longer exists, so the URLs must keep
+  // working — but they cost 2.81 MB of duplicated payload in the working tree and
+  // every Docker image when they were real files (5.34 MB mid-grace-window).
+  //
+  // `afterFiles` rather than `beforeFiles`: the alias files no longer exist, so
+  // the rewrite is reached once the static handler finds nothing, and nothing
+  // legitimate at these paths is shadowed. build-therapies-index.mjs --check
+  // fails if an alias file reappears, since a real file would win over this
+  // rewrite and then silently go stale on the next regeneration.
+  async rewrites() {
+    const alias = (name: string, asset: string) => ({
+      source: `/therapy-compass-data/${name}`,
+      destination: `/therapy-compass-data/${asset}`,
+    });
+    return {
+      beforeFiles: [],
+      afterFiles: [
+        alias("therapies.json", THERAPY_CATALOGUE_ASSETS.full),
+        alias("therapies-index.json", THERAPY_CATALOGUE_ASSETS.index),
+        alias("therapies-home.json", THERAPY_CATALOGUE_ASSETS.home),
+      ],
+      fallback: [],
+    };
   },
 };
 

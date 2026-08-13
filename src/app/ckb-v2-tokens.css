@@ -398,7 +398,13 @@
 /* Forced colours - the third theme (C4, DS-02). All three selectors retain the
    repeated v2 scope so this canonical mapping outranks the later compatibility
    forced-colour block at both the root and reversible subtree mounts. Elevation
-   flattens to none; roles map to system colours. */
+   flattens to none; roles map to system colours.
+
+   Do not trim this selector group to a single `.ckb-v2.ckb-v2`. The two dark
+   selectors are what let this block match the specificity of the dark rules it
+   has to beat; without them a forced-colours user in dark mode silently keeps
+   the dark palette instead of system colours, with nothing failing to say so.
+   The contract test pins the group - keep it pinned. */
 @media (forced-colors: active) {
   .ckb-v2.ckb-v2,
   .dark .ckb-v2.ckb-v2,

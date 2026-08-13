@@ -18,6 +18,8 @@ import { BadgeCluster, ClinicalBadge, type ClinicalBadgeItem } from "@/component
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import {
   evaluateMedicationInteractions,
+  interactionNoteBody,
+  severityLabel,
   type MedicationInteraction,
   type MedicationVerdict,
 } from "@/lib/medication-interactions";
@@ -218,23 +220,36 @@ export function MedicationInteractionCallout({
             : "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]",
         )}
       >
+        {/* One card per interaction, on the panel's own surface rather than the
+            tinted wash behind it: body text on a same-hue fill is the
+            readability trap (#659), and it is also what made these read as an
+            undifferentiated block. */}
         <ul className="space-y-2">
           {headline.map((interaction) => (
             <li
               key={interaction.id}
-              className="min-w-0"
+              className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5"
               data-testid={`medication-callout-${interaction.counterpartySlug}`}
             >
-              <Link
-                href={`/medications/${interaction.counterpartySlug}`}
-                className="inline-flex min-h-tap items-center gap-1 text-sm-minus font-semibold text-[color:var(--text-heading)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-              >
-                {interaction.counterpartyName}
-                <ChevronRight className="size-icon-sm text-[color:var(--decoration-soft)]" aria-hidden="true" />
-              </Link>
-              {/* Verbatim catalogue text, clamped — the full row is one tap away. */}
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <Link
+                  href={`/medications/${interaction.counterpartySlug}`}
+                  className="inline-flex min-h-tap items-center gap-1 text-sm-minus font-semibold text-[color:var(--text-heading)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                >
+                  {interaction.counterpartyName}
+                  <ChevronRight className="size-icon-sm text-[color:var(--decoration-soft)]" aria-hidden="true" />
+                </Link>
+                {/* Per-row severity: the trigger only reports the worst one, so a
+                    HIGH sitting under a CRITICAL was otherwise unlabelled. */}
+                <ClinicalBadge label={severityLabel(interaction.severity)} tone={interaction.tone} compact />
+              </div>
+              {/* Verbatim catalogue text, minus the redundant "CRITICAL — " that
+                  the badge above already states. Unclamped: this is behind a tap,
+                  so there is no space to reclaim by truncating a safety note. */}
               {interaction.note ? (
-                <p className="line-clamp-2 text-xs leading-5 text-[color:var(--text-muted)]">{interaction.note}</p>
+                <p className="mt-1 text-pretty text-xs leading-5 text-[color:var(--text)]">
+                  {interactionNoteBody(interaction.note)}
+                </p>
               ) : null}
             </li>
           ))}
@@ -419,13 +434,20 @@ function MedicationInteractionBlock({ record }: { record: MedicationRecord }) {
                     compact
                   />
                   <BadgeCluster
-                    items={[{ id: `${interaction.id}-kind`, label: interaction.kind, tone: "neutral" as const }]}
+                    items={[
+                      { id: `${interaction.id}-severity`, label: severityLabel(interaction.severity), tone: "neutral" },
+                      { id: `${interaction.id}-kind`, label: interaction.kind, tone: "neutral" },
+                    ]}
                     compact
                   />
                 </div>
-                {/* Verbatim catalogue text — never a paraphrase. */}
+                {/* Verbatim catalogue text — never a paraphrase. The leading
+                    "CRITICAL — " is dropped only because the badges above already
+                    state it; no sentence is removed or reworded. */}
                 {interaction.note ? (
-                  <p className="text-xs leading-5 text-[color:var(--text-heading)]">{interaction.note}</p>
+                  <p className="text-pretty text-xs leading-5 text-[color:var(--text-heading)]">
+                    {interactionNoteBody(interaction.note)}
+                  </p>
                 ) : null}
                 <CounterpartyLink interaction={interaction} />
               </div>

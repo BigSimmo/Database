@@ -118,7 +118,9 @@ export const MODE_NAV_ADOPTED_MODES = [
   "factsheets",
 ] as const satisfies readonly AppModeId[];
 
-export function modeUsesHeaderModeNav(modeId: AppModeId): boolean {
+export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
+
+export function modeUsesHeaderModeNav(modeId: AppModeId): modeId is ModeNavAdoptedMode {
   return (MODE_NAV_ADOPTED_MODES as readonly AppModeId[]).includes(modeId);
 }
 
