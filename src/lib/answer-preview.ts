@@ -8,9 +8,12 @@
 // "stream-safe" variant.
 
 import { trimSourceForClient } from "@/lib/answer-client-payload";
+import { env } from "@/lib/env";
 import { hasDangerSourceGovernanceWarning, sourceGovernanceWarnings } from "@/lib/source-governance";
-import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
+import type { VerifiedEvidencePreviewUnit, VerifiedUnit } from "@/lib/answer-stream-contract";
 import type { EvidenceRelevance, SearchResult } from "@/lib/types";
+
+export type { VerifiedUnit };
 
 const evidencePreviewMaxSources = 12;
 
@@ -43,4 +46,21 @@ export function buildEvidencePreviewUnit(args: {
     sources: selected.map(trimSourceForClient),
     selectedContextCount: args.results.length,
   };
+}
+
+/** Keep the ranking event small and keep final-path reconciliation out of the RAG monolith. */
+export function buildEvidencePreviewProgress(args: {
+  normalResults: SearchResult[];
+  fallbackResults: SearchResult[];
+  governanceResults: SearchResult[];
+  relevance?: EvidenceRelevance | null;
+}): { verifiedUnit?: VerifiedEvidencePreviewUnit } {
+  if (!env.RAG_INCREMENTAL_EVIDENCE_PREVIEW) return {};
+  const fallbackIds = new Set(args.fallbackResults.map((result) => result.id));
+  const verifiedUnit = buildEvidencePreviewUnit({
+    results: args.normalResults.filter((result) => fallbackIds.has(result.id)),
+    governanceResults: args.governanceResults,
+    relevance: args.relevance,
+  });
+  return verifiedUnit ? { verifiedUnit } : {};
 }
