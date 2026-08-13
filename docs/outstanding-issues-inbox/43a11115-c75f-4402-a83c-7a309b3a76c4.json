@@ -5,6 +5,6 @@
   "action": "done",
   "payload": {
     "id": "#304",
-    "outcome": "RESOLVED 2026-08-13 without a new dispatch: the weekly scheduled canary run 31329507691 (2026-08-09, green, 36/36, recall 1.0/1.0) was still inside the 30-day artifact window, so its eval-canary-output artifact (sha256 verified against the artifact digest) was downloaded and the snapshot regenerated offline via npm run build:ranking-snapshot -- --source-run-id 31329507691. New generatedAt 2026-08-13T16:08:53Z resets the freshness gate to ~2026-09-12; ranking-tuning and rag-imputation-contract tests pass 16/16. Zero provider spend. Future refreshes can reuse this path whenever a green weekly run is under 30 days old."
+    "outcome": "RESOLVED 2026-08-13 without a new dispatch. Main already contains the refreshed snapshot from successful weekly canary run 31329507691 via commit d1828441 (36/36 cases, document/content recall 1.0/1.0, zero failed cases). This inbox request closes stale task #304. The provenance gate is anchored to sourceRunStartedAt 2026-08-09T18:37:32Z, so the effective 30-day boundary is 2026-09-08T18:37:32Z; rebuilding from the same artifact does not extend it. Zero provider spend. Future refreshes must use a newer successful eval-canary artifact, update the snapshot and provenance together, and rerun ranking-tuning, ranking-snapshot-provenance, and rag-imputation-contract tests."
   }
 }
