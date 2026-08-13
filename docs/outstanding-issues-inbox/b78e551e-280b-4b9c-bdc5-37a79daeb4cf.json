@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "b78e551e-280b-4b9c-bdc5-37a79daeb4cf",
+  "createdOn": "2026-08-14",
+  "action": "can\u0063el",
+  "payload": {
+    "requestId": "fc44a290-5b8f-4ee4-b233-516774792802",
+    "reason": "Superseded by request 43a11115-c75f-4402-a83c-7a309b3a76c4, which correctly anchors the 30-day deadline to sourceRunStartedAt and requires a newer successful canary artifact for the next refresh."
+  }
+}
