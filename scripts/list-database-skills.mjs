@@ -12,6 +12,12 @@ export const repositorySkillSurfaces = [
   { name: "Cursor", root: path.join(repositoryRoot, ".cursor", "skills") },
   { name: "Clinical KB plugin", root: path.join(repositoryRoot, "plugins", "clinical-kb", "skills") },
 ];
+export const expectedRepositorySkillSurfaceCounts = {
+  Codex: 42,
+  Claude: 8,
+  Cursor: 15,
+  "Clinical KB plugin": 1,
+};
 
 function wordCount(value) {
   return String(value || "")
@@ -132,6 +138,7 @@ export function validateRepositorySkillPolicies(
     "creates one validated UUID JSON file",
     "never edit the canonical ledger",
     "commit only the newly created request file(s)",
+    "git add -- docs/outstanding-issues-inbox/<uuid>.json",
   ]);
   requireContract(".claude/skills/ledger/SKILL.md", [
     "create no request and do not change the canonical ledger",
@@ -201,6 +208,12 @@ export function validateRepositorySkillPolicies(
       files.filter((file) => file.surface === surface.name).length,
     ]),
   );
+  for (const [surface, expected] of Object.entries(expectedRepositorySkillSurfaceCounts)) {
+    const actual = surfaceCounts[surface] ?? 0;
+    if (actual !== expected) {
+      errors.push(`Repository skill inventory mismatch for ${surface}: expected ${expected}, found ${actual}`);
+    }
+  }
   return { errors, files, surfaceCounts };
 }
 

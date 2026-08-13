@@ -124,6 +124,7 @@ When the user explicitly asks for a commit, commit only the newly created reques
 `docs/outstanding-issues.md`. Use explicit paths so unrelated staged files cannot ride along:
 
 ```bash
+git add -- docs/outstanding-issues-inbox/<uuid>.json
 git commit --only docs/outstanding-issues-inbox/<uuid>.json -m "issues: queue <what changed>"
 ```
 
