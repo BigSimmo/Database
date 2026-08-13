@@ -56,8 +56,14 @@ export function validateRequest(request) {
   }
   if (request.action === "update") {
     if (!/^#\d{3,}$/.test(request.payload?.id ?? "")) problems.push("update requires a canonical #NNN id");
-    if (!["summary", "detail", "source"].some((field) => request.payload?.[field] !== undefined)) {
-      problems.push("update requires summary, detail, or source");
+    // `pri` counts as a mutation on its own: a re-prioritisation with no prose
+    // change is a legitimate and common triage edit, and leaving it out here
+    // made `--pri` unusable alone even once the CLI could emit it (ledger #313).
+    if (!["pri", "summary", "detail", "source"].some((field) => request.payload?.[field] !== undefined)) {
+      problems.push("update requires pri, summary, detail, or source");
+    }
+    if (request.payload?.pri !== undefined && !["P1", "P2", "P3"].includes(String(request.payload.pri))) {
+      problems.push("update pri must be P1, P2, or P3");
     }
   }
   if (request.action === "cancel") {
@@ -326,7 +332,14 @@ function createRequest(action, argv) {
         : action === "cancel"
           ? { requestId: argv[1], reason: argValue(argv, "reason") }
           : {
+              // `pri` rides the same update request as the prose fields so a
+              // demotion and the reason for it land as one auditable mutation.
+              // Without it the CLI could not express a re-prioritisation at all,
+              // which is the half of ledger #313 the inbox would otherwise
+              // reintroduce: updateIssue accepts --pri and validateRequest
+              // permits it, but nothing could produce the payload.
               id: argv[1],
+              pri: argValue(argv, "pri"),
               summary: argValue(argv, "summary"),
               detail: argValue(argv, "detail"),
               source: argValue(argv, "source"),
@@ -501,6 +514,27 @@ function selfTest() {
     action: "cancel",
     payload: { requestId: done.id, reason: "prefer the later update" },
   };
+  // #313: a re-prioritisation must survive the whole path — accepted by the
+  // validator on its own, and actually written to the Pri cell by the writer.
+  // Each half failed independently while the other looked fine.
+  const reprioritise = {
+    version: 1,
+    id: "55555555-5555-4555-8555-555555555555",
+    createdOn: "2026-08-13",
+    action: "update",
+    payload: { id: "#001", pri: "P3" },
+  };
+  if (validateRequest(reprioritise).length > 0) {
+    throw new Error("self-test failed: a pri-only update request must validate");
+  }
+  if (validateRequest({ ...reprioritise, payload: { id: "#001", pri: "P9" } }).length === 0) {
+    throw new Error("self-test failed: an out-of-range pri must be rejected");
+  }
+  const reprioritised = applyRequest(base, reprioritise);
+  if (!/\|\s*#001\s*\|\s*P3\s*\|/.test(reprioritised)) {
+    throw new Error("self-test failed: a pri-only update did not reach the Pri cell");
+  }
+
   const added = applyRequest(base, add);
   if (!added.includes("#002")) throw new Error("self-test failed: queued add did not preserve ledger invariants");
   const resolved = applyRequest(base, done);
