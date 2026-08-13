@@ -28,10 +28,18 @@ does today — tells the reader they cannot hold two domains at once, which is f
 
 ### There is no `navigate` kind, and that is the point
 
-Services' quick filters and factsheets' categories do not filter. They call `router.push` and
-**replace the query**, so choosing one discards the search and its results with no warning and no
-undo. A control labelled "Filter" must not do that. Query-replacing presets belong beside the
-composer as suggested searches (`AnswerSuggestionChips`), not inside the filter sheet.
+Services' quick filters do not filter. They call `router.push` and **replace the query**, so
+choosing one discards the search and its results with no warning and no undo. A control labelled
+"Filter" must not do that. Query-replacing presets belong beside the composer as suggested
+searches (`AnswerSuggestionChips`), not inside the filter sheet.
+
+Factsheets' category dimension is not this pattern, despite an earlier draft of this section
+grouping it with services' quick filters: `filterFactsheets(query, category)` ANDs the two, so
+selecting a category narrows within the current search and preserves `q` — it is a real `lens`
+(one-of-N, exactly the shape this section describes above), not a query-replacing preset. Its
+actual defect was the one section 2 names next: the desktop rail used raw `<Link>` chips while
+the phone sheet correctly used `resultFilterGroup`, so the two breakpoints disagreed on
+component even though they agreed on values. Converged, not evicted — see the Rollout section.
 
 Until a mode has real facets, it is better for its filter trigger to be absent than to open a
 sheet that throws the query away.
@@ -119,9 +127,10 @@ never become unreachable.
   `results.length + catalogueMatches.length` while the groups narrow only `results` — the sheet
   claims to scope a list it half controls. A mode must not report a total its filters cannot move.
 - **`onClearAll` never touches the query.** Clearing filters and clearing a search are different
-  intentions. Therapy-compass's phone sheet wiped the search box until its own adoption (see
-  Rollout below) converged it onto the shared sheet's `onClearAll`, which does not.
-- **One trigger component.** `ResultFilterTrigger`. Every adopted mode uses it now — see Rollout.
+  intentions. Therapy-compass now uses the shared sheet's filter-only clear; the composer's
+  explicit "Clear search" action remains responsible for deleting the query.
+- **One trigger component.** `ResultFilterTrigger`. Therapy-compass now uses the shared trigger
+  at the phone breakpoint and the shared facet chips on desktop.
 - **Tap targets are `min-h-tap` (48px) on phone.** Do not relax to 44px for generic WCAG
   guidance; it reintroduces a known `ui-smoke` flake.
 
@@ -139,21 +148,19 @@ Contract first, then one PR per mode:
 
 1. **Contract** — add the kinds, the facet renderer and the builders, changing no rendered output.
 2. **Per mode** — adopt the right kind, derive the option list, add counts, and retire that mode's
-   desktop rail so the breakpoints stop disagreeing.
-3. **Services and factsheets** — evict the query-replacing presets to the composer.
-4. **Therapy-compass** — converged its bespoke phone-only `TherapyFilterSheet`/`TherapyFilterTrigger`
-   (`filter-sheet.tsx`, now deleted) onto the shared component, fixing both invariants named above
-   in the same change: the sheet's `onClearAll` no longer wipes the query (the composer's own
-   "Clear search" already covers that, on every breakpoint), and the trigger is now the shared
-   `ResultFilterTrigger`. Three facet groups: Topics (the six curated quick-filter tags, OR within
-   the group — this also fixed `searchTherapies`' tag matching, which had been AND-within-group,
-   the same defect class already fixed for document tags: a second topic narrowed instead of
-   widening, an accumulating-selection dead affordance) and two independent one-option groups,
-   Review status and Handout (`Reviewed only` / `Brief available`), which AND against Topics and
-   against each other — they are not alternatives, so they are not one shared group. See the two
-   predicates `matchesTopics`/`matchesAvailability` in `data/select.ts`, which `searchTherapies` and
-   the sheet's option counts both run through, so the count and the real filter cannot drift apart
-   (section 3).
+   desktop rail so the breakpoints stop disagreeing. Done for differentials, medication,
+   applications, specifiers (all `lens`, PR A) and formulation (`facet`, PR B). Also done for
+   factsheets: its category dimension was already a real `lens` (see the corrected note above),
+   so this PR converges its desktop rail onto `SegmentedControl` sharing one counted option array
+   with the phone sheet, rather than evicting anything — there was no query-replacing preset to
+   evict.
+3. **Services** — evict the six query-replacing quick filters to the composer, alongside its own
+   facet/scope work (open as a separate PR).
+4. **Therapy-compass** — converge runtime use of the bespoke phone-only filter sheet and trigger
+   onto `ResultFilterSheet`, `ResultFilterTrigger`, and `ResultFilterFacetChips`. Topics are OR
+   within their group. Review status and handout availability are independent one-option groups
+   that AND with Topics and with each other. Option counts and filtering share
+   `matchesTopics`/`matchesAvailability`, and Clear filters preserves the query.
 5. **Documents last** — port its needle and collapse up into the shared component as the
    `> 20` tier, then converge. It is the largest surface and should move once the contract is
    proven elsewhere.
