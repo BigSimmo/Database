@@ -88,6 +88,35 @@ describe("rankCatalogRecords", () => {
     expect(rank("transport").some((match) => match.record.slug === "clozapine-monitoring")).toBe(false);
   });
 
+  it("never cross-matches a distinct drug two edits away, even with both records present", () => {
+    // Ledger #310: with a >=8-char / 2-edit tier, fluoxetine matched duloxetine (substitute
+    // f->d + transpose lu->ul counts as 2 Damerau edits) and prednisone matched prednisolone.
+    // The 1-edit cap must exclude the wrong drug while the exact drug still ranks, and while
+    // genuine single-edit typo recovery keeps working.
+    const drugs = [
+      { title: "Fluoxetine", body: "SSRI dosing" },
+      { title: "Duloxetine", body: "SNRI dosing" },
+      { title: "Prednisone", body: "Corticosteroid taper" },
+      { title: "Prednisolone", body: "Corticosteroid taper" },
+      { title: "Sertraline", body: "SSRI dosing" },
+    ];
+    const rankDrugs = (query: string) =>
+      rankCatalogRecords(drugs, query, {
+        fields: [{ id: "title", weight: 8, text: (record) => normalizeSearchText(record.title) }],
+        fullText: (record) => normalizeSearchText(record.title),
+      });
+
+    const fluoxetine = rankDrugs("fluoxetine");
+    expect(fluoxetine[0]?.record.title).toBe("Fluoxetine");
+    expect(fluoxetine.some((match) => match.record.title === "Duloxetine")).toBe(false);
+
+    const prednisone = rankDrugs("prednisone");
+    expect(prednisone[0]?.record.title).toBe("Prednisone");
+    expect(prednisone.some((match) => match.record.title === "Prednisolone")).toBe(false);
+
+    expect(rankDrugs("setraline")[0]?.record.title).toBe("Sertraline");
+  });
+
   it("applies the whole-phrase bonus on top of term matches", () => {
     const [top] = rank("clozapine monitoring");
     // 2 title terms (12) + 2 content terms (4) + phrase (4).
