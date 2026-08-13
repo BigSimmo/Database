@@ -9,15 +9,15 @@ Use this skill when preparing a branch for merging, pull request submission, or 
 
 ## Repository Review Protocol
 
-Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically or mutate files during pure review. After a completed branch/PR review, use `npm run ledger:append` to create an immutable review record; never edit the frozen `docs/branch-review-ledger.md` table.
 
 ## Review Checklist
 
 ### 1. Build & Automation Checks
 
-- **Static Analysis:** Confirm `npm run lint` and `npm run typecheck` run clean.
-- **Verification Gates:** Ensure the appropriate verification scripts run successfully (`npm run verify:cheap` at minimum; `npm run verify:release` for full handoffs).
-- **Target database checks:** Run `npm run check:supabase-project` to confirm env targets match `Clinical KB Database` ref `sjrfecxgysukkwxsowpy`.
+- **Static Analysis:** Run lint or typecheck only when the changed paths can plausibly fail that contract; do not stack them ceremonially.
+- **Verification Gates:** Start with the smallest focused proof. Use `npm run verify:pr-local` for PR handoff confidence. `npm run verify:release` is reserved for explicit release confidence and requires user approval because it includes provider-backed checks.
+- **Target database checks:** `npm run check:supabase-project` is provider-backed. Run it only with explicit user approval, using the repository-designated environment without printing secrets, to confirm the target is `Clinical KB Database` ref `sjrfecxgysukkwxsowpy`.
 
 ### 2. Clinical Governance Compliance
 
