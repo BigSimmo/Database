@@ -26,12 +26,15 @@ describe("privacy UI", () => {
     expect(documentsMarkup).toContain('href="/privacy?from=documents"');
   });
 
-  it("publishes an accessible governance-review draft covering configured data processing", () => {
+  it("publishes an accessible overview of configured data processing", () => {
     const markup = renderToStaticMarkup(createElement(PrivacyPage));
 
     expect(markup).toContain("<main");
     expect(markup).toContain("<h1");
-    expect(markup).toContain("Privacy &amp; data handling");
+    expect(markup).toContain("How Clinical KB handles your data");
+    expect(markup).toContain("Before you use Clinical KB");
+    expect(markup).not.toContain("Quiet");
+    expect(markup).not.toContain("Draft");
     expect(markup).toContain("This is draft product information");
     for (const heading of [
       "What this tool is",

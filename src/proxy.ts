@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { documentSourceRedirectTarget, isDocumentSourcePath } from "@/lib/document-source-redirect";
 import { env } from "@/lib/env";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
@@ -90,6 +91,22 @@ export async function proxy(request: NextRequest) {
   if (redirectTarget) {
     const url = request.nextUrl.clone();
     url.pathname = redirectTarget;
+    return withCsp(NextResponse.redirect(url));
+  }
+
+  // Issue #024: resolve the document-source fallbacks here as a single HTTP 307
+  // instead of letting the page's server redirect() stream a 200 whose redirect
+  // completes client-side through an `_rsc` navigation — WebKit raises
+  // access-control pageerrors on that chain. The target is rebuilt from
+  // sanitised components of this request's own query, so it cannot become an
+  // open redirect. The page remains as a backstop for any request the matcher
+  // misses.
+  if (isDocumentSourcePath(pathname)) {
+    const url = request.nextUrl.clone();
+    const target = documentSourceRedirectTarget(url.searchParams);
+    const [targetPathname, targetSearch = ""] = target.split("?");
+    url.pathname = targetPathname;
+    url.search = targetSearch;
     return withCsp(NextResponse.redirect(url));
   }
 
