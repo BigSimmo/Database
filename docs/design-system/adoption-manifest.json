@@ -1511,7 +1511,6 @@
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/services/service-group-nav.tsx",
-        "src/components/therapy-compass/filter-sheet.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
       "productImportFiles": [
@@ -1541,7 +1540,6 @@
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/services/service-group-nav.tsx",
-        "src/components/therapy-compass/filter-sheet.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
