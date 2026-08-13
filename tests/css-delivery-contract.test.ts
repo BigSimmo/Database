@@ -20,11 +20,11 @@ describe("cold-load CSS and font delivery", () => {
     expect(layout).toContain('import "./mockups.css";');
   });
 
-  it("does not preload the display-swap body font ahead of render-blocking CSS", () => {
+  it("keeps the display-swap body font preloaded for LCP text", () => {
     const rootLayout = read("src/app/layout.tsx");
     const geistSans = rootLayout.slice(rootLayout.indexOf("const geistSans"), rootLayout.indexOf("const geistMono"));
 
     expect(geistSans).toContain('display: "swap"');
-    expect(geistSans).toContain("preload: false");
+    expect(geistSans).not.toContain("preload: false");
   });
 });

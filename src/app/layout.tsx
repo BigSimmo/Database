@@ -38,10 +38,6 @@ const geistSans = localFont({
   src: "../../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2",
   variable: "--font-geist-sans",
   display: "swap",
-  // Cold mobile traces show this 28 KB preload competing with the global CSS
-  // before first paint. The generated fallback is size-adjusted, so paint with
-  // it immediately and let Geist load on demand without blocking the stylesheet.
-  preload: false,
 });
 
 const geistMono = localFont({
@@ -51,7 +47,7 @@ const geistMono = localFont({
   // The mono face is only used deep in the UI (tabular figures, `kbd`, code) and
   // never in initial/LCP text, so don't preload it on every route — it competes
   // for the critical-path connection. It still loads on-demand via `swap` when
-  // first painted, matching the sans face's cold-load policy above.
+  // first painted, while the body sans face remains preloaded for LCP text.
   preload: false,
 });
 
