@@ -77,7 +77,7 @@ const likelihoodTone: Record<DifferentialLikelihood, string> = {
     "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
   "less-likely": "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
   "must-not-miss":
-    "border-[color:var(--danger)] bg-[color:var(--danger-soft)] text-[color:var(--danger)] ring-1 ring-[color:var(--danger)]/25",
+    "border-[color:var(--danger)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
 };
 
 const lineTone: Record<DifferentialLikelihood, string> = {
@@ -300,7 +300,7 @@ function MapLegend({ nodes, compact = false }: { nodes: DifferentialMapNode[]; c
         <span key={entry.id} className="inline-flex items-center gap-1.5">
           <span
             className={cn(
-              "h-3 w-3 rounded-[0.25rem] forced-colors:border forced-colors:border-[ButtonText] forced-colors:bg-[Canvas]",
+              "h-3 w-3 rounded-sm forced-colors:border forced-colors:border-[ButtonText] forced-colors:bg-[Canvas]",
               entry.className,
             )}
           />
@@ -528,7 +528,7 @@ function MapGraph({
         "relative min-h-0 min-w-0 overflow-hidden rounded-lg border border-[color:var(--border)]",
         "bg-[color:var(--surface)] bg-[linear-gradient(90deg,color-mix(in_srgb,var(--border)_40%,transparent)_1px,transparent_1px),linear-gradient(color-mix(in_srgb,var(--border)_40%,transparent)_1px,transparent_1px)] bg-[length:28px_28px,28px_28px]",
         interactive &&
-          "flex-1 cursor-grab outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-[color:var(--focus)]",
+          "flex-1 cursor-grab outline-none active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
       )}
       style={{ minHeight: minimumHeight, touchAction: interactive ? "none" : "auto" }}
       role={interactive ? "region" : "img"}
@@ -574,7 +574,7 @@ function MapGraph({
                 "motion-safe:transition-[box-shadow,transform] hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
                 "forced-colors:border-[ButtonText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]",
                 selectedId === "diagnosis" &&
-                  "ring-4 ring-[color:var(--clinical-accent)]/25 forced-colors:outline-[Highlight]",
+                  "outline outline-2 outline-offset-2 outline-[color:var(--clinical-accent)] forced-colors:outline-[Highlight]",
               )}
               style={{
                 left: focusPoint.x,
@@ -643,7 +643,7 @@ function MapGraph({
                 className={cn(
                   sharedClassName,
                   "motion-safe:transition-[box-shadow,transform] hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
-                  isSelected && "ring-4 ring-[color:var(--focus)]/25 forced-colors:outline-[Highlight]",
+                  isSelected && "outline outline-2 outline-offset-2 outline-[color:var(--focus)] forced-colors:outline-[Highlight]",
                 )}
                 style={sharedStyle}
                 title={node.note}
@@ -761,7 +761,7 @@ function NodeInspector({
         id={contentId}
         inert={!expanded && !isWideLayout ? true : undefined}
         className={cn(
-          "grid min-h-0 flex-1 motion-safe:transition-[grid-template-rows]",
+          "grid min-h-0 flex-1",
           expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr] lg:grid-rows-[1fr]",
         )}
       >
