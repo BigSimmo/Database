@@ -100,14 +100,6 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
     expect(buildEvidencePreviewUnit({ results: [outdated] })).toBeNull();
   });
 
-  it("keeps a selected source hidden when its authoritative final set has a danger warning", () => {
-    const outdated = makeSource({
-      id: "outdated-source",
-      source_metadata: { document_status: "outdated" } as SearchResult["source_metadata"],
-    });
-    expect(buildEvidencePreviewUnit({ results: [makeSource()], governanceResults: [makeSource(), outdated] })).toBeNull();
-  });
-
   it("emits zero units for empty retrieval", () => {
     expect(buildEvidencePreviewUnit({ results: [] })).toBeNull();
   });

@@ -252,7 +252,6 @@ import {
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
-import { buildEvidencePreviewUnit } from "@/lib/answer-preview";
 import type { VerifiedUnit } from "@/lib/answer-stream-contract";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { buildRetrievalIntent, selectRetrievalEvidence } from "@/lib/retrieval-selection";
@@ -3022,29 +3021,6 @@ async function answerQuestionWithScopeUncoalesced(
     const validatedExtractiveResults = validatedExtractiveShortCircuit?.resultIds?.length
       ? answerInputResults.filter((result) => validatedExtractiveShortCircuit.resultIds?.includes(result.id))
       : answerInputResults;
-    // A preview must reconcile with every extractive final path, so only emit after
-    // the short-circuit has selected its authoritative source set. Governance stays
-    // conservative over the full final-candidate set, not merely this subset.
-    const evidencePreviewUnit = env.RAG_INCREMENTAL_EVIDENCE_PREVIEW
-      ? buildEvidencePreviewUnit({
-          results: validatedExtractiveResults,
-          governanceResults: answerInputResults,
-          relevance,
-        })
-      : null;
-    const extractivePreviewSelectionSummary = summarizeAustralianSourceSelection(
-      answerInputResults,
-      validatedExtractiveResults,
-    );
-    await args.onProgress?.({
-      stage: "ranking",
-      message: "Selected governed source passages for the extractive answer.",
-      selectedContextCount: extractivePreviewSelectionSummary.selectedCount,
-      australianSourceCount: extractivePreviewSelectionSummary.australianSelectedCount,
-      waSourceCount: extractivePreviewSelectionSummary.waSelectedCount,
-      usedSupplementaryFallback: extractivePreviewSelectionSummary.usedSupplementaryFallback,
-      ...(evidencePreviewUnit ? { verifiedUnit: evidencePreviewUnit } : {}),
-    });
     const builtSourceSafeExtractiveAnswer = buildExtractiveAnswer({
       query: args.query,
       queryClass,
@@ -3506,16 +3482,6 @@ ${qualityRetryInstruction}`
     results: answerInputResults,
   });
   const generationFallbackResults = strongRetryContextResults;
-  // The strong-retry context is a subset of the normal final sources and the exact
-  // source set of the generation fallback. Emitting this intersection only after
-  // selection keeps the preview reconcilable if the fast path fails later.
-  const evidencePreviewUnit = env.RAG_INCREMENTAL_EVIDENCE_PREVIEW
-    ? buildEvidencePreviewUnit({
-        results: generationFallbackResults,
-        governanceResults: answerInputResults,
-        relevance,
-      })
-    : null;
   const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
   await args.onProgress?.({
     stage: "ranking",
@@ -3524,7 +3490,6 @@ ${qualityRetryInstruction}`
     australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
     waSourceCount: modelContextSelectionSummary.waSelectedCount,
     usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
-    ...(evidencePreviewUnit ? { verifiedUnit: evidencePreviewUnit } : {}),
   });
   // The quality-repair call below may itself fail or truncate. Preserve the first
   // deterministic verdict so fallback telemetry explains why that retry occurred,

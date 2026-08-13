@@ -24,17 +24,11 @@ const evidencePreviewMaxSources = 12;
  * never disclose source content the final governed response might withhold.
  */
 export function buildEvidencePreviewUnit(args: {
-  /** Sources guaranteed to be present in the final response on this route. */
   results: SearchResult[];
-  /** Full final-candidate set used for the governing disclosure decision. */
-  governanceResults?: SearchResult[];
   relevance?: EvidenceRelevance | null;
 }): VerifiedEvidencePreviewUnit | null {
   if (!args.results.length) return null;
-  const warnings = sourceGovernanceWarnings({
-    results: args.governanceResults ?? args.results,
-    relevance: args.relevance ?? null,
-  });
+  const warnings = sourceGovernanceWarnings({ results: args.results, relevance: args.relevance ?? null });
   if (hasDangerSourceGovernanceWarning(warnings)) return null;
   const selected = args.results.slice(0, evidencePreviewMaxSources);
   return {

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { demoAnswer, demoSummary } from "@/lib/demo-data";
-import { isDemoMode } from "@/lib/env";
+import { env, isDemoMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
@@ -38,6 +38,7 @@ import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/an
 import type { AnswerStreamEventMap, AnswerStreamEventName } from "@/lib/answer-stream-contract";
 import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
+import { buildEvidencePreviewUnit } from "@/lib/answer-preview";
 
 export const runtime = "nodejs";
 
@@ -257,6 +258,17 @@ function streamAnswer(
                   signal,
                 });
           const governedResponse = buildGovernedAnswerClientResponse(answer);
+          // The preview is built only after the final response has completed source
+          // reconciliation, governance refusal, and route-boundary trimming. It is
+          // therefore byte-identical to a subset of the authoritative final payload.
+          const evidencePreviewUnit =
+            !body.summaryMode && env.RAG_INCREMENTAL_EVIDENCE_PREVIEW
+              ? buildEvidencePreviewUnit({
+                  results: governedResponse.payload.sources,
+                  relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
+                })
+              : null;
+          if (evidencePreviewUnit) sendProgress({ stage: "ranking", verifiedUnit: evidencePreviewUnit });
 
           logAnswerDiagnostics({
             supabase: createAdminClient(),
