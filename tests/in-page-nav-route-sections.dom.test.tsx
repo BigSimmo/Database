@@ -286,8 +286,8 @@ describe("in-page navigation section contracts", () => {
       readonly rootMargin = "";
       readonly thresholds = [];
 
-      observe(_target: Element) {}
-      unobserve(_target: Element) {}
+      observe() {}
+      unobserve() {}
       disconnect() {}
       takeRecords(): IntersectionObserverEntry[] {
         return [];
