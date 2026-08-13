@@ -24,7 +24,10 @@ test("DSM result action remains inside the results card at the 1024px breakpoint
 
   await expect
     .poll(async () => {
-      const [sectionBox, actionBox] = await Promise.all([resultsSection.boundingBox(), openDiagnosis.boundingBox()]);
+      const [sectionBox, actionBox] = await Promise.all([
+        resultsSection.boundingBox(),
+        openDiagnosis.boundingBox(),
+      ]);
       if (!sectionBox || !actionBox) return Number.POSITIVE_INFINITY;
       return Math.max(
         0,
