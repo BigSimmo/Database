@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "7336de95-160e-4255-b2c0-abcfd7f4e093",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#180",
+    "outcome": "Resolved by PR #1886: the hand-edited therapy catalogue moved to `src/data/therapies-source.json`, outside the generated public directory, so regeneration can no longer consume its own output; generated assets remain canonical-byte checked."
+  }
+}
