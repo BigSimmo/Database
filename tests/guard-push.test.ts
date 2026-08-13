@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -5,9 +6,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { normalizedSchemaSha256 as driftSha } from "../scripts/check-drift";
 import {
   autoMergeVerdict,
+  changedFilesForRange,
   driftVerdict,
   findPrettierBin,
   formatGuard,
+  guardBaseForRange,
   HEAVY_RUN_ADMISSION_BUSY_EXIT,
   HEAVY_RUN_ADMISSION_BUSY_MARKER,
   isCoordinatorBusyOutput,
@@ -46,6 +49,20 @@ function dependencyFixture(lockMarker: string, withPrettier = false) {
     writeFileSync(join(root, "node_modules", "prettier", "bin", "prettier.cjs"), "");
   }
   return root;
+}
+
+function gitFixture() {
+  const root = mkdtempSync(join(tmpdir(), "guard-push-git-"));
+  created.push(root);
+  const git = (...args: string[]) =>
+    execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  git("init", "--quiet", "--initial-branch=main");
+  git("config", "user.name", "Guard Push Test");
+  git("config", "user.email", "guard-push@example.invalid");
+  writeFileSync(join(root, "README.md"), "base\n");
+  git("add", "README.md");
+  git("commit", "--quiet", "-m", "base");
+  return { root, git, baseSha: git("rev-parse", "HEAD") };
 }
 
 describe("guard-push sha parity", () => {
@@ -135,6 +152,32 @@ describe("push-range parsing", () => {
 
   it("ignores blank lines", () => {
     expect(parsePushRanges("\n  \n")).toHaveLength(0);
+  });
+
+  it("keeps a Windows new-branch static command scoped to the PR side of an advanced main", () => {
+    const { root, git, baseSha } = gitFixture();
+    git("switch", "--quiet", "-c", "feature");
+    mkdirSync(join(root, "scripts"), { recursive: true });
+    writeFileSync(join(root, "scripts", "feature.mjs"), "export const feature = true;\n");
+    git("add", "scripts/feature.mjs");
+    git("commit", "--quiet", "-m", "feature");
+    const featureSha = git("rev-parse", "HEAD");
+
+    git("switch", "--quiet", "main");
+    mkdirSync(join(root, "src"), { recursive: true });
+    for (let index = 0; index < 360; index += 1) {
+      const name = `main-only-${String(index).padStart(3, "0")}-${"x".repeat(96)}.ts`;
+      writeFileSync(join(root, "src", name), `export const value${index} = ${index};\n`);
+    }
+    git("add", "src");
+    git("commit", "--quiet", "-m", "advance main");
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("branch", "origin/main", baseSha);
+
+    const twoDotFiles = git("diff", "--name-only", `refs/remotes/origin/main..${featureSha}`).split("\n");
+    expect(lintableFiles(twoDotFiles).join(" ").length).toBeGreaterThan(32_767);
+    expect(changedFilesForRange({ localSha: featureSha, remoteSha: ZERO }, root)).toEqual(["scripts/feature.mjs"]);
+    expect(guardBaseForRange({ localSha: featureSha, remoteSha: ZERO }, root)).toBe(baseSha);
   });
 });
 
