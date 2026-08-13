@@ -41,25 +41,13 @@ jobs:
                   raise SystemExit("import anchor missing")
               text = text.replace(import_anchor, import_anchor + import_line, 1)
 
-          block = '''  /** Extract the specific deterministic gate token behind a collapsed generation failure.
-           * summarizeGenerationFailureReason folds every quality-gate failure into
-           * "generation_quality_failed" for routingReason stability; this keeps the underlying
-           * gate (e.g. provider_source_gap, numeric_faithfulness_gap) available for telemetry
-           * only, so the #231 investigation can see WHICH gate fired without changing any
-           * user-visible reason string. Tokens only — never raw provider or answer text. */
-          function generationFailureDetailToken(error: unknown) {
-            const message = (error instanceof Error ? error.message : typeof error === "string" ? error : "").toLowerCase();
-            const gate = message.match(/quality gate failed: ([a-z0-9_]+)/);
-            if (gate) return gate[1];
-            const incomplete = message.match(/generation incomplete: ([a-z0-9_]+)/);
-            if (incomplete) return incomplete[1];
-            return null;
-          }
-
-          '''
-          if block not in text:
-              raise SystemExit("parser block missing")
-          text = text.replace(block, "", 1)
+          start_marker = "  /** Extract the specific deterministic gate token behind a collapsed generation failure."
+          end_marker = "  /** Build generation fallback answer. */"
+          start = text.find(start_marker)
+          end = text.find(end_marker, start)
+          if start < 0 or end < 0 or end <= start:
+              raise SystemExit("bounded parser block markers missing")
+          text = text[:start] + text[end:]
           rag.write_text(text)
           PY
 
@@ -97,15 +85,16 @@ jobs:
             });
 
             it("extracts an incomplete-generation token", () => {
-              expect(generationFailureDetailToken("Generation incomplete: MAX_OUTPUT_TOKENS"))
-                .toBe("max_output_tokens");
+              expect(generationFailureDetailToken("Generation incomplete: MAX_OUTPUT_TOKENS")).toBe(
+                "max_output_tokens",
+              );
             });
 
             it("returns null for unrecognised provider text", () => {
-              expect(generationFailureDetailToken(new Error("upstream returned sensitive free text")))
-                .toBeNull();
-              expect(generationFailureDetailToken({ message: "quality gate failed: should_not_escape" }))
-                .toBeNull();
+              expect(generationFailureDetailToken(new Error("upstream returned sensitive free text"))).toBeNull();
+              expect(
+                generationFailureDetailToken({ message: "quality gate failed: should_not_escape" }),
+              ).toBeNull();
             });
           });
           EOF
