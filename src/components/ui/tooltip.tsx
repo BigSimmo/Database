@@ -80,13 +80,24 @@ export function Tooltip({ children, content, placement = "top", className }: Too
 
   useEffect(() => {
     if (!open) return;
-    const frame = window.requestAnimationFrame(updatePosition);
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
+
+    let frame: number | null = null;
+    const schedulePositionUpdate = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        updatePosition();
+      });
+    };
+    const scrollOptions: AddEventListenerOptions = { capture: true, passive: true };
+
+    schedulePositionUpdate();
+    window.addEventListener("resize", schedulePositionUpdate);
+    window.addEventListener("scroll", schedulePositionUpdate, scrollOptions);
     return () => {
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", schedulePositionUpdate);
+      window.removeEventListener("scroll", schedulePositionUpdate, scrollOptions);
     };
   }, [open, updatePosition]);
 

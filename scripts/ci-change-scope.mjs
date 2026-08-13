@@ -1,3 +1,4 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync } from "node:fs";
@@ -1037,11 +1038,9 @@ function selfTest() {
   assertScope("ingestion-sast-library", ["src/lib/ingestion-queue.ts", "src/lib/extractors/pdf.ts"], {
     ingestion_sast_changed: true,
   });
-  assertScope(
-    "ingestion-sast-gate-contract",
-    [".github/workflows/ci.yml", "scripts/ci-change-scope.mjs"],
-    { ingestion_sast_changed: true },
-  );
+  assertScope("ingestion-sast-gate-contract", [".github/workflows/ci.yml", "scripts/ci-change-scope.mjs"], {
+    ingestion_sast_changed: true,
+  });
   assertScope("non-ingestion-source-skips-sast", ["src/lib/rag.ts"], {
     ingestion_sast_changed: false,
   });

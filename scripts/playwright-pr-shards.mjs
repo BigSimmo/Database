@@ -58,6 +58,8 @@ export const prUiSpecProfiles = Object.freeze([
   { file: "tests/ui-visual-artifacts.spec.ts", shard: 3, fullSeconds: 2.6, criticalSeconds: 0 },
   { file: "tests/ui-forms-section-nav.spec.ts", shard: 3, fullSeconds: 6.0, criticalSeconds: 0 },
   { file: "tests/ui-therapy-nav-scroll.spec.ts", shard: 3, fullSeconds: 2.1, criticalSeconds: 0 },
+  // Critical-only regression; use a conservative estimate until the next hosted timing sample.
+  { file: "tests/ui-phone-scroll-submitted-root.spec.ts", shard: 3, fullSeconds: 1.0, criticalSeconds: 1.0 },
   // Skipped in the sampled runner because pdf.js could not raster there.
   { file: "tests/ui-document-canvas.spec.ts", shard: 3, fullSeconds: 4.7, criticalSeconds: 0 },
 ]);

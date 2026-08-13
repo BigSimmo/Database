@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "82377462-2da9-4f8e-b0f5-a421a1ab5fdd",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#268",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** 19 bare-dash sites with no reported clinical misreading. Cosmetic consistency on a prototype with an open P1. VERIFIED CORRECT 2026-08-12 — re-checked against merged main during the full ledger sweep and left unchanged: MissingValue is imported in 5 component files; the bare-dash conversion is partial. The ~5 calculator 'not started' sites stay permanently, per this row's own stop rule. This stamp exists so a later reader can tell \"checked and still true\" from \"never looked at\"; the two were indistinguishable before. Therapy-compass getters, specifier sourceFamily, favourites counts when untrusted. Leave the roughly 5 calculator 'derived.started ? score : dash' sites PERMANENTLY — 'not started' is not a missing clinical value, MissingValueReason has no member for it, and converting them would render 'Not recorded' for a score the clinician simply has not entered."
+  }
+}

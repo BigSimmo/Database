@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "8c2d3fea-e7a9-41af-a825-62c8109d0248",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#196",
+    "outcome": "Retired to the runbook. A step of the disaster-recovery checklist in docs/operator-backlog.md, with no trigger until a schema restore. Tracking five runbook steps as five queue rows made the ledger a second copy of the runbook, which AGENTS.md forbids in the other direction for the same reason."
+  }
+}
