@@ -615,6 +615,14 @@ function SourceStatusCard({
       <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Source status
       </h2>
+      {/* The "0 matches" / "No matches" strings below are NOT a failed-request
+          guard and must not be converted to ErrorState. They render when
+          `sourcesChecked` is true - the source search ran and legitimately
+          returned nothing, which is a real, correct, catalogue-only result.
+          The failure case is the `sourcesChecked === false` branch, which says
+          "Evidence pending" / "Not yet checked" and offers the run button. An
+          ErrorState here would tell a clinician the system broke when it did
+          not. */}
       <div className="mt-3 grid gap-2 text-sm font-bold">
         <p className="flex items-center justify-between gap-3">
           <span className="inline-flex items-center gap-2 text-[color:var(--clinical-accent)]">
