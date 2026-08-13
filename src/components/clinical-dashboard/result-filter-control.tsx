@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, Funnel, X } from "lucide-react";
-import { type ReactNode, useCallback, useRef } from "react";
+import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
+import { type ReactNode, useCallback, useRef, useState } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
@@ -136,7 +136,10 @@ export function resultFilterFacetGroup<Value extends string>(group: {
   selected: ReadonlySet<Value>;
   options: ReadonlyArray<ResultFilterOption<Value>>;
   onToggle: (value: Value) => void;
-}): ResultFilterGroup {
+  // Returns the narrow facet type, not the union: a mode hands the same group
+  // to `ResultFilterSheet` (which takes the union) and to
+  // `ResultFilterFacetChips` for its desktop rail (which does not).
+}): ResultFilterFacetGroup {
   return {
     kind: "facet",
     id: group.id,
@@ -396,7 +399,14 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
 }
 
 /**
- * A multi-select facet group.
+ * A multi-select facet group, exported so a mode renders the SAME control in
+ * its desktop rail as in its phone sheet.
+ *
+ * The lens modes converge on `SegmentedControl` at both breakpoints; facets had
+ * no such primitive, and the alternative was a second hand-rolled chip row per
+ * mode — which is exactly how the breakpoints came to disagree in the first
+ * place. `idPrefix` scopes the labelling ids, so the two copies can coexist in
+ * one page without colliding.
  *
  * Deliberately NOT a radio group. `aria-pressed` toggles inside a
  * `role="group"` are the honest reading of many-of-N: each control is
@@ -412,8 +422,31 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
  * option can only appear as a consequence of the current selection, never as a
  * permanent fixture of the catalogue.
  */
-function FilterFacetGroup({ group, panelId }: { group: ResultFilterFacetGroup; panelId: string }) {
+/**
+ * Present only when the sheet is dense (see `ResultFilterSheet`) and the
+ * reader is not mid-search: the group becomes a disclosure, collapsed unless
+ * it holds a selection or has been explicitly opened. A live needle owns
+ * openness instead (every matched group is forced open) — see
+ * `ResultFilterSheet` for why a control that never gets to act is worse than
+ * none at all.
+ */
+type FacetGroupDisclosure = { open: boolean; onToggle: () => void; contentId: string };
+
+export function ResultFilterFacetChips({
+  group,
+  idPrefix,
+  options,
+  disclosure,
+}: {
+  group: ResultFilterFacetGroup;
+  idPrefix: string;
+  /** Needle-filtered subset; defaults to every option in the group. */
+  options?: ReadonlyArray<ResultFilterOption<string>>;
+  disclosure?: FacetGroupDisclosure;
+}) {
+  const panelId = idPrefix;
   const groupLabelId = `${panelId}-${group.id}-label`;
+  const visibleOptions = options ?? group.options;
 
   return (
     <section className="min-w-0 border-t border-[color:var(--border)] py-1 first:border-t-0">
@@ -422,16 +455,54 @@ function FilterFacetGroup({ group, panelId }: { group: ResultFilterFacetGroup; p
             inside the labelled element the group's accessible name became
             "Domain 1" — the selection count leaking into the dimension's name,
             and changing it on every toggle. Caught by the DOM test. */}
-        <span id={groupLabelId}>{group.label}</span>
-        {group.selected.size > 0 ? (
-          <span className="nums rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-black tabular-nums text-[color:var(--clinical-accent)]">
-            <span className="sr-only">{group.selected.size} selected</span>
-            <span aria-hidden>{group.selected.size}</span>
-          </span>
-        ) : null}
+        {disclosure ? (
+          <button
+            type="button"
+            aria-expanded={disclosure.open}
+            aria-controls={disclosure.contentId}
+            onClick={disclosure.onToggle}
+            className={cn(
+              "flex min-h-tap w-full items-center gap-1.5 text-left text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)] sm:min-h-10",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            )}
+          >
+            <span id={groupLabelId} className="truncate">
+              {group.label}
+            </span>
+            {group.selected.size > 0 ? (
+              <span className="nums ml-auto text-2xs font-semibold text-[color:var(--clinical-accent)]">
+                {group.selected.size} selected
+              </span>
+            ) : null}
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                "size-icon-sm shrink-0 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
+                group.selected.size > 0 ? "ml-1.5" : "ml-auto",
+                disclosure.open ? "rotate-0" : "-rotate-90",
+              )}
+            />
+          </button>
+        ) : (
+          <>
+            <span id={groupLabelId}>{group.label}</span>
+            {group.selected.size > 0 ? (
+              <span className="nums rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-black tabular-nums text-[color:var(--clinical-accent)]">
+                <span className="sr-only">{group.selected.size} selected</span>
+                <span aria-hidden>{group.selected.size}</span>
+              </span>
+            ) : null}
+          </>
+        )}
       </h3>
-      <div role="group" aria-labelledby={groupLabelId} className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5">
-        {group.options.map((option) => {
+      <div
+        id={disclosure?.contentId}
+        hidden={disclosure ? !disclosure.open : false}
+        role="group"
+        aria-labelledby={groupLabelId}
+        className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5"
+      >
+        {visibleOptions.map((option) => {
           const selected = group.selected.has(option.value);
           const deadEnd = Boolean(option.disabled) && !selected;
           const deadEndDescId = `${panelId}-${group.id}-${option.value.replace(/[^A-Za-z0-9_-]/g, "-")}-note`;
@@ -490,7 +561,8 @@ function FilterFacetGroup({ group, panelId }: { group: ResultFilterFacetGroup; p
 }
 
 /**
- * A single-choice filter sheet: one radio group per dimension.
+ * A single-choice filter sheet: one radio group per dimension, plus
+ * many-of-N facet groups.
  *
  * `role="radiogroup"` with real radio semantics rather than the `aria-pressed`
  * toggles the desktop chip rows use, because these dimensions are genuinely
@@ -501,6 +573,18 @@ function FilterFacetGroup({ group, panelId }: { group: ResultFilterFacetGroup; p
  * state of its own that could survive a new search. Selection lives in the page,
  * exactly where the desktop control already reads and writes it, which is what
  * keeps the two breakpoints in agreement.
+ *
+ * **Density.** More than three facet groups (docs/filter-contract.md section
+ * 5 — the same threshold document-search-results.tsx already uses) adds a
+ * find-a-filter field and collapses every facet group by default. Below that
+ * threshold every group renders exactly as before this was added — no mode
+ * with three or fewer facet groups (formulation has one) sees any change.
+ * A group holding a selection opens itself; an explicit collapse beats that;
+ * a live needle owns openness instead and forces every matched group open,
+ * because a disclosure that cannot act while search is filtering its content
+ * is worse than no disclosure at all. A selected option always survives the
+ * needle — filtering it out would make an active constraint un-untoggleable
+ * without first clearing the field.
  */
 export function ResultFilterSheet({
   open,
@@ -512,6 +596,20 @@ export function ResultFilterSheet({
   groups,
   onClearAll,
   footerNote,
+  /** Result-set identity for the dense-mode chrome below (the find-a-filter
+      text and per-group collapse state). Changing it clears that chrome, so a
+      new search or scope change cannot leave a stale needle filtering a list
+      it no longer describes. Only meaningful once a sheet goes dense (more
+      than three facet groups); a sheet that never does can omit it. */
+  chromeResetKey = "",
+  /** The scope segment (docs/filter-contract.md section 4) — "These results
+      N | All items N" — rendered above the groups when the calling mode has
+      a catalogue meaningfully larger than its current result set. Built by
+      the caller from `SegmentedControl` rather than owned here: the sheet
+      only reserves the slot, since "meaningfully larger" and what the two
+      counts mean are per-mode judgements, not something a shared filter
+      renderer can decide. */
+  scopeControl,
 }: {
   open: boolean;
   onClose: () => void;
@@ -524,8 +622,92 @@ export function ResultFilterSheet({
       perform one, so pass this only when something is actually clearable. */
   onClearAll?: () => void;
   footerNote?: ReactNode;
+  chromeResetKey?: string;
+  scopeControl?: ReactNode;
 }) {
+  // Hooks run unconditionally — the empty-groups early return happens below,
+  // after every hook the render needs has already been declared.
+  const [chromeByKey, setChromeByKey] = useState<
+    Record<
+      string,
+      {
+        needle: string;
+        expanded: ReadonlySet<string>;
+        collapsed: ReadonlySet<string>;
+      }
+    >
+  >({});
+  // State is keyed by the caller's mode/query reset key, so a new key starts
+  // with empty chrome synchronously without an effect-side setState.
+  const chrome =
+    chromeByKey[chromeResetKey] ??
+    ({ needle: "", expanded: new Set<string>(), collapsed: new Set<string>() } satisfies {
+      needle: string;
+      expanded: ReadonlySet<string>;
+      collapsed: ReadonlySet<string>;
+    });
+  const needle = chrome.needle;
+  const expanded = chrome.expanded;
+  const collapsed = chrome.collapsed;
+  const setNeedle = (value: string) =>
+    setChromeByKey((current) => ({
+      ...current,
+      [chromeResetKey]: { ...(current[chromeResetKey] ?? chrome), needle: value },
+    }));
+  const toggleGroupOpen = (groupId: string, isOpen: boolean) => {
+    setChromeByKey((current) => {
+      const currentChrome = current[chromeResetKey] ?? chrome;
+      const nextExpanded = new Set(currentChrome.expanded);
+      const nextCollapsed = new Set(currentChrome.collapsed);
+      if (isOpen) {
+        nextExpanded.delete(groupId);
+        nextCollapsed.add(groupId);
+      } else {
+        nextExpanded.add(groupId);
+        nextCollapsed.delete(groupId);
+      }
+      return {
+        ...current,
+        [chromeResetKey]: {
+          needle: currentChrome.needle,
+          expanded: nextExpanded,
+          collapsed: nextCollapsed,
+        },
+      };
+    });
+  };
+
   if (groups.length === 0) return null;
+
+  const facetGroupCount = groups.filter(isFacetGroup).length;
+  const dense = facetGroupCount > 3;
+  const trimmedNeedle = needle.trim().toLowerCase();
+  const activeNeedle = dense ? trimmedNeedle : "";
+  const findFieldId = `${panelId}-find`;
+
+  // Needle-filtered option lists per facet group, computed once so both the
+  // render and the "N filters match" live region agree. A selected option
+  // always survives — see the density note above.
+  const facetOptionsById = new Map<string, ReadonlyArray<ResultFilterOption<string>> | undefined>();
+  let matchedOptionCount = 0;
+  let anyFacetGroupVisible = false;
+  for (const group of groups) {
+    if (!isFacetGroup(group)) continue;
+    if (!activeNeedle) {
+      facetOptionsById.set(group.id, undefined);
+      anyFacetGroupVisible = true;
+      continue;
+    }
+    const filtered = group.options.filter(
+      (option) =>
+        group.selected.has(option.value) ||
+        option.label.toLowerCase().includes(activeNeedle) ||
+        group.label.toLowerCase().includes(activeNeedle),
+    );
+    facetOptionsById.set(group.id, filtered);
+    matchedOptionCount += filtered.length;
+    if (filtered.length > 0) anyFacetGroupVisible = true;
+  }
 
   return (
     <Sheet
@@ -570,13 +752,81 @@ export function ResultFilterSheet({
       }
     >
       <div className="grid min-w-0 gap-1">
-        {groups.map((group) =>
-          isFacetGroup(group) ? (
-            <FilterFacetGroup key={group.id} group={group} panelId={panelId} />
-          ) : (
-            <FilterRadioGroup key={group.id} group={group} panelId={panelId} />
-          ),
-        )}
+        {scopeControl ? (
+          <div className="min-w-0 border-b border-[color:var(--border)] pb-2.5">{scopeControl}</div>
+        ) : null}
+        {dense ? (
+          <div className="min-w-0 pb-2.5">
+            <label htmlFor={findFieldId} className="sr-only">
+              Find a filter
+            </label>
+            <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]">
+              <Search aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" />
+              <input
+                id={findFieldId}
+                type="search"
+                value={needle}
+                onChange={(event) => setNeedle(event.target.value)}
+                placeholder="Find a filter…"
+                data-testid={`${testId}-find`}
+                className="min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-9"
+              />
+              {needle ? (
+                <button
+                  type="button"
+                  onClick={() => setNeedle("")}
+                  aria-label="Clear the filter search"
+                  className="grid min-h-tap min-w-tap place-items-center text-[color:var(--decoration-soft)] hover:text-[color:var(--text)] sm:min-h-8 sm:min-w-8"
+                >
+                  <X aria-hidden="true" className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
+            <p aria-live="polite" className="sr-only">
+              {activeNeedle
+                ? `${matchedOptionCount} filter${matchedOptionCount === 1 ? "" : "s"} match "${needle.trim()}"`
+                : ""}
+            </p>
+          </div>
+        ) : null}
+        {groups.map((group) => {
+          if (!isFacetGroup(group)) {
+            return <FilterRadioGroup key={group.id} group={group} panelId={panelId} />;
+          }
+          const filteredOptions = facetOptionsById.get(group.id);
+          // A needle that matched nothing in this group hides it entirely,
+          // matching document-search-results.tsx: a heading over zero options
+          // is a section with nothing to disclose.
+          if (activeNeedle && (filteredOptions?.length ?? 0) === 0) return null;
+          // Keep auto-open behavior aligned with the badge, which counts every selected value.
+          const selectedCount = group.selected.size;
+          const isOpen =
+            !dense ||
+            Boolean(activeNeedle) ||
+            (!collapsed.has(group.id) && (expanded.has(group.id) || selectedCount > 0));
+          return (
+            <ResultFilterFacetChips
+              key={group.id}
+              group={group}
+              idPrefix={panelId}
+              options={filteredOptions}
+              disclosure={
+                dense && !activeNeedle
+                  ? {
+                      open: isOpen,
+                      onToggle: () => toggleGroupOpen(group.id, isOpen),
+                      contentId: `${panelId}-${group.id}-content`,
+                    }
+                  : undefined
+              }
+            />
+          );
+        })}
+        {activeNeedle && !anyFacetGroupVisible ? (
+          <p className="border-t border-[color:var(--border)] py-4 text-center text-xs font-semibold text-[color:var(--text-muted)]">
+            No filter matches &ldquo;{needle.trim()}&rdquo;.
+          </p>
+        ) : null}
       </div>
     </Sheet>
   );

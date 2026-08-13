@@ -1,7 +1,7 @@
 # Multi-user auth — Supabase configuration checklist (you apply)
 
 The app ships multi-user auth code (persistent cookie sessions, email OTP /
-magic link + Google/Microsoft OAuth, per-user isolation). Password helpers
+magic link + Apple/Google/Microsoft OAuth, per-user isolation). Password helpers
 exist in `src/lib/supabase/client.tsx`, but the shipped sign-in UI
 (`auth-panel.tsx`) exposes magic link + OAuth only — do not treat password
 signup as a required operator verification path until a password form ships.
@@ -21,6 +21,15 @@ commits. Target project: `Clinical KB Database` <!-- pragma: allowlist secret --
   signups). Enable **Email OTP** (magic link — the shipped UI path). Enabling
   **Password** in Supabase is optional until a password form is exposed in the
   app UI.
+- **Apple**: create an Apple App ID with **Sign in with Apple**, then a Services
+  ID for the web app. Register the production domain and use the Supabase
+  callback `https://sjrfecxgysukkwxsowpy.supabase.co/auth/v1/callback` as the
+  return URL. Generate the Apple client secret from the signing key (`.p8`),
+  configure the Services ID as the first Client ID in Supabase, and enable the
+  provider. Keep the signing key outside the repo and any client-accessible
+  configuration. Apple web OAuth secrets expire every six months, so record an
+  operator-owned rotation reminder and rotate before expiry. See the
+  [Supabase Apple provider guide](https://supabase.com/docs/guides/auth/social-login/auth-apple).
 - **Google**: create an OAuth client in Google Cloud Console → add the Supabase
   callback `https://sjrfecxgysukkwxsowpy.supabase.co/auth/v1/callback` as an
   authorized redirect URI → paste client ID/secret into Supabase → enable.
@@ -69,8 +78,9 @@ the Supabase dashboard → Project Settings → API:
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only; never exposed to the client — copy
   from the dashboard; do not commit real values to docs or Git)
 
-The **Supabase OAuth callback** to authorize in the Google Cloud / Azure AD app
-registrations (§1) is `https://sjrfecxgysukkwxsowpy.supabase.co/auth/v1/callback`.
+The **Supabase OAuth callback** to authorize in the Apple, Google Cloud, and
+Azure AD app registrations (§1) is
+`https://sjrfecxgysukkwxsowpy.supabase.co/auth/v1/callback`.
 OAuth client secrets live in **Supabase**, not in app env.
 
 ## 7. Database RLS + storage — already in place (verified against live 2026-07-03)
@@ -109,7 +119,8 @@ to launch):**
 ## Verification (staging, after the above)
 
 1. **Magic link** → email OTP / link → signed in.
-2. **Google** and **Microsoft** SSO → signed in.
+2. **Apple**, **Google**, and **Microsoft** SSO → signed in through the shared
+   `/auth/callback` PKCE exchange.
 3. **Hard-refresh** the page → still signed in (persistent cookie session).
 4. **Isolation and shared content:** sign in as user A, upload a document and
    create a private registry override, then sign out; sign in as user B → B sees

@@ -2,7 +2,7 @@
 /**
  * guard-push — pre-push safety net for this repo's known, repeated traps.
  *
- * Runs four independent guards; any one can BLOCK the push (non-zero exit) and
+ * Runs five independent guards; any one can BLOCK the push (non-zero exit) and
  * each honours an explicit override env var so you are never truly stuck:
  *
  *   1. Auto-merge race sentinel (claude/* branches only)
@@ -36,6 +36,11 @@
  *      defect that is not in the push. Both are incremental (seconds when warm).
  *      Skips loudly when node_modules is absent. Override: SKIP_STATIC_GUARD=1.
  *
+ *   5. Ledger write discipline
+ *      The historical Markdown ledgers are serial-only. Feature PRs add immutable
+ *      review records or issue-inbox JSON; only a verified transaction may change
+ *      the canonical issue ledger. Override: SKIP_LEDGER_WRITE_GUARD=1.
+ *
  * The .githooks/pre-push hook invokes this with the raw `git push` stdin (lines of
  * "<localRef> <localSha> <remoteRef> <remoteSha>"). Run `--self-test` for the
  * offline unit checks used by tests/guard-push.test.ts.
@@ -51,6 +56,8 @@ const ZERO_SHA = "0000000000000000000000000000000000000000";
 const SCHEMA_PATH = "supabase/schema.sql";
 const MANIFEST_PATH = "supabase/drift-manifest.json";
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const LEDGER_WRITE_CHECK = path.join(PROJECT_ROOT, "scripts", "check-ledger-write-discipline.mjs");
+const LEDGER_HOT_PATHS = new Set(["docs/branch-review-ledger.md", "docs/outstanding-issues.md"]);
 
 /**
  * sha256 over CRLF-normalized schema text. MUST stay byte-identical to
@@ -843,6 +850,52 @@ export function staticGuard(changedFiles, options = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Guard 5: ledger write discipline
+// ---------------------------------------------------------------------------
+export function hasHotLedgerWrite(changedFiles) {
+  return changedFiles.some((file) => LEDGER_HOT_PATHS.has(file.replaceAll("\\", "/")));
+}
+
+function ledgerWriteGuard(ranges) {
+  if (process.env.SKIP_LEDGER_WRITE_GUARD === "1") {
+    return { name: "ledger-write", ok: true, skipped: "SKIP_LEDGER_WRITE_GUARD=1" };
+  }
+  if (!hasHotLedgerWrite(collectChangedFiles(ranges))) return { name: "ledger-write", ok: true };
+
+  for (const range of ranges) {
+    const base =
+      range.remoteSha && range.remoteSha !== ZERO_SHA
+        ? range.remoteSha
+        : tryGit(["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"]);
+    if (!base) {
+      return {
+        name: "ledger-write",
+        ok: true,
+        note: "could not resolve a base commit for the ledger transaction check; CI will verify it",
+      };
+    }
+    try {
+      execFileSync(process.execPath, [LEDGER_WRITE_CHECK, "--base", base, "--head", range.localSha], {
+        cwd: PROJECT_ROOT,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (error) {
+      const output = `${error?.stdout ?? ""}${error?.stderr ?? ""}`.trim();
+      return {
+        name: "ledger-write",
+        ok: false,
+        message:
+          `${output || "ledger transaction check failed"}\n\n` +
+          "Use immutable ledger records/inbox requests, or reconcile from a fresh ledger branch. " +
+          "To push a deliberate emergency repair: SKIP_LEDGER_WRITE_GUARD=1 git push",
+      };
+    }
+  }
+  return { name: "ledger-write", ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Orchestration
 // ---------------------------------------------------------------------------
 function report(results) {
@@ -872,6 +925,7 @@ function main() {
     formatGuard(collectChangedBlobs(ranges)),
     driftGuard(changedFiles),
     staticGuard(changedFiles, { ranges }),
+    ledgerWriteGuard(ranges),
   ];
   process.exit(report(results));
 }
@@ -975,6 +1029,8 @@ function selfTest() {
     staticGuard(["src/lib/a.ts"], { ranges: [{ localSha: "deadbeef", localRef: "refs/heads/other" }] }).ok === false,
     "push tip that is not HEAD fails closed",
   );
+  assert(hasHotLedgerWrite(["docs/outstanding-issues.md"]) === true, "canonical issue ledger is hot");
+  assert(hasHotLedgerWrite(["docs/outstanding-issues-inbox/request.json"]) === false, "inbox writes are merge-safe");
 
   if (process.exitCode !== 1) console.error("[guard-push] self-test passed");
   return process.exitCode ?? 0;

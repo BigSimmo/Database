@@ -10,8 +10,8 @@
  *    — resolved relative to the file containing the link and required to stay
  *    inside the repository.
  *
- * Scanned by default: README.md, AGENTS.md, and docs/**\/*.md excluding
- * docs/archive/, docs/audit/, dated point-in-time filenames
+ * Scanned by default: README.md, AGENTS.md, and all Markdown files under docs/,
+ * excluding docs/archive/, docs/audit/, dated point-in-time filenames
  * (docs/README.md classifies those as historical records that intentionally
  * reference the repo as it was), and docs/prompts/codex-cloud-review/ (verbatim
  * as-provided prompt inputs whose paths must not be edited). Pass --all to scan
@@ -45,6 +45,10 @@ const ROOT_PREFIXES = [
 // designed-but-unbuilt drivers and hypothetical future splits.
 const ALLOWLIST = new Set([
   "scripts/reindex-shadow.ts", // designed-only harness driver (docs/reindex-shadow-harness-design.md)
+  // Planned-but-unbuilt files named by the RAG improvement guide (docs/rag-improvement/README.md):
+  "src/lib/rag/answer-composition.ts",
+  "scripts/check-rag-adversarial-fixtures.mjs",
+  "scripts/fixtures/rag-adversarial-cases.v1.json",
   "docs/site-map.generated.md", // hypothetical future split named in docs/process-hardening.md
   // Legacy pre-(search-app) paths still cited in docs/ledger/redesign records:
   "src/app/page.tsx",

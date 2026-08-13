@@ -598,7 +598,7 @@ describe("design-system adoption manifest", () => {
 
       expect(failures).toEqual([]);
     } finally {
-      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -698,7 +698,7 @@ describe("design-system adoption manifest", () => {
         }),
       ).toContain("visual baseline filename must not claim a non-Linux platform");
     } finally {
-      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -771,7 +771,7 @@ describe("design-system adoption manifest", () => {
       ).toContain("visual baseline provenance must contain exactly 6 candidates");
     } finally {
       for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
-        fs.rmSync(fixtureRoot, { force: true, recursive: true });
+        fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -827,7 +827,7 @@ describe("design-system adoption manifest", () => {
       );
     } finally {
       for (const fixtureRoot of [arbitraryRoot, missingRoot, extraRoot])
-        fs.rmSync(fixtureRoot, { force: true, recursive: true });
+        fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -936,7 +936,8 @@ describe("design-system adoption manifest", () => {
         }),
       ).toContain("candidateSourceHead AWAITING_BASELINE must be a static literal Set: must not contain duplicate ids");
     } finally {
-      for (const fixtureRoot of fixtureRoots) fs.rmSync(fixtureRoot, { force: true, recursive: true });
+      for (const fixtureRoot of fixtureRoots)
+        fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -996,7 +997,7 @@ describe("design-system adoption manifest", () => {
       ).toContain("visual baseline provenance requires an approved timestamped human review");
     } finally {
       for (const fixtureRoot of [malformedRoot, nonexistentRoot, nonAncestorRoot, reviewMismatchRoot])
-        fs.rmSync(fixtureRoot, { force: true, recursive: true });
+        fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -1032,7 +1033,8 @@ describe("design-system adoption manifest", () => {
         }),
       ).toContain("visual suite changed after candidate capture beyond the AWAITING_BASELINE declaration");
     } finally {
-      for (const fixtureRoot of [runtimeRoot, suiteRoot]) fs.rmSync(fixtureRoot, { force: true, recursive: true });
+      for (const fixtureRoot of [runtimeRoot, suiteRoot])
+        fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -1061,7 +1063,7 @@ describe("design-system adoption manifest", () => {
         "globalShellRoot must remain src/app/layout.tsx / html",
       );
     } finally {
-      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -1075,7 +1077,7 @@ describe("design-system adoption manifest", () => {
       }
       expect(productionPageRoutes(fixtureRoot)).toEqual(["src/app/real/page.tsx"]);
     } finally {
-      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -1103,7 +1105,7 @@ describe("design-system adoption manifest", () => {
 
       expect(productionNextUiEntries(fixtureRoot)).toEqual(productionEntries.sort());
     } finally {
-      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -1138,7 +1140,7 @@ describe("design-system adoption manifest", () => {
         "src/components/mounted.tsx",
       ]);
     } finally {
-      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 

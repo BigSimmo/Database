@@ -11,6 +11,7 @@ import {
   differentialScenarioPresets,
   rankDifferentialRecords,
   rankPresentationWorkflows,
+  type DifferentialPresentationWorkflow,
   type DifferentialRecord,
   getPresentationWorkflowSelectionForDiagnosisIds,
 } from "@/lib/differentials";
@@ -18,6 +19,7 @@ import type {
   DifferentialStreamChapter,
   DifferentialStreamItem,
   DifferentialStreamModel,
+  DifferentialStreamPathwayRef,
   DifferentialStreamPresetChip,
   DifferentialStreamRelatedRef,
   DifferentialStreamType,
@@ -27,6 +29,7 @@ export type {
   DifferentialStreamChapter,
   DifferentialStreamItem,
   DifferentialStreamModel,
+  DifferentialStreamPathwayRef,
   DifferentialStreamPresetChip,
   DifferentialStreamRelatedRef,
   DifferentialStreamType,
@@ -101,9 +104,54 @@ function diagnosisItemFromRecord(
     isMatch: Boolean(match),
     score: match?.score ?? 0,
     related: relatedRefs(record, knownSlugs),
+    relatedPathways: [],
+    candidateCount: null,
     exclusionPreview: exclusionPreviewForRecord(record),
     chapterId: chapter?.id ?? `status-${record.status}`,
     chapterTitle: chapter?.title ?? statusChapterCopy[record.status].title,
+  };
+}
+
+function relatedPathwaysFor(
+  workflow: DifferentialPresentationWorkflow,
+  presentations: DifferentialPresentationWorkflow[],
+): DifferentialStreamPathwayRef[] {
+  const candidateSlugs = new Set(workflow.candidates.map((candidate) => candidate.slug));
+  return presentations
+    .filter((candidate) => candidate.id !== workflow.id)
+    .map((candidate) => ({
+      slug: candidate.id,
+      label: candidate.title,
+      sharedCandidateCount: candidate.candidates.filter((entry) => candidateSlugs.has(entry.slug)).length,
+    }))
+    .filter((candidate) => candidate.sharedCandidateCount > 0)
+    .sort(
+      (left, right) => right.sharedCandidateCount - left.sharedCandidateCount || left.label.localeCompare(right.label),
+    );
+}
+
+function presentationItemFromWorkflow(
+  workflow: DifferentialPresentationWorkflow,
+  presentations: DifferentialPresentationWorkflow[],
+  match?: { score: number; reasons: string[] },
+): DifferentialStreamItem {
+  return {
+    id: `presentation-${workflow.id}`,
+    slug: workflow.id,
+    title: workflow.title,
+    description: workflow.subtitle,
+    examples: workflow.safetySnapshot.tags.slice(0, 3),
+    href: `/differentials/presentations/${workflow.id}`,
+    status: workflow.status,
+    matchReasons: match?.reasons ?? [],
+    isMatch: Boolean(match),
+    score: match?.score ?? 0,
+    related: [],
+    relatedPathways: relatedPathwaysFor(workflow, presentations),
+    candidateCount: workflow.candidates.length,
+    exclusionPreview: null,
+    chapterId: `status-${workflow.status}`,
+    chapterTitle: statusChapterCopy[workflow.status].title,
   };
 }
 
@@ -195,80 +243,50 @@ export function buildDifferentialStreamModel(stream: DifferentialStreamType, que
 
   if (stream === "presentations") {
     const presentations = differentialPresentations();
-    const ranked = hasQuery ? rankPresentationWorkflows(presentations, trimmedQuery, presentations.length) : [];
-    const matchById = new Map(ranked.map((match) => [match.workflow.id, match]));
-    const matchedItems = ranked.map((match) => {
-      const workflow = match.workflow;
+
+    if (!hasQuery) {
+      const items = [...presentations]
+        .sort(
+          (left, right) =>
+            statusChapterOrder.indexOf(left.status) - statusChapterOrder.indexOf(right.status) ||
+            left.title.localeCompare(right.title),
+        )
+        .map((workflow) => presentationItemFromWorkflow(workflow, presentations));
+
       return {
-        id: `presentation-${workflow.id}`,
-        slug: workflow.id,
-        title: workflow.title,
-        description: workflow.subtitle,
-        examples: workflow.safetySnapshot.tags.slice(0, 3),
-        href: `/differentials/presentations/${workflow.id}`,
-        status: workflow.status,
-        matchReasons: match.reasons,
-        isMatch: true,
+        stream,
+        items,
+        matchCount: 0,
+        chapters: urgencyChapters(items),
+        presentationChapters: [],
+        presets,
+        safetyShelfIds: items
+          .filter((item) => item.status === "emergent")
+          .slice(0, 6)
+          .map((item) => item.id),
+        compareSeedIds: [],
+      };
+    }
+
+    const ranked = rankPresentationWorkflows(presentations, trimmedQuery, presentations.length);
+    const matchById = new Map(ranked.map((match) => [match.workflow.id, match]));
+    const matchedItems = ranked.map((match) =>
+      presentationItemFromWorkflow(match.workflow, presentations, {
         score: match.score,
-        related: [] as DifferentialStreamRelatedRef[],
-        exclusionPreview: null,
-        chapterId: `status-${workflow.status}`,
-        chapterTitle: statusChapterCopy[workflow.status].title,
-      } satisfies DifferentialStreamItem;
-    });
+        reasons: match.reasons,
+      }),
+    );
     const unmatchedItems = presentations
       .filter((workflow) => !matchById.has(workflow.id))
-      .map(
-        (workflow) =>
-          ({
-            id: `presentation-${workflow.id}`,
-            slug: workflow.id,
-            title: workflow.title,
-            description: workflow.subtitle,
-            examples: workflow.safetySnapshot.tags.slice(0, 3),
-            href: `/differentials/presentations/${workflow.id}`,
-            status: workflow.status,
-            matchReasons: [],
-            isMatch: false,
-            score: 0,
-            related: [],
-            exclusionPreview: null,
-            chapterId: `status-${workflow.status}`,
-            chapterTitle: statusChapterCopy[workflow.status].title,
-          }) satisfies DifferentialStreamItem,
-      )
+      .map((workflow) => presentationItemFromWorkflow(workflow, presentations))
       .sort((left, right) => left.title.localeCompare(right.title));
-
-    const items = hasQuery
-      ? [...matchedItems, ...unmatchedItems]
-      : [...presentations]
-          .sort(
-            (left, right) =>
-              statusChapterOrder.indexOf(left.status) - statusChapterOrder.indexOf(right.status) ||
-              left.title.localeCompare(right.title),
-          )
-          .map((workflow) => ({
-            id: `presentation-${workflow.id}`,
-            slug: workflow.id,
-            title: workflow.title,
-            description: workflow.subtitle,
-            examples: workflow.safetySnapshot.tags.slice(0, 3),
-            href: `/differentials/presentations/${workflow.id}`,
-            status: workflow.status,
-            matchReasons: [],
-            isMatch: false,
-            score: 0,
-            related: [],
-            exclusionPreview: null,
-            chapterId: `status-${workflow.status}`,
-            chapterTitle: statusChapterCopy[workflow.status].title,
-          }));
+    const items = [...matchedItems, ...unmatchedItems];
 
     return {
       stream,
       items,
       matchCount: matchedItems.length,
-      chapters: hasQuery ? [] : urgencyChapters(items),
+      chapters: [],
       presentationChapters: [],
       presets,
       safetyShelfIds: items
