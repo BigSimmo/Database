@@ -36,6 +36,21 @@ type IndexRow = {
   counterparties: string[];
   termIds: string[];
   resolved: boolean;
+  /**
+   * Verbatim `row.val`.
+   *
+   * Dropped from the artefact once, on the reasoning that every consumer already
+   * holds the `MedicationRecord` and could read the text back by `rowIndex`. That
+   * is true in one direction only. Interaction prose is not symmetric, so the
+   * evaluator also scans the PATIENT's medications for rows naming the viewed
+   * drug — and it has no record for those, which left a reverse-only match
+   * rendering a drug name and a severity chip with no explanation under it.
+   *
+   * The whole corpus is ~60 KB of prose (the 661 KB the artefact once weighed was
+   * repeated counterparty display names, not this), so carrying it is cheap
+   * relative to shipping an alert nobody can read.
+   */
+  note: string;
 };
 type IndexEntry = { rows: IndexRow[]; unresolvedRowCount: number };
 type InteractionIndex = {
@@ -200,6 +215,7 @@ function main(): void {
           counterparties: Array.from(counterparties.keys()).sort(),
           termIds: Array.from(termIds).sort(),
           resolved,
+          note: value,
         });
       });
     }
