@@ -17,7 +17,7 @@ function withPreviewCompilerFixture(tsconfig: object, run: (fixtureRoot: string)
     fs.writeFileSync(path.join(fixtureRoot, "tsconfig.json"), `${JSON.stringify(tsconfig, null, 2)}\n`);
     run(fixtureRoot);
   } finally {
-    fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
   }
 }
 

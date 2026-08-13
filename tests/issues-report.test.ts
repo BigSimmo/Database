@@ -138,6 +138,79 @@ describe("issues report", () => {
     expect(report.open[0].added).toBe("2026-01-01");
   });
 
+  it("reports queue prose from the cited row's detail, so a stale queue cell cannot misdirect", () => {
+    // The regression this pins: the queue Outcome cell and the row Detail cell
+    // were independent copies of the same prose. They drifted, and because the
+    // queue is what /issues and the SessionStart hook read back, the drifted
+    // copy was the one acted on — for #231, the top clinical P1, the queue spent
+    // days pointing at an approach that row had already recorded as refuted.
+    const markdown = [
+      "# Outstanding",
+      "<!-- issues:next-id=5 -->",
+      "## Recommended execution queue",
+      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome, gate, verification, and stopping condition |",
+      "| ----: | ---- | ---- | ---- | ---- | ---- | ---- |",
+      "| 1 | `#001` | A1 | Operator | Now | 1 hour | STALE: do the refuted thing |",
+      "| 2 | `#002`, `#003` | A2 | Standard | Next | 30 min | composite stays as written |",
+      "## Open items",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
+      "| #001 | P1 | task | urgent | CURRENT: that approach was refuted; do this instead | src | 2026-01-01 |",
+      "| #002 | P2 | task | left | detail two | src | 2026-01-01 |",
+      "| #003 | P2 | task | right | detail three | src | 2026-01-01 |",
+      "## Resolved / archive",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #004 | task | old | done | 2026-01-01 |",
+    ].join("\n");
+    const report = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true });
+
+    type QueueRow = { ids: string[]; outcome: string; acuity: string; when: string };
+    const solo = report.recommended.find((row: QueueRow) => row.ids[0] === "#001");
+    expect(solo, "the #001 queue row must be reported").toBeDefined();
+    expect(solo!.outcome).toBe("CURRENT: that approach was refuted; do this instead");
+    expect(solo!.outcome).not.toContain("STALE");
+    // The A1 blocker list is a separate projection and must carry the same text.
+    expect(report.priorityBlockers[0].outcome).not.toContain("STALE");
+    // Metadata that exists only on the queue row is still the queue's.
+    expect(solo!.acuity).toBe("A1");
+    expect(solo!.when).toBe("Now");
+
+    // A composite row has no single row to speak for it, so it keeps its own text.
+    const composite = report.recommended.find((row: QueueRow) => row.ids.length > 1);
+    expect(composite, "the composite queue row must be reported").toBeDefined();
+    expect(composite!.outcome).toBe("composite stays as written");
+  });
+
+  it("keeps queue-only safety gates when deriving displayed queue prose", () => {
+    const markdown = [
+      "# Outstanding",
+      "<!-- issues:next-id=255 -->",
+      "## Recommended execution queue",
+      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome, gate, verification, and stopping condition |",
+      "| ----: | ---- | ---- | ---- | ---- | ---- | ---- |",
+      "| 1 | \`#118\` | A3 | High — CI/visual/perf gates | Next | 2–4 hours | Commit CI-uploaded baselines. **Stop:** never commit developer-machine baselines. |",
+      "| 2 | \`#253\` | A2 | High — phone results UI | Next | 15–30 min | Close #1606 as superseded. **Stop:** the decision is a human's; do not close automatically. |",
+      "## Open items",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
+      "| #118 | P2 | task | visual baselines | Displayed #118 detail | src | 2026-01-01 |",
+      "| #253 | P3 | task | hand-merge | Displayed #253 detail | src | 2026-01-01 |",
+      "## Resolved / archive",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #254 | task | old | done | 2026-01-01 |",
+    ].join("\n");
+    const report = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true });
+
+    expect(report.recommended.map((row: { outcome: string }) => row.outcome)).toEqual([
+      "Displayed #118 detail",
+      "Displayed #253 detail",
+    ]);
+    expect(report.agentSafeWins.map((row: { ids: string[] }) => row.ids[0])).not.toContain("#118");
+    expect(report.agentSafeWins.map((row: { ids: string[] }) => row.ids[0])).not.toContain("#253");
+  });
+
   it("labels a readable origin/main ref as cached rather than remotely revalidated", () => {
     const directory = mkdtempSync(join(tmpdir(), "issues-report-"));
     try {
@@ -155,7 +228,7 @@ describe("issues report", () => {
       expect(source).toMatchObject({ ref: "origin/main (cached)", revalidated: false });
       expect(source.warning).toContain("local remote-tracking ref");
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

@@ -124,7 +124,7 @@ export function complexityLabel(complexity: string | null): string {
 
 export type SearchOptions = {
   query: string;
-  tags: string[]; // therapy must carry ALL selected tags
+  tags: string[]; // therapy must carry ANY selected tag (OR within the group — see matchesTopics)
   briefOnly: boolean;
   sheetOnly: boolean;
   reviewedOnly: boolean;
@@ -137,6 +137,36 @@ export const EMPTY_SEARCH: SearchOptions = {
   sheetOnly: false,
   reviewedOnly: false,
 };
+
+/**
+ * Topics facet predicate — OR within the group, matching every other adopted
+ * facet in the app (docs/filter-contract.md section 1). Picking both CBT and
+ * DBT means "either", not "a therapy tagged with both": AND-within-group is
+ * the exact defect class already fixed for document tags, where it made a
+ * second selection within one group a dead affordance instead of a widen.
+ *
+ * Exported so the filter sheet's option counts (`searchTherapies`'s own
+ * `hint` predicate) and the real filter run through one function — the count
+ * must be produced by the same predicate as the filter, or the two drift
+ * apart the moment the combination rule changes (section 3).
+ */
+export function matchesTopics(therapy: Therapy, topics: ReadonlySet<string>): boolean {
+  if (topics.size === 0) return true;
+  const wanted = [...topics].map(lc);
+  return therapy.tags.some((tag) => wanted.includes(lc(tag)));
+}
+
+/**
+ * Availability facet predicate — reviewed status and brief-intervention
+ * availability are independent constraints that AND together (they are two
+ * separate one-option facet groups, not options inside one group), and each
+ * ANDs against Topics in turn. Neither combines with the other by OR.
+ */
+export function matchesAvailability(therapy: Therapy, reviewedOnly: boolean, briefOnly: boolean): boolean {
+  if (reviewedOnly && therapy.reviewStatus !== "reviewed") return false;
+  if (briefOnly && !therapy.briefInterventionAvailable) return false;
+  return true;
+}
 
 function scoreTherapy(t: Therapy, q: string): number {
   if (!q) return 1;
@@ -158,13 +188,12 @@ function scoreTherapy(t: Therapy, q: string): number {
 
 export function searchTherapies(therapies: Therapy[], opts: SearchOptions): Therapy[] {
   const q = opts.query.trim().toLowerCase();
-  const wantTags = opts.tags.map(lc);
+  const topics = new Set(opts.tags);
   const scored = therapies
     .filter((t) => {
-      if (opts.briefOnly && !t.briefInterventionAvailable) return false;
+      if (!matchesAvailability(t, opts.reviewedOnly, opts.briefOnly)) return false;
       if (opts.sheetOnly && !t.patientSheetAvailable) return false;
-      if (opts.reviewedOnly && t.reviewStatus !== "reviewed") return false;
-      if (wantTags.length && !wantTags.every((wt) => t.tags.some((tag) => lc(tag) === wt))) return false;
+      if (!matchesTopics(t, topics)) return false;
       return scoreTherapy(t, q) > 0;
     })
     .map((t) => ({ t, s: scoreTherapy(t, q) }));

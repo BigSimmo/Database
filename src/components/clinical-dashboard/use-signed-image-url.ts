@@ -103,8 +103,12 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
     const request = inFlightSignedUrlRequests.get(key) ?? beginSignedUrlRequest(key, endpoint, authorizationHeader);
     request
       .then(({ status, data }) => {
-        if (status === 401) markSessionExpired();
         if (!active) return;
+        // A request restarted after sign-out has no identity and is expected to
+        // receive 401. Likewise, a request from an old identity can settle
+        // after its effect was cancelled. Neither may overwrite the user's
+        // deliberate signed-out state with an erroneous "session expired".
+        if (status === 401 && authIdentity !== null) markSessionExpired();
         if (data?.url) {
           // Only an active consumer for this identity may populate the shared
           // endpoint-keyed cache — otherwise a late response after sign-out /
@@ -122,7 +126,7 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
     return () => {
       active = false;
     };
-  }, [attempt, authorizationHeader, enabled, endpoint, markSessionExpired]);
+  }, [attempt, authIdentity, authorizationHeader, enabled, endpoint, markSessionExpired]);
 
   // Drop the cached URL and refetch (e.g. after a 403 on an expired URL).
   const retry = useCallback(() => {

@@ -183,7 +183,26 @@ describe("Codex Run PR operator workflow", () => {
     expect(prepare).toContain("protectedBranch");
     expect(prepare).toContain('"skip-codex-review"');
     expect(prepare).toContain('pr.state !== "open" || pr.merged');
-    expect(prepare).toContain("basehead: `${pr.head.sha}...${pr.base.sha}`");
+    expect(prepare).toContain("ref: `heads/${pr.base.ref}`");
+    expect(prepare).toContain("const baseSha = currentBaseRef.object.sha");
+    expect(prepare).toContain("const { data: revalidatedPr } = await github.rest.pulls.get");
+    expect(prepare).toContain("revalidatedPr.base.ref !== pr.base.ref");
+    expect(prepare).toContain("The PR changed while its live base ref was being resolved.");
+    expect(prepare).toContain("basehead: `${pr.head.sha}...${baseSha}`");
+    expect(prepare).toContain("base_sha: baseSha");
+    expect(prepare).not.toContain("base_sha: pr.base.sha");
+  });
+
+  it("accepts genuine Codex task IDs without allowing URL suffix injection", () => {
+    const patternSource = prepare.match(/const taskUrlPattern = \/(.+?)\/u;/u)?.[1];
+    expect(patternSource).toBeDefined();
+    const taskUrlPattern = new RegExp(patternSource!, "u");
+
+    const taskUrl = "https://chatgpt.com/codex/cloud/tasks/task_e_6a7c91a549cc8322b0491687053bf902";
+    expect(taskUrlPattern.test(taskUrl)).toBe(true);
+    expect(taskUrlPattern.test(`${taskUrl}/`)).toBe(true);
+    expect(taskUrlPattern.test(`${taskUrl}?redirect=https://example.com`)).toBe(false);
+    expect(taskUrlPattern.test(`${taskUrl}#fragment`)).toBe(false);
   });
 
   it("collects the complete bounded Run PR control-plane evidence", () => {
@@ -209,9 +228,19 @@ describe("Codex Run PR operator workflow", () => {
     expect(repair).toContain("${{ runner.temp }}/codex-run-pr-trusted/prompt.md");
     expect(repair).toContain("CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}");
     expect(repair).toContain("! -name .git");
+    expect(repair).toContain("sudo usermod --append --groups runner codex-operator");
+    expect(repair).toContain('sudo -u codex-operator git config --global --add safe.directory "$GITHUB_WORKSPACE"');
+    expect(repair).toContain('sudo -u codex-operator test -r "$GITHUB_WORKSPACE/.git/HEAD"');
+    expect(repair).toContain('sudo -u codex-operator test -w "$GITHUB_WORKSPACE/.codex-run-pr"');
+    expect(repair).toContain('if sudo -u codex-operator test -w "$GITHUB_WORKSPACE/.git/HEAD"; then');
+    expect(repair).toContain('sudo -u codex-operator git -C "$GITHUB_WORKSPACE" rev-parse --verify HEAD >/dev/null');
+    expect(repair).toContain('"+$BASE_SHA:refs/remotes/codex-run-pr/base"');
+    expect(repair).toContain("git rev-parse refs/remotes/codex-run-pr/base");
+    expect(repair).not.toContain("The base branch advanced after evidence collection");
     expect(repair).toContain('git merge-tree --write-tree HEAD "$BASE_SHA"');
     expect(repair).toContain('git merge --no-edit "$BASE_SHA"');
     expect(repair).toContain("operator policy requires a human resolution");
+    expect(repair).toContain('if [ -e "$RUNNER_TEMP/codex-run-pr-trusted" ]; then');
     expect(repair).not.toContain("secrets.GH_TOKEN");
     expect(repair).not.toContain("github-token:");
     expect(repair).not.toContain("./.github/actions/");

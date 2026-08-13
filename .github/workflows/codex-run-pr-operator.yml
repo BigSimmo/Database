@@ -75,7 +75,7 @@ jobs:
               core.setFailed("A positive integer pull-request number is required.");
               return;
             }
-            const taskUrlPattern = /^https:\/\/chatgpt\.com\/codex\/(?:cloud\/)?tasks\/task_[A-Za-z0-9]+\/?$/u;
+            const taskUrlPattern = /^https:\/\/chatgpt\.com\/codex\/(?:cloud\/)?tasks\/task_[A-Za-z0-9_]+\/?$/u;
             if (!taskUrlPattern.test(authorizationTaskUrl)) {
               core.setFailed("A valid Codex task URL is required as the authorization audit reference.");
               return;
@@ -115,6 +115,30 @@ jobs:
             const labels = new Set(pr.labels.map((label) => label.name.toLowerCase()));
             if (["hold", "do-not-merge", "skip-branch-sync", "skip-codex-review"].some((label) => labels.has(label))) {
               core.setFailed("The pull request is opted out of automated Run PR mutation.");
+              return;
+            }
+            const { data: currentBaseRef } = await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: `heads/${pr.base.ref}`,
+            });
+            const baseSha = currentBaseRef.object.sha;
+            if (!/^[0-9a-f]{40}$/u.test(baseSha)) {
+              core.setFailed("The current base branch did not resolve to an exact commit SHA.");
+              return;
+            }
+
+            // Revalidate the PR after resolving the live base ref. A retarget
+            // between pulls.get and git.getRef must fail closed rather than
+            // publishing evidence for one base and mutating another.
+            const { data: revalidatedPr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            if (
+              revalidatedPr.state !== "open" ||
+              revalidatedPr.merged ||
+              revalidatedPr.base.ref !== pr.base.ref ||
+              revalidatedPr.head.sha !== pr.head.sha
+            ) {
+              core.setFailed("The PR changed while its live base ref was being resolved.");
               return;
             }
 
@@ -324,7 +348,7 @@ jobs:
             const compare = await github.rest.repos.compareCommitsWithBasehead({
               owner,
               repo,
-              basehead: `${pr.head.sha}...${pr.base.sha}`,
+              basehead: `${pr.head.sha}...${baseSha}`,
             });
             const payload = {
               generated_at: new Date().toISOString(),
@@ -339,7 +363,7 @@ jobs:
                 head_ref: pr.head.ref,
                 head_sha: pr.head.sha,
                 base_ref: pr.base.ref,
-                base_sha: pr.base.sha,
+                base_sha: baseSha,
                 draft: pr.draft,
                 mergeable: pr.mergeable,
                 mergeable_state: pr.mergeable_state,
@@ -366,7 +390,7 @@ jobs:
             core.setOutput("expected_head", pr.head.sha);
             core.setOutput("head_ref", pr.head.ref);
             core.setOutput("base_ref", pr.base.ref);
-            core.setOutput("base_sha", pr.base.sha);
+            core.setOutput("base_sha", baseSha);
             core.setOutput("context_sha256", crypto.createHash("sha256").update(serialized).digest("hex"));
 
       - name: Upload bounded PR context
@@ -422,14 +446,18 @@ jobs:
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
           test "$(sha256sum .codex-run-pr/context.json | awk '{print $1}')" = "$CONTEXT_SHA256"
           sudo useradd --create-home --shell /bin/bash codex-operator
+          # GitHub-hosted runners keep /home/runner at mode 750. The official
+          # codex-action unprivileged-user example grants this group solely so
+          # the repair account can traverse the path to the checkout.
+          sudo usermod --append --groups runner codex-operator
           git config user.name "BigSimmo"
           git config user.email "87357024+BigSimmo@users.noreply.github.com"
           git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
           git fetch --no-tags origin \
             "+refs/heads/$HEAD_REF:refs/remotes/origin/$HEAD_REF" \
-            "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-          test "$(git rev-parse "refs/remotes/origin/$BASE_REF")" = "$BASE_SHA" || {
-            echo "::error::The base branch advanced after evidence collection; invoke Run PR again."
+            "+$BASE_SHA:refs/remotes/codex-run-pr/base"
+          test "$(git rev-parse refs/remotes/codex-run-pr/base)" = "$BASE_SHA" || {
+            echo "::error::The exact recorded base commit could not be fetched."
             exit 1
           }
           if ! git merge-base --is-ancestor "$BASE_SHA" HEAD; then
@@ -451,6 +479,16 @@ jobs:
           sudo find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 ! -name .git \
             -exec chown -hR codex-operator:codex-operator {} +
           sudo chown -R codex-operator:codex-operator "$trusted_dir"
+          sudo -u codex-operator git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          sudo -u codex-operator test -x "$GITHUB_WORKSPACE"
+          sudo -u codex-operator test -r "$GITHUB_WORKSPACE/.git/HEAD"
+          sudo -u codex-operator test -r "$trusted_dir/prompt.md"
+          sudo -u codex-operator test -w "$GITHUB_WORKSPACE/.codex-run-pr"
+          if sudo -u codex-operator test -w "$GITHUB_WORKSPACE/.git/HEAD"; then
+            echo "::error::The repair account unexpectedly has write access to Git metadata."
+            exit 1
+          fi
+          sudo -u codex-operator git -C "$GITHUB_WORKSPACE" rev-parse --verify HEAD >/dev/null
 
       - name: Run official Codex repair action
         id: codex
@@ -474,7 +512,9 @@ jobs:
           sudo pkill -KILL -u codex-operator 2>/dev/null || true
           sudo find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 ! -name .git \
             -exec chown -hR "$(id -u):$(id -g)" {} +
-          sudo chown -hR "$(id -u):$(id -g)" "$RUNNER_TEMP/codex-run-pr-trusted"
+          if [ -e "$RUNNER_TEMP/codex-run-pr-trusted" ]; then
+            sudo chown -hR "$(id -u):$(id -g)" "$RUNNER_TEMP/codex-run-pr-trusted"
+          fi
 
       - name: Seal local result as a validated Git bundle
         env:

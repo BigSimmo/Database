@@ -47,7 +47,8 @@ function fixture(version = "1.0.0", complete = false) {
 }
 
 afterEach(() => {
-  for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of temporaryRoots.splice(0))
+    rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 describe("Codex Desktop worktree setup", () => {

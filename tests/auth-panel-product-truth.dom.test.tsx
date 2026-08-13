@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const authSession = vi.hoisted(() => ({
@@ -38,19 +39,17 @@ describe("AuthPanel product truth", () => {
     expect(screen.queryByText("Saved sources")).toBeNull();
   });
 
-  it("disables Apple while leaving configured OAuth providers available", () => {
+  it("wires Apple alongside the other configured OAuth providers", async () => {
+    const user = userEvent.setup();
     render(<AuthPanel />);
 
-    const apple = screen.getByRole("button", { name: "Apple sign-in unavailable" });
-    // `aria-disabled`, not the native attribute — the reason below is only worth
-    // writing if a keyboard user can land on the control and hear it.
-    expect(apple).toHaveAttribute("aria-disabled", "true");
-    expect(apple).not.toBeDisabled();
-    expect(apple).toHaveAttribute("title", "Apple sign-in is unavailable — coming soon");
-    expect(apple).toHaveAccessibleDescription(
-      "Apple sign-in is unavailable. Continue with email, Google, or Microsoft.",
-    );
+    const apple = screen.getByRole("button", { name: "Continue with Apple" });
+    expect(apple).toBeEnabled();
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
+    expect(screen.queryByText(/Apple sign-in is unavailable/i)).toBeNull();
+
+    await user.click(apple);
+    expect(authSession.signInWithOAuth).toHaveBeenCalledWith("apple");
   });
 });

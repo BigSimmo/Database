@@ -12,12 +12,27 @@ import {
 } from "lucide-react";
 
 import { ModeNav, type ModeNavItem } from "@/components/mode-nav/mode-nav";
-import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
+import { type ModeNavDensityProfile } from "@/components/mode-nav/mode-nav-bands";
+import { appModeDefinition } from "@/lib/app-modes";
 import {
   modeSecondaryNavigationEntries,
   modeSecondaryNavigationHref,
+  type ModeNavAdoptedMode,
   type RoutedModeSecondaryNavigationId,
 } from "@/lib/mode-secondary-navigation";
+
+/**
+ * Each adopted mode opts into a label-width budget. Keeping this exhaustive
+ * means a newly adopted mode cannot inherit a density that was calibrated for
+ * different words and silently clip them.
+ */
+export const registryModeNavDensityProfiles = {
+  dsm: "two-item",
+  specifiers: "compact-four",
+  formulation: "compact-four",
+  differentials: "balanced-four",
+  factsheets: "two-item",
+} as const satisfies Record<ModeNavAdoptedMode, ModeNavDensityProfile>;
 
 /**
  * Exhaustive by type, deliberately. A `?? FileText` fallback compiles for a
@@ -58,7 +73,7 @@ export function RegistryModeNav({
   activeId,
   searchParamString = "",
 }: {
-  modeId: AppModeId;
+  modeId: ModeNavAdoptedMode;
   /** `null` marks no destination as current (record/detail routes). */
   activeId: string | null;
   searchParamString?: string;
@@ -86,5 +101,12 @@ export function RegistryModeNav({
       : [],
   );
 
-  return <ModeNav items={items} label={`${appModeDefinition(modeId).label} pages`} activeId={activeId} />;
+  return (
+    <ModeNav
+      items={items}
+      label={`${appModeDefinition(modeId).label} pages`}
+      densityProfile={registryModeNavDensityProfiles[modeId]}
+      activeId={activeId}
+    />
+  );
 }

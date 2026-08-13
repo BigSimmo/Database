@@ -78,6 +78,7 @@ import {
   isDesktopComposerSlotReady,
   phoneHeaderCollapseAddonSlotId,
   setModeHomeComposerReservePending,
+  type PhoneDockAddonKind,
 } from "@/lib/mode-home-composer";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
@@ -200,6 +201,7 @@ export function MasterSearchHeader({
   desktopPageComposerSlotId,
   heroComposerBreakpoint = "all",
   mobileBottomSearchAddonSlotId,
+  mobileBottomSearchAddonKind,
   hideOnScroll,
   onBottomComposerHiddenChange,
   showDesktopNewChat = true,
@@ -268,6 +270,8 @@ export function MasterSearchHeader({
   heroComposerBreakpoint?: "all" | "sm-up";
   /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
+  /** Which page-owned action occupies the dock addon slot. One at a time. */
+  mobileBottomSearchAddonKind?: PhoneDockAddonKind;
   /** Phone-only hide-on-scroll for the universal header and bottom search dock.
    *  "overlay" translates the sticky header away (host scrolls the document,
    *  content already flows beneath); "collapse" also releases the header's
@@ -1718,7 +1722,11 @@ export function MasterSearchHeader({
           }
         }}
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
-        data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
+        data-footer-addon={
+          usesPhoneFooterDock && mobileBottomSearchAddonSlotId
+            ? (mobileBottomSearchAddonKind ?? "differentials-compare")
+            : undefined
+        }
         data-command-open={
           // Phones never show the command dropdown, so the dock scrim must not
           // grow for it — gate the open attribute to widths that can display it.

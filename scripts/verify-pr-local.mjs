@@ -16,6 +16,7 @@ const docsScripts = [
   "docs:check-links",
   "check:branch-review-ledger",
   "check:outstanding-issues",
+  "check:ledger-write-discipline",
 ];
 const workflowScripts = [
   "check:github-actions",
@@ -120,6 +121,15 @@ export function selectedScripts(scope, extended) {
   // recognised docs and workflow-only changes avoid an unrelated RAG scan.
   if (scope.rag_eval_changed) add("eval:rag:offline");
   else if (scope.static_heavy_changed) add("check:rag:fixtures");
+  // `data/medication-interaction-index.json` is generated from the medication
+  // snapshot plus the curated lexicon, and the UI reads it to decide whether a
+  // drug can be shown as clear. A stale artefact therefore silently serves an
+  // old safety verdict. Cheap and deterministic, so it rides every executable
+  // scope rather than needing its own path classification.
+  if (scope.static_heavy_changed) add("check:medication-interactions");
+  // The lexicon review sheet is the artefact a clinician signs off; if it does
+  // not describe the current lexicon, the sign-off covers something else.
+  if (scope.static_heavy_changed) add("check:medication-lexicon-report");
   if (extended && scope.ui_changed) add("verify:ui");
   return scripts;
 }
@@ -198,33 +208,67 @@ function selfTest() {
       workflow_changed: true,
       static_heavy_changed: true,
     },
-    [...commonScripts, ...workflowScripts, ...staticHeavyScripts, "check:rag:fixtures"],
+    [
+      ...commonScripts,
+      ...workflowScripts,
+      ...staticHeavyScripts,
+      "check:rag:fixtures",
+      "check:medication-interactions",
+      "check:medication-lexicon-report",
+    ],
   );
   assertPlan("unknown-or-product-change-fails-heavy", { static_heavy_changed: true }, [
     ...commonScripts,
     ...staticHeavyScripts,
     "check:rag:fixtures",
+    "check:medication-interactions",
+    "check:medication-lexicon-report",
   ]);
   assertPlan("rag-change", { static_heavy_changed: true, rag_eval_changed: true }, [
     ...commonScripts,
     ...staticHeavyScripts,
     "eval:rag:offline",
+    "check:medication-interactions",
+    "check:medication-lexicon-report",
   ]);
   assertPlan(
     "ui-extended",
     { static_heavy_changed: true, ui_changed: true },
-    [...commonScripts, ...staticHeavyScripts, "check:rag:fixtures", "verify:ui"],
+    [
+      ...commonScripts,
+      ...staticHeavyScripts,
+      "check:rag:fixtures",
+      "check:medication-interactions",
+      "check:medication-lexicon-report",
+      "verify:ui",
+    ],
     true,
   );
   assertPlan(
     "lockfile-change-adds-npm-ci-dry-run",
     { lockfile_changed: true, static_heavy_changed: true, build_changed: true },
-    [...commonScripts, "check:npm-ci-dry-run", ...staticHeavyScripts, "build", "check:rag:fixtures"],
+    [
+      ...commonScripts,
+      "check:npm-ci-dry-run",
+      ...staticHeavyScripts,
+      "build",
+      "check:rag:fixtures",
+      "check:medication-interactions",
+      "check:medication-lexicon-report",
+    ],
   );
   assertPlan(
     "package-json-change-adds-npm-ci-dry-run",
     { files: ["package.json"], static_heavy_changed: true, build_changed: true },
-    [...commonScripts, "check:npm-ci-dry-run", ...staticHeavyScripts, "build", "check:rag:fixtures"],
+    [
+      ...commonScripts,
+      "check:npm-ci-dry-run",
+      ...staticHeavyScripts,
+      "build",
+      "check:rag:fixtures",
+      "check:medication-interactions",
+      "check:medication-lexicon-report",
+    ],
   );
   console.log("PR-local verification plan self-test passed.");
 }

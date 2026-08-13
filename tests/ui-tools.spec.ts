@@ -1049,26 +1049,7 @@ test.describe("Clinical KB tools launcher", () => {
     const quickFilter = page.getByTestId("service-filter-trigger-phone");
     await expect(quickFilter).toBeVisible();
     await expect(quickFilter).toHaveAccessibleName(/No filters active/);
-    await quickFilter.click();
-
-    // A real facet toggle narrows without touching the query — the contract this
-    // sheet replaces "Quick filters" to prove: filtering must never discard the
-    // search. Typed into "Find a filter" to bypass the dense tier's
-    // collapsed-by-default groups and reach the option directly.
-    await page.getByTestId("service-filter-panel-find").fill("crisis");
-    await page.getByRole("button", { name: /Crisis High/ }).click();
-    await expect(page).toHaveURL(/q=13YARN/);
-    await expect(page).toHaveURL(/facets=acuity_flags%3Acrisis_high/);
-
-    // Clear filters removes the facet but — unlike the old query-replacing
-    // "Quick filters" radio it replaces — never touches the search itself.
-    await page.getByRole("button", { name: "Clear filters" }).click();
-    await expect(page).toHaveURL(/q=13YARN/);
-    await expect(page).not.toHaveURL(/facets=/);
-
-    // The evicted presets still run a search — now as suggestion chips beside
-    // the composer rather than as a fake filter that discarded the query.
-    await page.getByTestId("service-search-shortcuts").getByRole("button", { name: "Crisis" }).click();
+    await page.getByTestId("service-quick-search-suggestions").getByRole("button", { name: "Crisis" }).click();
     await expect(page).toHaveURL(/\/services\?.*q=crisis/);
 
     // Phones keep the full search results in the page instead of opening a
@@ -1306,33 +1287,28 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("navigation", { name: "Service groups" })).toBeVisible();
     await expect(page.getByTestId("services-shortlist-bar")).toHaveCount(0);
 
-    await page.getByTestId("service-filter-trigger-desktop").click();
-    // A real facet — many-of-N, accumulates — rather than the old "Quick
-    // filters" radio, which replaced the query outright. Typed into "Find a
-    // filter" to bypass the dense tier's collapsed-by-default groups.
-    await page.getByTestId("service-filter-panel-find").fill("crisis");
-    const crisisFacet = page.getByRole("button", { name: /Crisis High/ });
-    await expect(crisisFacet).toBeVisible();
-    await waitForReactEventHandler(crisisFacet);
-    await crisisFacet.click();
-    await expect(page).toHaveURL(/facets=acuity_flags%3Acrisis_high/);
-    await expect(page).toHaveURL(/q=13YARN/);
-    await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
-
-    // Clear filters removes the facet — and, unlike the evicted radio, leaves
-    // the search itself untouched (docs/filter-contract.md §6).
-    await page.getByTestId("service-filter-panel-clear").click();
-    await expect(page).not.toHaveURL(/facets=/);
-    await expect(page).toHaveURL(/q=13YARN/);
-    await expect(page.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
-    await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
-
-    // The evicted preset still runs a search — as a suggestion chip beside the
-    // composer, which is honest about replacing the query rather than
-    // pretending to be a filter.
-    await page.getByTestId("service-search-shortcuts").getByRole("button", { name: "Culturally safe" }).click();
+    const culturallySafe = page
+      .getByTestId("service-quick-search-suggestions")
+      .getByRole("button", { name: "Culturally safe" });
+    await expect(culturallySafe).toBeVisible();
+    await waitForReactEventHandler(culturallySafe);
+    await culturallySafe.click();
     await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
+
+    // Quick search suggestions and facet clearing are separate contracts.
+    // Exercise a real facet, then clear only that facet while preserving q.
+    await page.getByTestId("service-filter-trigger-desktop").click();
+    const filterPanel = page.getByTestId("service-filter-panel");
+    await filterPanel.getByRole("button", { name: /^Acuity/ }).click();
+    const crisisFacet = filterPanel.getByRole("button", { name: /^Crisis \/ urgent/ });
+    await expect(crisisFacet).toBeVisible();
+    await crisisFacet.click();
+    await expect(page).toHaveURL(/acuity_flags=crisis_high/);
+    await filterPanel.getByTestId("service-filter-panel-clear").click();
+    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
+    await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
+    await filterPanel.getByRole("button", { name: "Close", exact: true }).click();
 
     await page
       .getByTestId("service-search-result-13yarn")

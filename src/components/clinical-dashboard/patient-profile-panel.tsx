@@ -1,12 +1,13 @@
 "use client";
 
-import { Eraser, UserRound } from "lucide-react";
-import { useState } from "react";
+import { Eraser, Plus, UserRound, X } from "lucide-react";
+import { useId, useState } from "react";
 
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { TextField } from "@/components/ui/text-field";
 import { cn, fieldLabel, ToggleSwitch } from "@/components/ui-primitives";
+import { catalogueMedicationOptions, medicationDisplayName } from "@/lib/medication-interactions";
 import { SCR_UMOL_PER_MGDL } from "@/lib/medication-patient-alerts";
 import type { AllergyClass, HepaticSeverity, ScrUnit } from "@/lib/medication-patient-alerts";
 import { PATIENT_PROFILE_NUMERIC_BOUNDS, PATIENT_PROFILE_SCR_UMOL_BOUNDS } from "@/lib/patient-profile-storage";
@@ -66,11 +67,6 @@ function NumberField({
   const [text, setText] = useState(value == null ? "" : String(value));
   const [syncedValue, setSyncedValue] = useState<number | null>(value ?? null);
 
-  // React-sanctioned "adjust state during render" reconciliation: when the stored
-  // value changes from outside this field (e.g. a cross-page store update), re-sync
-  // the buffer — but keep an in-progress out-of-range entry so its validation
-  // message stays visible. A profile Clear remounts the field via `key` instead
-  // (the stored value is already null there, so no prop change would fire here).
   const parsed = parseNumber(text);
   const outOfRange = parsed !== null && (parsed < min || parsed > max);
   if ((value ?? null) !== syncedValue) {
@@ -78,9 +74,6 @@ function NumberField({
     if (!outOfRange) setText(value == null ? "" : String(value));
   }
 
-  // The unit rides in the label string rather than a styled span: `FormField`
-  // takes a string label so the whole accessible name is one readable phrase
-  // ("Serum creatinine (µmol/L)") instead of a name assembled from two nodes.
   return (
     <TextField
       label={unit ? `${label} (${unit})` : label}
@@ -92,9 +85,6 @@ function NumberField({
       onChange={(event) => {
         const raw = event.target.value;
         setText(raw);
-        // Commit only in-range numbers; an empty or out-of-range entry commits
-        // null so the alert engine treats it as a missing input (surfaced as
-        // "unassessed") rather than acting on a physiologically impossible value.
         const next = parseNumber(raw);
         onChange(next !== null && next >= min && next <= max ? next : null);
       }}
@@ -105,26 +95,107 @@ function NumberField({
   );
 }
 
+function MedicationPicker({
+  selected,
+  onToggle,
+  resetNonce,
+}: {
+  selected: string[];
+  onToggle: (slug: string) => void;
+  resetNonce: number;
+}) {
+  const [term, setTerm] = useState("");
+  const listId = useId();
+
+  // Clearing the profile empties the search box too. Done as React's sanctioned
+  // "adjust state during render" reconciliation rather than an effect: a
+  // setState inside useEffect renders once with the stale value and trips
+  // `react-hooks/set-state-in-effect`.
+  const [syncedNonce, setSyncedNonce] = useState(resetNonce);
+  if (syncedNonce !== resetNonce) {
+    setSyncedNonce(resetNonce);
+    setTerm("");
+  }
+
+  const options = catalogueMedicationOptions();
+  const selectedSet = new Set(selected);
+  const query = term.trim().toLowerCase();
+  const matches = query
+    ? options.filter((option) => option.name.toLowerCase().includes(query) && !selectedSet.has(option.slug)).slice(0, 8)
+    : [];
+
+  return (
+    <fieldset className="min-w-0">
+      <legend className={fieldLabel}>Current medications</legend>
+
+      {selected.length > 0 ? (
+        <ul className="mb-2 flex flex-wrap gap-1.5" data-testid="patient-medication-list">
+          {selected.map((slug) => (
+            <li key={slug}>
+              <button
+                type="button"
+                onClick={() => onToggle(slug)}
+                data-testid={`patient-medication-${slug}`}
+                aria-label={`Remove ${medicationDisplayName(slug)}`}
+                className={cn(segmentBase, segmentActive, "inline-flex items-center gap-1.5")}
+              >
+                {medicationDisplayName(slug)}
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <TextField
+        label="Add a medication"
+        hideLabel
+        value={term}
+        onChange={(event) => setTerm(event.target.value)}
+        placeholder="Search medications to add…"
+        aria-describedby={listId}
+        data-testid="patient-medication-search"
+      />
+
+      <div id={listId} className="mt-1.5 flex flex-wrap gap-1.5">
+        {matches.map((option) => (
+          <button
+            key={option.slug}
+            type="button"
+            onClick={() => {
+              onToggle(option.slug);
+              setTerm("");
+            }}
+            data-testid={`patient-medication-add-${option.slug}`}
+            className={cn(segmentBase, segmentIdle, "inline-flex items-center gap-1.5")}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            {option.name}
+          </button>
+        ))}
+        {query && matches.length === 0 ? (
+          <p className="text-2xs text-[color:var(--text-muted)]">
+            No catalogue match. Only medications in this catalogue can be interaction-checked.
+          </p>
+        ) : null}
+      </div>
+    </fieldset>
+  );
+}
+
 export function PatientProfilePanel({
   variant = "full",
   defaultOpen,
   className,
 }: {
   variant?: "full" | "compact";
-  /** Initial expanded state; falls back to `variant === "full"` when omitted. */
   defaultOpen?: boolean;
   className?: string;
 }) {
-  const { profile, updateField, setScrUnit, toggleAllergy, clear, isEmpty } = usePatientProfile();
+  const { profile, updateField, setScrUnit, toggleAllergy, toggleMedication, clear, isEmpty } = usePatientProfile();
   const [open, setOpen] = useState(defaultOpen ?? variant === "full");
-  // Bumped on Clear to remount the numeric fields, so an out-of-range entry that
-  // is showing a validation message (stored value already null) is reset too.
   const [resetNonce, setResetNonce] = useState(0);
   const allergies = new Set(profile.allergies ?? []);
-
-  // Serum-creatinine validity bounds are canonical in µmol/L; convert to the
-  // active display unit (rounding inward so the field and the storage-layer
-  // check agree on the edge). Same conversion factor the alert engine uses.
   const scrUnit = profile.scrUnit ?? "umol/L";
   const scrBounds =
     scrUnit === "mg/dL"
@@ -240,6 +311,8 @@ export function PatientProfilePanel({
             layout="fit"
           />
         </div>
+
+        <MedicationPicker selected={profile.medications ?? []} onToggle={toggleMedication} resetNonce={resetNonce} />
 
         <fieldset className="min-w-0">
           <legend className={fieldLabel}>Allergies</legend>

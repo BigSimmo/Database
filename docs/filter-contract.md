@@ -28,10 +28,18 @@ does today — tells the reader they cannot hold two domains at once, which is f
 
 ### There is no `navigate` kind, and that is the point
 
-Services' quick filters and factsheets' categories do not filter. They call `router.push` and
-**replace the query**, so choosing one discards the search and its results with no warning and no
-undo. A control labelled "Filter" must not do that. Query-replacing presets belong beside the
-composer as suggested searches (`AnswerSuggestionChips`), not inside the filter sheet.
+Services' quick filters do not filter. They call `router.push` and **replace the query**, so
+choosing one discards the search and its results with no warning and no undo. A control labelled
+"Filter" must not do that. Query-replacing presets belong beside the composer as suggested
+searches (`AnswerSuggestionChips`), not inside the filter sheet.
+
+Factsheets' category dimension is not this pattern, despite an earlier draft of this section
+grouping it with services' quick filters: `filterFactsheets(query, category)` ANDs the two, so
+selecting a category narrows within the current search and preserves `q` — it is a real `lens`
+(one-of-N, exactly the shape this section describes above), not a query-replacing preset. Its
+actual defect was the one section 2 names next: the desktop rail used raw `<Link>` chips while
+the phone sheet correctly used `resultFilterGroup`, so the two breakpoints disagreed on
+component even though they agreed on values. Converged, not evicted — see the Rollout section.
 
 Until a mode has real facets, it is better for its filter trigger to be absent than to open a
 sheet that throws the query away.
@@ -82,7 +90,12 @@ which choice did it.
 Where a mode has a catalogue meaningfully larger than the current result set, the sheet offers a
 scope segment — `These results N | All items N`, counts on both — built from the shared
 `SegmentedControl` (`src/components/ui/segmented-control.tsx`), which already has the roving
-tabindex and radio semantics.
+tabindex and radio semantics. `ResultFilterSheet` reserves the slot (`scopeControl`) but does not
+build the segment itself: "meaningfully larger" and what the two counts mean are per-mode
+judgements the shared renderer cannot make. Services is the first mode to use it — see
+`services-navigator-page.tsx`: the segment is gated on the catalogue exceeding the query/group
+scoped result set (not the facet-narrowed one, so the segment does not flicker away as facets are
+applied), and both counts reflect the current facet/lens selection.
 
 It earns its place because it is the only escape from a filtered-to-zero state that does not
 discard the query: the commit becomes "Show N in all items" instead of a dead end.
@@ -100,39 +113,34 @@ corpus of that size, and it stays.
 
 ## 5. Density is a function of option count
 
-Facet groups only. Two states, not three — `document-search-results.tsx` never actually shipped
-a distinct "dense list, no find-a-filter" middle tier (its own `dense` boolean gates both the
-needle and the collapse together), so `ResultFilterSheet`/`ResultFilterFacetChips`
-(`src/components/clinical-dashboard/result-filter-control.tsx`) match that shipped behaviour
-rather than the wider table an earlier draft of this section implied:
+Facet groups only. Two states, not three: the shared renderer uses the same threshold for its
+find-a-filter field and collapse-by-default disclosures.
 
 | Options                     | Renderer                                                                                 |
 | --------------------------- | ---------------------------------------------------------------------------------------- |
 | ≤ 3 groups and ≤ 20 options | chips, single row where they fit (unchanged from before this section)                    |
 | > 3 groups, or > 20 options | chips plus find-a-filter and collapse-by-default, every group behind a disclosure header |
 
-`ResultFilterSheet` computes `dense = facetGroups.length > 3 || totalFacetOptions > 20` once
-across every facet-kind group it was handed — generalising documents' `groups.length > 3` to
-also catch a single group past 20 options, which the group-count-only version would miss.
-Services (PR C, `docs/branch-review-ledger.md`) is the first adopter: 5 facet groups / 24 total
-options trips the `> 3 groups` half. `/issues #309` tracked this decision as open before PR C;
-it is resolved by this implementation, not deferred to a documents port (PR F) — PR F instead
-converges onto the now-shared renderer, per the Rollout section below.
+`ResultFilterSheet` computes the threshold once across all facet groups. The option-count limb
+catches a small number of very large groups, while the group-count limb covers services' five
+facet groups. Below the threshold every group renders as before.
 
 Collapse rules, when they apply: groups start collapsed; a group holding a selection opens
 itself; an explicit user collapse beats that; an active needle forces every matched group open
 and owns openness. A selected option always survives the needle, so an active constraint can
-never become unreachable.
+never become unreachable. A group whose options are all filtered out by the needle disappears
+rather than showing an empty heading.
 
 ## 6. Invariants
 
 - **`footerNote` counts what the filters actually govern.** Specifiers currently reports
   `results.length + catalogueMatches.length` while the groups narrow only `results` — the sheet
   claims to scope a list it half controls. A mode must not report a total its filters cannot move.
-- **`onClearAll` never touches the query.** Therapy-compass's clear wipes the search box; the
-  shared sheet's does not. Clearing filters and clearing a search are different intentions.
-- **One trigger component.** `ResultFilterTrigger`. Therapy-compass re-implements it with a
-  different icon, a hardcoded test id and a different label-hiding breakpoint.
+- **`onClearAll` never touches the query.** Clearing filters and clearing a search are different
+  intentions. Therapy-compass now uses the shared sheet's filter-only clear; the composer's
+  explicit "Clear search" action remains responsible for deleting the query.
+- **One trigger component.** `ResultFilterTrigger`. Therapy-compass now uses the shared trigger
+  at the phone breakpoint and the shared facet chips on desktop.
 - **Tap targets are `min-h-tap` (48px) on phone.** Do not relax to 44px for generic WCAG
   guidance; it reintroduces a known `ui-smoke` flake.
 
@@ -150,9 +158,21 @@ Contract first, then one PR per mode:
 
 1. **Contract** — add the kinds, the facet renderer and the builders, changing no rendered output.
 2. **Per mode** — adopt the right kind, derive the option list, add counts, and retire that mode's
-   desktop rail so the breakpoints stop disagreeing.
-3. **Services and factsheets** — evict the query-replacing presets to the composer.
-4. **Documents last** — converge onto the shared component. Its needle and collapse-by-default
+   desktop rail so the breakpoints stop disagreeing. Done for differentials, medication,
+   applications and specifiers (all `lens`), formulation (`facet`), and factsheets, whose real
+   category lens now shares one counted option array between desktop and phone.
+3. **Services** — move its query-replacing quick filters to the composer. Done for services:
+   five facets (catchments, age_groups, setting_flags, acuity_flags, housing_flags),
+   substance_flags as a lens (an exact partition, not an accumulating constraint — see
+   `src/lib/service-facets.ts`), a URL round-trip alongside `q`/`group`, and the scope segment
+   (section 4). Services is also the first mode dense enough (5 facet groups) to exercise the
+   `> 3 groups` chrome added to the shared sheet for this — see section 5.
+4. **Therapy-compass** — converge runtime use of the bespoke phone-only filter sheet and trigger
+   onto `ResultFilterSheet`, `ResultFilterTrigger`, and `ResultFilterFacetChips`. Topics are OR
+   within their group. Review status and handout availability are independent one-option groups
+   that AND with Topics and with each other. Option counts and filtering share
+   `matchesTopics`/`matchesAvailability`, and Clear filters preserves the query.
+5. **Documents last** — converged onto the shared component. Its needle and collapse-by-default
    mechanics moved up into `ResultFilterSheet` first, as part of services (§5); documents itself
    deleted its ~500-line bespoke `DocumentFilterPanel` and rebuilt on `ResultFilterSheet` with
    three small additive extensions the other six modes never needed:
