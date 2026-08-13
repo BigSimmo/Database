@@ -1,6 +1,18 @@
-import { expect, test } from "playwright/test";
+import { expect, test, type Page } from "playwright/test";
 
-import { blockExternalRequests } from "./helpers/phone-scroll";
+async function blockExternalRequests(page: Page) {
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    if (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname)
+    ) {
+      await route.abort("blockedbyclient");
+      return;
+    }
+    await route.fallback();
+  });
+}
 
 test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
