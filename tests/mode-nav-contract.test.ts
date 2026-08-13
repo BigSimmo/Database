@@ -2,12 +2,18 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { MODE_NAV_BANDS, MODE_NAV_MIN_ITEMS, planModeNavBands } from "@/components/mode-nav/mode-nav-bands";
+import {
+  MODE_NAV_BANDS,
+  MODE_NAV_DENSITY_PROFILES,
+  MODE_NAV_MIN_ITEMS,
+  planModeNavBands,
+} from "@/components/mode-nav/mode-nav-bands";
 import { MODE_NAV_ADOPTED_MODES, modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
 
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
 const modeNavSource = read("src/components/mode-nav/mode-nav.tsx");
+const registryModeNavSource = read("src/components/mode-nav/registry-mode-nav.tsx");
 const portalSource = read("src/components/mode-nav/mode-nav-portal.tsx");
 const globalsSource = read("src/app/globals.css");
 const therapyNavSource = read("src/components/therapy-compass/nav.tsx");
@@ -73,13 +79,7 @@ describe("ModeNav band planning", () => {
 describe("ModeNav density contract", () => {
   it("chooses density by container width in rem, never px", () => {
     const thresholds = [...modeNavCss.matchAll(/@container mode-nav \(min-width: ([^)]+)\)/g)].map((m) => m[1].trim());
-    // Raised from 16/26/34 by ledger #113. Those were budgeted for equal `1fr`
-    // tracks and were short by roughly the count badge; the slots are now
-    // content-sized, so each threshold is the measured sum of the intrinsic
-    // widths it must hold, plus ~8% — enough to absorb the font-metric
-    // difference between a development box and a CI runner, which is real and
-    // failed a first attempt at 21/31rem by a single pixel.
-    expect(thresholds).toEqual(["22rem", "33rem", "42rem"]);
+    expect(thresholds).toEqual(["16rem", "17rem", "20rem", "22rem", "23rem", "31rem", "33rem", "42rem"]);
 
     // The unit is the mechanism: raising the browser or OS text size grows the
     // root font, so a phone crosses a threshold exactly when its labels would
@@ -91,6 +91,13 @@ describe("ModeNav density contract", () => {
 
     // The CSS bands and the TS capacities must not drift apart.
     expect(MODE_NAV_BANDS).toEqual([3, 4, 5]);
+  });
+
+  it("requires every calibrated profile in both the component and CSS", () => {
+    expect(modeNavSource).toContain("data-density-profile={densityProfile}");
+    for (const profile of MODE_NAV_DENSITY_PROFILES) {
+      expect(modeNavCss, profile).toContain(`data-density-profile="${profile}"`);
+    }
   });
 
   it("never measures layout at runtime", () => {
@@ -128,12 +135,13 @@ describe("ModeNav density contract", () => {
     expect(modeNavCss).not.toContain("grid-auto-columns");
     expect(modeNavCss).not.toMatch(/\.mode-nav__bar\s*\{[^}]*display:\s*grid/);
 
-    // Exactly one bar layout, so a future edit cannot reintroduce a second one
-    // that behaves differently at a band nobody re-measures.
+    // Every profile reveals the same flex layout; only its safe width differs.
     const barDisplays = [...modeNavCss.matchAll(/\.mode-nav__bar\s*\{([^}]*)\}/g)]
       .map((match) => match[1].match(/display:\s*([a-z]+)/)?.[1])
       .filter(Boolean);
-    expect(barDisplays).toEqual(["none", "flex"]);
+    expect(barDisplays[0]).toBe("none");
+    expect(barDisplays.slice(1)).toHaveLength(MODE_NAV_DENSITY_PROFILES.length);
+    expect(new Set(barDisplays.slice(1))).toEqual(new Set(["flex"]));
   });
 });
 
@@ -260,11 +268,21 @@ describe("ModeNav overflow slot", () => {
     for (const band of ["3", "4", "5"]) {
       expect(modeNavCss).toContain(`.mode-nav__more[data-active-from="${band}"] .mode-nav__rule`);
     }
-    // Band 4 turns off at 33rem and band 5 at 42rem — the same widths that
-    // reveal those slots — so nothing is ever marked twice.
-    const at33 = modeNavCss.slice(modeNavCss.indexOf("@container mode-nav (min-width: 33rem)"));
-    expect(at33).toContain('.mode-nav__more[data-active-from="4"] .mode-nav__rule');
+    // Every profile turns the More marker off at the same boundary that gives
+    // the active page its own slot, so nothing is ever marked twice.
+    for (const [profile, threshold] of [
+      ["compact-four", "23rem"],
+      ["balanced-four", "31rem"],
+      ["extended", "33rem"],
+    ] as const) {
+      const start = modeNavCss.indexOf(`@container mode-nav (min-width: ${threshold})`);
+      const end = modeNavCss.indexOf("@container mode-nav", start + 1);
+      const block = modeNavCss.slice(start, end < 0 ? undefined : end);
+      expect(block).toContain(`data-density-profile="${profile}"`);
+      expect(block).toContain('.mode-nav__more[data-active-from="4"] .mode-nav__rule');
+    }
     const at42 = modeNavCss.slice(modeNavCss.indexOf("@container mode-nav (min-width: 42rem)"));
+    expect(at42).toContain('data-density-profile="extended"');
     expect(at42).toContain('.mode-nav__more[data-active-from="5"] .mode-nav__rule');
   });
 
@@ -283,10 +301,17 @@ describe("ModeNav overflow slot", () => {
 describe("ModeNav density coverage", () => {
   const densitySpec = read("tests/ui-mode-nav-density.spec.ts");
   const covered = new Map(
-    [...densitySpec.matchAll(/\{ modeId: "([a-z-]+)", route: "[^"]+", items: (\d+) \}/g)].map((match) => [
-      match[1],
-      Number(match[2]),
-    ]),
+    [...densitySpec.matchAll(/\{ modeId: "([a-z-]+)", route: "[^"]+", items: (\d+), profile: "[a-z-]+" \}/g)].map(
+      (match) => [match[1], Number(match[2])],
+    ),
+  );
+  const coveredProfiles = new Map(
+    [...densitySpec.matchAll(/\{ modeId: "([a-z-]+)", route: "[^"]+", items: \d+, profile: "([a-z-]+)" \}/g)].map(
+      (match) => [match[1], match[2]],
+    ),
+  );
+  const assignedProfiles = new Map(
+    [...registryModeNavSource.matchAll(/^\s{2}([a-z-]+): "([a-z-]+)",$/gm)].map((match) => [match[1], match[2]]),
   );
 
   it("drives every adopted mode, not just the first consumer", () => {
@@ -311,6 +336,16 @@ describe("ModeNav density coverage", () => {
       const routed = modeSecondaryNavigationEntries(modeId).filter((entry) => entry.href).length;
       expect(covered.get(modeId), `${modeId} destination count`).toBe(routed);
     }
+  });
+
+  it("assigns every adopted registry mode one calibrated profile", () => {
+    expect([...assignedProfiles.keys()].sort()).toEqual([...MODE_NAV_ADOPTED_MODES].sort());
+    for (const [modeId, profile] of assignedProfiles) {
+      expect(MODE_NAV_DENSITY_PROFILES).toContain(profile);
+      expect(coveredProfiles.get(modeId), `${modeId} browser profile`).toBe(profile);
+    }
+    expect(coveredProfiles.get("therapy-compass")).toBe("extended");
+    expect(therapyNavSource).toContain('densityProfile="extended"');
   });
 });
 

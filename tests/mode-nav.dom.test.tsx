@@ -38,9 +38,9 @@ const items: ModeNavItem[] = [
   { id: "pathways", label: "Pathways", href: "/therapy-compass/pathways", icon: Waypoints },
 ];
 
-/** Apply what the `@container mode-nav (min-width: 16rem)` band does at runtime. */
+/** Apply the visible/collapsed state that container queries choose at runtime. */
 function renderNav(band: "collapsed" | "bar") {
-  render(<ModeNav items={items} label="Therapy pages" />);
+  render(<ModeNav items={items} label="Therapy pages" densityProfile="extended" />);
   const bar = window.document.querySelector<HTMLElement>(".mode-nav__bar");
   const control = window.document.querySelector<HTMLElement>(".mode-nav__control");
   expect(bar).not.toBeNull();
@@ -112,7 +112,7 @@ const moreSlot = () => window.document.querySelector<HTMLElement>(".mode-nav__ba
 
 describe("ModeNav — active page held in the overflow", () => {
   it("keeps More's visible word while carrying the folded page's rule and name", () => {
-    render(<ModeNav items={sevenItems} label="Therapy pages" activeId="brief" />);
+    render(<ModeNav items={sevenItems} label="Therapy pages" densityProfile="extended" activeId="brief" />);
 
     const more = moreSlotButton();
     // The visible word is what has a width, and at the 22rem band the slot
@@ -140,7 +140,7 @@ describe("ModeNav — active page held in the overflow", () => {
     // `detail` and `review` are screen names with no item. ModeNav must not
     // fall back to its own path matching there, or Home — whose href is the
     // mode base every route starts with — would claim every record page.
-    render(<ModeNav items={sevenItems} label="Therapy pages" activeId="detail" />);
+    render(<ModeNav items={sevenItems} label="Therapy pages" densityProfile="extended" activeId="detail" />);
 
     expect(moreSlotButton().textContent).toBe("More");
     expect(moreSlot()?.hasAttribute("data-active-from")).toBe(false);
@@ -158,7 +158,9 @@ describe("ModeNav — active page held in the overflow", () => {
       ["recommend", "4", "/therapy-compass/recommend"],
       ["pathways", "5", "/therapy-compass/pathways"],
     ] as const) {
-      const { unmount } = render(<ModeNav items={sevenItems} label="Therapy pages" activeId={activeId} />);
+      const { unmount } = render(
+        <ModeNav items={sevenItems} label="Therapy pages" densityProfile="extended" activeId={activeId} />,
+      );
       expect(moreSlot()?.getAttribute("data-active-from"), activeId).toBe(band);
       // The page's own slot always carries `aria-current`; CSS decides which of
       // the two is on screen at a given width.
