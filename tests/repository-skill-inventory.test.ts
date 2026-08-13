@@ -10,9 +10,7 @@ import {
 
 describe("repository skill inventory", () => {
   it("fails closed when a repository skill disappears", () => {
-    const files = discoverRepositorySkillFiles().filter(
-      ({ relative }) => relative !== ".claude/skills/gates/SKILL.md",
-    );
+    const files = discoverRepositorySkillFiles().filter(({ relative }) => relative !== ".claude/skills/gates/SKILL.md");
     const result = validateRepositorySkillPolicies(files);
 
     const expected = expectedRepositorySkillSurfaceCounts.Claude;
@@ -23,10 +21,7 @@ describe("repository skill inventory", () => {
   });
 
   it("requires staging before an inbox request can be committed", () => {
-    const issues = fs.readFileSync(
-      path.resolve(import.meta.dirname, "../.claude/skills/issues/SKILL.md"),
-      "utf8",
-    );
+    const issues = fs.readFileSync(path.resolve(import.meta.dirname, "../.claude/skills/issues/SKILL.md"), "utf8");
 
     expect(issues).toContain("git add -- docs/outstanding-issues-inbox/<uuid>.json");
     expect(issues).toContain("git commit --only docs/outstanding-issues-inbox/<uuid>.json");
