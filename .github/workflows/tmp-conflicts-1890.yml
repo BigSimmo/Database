@@ -1,0 +1,40 @@
+name: Temporary conflict inspection 1890
+
+on:
+  push:
+    branches: [codex/tmp-conflicts-1890-20260813]
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: claude/ledger-tasks-fable-xhl7xb
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Guard exact head
+        run: test "$(git rev-parse HEAD)" = "500e41c6d8347163ad388bfada991317b7df4dbf"
+
+      - name: Inspect merge conflicts against current main
+        run: |
+          git fetch origin main
+          set +e
+          git merge --no-commit --no-ff origin/main
+          status=$?
+          set -e
+          echo "merge_exit=$status"
+          echo "CONFLICT_FILES_BEGIN"
+          git diff --name-only --diff-filter=U
+          echo "CONFLICT_FILES_END"
+          for file in $(git diff --name-only --diff-filter=U); do
+            echo "===== $file ====="
+            grep -n -B 25 -A 60 '^<<<<<<<' "$file" || true
+          done
+          git merge --abort || true
