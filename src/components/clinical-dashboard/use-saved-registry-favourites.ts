@@ -52,8 +52,8 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
   const savedForms = favourites.form;
   const savedDifferentials = favourites.differential;
 
-  const services = useRegistryRecords("service", { enabled: savedServices.length > 0 });
-  const forms = useRegistryRecords("form", { enabled: savedForms.length > 0 });
+  const services = useRegistryRecords("service", { enabled: savedServices.length > 0, view: "search" });
+  const forms = useRegistryRecords("form", { enabled: savedForms.length > 0, view: "search" });
 
   const items = useMemo(() => {
     const savedServiceSet = new Set(savedServices);

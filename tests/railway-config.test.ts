@@ -40,10 +40,18 @@ describe("Railway config as code", () => {
 
   it("ships the local modules imported by next.config.ts in the app runner", () => {
     expect(appDockerfile).toContain("COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts");
+    expect(appDockerfile).toContain(
+      "COPY --from=build /app/src/lib/observability/sentry-release.ts ./src/lib/observability/sentry-release.ts",
+    );
     expect(appDockerfile).toContain("COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts");
     expect(appDockerfile).toContain(
       "COPY --from=build /app/src/components/therapy-compass/data/generated-assets.ts ./src/components/therapy-compass/data/generated-assets.ts",
     );
+  });
+
+  it("admits Railway's non-secret deployment SHA into the build release", () => {
+    expect(appDockerfile).toContain("ARG RAILWAY_GIT_COMMIT_SHA=");
+    expect(appDockerfile).toContain("ENV RAILWAY_GIT_COMMIT_SHA=${RAILWAY_GIT_COMMIT_SHA}");
   });
 
   it("uses the deep readiness endpoint for app rolling deploys", () => {

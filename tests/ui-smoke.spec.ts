@@ -1717,7 +1717,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("phone mode menu opens tall enough to show the full mode list without scrolling", async ({ page }) => {
+  test("phone mode menu groups the catalogue by clinical intent and keeps every mode reachable", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/");
@@ -1735,38 +1735,73 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeTrigger).toHaveAttribute("aria-expanded", "true");
     await expect(appModeTrigger).toHaveAttribute("aria-controls", "app-mode-menu");
 
-    // Full list must be present and visible without sheet-body scrolling on this viewport.
+    // The full catalogue remains in one radio menu, but the phone presentation
+    // now groups it into the three clinical jobs clinicians scan for first.
     const modeOptions = appModeMenu.getByRole("menuitemradio");
     const modeCount = await modeOptions.count();
     expect(modeCount).toBeGreaterThanOrEqual(10);
+    await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
     await expect(modeOptions.first()).toBeInViewport();
-    await expect(modeOptions.nth(modeCount - 1)).toBeInViewport();
+    await expect(modeOptions.first()).toHaveAttribute("aria-checked", "true");
+    await expect(modeOptions.first()).toContainText("Source-backed clinical answer");
 
-    const sheetBodyNeedsScroll = await modeSheet.evaluate((panel) => {
-      const body = [...panel.querySelectorAll("div")].find((element) => {
-        const { overflowY } = getComputedStyle(element);
-        return overflowY === "auto" || overflowY === "scroll";
-      });
-      if (!body) return true;
-      return body.scrollHeight > body.clientHeight + 1;
+    // Icon tiles and glyphs use one optical scale even though the canonical
+    // Lucide drawings have different silhouettes.
+    const iconGeometry = await appModeMenu.locator("[data-mode-icon]").evaluateAll((icons) =>
+      icons.map((icon) => {
+        const tile = icon.getBoundingClientRect();
+        const glyph = icon.querySelector("svg")?.getBoundingClientRect();
+        return {
+          tile: [Math.round(tile.width), Math.round(tile.height)],
+          glyph: glyph ? [Math.round(glyph.width), Math.round(glyph.height)] : null,
+        };
+      }),
+    );
+    expect(iconGeometry).toHaveLength(modeCount);
+    expect(new Set(iconGeometry.map(({ tile }) => tile.join("x")))).toEqual(new Set(["40x40"]));
+    expect(new Set(iconGeometry.map(({ glyph }) => glyph?.join("x")))).toEqual(new Set(["20x20"]));
+
+    const closeButton = modeSheet.getByRole("button", { name: "Close mode menu" });
+    const closeGeometry = await closeButton.evaluate((button) => {
+      const bounds = button.getBoundingClientRect();
+      return {
+        width: Math.round(bounds.width),
+        height: Math.round(bounds.height),
+        radius: getComputedStyle(button).borderRadius,
+      };
     });
-    expect(sheetBodyNeedsScroll).toBe(false);
+    expect(closeGeometry.width).toBeGreaterThanOrEqual(44);
+    expect(closeGeometry.height).toBeGreaterThanOrEqual(44);
+    expect(Number.parseFloat(closeGeometry.radius)).toBeGreaterThanOrEqual(22);
 
-    // Scroll the sheet body so a lower mode is interactable, then select it.
-    // Selecting a mode closes the sheet and retargets the composer; it stays on
-    // the shared home rather than navigating to /tools.
+    // A lower group remains reachable through the sheet's own scroll owner.
+    // Selecting a mode closes the sheet and retargets the shared home.
     const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
+    await toolsMode.scrollIntoViewIfNeeded();
     await expect(toolsMode).toBeVisible();
     await toolsMode.click();
 
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeMenu).toHaveCount(0);
     await expect(page).toHaveURL(/\/\?mode=tools\b/);
-    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
+    const toolsTrigger = page.getByRole("button", { name: "Mode Tools" });
+    await expect(toolsTrigger).toBeVisible();
     await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
+
+    // Reopening on a mode in a lower group must position that selected row in
+    // the sheet's own scrollport, without requiring a hunt from the top.
+    await toolsTrigger.click();
+    const reopenedToolsMode = page.getByRole("menu", { name: "Choose app mode" }).getByRole("menuitemradio", {
+      name: /^Tools\b/,
+    });
+    await expect(reopenedToolsMode).toHaveAttribute("aria-checked", "true");
+    await expect(reopenedToolsMode).toBeInViewport();
+    await expect(page.getByText("Currently Tools", { exact: true })).toBeVisible();
   });
 
   test("phone mode menu dismisses via backdrop and restores focus to the Mode button", async ({ page }) => {
