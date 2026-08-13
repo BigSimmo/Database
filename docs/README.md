@@ -88,7 +88,7 @@ npm run docs:check-links
 - [codex-prompt-playbook.md](codex-prompt-playbook.md) — copy/paste prompts for common repo work
 - [codex-cloud.md](codex-cloud.md) — reproducible provider-free Codex Cloud environment and acceptance check
 - [branch-cleanup-guide.md](branch-cleanup-guide.md) — branch hygiene workflow
-- [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read with `npm run ledger:lookup` (live + archives), write with `npm run ledger:append`, `npm run ledger:dedupe` after sync twins, `npm run ledger:rotate` for quarterly archive
+- [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read with `npm run ledger:lookup` (historical tables + immutable records), write with `npm run ledger:append`, and convert a pre-system active-branch row with `npm run ledger:migrate-legacy`
 
 ## Plans and workstreams (living)
 

@@ -19,6 +19,45 @@ This is the app's first **patient-specific decision-support surface**: output is
 tailored to individual patient parameters rather than presenting the same
 reference content to everyone.
 
+### Scope widened: drug–drug interaction alerting
+
+A later change extended the same profile with the patient's **current medication
+list** and added interaction alerting against it:
+
+- `PatientProfile.medications` (catalogue slugs, same session-scoped store).
+- A generated, reviewable index (`data/medication-interaction-index.json`, built
+  by `scripts/build-medication-interaction-index.ts` from a curated lexicon)
+  resolving the catalogue's prose `Key Interactions` rows to catalogue targets.
+- `src/lib/medication-interactions.ts`, which matches those rows against the
+  entered list and returns severity-toned findings.
+- Red/amber/green/grey verdict edges on prescribing result rows, and a matched
+  -interactions block on the medication detail page.
+
+This is a **material widening** of the question this note is open on. Interaction
+checking is a canonical clinical-decision-support function, and unlike the
+physiology considerations it produces an alert about a specific _combination_ the
+clinician has entered. The reviewer's questions below should be answered for this
+surface too, not only for the original considerations feature.
+
+Mitigations specific to the interaction surface:
+
+- Green never means "safe". It means "no interaction found among the medications
+  you entered", and is unreachable whenever any interaction row on that
+  medication could not be machine-resolved — those degrade to a neutral
+  "N rows need manual review" state instead (`composeMedicationVerdict`).
+- Every alert renders the **verbatim** catalogue row text; the tool never
+  paraphrases a clinical statement.
+- The medication picker accepts catalogue drugs only, so a clinician cannot type
+  a drug the tool has no data for and read the resulting silence as an all-clear.
+- Colour is never the only channel: each verdict also carries an icon and a text
+  label.
+
+Residual risk the reviewer should weigh: the lexicon is hand-curated, so a missed
+term is a false negative. It is fail-safe by construction (unresolved → grey, not
+green) but the resolution rate is not 100% — currently 400 of 523 rows resolve,
+and `tests/medication-interaction-lexicon-coverage.test.ts` ratchets that figure
+so it cannot silently regress.
+
 ## Why this needs a classification decision
 
 Software that provides patient-specific treatment/prescribing recommendations

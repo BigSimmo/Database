@@ -113,8 +113,8 @@ it before you need it:
   re-set it (`alter database ... set ...`) on the restored project.
 - **Edge functions** — deploy `indexing-v3-agent` (and the ingestion worker
   function) separately via the CLI.
-- **Dashboard config** — auth providers (magic link, Google/Microsoft SSO
-  redirect URLs), connection-pool caps (the documented 10-connection auth cap
+- **Dashboard config** — auth providers (magic link, Apple/Google/Microsoft SSO
+  redirect URLs and the rotating Apple web OAuth secret), connection-pool caps (the documented 10-connection auth cap
   is dashboard-only), API keys (publishable + service role are per-project;
   every consumer needs the new values), `E2E_USER_*` test accounts.
 - **Role settings** — e.g. `alter role authenticator set
