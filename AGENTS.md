@@ -812,6 +812,23 @@ named PR). Future process only.
   pushes; it fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads still use
   `npm run sync:pr-branches` / `:apply` with a human `gh` identity — never bot
   `update-branch`.
+- At the first PR snapshot, collect unresolved review threads as well as check state. Triage and
+  repair clear actionable threads before waiting for the long CI tail, so a late bot finding does
+  not turn one otherwise-green run into a full second run. Reply before resolving; leave ambiguous
+  or product-sensitive threads open for the owner.
+- Babysit dormant: observe a fresh CI run only at a meaningful stage boundary, then at most once
+  every five minutes for no longer than 30 minutes per run. If it remains queued or in progress at
+  that limit, record the run URL as deferred and continue the sweep. Prefer a terminal-event wait
+  over repeated log reads, never stream logs or poll minute-by-minute, and re-read the exact
+  head/base only when a check settles or immediately before a final audit.
+- For a sweep that may need local repair, prepare one isolated, exact-lock worktree before the first
+  local gate with `node scripts/setup-codex-worktree.mjs`. It reuses only a complete byte-identical
+  install or performs the locked install once; do not create partial dependency junctions that make
+  local lint/typecheck appear unavailable.
+- When the repository merge queue is enabled, treat queue state as read-only during a Run PR sweep.
+  Report active validation capacity and failed or conflicting entries, but do not configure queue
+  concurrency/grouping or add, remove, or re-queue entries without separate explicit user
+  authorization.
 - When `gh pr checks` cannot read check runs with the current token, query the Actions runs for the
   exact head SHA instead; do not report CI as unverifiable until that read-only fallback has also
   failed.

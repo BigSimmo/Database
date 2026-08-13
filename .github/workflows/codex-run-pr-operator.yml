@@ -1,0 +1,999 @@
+name: Codex Run PR operator
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Open same-repository PR number to repair"
+        required: true
+        type: string
+      codex_task_url:
+        description: "Codex task URL containing the user's explicit authorization for this PR"
+        required: true
+        type: string
+      confirmation:
+        description: "Type: I authorized this PR in the linked Codex task"
+        required: true
+        type: string
+
+concurrency:
+  group: codex-run-pr-${{ inputs.pr_number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  prepare:
+    name: Validate request and collect bounded PR evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      pr_number: ${{ steps.context.outputs.pr_number }}
+      expected_head: ${{ steps.context.outputs.expected_head }}
+      head_ref: ${{ steps.context.outputs.head_ref }}
+      base_ref: ${{ steps.context.outputs.base_ref }}
+      base_sha: ${{ steps.context.outputs.base_sha }}
+      context_sha256: ${{ steps.context.outputs.context_sha256 }}
+    steps:
+      - name: Validate deliberate human dispatch
+        env:
+          DISPATCH_ACTOR: ${{ github.actor }}
+          DISPATCH_CONFIRMATION: ${{ inputs.confirmation }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$DISPATCH_ACTOR" = "BigSimmo" || {
+            echo "::error::Only BigSimmo may dispatch the Codex PR operator."
+            exit 1
+          }
+          test "$DISPATCH_CONFIRMATION" = "I authorized this PR in the linked Codex task" || {
+            echo "::error::The exact human authorization confirmation is required."
+            exit 1
+          }
+
+      - name: Validate target and collect bounded context
+        id: context
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const fs = require("node:fs");
+            const crypto = require("node:crypto");
+            const path = require("node:path");
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = Number(context.payload.inputs.pr_number);
+            const authorizationTaskUrl = context.payload.inputs.codex_task_url;
+            const actor = context.actor;
+
+            if (!Number.isSafeInteger(prNumber) || prNumber < 1) {
+              core.setFailed("A positive integer pull-request number is required.");
+              return;
+            }
+            const taskUrlPattern = /^https:\/\/chatgpt\.com\/codex\/(?:cloud\/)?tasks\/task_[A-Za-z0-9_]+\/?$/u;
+            if (!taskUrlPattern.test(authorizationTaskUrl)) {
+              core.setFailed("A valid Codex task URL is required as the authorization audit reference.");
+              return;
+            }
+
+            const { data: identity } = await github.rest.users.getAuthenticated();
+            if (identity.login !== "BigSimmo" || identity.type !== "User") {
+              core.setFailed("GH_TOKEN is not the intended BigSimmo human operator identity.");
+              return;
+            }
+
+            const permission = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner,
+              repo,
+              username: actor,
+            });
+            if (!new Set(["admin", "maintain", "write"]).has(permission.data.permission)) {
+              core.setFailed("Only a trusted repository writer may dispatch the Codex PR operator.");
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            if (pr.state !== "open" || pr.merged) {
+              core.setFailed("The target pull request must be open and unmerged.");
+              return;
+            }
+            if (pr.head.repo?.full_name !== `${owner}/${repo}`) {
+              core.setFailed("Codex Run PR supports same-repository head branches only.");
+              return;
+            }
+            const protectedBranch = /^(?:main|master|develop|release(?:\/|$))/u;
+            const validBranch = /^(?!\/)(?!.*\.\.)(?!.*@\{)[A-Za-z0-9._\/-]+$/u;
+            if (!validBranch.test(pr.head.ref) || protectedBranch.test(pr.head.ref)) {
+              core.setFailed("The pull request head is protected or has an unsafe branch name.");
+              return;
+            }
+            const labels = new Set(pr.labels.map((label) => label.name.toLowerCase()));
+            if (["hold", "do-not-merge", "skip-branch-sync", "skip-codex-review"].some((label) => labels.has(label))) {
+              core.setFailed("The pull request is opted out of automated Run PR mutation.");
+              return;
+            }
+            const { data: currentBaseRef } = await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: `heads/${pr.base.ref}`,
+            });
+            const baseSha = currentBaseRef.object.sha;
+            if (!/^[0-9a-f]{40}$/u.test(baseSha)) {
+              core.setFailed("The current base branch did not resolve to an exact commit SHA.");
+              return;
+            }
+
+            // Revalidate the PR after resolving the live base ref. A retarget
+            // between pulls.get and git.getRef must fail closed rather than
+            // publishing evidence for one base and mutating another.
+            const { data: revalidatedPr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            if (
+              revalidatedPr.state !== "open" ||
+              revalidatedPr.merged ||
+              revalidatedPr.base.ref !== pr.base.ref ||
+              revalidatedPr.head.sha !== pr.head.sha
+            ) {
+              core.setFailed("The PR changed while its live base ref was being resolved.");
+              return;
+            }
+
+            const threads = [];
+            let unresolvedThreadCount = 0;
+            let threadCursor = null;
+            do {
+              const result = await github.graphql(
+                `query Threads($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      reviewThreads(first: 100, after: $cursor) {
+                        nodes {
+                          id
+                          isResolved
+                          isOutdated
+                          path
+                          line
+                          comments(first: 100) {
+                            totalCount
+                            nodes { databaseId body author { login } createdAt }
+                          }
+                          latestComment: comments(last: 1) { nodes { databaseId } }
+                        }
+                        pageInfo { endCursor hasNextPage }
+                      }
+                    }
+                  }
+                }`,
+                { owner, repo, number: prNumber, cursor: threadCursor },
+              );
+              const connection = result.repository.pullRequest.reviewThreads;
+              for (const thread of connection.nodes) {
+                if (thread.isResolved) continue;
+                unresolvedThreadCount += 1;
+                if (threads.length >= 50) continue;
+                threads.push({
+                  id: thread.id,
+                  is_outdated: thread.isOutdated,
+                  path: thread.path,
+                  line: thread.line,
+                  root_comment_id: thread.comments.nodes[0]?.databaseId ?? null,
+                  latest_comment_id: thread.latestComment.nodes[0]?.databaseId ?? null,
+                  comment_count: thread.comments.totalCount,
+                  comments: thread.comments.nodes.map((comment) => ({
+                    id: comment.databaseId,
+                    author: comment.author?.login ?? "unknown",
+                    body: (comment.body || "").slice(0, 8000),
+                    created_at: comment.createdAt,
+                  })),
+                });
+              }
+              threadCursor = connection.pageInfo.hasNextPage ? connection.pageInfo.endCursor : null;
+            } while (threadCursor);
+
+            const allCheckRuns = await github.paginate(github.rest.checks.listForRef, {
+              owner, repo, ref: pr.head.sha, per_page: 100,
+            });
+            const checkRuns = allCheckRuns.map((check) => ({
+              id: check.id,
+              name: check.name,
+              status: check.status,
+              conclusion: check.conclusion,
+              details_url: check.details_url,
+              output: {
+                title: (check.output?.title || "").slice(0, 1000),
+                summary: (check.output?.summary || "").slice(0, 12000),
+                text: (check.output?.text || "").slice(0, 12000),
+              },
+            }));
+            const failedChecks = allCheckRuns
+              .filter((check) => ["failure", "cancelled", "timed_out", "action_required"].includes(check.conclusion))
+              .slice(0, 20)
+              .map((check) => ({
+                id: check.id,
+                name: check.name,
+                conclusion: check.conclusion,
+                details_url: check.details_url,
+                output: {
+                  title: (check.output?.title || "").slice(0, 1000),
+                  summary: (check.output?.summary || "").slice(0, 12000),
+                  text: (check.output?.text || "").slice(0, 12000),
+                },
+              }));
+
+            const reviewsPage = await github.paginate(github.rest.pulls.listReviews, {
+              owner,
+              repo,
+              pull_number: prNumber,
+              per_page: 100,
+            });
+            const reviews = reviewsPage.map((review) => ({
+              id: review.id,
+              author: review.user?.login ?? "unknown",
+              state: review.state,
+              submitted_at: review.submitted_at,
+              commit_id: review.commit_id,
+              body: (review.body || "").slice(0, 8000),
+            }));
+            const commentsPage = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const issueComments = commentsPage.map((comment) => ({
+              id: comment.id,
+              author: comment.user?.login ?? "unknown",
+              created_at: comment.created_at,
+              body: (comment.body || "").slice(0, 8000),
+            }));
+
+            let requiredChecks = { available: false, contexts: [], checks: [], reason: "not queried" };
+            try {
+              const protection = await github.rest.repos.getBranchProtection({
+                owner,
+                repo,
+                branch: pr.base.ref,
+              });
+              requiredChecks = {
+                available: true,
+                contexts: protection.data.required_status_checks?.contexts ?? [],
+                checks: protection.data.required_status_checks?.checks ?? [],
+                reason: null,
+              };
+            } catch (error) {
+              requiredChecks.reason = `Unavailable: ${error.status || "unknown status"}`;
+            }
+
+            const openPrPage = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: "open",
+              per_page: 100,
+            });
+            const openPullRequests = openPrPage.map((openPr) => ({
+              number: openPr.number,
+              title: openPr.title,
+              draft: openPr.draft,
+              head_ref: openPr.head.ref,
+              head_sha: openPr.head.sha,
+              base_ref: openPr.base.ref,
+              url: openPr.html_url,
+            }));
+
+            const workflowRunPage = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+              owner, repo, head_sha: pr.head.sha, per_page: 100,
+            });
+            const failedRuns = [];
+            const workflowRuns = workflowRunPage.map((run) => ({
+              id: run.id,
+              name: run.name,
+              event: run.event,
+              status: run.status,
+              conclusion: run.conclusion,
+              head_sha: run.head_sha,
+              html_url: run.html_url,
+            }));
+            for (const run of workflowRunPage) {
+              if (failedRuns.length >= 5) break;
+              if (run.conclusion !== "failure") continue;
+              const { data: jobsPage } = await github.rest.actions.listJobsForWorkflowRun({
+                owner,
+                repo,
+                run_id: run.id,
+                per_page: 100,
+              });
+              const failedJobs = [];
+              for (const job of jobsPage.jobs) {
+                if (failedJobs.length >= 3) break;
+                if (!["failure", "cancelled", "timed_out", "action_required"].includes(job.conclusion)) continue;
+                let boundedLog = "";
+                try {
+                  const response = await github.request(
+                    "GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs",
+                    { owner, repo, job_id: job.id },
+                  );
+                  const raw = Buffer.isBuffer(response.data)
+                    ? response.data.toString("utf8")
+                    : response.data instanceof ArrayBuffer
+                      ? Buffer.from(response.data).toString("utf8")
+                      : ArrayBuffer.isView(response.data)
+                        ? Buffer.from(response.data.buffer, response.data.byteOffset, response.data.byteLength).toString("utf8")
+                    : String(response.data || "");
+                  boundedLog = raw.slice(-20000);
+                } catch (error) {
+                  boundedLog = `Log unavailable: ${error.status || "unknown status"}`;
+                }
+                failedJobs.push({
+                  id: job.id,
+                  name: job.name,
+                  conclusion: job.conclusion,
+                  html_url: job.html_url,
+                  bounded_log_tail: boundedLog,
+                });
+              }
+              failedRuns.push({
+                id: run.id,
+                name: run.name,
+                conclusion: run.conclusion,
+                head_sha: run.head_sha,
+                html_url: run.html_url,
+                jobs: failedJobs,
+              });
+            }
+
+            const compare = await github.rest.repos.compareCommitsWithBasehead({
+              owner,
+              repo,
+              basehead: `${pr.head.sha}...${baseSha}`,
+            });
+            const payload = {
+              generated_at: new Date().toISOString(),
+              repository: `${owner}/${repo}`,
+              actor,
+              authorization_task_url: authorizationTaskUrl,
+              pull_request: {
+                number: pr.number,
+                url: pr.html_url,
+                title: pr.title,
+                body: (pr.body || "").slice(0, 20000),
+                head_ref: pr.head.ref,
+                head_sha: pr.head.sha,
+                base_ref: pr.base.ref,
+                base_sha: baseSha,
+                draft: pr.draft,
+                mergeable: pr.mergeable,
+                mergeable_state: pr.mergeable_state,
+                behind_by: compare.data.ahead_by,
+                labels: [...labels],
+              },
+              unresolved_review_threads: threads,
+              unresolved_review_thread_count: unresolvedThreadCount,
+              reviews,
+              issue_comments: issueComments,
+              required_checks: requiredChecks,
+              check_runs: checkRuns,
+              failed_checks: failedChecks,
+              workflow_runs: workflowRuns,
+              failed_workflow_runs: failedRuns,
+              open_pull_requests: openPullRequests,
+            };
+
+            const artifactDir = path.join(process.env.GITHUB_WORKSPACE, ".codex-run-pr");
+            fs.mkdirSync(artifactDir, { recursive: true });
+            const serialized = `${JSON.stringify(payload, null, 2)}\n`;
+            fs.writeFileSync(path.join(artifactDir, "context.json"), serialized);
+            core.setOutput("pr_number", String(pr.number));
+            core.setOutput("expected_head", pr.head.sha);
+            core.setOutput("head_ref", pr.head.ref);
+            core.setOutput("base_ref", pr.base.ref);
+            core.setOutput("base_sha", baseSha);
+            core.setOutput("context_sha256", crypto.createHash("sha256").update(serialized).digest("hex"));
+
+      - name: Upload bounded PR context
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: codex-run-pr-context-${{ github.run_id }}
+          path: .codex-run-pr/context.json
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
+  repair:
+    name: Repair locally without GitHub credentials
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact PR head without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.expected_head }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download bounded PR context
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: codex-run-pr-context-${{ github.run_id }}
+          path: .codex-run-pr
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.15.0
+          cache: npm
+
+      - name: Install locked dependencies without repository lifecycle scripts
+        shell: bash
+        run: npm ci --ignore-scripts
+
+      - name: Prepare isolated Codex user and public Git refs
+        env:
+          EXPECTED_HEAD: ${{ needs.prepare.outputs.expected_head }}
+          HEAD_REF: ${{ needs.prepare.outputs.head_ref }}
+          BASE_REF: ${{ needs.prepare.outputs.base_ref }}
+          BASE_SHA: ${{ needs.prepare.outputs.base_sha }}
+          CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(sha256sum .codex-run-pr/context.json | awk '{print $1}')" = "$CONTEXT_SHA256"
+          sudo useradd --create-home --shell /bin/bash codex-operator
+          # GitHub-hosted runners keep /home/runner at mode 750. The official
+          # codex-action unprivileged-user example grants this group solely so
+          # the repair account can traverse the path to the checkout.
+          sudo usermod --append --groups runner codex-operator
+          git config user.name "BigSimmo"
+          git config user.email "87357024+BigSimmo@users.noreply.github.com"
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags origin \
+            "+refs/heads/$HEAD_REF:refs/remotes/origin/$HEAD_REF" \
+            "+$BASE_SHA:refs/remotes/codex-run-pr/base"
+          test "$(git rev-parse refs/remotes/codex-run-pr/base)" = "$BASE_SHA" || {
+            echo "::error::The exact recorded base commit could not be fetched."
+            exit 1
+          }
+          if ! git merge-base --is-ancestor "$BASE_SHA" HEAD; then
+            if ! git merge-tree --write-tree HEAD "$BASE_SHA" >/dev/null; then
+              echo "::error::The exact recorded base has merge conflicts; operator policy requires a human resolution."
+              exit 1
+            fi
+            git merge --no-edit "$BASE_SHA"
+          fi
+          operator_start_sha="$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$EXPECTED_HEAD" "$operator_start_sha"
+          echo "OPERATOR_START_SHA=$operator_start_sha" >> "$GITHUB_ENV"
+          trusted_dir="$RUNNER_TEMP/codex-run-pr-trusted"
+          mkdir -p "$trusted_dir"
+          git show "$BASE_SHA:.github/codex/prompts/run-pr-operator.md" \
+            > "$trusted_dir/prompt.md"
+          git show "$BASE_SHA:.github/codex/run-pr-result.schema.json" \
+            > "$trusted_dir/result.schema.json"
+          sudo find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 ! -name .git \
+            -exec chown -hR codex-operator:codex-operator {} +
+          sudo chown -R codex-operator:codex-operator "$trusted_dir"
+          sudo -u codex-operator git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          sudo -u codex-operator test -x "$GITHUB_WORKSPACE"
+          sudo -u codex-operator test -r "$GITHUB_WORKSPACE/.git/HEAD"
+          sudo -u codex-operator test -r "$trusted_dir/prompt.md"
+          sudo -u codex-operator test -w "$GITHUB_WORKSPACE/.codex-run-pr"
+          if sudo -u codex-operator test -w "$GITHUB_WORKSPACE/.git/HEAD"; then
+            echo "::error::The repair account unexpectedly has write access to Git metadata."
+            exit 1
+          fi
+          sudo -u codex-operator git -C "$GITHUB_WORKSPACE" rev-parse --verify HEAD >/dev/null
+
+      - name: Run official Codex repair action
+        id: codex
+        uses: openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ runner.temp }}/codex-run-pr-trusted/prompt.md
+          output-file: .codex-run-pr/result.json
+          output-schema-file: ${{ runner.temp }}/codex-run-pr-trusted/result.schema.json
+          permission-profile: ":workspace"
+          codex-args: '["--ephemeral"]'
+          effort: high
+          safety-strategy: unprivileged-user
+          codex-user: codex-operator
+          allow-users: BigSimmo
+
+      - name: Stop repair processes and revoke workspace ownership
+        if: always()
+        shell: bash
+        run: |
+          sudo pkill -KILL -u codex-operator 2>/dev/null || true
+          sudo find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 ! -name .git \
+            -exec chown -hR "$(id -u):$(id -g)" {} +
+          if [ -e "$RUNNER_TEMP/codex-run-pr-trusted" ]; then
+            sudo chown -hR "$(id -u):$(id -g)" "$RUNNER_TEMP/codex-run-pr-trusted"
+          fi
+
+      - name: Seal local result as a validated Git bundle
+        env:
+          EXPECTED_HEAD: ${{ needs.prepare.outputs.expected_head }}
+          HEAD_REF: ${{ needs.prepare.outputs.head_ref }}
+          BASE_REF: ${{ needs.prepare.outputs.base_ref }}
+          CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .codex-run-pr/context.json
+          test ! -L .codex-run-pr/context.json
+          test -s .codex-run-pr/context.json
+          test -f .codex-run-pr/result.json
+          test ! -L .codex-run-pr/result.json
+          test -s .codex-run-pr/result.json
+          test "$(sha256sum .codex-run-pr/context.json | awk '{print $1}')" = "$CONTEXT_SHA256"
+          test "$OPERATOR_START_SHA" = "$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$EXPECTED_HEAD" "$OPERATOR_START_SHA"
+          jq -e '
+            type == "object" and
+            (keys == ["checks", "rerun_failed_run_ids", "summary", "thread_dispositions"]) and
+            (.summary | type == "string" and length > 0 and length <= 4000) and
+            (.checks | type == "array" and length <= 50 and all(.[]; type == "string" and length > 0 and length <= 500)) and
+            (.thread_dispositions | type == "array" and length <= 50 and all(.[];
+              type == "object" and
+              (keys == ["action", "reply", "thread_id"]) and
+              (.thread_id | type == "string" and length > 0 and length <= 200) and
+              (.action == "resolve_fixed" or .action == "resolve_no_change" or .action == "leave_open") and
+              (.reply | type == "string" and length > 0 and length <= 4000)
+            )) and
+            ((.thread_dispositions | map(.thread_id) | length) == (.thread_dispositions | map(.thread_id) | unique | length)) and
+            (.rerun_failed_run_ids | type == "array" and length <= 1 and all(.[]; type == "number" and floor == . and . >= 1))
+          ' .codex-run-pr/result.json >/dev/null
+
+          mapfile -d '' -t changed_paths < <(
+            {
+              git diff --name-only --no-renames -z "$OPERATOR_START_SHA" --
+              git ls-files -z --others --exclude-standard
+            } | sort -zu
+          )
+          publication_paths=()
+          for changed_path in "${changed_paths[@]}"; do
+            case "${changed_path,,}" in
+              .codex-run-pr/*) ;;
+              *) publication_paths+=("$changed_path") ;;
+            esac
+          done
+          changed_paths=("${publication_paths[@]}")
+          if [ "${#changed_paths[@]}" -gt 100 ]; then
+            echo "::error::Codex repair changed more than 100 paths; refusing publication."
+            exit 1
+          fi
+          for changed_path in "${changed_paths[@]}"; do
+            case "${changed_path,,}" in
+              .github/*|.codex/*|.claude/*|.agents/*|agents.md|claude.md|docs/codex-review-protocol.md|supabase/*|.env|.env.*|*/.env|*/.env.*|.npmrc|*/.npmrc|.yarnrc|*/.yarnrc|.netrc|*/.netrc|.git-credentials|*/.git-credentials|*.pem|*.key|*.p12|*.pfx|*.jks|*.keystore|id_rsa|*/id_rsa|id_ed25519|*/id_ed25519|*credentials*.json|.gitmodules)
+                echo "::error::Codex repair touched prohibited path: $changed_path"
+                exit 1
+                ;;
+            esac
+          done
+          test "$(git rev-parse HEAD)" = "$OPERATOR_START_SHA" || {
+            echo "::error::Codex repair altered Git history instead of leaving publication to the trusted seal."
+            exit 1
+          }
+          git merge-base --is-ancestor "$EXPECTED_HEAD" "$OPERATOR_START_SHA" || {
+            echo "::error::Codex repair rewrote history instead of descending from the exact PR head."
+            exit 1
+          }
+
+          git add -A -- . ':!.codex-run-pr/**'
+          if git diff --cached --raw "$OPERATOR_START_SHA" -- | grep -Eq '^:.* (120000|160000) '; then
+            echo "::error::Codex repair introduced a symbolic link or Git submodule."
+            exit 1
+          fi
+          diff_bytes="$(git diff --cached --binary "$OPERATOR_START_SHA" -- | wc -c)"
+          if [ "$diff_bytes" -gt 1048576 ]; then
+            echo "::error::Codex repair exceeds the 1 MiB publication limit."
+            exit 1
+          fi
+          if ! git diff --cached --quiet; then
+            git -c core.hooksPath=/dev/null commit -m "fix: apply Codex Run PR repair"
+          fi
+          git merge-base --is-ancestor "$EXPECTED_HEAD" HEAD
+          git merge-base --is-ancestor "$OPERATOR_START_SHA" HEAD
+
+          result_sha="$(git rev-parse HEAD)"
+          changed=false
+          bundle_sha=""
+          if [ "$result_sha" != "$EXPECTED_HEAD" ]; then
+            changed=true
+            git branch -f codex-run-pr-result "$result_sha"
+            git bundle create .codex-run-pr/result.bundle refs/heads/codex-run-pr-result "^$EXPECTED_HEAD"
+            bundle_sha="$(sha256sum .codex-run-pr/result.bundle | awk '{print $1}')"
+          fi
+          jq -n \
+            --arg expected_head "$EXPECTED_HEAD" \
+            --arg result_sha "$result_sha" \
+            --arg operator_start_sha "$OPERATOR_START_SHA" \
+            --arg head_ref "$HEAD_REF" \
+            --arg base_ref "$BASE_REF" \
+            --arg context_sha256 "$CONTEXT_SHA256" \
+            --arg bundle_sha256 "$bundle_sha" \
+            --argjson changed "$changed" \
+            '{expected_head:$expected_head,operator_start_sha:$operator_start_sha,result_sha:$result_sha,head_ref:$head_ref,base_ref:$base_ref,context_sha256:$context_sha256,bundle_sha256:$bundle_sha256,changed:$changed}' \
+            > .codex-run-pr/manifest.json
+
+      - name: Upload sealed repair result
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: codex-run-pr-result-${{ github.run_id }}
+          path: |
+            .codex-run-pr/context.json
+            .codex-run-pr/result.json
+            .codex-run-pr/manifest.json
+            .codex-run-pr/result.bundle
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Verify and publish an ordinary fast-forward update
+    needs: [prepare, repair]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      published_sha: ${{ steps.published.outputs.published_sha }}
+      changed: ${{ steps.verify.outputs.changed }}
+    steps:
+      - name: Checkout exact starting head without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.expected_head }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download sealed repair result
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: codex-run-pr-result-${{ github.run_id }}
+          path: .codex-run-pr
+
+      - name: Verify bundle identity, ancestry, and remote race guard
+        id: verify
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: ${{ needs.prepare.outputs.expected_head }}
+          HEAD_REF: ${{ needs.prepare.outputs.head_ref }}
+          BASE_REF: ${{ needs.prepare.outputs.base_ref }}
+          CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r .expected_head .codex-run-pr/manifest.json)" = "$EXPECTED_HEAD"
+          test "$(jq -r .head_ref .codex-run-pr/manifest.json)" = "$HEAD_REF"
+          test "$(jq -r .base_ref .codex-run-pr/manifest.json)" = "$BASE_REF"
+          test "$(jq -r .context_sha256 .codex-run-pr/manifest.json)" = "$CONTEXT_SHA256"
+          test "$(sha256sum .codex-run-pr/context.json | awk '{print $1}')" = "$CONTEXT_SHA256"
+          case "$HEAD_REF" in
+            main|master|develop|release|release/*)
+              echo "::error::Protected branch publication is prohibited."
+              exit 1
+              ;;
+          esac
+
+          changed="$(jq -r .changed .codex-run-pr/manifest.json)"
+          operator_start_sha="$(jq -r .operator_start_sha .codex-run-pr/manifest.json)"
+          result_sha="$(jq -r .result_sha .codex-run-pr/manifest.json)"
+          if [ "$changed" = "true" ]; then
+            expected_bundle_sha="$(jq -r .bundle_sha256 .codex-run-pr/manifest.json)"
+            test "$(sha256sum .codex-run-pr/result.bundle | awk '{print $1}')" = "$expected_bundle_sha"
+            git bundle verify .codex-run-pr/result.bundle
+            git fetch .codex-run-pr/result.bundle \
+              refs/heads/codex-run-pr-result:refs/remotes/codex-run-pr/result
+            test "$(git rev-parse refs/remotes/codex-run-pr/result)" = "$result_sha"
+            git merge-base --is-ancestor "$EXPECTED_HEAD" "$result_sha"
+          else
+            test "$result_sha" = "$EXPECTED_HEAD"
+          fi
+          git merge-base --is-ancestor "$EXPECTED_HEAD" "$operator_start_sha"
+          git merge-base --is-ancestor "$operator_start_sha" "$result_sha"
+
+          remote_head="$(GH_TOKEN="$GITHUB_TOKEN" gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$HEAD_REF" --jq .object.sha)"
+          test "$remote_head" = "$EXPECTED_HEAD" || {
+            echo "::error::The PR head advanced after preparation; refusing a stale publication."
+            exit 1
+          }
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "result_sha=$result_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Publish through the authenticated human operator token
+        if: steps.verify.outputs.changed == 'true'
+        id: push
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          EXPECTED_HEAD: ${{ needs.prepare.outputs.expected_head }}
+          HEAD_REF: ${{ needs.prepare.outputs.head_ref }}
+          RESULT_SHA: ${{ steps.verify.outputs.result_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN" || { echo "::error::GH_TOKEN is not configured."; exit 1; }
+          identity="$(gh api user --jq .login)"
+          test "$identity" = "BigSimmo" || {
+            echo "::error::GH_TOKEN must authenticate the intended BigSimmo operator identity."
+            exit 1
+          }
+          permission="$(gh api "repos/$GITHUB_REPOSITORY" --jq .permissions.push)"
+          test "$permission" = "true" || {
+            echo "::error::GH_TOKEN lacks feature-branch push permission for this repository."
+            exit 1
+          }
+          gh auth setup-git --hostname github.com
+          git push origin "$RESULT_SHA:refs/heads/$HEAD_REF"
+          remote_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$HEAD_REF" --jq .object.sha)"
+          test "$remote_head" = "$RESULT_SHA"
+
+      - name: Record verified published SHA
+        id: published
+        env:
+          CHANGED: ${{ steps.verify.outputs.changed }}
+          EXPECTED_HEAD: ${{ needs.prepare.outputs.expected_head }}
+          RESULT_SHA: ${{ steps.verify.outputs.result_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$CHANGED" = "true" ]; then
+            echo "published_sha=$RESULT_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "published_sha=$EXPECTED_HEAD" >> "$GITHUB_OUTPUT"
+          fi
+
+  mutate:
+    name: Reply, resolve, rerun, and verify bounded mutations
+    needs: [prepare, repair, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Download bounded context and structured result
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: codex-run-pr-result-${{ github.run_id }}
+          path: .codex-run-pr
+
+      - name: Apply only verified PR mutations
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          EXPECTED_HEAD: ${{ needs.prepare.outputs.expected_head }}
+          PUBLISHED_SHA: ${{ needs.publish.outputs.published_sha }}
+          CHANGED: ${{ needs.publish.outputs.changed }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+          CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const fs = require("node:fs");
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = Number(process.env.PR_NUMBER);
+            const expectedHead = process.env.EXPECTED_HEAD;
+            const publishedSha = process.env.PUBLISHED_SHA;
+            const changed = process.env.CHANGED === "true";
+            const contextSha256 = process.env.CONTEXT_SHA256;
+            const contextBytes = fs.readFileSync(".codex-run-pr/context.json");
+            const actualContextSha256 = require("node:crypto").createHash("sha256").update(contextBytes).digest("hex");
+            if (actualContextSha256 !== contextSha256) {
+              core.setFailed("The bounded PR context changed after collection.");
+              return;
+            }
+            const { data: identity } = await github.rest.users.getAuthenticated();
+            if (identity.login !== "BigSimmo" || identity.type !== "User") {
+              core.setFailed("GH_TOKEN is not the intended BigSimmo human operator identity.");
+              return;
+            }
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            if (pr.state !== "open" || pr.head.sha !== publishedSha) {
+              core.setFailed("The PR is closed or its remote head does not match the verified published SHA.");
+              return;
+            }
+
+            const contextData = JSON.parse(fs.readFileSync(".codex-run-pr/context.json", "utf8"));
+            const result = JSON.parse(fs.readFileSync(".codex-run-pr/result.json", "utf8"));
+            const allowedActions = new Set(["resolve_fixed", "resolve_no_change", "leave_open"]);
+            if (
+              !Array.isArray(result.thread_dispositions) ||
+              !Array.isArray(result.rerun_failed_run_ids) ||
+              result.thread_dispositions.length > 50 ||
+              result.rerun_failed_run_ids.length > 1
+            ) {
+              core.setFailed("The structured Codex result is malformed or exceeds mutation bounds.");
+              return;
+            }
+            const allowedThreads = new Map(
+              contextData.unresolved_review_threads.map((thread) => [thread.id, thread]),
+            );
+            const secretPattern = /(?:github_pat_|gh[pousr]_|sk-[A-Za-z0-9_-]{16,}|Bearer\s+[A-Za-z0-9._-]{16,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]+PRIVATE KEY-----)/iu;
+            const sanitizeGeneratedText = (value) =>
+              String(value).replaceAll("@", "@\u200b").replaceAll("<!--", "<\u200b!--");
+            if (typeof result.summary !== "string" || secretPattern.test(result.summary)) {
+              core.setFailed("The generated summary is invalid or resembles credential material.");
+              return;
+            }
+
+            const mutationPlan = [];
+            const handledThreads = new Set();
+            for (const disposition of result.thread_dispositions.slice(0, 50)) {
+              const thread = allowedThreads.get(disposition.thread_id);
+              if (!thread || !thread.root_comment_id) {
+                core.setFailed(`Unknown or unreplyable review thread: ${disposition.thread_id}`);
+                return;
+              }
+              if (handledThreads.has(disposition.thread_id)) {
+                core.setFailed(`Duplicate review-thread disposition: ${disposition.thread_id}`);
+                return;
+              }
+              handledThreads.add(disposition.thread_id);
+              if (
+                !allowedActions.has(disposition.action) ||
+                typeof disposition.reply !== "string" ||
+                disposition.reply.length < 1 ||
+                disposition.reply.length > 4000
+              ) {
+                core.setFailed(`Invalid review-thread disposition: ${disposition.thread_id}`);
+                return;
+              }
+              if (secretPattern.test(disposition.reply)) {
+                core.setFailed("A generated review reply resembled credential material; refusing to post it.");
+                return;
+              }
+              if (disposition.action === "resolve_fixed") {
+                if (!changed) {
+                  core.setFailed("A fixed-thread disposition requires a newly published commit.");
+                  return;
+                }
+              }
+              if (disposition.action === "leave_open") continue;
+
+              const currentThread = await github.graphql(
+                `query CurrentThread($threadId: ID!) {
+                  node(id: $threadId) {
+                    ... on PullRequestReviewThread {
+                      id
+                      isResolved
+                      comments(last: 1) { totalCount nodes { databaseId } }
+                    }
+                  }
+                }`,
+                { threadId: disposition.thread_id },
+              );
+              if (
+                !currentThread.node ||
+                currentThread.node.isResolved ||
+                currentThread.node.comments.totalCount !== thread.comment_count ||
+                currentThread.node.comments.nodes[0]?.databaseId !== thread.latest_comment_id
+              ) {
+                core.setFailed(`Review thread ${disposition.thread_id} changed after evidence collection.`);
+                return;
+              }
+              mutationPlan.push({
+                threadId: disposition.thread_id,
+                rootCommentId: thread.root_comment_id,
+                body: sanitizeGeneratedText(disposition.reply),
+              });
+            }
+
+            let rerunPlan = null;
+            if (!changed && result.rerun_failed_run_ids.length > 0) {
+              const allowedRuns = new Map(
+                contextData.failed_workflow_runs.map((run) => [Number(run.id), run]),
+              );
+              const runId = Number(result.rerun_failed_run_ids[0]);
+              const recordedRun = allowedRuns.get(runId);
+              if (!recordedRun || recordedRun.head_sha !== expectedHead) {
+                core.setFailed("Codex requested a rerun outside the bounded failed-run context.");
+                return;
+              }
+              const { data: currentRun } = await github.rest.actions.getWorkflowRun({
+                owner,
+                repo,
+                run_id: runId,
+              });
+              if (currentRun.head_sha !== expectedHead || currentRun.conclusion !== "failure") {
+                core.setFailed("The requested workflow run is no longer a genuine failed run at the verified head.");
+                return;
+              }
+              rerunPlan = { runId, runAttempt: currentRun.run_attempt };
+            }
+
+            const { data: finalPr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            if (finalPr.state !== "open" || finalPr.head.sha !== publishedSha) {
+              core.setFailed("The PR changed while remote mutations were being preflighted.");
+              return;
+            }
+
+            let resolvedCount = 0;
+            for (const plannedMutation of mutationPlan) {
+              await github.request(
+                "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies",
+                {
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  comment_id: plannedMutation.rootCommentId,
+                  body: plannedMutation.body,
+                },
+              );
+              const resolved = await github.graphql(
+                `mutation ResolveThread($threadId: ID!) {
+                  resolveReviewThread(input: { threadId: $threadId }) {
+                    thread { id isResolved }
+                  }
+                }`,
+                { threadId: plannedMutation.threadId },
+              );
+              if (!resolved.resolveReviewThread.thread.isResolved) {
+                core.setFailed(`Review thread ${plannedMutation.threadId} did not resolve.`);
+                return;
+              }
+              resolvedCount += 1;
+            }
+
+            let rerunCount = 0;
+            if (rerunPlan !== null) {
+              const { data: runBeforeRerun } = await github.rest.actions.getWorkflowRun({
+                owner,
+                repo,
+                run_id: rerunPlan.runId,
+              });
+              if (
+                runBeforeRerun.head_sha !== expectedHead ||
+                runBeforeRerun.conclusion !== "failure" ||
+                runBeforeRerun.run_attempt !== rerunPlan.runAttempt
+              ) {
+                core.setFailed("The failed workflow run changed before the rerun mutation.");
+                return;
+              }
+              await github.request(
+                "POST /repos/{owner}/{repo}/actions/runs/{run_id}/rerun-failed-jobs",
+                { owner, repo, run_id: rerunPlan.runId },
+              );
+              let rerunVerified = false;
+              for (let attempt = 0; attempt < 6; attempt += 1) {
+                const { data: runAfterRerun } = await github.rest.actions.getWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: rerunPlan.runId,
+                });
+                if (
+                  runAfterRerun.run_attempt > rerunPlan.runAttempt ||
+                  runAfterRerun.status !== "completed"
+                ) {
+                  rerunVerified = true;
+                  break;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+              }
+              if (!rerunVerified) {
+                core.setFailed("The failed-job rerun request did not produce a new observable run attempt.");
+                return;
+              }
+              rerunCount = 1;
+            }
+
+            const summary = sanitizeGeneratedText(result.summary).slice(0, 4000);
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body: [
+                "<!-- codex-run-pr-operator -->",
+                summary,
+                "",
+                `Verified head: \`${publishedSha}\``,
+                `Resolved review threads: ${resolvedCount}`,
+                `Failed workflow reruns: ${rerunCount}`,
+                `Run: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+              ].join("\n"),
+            });

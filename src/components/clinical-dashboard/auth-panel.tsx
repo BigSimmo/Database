@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clock3,
   Heart,
+  Loader2,
   LogOut,
   Mail,
   ShieldAlert,
@@ -13,8 +14,8 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { ProviderBrandIcon } from "@/components/clinical-dashboard/provider-brand-icons";
-import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
+import { ProviderBrandIcon, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
+import { AUTH_EMAIL_STORAGE_KEY, type OAuthProvider, useAuthSession } from "@/lib/supabase/client";
 import {
   AsyncButton,
   cn,
@@ -22,7 +23,6 @@ import {
   fieldIcon,
   fieldLabel,
   floatingControl,
-  ignoreUnavailableActivation,
   InlineNotice,
   panelSubtle,
   primaryControl,
@@ -32,6 +32,11 @@ import {
 /** Pragmatic email shape check for inline feedback; the server remains the source of truth. */
 function isLikelyEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function providerId(provider: SsoProvider): OAuthProvider {
+  if (provider === "Apple") return "apple";
+  return provider === "Google" ? "google" : "azure";
 }
 
 const authEmailChangeEvent = "clinical-kb-auth-email-change";
@@ -67,14 +72,17 @@ export function AuthPanel() {
   const savedEmail = useSyncExternalStore(subscribeAuthEmail, getAuthEmailSnapshot, getServerAuthEmailSnapshot);
   const [draftEmail, setDraftEmail] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [pendingProvider, setPendingProvider] = useState<SsoProvider | null>(null);
   const email = draftEmail ?? savedEmail;
   const busy = status === "loading";
+  const actionBusy = busy || pendingProvider !== null;
   const isExpired = status === "expired";
   const emailInputId = "auth-email";
   const emailErrorId = "auth-email-error";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (actionBusy) return;
     const trimmed = email.trim();
     if (!trimmed) {
       setEmailError("Enter your email address to continue.");
@@ -85,11 +93,18 @@ export function AuthPanel() {
       return;
     }
     setEmailError(null);
+    setPendingProvider(null);
     await signInWithEmail(trimmed);
   }
 
-  async function chooseProvider(provider: "Google" | "Microsoft") {
-    await signInWithOAuth(provider === "Google" ? "google" : "azure");
+  async function chooseProvider(provider: SsoProvider) {
+    if (actionBusy) return;
+    setPendingProvider(provider);
+    try {
+      await signInWithOAuth(providerId(provider));
+    } finally {
+      setPendingProvider(null);
+    }
   }
 
   if (!isConfigured) {
@@ -202,9 +217,9 @@ export function AuthPanel() {
         </label>
         <AsyncButton
           type="submit"
-          busy={busy}
+          busy={busy && pendingProvider === null}
           busyLabel={isExpired ? "Sending fresh link…" : "Sending link…"}
-          disabled={!email.trim()}
+          disabled={actionBusy || !email.trim()}
           idleIcon={<Mail aria-hidden="true" className="h-4 w-4" />}
           className={cn(primaryControl, "w-full")}
         >
@@ -218,14 +233,16 @@ export function AuthPanel() {
         </div>
 
         <div className="grid gap-2">
-          <ProviderButton provider="Apple" disabled />
-          <ProviderButton provider="Google" onClick={() => chooseProvider("Google")} />
-          <ProviderButton provider="Microsoft" onClick={() => chooseProvider("Microsoft")} />
+          {(["Apple", "Google", "Microsoft"] as const).map((provider) => (
+            <ProviderButton
+              key={provider}
+              provider={provider}
+              busy={actionBusy}
+              pending={pendingProvider === provider}
+              onClick={() => void chooseProvider(provider)}
+            />
+          ))}
         </div>
-
-        <p id="auth-apple-sign-in-unavailable" className="sr-only">
-          Apple sign-in is unavailable. Continue with email, Google, or Microsoft.
-        </p>
 
         <div className="grid grid-cols-3 gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] p-2 shadow-[var(--shadow-inset)]">
           <AuthBenefit icon={SlidersHorizontal} label="Clinical defaults" />
@@ -248,31 +265,33 @@ export function AuthPanel() {
 function ProviderButton({
   provider,
   onClick,
-  disabled = false,
+  busy,
+  pending,
 }: {
-  provider: "Apple" | "Google" | "Microsoft";
-  onClick?: () => void;
-  disabled?: boolean;
+  provider: SsoProvider;
+  onClick: () => void;
+  busy: boolean;
+  pending: boolean;
 }) {
   return (
     <button
       type="button"
-      onClick={disabled ? ignoreUnavailableActivation : onClick}
-      aria-disabled={disabled || undefined}
-      title={disabled ? "Apple sign-in is unavailable — coming soon" : undefined}
-      aria-describedby={disabled ? "auth-apple-sign-in-unavailable" : undefined}
-      // `aria-disabled` keeps the tab stop so a keyboard user reaches the reason
-      // above; the click is inert instead. Styling follows the attribute, and the
-      // hover pair is suppressed because an aria-disabled button still hovers.
-      className="flex min-h-tap w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:not-aria-disabled:border-[color:var(--border-strong)] hover:not-aria-disabled:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] aria-disabled:cursor-not-allowed aria-disabled:bg-[color:var(--surface-inset)] aria-disabled:text-[color:var(--disabled)] aria-disabled:opacity-75 aria-disabled:shadow-none"
+      onClick={onClick}
+      disabled={busy}
+      aria-label={`Continue with ${provider}`}
+      className="flex min-h-tap w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-65 disabled:hover:border-[color:var(--border)] disabled:hover:bg-[color:var(--surface-lux)]"
     >
-      <ProviderMark provider={provider} />
-      <span className="min-w-0 flex-1 truncate">
-        {disabled ? `${provider} sign-in unavailable` : `Continue with ${provider}`}
-      </span>
-      {!disabled ? (
+      {pending ? (
+        <span className="grid h-7 w-7 shrink-0 place-items-center">
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+        </span>
+      ) : (
+        <ProviderMark provider={provider} />
+      )}
+      <span className="min-w-0 flex-1 truncate">{pending ? "Connecting…" : `Continue with ${provider}`}</span>
+      {pending ? null : (
         <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
-      ) : null}
+      )}
     </button>
   );
 }
