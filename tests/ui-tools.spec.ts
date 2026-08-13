@@ -1049,13 +1049,8 @@ test.describe("Clinical KB tools launcher", () => {
     const quickFilter = page.getByTestId("service-filter-trigger-phone");
     await expect(quickFilter).toBeVisible();
     await expect(quickFilter).toHaveAccessibleName(/No filters active/);
-    await quickFilter.click();
-    await page.getByRole("radiogroup", { name: "Quick filters" }).getByRole("radio", { name: "Crisis" }).click();
+    await page.getByTestId("service-quick-search-suggestions").getByRole("button", { name: "Crisis" }).click();
     await expect(page).toHaveURL(/\/services\?.*q=crisis/);
-
-    await quickFilter.click();
-    await page.getByRole("button", { name: "Clear filters" }).click();
-    await expect(page).toHaveURL(/\/services\?run=1$/);
 
     // Phones keep the full search results in the page instead of opening a
     // command sheet over the small viewport.
@@ -1292,19 +1287,28 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("navigation", { name: "Service groups" })).toBeVisible();
     await expect(page.getByTestId("services-shortlist-bar")).toHaveCount(0);
 
-    await page.getByTestId("service-filter-trigger-desktop").click();
-    const culturallySafe = page.getByRole("radio", { name: "Culturally safe" });
+    const culturallySafe = page
+      .getByTestId("service-quick-search-suggestions")
+      .getByRole("button", { name: "Culturally safe" });
     await expect(culturallySafe).toBeVisible();
     await waitForReactEventHandler(culturallySafe);
     await culturallySafe.click();
     await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
+    // Quick search suggestions and facet clearing are separate contracts.
+    // Exercise a real facet, then clear only that facet while preserving q.
     await page.getByTestId("service-filter-trigger-desktop").click();
-    await page.getByTestId("service-filter-panel-clear").click();
-    await expect(page).toHaveURL(/\/services\?run=1$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Browse services" })).toBeVisible();
+    const filterPanel = page.getByTestId("service-filter-panel");
+    await filterPanel.getByRole("button", { name: /^Acuity/ }).click();
+    const crisisFacet = filterPanel.getByRole("button", { name: /^Crisis \/ urgent/ });
+    await expect(crisisFacet).toBeVisible();
+    await crisisFacet.click();
+    await expect(page).toHaveURL(/acuity_flags=crisis_high/);
+    await filterPanel.getByTestId("service-filter-panel-clear").click();
+    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
+    await filterPanel.getByRole("button", { name: "Close", exact: true }).click();
 
     await page
       .getByTestId("service-search-result-13yarn")
