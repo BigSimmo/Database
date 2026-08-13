@@ -80,6 +80,7 @@ export function buildAnswerLogRow(args: { query: string; ownerId?: string | null
     generation_latency_ms: finiteOrNull(timings.generation_latency_ms),
     search_latency_ms: finiteOrNull(timings.search_latency_ms),
     answer_retry_count: finiteOrNull(timings.answer_retry_count),
+    embedding_prefetched: typeof timings.embedding_prefetched === "boolean" ? timings.embedding_prefetched : null,
     request_ids: answer.openAIRequestIds ?? [],
     // Raw token counts are the durable primitive — USD cost = tokens × per-model
     // price is derived downstream from a pricing table, not baked into the row.
