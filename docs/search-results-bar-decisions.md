@@ -143,10 +143,9 @@ Two traps met while drawing that line:
   and phrased as reach with the corpus count beside it, and the zero-result state. Do not
   delete either without giving nav a query-preserving route first.
 - **Sort does not move into the phone filter sheet.** Only documents and therapy-compass
-  currently have phone filter sheets (`Filter documents` / the shared `ResultFilterSheet`,
-  `testId="therapy-filter"`). Of the four production `onSortChange` consumers, documents
-  already pairs Sort with a sheet; therapy has a sheet but no Sort. Moving Sort into the sheet
-  from the shared band would
+  currently have phone filter sheets (`Filter documents` / `TherapyFilterSheet`). Of the
+  four production `onSortChange` consumers, documents already pairs Sort with a sheet;
+  therapy has a sheet but no Sort. Moving Sort into the sheet from the shared band would
   remove Sort from phones in the three sheetless Sort consumers — differentials, forms,
   and services — the exact defect an earlier round fixed. If this is ever wanted it is
   per-page work on those consumers, not a shared-band change.

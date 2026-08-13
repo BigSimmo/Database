@@ -172,7 +172,7 @@ describe("client environment isolation", () => {
       expect(publicResult.stderr).toContain("public/unsafe.txt");
       expect(publicResult.stderr).toContain("SUPABASE_SERVICE_ROLE_KEY");
     } finally {
-      rmSync(fixtureRoot, { recursive: true, force: true });
+      rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

@@ -57,7 +57,10 @@ vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
   useMedicationDetail: () => ({ data: null, loading: false, error: null }),
 }));
 vi.mock("@/components/clinical-dashboard/patient-profile-panel", () => ({ PatientProfilePanel: () => null }));
-vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({ MedicationConsiderations: () => null }));
+vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({
+  MedicationConsiderations: () => null,
+  MedicationInteractionCallout: () => null,
+}));
 
 afterEach(cleanup);
 

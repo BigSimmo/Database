@@ -21,11 +21,15 @@ import {
 import { useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
-import { MedicationConsiderations } from "@/components/clinical-dashboard/medication-considerations";
+import {
+  MedicationConsiderations,
+  MedicationInteractionCallout,
+} from "@/components/clinical-dashboard/medication-considerations";
 import {
   MedicationNavHeader,
   medicationNavSections,
   medicationSectionsByTab,
+  medicationTabForSectionType,
   type MedicationTabId,
 } from "@/components/clinical-dashboard/medication-nav-header";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
@@ -432,6 +436,8 @@ export function MedicationRecordPage({
   // (SSR fallback → live), and every record offers the same four tabs, so the
   // selection survives that swap rather than snapping back to Summary.
   const [activeTab, setActiveTab] = useState<MedicationTabId>("summary");
+  // Where the catalogue's own "Key Interactions" section currently lives.
+  const interactionsTab = medicationTabForSectionType("inter") ?? "more";
   const [patientOpen, setPatientOpen] = useState(false);
   const patientTriggerRef = useRef<HTMLElement | null>(null);
 
@@ -460,6 +466,18 @@ export function MedicationRecordPage({
       </Sheet>
       <InformationPageShell testId={`medication-page-${slug}`} gap={false}>
         <div className="mt-3">
+          {/* Findings against the entered patient belong on the page, not only
+              behind the patient sheet — arriving here from a result row flagged
+              "2 interactions" should not mean hunting for them. Renders nothing
+              when no profile is entered or nothing matched. */}
+          {record ? (
+            <MedicationInteractionCallout
+              record={record}
+              onOpenPatientDetails={() => setPatientOpen(true)}
+              onOpenInteractionsSection={() => setActiveTab(interactionsTab)}
+              className="mb-3"
+            />
+          ) : null}
           {record ? (
             <MedicationRecordDetail record={record} governance={governance} activeTab={activeTab} />
           ) : loading ? (
