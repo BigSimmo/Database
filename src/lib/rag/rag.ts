@@ -56,7 +56,7 @@ import {
   applyNumericVerification,
   textReferencesAdjacentBandConflict,
 } from "@/lib/answer-verification";
-import { buildEvidencePreviewUnit } from "@/lib/answer-preview";
+import { buildEvidencePreviewProgress, type VerifiedUnit } from "@/lib/answer-preview";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
 import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
 export {
@@ -254,7 +254,6 @@ import {
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
-import type { VerifiedUnit } from "@/lib/answer-stream-contract";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { buildRetrievalIntent, selectRetrievalEvidence } from "@/lib/retrieval-selection";
 import { resultsHaveReleaseRankScore, stabilizeReleasedSearchOrder } from "@/lib/released-search-order";
@@ -512,10 +511,8 @@ export type AnswerProgressEvent = {
   model?: string | null;
   reason?: string;
   smartApiPlan?: SmartRagApiPlan;
-  /** #100: governed, client-trimmed verified unit riding the progress event (flag-gated). */
   verifiedUnit?: VerifiedUnit;
 };
-
 type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
   logQuery?: boolean;
   onProgress?: (event: AnswerProgressEvent) => void | Promise<void>;
@@ -3495,19 +3492,6 @@ ${qualityRetryInstruction}`
     results: answerInputResults,
   });
   const generationFallbackResults = strongRetryContextResults;
-  // A preview must remain a byte-identical subset of either eventual final
-  // payload: the normal path exposes answerInputResults, while generation
-  // fallback exposes generationFallbackResults. Restrict it to their common
-  // selected sources and fail closed against the complete normal source set.
-  const fallbackSourceIds = new Set(generationFallbackResults.map((result) => result.id));
-  const previewContextResults = modelContextResults.filter((result) => fallbackSourceIds.has(result.id));
-  const evidencePreviewUnit = env.RAG_INCREMENTAL_EVIDENCE_PREVIEW
-    ? buildEvidencePreviewUnit({
-        results: previewContextResults,
-        governanceResults: answerInputResults,
-        relevance,
-      })
-    : null;
   const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
   await args.onProgress?.({
     stage: "ranking",
@@ -3516,7 +3500,12 @@ ${qualityRetryInstruction}`
     australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
     waSourceCount: modelContextSelectionSummary.waSelectedCount,
     usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
-    ...(evidencePreviewUnit ? { verifiedUnit: evidencePreviewUnit } : {}),
+    ...buildEvidencePreviewProgress({
+      normalResults: modelContextResults,
+      fallbackResults: generationFallbackResults,
+      governanceResults: answerInputResults,
+      relevance,
+    }),
   });
   // The quality-repair call below may itself fail or truncate. Preserve the first
   // deterministic verdict so fallback telemetry explains why that retry occurred,
