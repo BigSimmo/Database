@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmdirSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { childProcessExitCode, childProcessFailureSummary } from "./child-process-result.mjs";
 import { assertPlaywrightBrowsersReady } from "./playwright-browser-preflight.mjs";
+import { removePathSync } from "./retryable-fs.mjs";
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 import {
@@ -218,7 +219,7 @@ function cleanup() {
   try {
     stopOwnedProcessTree(server);
     if (!keepBuildRoot) {
-      rmSync(absoluteRunRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      removePathSync(absoluteRunRoot, { recursive: true });
       try {
         rmdirSync(path.dirname(absoluteRunRoot));
       } catch (error) {

@@ -227,7 +227,7 @@ function AnswerActivityTrace({ density }: { density: AnswerProgressDensity }) {
           strokeWidth={compact ? 1.75 : 2}
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeDasharray="44 276"
+          strokeDasharray="36 284"
           vectorEffect="non-scaling-stroke"
           className="answer-activity-trace__sweep text-[color:var(--clinical-accent)] forced-colors:text-[Highlight]"
         />

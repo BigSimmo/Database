@@ -205,9 +205,7 @@ test("phone portaled addon focus clears when its focused control navigates away"
 
   await backLink.press("Enter");
   await expect(page).toHaveURL(/\/differentials\/diagnoses(?:$|\?)/, { timeout: 20_000 });
-  await expect(
-    page.getByRole("heading", { name: "Compare likely causes side-by-side and check exclusion clues." }),
-  ).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "Diagnoses", level: 1 })).toBeVisible({ timeout: 20_000 });
   await addPhoneScrollRunway(page);
 
   await dragScrollBy(page, 720, 24);

@@ -20,7 +20,7 @@ Mockups use the Clinical White / Sky Graphite role tokens (`--command`, `--clini
 Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header and bottom search composer from `src/app/mockups/layout.tsx`.
 
 - Put the mockup content between the global header and bottom composer; do not copy the header or composer into new pages.
-- Tool and favourites mockups keep the shared app header but hide the bottom composer because they provide their own primary search surface.
+- Favourites mockups and Tools mockups that provide their own primary search surface keep the shared app header but hide the bottom composer.
 - Use `?mode=answer`, `?mode=documents`, `?mode=prescribing`, `?mode=evidence`, or `?mode=favourites` to preview the active search mode.
 - The bottom composer routes live searches to the dashboard with `mode`, `q`, and `run=1`; New chat routes to `/?mode=answer&focus=1`.
 - If a future mockup must be standalone, move it outside the `/mockups` route shell or add an explicit opt-out route group before implementing it.
@@ -61,32 +61,9 @@ These are PNGs for design review only. Runnable `/mockups/*` routes are a separa
 
 **Perfected combined comps** (desktop + phone in one image, recommended directions only) live in [`public/mockups/mode-page-redesign-2026-07/perfected-combined/`](../public/mockups/mode-page-redesign-2026-07/perfected-combined/README.md).
 
-## Tools search results directions (2026-08-12)
+## Perfected Tools search mode
 
-Runnable study at [`/mockups/tools-search-directions`](../src/app/mockups/tools-search-directions/page.tsx):
-three directions for the **results state** of `/tools?q=…` (ledger `#162`). Scope is the submitted
-state only — not the Tools home, per that row's own stop rule.
-
-This is the runnable successor to the static July comps in
-[`public/mockups/mode-page-redesign-2026-07/tools-search/`](../public/mockups/mode-page-redesign-2026-07/tools-search/),
-whose direction A was the product pick but was never built, so the pick had never been read
-against live catalogue data. These directions are fresh, informed by that study rather than
-tracing it.
-
-| Direction                     | Adds                                                                     | Cost                                                    |
-| ----------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------- |
-| 01 Compact Results Instrument | Query-as-h1, hero dropped, filters on the title row, dense launch rows   | Leaves the substring matcher — and its ordering — as is |
-| 02 Ranked Clinical Brief      | `rankToolRecords` plus an inline brief from the unused catalogue fields  | Tallest frame; ranking change needs its own PR scrutiny |
-| 03 Launch-First Triage Deck   | No dialog at all — `<details>` rows; filter and count fuse into one band | Tall rows at desktop width, and no room for long detail |
-
-**Recommendation: 02**, on 01's row grammar. Every frame is built from the real 13-record
-`src/lib/tools-catalog.ts`, so the counts, orderings, badges and per-tool copy are genuine.
-Two queries are shown per direction: `monitoring` (3 substring matches vs 4 ranked — the current
-page puts the exactly-named tool **last**) and `compare` (one match: the reported screenshot).
-
-Frames use role tokens, so **set the app to Clinical White before judging** — the study was
-designed and reviewed in light mode. Shared app chrome is suppressed for this route because
-every frame draws its own top bar, composer and band.
+`/mockups/tools-search-mode?mode=tools&q=Compare` is the interactive responsive Tools results-mode study. It uses the site's universal header and search composer, the shared results ribbon and filter conventions, compact Tools result cards, a contextual detail panel on desktop, and a bottom sheet on phones. It intentionally excludes the Tools home hero, quick actions, medication-list treatment, and cross-mode suggestion blocks.
 
 ## Breadcrumb header study (2026-08-09) — shipped, route retired
 
