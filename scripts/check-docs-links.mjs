@@ -10,8 +10,8 @@
  *    — resolved relative to the file containing the link and required to stay
  *    inside the repository.
  *
- * Scanned by default: README.md, AGENTS.md, and docs/**/*.md excluding
- * docs/archive/, docs/audit/, dated point-in-time filenames
+ * Scanned by default: README.md, AGENTS.md, and all Markdown files under docs/,
+ * excluding docs/archive/, docs/audit/, dated point-in-time filenames
  * (docs/README.md classifies those as historical records that intentionally
  * reference the repo as it was), and docs/prompts/codex-cloud-review/ (verbatim
  * as-provided prompt inputs whose paths must not be edited). Pass --all to scan
