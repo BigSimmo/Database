@@ -275,7 +275,7 @@ function runGuard(workflow: string) {
       output: `${result.stdout}${result.stderr}`,
     };
   } finally {
-    rmSync(tempDir, { force: true, recursive: true });
+    rmSync(tempDir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
   }
 }
 

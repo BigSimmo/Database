@@ -54,7 +54,10 @@ force-push, or discard work.
    paths (`git show --name-only --format=fuller HEAD`), and the same branch name recorded in step 1.
    End the message with:
    `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
-5. **Push** the feature branch: `git push -u origin <branch>`. Never pipe the push through `tail`,
+5. **Push** the feature branch: `git push -u origin <branch>`. Per-PR auto-merge state is user-owned:
+   automation must not disable it. If the branch already has an open PR with auto-merge armed,
+   leave it mutation-frozen; do not push or change the branch/base until it merges or the user
+   manually changes that state. Never pipe the push through `tail`,
    `head`, or another command that can mask its status. Confirm the remote tip equals local HEAD
    with `git ls-remote` before reporting success. The pre-push guards run
    (auto-merge sentinel, format, drift) — heed a block rather than overriding blindly.

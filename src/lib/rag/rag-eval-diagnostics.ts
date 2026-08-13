@@ -105,6 +105,11 @@ export function buildRagEvaluationDiagnostics(answer: RagAnswer, progress: RagEv
     supplementary_selected_despite_sufficient_australian:
       sufficientAustralianCandidates && (supplementaryContextSelected || supplementaryCitationCount > 0),
     generic_finalization_failure: genericFinalizationFailure(answer.answer),
+    // #231: the specific quality-gate verdict(s) recorded when generation fell back;
+    // empty when generation succeeded or failed for a non-quality reason.
+    generation_quality_gate_reasons: (answer.latencyTimings?.answer_retry_reasons ?? [])
+      .filter((reason) => reason.startsWith("generation_quality_gate:"))
+      .map((reason) => reason.slice("generation_quality_gate:".length)),
     route: answer.routingMode ?? "none",
     generation_routes: [...new Set(generationRoutes)],
     provider_mode: answer.providerMode ?? null,

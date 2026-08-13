@@ -361,15 +361,23 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Mode-specific surfaces.
   "differentials-mobile-compare-fab__button": "differentials compare FAB — no effect contract yet (#094)",
   "differentials-mobile-compare-fab__button--empty": "differentials compare FAB — no effect contract yet (#094)",
+  // Same shape as the compare FAB above, and the same gap: a rendered-effect
+  // contract needs a phone-viewport route with the medication catalogue loaded.
+  // The tap floor (min-height: 3rem) is the regression worth catching here.
+  "patient-details-fab__button": "patient details dock pill — no effect contract yet (#094)",
+  "patient-details-fab__button--active": "patient details dock pill, populated state — no effect contract yet (#094)",
+  "patient-details-fab__count": "patient details count badge — no effect contract yet (#094)",
   "medication-mobile-result": "prescribing phone results — no effect contract yet (#094)",
   "pwa-install-sheet": "install sheet — presence covered by ui-pwa, effect not contracted",
   "search-band-count": "count weight/colour; the zero-result state needs a deterministic empty fixture first",
   "search-band-rule": "gradient divider — forced-colors fallback covered by ui-accessibility",
 
-  // Selector scope, not an effect. `.mode-nav__more` carries no visual property
-  // of its own — it is the ancestor that scopes the overflow slot's rules — and
-  // both effects it scopes are contracted above on `mode-nav__rule` and
-  // `mode-nav__ink`, at the same route and band.
+  // Selector scopes, not effects. `.mode-nav` carries the density-profile/query
+  // container context, while `.mode-nav__more` scopes the overflow slot's rules.
+  // Neither class receives a visual declaration from these selectors; the
+  // descendant effects are covered by the contracts and density journeys.
+  "mode-nav":
+    "profile/query-container scoping ancestor only; descendant effects are covered by mode-nav contracts and density journeys",
   "mode-nav__more": "scoping ancestor only; the rules it scopes are contracted on mode-nav__rule and mode-nav__ink",
 
   // Therapy Compass residuals moved out of the deleted parallel stylesheet.

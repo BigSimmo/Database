@@ -7,7 +7,7 @@ import { afterAll, describe, expect, it } from "vitest";
 const SCRIPT = "scripts/check-function-grants.mjs";
 const workdir = mkdtempSync(join(tmpdir(), "fn-grants-"));
 
-afterAll(() => rmSync(workdir, { recursive: true, force: true }));
+afterAll(() => rmSync(workdir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
 
 function run(schemaPath: string): { code: number; out: string } {
   try {

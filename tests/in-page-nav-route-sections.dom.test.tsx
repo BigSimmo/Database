@@ -57,7 +57,10 @@ vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
   useMedicationDetail: () => ({ data: null, loading: false, error: null }),
 }));
 vi.mock("@/components/clinical-dashboard/patient-profile-panel", () => ({ PatientProfilePanel: () => null }));
-vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({ MedicationConsiderations: () => null }));
+vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({
+  MedicationConsiderations: () => null,
+  MedicationInteractionCallout: () => null,
+}));
 
 afterEach(cleanup);
 
@@ -328,6 +331,7 @@ describe("in-page navigation panel-swap contracts", () => {
     const rail = screen.getByTestId("medication-section-rail");
 
     expect(rail).not.toHaveClass("overflow-x-auto");
+    expect(rail.querySelector(".mode-nav")).toHaveAttribute("data-density-profile", "extended");
     expect(
       within(rail)
         .getByRole("button", { name: /^Summary/ })

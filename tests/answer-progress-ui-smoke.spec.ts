@@ -357,6 +357,7 @@ test("answer progress remains user-safe through fallback and keeps a compact com
   await expect(progress).toHaveAttribute("data-density", "expanded");
   const activityTrace = progress.getByTestId("answer-activity-trace");
   await expect(activityTrace).toHaveAttribute("data-density", "expanded");
+  await expect(activityTrace.locator('[data-slot="answer-activity-trace-sweep"]')).toHaveCount(1);
   await expect(progress.getByText("Creating your cited answer", { exact: true })).toBeVisible();
   for (const label of ["Prepare scope", "Search sources", "Select evidence", "Draft answer", "Check answer"]) {
     await expect(progress.getByText(label, { exact: true })).toBeVisible();
@@ -430,6 +431,7 @@ test("answer progress remains user-safe through fallback and keeps a compact com
 
 test("follow-up answer generation stays compact above the previous answer", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 820 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await mockDashboardApis(page);
   await installSuccessfulThenHoldingAnswerStreams(page);
   await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
@@ -453,6 +455,18 @@ test("follow-up answer generation stays compact above the previous answer", asyn
 
   const activityTrace = progress.getByTestId("answer-activity-trace");
   await expect(activityTrace).toHaveAttribute("data-density", "compact");
+  const compactSweep = activityTrace.locator('[data-slot="answer-activity-trace-sweep"]');
+  await expect(compactSweep).toHaveCount(1);
+  expect(
+    await compactSweep.evaluate((trace) => {
+      const style = getComputedStyle(trace);
+      return {
+        duration: style.animationDuration,
+        iterationCount: style.animationIterationCount,
+        timingFunction: style.animationTimingFunction,
+      };
+    }),
+  ).toEqual({ duration: "1.6s", iterationCount: "infinite", timingFunction: "linear" });
   const stop = progress.getByRole("button", { name: "Stop generating answer" });
   expect((await stop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
 
@@ -502,6 +516,7 @@ test("a completion frame cannot mark a previous answer complete when final is in
   await expect(page.getByTestId("answer-error")).toContainText("Answer stream returned an invalid final payload", {
     timeout: 10_000,
   });
+  await expect(page.getByTestId("answer-activity-trace")).toHaveCount(0);
   await expect(page.locator('[data-progress-state="complete"]')).toHaveCount(0);
   await expect(page.getByText(/Answer ready in/)).toHaveCount(0);
   await expect(page.getByText(/In the synthetic lithium document/i)).toBeVisible();
@@ -523,8 +538,10 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
 
   const activeSpinner = currentStage.locator("svg");
   const activityTraceSweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
+  const activityTraceBase = progress.locator('[data-slot="answer-activity-trace-base"]');
   await expect(activeSpinner).toBeVisible();
   await expect(activityTraceSweep).toBeVisible();
+  await expect(activityTraceBase).toBeVisible();
   expect(await activeSpinner.evaluate((spinner) => getComputedStyle(spinner).animationName)).toBe("none");
   expect(await activityTraceSweep.evaluate((trace) => getComputedStyle(trace).animationName)).toBe("none");
 
@@ -538,7 +555,22 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
   expect(await activeSpinner.evaluate((spinner) => getComputedStyle(spinner).animationName)).not.toBe("none");
-  expect(await activityTraceSweep.evaluate((trace) => getComputedStyle(trace).animationName)).toBe("answer-ecg-sweep");
+  expect(
+    await activityTraceSweep.evaluate((trace) => {
+      const style = getComputedStyle(trace);
+      return {
+        name: style.animationName,
+        duration: style.animationDuration,
+        iterationCount: style.animationIterationCount,
+        timingFunction: style.animationTimingFunction,
+      };
+    }),
+  ).toEqual({
+    name: "answer-ecg-sweep",
+    duration: "1.8s",
+    iterationCount: "infinite",
+    timingFunction: "linear",
+  });
 
   await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
   await expect(currentStage.locator('[data-slot="answer-progress-stage-marker"]')).toBeVisible();

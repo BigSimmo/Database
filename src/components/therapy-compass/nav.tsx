@@ -77,5 +77,5 @@ function useTherapyNavItems(): TherapyNavItem[] {
 export function TherapyModeNav() {
   const b = useTcBindings();
   const items = useTherapyNavItems();
-  return <ModeNav items={items} label="Therapy pages" activeId={b.screen} />;
+  return <ModeNav items={items} label="Therapy pages" densityProfile="extended" activeId={b.screen} />;
 }

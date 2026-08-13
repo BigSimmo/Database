@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|ui-(?:smoke|stress|accessibility|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * One source of truth for shard membership and its latest hosted timing sample.
@@ -29,6 +29,8 @@ export const productionSpecFilePattern =
  */
 export const prUiSpecProfiles = Object.freeze([
   { file: "tests/ui-smoke.spec.ts", shard: 1, fullSeconds: 149.0, criticalSeconds: 21.7 },
+  // Added after the 2026-08-09 timing sample; remeasure with the next hosted shard sample.
+  { file: "tests/dsm-ui-smoke.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   { file: "tests/ui-mode-nav-density.spec.ts", shard: 1, fullSeconds: 47.1, criticalSeconds: 0 },
   { file: "tests/ui-accessibility.spec.ts", shard: 1, fullSeconds: 17.7, criticalSeconds: 0 },
   { file: "tests/ui-route-coverage.spec.ts", shard: 1, fullSeconds: 12.6, criticalSeconds: 0 },

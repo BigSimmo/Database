@@ -40,6 +40,12 @@ export type PatientProfile = {
   pregnant?: boolean;
   breastfeeding?: boolean;
   allergies?: AllergyClass[];
+  /**
+   * Catalogue slugs for what the patient is currently taking. Consumed by
+   * `medication-interactions.ts`, not by this module's physiology rules — it
+   * lives on the same profile so one session-scoped record drives both engines.
+   */
+  medications?: string[];
 };
 
 export type MedicationConsideration = {
@@ -169,6 +175,7 @@ export function isProfileEmpty(profile: PatientProfile | null | undefined): bool
   if (profile.pregnant || profile.breastfeeding) return false;
   if (profile.hepatic && profile.hepatic !== "none") return false;
   if (profile.allergies && profile.allergies.length > 0) return false;
+  if (profile.medications && profile.medications.length > 0) return false;
   return true;
 }
 

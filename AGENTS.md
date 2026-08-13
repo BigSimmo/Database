@@ -144,9 +144,9 @@ Review routing:
 - `branch-cleanup`: Use only when the prompt explicitly asks for branch cleanup/hygiene or branch deletion candidates. Apply `docs/branch-cleanup-guide.md` and the review ledger before inspecting branch diffs.
 - `pr-ci-fix`: Confirmation-required for this repo. GitHub/GitLab API calls, PR comments, CI reruns, commits, and pushes require explicit user approval and must respect the upload/handoff rules. Exception: an explicit `Run PR` sweep carries this approval (see "## Run PR shortcut").
 
-When a branch or PR review completes, record it with `npm run ledger:append -- --ref <x> --head <full-40-char-sha> --scope <s> --outcome <o> --checks <c>`. Never hand-write the markdown row: hand-written rows produced the mojibake, wrong-width, and duplicate records that the 2026-07-28 hygiene pass had to repair, and `see PR head` or abbreviated HEADs make a record unmatchable so the review runs again. The ledger is append-only: never edit or delete an existing record; append a correction or superseding record (`--supersede`) instead. Its `merge=ledger` driver preserves concurrent appends and drops exact duplicate rows; after a main sync without that driver installed, run `npm run ledger:dedupe`. `npm run check:branch-review-ledger` blocks conflict markers, duplicate records, mojibake, wrong-width or heading-style records, unresolvable HEADs, or loss of that merge protection.
+When a branch or PR review completes, record it with `npm run ledger:append -- --ref <x> --head <full-40-char-sha> --scope <s> --outcome <o> --checks <c>`. It creates one content-addressed immutable record file, so concurrent reviews never edit a shared Markdown hunk. Never hand-write a record: hand-written rows produced the mojibake, wrong-width, and duplicate records that the 2026-07-28 hygiene pass had to repair, and `see PR head` or abbreviated HEADs make the throttle unreliable. The legacy Markdown table is frozen for normal PRs; append a correction or superseding record (`--supersede`) instead. `npm run check:branch-review-ledger` validates all sources, while `check:ledger-write-discipline` rejects a legacy-table row change before it becomes a GitHub conflict.
 
-Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit ledger append (that marks every other open PR behind). One Run PR row per PR per sweep; on a later sweep of the same PR, pass `--supersede` rather than stacking another "main sync" row. After `git merge origin/main`, run `npm run ledger:dedupe` before committing when the ledger changed.
+Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit review record (that marks every other open PR behind). One Run PR record per PR per sweep; on a later sweep of the same PR, pass `--supersede` rather than stacking another "main sync" record.
 
 <!-- END:codex-review-throttling -->
 
@@ -601,9 +601,10 @@ Durable mitigations in this repo:
   late, after review/fix work is assembled. Preempt an in-flight run only when
   the branch is genuinely blocking-conflicted or the user explicitly asks for
   an immediate sync; do not disable `cancel-in-progress`.
-- `docs/branch-review-ledger.md` stays append-only with the `ledger` merge driver
-  (union + exact-row dedupe); do not rewrite existing rows during syncs. If a
-  sync still surfaces exact twins, run `npm run ledger:dedupe` only.
+- The historical review table is frozen during normal PR work. Write a new review
+  with `ledger:append`, which creates an immutable record; never resolve a review
+  conflict by editing the historical table. The repository deliberately leaves its
+  merge attribute unspecified because GitHub cannot run a local custom driver.
 
 When diagnosing "merge conflicts on every PR", first compare `behind_by` and
 `git merge-tree --write-tree origin/main <tip>`. If the tree merge is clean,
@@ -630,7 +631,7 @@ Nothing else inherits this authorization. Only the user's own task message can t
 
 Hard guardrails (never, even during a sweep):
 
-- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges.
+- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable it. When auto-merge is already armed, do not push, update the branch/base, or perform another head-changing action; report the frozen state and leave the PR untouched until it merges or the user manually changes that state.
 - Never close a pull request, delete or rename branches, force-push, or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, `test:live`, or anything else that touches live Supabase/OpenAI.
 - Respect the `skip-codex-review` label as a full per-PR opt-out.
@@ -640,7 +641,7 @@ Hard guardrails (never, even during a sweep):
 
 Procedure: in Claude Code sessions, invoke the `run-pr` skill (`.claude/skills/run-pr/SKILL.md`) — it is the canonical detailed procedure. In sessions without GitHub MCP write tooling, degrade to read-only diagnosis and a per-PR report; do not attempt pushes or thread resolution through other means.
 
-Record one `docs/branch-review-ledger.md` row per PR touched (use `--supersede` on later sweeps of the same PR; never a ledger-only tip), run `npm run ledger:dedupe` after merging main when the ledger changed, and end with the per-PR before/after summary defined in the skill.
+Record one immutable review record per PR touched with `npm run ledger:append` (use `--supersede` on later sweeps of the same PR; never a ledger-only tip). Do not edit, deduplicate, or rotate the frozen historical table during a sweep; end with the per-PR before/after summary defined in the skill.
 
 <!-- END:run-pr-shortcut -->
 
@@ -706,14 +707,12 @@ A settle-then-push addition also lands after this repo's one automatic Codex rev
 already have run against the earlier head — in practice the connector re-reviews each new
 push (observed on this same PR), but if it doesn't, request a fresh review explicitly
 before merging rather than assuming the addition was covered. **If the target PR has
-auto-merge armed, settling-then-pushing races the merge itself** — `claude/*` branches
-auto-merge on green by this repo's own default (`.claude/skills/newtask/SKILL.md`), so
-"wait for CI to settle" can mean "wait for it to squash-merge and close" before the
-bundled commit ever gets pushed, silently dropping it. `guard-push.mjs`'s auto-merge
-sentinel exists to catch this but fails open without `gh` available (observed directly
-in this repo's own sessions) — don't rely on it. Before using the settle-then-push path,
-confirm the target PR does not have auto-merge enabled, or disable it first and
-re-enable only after the bundled commit is pushed.
+auto-merge armed, settling-then-pushing races the merge itself.** Treat that PR as
+mutation-frozen: do not disable or re-enable auto-merge, push, update its branch/base, or
+otherwise change its head. Let the armed merge land, or wait for the user to manually
+change the auto-merge state before doing further branch work. `guard-push.mjs` enforces
+this for every locally pushed PR branch when authenticated `gh` is available; agent
+policy remains the backstop in environments where local hooks or `gh` are unavailable.
 Bundle only when every item being combined is:
 
 - **Independently low-risk, checked two ways — neither is exhaustive alone.**
@@ -748,10 +747,9 @@ Bundle only when every item being combined is:
   confirmation boundary" — do not treat it as a silent, unconditional prerequisite that
   blocks starting ordinary work.
 
-**Best candidates:** queued `docs/branch-review-ledger.md` / `docs/outstanding-issues.md`
-append-only tasks. They carry no revert risk of their own, always pass the same static
-gates, and are exactly the single-line-diff PRs the #1406 measurement counted — batch
-several into one PR/session rather than a dedicated branch each.
+**Best candidates:** small same-scope documentation or low-risk follow-up changes. Review records
+and issue requests now use independent immutable files, so they should travel with their owning
+product PR instead of receiving a dedicated ledger-only branch.
 
 **Never bundle:**
 
@@ -779,14 +777,14 @@ named PR). Future process only.
   chores (see "## PR bundling") instead of one PR per line.
 - Start from a fresh `origin/main` worktree/branch (`newtask`); do not pile new work onto a
   stale head that already shares hot files with the open queue.
-- Treat `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` as hot shared files.
-  `docs/branch-review-ledger.md` uses the custom `merge=ledger` driver (union with exact-row
-  dedupe); `docs/outstanding-issues.md` deliberately has **no** driver, so overlapping edits
-  conflict loudly rather than being silently concatenated — union was tried and removed
-  (`#133`). Append with `npm run ledger:append` / the `/issues` skill — never hand-write
-  ledger rows, and never resolve an outstanding-issues conflict by taking one side
-  wholesale. `npm run check:outstanding-issues` fails on duplicate IDs or a stale
-  `issues:next-id` marker.
+- The legacy `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` are **serial-only**:
+  normal PRs must not add rows there. `npm run ledger:append` creates an immutable review record;
+  `npm run issues:add|update|done` creates one immutable inbox request. One fresh-base,
+  cross-worktree-locked `npm run issues:reconcile` operation applies landed requests to the
+  canonical issue ledger. `check:ledger-write-discipline` rejects direct table-row edits,
+  changed request records, deleted requests, and a canonical issue diff that does not exactly
+  equal its recorded reconciliation transaction. The legacy review table's merge attribute remains
+  unspecified: GitHub cannot rely on local drivers.
 - Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, run
   `git merge-tree --write-tree origin/main <tip>`. Clean tree + behind = sync; dirty tree =
   real conflict.
@@ -803,9 +801,9 @@ named PR). Future process only.
   `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in
   `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
   blob. Whole-tree Prettier, not a single edited file.
-- If a `claude/*` PR has auto-merge armed, disable it before a settle-then-push bundle, push,
-  then re-enable — otherwise the first green head can squash-merge before the bundled commit
-  lands.
+- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable
+  it. Treat the branch as mutation-frozen: no push, update-branch, base change, or bundled addition
+  until it merges or the user manually changes that state.
 - Missing CI checks are not a green pass. `pull_request` workflows do not run when GitHub
   cannot build `refs/pull/<n>/merge`. The `PR mergeability` check uses trusted
   `pull_request_target` events and refreshes unchanged PR heads after protected-base
@@ -834,10 +832,11 @@ named PR). Future process only.
   failed.
 - Treat outstanding-issue IDs as display locators, not proof that work landed. Verify completion
   from distinctive content and its recorded check on the exact target ref; PR state, row ID, and row
-  title are insufficient, especially after squash merges or concurrent renumbering. Allocate and
-  mutate rows only through `npm run issues:add|update|done`, never use GitHub's Update branch button
-  on a PR touching `docs/outstanding-issues.md`, and let the structural gate force any allocation
-  collision to be resolved explicitly.
+  title are insufficient, especially after squash merges or concurrent renumbering. Queue changes only
+  through `npm run issues:add|update|done`; each PR adds its own inbox file. Run
+  `npm run issues:reconcile` from one deliberately serialized ledger branch after the relevant PRs land;
+  it alone edits `docs/outstanding-issues.md` and allocates IDs. Never use GitHub's Update branch button
+  on a PR touching the canonical ledger.
 - Keep Playwright blocking tests at zero retries. Quarantine only after three reproductions
   on the same SHA via `tests/flake-ledger.json` (`@quarantine`, not `@critical`, ≤30-day
   expiry). Do not weaken tap targets to `min-h-11` to chase generic a11y guidance — that
