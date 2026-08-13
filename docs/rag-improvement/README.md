@@ -58,20 +58,24 @@ run). Nothing here authorises reindexing, migrations, or provider calls by itsel
    Track B items 6–7: any new ranking discriminator sits **strictly below `relevance.score`**;
    benchmark fixtures must use differently-relevant candidates (identical-content fixtures
    are how Phase C's regression escaped offline detection); a live canary pair is mandatory.
-5. **Ignores outstanding issue `#231`.** Live answers already degrade to source-only when
-   the fast route budget (`answerRouteBudgetMs.fast = 25_000` in
-   `src/lib/rag/rag-route-budget.ts`) binds while retrieval is healthy. This is the single
-   highest-yield answer-quality defect in the queue, and a hard prerequisite for longer
-   answers: more output tokens means more truncation/timeout exposure, which converts
-   directly into more source-only fallbacks. Track A1 sequences it first.
+5. **Ignores outstanding issue `#231`'s actual stop condition.** The 35–40-second route-budget
+   probes were already tested and rejected. In the decisive probe, generation completed
+   within budget with `route_deadline_exceeded=false`, but generation quality still failed
+   and the answer degraded to source-only. The prerequisite is therefore structured
+   generation-failure attribution and provider-safe instrumentation — not a larger timeout.
+   Track A1 starts there and forbids budget increases unless new evidence directly overturns
+   the recorded result.
 6. **Roles table presumes a team.** Product/privacy/application/worker/evaluation owners are
    one person here. Collapsed to: **owner** (clinical intent, privacy sign-off, release
    thresholds, canary approval) and **agent sessions** (implementation, gates, evidence).
-7. **Follow-up assumptions were wrong in both directions.** Suggested follow-up questions do
-   **not** exist (`src/lib/answer-follow-up.ts` only rewrites the user's own short
-   follow-ups by prepending the prior question), while `relatedDocuments` **does** exist
+7. **Follow-up assumptions were wrong.** The repository already has
+   `buildAnswerFollowUpSuggestions` and `buildAnswerFollowUpQuery` in
+   `src/lib/answer-follow-up.ts`; `ClinicalDashboard.tsx` computes the suggestions and
+   renders wired phone and desktop chips. The genuine gap is stronger evidence gating and
+   intent/composition-aware selection on that existing surface, not a duplicate module,
+   `RagAnswer` field, or render block. `relatedDocuments` also already exists
    (`buildRelatedDocumentsSafe` in `rag.ts`, rendered under `trustCaps[trust].related` in
-   `src/lib/answer-render-policy.ts`). Track A4 builds the missing surface on the existing one.
+   `src/lib/answer-render-policy.ts`). Track A4 refines what is present.
 
 ---
 
@@ -109,29 +113,39 @@ _related_ high-yield information a psychiatrist colleague would append unprompte
 question type, and (c) be moderately longer (~1.5×) where evidence supports it, without
 raising the source-only fallback rate or weakening a single grounding gate.
 
-### A1 — Budget headroom before length (prerequisite; resolves/mitigates `#231`)
+### A1 — Diagnose generation-quality fallbacks before changing length (prerequisite; `#231`)
 
-**Problem.** Longer answers cost tokens and seconds; the fast route already times out into
-source-only fallbacks on healthy retrieval. Increasing length before fixing this makes the
-product worse (more fallbacks), not better.
+**Problem.** Healthy retrieval still sometimes ends in a source-only fallback. The decisive
+extended-budget probe completed generation inside the route deadline and still failed the
+quality path, so route duration is not established as the binding cause. Increasing output
+length before identifying the structured failure reason risks increasing fallbacks without
+fixing the mechanism.
 
 **Work.**
 
-- Instrument (allow-listed metadata only — stage, latency_ms, timeout, fallback_used,
-  candidate_count; never query/answer text) the fast-route stages via the existing
-  `answer-telemetry` path to attribute where the 25s goes: retrieval, context packing
-  (`packContextForGeneration`), generation, verification.
-- Candidate mitigations, in preference order: (1) raise `answerRouteBudgetMs.fast`
-  modestly with evidence that p95 generation fits; (2) route length-heavy query classes
-  (broad_summary, comparison) to the strong budget earlier via
-  `shouldRetryWithStrongAfterFast` predicates; (3) trim context-pack latency. Do **not**
-  reintroduce token streaming — the only admissible perceived-latency fix is progressive
-  disclosure of already-verified units over the existing `progress` SSE event
+- Complete allow-listed timing and decision metadata across the whole route: pre-retrieval
+  cache/version work, retrieval phase latencies, search total, route budget/deadline state,
+  generation failure reason/detail, and retry count/reasons. Never record query, answer,
+  provider-error, or source text.
+- Attribute each source-only fallback to a stable stage and structured reason before changing
+  behaviour. Preserve the existing conservative fallback while diagnosing it.
+- Choose the mitigation from evidence, in this order:
+  1. fix the specific generation-quality, verification, or composition failure;
+  2. reduce pre-generation latency if measurements show it is starving generation;
+  3. when a length-heavy class such as `broad_summary` or `comparison` genuinely requires the
+     strong route, select it in `chooseAnswerRoute` **before** the route deadline is created —
+     not in `shouldRetryWithStrongAfterFast`, which runs only after the fast attempt;
+  4. change a timeout or `answerRouteBudgetMs` only if new measurements directly show the
+     deadline is binding and explicitly rebut `#231`'s recorded stop condition.
+- Do **not** reintroduce token streaming. The only admissible perceived-latency improvement is
+  progressive disclosure of already-verified units over the existing `progress` SSE event
   (refutation 6, ledger `#100`).
-- **Files:** `src/lib/rag/rag-route-budget.ts`, `src/lib/rag/rag-routing.ts`,
-  `src/lib/answer-telemetry.ts`, targeted tests beside each.
-- **Gate:** offline 44-case + 30-case suites unchanged; live observation window showing
-  fallback-rate non-inferiority; `RAG impact:` line (behaviour change → canary pair).
+- **Files:** principally `src/lib/rag/rag.ts`, `src/lib/types.ts`, existing answer-telemetry
+  helpers, `src/lib/rag/rag-routing.ts` only if initial routing changes, and targeted tests.
+  `src/lib/rag/rag-route-budget.ts` is out of scope unless the evidence threshold above is met.
+- **Gate:** telemetry-only work must leave offline 44-case + 30-case behaviour unchanged and
+  prove no sensitive text enters metadata. Any routing, prompt, quality-gate, or budget change
+  is a separate behaviour change with a `RAG impact:` statement and live canary pair.
 
 ### A2 — Intent-conditioned answer composition ("related information")
 
@@ -177,36 +191,39 @@ larger menus at `medium`/`high` trust.
   "narrow question → narrow answer" rule verbatim — a definition or single threshold must
   not bloat; the length increase applies to management/comparison/threshold questions where
   yield is real.
-- Verify headroom: `OPENAI_MAX_OUTPUT_TOKENS` (16000) is ample; the binding constraint is
-  route time, which is why A1 lands first. Check `trustCaps` and any verification heuristics
-  that assume the current shape (quote-card counts, section caps).
+- Verify A1's evidence first: generation-quality reasons, available headroom, and fallback
+  rate are the binding evidence, not an assumed need for a longer route timeout. Check
+  `trustCaps` and any verification heuristics that assume the current shape (quote-card
+  counts, section caps).
 - Bundle with A2 in one PR if the diff stays reviewable — both are prompt-surface changes
   sharing one canary pair; otherwise ship A2 first, A3 second with its own pair.
 - **Files:** `src/lib/rag/rag.ts` (prompt), `src/lib/rag/rag-versioning.ts` (bump
   `ragAnswerPromptVersion` so the response cache and prompt cache key roll), eval baselines.
 
-### A4 — Suggested follow-up questions (new surface)
+### A4 — Improve the existing suggested follow-up questions
 
-- Deterministic-first generation (no extra provider call, no added latency): derive 2–4
-  candidate next questions from `queryAnalysis` (medications, canonical terms), the
-  composition menu of A2 (e.g. dosing answered → offer "monitoring for X", "contraindications
-  for X"), and retrieved section headings. Template-based phrasing; only offer a suggestion
-  whose subject actually appears in the retrieved evidence.
-- Return on `RagAnswer` (new optional field), render near `relatedDocuments`, gated by the
-  same trust ladder (suppress at `unsupported`/`low`). Clicking a suggestion submits through
-  the existing composer path; `buildAnswerFollowUpQuery` already handles topic carry-over.
-  Cross-mode deep links (prescribing, differentials, dsm) go through
-  `src/lib/cross-mode-links.ts` / `src/lib/app-modes.ts` hrefs — never raw `<a>`.
-- **Files:** new `src/lib/answer-follow-up-suggestions.ts` (+ test), `src/lib/types.ts`
-  (`RagAnswer` field), `rag.ts` wiring, one render block, UI wiring per
-  `docs/wiring-conventions.md`.
-- **Gate:** additive field → `RAG impact: no retrieval behaviour change — additive answer
-metadata` if generation prompt untouched; UI proof via `npm run ensure` + focused journey,
-  `verify:phone-chrome` if composer chrome is affected.
+- Keep `buildAnswerFollowUpSuggestions` and `buildAnswerFollowUpQuery` in
+  `src/lib/answer-follow-up.ts` as the single implementation. The current deterministic
+  surface already derives up to four suggestions from medications, canonical terms, query
+  class, comparison intent, and source gaps, and `ClinicalDashboard.tsx` already renders
+  wired phone and desktop chips.
+- Improve the existing function rather than duplicating it: incorporate A2's composition menu,
+  require the suggested subject to be supported by retrieved evidence, suppress redundant or
+  already-answered suggestions, and retain deterministic phrasing with no extra provider call
+  or latency.
+- Keep submission on the current composer path. Cross-mode deep links, when appropriate, go
+  through `src/lib/cross-mode-links.ts` / `src/lib/app-modes.ts` hrefs — never raw `<a>`.
+- Do **not** add a second follow-up module, a new `RagAnswer` field, or another render block.
+  Change `ClinicalDashboard.tsx` only if the existing function's input contract must expand.
+- **Files:** `src/lib/answer-follow-up.ts` and its focused tests; optionally the existing
+  `ClinicalDashboard.tsx` call site and A2 composition types.
+- **Gate:** `RAG impact: no retrieval behaviour change — deterministic follow-up composition
+  only` when the generation prompt is untouched; focused DOM proof for both existing chip
+  surfaces and `verify:phone-chrome` only if shared composer chrome changes.
 
-**Track A sequencing:** A1 → (A2 + A3) → A4. Each PR: `npm run format` + commit,
-`verify:pr-local`, offline eval re-baseline, canary pair where behaviour changes, ledger
-append, one PR at a time (no bundling across RAG-impact boundaries).
+**Track A sequencing:** A1 diagnosis → (A2 + A3) → A4 refinement. Each PR:
+`npm run format` + commit, `verify:pr-local`, offline eval re-baseline, canary pair where
+behaviour changes, ledger append, one PR at a time (no bundling across RAG-impact boundaries).
 
 ---
 
@@ -310,18 +327,18 @@ default-off flags.
 
 ## 5. Sequencing summary
 
-| Order | Item                                            | Depends on                      | Behaviour change?                      |
-| ----- | ----------------------------------------------- | ------------------------------- | -------------------------------------- |
-| 1     | A1 budget headroom (`#231`)                     | —                               | Yes → canary pair                      |
-| 2     | A2 + A3 intent-conditioned composition + length | A1                              | Yes → canary pair + Gate E comparison  |
-| 3     | A4 follow-up suggestions                        | A2                              | Additive (no pair if prompt untouched) |
-| 4     | B0 baseline + adversarial fixtures              | — (can run parallel to Track A) | No                                     |
-| 5     | B1 telemetry assessment                         | B0 (shares A1 instrumentation)  | No                                     |
-| 6     | B2 adversarial harness                          | B0                              | No                                     |
-| 7     | B3 Docling lab                                  | B0                              | No                                     |
-| 8     | B4 Docling shadow                               | Gate B                          | Worker-only, shadow                    |
-| 9     | B5/B6 Ragas/reranker                            | conditional                     | No until separately promoted           |
-| 10    | B7 DSPy                                         | ≥100 labelled cases             | No until separately promoted           |
+| Order | Item                                             | Depends on                      | Behaviour change?                          |
+| ----- | ------------------------------------------------ | ------------------------------- | ------------------------------------------ |
+| 1     | A1 structured fallback diagnosis (`#231`)        | —                               | No for telemetry; separate pair for fixes  |
+| 2     | A2 + A3 intent-conditioned composition + length  | A1 evidence                     | Yes → canary pair + Gate E comparison      |
+| 3     | A4 improve existing follow-up suggestions        | A2                              | Deterministic composition only             |
+| 4     | B0 baseline + adversarial fixtures               | — (can run parallel to Track A) | No                                         |
+| 5     | B1 telemetry assessment                          | B0 (shares A1 instrumentation)  | No                                         |
+| 6     | B2 adversarial harness                           | B0                              | No                                         |
+| 7     | B3 Docling lab                                   | B0                              | No                                         |
+| 8     | B4 Docling shadow                                | Gate B                          | Worker-only, shadow                        |
+| 9     | B5/B6 Ragas/reranker                             | conditional                     | No until separately promoted               |
+| 10    | B7 DSPy                                          | ≥100 labelled cases             | No until separately promoted               |
 
 ## 6. Verification commands (per PR, smallest first)
 
@@ -339,14 +356,15 @@ approval per run; regression → single-commit revert + confirmation run.
 
 ## 7. Rollback map
 
-| Change                     | Rollback                                                                |
-| -------------------------- | ----------------------------------------------------------------------- |
-| A1 budgets/routing         | revert commit; budgets are constants in `rag-route-budget.ts`           |
-| A2/A3 prompt + composition | revert commit; `ragAnswerPromptVersion` bump isolates caches            |
-| A4 suggestions             | additive field — revert or hide render block                            |
-| B1 telemetry               | `RAG_TELEMETRY_EXTENDED=false`                                          |
-| B4 shadow                  | `WORKER_DOCUMENT_EXTRACTOR_MODE=legacy`; no migration or reindex needed |
-| B6 reranker                | `RAG_LOCAL_RERANK_ENABLED=false`                                        |
+| Change                     | Rollback                                                                  |
+| -------------------------- | ------------------------------------------------------------------------- |
+| A1 telemetry/diagnosis     | revert additive metadata commit; no budget change is implied              |
+| A1 behavioural mitigation | revert the separately measured routing/quality fix                        |
+| A2/A3 prompt + composition | revert commit; `ragAnswerPromptVersion` bump isolates caches              |
+| A4 suggestions             | revert changes to the existing `answer-follow-up.ts` implementation       |
+| B1 telemetry               | `RAG_TELEMETRY_EXTENDED=false`                                            |
+| B4 shadow                  | `WORKER_DOCUMENT_EXTRACTOR_MODE=legacy`; no migration or reindex needed   |
+| B6 reranker                | `RAG_LOCAL_RERANK_ENABLED=false`                                          |
 
 No item in this guide requires an irreversible action; index/database changes and any
 cloud-vendor activation remain separate, explicit approval points.
