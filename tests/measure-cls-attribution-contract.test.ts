@@ -19,4 +19,32 @@ describe("CLS attribution evidence contract", () => {
     expect(source).toContain("mkdirSync(path.dirname(outFile), { recursive: true })");
     expect(source.indexOf("mkdirSync(path.dirname(outFile)")).toBeLessThan(source.indexOf("writeFileSync(outFile"));
   });
+
+  it("selects a free managed project port by default", () => {
+    expect(source).toContain('import net from "node:net";');
+    expect(source).toContain("circularProjectPortRange");
+    expect(source).toContain("findFreePort(stableProjectPort(projectRoot))");
+    expect(source).toContain("port < projectPortStart");
+    expect(source).toContain("port > projectPortEnd");
+    expect(source).not.toContain('flag("port", "4611")');
+  });
+
+  it("bounds readiness requests and releases the heavy-run lock after cleanup failures", () => {
+    expect(source).toContain('import { waitForHttpReadiness } from "./lib/http-readiness.mjs";');
+    expect(source).toContain("requestTimeoutMs: 5_000");
+    expect(source).toContain("timeoutMs: 120_000");
+    expect(source).toMatch(
+      /try \{\s+stopOwnedProcessTree\(server\);\s+\} finally \{\s+removePathSync\(absoluteRunRoot, \{ recursive: true \}\);\s+\}/,
+    );
+    expect(source).toMatch(/\} finally \{\s+lock\.release\(\);\s+\}\s+\}\s*$/);
+  });
+
+  it("uses the shared browser-runner safety boundaries", () => {
+    expect(source).toContain('acquireHeavyRunLock({ projectRoot, command: "measure-cls-attribution" })');
+    expect(source).toContain('import { removePathSync } from "./retryable-fs.mjs";');
+    expect(source).toContain("/api/local-project-id");
+    expect(source).toContain("payload.projectId === localProjectId(projectRoot)");
+    expect(source).toContain('spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"]');
+    expect(source).not.toContain("rmSync(");
+  });
 });

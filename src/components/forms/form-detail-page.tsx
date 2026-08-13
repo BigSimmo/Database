@@ -844,6 +844,10 @@ function formInformationItems(rows: Array<{ label: string; value?: string | null
         </span>
       ),
       description: value,
+      // The collapsed line is a preview of this same value. Opening the row
+      // replaces that preview with the fully wrapped answer instead of echoing
+      // it in a visually separate, bordered panel.
+      extendDescription: true,
       content: <p className={cn("text-sm leading-6", textMuted)}>{value}</p>,
     };
   });

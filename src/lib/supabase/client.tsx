@@ -12,7 +12,7 @@ import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/su
 export { authorizationIdentity } from "@/lib/authorization-header";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
-export type OAuthProvider = "google" | "azure";
+export type OAuthProvider = "apple" | "google" | "azure";
 
 type AuthContextValue = {
   client: SupabaseClient | null;

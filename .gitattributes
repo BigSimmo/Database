@@ -8,10 +8,10 @@
 *.png binary
 *.webp binary
 
-# Review records are append-only. The custom `ledger` driver unions both sides
-# and drops exact duplicate dated rows (stock `union` kept concurrent appends
-# but also reintroduced babysit twins that failed the ledger guard).
-docs/branch-review-ledger.md merge=ledger
+# The historical Markdown ledgers are serial-only. New review records and issue
+# changes use immutable per-request files, so GitHub never needs a workstation-
+# local merge driver to decide a normal PR. Keep `merge` unspecified here: a
+# custom driver cannot run in GitHub's mergeability computation.
 
 # Outstanding-issue rows deliberately get NO merge driver. Union was tried (PR
 # #1416) and removed: ledger #133 recorded that it "concatenates conflicting

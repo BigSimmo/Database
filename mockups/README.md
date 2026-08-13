@@ -20,7 +20,7 @@ Mockups use the Clinical White / Sky Graphite role tokens (`--command`, `--clini
 Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header and bottom search composer from `src/app/mockups/layout.tsx`.
 
 - Put the mockup content between the global header and bottom composer; do not copy the header or composer into new pages.
-- Tool and favourites mockups keep the shared app header but hide the bottom composer because they provide their own primary search surface.
+- Favourites mockups and Tools mockups that provide their own primary search surface keep the shared app header but hide the bottom composer.
 - Use `?mode=answer`, `?mode=documents`, `?mode=prescribing`, `?mode=evidence`, or `?mode=favourites` to preview the active search mode.
 - The bottom composer routes live searches to the dashboard with `mode`, `q`, and `run=1`; New chat routes to `/?mode=answer&focus=1`.
 - If a future mockup must be standalone, move it outside the `/mockups` route shell or add an explicit opt-out route group before implementing it.
@@ -60,6 +60,10 @@ Static desktop/phone comps for the pages that need redesign (not ModeHome mockup
 These are PNGs for design review only. Runnable `/mockups/*` routes are a separate implementation step.
 
 **Perfected combined comps** (desktop + phone in one image, recommended directions only) live in [`public/mockups/mode-page-redesign-2026-07/perfected-combined/`](../public/mockups/mode-page-redesign-2026-07/perfected-combined/README.md).
+
+## Perfected Tools search mode
+
+`/mockups/tools-search-mode?mode=tools&q=Compare` is the interactive responsive Tools results-mode study. It uses the site's universal header and search composer, the shared results ribbon and filter conventions, compact Tools result cards, a contextual detail panel on desktop, and a bottom sheet on phones. It intentionally excludes the Tools home hero, quick actions, medication-list treatment, and cross-mode suggestion blocks.
 
 ## Breadcrumb header study (2026-08-09) — shipped, route retired
 

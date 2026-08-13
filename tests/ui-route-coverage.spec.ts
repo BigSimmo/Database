@@ -16,6 +16,8 @@ const routeViewports = [
   { name: "phone", width: 390, height: 844 },
 ] as const;
 
+const differentialDesignSweepViewports = [320, 390, 639, 768, 1440, 1920] as const;
+
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Local route fixture ready." },
   { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Local route fixture ready." },
@@ -464,7 +466,7 @@ test.describe("previously uncovered production routes", () => {
     );
   });
 
-  test("Differential diagnosis stream renders responsively and opens a local entry", async ({ page, browserName }) => {
+  test("Differential streams use lightweight controls and open a local entry", async ({ page, browserName }) => {
     const consoleErrors: string[] = [];
     page.on("console", (message) => {
       const text = message.text();
@@ -479,19 +481,110 @@ test.describe("previously uncovered production routes", () => {
       "/differentials/diagnoses?q=delirium",
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(
-          currentPage.getByRole("heading", {
-            name: "Compare likely causes side-by-side and check exclusion clues.",
-            level: 1,
-          }),
-        ).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Diagnoses", level: 1 })).toBeVisible();
+        await expect(currentPage.getByText("Compare likely causes and exclusion clues.")).toBeVisible();
+        await expect(visibleByTestId(currentPage, "search-query-ribbon")).toBeVisible();
+        await expect(currentPage.getByTestId("differentials-stream-match-controls")).toHaveCount(0);
+        await expect(currentPage.getByRole("button", { name: "Prev match" })).toHaveCount(0);
+        await expect(currentPage.getByRole("button", { name: "Next match" })).toHaveCount(0);
+
+        const headerMetrics = await visibleByTestId(currentPage, "differentials-stream-header").evaluate((header) => {
+          const heading = header.querySelector("h1");
+          return {
+            height: header.getBoundingClientRect().height,
+            headingSize: heading ? Number.parseFloat(getComputedStyle(heading).fontSize) : Number.POSITIVE_INFINITY,
+          };
+        });
+        expect(headerMetrics.height).toBeLessThan(100);
+        expect(headerMetrics.headingSize).toBeLessThanOrEqual(30);
+
+        const scrollOffset = await currentPage.evaluate(() =>
+          Math.max(document.scrollingElement?.scrollTop ?? 0, document.querySelector("#main-content")?.scrollTop ?? 0),
+        );
+        expect(scrollOffset).toBeLessThanOrEqual(2);
       },
       async (currentPage) => {
+        for (const width of differentialDesignSweepViewports) {
+          await currentPage.setViewportSize({ width, height: width < 768 ? 844 : 900 });
+          await expect(currentPage.getByRole("heading", { name: "Diagnoses", level: 1 })).toBeVisible();
+          await expectNoHorizontalOverflow(currentPage);
+        }
+        await currentPage.setViewportSize({ width: 390, height: 844 });
+
+        const filterTrigger = visibleByTestId(currentPage, "differentials-stream-filter-trigger");
+        await expect(filterTrigger).toBeVisible();
+        await filterTrigger.focus();
+        await currentPage.keyboard.press("Enter");
+
+        const filterPanel = visibleByTestId(currentPage, "differentials-stream-filter-panel");
+        await expect(filterPanel).toBeVisible();
+        const allEntries = filterPanel.getByRole("radio", { name: "All entries" });
+        await allEntries.focus();
+        await currentPage.keyboard.press("ArrowRight");
+        await expect(filterPanel.getByRole("radio", { name: /Focused family/ })).toHaveAttribute(
+          "aria-checked",
+          "true",
+        );
+        await filterPanel.getByRole("button", { name: "Done" }).click();
+        await expect(filterTrigger).toBeFocused();
+
+        const removeFamily = currentPage.getByRole("button", { name: /Remove .+ family filter/ });
+        await expect(removeFamily).toBeVisible();
+        await removeFamily.click();
+        await expect(removeFamily).toHaveCount(0);
+
         const entry = currentPage.locator(`a[href="${action.href}"]`).first();
         await expect(entry).toBeVisible();
         await Promise.all([currentPage.waitForURL(new RegExp(`${action.href}$`), { timeout: 30_000 }), entry.click()]);
       },
     );
+
+    await gotoApp(page, "/differentials/presentations");
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(page.getByRole("heading", { name: "Presentation pathways", level: 2 })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Presentation priority" })).toBeVisible();
+    await expect(page.getByText("High-priority presentation pathways")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Open pathway/ }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show family" })).toHaveCount(0);
+
+    await gotoApp(page, "/differentials/presentations?q=agitation");
+    for (const width of differentialDesignSweepViewports) {
+      await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
+      await expect(page.getByRole("heading", { name: "Presentations", level: 1 })).toBeVisible();
+      await expect(
+        page.getByText("Start with what is happening now, then open a pathway to compare likely causes."),
+      ).toBeVisible();
+      await expect(visibleByTestId(page, "search-query-ribbon")).toBeVisible();
+      await expect(page.getByTestId("differentials-stream-match-controls")).toHaveCount(0);
+      await expectNoHorizontalOverflow(page);
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const presentationFilterTrigger = visibleByTestId(page, "differentials-stream-filter-trigger");
+    await presentationFilterTrigger.focus();
+    await page.keyboard.press("Enter");
+    const presentationFilterPanel = visibleByTestId(page, "differentials-stream-filter-panel");
+    await expect(presentationFilterPanel).toBeVisible();
+    const allPriorities = presentationFilterPanel.getByRole("radio", { name: "All priorities" });
+    await allPriorities.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(presentationFilterPanel.getByRole("radio", { name: "Emergent" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await presentationFilterPanel.getByRole("button", { name: "Done" }).click();
+    await expect(presentationFilterTrigger).toBeFocused();
+    await expect(page.getByRole("button", { name: "Remove Emergent priority filter" })).toBeVisible();
+    const visiblePresentationCards = page.locator('[data-testid^="differential-stream-card-"]:visible');
+    await expect(visiblePresentationCards.first()).toHaveAttribute("data-status", "emergent");
+    await expect.poll(async () => visiblePresentationCards.count()).toBeGreaterThan(0);
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expectNoHorizontalOverflow(page);
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await expect(page.getByRole("heading", { name: "Presentations", level: 1 })).toBeVisible();
+    await expect(visibleByTestId(page, "search-query-ribbon")).toBeVisible();
+    await expectNoHorizontalOverflow(page);
     expect(consoleErrors, "differential stream and detail should stay console-error free").toEqual([]);
   });
 
