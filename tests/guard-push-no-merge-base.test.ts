@@ -33,7 +33,8 @@ if (args[0] === "rev-parse") {
 afterEach(() => {
   if (originalPath === undefined) delete process.env.PATH;
   else process.env.PATH = originalPath;
-  for (const root of cleanups.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of cleanups.splice(0))
+    rmSync(root, { recursive: true, force: true });
 });
 
 describe("changedFilesForRange without a merge base", () => {
