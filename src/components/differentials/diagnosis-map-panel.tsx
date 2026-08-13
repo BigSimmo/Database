@@ -9,7 +9,6 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
 } from "react";
 import Link from "next/link";
 import {
@@ -27,6 +26,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
+import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, floatingControl, primaryControl, toolbarButton } from "@/components/ui-primitives";
 import { differentialStatusLabel, type DifferentialRelatedMapDetail } from "@/lib/differential-detail";
@@ -289,6 +289,7 @@ function MapLegend({ nodes, compact = false }: { nodes: DifferentialMapNode[]; c
 
   return (
     <div
+      role="group"
       aria-label="Map legend"
       className={cn(
         "flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-semibold text-[color:var(--text-muted)]",
@@ -373,6 +374,23 @@ function MapGraph({
     if (metrics.width > 0 && metrics.height > 0) onMetricsChange?.(metrics);
   }, [metrics, onMetricsChange]);
 
+  const handleWheel = useEventCallback((event: WheelEvent) => {
+    if (!interactive) return;
+    event.preventDefault();
+    const anchor = localPoint(event.clientX, event.clientY);
+    const factor = Math.exp(-event.deltaY * 0.0015);
+    const next = zoomAroundAnchor(viewRef.current, viewRef.current.scale * factor, anchor, anchor, metrics);
+    viewRef.current = next;
+    onViewChange?.(next);
+  });
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !interactive) return;
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", handleWheel);
+  }, [handleWheel, interactive]);
+
   function localPoint(clientX: number, clientY: number) {
     const rect = canvasRef.current?.getBoundingClientRect();
     return { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) };
@@ -456,18 +474,9 @@ function MapGraph({
     }
   }
 
-  function handleWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    if (!interactive) return;
-    event.preventDefault();
-    const anchor = localPoint(event.clientX, event.clientY);
-    const factor = Math.exp(-event.deltaY * 0.0015);
-    const next = zoomAroundAnchor(viewRef.current, viewRef.current.scale * factor, anchor, anchor, metrics);
-    viewRef.current = next;
-    onViewChange?.(next);
-  }
-
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (!interactive || event.target !== event.currentTarget) return;
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
     const panDelta: Record<string, ActivePoint> = {
       ArrowLeft: { x: 32, y: 0 },
       ArrowRight: { x: -32, y: 0 },
@@ -530,7 +539,6 @@ function MapGraph({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      onWheel={handleWheel}
       onKeyDown={handleKeyDown}
     >
       {viewport.width > 0 && viewport.height > 0 ? (
@@ -642,11 +650,11 @@ function MapGraph({
                 aria-pressed={isSelected}
                 aria-label={`Show details for ${node.label}`}
               >
-                <span className="flex items-center justify-center gap-1 text-[0.625rem] font-extrabold uppercase tracking-wide opacity-85">
+                <span className="flex items-center justify-center gap-1 text-3xs font-extrabold uppercase tracking-wide opacity-85">
                   {node.likelihood === "must-not-miss" ? <ShieldAlert className="h-3 w-3" aria-hidden /> : null}
                   {likelihoodLabels[node.likelihood]}
                 </span>
-                <span data-map-node-label className="text-[0.6875rem] sm:text-xs">
+                <span data-map-node-label className="text-2xs sm:text-xs">
                   {node.label}
                 </span>
               </button>
@@ -678,7 +686,17 @@ function NodeInspector({
   const inspectorRef = useRef<HTMLElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const contentId = useId();
+  const [isWideLayout, setIsWideLayout] = useState(false);
   const selectedIsDiagnosis = selected === "diagnosis";
+
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsWideLayout(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const detail = selectedIsDiagnosis ? null : relatedMapDetails[selected.id];
   const title = selectedIsDiagnosis ? record.title : selected.label;
   const relationshipLabel = selectedIsDiagnosis ? "Focus diagnosis" : likelihoodLabels[selected.likelihood];
@@ -741,6 +759,7 @@ function NodeInspector({
 
       <div
         id={contentId}
+        inert={!expanded && !isWideLayout ? true : undefined}
         className={cn(
           "grid min-h-0 flex-1 motion-safe:transition-[grid-template-rows]",
           expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr] lg:grid-rows-[1fr]",
