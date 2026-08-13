@@ -354,6 +354,17 @@ export function ServicesNavigatorPage() {
   }, [searchParams]);
   const substanceLens = readServiceSubstanceLens(searchParams.get("substance"));
   const serviceFacetIndex = useMemo(() => buildServiceFacetIndex(groupedMatches), [groupedMatches]);
+  // The care-type lens is applied before projecting counts so an enabled option always
+  // reflects the result set it will be combined with.
+  const facetProjectionIndex = useMemo(
+    () =>
+      substanceLens
+        ? buildServiceFacetIndex(
+            groupedMatches.filter((service) => service.facets?.substance_flags.includes(substanceLens)),
+          )
+        : serviceFacetIndex,
+    [groupedMatches, serviceFacetIndex, substanceLens],
+  );
   const facetFilteredMatches = useMemo(
     () => filterServicesByFacetIndex(serviceFacetIndex, [...selectedFacetKeys]),
     [serviceFacetIndex, selectedFacetKeys],
@@ -370,8 +381,8 @@ export function ServicesNavigatorPage() {
     [substanceFilteredMatches, sortValue],
   );
   const projectedFacetGroups = useMemo(
-    () => projectServiceFacetCounts(serviceFacetIndex, [...selectedFacetKeys]),
-    [serviceFacetIndex, selectedFacetKeys],
+    () => projectServiceFacetCounts(facetProjectionIndex, [...selectedFacetKeys]),
+    [facetProjectionIndex, selectedFacetKeys],
   );
   const catalogueTotal = searchableRecords.length;
   // The only escape from a filtered-to-zero state that does not discard the query — see the
@@ -434,15 +445,11 @@ export function ServicesNavigatorPage() {
     });
   }
 
-  // The commit the scope segment names — "Show N in all items" — clears every dimension that
-  // could be narrowing the result set at once, not just the facets/substance this sheet owns:
-  // the escape has to reach zero regardless of what put the reader there.
+  // The scope segment widens the result set without discarding the reader's search. It clears
+  // every non-query dimension that can narrow the catalogue so the escape can reach zero.
   function showAllServiceItems() {
-    setLocalQuery({ urlQuery, value: "" });
     setFilterOpen(false);
     updateParams((params) => {
-      params.delete("q");
-      params.delete("query");
       params.delete("focus");
       params.delete("group");
       params.delete("facets");

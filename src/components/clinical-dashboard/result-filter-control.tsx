@@ -41,6 +41,8 @@ export type ResultFilterOption<Value extends string> = {
   label: string;
   /** Trailing detail — a count, a qualifier. Never the only thing distinguishing two options. */
   hint?: string;
+  /** Canonical text used to find an abbreviated display label. */
+  searchText?: string;
   /** Renders as a dead end: focusable and explained, but not selectable. */
   disabled?: boolean;
 };
@@ -681,6 +683,7 @@ export function ResultFilterSheet({
             // untoggle without clearing the field first.
             group.selected.has(option.value) ||
             option.label.toLowerCase().includes(activeNeedle) ||
+            option.searchText?.toLowerCase().includes(activeNeedle) ||
             group.label.toLowerCase().includes(activeNeedle),
         ),
       };

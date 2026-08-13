@@ -150,6 +150,12 @@ describe("document filter panel", () => {
     expect(resultTitles()).toEqual([expect.stringContaining("Clozapine Monitoring Protocol")]);
   });
 
+  it("hides Clear filters until a document filter is active", async () => {
+    const { panel } = await openPanel();
+
+    expect(within(panel).queryByTestId("document-filter-panel-clear")).toBeNull();
+  });
+
   it("clears both filter kinds at once", async () => {
     const user = userEvent.setup();
     render(<DocumentSearchResultsPanel {...baseProps} />);
@@ -370,6 +376,7 @@ describe("filter sheet — density, exclusivity and reach", () => {
       label("33333333-3333-4333-8333-333333333333", "community", "setting"),
       label("33333333-3333-4333-8333-333333333333", "discharge", "care_phase"),
       label("33333333-3333-4333-8333-333333333333", "suicide", "risk"),
+      label("33333333-3333-4333-8333-333333333333", "fiona stanley hospital", "site"),
     ],
   });
   const denseProps = { ...baseProps, matches: [denseDoc, clozapineDoc, lithiumDoc], documentCount: 2014 };
@@ -426,6 +433,14 @@ describe("filter sheet — density, exclusivity and reach", () => {
     await user.type(within(panel).getByTestId("document-filter-panel-find"), "community");
     expect(within(panel).getByRole("button", { name: /Community/ })).toBeVisible();
     expect(within(panel).queryByRole("button", { name: /Clozapine/ })).toBeNull();
+  });
+
+  it("finds an abbreviated site label by its canonical text", async () => {
+    const { user, panel } = await openPanel(denseProps);
+
+    await user.type(within(panel).getByTestId("document-filter-panel-find"), "fiona stanley hospital");
+
+    expect(within(panel).getByRole("button", { name: /FSH/ })).toBeVisible();
   });
 
   it("stops advertising a disclosure while the find field owns what is open", async () => {

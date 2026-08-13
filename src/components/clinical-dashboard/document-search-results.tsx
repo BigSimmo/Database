@@ -1175,6 +1175,7 @@ function DocumentSearchResultsPanelImpl({
                       value: facet.key,
                       label: facet.label,
                       hint: String(facet.count),
+                      searchText: facet.searchText,
                       // Zero-count unselected facets stay visible so the list does not jump,
                       // but they are disabled: selecting them would empty the set.
                       disabled: facet.count === 0 && !selected.has(facet.key),
@@ -1183,7 +1184,7 @@ function DocumentSearchResultsPanelImpl({
                   });
                 }),
               ]}
-              onClearAll={clearAllFilters}
+              onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
               meterContent={
                 // The proportion, once, at the top. A meter rather than a second number:
                 // "12 of 2,014" is a ratio the reader is judging, not a figure they are

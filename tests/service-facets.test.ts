@@ -146,4 +146,24 @@ describe("substance_flags is excluded from the facet dimensions", () => {
       expect(["general", "aod"]).toContain(catalogService.tags.substance_flags[0]);
     }
   });
+  it("derives available options from the care-type-lensed corpus", () => {
+    const general = service("general", {
+      substance_flags: ["general"],
+      setting_flags: ["general_care"],
+    });
+    const aod = service("aod", {
+      substance_flags: ["aod"],
+      setting_flags: ["aod_care"],
+    });
+
+    // The navigator must build its projected index from this lensed set, not from
+    // the combined catalogue: a general-only option would otherwise appear enabled
+    // while selecting it alongside the AOD lens produced no results.
+    const lensedIndex = buildServiceFacetIndex([aod]);
+    const setting = projectServiceFacetCounts(lensedIndex, []).find((group) => group.group === "setting_flags");
+
+    expect(setting?.options.map((option) => option.value)).toEqual(["aod_care"]);
+    expect(buildServiceFacetIndex([general, aod]).groups.find((group) => group.group === "setting_flags")?.options).toHaveLength(2);
+  });
+
 });
