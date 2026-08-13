@@ -145,10 +145,11 @@ rather than showing an empty heading.
 - **`footerNote` counts what the filters actually govern.** Specifiers currently reports
   `results.length + catalogueMatches.length` while the groups narrow only `results` — the sheet
   claims to scope a list it half controls. A mode must not report a total its filters cannot move.
-- **`onClearAll` never touches the query.** Therapy-compass's clear wipes the search box; the
-  shared sheet's does not. Clearing filters and clearing a search are different intentions.
-- **One trigger component.** `ResultFilterTrigger`. Therapy-compass re-implements it with a
-  different icon, a hardcoded test id and a different label-hiding breakpoint.
+- **`onClearAll` never touches the query.** Clearing filters and clearing a search are different
+  intentions. Therapy-compass now uses the shared sheet's filter-only clear; the composer's
+  explicit "Clear search" action remains responsible for deleting the query.
+- **One trigger component.** `ResultFilterTrigger`. Therapy-compass now uses the shared trigger
+  at the phone breakpoint and the shared facet chips on desktop.
 - **Tap targets are `min-h-tap` (48px) on phone.** Do not relax to 44px for generic WCAG
   guidance; it reintroduces a known `ui-smoke` flake.
 
@@ -183,6 +184,11 @@ Contract first, then one PR per mode:
    `src/lib/service-facets.ts`), a URL round-trip alongside `q`/`group`, and the scope segment
    (section 4). Services is also the first mode dense enough (5 facet groups) to exercise the
    `> 3 groups` chrome added to the shared sheet for this — see section 5.
-4. **Documents last** — port its needle and collapse up into the shared component as the
+4. **Therapy-compass** — converge runtime use of the bespoke phone-only filter sheet and trigger
+   onto `ResultFilterSheet`, `ResultFilterTrigger`, and `ResultFilterFacetChips`. Topics are OR
+   within their group. Review status and handout availability are independent one-option groups
+   that AND with Topics and with each other. Option counts and filtering share
+   `matchesTopics`/`matchesAvailability`, and Clear filters preserves the query.
+5. **Documents last** — port its needle and collapse up into the shared component as the
    `> 20` tier, then converge. It is the largest surface and should move once the contract is
    proven elsewhere.

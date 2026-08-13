@@ -1,0 +1,179 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import type { Therapy } from "@/components/therapy-compass/data/types";
+
+function therapy(overrides: Partial<Therapy> = {}): Therapy {
+  return {
+    slug: "act",
+    name: "Acceptance and Commitment Therapy (ACT)",
+    tags: ["Mood", "Anxiety", "CBT"],
+    reviewStatus: "needs_review",
+    briefInterventionAvailable: true,
+    patientSheetAvailable: true,
+    ...overrides,
+  } as Therapy;
+}
+
+const bindingsState = vi.hoisted(() => ({
+  query: "",
+  tags: [] as string[],
+  reviewedOnly: false,
+  briefOnly: false,
+  queryMatches: [] as Therapy[],
+  searchResults: [] as Therapy[],
+}));
+
+const toggleTag = vi.fn();
+const toggleReviewedOnly = vi.fn();
+const toggleBriefOnly = vi.fn();
+const clearSearch = vi.fn();
+const clearSearchFilters = vi.fn();
+
+vi.mock("@/components/therapy-compass/bindings", () => ({
+  useTcBindings: () => ({
+    error: null,
+    loading: false,
+    retryData: vi.fn(),
+    search: {
+      query: bindingsState.query,
+      tags: bindingsState.tags,
+      reviewedOnly: bindingsState.reviewedOnly,
+      briefOnly: bindingsState.briefOnly,
+      sheetOnly: false,
+    },
+    searchResults: bindingsState.searchResults,
+    queryMatches: bindingsState.queryMatches,
+    toggleTag,
+    toggleReviewedOnly,
+    toggleBriefOnly,
+    clearSearch,
+    clearSearchFilters,
+  }),
+}));
+
+import { SearchScreen } from "@/components/therapy-compass/screens/search-screen";
+
+describe("therapy-compass search filter contract adoption", () => {
+  // `bindingsState` and the handler spies are module-level, so they would
+  // otherwise leak call counts and stale values between cases.
+  afterEach(() => {
+    bindingsState.query = "";
+    bindingsState.tags = [];
+    bindingsState.reviewedOnly = false;
+    bindingsState.briefOnly = false;
+    bindingsState.queryMatches = [];
+    bindingsState.searchResults = [];
+    vi.clearAllMocks();
+  });
+
+  it("renders Topics, Review status, and Handout as three separate facet groups", () => {
+    bindingsState.query = "";
+    bindingsState.tags = [];
+    bindingsState.reviewedOnly = false;
+    bindingsState.briefOnly = false;
+    bindingsState.queryMatches = [therapy({ slug: "a", tags: ["CBT"] }), therapy({ slug: "b", tags: ["Anxiety"] })];
+    bindingsState.searchResults = [];
+
+    render(<SearchScreen />);
+
+    expect(screen.getByRole("group", { name: "Topics" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Review status" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Handout" })).toBeInTheDocument();
+  });
+
+  it("counts a Topics option against the query-only match set, not the already-filtered one", () => {
+    bindingsState.query = "";
+    bindingsState.tags = [];
+    bindingsState.reviewedOnly = false;
+    bindingsState.briefOnly = false;
+    bindingsState.queryMatches = [
+      therapy({ slug: "a", tags: ["CBT"] }),
+      therapy({ slug: "b", tags: ["CBT"] }),
+      therapy({ slug: "c", tags: ["Anxiety"] }),
+    ];
+    bindingsState.searchResults = [];
+
+    render(<SearchScreen />);
+
+    expect(screen.getAllByRole("button", { name: /^CBT \(2\)$/ })[0]).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Anxiety \(1\)$/ })[0]).toBeInTheDocument();
+  });
+
+  it("clicking a Topics chip calls toggleTag with that tag", async () => {
+    const user = userEvent.setup();
+    bindingsState.query = "";
+    bindingsState.tags = [];
+    bindingsState.queryMatches = [therapy({ tags: ["CBT"] })];
+    bindingsState.searchResults = [];
+    toggleTag.mockClear();
+
+    render(<SearchScreen />);
+
+    await user.click(screen.getAllByRole("button", { name: /^CBT/ })[0]);
+    expect(toggleTag).toHaveBeenCalledWith("CBT");
+  });
+
+  it("Reviewed only and Brief available toggle independently, never through one shared onToggle", async () => {
+    const user = userEvent.setup();
+    bindingsState.query = "";
+    bindingsState.tags = [];
+    bindingsState.queryMatches = [therapy({ reviewStatus: "reviewed" })];
+    bindingsState.searchResults = [];
+    toggleReviewedOnly.mockClear();
+    toggleBriefOnly.mockClear();
+
+    render(<SearchScreen />);
+
+    await user.click(screen.getAllByRole("button", { name: /^Reviewed only/ })[0]);
+    expect(toggleReviewedOnly).toHaveBeenCalledTimes(1);
+    expect(toggleBriefOnly).not.toHaveBeenCalled();
+
+    await user.click(screen.getAllByRole("button", { name: /^Brief available/ })[0]);
+    expect(toggleBriefOnly).toHaveBeenCalledTimes(1);
+  });
+
+  it("Clear all in the phone sheet clears filters only, never the query", async () => {
+    const user = userEvent.setup();
+    bindingsState.query = "anxiety";
+    bindingsState.tags = ["CBT"];
+    bindingsState.reviewedOnly = false;
+    bindingsState.briefOnly = false;
+    bindingsState.queryMatches = [therapy()];
+    // Empty, not `[therapy()]`: `ResultCard` reads several more `useTcBindings`
+    // fields (compare selection, favourites) this test's mock does not stub,
+    // and this suite is scoped to the filter sheet's own wiring, not the
+    // result list it sits above.
+    bindingsState.searchResults = [];
+    clearSearch.mockClear();
+    clearSearchFilters.mockClear();
+
+    render(<SearchScreen />);
+
+    await user.click(screen.getByTestId("therapy-filter-trigger-phone"));
+    await user.click(screen.getByTestId("therapy-filter-panel-clear"));
+
+    expect(clearSearchFilters).toHaveBeenCalledTimes(1);
+    expect(clearSearch).not.toHaveBeenCalled();
+  });
+
+  it("hides Clear all in the phone sheet for a query-only session — nothing for it to clear", async () => {
+    const user = userEvent.setup();
+    bindingsState.query = "anxiety";
+    bindingsState.tags = [];
+    bindingsState.reviewedOnly = false;
+    bindingsState.briefOnly = false;
+    bindingsState.queryMatches = [therapy()];
+    // Empty, not `[therapy()]`: `ResultCard` reads several more `useTcBindings`
+    // fields (compare selection, favourites) this test's mock does not stub,
+    // and this suite is scoped to the filter sheet's own wiring, not the
+    // result list it sits above.
+    bindingsState.searchResults = [];
+
+    render(<SearchScreen />);
+
+    await user.click(screen.getByTestId("therapy-filter-trigger-phone"));
+    expect(screen.queryByTestId("therapy-filter-panel-clear")).not.toBeInTheDocument();
+  });
+});
