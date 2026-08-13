@@ -14,7 +14,7 @@ Playwright workers or revive the refuted cache/shard hacks listed there.
 - `ci-change-scope.mjs` is the shared fail-closed classifier for local PR handoff and hosted CI. Only recognised documentation and workflow/policy paths take a light route; product code, tests, executable config, dependencies, database/container/RAG surfaces, mixed scope, and unknown non-document paths retain heavy verification.
 - `verify:pr-local` no longer treats every handoff as lint + typecheck + full unit + RAG fixtures. It always checks runtime, installed-lock parity, and changed-file formatting, then selects documentation checks, focused workflow contracts, or the heavy executable plan. Its self-test makes those routing decisions a repository contract.
 - `static-pr` remains required but step-routes the same signals. Workflow-only edits run focused workflow tests instead of full coverage and safety/RAG; documentation changes run documentation integrity checks; heavy/unknown changes retain lint, typecheck, coverage, safety/RAG, and all applicable build/UI/database/container jobs. `PR required` remains `if: always()` and requires every in-scope job, including `safety` whenever `static_heavy_changed` is true.
-- Repeated low-yield provider work was removed from ordinary PRs: dependency audit runs when a lockfile/npm configuration can change the dependency tree (and on the scheduled full-run sentinel), eval-canary liveness moved to the daily Ops Digest cadence, and PR-body synchronization runs only when `PR_POLICY_BODY.md` exists.
+- Repeated low-yield provider work was removed from ordinary PRs: dependency audit runs when a lockfile/npm configuration can change the dependency tree (and on the scheduled full-run sentinel), eval-canary liveness moved to the daily Ops Digest cadence, and PR-body synchronization runs only when the current PR's own diff changes `PR_POLICY_BODY.md`.
 - The operating rule is incremental value, not a fixed command count: each added check must cover a distinct plausible failure path. Never rerun an unchanged pass, and do not stack broad gates when one suitable gate already covers the risk.
 
 ## Multi-worktree reconciliation hardening (2026-07-23)
@@ -89,8 +89,8 @@ artifact before release; see
   required-CI bill as a large change.
 - **Rule:** see AGENTS.md "PR bundling (reduce one-task-one-PR churn)" — bundle
   same-scope, independently low-risk, separately-revertible-commit work into one PR
-  instead of minting a branch per task. Queued `docs/branch-review-ledger.md` /
-  `docs/outstanding-issues.md` append-only tasks are the best candidate.
+  instead of minting a branch per task. Review records and issue requests now use independent
+  immutable files, so they should accompany their owning product PR rather than become ledger-only PRs.
 - **Does not change:** required-check scoping, per-commit verification rigor, or the
   deliberate "1 PR per work order" convention for tracked staged rollouts (maturity
   backlog, `#086`) or anything crossing a clinical-risk/RAG-ranking-surface path.

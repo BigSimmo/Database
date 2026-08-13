@@ -25,7 +25,6 @@ import {
   ClinicalMobileSidebar,
   deriveSidebarIdentity,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
-import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
@@ -52,6 +51,7 @@ import {
   SidebarAccountSetupDialog,
   SidebarSettingsDialog,
 } from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
+import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
 import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -1012,13 +1012,14 @@ function GlobalStandaloneSearchShellBody({
         </div>
       </PhoneFooterLayerFrame>
 
-      <GuideDialog open={guideOpen} onClose={closeGuideWithRestore} />
+      <LazyGuideDialog open={guideOpen} onClose={closeGuideWithRestore} />
       <SidebarSettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
         onSignOut={auth.signOut}
         onOpenGuide={openGuideFromSettings}
+        onPrefetchGuide={loadGuideDialog}
         initialFocus={settingsInitialFocus}
       />
       <SidebarAccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />

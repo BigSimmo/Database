@@ -216,8 +216,10 @@ describe("MedicationInteractionCallout", () => {
     renderCallout("sertraline");
 
     expect(trigger()).toHaveAttribute("aria-expanded", "false");
-    // Present in the DOM (Disclosure hides rather than unmounts) but not shown.
-    expect(screen.getByText(/Massive risk of Serotonin Syndrome/i)).not.toBeVisible();
+    // Present in the DOM (Disclosure hides rather than unmounts) but collapsed.
+    const panel = screen.getByRole("region");
+    expect(panel).toHaveAttribute("data-open", "false");
+    expect(panel).toHaveClass("hidden");
   });
 
   it("keeps severity, count and the interacting drugs legible while collapsed", () => {

@@ -253,7 +253,8 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/in-page-nav-playwright-contract.test.ts",
-        "tests/information-page-shell.dom.test.tsx"
+        "tests/information-page-shell.dom.test.tsx",
+        "tests/ui-specifiers.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -534,6 +535,7 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/medication-interaction-surfaces.dom.test.tsx",
+        "tests/ui-forms-section-nav.spec.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -563,7 +565,11 @@
         "preview": ".design-sync/previews/DisclosureGroup.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/forms-information-disclosure.dom.test.tsx",
+        "tests/ui-forms-section-nav.spec.ts"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1392,6 +1398,7 @@
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/specifiers/specifiers-home-page.tsx"
       ],
@@ -1401,6 +1408,7 @@
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/specifiers/specifiers-home-page.tsx"
       ],
@@ -1412,6 +1420,7 @@
       },
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
+        "tests/factsheets-search-page.dom.test.tsx",
         "tests/search-results-header-band.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
@@ -1486,6 +1495,7 @@
         "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
@@ -1515,6 +1525,7 @@
         "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
@@ -1546,6 +1557,7 @@
         "tests/factsheet-save.dom.test.tsx",
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
+        "tests/in-page-nav-route-sections.dom.test.tsx",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",

@@ -144,7 +144,7 @@ describe("playwright browser preflight", () => {
         source: "playwright chromium-headless-shell",
       });
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -188,7 +188,7 @@ describe("playwright browser preflight", () => {
       expect(preflight.message).toBe(driftMessage);
       expect(preflight.missing?.[0]?.path).toBe("");
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -212,7 +212,7 @@ describe("playwright browser preflight", () => {
         arm64Compatible,
       );
     } finally {
-      rmSync(root, { recursive: true, force: true });
+      rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
@@ -248,7 +248,7 @@ describe("playwright browser preflight", () => {
       expect(result.ok).toBe(true);
       expect(result.checked?.[0]?.path).toBe(binary);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });

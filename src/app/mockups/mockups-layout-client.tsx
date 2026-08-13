@@ -8,6 +8,7 @@ import { GlobalMockupSearchShell } from "@/components/clinical-dashboard/global-
 export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isToolsPageMockup = pathname.startsWith("/mockups/tools-");
+  const isToolsSearchModeMockup = pathname === "/mockups/tools-search-mode";
   const isFavouritesPageMockup = pathname.startsWith("/mockups/favourites-");
   const isDocumentSearchMockup = pathname.startsWith("/mockups/document-search");
   const isDocumentTopNavigationMockup = pathname === "/mockups/document-top-navigation";
@@ -37,6 +38,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // beside it — that is the concept under judgement, so the shared composer
   // above it would be a second, real search bar competing with the proposal.
   const isServicesFilterOptionsMockup = pathname === "/mockups/services-filter-options";
+  // Draws its own formulation band and an in-frame filter sheet in every device
+  // frame; the shared composer would read as a second, real search bar over a
+  // study about the control that opens from that band.
+  const isFilterSheetRestyleMockup = pathname === "/mockups/filter-sheet-restyle";
   const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
   // Draws its own composer in every frame, and the notice under study is the one
   // the shared composer renders — showing both would put two different privacy
@@ -81,7 +86,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
                 : "answer"
       }
       searchComposerVisible={
-        !isToolsPageMockup &&
+        (!isToolsPageMockup || isToolsSearchModeMockup) &&
         !isFavouritesPageMockup &&
         !isStandaloneDocumentFlow &&
         !isDocumentTopNavigationMockup &&
@@ -94,6 +99,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSearchBandDirectionsMockup &&
         !isServicesFilterRefinedMockup &&
         !isServicesFilterOptionsMockup &&
+        !isFilterSheetRestyleMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
@@ -111,6 +117,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSearchBandDirectionsMockup &&
         !isServicesFilterRefinedMockup &&
         !isServicesFilterOptionsMockup &&
+        !isFilterSheetRestyleMockup &&
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
