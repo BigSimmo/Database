@@ -35,7 +35,7 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     await expect(mockup.locator("aside").getByRole("heading", { name: "Best for" })).toBeVisible();
     await expect(mockup.locator("aside").getByText("Selected tool")).toBeVisible();
     await expect(mockup.getByTestId("tools-search-mode-hero")).toHaveCount(0);
-    await expect(mockup.getByText("Also matches in other modes")).toHaveCount(0);
+    await expect(mockup.getByTestId("universal-also-matches")).toBeVisible();
     await expect(mockup.getByText("Dose converter")).toHaveCount(0);
 
     const categoryRail = mockup.getByRole("radiogroup", { name: "Tool category" });
