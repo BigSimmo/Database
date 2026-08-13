@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 /**
  * Canonical privacy-page governance copy.
  *
- * Wording is pinned by `tests/privacy-ui.test.ts`. Presentation (Quiet Signal
- * chrome, accordion, processing map) may change; these strings and the
+ * Wording is pinned by `tests/privacy-ui.test.ts`. Presentation (page chrome,
+ * accordion, processing map) may change; these strings and the
  * `<strong>` spacing on "not a patient-record system" must not drift.
  */
 

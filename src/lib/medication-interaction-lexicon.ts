@@ -7,7 +7,17 @@ export type LexiconTermKind = "catalogue" | "external" | "nonDrug" | "mechanism"
 export type CatalogueSelector = {
   slugs?: string[];
   classes?: string[];
+  /**
+   * Substring match against `record.subclass`. Correct for a family name that
+   * legitimately appears inside longer subclasses ("NSAID" inside "NSAID
+   * (COX-2 preferential)"), and WRONG for a short acronym that can hide inside
+   * an unrelated word — "ARB" sits inside "C-arb-apenem", which put two
+   * carbapenem antibiotics in the ARB class across 16 CRITICAL/HIGH rows until
+   * the review report surfaced it. Use `subclassEquals` for short acronyms.
+   */
   subclassIncludes?: string[];
+  /** Exact (case-insensitive) match against `record.subclass`. */
+  subclassEquals?: string[];
   denySlugs?: string[];
 };
 
@@ -65,7 +75,9 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     kind: "catalogue",
     select: { subclassIncludes: ["ACE Inhibitor"] },
   },
-  { id: "arbs", surfaces: ["arbs", "arb"], kind: "catalogue", select: { subclassIncludes: ["ARB"] } },
+  // Exact, not substring: "ARB" is a substring of "Carbapenem", which put
+  // ertapenem and meropenem in the ARB class across 16 CRITICAL/HIGH rows.
+  { id: "arbs", surfaces: ["arbs", "arb"], kind: "catalogue", select: { subclassEquals: ["ARB"] } },
   {
     id: "diuretics",
     surfaces: ["diuretics", "diuretic"],
@@ -299,7 +311,8 @@ export function selectCatalogueSlugs(select: CatalogueSelector, records: readonl
     const recordSubclass = (record.subclass ?? "").toLowerCase();
     const classHit = (select.classes ?? []).some((value) => value.toLowerCase() === recordClass);
     const subclassHit = (select.subclassIncludes ?? []).some((value) => recordSubclass.includes(value.toLowerCase()));
-    if (classHit || subclassHit) matched.add(record.slug);
+    const subclassExact = (select.subclassEquals ?? []).some((value) => value.toLowerCase() === recordSubclass);
+    if (classHit || subclassHit || subclassExact) matched.add(record.slug);
   }
 
   for (const slug of deny) matched.delete(slug);

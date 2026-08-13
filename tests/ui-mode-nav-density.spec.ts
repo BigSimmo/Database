@@ -8,22 +8,40 @@ import { expect, test, type Page } from "playwright/test";
  * overflowed and nothing failed; the word was simply gone.
  *
  * A static `rem` threshold cannot prove fit for an arbitrary item list, and
- * `ModeNav` is shared — Therapy is only its first consumer. So the contract is
- * held here instead: at each band boundary every rendered label must be fully
- * visible. A mode whose labels are longer than the thresholds allow fails this
- * spec rather than shipping clipped words.
+ * `ModeNav` is shared — so each declared label family has a calibrated profile.
+ * The contract is held here: at every profile boundary every rendered label
+ * must be fully visible. A mode whose labels outgrow its profile fails this spec
+ * rather than shipping clipped words.
  *
- * Widths are the boundaries themselves (22rem = 352px, 33rem = 528px) and one
- * pixel either side, because a threshold that is one slot too generous only
- * misbehaves in the first pixels above it. That makes this the most valuable
- * place to assert and the least forgiving: the same labels rasterise wider on a
- * CI runner than on a development box, so the thresholds carry ~8% headroom
- * rather than the pixel or two a single machine's measurements would suggest.
+ * Widths are the boundaries themselves and one pixel either side, because a
+ * threshold that is one slot too generous only misbehaves in the first pixels
+ * above it. That makes this the most valuable place to assert and the least
+ * forgiving: the same labels rasterise differently across environments, so
+ * every profile retains headroom beyond a single local measurement.
  */
 
-const BAND_3_PX = 352; // 22rem — two destinations + More
-const BAND_4_PX = 528; // 33rem — three destinations + More
-const BAND_5_PX = 672; // 42rem — four destinations + More
+const PROFILE_BANDS = {
+  "two-item": [{ rem: 16, capacity: 3 }],
+  "compact-four": [
+    { rem: 17, capacity: 3 },
+    { rem: 23, capacity: 4 },
+  ],
+  "balanced-four": [
+    { rem: 20, capacity: 3 },
+    { rem: 31, capacity: 4 },
+  ],
+  extended: [
+    { rem: 22, capacity: 3 },
+    { rem: 33, capacity: 4 },
+    { rem: 42, capacity: 5 },
+  ],
+} as const;
+
+type DensityProfile = keyof typeof PROFILE_BANDS;
+
+const BAND_3_PX = PROFILE_BANDS.extended[0].rem * 16;
+const BAND_4_PX = PROFILE_BANDS.extended[1].rem * 16;
+const BAND_5_PX = PROFILE_BANDS.extended[2].rem * 16;
 
 /**
  * The nav as it is actually anchored, not as it is momentarily served.
@@ -62,13 +80,31 @@ const gotoTherapySearch = (page: Page) => gotoTherapy(page);
  * offline rather than leaving a mode uncovered.
  */
 const MODES = [
-  { modeId: "therapy-compass", route: "/therapy-compass/search?q=CBT&run=1", items: 7 },
-  { modeId: "dsm", route: "/dsm/compare", items: 2 },
-  { modeId: "specifiers", route: "/specifiers/compare", items: 4 },
-  { modeId: "formulation", route: "/formulation/compare", items: 4 },
-  { modeId: "differentials", route: "/differentials/diagnoses", items: 4 },
-  { modeId: "factsheets", route: "/factsheets/search", items: 2 },
-];
+  { modeId: "therapy-compass", route: "/therapy-compass/search?q=CBT&run=1", items: 7, profile: "extended" },
+  { modeId: "dsm", route: "/dsm/compare", items: 2, profile: "two-item" },
+  { modeId: "specifiers", route: "/specifiers/compare", items: 4, profile: "compact-four" },
+  { modeId: "formulation", route: "/formulation/compare", items: 4, profile: "compact-four" },
+  { modeId: "differentials", route: "/differentials/diagnoses", items: 4, profile: "balanced-four" },
+  { modeId: "factsheets", route: "/factsheets/search", items: 2, profile: "two-item" },
+] as const;
+
+function densityPoints(profile: DensityProfile) {
+  const bands: readonly { rem: number; capacity: number }[] = PROFILE_BANDS[profile];
+  const points = new Map<number, { expected: "collapsed" | "bar"; capacity: number }>();
+
+  bands.forEach((band, index) => {
+    const boundary = band.rem * 16;
+    const previousCapacity = index === 0 ? 0 : bands[index - 1]!.capacity;
+    points.set(boundary - 1, {
+      expected: index === 0 ? "collapsed" : "bar",
+      capacity: previousCapacity,
+    });
+    points.set(boundary, { expected: "bar", capacity: band.capacity });
+    points.set(boundary + 1, { expected: "bar", capacity: band.capacity });
+  });
+
+  return [...points.entries()].sort(([left], [right]) => left - right).map(([width, state]) => ({ width, ...state }));
+}
 
 /**
  * A band of capacity C shows `min(items, C)` slots: every destination when they
@@ -147,16 +183,8 @@ function expectNoClippedLabels(nav: NavState, where: string) {
 }
 
 test.describe("ModeNav density", () => {
-  for (const { modeId, route, items } of MODES) {
-    for (const { width, expected, capacity } of [
-      { width: BAND_3_PX - 1, expected: "collapsed" as const, capacity: 0 },
-      { width: BAND_3_PX, expected: "bar" as const, capacity: 3 },
-      { width: BAND_3_PX + 1, expected: "bar" as const, capacity: 3 },
-      { width: BAND_4_PX - 1, expected: "bar" as const, capacity: 3 },
-      { width: BAND_4_PX, expected: "bar" as const, capacity: 4 },
-      { width: BAND_4_PX + 1, expected: "bar" as const, capacity: 4 },
-      { width: BAND_5_PX, expected: "bar" as const, capacity: 5 },
-    ]) {
+  for (const { modeId, route, items, profile } of MODES) {
+    for (const { width, expected, capacity } of densityPoints(profile)) {
       test(`shows every ${modeId} label in full at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await gotoTherapy(page, route);
@@ -172,6 +200,42 @@ test.describe("ModeNav density", () => {
       });
     }
   }
+
+  for (const [width, labels] of [
+    [320, ["Find", "Build", "More"]],
+    [375, ["Find", "Build", "Compare", "Map"]],
+    [390, ["Find", "Build", "Compare", "Map"]],
+    [430, ["Find", "Build", "Compare", "Map"]],
+  ] as const) {
+    test(`uses available Specifiers phone space at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await gotoTherapy(page, "/specifiers/map");
+
+      await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
+      const nav = await readNav(page);
+      expect(nav.labels.map((slot) => slot.text)).toEqual(labels);
+      expectNoClippedLabels(nav, `specifiers phone at ${width}px`);
+    });
+  }
+
+  test("preserves Specifiers overflow focus with reduced motion and forced colors", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoTherapy(page, "/specifiers/map");
+
+    const more = page.locator(`${anchoredNav} .mode-nav__more button`);
+    await expect(more).toHaveAccessibleName(/^More\s*, current page: Map$/);
+    await more.click();
+    await expect(page.getByTestId("mode-nav-sheet")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("mode-nav-sheet")).toHaveCount(0);
+    await expect(more).toBeFocused();
+
+    await page.emulateMedia({ forcedColors: "active" });
+    const nav = await readNav(page);
+    expect(nav.labels.map((slot) => slot.text)).toEqual(["Find", "Build", "More"]);
+    expectNoClippedLabels(nav, "specifiers phone in forced colors");
+  });
 
   /**
    * The folded-active branch, on a mode that is not Therapy.

@@ -331,6 +331,7 @@ describe("in-page navigation panel-swap contracts", () => {
     const rail = screen.getByTestId("medication-section-rail");
 
     expect(rail).not.toHaveClass("overflow-x-auto");
+    expect(rail.querySelector(".mode-nav")).toHaveAttribute("data-density-profile", "extended");
     expect(
       within(rail)
         .getByRole("button", { name: /^Summary/ })

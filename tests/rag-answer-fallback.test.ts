@@ -120,9 +120,7 @@ async function answerFromTextSources(
   }));
   let generatedAnswerAttemptIndex = 0;
   const generateStructuredTextResult = vi.fn(async () => {
-    const attempt = Array.isArray(generatedAnswer)
-      ? generatedAnswer[generatedAnswerAttemptIndex++]
-      : generatedAnswer;
+    const attempt = Array.isArray(generatedAnswer) ? generatedAnswer[generatedAnswerAttemptIndex++] : generatedAnswer;
     if (attempt === "truncated") {
       return {
         text: "",
@@ -248,15 +246,19 @@ describe("RAG structured-output fallback", () => {
       conflictsOrGaps: [],
     };
 
-    const answer = await answerFromTextSources(
-      "Compare document monitoring pathways across two guides",
-      sources,
-      [templateLikeAnswer, templateLikeAnswer, "truncated"],
-    );
+    const answer = await answerFromTextSources("Compare document monitoring pathways across two guides", sources, [
+      templateLikeAnswer,
+      templateLikeAnswer,
+      "truncated",
+    ]);
 
     expect(answer.latencyTimings?.answer_retry_reasons).toContain("fast_template_retry_strong");
     expect(answer.latencyTimings?.answer_retry_reasons).toContain("strong_quality_retry");
-    expect(answer.latencyTimings?.answer_retry_reasons).toContain("generation_quality_gate:template_like_answer");
+    // The preserved verdict is whatever generatedAnswerQualityFailureReason returned for the
+    // strong answer at gate time. Current sanitizeAnswerText strips this fixture's template
+    // answer to nothing, so the first check in the ladder (empty_after_sanitize) wins over
+    // template_like_answer; the assertion pins preservation, not the ladder's tie-break.
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain("generation_quality_gate:empty_after_sanitize");
   });
 
   it("records the cited-refusal verdict when generation returns a provider source gap (#231)", async () => {

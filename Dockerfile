@@ -85,6 +85,7 @@ COPY --from=build /app/.next ./.next
 COPY public ./public
 COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts
 COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts
+COPY --from=build /app/src/components/therapy-compass/data/generated-assets.ts ./src/components/therapy-compass/data/generated-assets.ts
 COPY package.json next.config.ts ./
 USER node
 EXPOSE 3000
