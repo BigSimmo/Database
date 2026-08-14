@@ -2618,46 +2618,253 @@ summary::-webkit-details-marker {
   padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
 }
 
-/* Global PWA notices sit above the bottom composer and home indicator without
-   changing page scroll ownership. The lifecycle component renders only when an
-   offline, restored, installable, or waiting-update state needs attention. */
-/* PWA notices: bottom sheet-style on phones (thumb zone, above the fixed
-   composer), floating bottom-right card on medium screens, and top-right
-   toast under the header on desktop — beside the browser's own install
-   affordance and clear of the composer. */
+/* Global PWA notices sit above the phone composer and home indicator without
+   taking page scroll ownership. Install is a compact surface, not a modal:
+   central search stays usable and the wide-screen card remains lower-right. */
 .pwa-notice-stack {
-  --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
+  --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5rem);
 
   position: fixed;
   z-index: 95;
-  left: max(0.75rem, var(--safe-area-left));
-  right: max(0.75rem, var(--safe-area-right));
+  left: max(0.5rem, var(--safe-area-left));
+  right: max(0.5rem, var(--safe-area-right));
   bottom: var(--pwa-notice-bottom-gap);
   display: grid;
   gap: 0.75rem;
   pointer-events: none;
 }
 
-/* Install notices present as a native-feeling bottom sheet on phones: full
-   bleed to the viewport edges (escaping the stack gutter), flush to the
-   bottom over the composer zone while visible, top corners only, and content
-   padded clear of the home indicator. Matches the drag-grip language of the
-   phone Mode-menu sheet (src/components/ui/sheet.tsx). */
+/* Mode homes keep their phone composer in the hero rather than in the bottom
+   dock. In that ownership model the install sheet belongs at the safe bottom
+   edge; keeping the dock reserve would lift it over the in-flow composer. */
 @media (max-width: 639.98px) {
-  .pwa-install-sheet {
-    margin-left: calc(-1 * max(0.75rem, var(--safe-area-left)));
-    margin-right: calc(-1 * max(0.75rem, var(--safe-area-right)));
-    margin-bottom: calc(-1 * var(--pwa-notice-bottom-gap));
-    border-radius: 1.25rem 1.25rem 0 0;
-    border-bottom: 0;
-    padding-left: max(1.25rem, var(--safe-area-left));
-    padding-right: max(1.25rem, var(--safe-area-right));
-    padding-bottom: calc(1.25rem + var(--safe-area-bottom));
+  body:has([data-phone-footer-owner="hero"]) .pwa-notice-stack,
+  body:has(form[data-composer-placement="desktop-home"]) .pwa-notice-stack {
+    --pwa-notice-bottom-gap: max(0.75rem, var(--safe-area-bottom));
+  }
+
+  body:has(.pwa-install-sheet) #main-content[data-phone-footer-owner="hero"] > div > section {
+    justify-content: flex-start;
+    padding-top: 0.5rem;
+  }
+}
+
+/* A 320px mode home cannot show the full install proposition and its complete
+   centred empty-state introduction without covering the search composer. While
+   the transient install sheet is present, keep the real composer visible in
+   the clear space under the app header and omit only the decorative intro. */
+@media (max-width: 359.98px) {
+  body:has(.pwa-install-sheet) #main-content[data-phone-footer-owner="hero"] [data-testid="shared-home-empty-state"] {
+    gap: 0;
+  }
+
+  body:has(.pwa-install-sheet)
+    #main-content[data-phone-footer-owner="hero"]
+    [data-testid="shared-home-empty-state"]
+    > section[aria-labelledby="shared-home-empty-state-title"] {
+    display: none;
   }
 }
 
 .pwa-notice-card {
+  overflow: hidden;
+  border: 1px solid var(--border-lux);
+  border-radius: 1rem;
+  background: var(--surface-lux);
+  box-shadow:
+    0 18px 48px color-mix(in srgb, var(--text-heading) 11%, transparent),
+    0 3px 10px color-mix(in srgb, var(--text-heading) 6%, transparent);
   animation: pwa-notice-in 280ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.pwa-lifecycle-card {
+  padding: 1rem;
+}
+
+.pwa-connection-restored {
+  justify-self: end;
+  border-color: color-mix(in srgb, var(--success) 24%, var(--border-lux));
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--success-soft) 88%, var(--surface-lux));
+  padding: 0.375rem 0.75rem 0.375rem 0.5rem;
+  box-shadow: var(--e1);
+}
+
+.pwa-connection-restored > div > span {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+}
+
+.pwa-install-sheet {
+  max-height: calc(100dvh - var(--pwa-notice-bottom-gap) - 4.25rem);
+  overscroll-behavior: contain;
+}
+
+.pwa-install-grip {
+  display: flex;
+  height: 1.125rem;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--clinical-accent-soft) 72%, var(--surface-lux));
+}
+
+.pwa-install-grip span {
+  width: 2.25rem;
+  height: 0.1875rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text-muted) 48%, transparent);
+}
+
+.pwa-install-header {
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-lux) 82%, transparent);
+  background: color-mix(in srgb, var(--clinical-accent-soft) 72%, var(--surface-lux));
+  padding: 0.5rem 0.625rem 0.5rem 1rem;
+}
+
+.pwa-install-mark {
+  border-radius: 0.625rem;
+  filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--clinical-accent) 18%, transparent));
+}
+
+.pwa-install-dismiss {
+  display: inline-flex;
+  min-height: var(--spacing-tap);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border-radius: 0.625rem;
+  padding: 0 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.pwa-install-dismiss:hover {
+  background: color-mix(in srgb, var(--surface-lux) 72%, transparent);
+  color: var(--text-heading);
+}
+
+.pwa-install-dismiss:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.pwa-install-body {
+  background: var(--surface-lux);
+  padding: 0.875rem 1rem 1rem;
+}
+
+.pwa-install-tagline {
+  color: var(--text-heading);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.35rem;
+}
+
+.pwa-install-copy {
+  margin-top: 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.pwa-install-support {
+  margin-top: 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+}
+
+.pwa-install-benefits,
+.pwa-install-steps {
+  margin-top: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--border-lux);
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--clinical-accent-soft) 20%, var(--surface-lux));
+}
+
+.pwa-install-benefits li,
+.pwa-install-steps li {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.4375rem 0.75rem;
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+}
+
+.pwa-install-benefits li + li,
+.pwa-install-steps li + li {
+  border-top: 1px solid color-mix(in srgb, var(--border-lux) 80%, transparent);
+}
+
+.pwa-install-benefits svg,
+.pwa-install-steps svg {
+  flex: none;
+  color: var(--clinical-accent);
+}
+
+.pwa-install-steps li {
+  min-height: var(--spacing-tap);
+  justify-content: space-between;
+  font-size: 0.8125rem;
+}
+
+.pwa-install-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.pwa-install-actions-single {
+  grid-template-columns: 1fr;
+}
+
+.pwa-action {
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.pwa-action-primary {
+  border: 1px solid var(--clinical-accent);
+  background: var(--clinical-accent);
+  color: var(--clinical-accent-contrast);
+  box-shadow: var(--e1);
+}
+
+.pwa-action-primary:hover {
+  border-color: var(--clinical-accent-hover);
+  background: var(--clinical-accent-hover);
+}
+
+.pwa-action-secondary {
+  border: 1px solid color-mix(in srgb, var(--clinical-accent) 58%, var(--border-lux));
+  background: var(--surface-lux);
+  color: var(--clinical-accent);
+}
+
+.pwa-action-secondary:hover {
+  background: var(--clinical-accent-soft);
 }
 
 @keyframes pwa-notice-in {
@@ -2674,32 +2881,33 @@ summary::-webkit-details-marker {
 @media (min-width: 640px) {
   .pwa-notice-stack {
     left: auto;
-    width: min(25rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
+    right: max(1rem, var(--safe-area-right));
+    bottom: max(1rem, var(--safe-area-bottom));
+    width: min(27rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
+  }
+
+  .pwa-install-grip {
+    display: none;
   }
 }
 
 @media (display-mode: standalone) {
   .pwa-notice-stack {
-    --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 6rem);
+    --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
   }
 }
 
-/* Last so it also wins over the standalone bottom offset at desktop width. */
+@media (display-mode: standalone) and (max-width: 639.98px) {
+  body:has([data-phone-footer-owner="hero"]) .pwa-notice-stack,
+  body:has(form[data-composer-placement="desktop-home"]) .pwa-notice-stack {
+    --pwa-notice-bottom-gap: max(0.75rem, var(--safe-area-bottom));
+  }
+}
+
 @media (min-width: 1280px) {
   .pwa-notice-stack {
-    top: calc(4.25rem + max(0.5rem, var(--safe-area-top)));
-    bottom: auto;
-  }
-
-  @keyframes pwa-notice-in {
-    from {
-      opacity: 0;
-      transform: translateY(-0.625rem) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
+    right: max(1.5rem, var(--safe-area-right));
+    bottom: max(1.5rem, var(--safe-area-bottom));
   }
 }
 
@@ -2711,6 +2919,24 @@ summary::-webkit-details-marker {
 
 html[data-motion="reduced"] .pwa-notice-card {
   animation: none;
+}
+
+@media (forced-colors: active) {
+  .pwa-notice-card,
+  .pwa-install-benefits,
+  .pwa-install-steps,
+  .pwa-action,
+  .pwa-install-dismiss {
+    border-color: CanvasText;
+  }
+
+  .pwa-install-header,
+  .pwa-install-body,
+  .pwa-install-benefits,
+  .pwa-install-steps,
+  .pwa-action-secondary {
+    background: Canvas;
+  }
 }
 
 /* Tabular figures for data, counts, page numbers, byte sizes */
