@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
-import { assertRetrievalRows } from "@/lib/rag/rag-row-contracts";
+import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
@@ -4311,16 +4311,7 @@ export async function summarizeDocument(documentId: string, ownerId?: string, op
     } satisfies RagAnswer;
   }
 
-  const documentMetadata = (document as { metadata?: unknown }).metadata;
-  const results: unknown[] = committedChunks.map((chunk) => ({
-    ...chunk,
-    title: document.title,
-    file_name: document.file_name,
-    source_metadata: normalizeOptionalSourceMetadata(documentMetadata),
-    similarity: 1,
-    images: [],
-  }));
-  assertRetrievalRows(results, "document_summary_context");
+  const results = buildDocumentSummaryResults(committedChunks, document);
 
   const summaryInstructions = `Summarize a clinical document for practical psychiatric use in Perth, Australia.
 Use only the excerpts provided. Use a layered response: make the answer field a plain high-yield clinical paragraph,

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { logger } from "@/lib/logger";
+import { normalizeOptionalSourceMetadata } from "@/lib/source-metadata";
 import type { SearchResult } from "@/lib/types";
 
 /**
@@ -16,21 +17,37 @@ import type { SearchResult } from "@/lib/types";
  *
  * The schema is deliberately asymmetric:
  *
- * - **Strict on what ranking reads.** `id`, `document_id` and `content` are `not null` in
- *   `supabase/schema.sql`, so requiring them cannot reject a row that works today. The four
- *   score fields are `.nullish()` — absent or null already flows through the downstream
- *   `?? 0` handling unchanged — but a *string where a number belongs* is rejected, which is
- *   precisely the silent-misranking case this exists to catch.
+ * - **Strict on the ranking, citation, and evidence fields.** The required chunk identity,
+ *   provenance, and visual fields are `not null` in `supabase/schema.sql`, so requiring them
+ *   cannot reject a row that works today. The four score fields are `.nullish()` — absent or
+ *   null already flows through the downstream `?? 0` handling unchanged — but a *string where
+ *   a number belongs* is rejected, which is precisely the silent-misranking case this exists
+ *   to catch.
  * - **Loose about everything else.** Column sets genuinely differ between RPC versions
  *   (`retrieval_synopsis` is absent from the older base hybrid function; `document_labels`
  *   and `document_summary` only appear on `match_document_chunks_v2`). `z.looseObject`
  *   preserves unknown keys rather than stripping them, so a harmless schema difference
  *   never becomes an outage or silent data loss.
  */
+const retrievalImageSchema = z.looseObject({
+  id: z.string().min(1),
+  page_number: z.number().int().nullable(),
+  storage_path: z.string(),
+  caption: z.string(),
+});
+
 const retrievalRowSchema = z.looseObject({
   id: z.string().min(1),
   document_id: z.string().min(1),
+  title: z.string(),
+  file_name: z.string(),
+  page_number: z.number().int().nullable(),
+  chunk_index: z.number().int(),
+  section_heading: z.string().nullable(),
   content: z.string(),
+  image_ids: z.array(z.string()),
+  source_metadata: z.record(z.string(), z.unknown()).nullable(),
+  images: z.array(retrievalImageSchema),
   similarity: z.number().nullish(),
   text_rank: z.number().nullish(),
   hybrid_score: z.number().nullish(),
@@ -92,4 +109,21 @@ export function assertRetrievalRows(rows: unknown, rpc: string): asserts rows is
     rowCount: Array.isArray(rows) ? rows.length : null,
   });
   throw new RetrievalRowShapeError(rpc, issues);
+}
+
+/** Build and validate the locally retrieved rows used as document-summary context. */
+export function buildDocumentSummaryResults(
+  chunks: unknown[],
+  document: { title: string; file_name: string; metadata?: unknown },
+): SearchResult[] {
+  const results = chunks.map((chunk) => ({
+    ...(chunk as object),
+    title: document.title,
+    file_name: document.file_name,
+    source_metadata: normalizeOptionalSourceMetadata(document.metadata),
+    similarity: 1,
+    images: [],
+  }));
+  assertRetrievalRows(results, "document_summary_context");
+  return results;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { RetrievalRowShapeError, assertRetrievalRows } from "@/lib/rag/rag-row-contracts";
+import { RetrievalRowShapeError, assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 
 vi.mock("@/lib/logger", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -50,6 +50,24 @@ describe("retrieval row shape contract", () => {
     expect((rows as unknown[])[0]).toBe(firstRowReference);
   });
 
+  it("builds valid document-summary rows outside the retrieval monolith", () => {
+    const chunk = hybridRow({ title: "stale", file_name: "stale.pdf", similarity: 0.2 });
+
+    const rows = buildDocumentSummaryResults([chunk], {
+      title: "Current title",
+      file_name: "current.pdf",
+      metadata: { document_status: "current" },
+    });
+
+    expect(rows[0]).toMatchObject({
+      id: chunk.id,
+      title: "Current title",
+      file_name: "current.pdf",
+      similarity: 1,
+      source_metadata: expect.objectContaining({ document_status: "current" }),
+    });
+  });
+
   it("preserves unknown columns so an RPC version difference is not data loss", () => {
     const rows: unknown = [hybridRow({ document_labels: [{ id: "l1" }], a_future_column: 42 })];
 
@@ -69,6 +87,18 @@ describe("retrieval row shape contract", () => {
 
     expect(() => assertRetrievalRows(rows, "match_document_chunks_hybrid")).toThrow(RetrievalRowShapeError);
     expect(() => assertRetrievalRows([hybridRow({ document_id: "" })], "x")).toThrow(RetrievalRowShapeError);
+  });
+
+  it("rejects malformed provenance and visual fields before they can miscite or crash rendering", () => {
+    expect(() => assertRetrievalRows([withoutColumn("title")], "match_document_chunks_hybrid")).toThrow(
+      RetrievalRowShapeError,
+    );
+    expect(() =>
+      assertRetrievalRows([hybridRow({ image_ids: "not-an-array" })], "match_document_chunks_hybrid"),
+    ).toThrow(RetrievalRowShapeError);
+    expect(() => assertRetrievalRows([hybridRow({ images: [{}] })], "match_document_chunks_hybrid")).toThrow(
+      RetrievalRowShapeError,
+    );
   });
 
   it("accepts absent or null scores, which downstream already coalesces to 0", () => {

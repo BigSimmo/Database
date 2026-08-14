@@ -73,6 +73,7 @@
     "verify:pr-local": "node scripts/verify-pr-local.mjs",
     "verify:phone-chrome": "node scripts/verify-phone-chrome.mjs",
     "audit:final-merge": "node scripts/final-merge-audit.mjs",
+    "audit:merge-loss": "node scripts/audit-merge-loss.mjs --self-test && node scripts/audit-merge-loss.mjs",
     "verify:ui": "npm run check:runtime && npm run check:installed-lock-parity && npm run test:e2e:pr",
     "verify:release": "npm run check:runtime && npm run check:installed-lock-parity && npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e && npm run check:production-readiness && npm run governance:release && npm run eval:quality:release",
     "verify:release:offline": "node scripts/verify-release-offline.mjs",
