@@ -9,6 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
+  type UIEventHandler,
 } from "react";
 import { X } from "lucide-react";
 import { OverlayPortal } from "@/components/ui/overlay-root";
@@ -56,6 +57,9 @@ type SheetBaseProps = {
   contentClassName?: string;
   contentStyle?: CSSProperties;
   bodyClassName?: string;
+  bodyRef?: RefObject<HTMLDivElement | null>;
+  onBodyScroll?: UIEventHandler<HTMLDivElement>;
+  footerClassName?: string;
   placement?: "default" | "left";
   mobilePlacement?: "bottom" | "top" | "fullscreen";
   mobileSize?: SheetMobileSize;
@@ -102,6 +106,9 @@ export function Sheet({
   contentClassName,
   contentStyle,
   bodyClassName,
+  bodyRef,
+  onBodyScroll,
+  footerClassName,
   placement = "default",
   mobilePlacement = "bottom",
   mobileSize = "content",
@@ -483,10 +490,18 @@ export function Sheet({
             </div>
           </div>
         ) : null}
-        <div className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5", bodyClassName)}>
+        <div
+          ref={bodyRef}
+          onScroll={onBodyScroll}
+          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5", bodyClassName)}
+        >
           {children}
         </div>
-        {footer ? <div className="shrink-0 border-t border-[color:var(--border)] p-3 sm:p-4">{footer}</div> : null}
+        {footer ? (
+          <div className={cn("shrink-0 border-t border-[color:var(--border)] p-3 sm:p-4", footerClassName)}>
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>
   );
