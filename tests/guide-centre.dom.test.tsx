@@ -49,7 +49,7 @@ describe("Clinical KB Guide Centre", () => {
           matches: true,
           addEventListener: vi.fn(),
           removeEventListener: vi.fn(),
-        }) as MediaQueryList,
+        }) as unknown as MediaQueryList,
     );
     const { dialog } = renderGuide();
     expect(within(dialog).getByText("Check each claim, not just the summary")).toBeVisible();
