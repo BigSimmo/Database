@@ -5319,7 +5319,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const dialog = await openGuide(page);
     const guideScrollBody = dialog.locator(".polished-scroll");
     const mobileFooter = dialog.locator("[data-guide-mobile-footer]");
-    const mobileFooterAction = mobileFooter.locator("button");
     await guideScrollBody.evaluate((element) => {
       element.scrollTop = 80;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
@@ -5332,7 +5331,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
     for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
       await page.keyboard.press("Tab");
-      await expect(mobileFooterAction).not.toBeFocused();
+      await expect.poll(() => mobileFooter.evaluate((element) => element.contains(document.activeElement))).toBe(false);
     }
 
     await guideScrollBody.evaluate((element) => {
