@@ -3647,6 +3647,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectSingleMedicationPage(page);
     await expect(page.getByRole("link", { name: "Back to medications" }).filter({ visible: true })).toBeVisible();
 
+    // Desktop polish: the patient control belongs to the title row, with a
+    // deliberate breathing space before the elevated category rail below it.
+    const desktopPatientAction = page.getByTestId("medication-primary-action").filter({ visible: true });
+    const desktopMedicationRail = page.getByTestId("medication-section-rail");
+    const [patientBox, desktopRailBox] = await Promise.all([
+      desktopPatientAction.boundingBox(),
+      desktopMedicationRail.boundingBox(),
+    ]);
+    expect(patientBox).not.toBeNull();
+    expect(desktopRailBox).not.toBeNull();
+    expect(desktopRailBox!.y - (patientBox!.y + patientBox!.height)).toBeGreaterThanOrEqual(6);
+
+    const summaryCategory = desktopMedicationRail.getByRole("button", { name: /^Summary/ });
+    await summaryCategory.focus();
+    await expect(summaryCategory).toBeFocused();
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect
+      .poll(() => summaryCategory.evaluate((button) => Number.parseFloat(getComputedStyle(button).transitionDuration)))
+      .toBeLessThanOrEqual(0.001);
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "no-preference" });
+    await expect
+      .poll(() => desktopMedicationRail.evaluate((rail) => getComputedStyle(rail).borderTopStyle))
+      .not.toBe("none");
+    await page.emulateMedia({ forcedColors: "none" });
+
     // Regression guard for #1802: medication sections use the same priority
     // menu as the mode home, not the older horizontally scrolling tab strip.
     await page.setViewportSize({ width: 390, height: 844 });
