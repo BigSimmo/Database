@@ -27,9 +27,36 @@ runs on pushes to `main` touching `supabase/migrations/**` or `supabase/schema.s
 `workflow_dispatch`, the secret preflight, and `concurrency.cancel-in-progress: false` were kept
 unchanged. No hosted Supabase call was made.
 
-Outstanding for the operator: dispatch `live-drift` once to confirm a real failure produces the
-pinned issue (provider-backed — not run from the authoring session), and add
-`SUPABASE_ACCESS_TOKEN` to environment secrets per plan step 0.3 and ledger `#183`.
+_2026-08-14, forced-dispatch proof (owner-authorized)._ `live-drift` dispatched on `main`
+(Actions run `31813064485`). The definition-of-done behaviour was observed end-to-end:
+
+- `live-drift` job **failed** at `Compare live schema drift`, as intended for this proof.
+- `Capture drift and migration-history findings` still ran (`if: always()`), and
+  `Align migration history for Supabase Preview` correctly **skipped** after the failing step.
+- The separate `drift-routing` job then ran (`if: ${{ !cancelled() }}`) and **succeeded**,
+  creating issue **#1963 "Live drift check failing"** with label `live-drift-failure`, the run
+  URL, `Job result: failure`, `Trigger: workflow_dispatch`, and the full findings block.
+
+That run also supersedes the stale 2026-08-09 figures this file was opened with. Measured
+2026-08-14, `UNEXPECTED DRIFT (32)`:
+
+| Category                                 | 2026-08-09 | 2026-08-14         |
+| ---------------------------------------- | ---------- | ------------------ |
+| `match_*` function `def_hash` mismatches | 10         | **10 — unchanged** |
+| `missing_live` indexes                   | 21         | **20**             |
+| `unexpected_live` indexes                | 2          | **2 — unchanged**  |
+
+`documents_title_trgm_idx` and `document_chunks_content_trgm_idx` are absent from the missing
+list, independently corroborating the Phase 4 restoration below (verified separately by
+read-only query against `sjrfecxgysukkwxsowpy`: both `indisvalid`/`indisready`, 648 kB and
+68 MB). The 10 RPC mismatches are untouched, so **Phase 3 remains entirely outstanding** and is
+the next step per the plan's ordering.
+
+Routing is also covered offline by `tests/live-drift-workflow.test.ts` (mutation-verified), so a
+future regression fails a test rather than waiting for a live failure to be mishandled.
+
+Outstanding for the operator: add `SUPABASE_ACCESS_TOKEN` to environment secrets per plan step
+0.3 and ledger `#183` (dashboard work; names only, never values).
 
 ## Phase 1 — Read-only forensics
 
