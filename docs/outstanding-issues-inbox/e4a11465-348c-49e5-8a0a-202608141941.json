@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "e4a11465-348c-49e5-8a0a-202608141941",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "b7c0f9f6-c95d-413f-9bdd-6b6ad9cbcb91",
+    "reason": "Superseded by a corrected immutable closure record: the original cited stale source locations."
+  }
+}

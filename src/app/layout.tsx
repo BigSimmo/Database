@@ -135,14 +135,18 @@ export default async function RootLayout({
             Mirrors resolveThemePreference in src/lib/theme.ts: stored choice wins,
             otherwise the OS preference. Key must match use-theme.ts. The second
             block applies the density/motion preferences (keys must match
-            use-app-preferences.ts) so an opted-in choice never flashes in. */}
+            use-app-preferences.ts) so an opted-in choice never flashes in.
+            Its catch swallows deliberately (see the inline note): this runs
+            before React mounts, so there is no logger or toast to report to,
+            and both failure modes — storage blocked, or corrupt stored JSON —
+            mean the same thing, that the default density/motion apply. */}
         <script
           nonce={nonce}
           // Next.js strips the nonce from the client payload (so scripts can't
           // read it), which reads as a hydration mismatch on this attribute.
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
-            __html: `${THEME_BOOTSTRAP_SCRIPT}(function(){try{var p=JSON.parse(localStorage.getItem("clinical-kb-preferences")||"{}");if(p&&typeof p==="object"){if(p.density==="compact"||p.density==="spacious"){document.documentElement.setAttribute("data-density",p.density);}if(p.motion==="reduced"){document.documentElement.setAttribute("data-motion","reduced");}}}catch(e){}})();`,
+            __html: `${THEME_BOOTSTRAP_SCRIPT}(function(){try{var p=JSON.parse(localStorage.getItem("clinical-kb-preferences")||"{}");if(p&&typeof p==="object"){if(p.density==="compact"||p.density==="spacious"){document.documentElement.setAttribute("data-density",p.density);}if(p.motion==="reduced"){document.documentElement.setAttribute("data-motion","reduced");}}}catch(e){/* storage blocked or stored preferences JSON corrupt - the default density/motion apply */}})();`,
           }}
         />
         <a

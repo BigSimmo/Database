@@ -2260,7 +2260,7 @@ export function MasterSearchHeader({
             aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
             aria-label={`Mode ${selectedAppMode.label}`}
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
               {/* 16px in the 32px pill, not the 14px metadata step: this is a
                   primary control, and 2.25 keeps its absolute stroke in line
                   with the larger glyphs beside it. */}
