@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "01580a63-502e-4ee9-bdf2-a5bf492f7dee",
+  "createdOn": "2026-08-14",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "check:medication-lexicon-report fails on 3 independent branches despite zero diff on the flagged file or its inputs",
+    "detail": "Reproduced identically across three independently-authored branches on 2026-08-14 (PR #1947 archive-backfill-scripts, PR #1949 visual-layout-polish, PR #1950 search-round-trip-budget) during otherwise-unrelated verify:pr-local runs. Each session confirmed via git diff origin/main --name-only that docs/medication-interaction-lexicon-review.md and its generator inputs (src/lib/medication-interaction-lexicon, the medication snapshot, the medication interaction index) were untouched on their branch, yet check:medication-lexicon-report still reported the file stale. This is a tooling/process finding distinct from #1bfaf0ef (the lexicon's clinical content has never been signed off) -- this row is about the staleness CHECK itself firing on unchanged files, which suggests a bug in how the generator's staleness comparison works (timestamp vs content hash, or a comparison against the wrong base) rather than a real content drift. Next: investigate scripts/medications-lexicon-report.mjs (or equivalent) staleness-detection logic directly against origin/main; if it is a comparison bug, fix it; if the report genuinely is stale on main independent of these branches, regenerate it. Stop: do not treat repeated non-fixes of this check across unrelated PRs as acceptable long-term -- three independent confirmations is enough to act on.",
+    "source": "PR #1947, PR #1949, PR #1950 verify:pr-local runs, 2026-08-14"
+  }
+}

@@ -191,6 +191,9 @@ export default async function loadNextConfig() {
     authToken: process.env.SENTRY_AUTH_TOKEN,
     release: { name: resolveSentryRelease() },
     silent: process.env.NODE_ENV === "production",
+    // Browser telemetry is intentionally disabled by the repository privacy
+    // policy, so there is no Sentry router-transition hook to register.
+    suppressOnRouterTransitionStartWarning: true,
     sourcemaps: {
       disable: false,
       // Successor to the removed `hideSourceMaps` option: upload maps to
