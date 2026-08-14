@@ -403,7 +403,7 @@ function ResponsivePreview({ concept, device }: { concept: ConceptId; device: Pr
         className="relative flex min-w-0 flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
       >
         <MiniGlobalHeader device={device} />
-        <header className="relative z-10 bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
+        <header className="relative z-10 bg-[color:var(--surface)] shadow-[var(--e1)]">
           <DocumentIdentity device={device} />
           <SectionNav concept={concept} device={device} active={active} onChange={setActive} />
         </header>

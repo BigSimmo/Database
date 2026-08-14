@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "00428ff0-1b45-4066-9838-94216fa8b6eb",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#310",
+    "outcome": "Fixed on main by 247a359 (\"Add tappable phone suggestion ticker and conservative fuzzy catalog search (#1851)\", 2026-08-14 02:03 +0800; confirmed via git merge-base --is-ancestor 247a359 origin/main). The hazard is closed at its source: src/lib/catalog-search.ts typoDistanceLimit now returns 1 for term.length >= 5 and 0 below that, with no >= 8 two-edit tier at all, so the two-edit cross-drug window that produced fluoxetine -> duloxetine and prednisone -> prednisolone no longer exists. Coverage landed with it: tests/catalog-search.test.ts carries \"never cross-matches a distinct drug two edits away, even with both records present\" (cites this row by number, asserts Duloxetine and Prednisolone are absent while Fluoxetine and Prednisone rank first, and that setraline still recovers Sertraline), plus a dedicated tests/catalog-search-drug-name-regression.test.ts. Verified 2026-08-14 by running both files: Test Files 2 passed (2), Tests 19 passed (19). Also re-measured against the algorithm itself rather than read off the source, matching the method that originally opened this row -- hazards fluoxetine->Duloxetine, prednisone->Prednisolone and both reverses all return 0; intended recovery setraline, olanzepine, clozpaine, monitroing, fluoxetne, prednisne, schizophrnia and lithum all return 1; all five guards (SSRI/SNRI, ADHD/ODD, citalopram/escitalopram, clozapine/clonazepam, quetiapine/olanzapine) return 0; and with the exact and near-match records both present, fluoxetine ranks [Fluoxetine] and prednisone ranks [Prednisone]. Fuzzy search was not removed, per this row's stop rule. The earlier instruction not to close on the ground that the code was absent from main is discharged: the code is present, capped and tested."
+  }
+}
