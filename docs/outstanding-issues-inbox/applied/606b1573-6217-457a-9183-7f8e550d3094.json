@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "606b1573-6217-457a-9183-7f8e550d3094",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "7f5e6922-8d0b-424a-b359-12bed3a4e315",
+    "reason": "superseded: merged verbatim into the combined #231 update queued in this same PR alongside the 2026-08-14 incident rung-2 evidence"
+  }
+}
