@@ -8,11 +8,12 @@
  * Safety:
  * - Requires explicit --apply (dry-run by default)
  * - Never marks covers searchable / never attaches them to chunks
- * - Prefers documents that do not already have a cover_page image
+ * - Audits existing cover objects and repairs stale document metadata
  *
  * Usage:
  *   node scripts/backfill-document-covers.mjs
  *   node scripts/backfill-document-covers.mjs --apply --limit 25
+ *   node scripts/backfill-document-covers.mjs --apply --all
  *   node scripts/backfill-document-covers.mjs --apply --document-id <uuid>
  */
 
@@ -93,7 +94,8 @@ print(json.dumps(cover))
 
 async function main() {
   const apply = hasFlag("--apply");
-  const limit = Number(argValue("--limit") ?? "50");
+  const all = hasFlag("--all");
+  const limit = all ? Number.POSITIVE_INFINITY : Number(argValue("--limit") ?? "50");
   const documentId = argValue("--document-id");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -108,20 +110,25 @@ async function main() {
 
   // Page through cover rows — PostgREST caps a single select at 1000 by default.
   // Stable ORDER BY is required for range/offset paging (otherwise pages can skip/dupe rows).
-  const coveredIds = new Set();
+  const coversByDocument = new Map();
   for (let from = 0; ; from += 1000) {
     const { data: existingCoverRows, error: existingCoverError } = await supabase
       .from("document_images")
-      .select("document_id")
+      .select("id,document_id,storage_path,index_generation_id,metadata")
       .eq("source_kind", "cover_page")
       .order("id", { ascending: true })
       .range(from, from + 999);
     if (existingCoverError) throw new Error(existingCoverError.message);
-    for (const row of existingCoverRows ?? []) coveredIds.add(String(row.document_id));
+    for (const row of existingCoverRows ?? []) {
+      const key = String(row.document_id);
+      const rows = coversByDocument.get(key) ?? [];
+      rows.push(row);
+      coversByDocument.set(key, rows);
+    }
     if (!existingCoverRows?.length || existingCoverRows.length < 1000) break;
   }
 
-  const targetLimit = Number.isFinite(limit) ? limit : 50;
+  const targetLimit = all ? Number.POSITIVE_INFINITY : Number.isFinite(limit) ? limit : 50;
   const candidates = [];
   if (documentId) {
     const { data: documents, error: docsError } = await supabase
@@ -132,7 +139,7 @@ async function main() {
       .ilike("file_type", "%pdf%");
     if (docsError) throw new Error(docsError.message);
     for (const doc of documents ?? []) {
-      if (doc.storage_path && !coveredIds.has(String(doc.id))) candidates.push(doc);
+      if (doc.storage_path) candidates.push(doc);
     }
   } else {
     // Walk the full indexed-PDF set until we fill this batch (or exhaust the corpus).
@@ -149,7 +156,7 @@ async function main() {
       if (docsError) throw new Error(docsError.message);
       if (!documents?.length) break;
       for (const doc of documents) {
-        if (!doc.storage_path || coveredIds.has(String(doc.id))) continue;
+        if (!doc.storage_path) continue;
         candidates.push(doc);
         if (candidates.length >= targetLimit) break;
       }
@@ -157,10 +164,11 @@ async function main() {
     }
   }
   console.log(
-    `Found ${candidates.length} uncovered PDF candidate(s) (already covered=${coveredIds.size}). mode=${apply ? "apply" : "dry-run"}`,
+    `Found ${candidates.length} indexed PDF candidate(s) (cover rows=${Array.from(coversByDocument.values()).reduce((sum, rows) => sum + rows.length, 0)}). mode=${apply ? "apply" : "dry-run"}`,
   );
 
   let created = 0;
+  let repaired = 0;
   let skipped = 0;
   let failed = 0;
 
@@ -184,27 +192,41 @@ async function main() {
 
   for (const doc of candidates) {
     try {
-      const { data: existingCovers, error: coverError } = await supabase
-        .from("document_images")
-        .select("id")
-        .eq("document_id", doc.id)
-        .eq("source_kind", "cover_page")
-        .limit(1);
-      if (coverError) throw new Error(coverError.message);
-      if (existingCovers?.length) {
-        const existingId = existingCovers[0].id;
+      const committedGeneration =
+        typeof doc.metadata?.index_generation_id === "string" && doc.metadata.index_generation_id
+          ? doc.metadata.index_generation_id
+          : null;
+      const existingCovers = coversByDocument.get(String(doc.id)) ?? [];
+      const committedCover = existingCovers.find((cover) => {
+        const metadataGeneration = cover.metadata?.index_generation_id;
+        const rowGeneration = cover.index_generation_id || metadataGeneration;
+        return !committedGeneration || !rowGeneration || rowGeneration === committedGeneration;
+      });
+      const existingCover = committedCover ?? existingCovers[0];
+
+      let existingObjectIsLive = false;
+      if (committedCover?.storage_path) {
+        const probe = await supabase.storage.from(imageBucket).download(existingCover.storage_path);
+        existingObjectIsLive = !probe.error && Boolean(probe.data);
+      }
+
+      if (existingCover && existingObjectIsLive) {
+        const existingId = existingCover.id;
         if (apply && doc.metadata?.cover_image_id !== existingId) {
           await patchCoverImageId(doc.id, existingId);
           console.log(`recovered cover metadata ${existingId} for ${doc.id}`);
+          repaired += 1;
         } else {
-          console.log(`skip ${doc.id} already has cover ${existingId}`);
+          console.log(`verified live cover ${existingId} for ${doc.id}`);
         }
         skipped += 1;
         continue;
       }
 
       if (!apply) {
-        console.log(`dry-run would create cover for ${doc.id} (${doc.title || doc.file_name})`);
+        console.log(
+          `dry-run would ${existingCover ? "repair missing cover object" : "create cover"} for ${doc.id} (${doc.title || doc.file_name})`,
+        );
         continue;
       }
 
@@ -220,10 +242,7 @@ async function main() {
         if (!cover?.path) throw new Error("cover render returned empty");
 
         const bytes = await readFile(cover.path);
-        const generationId =
-          typeof doc.metadata?.index_generation_id === "string" && doc.metadata.index_generation_id
-            ? doc.metadata.index_generation_id
-            : randomUUID();
+        const generationId = committedGeneration ?? randomUUID();
         const imagePrefix = doc.owner_id ? `${doc.owner_id}/images/${doc.id}` : `local/${doc.id}`;
         const imagePath = `${imagePrefix}/${generationId}/cover-page-1.png`;
         const upload = await supabase.storage.from(imageBucket).upload(imagePath, bytes, {
@@ -233,40 +252,45 @@ async function main() {
         if (upload.error) throw new Error(upload.error.message);
 
         const imageHash = createHash("sha256").update(bytes).digest("hex");
-        const { data: inserted, error: insertError } = await supabase
-          .from("document_images")
-          .insert({
-            document_id: doc.id,
-            page_number: 1,
-            storage_path: imagePath,
-            mime_type: "image/png",
-            caption: "Document cover page preview.",
-            bbox: cover.bbox ?? null,
-            image_type: "unclear",
-            searchable: false,
-            clinical_relevance_score: 0,
+        const imageRow = {
+          document_id: doc.id,
+          page_number: 1,
+          storage_path: imagePath,
+          mime_type: "image/png",
+          caption: "Document cover page preview.",
+          bbox: cover.bbox ?? null,
+          image_type: "unclear",
+          searchable: false,
+          clinical_relevance_score: 0,
+          source_kind: "cover_page",
+          width: cover.width ?? null,
+          height: cover.height ?? null,
+          image_hash: imageHash,
+          labels: ["cover-page"],
+          index_generation_id: generationId,
+          metadata: {
+            ...(cover.metadata ?? {}),
             source_kind: "cover_page",
-            width: cover.width ?? null,
-            height: cover.height ?? null,
-            image_hash: imageHash,
-            labels: ["cover-page"],
+            clinical_use_class: "decorative_or_empty",
             index_generation_id: generationId,
-            metadata: {
-              ...(cover.metadata ?? {}),
-              source_kind: "cover_page",
-              clinical_use_class: "decorative_or_empty",
-              index_generation_id: generationId,
-              backfill: "document-cover-thumbnails",
-            },
-          })
-          .select("id")
-          .single();
+            backfill: "document-cover-thumbnails",
+          },
+        };
+        const writeQuery = existingCover
+          ? supabase.from("document_images").update(imageRow).eq("id", existingCover.id)
+          : supabase.from("document_images").insert(imageRow);
+        const { data: inserted, error: insertError } = await writeQuery.select("id").single();
         if (insertError) throw new Error(insertError.message);
 
         await patchCoverImageId(doc.id, inserted.id);
 
-        created += 1;
-        console.log(`created cover ${inserted.id} for ${doc.id}`);
+        if (existingCover) {
+          repaired += 1;
+          console.log(`repaired cover ${inserted.id} for ${doc.id}`);
+        } else {
+          created += 1;
+          console.log(`created cover ${inserted.id} for ${doc.id}`);
+        }
       } finally {
         await rm(workDir, { recursive: true, force: true });
       }
@@ -277,7 +301,14 @@ async function main() {
   }
 
   console.log(
-    JSON.stringify({ mode: apply ? "apply" : "dry-run", created, skipped, failed, scanned: candidates.length }),
+    JSON.stringify({
+      mode: apply ? "apply" : "dry-run",
+      created,
+      repaired,
+      skipped,
+      failed,
+      scanned: candidates.length,
+    }),
   );
   if (!apply) {
     console.log("Re-run with --apply to write covers.");

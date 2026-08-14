@@ -21,6 +21,15 @@ describe("document cover thumbnails", () => {
     );
   });
 
+  it("audits every selected PDF and repairs missing objects or cover metadata", () => {
+    expect(backfillSource).toContain('const all = hasFlag("--all")');
+    expect(backfillSource).toContain("coversByDocument.get(String(doc.id))");
+    expect(backfillSource).toContain("existingObjectIsLive");
+    expect(backfillSource).toContain("recovered cover metadata");
+    expect(backfillSource).toContain('supabase.from("document_images").update(imageRow).eq("id", existingCover.id)');
+    expect(backfillSource).not.toContain("coveredIds.has(String(doc.id))");
+  });
+
   it("extracts a first-page cover_page artifact in the PDF worker", () => {
     expect(extractorSource).toContain("def save_cover_page(");
     expect(extractorSource).toContain('"sourceKind": "cover_page"');
