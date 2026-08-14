@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "d9a7e3fc-06e9-45ca-ab2a-202608141940",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "413a0aec-0239-45b2-8880-d3ace65cfdaf",
+    "reason": "Cancel closure of #238: generic Sheet coverage does not verify the requested product-overlay browser journeys."
+  }
+}
