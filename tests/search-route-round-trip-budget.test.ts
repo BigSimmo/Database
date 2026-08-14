@@ -12,10 +12,23 @@
  * preamble or post-processing becomes a red gate instead of something a
  * reviewer has to notice by reading a diff.
  *
- * This establishes the harness and non-vacuity checks — the route reaches
- * retrieval, retrieves something real, and issues at least one Supabase round
- * trip along the way. Pinning the exact count and shape (so a change is a red
- * gate rather than a loose `toBeGreaterThan`) is ledger `#189`'s follow-up.
+ * **The numbers here are measured, not derived.** They record what the route
+ * does today for one representative anonymous, filter-free, non-cached search.
+ * A failure means "the traffic changed" — information, not automatically a
+ * defect. Read the printed breakdown, decide whether the change was intended,
+ * and move the budget in the same commit as the change that moved it.
+ *
+ * The pinned breakdown below issues `match_document_chunks_text_v2` and
+ * `match_document_table_facts_text_v2` three times each. That is not
+ * accidental fan-out: `rag-candidate-sources.ts` probes up to
+ * `maxTextRpcQueryVariants` (3) lexical query-variant phrasings — primary plus
+ * up to two siblings — per text surface, to rescue recall when the primary
+ * phrasing misses. A PT-02 early exit (`firstVariantPoolIsStrong` in
+ * `rag-retrieval-variants.ts`) already skips the sibling RPCs when the primary
+ * pool is deep and precisely anchored; this fixture's single mocked chunk never
+ * clears that depth bar, so the full ×3 fan-out fires here — the worst-case
+ * shape, not the typical one for a well-matched corpus. Disposition recorded
+ * in this PR's body rather than duplicated here so it stays in one place.
  *
  * Scope: what travels through the mocked `@/lib/supabase/admin` client for this
  * one request shape. A different request shape (authenticated caller, active
@@ -223,10 +236,25 @@ describe("Supabase round-trip budget on the /api/search route", () => {
       `the route must issue Supabase traffic, or a zero budget is meaningless — ${JSON.stringify(counter.breakdown())}`,
     ).toBeGreaterThan(0);
 
-    // The route-level budget exists and observes real traffic here (ledger
-    // `#098`'s residual). Pinning the exact count and shape is `#189`'s follow-up
-    // — see the second `it` block below and the PR body's disposition of the
-    // ×3 text-RPC probes visible in this breakdown.
+    // Measured, not derived — this is what the route does today, pinned so a
+    // change (in the preamble, retrieval core, enrichment, or telemetry write)
+    // has to be deliberate. Update in the commit that moves it.
+    expect(counter.total(), `search route round trips changed — ${JSON.stringify(counter.breakdown())}`).toBe(16);
+
+    // The shape matters as much as the total: a refactor that removed one probe
+    // and added an unrelated query would keep 16 while changing the traffic.
+    // See the file header for why the two text-RPC surfaces below are ×3, not ×1.
+    expect(counter.breakdown(), "search route round-trip shape changed").toEqual({
+      "rpc:consume_api_subject_rate_limit": 1,
+      "from:rag_aliases": 1,
+      "rpc:match_document_chunks_text_v2": 3,
+      "rpc:match_document_table_facts_text_v2": 3,
+      "rpc:get_related_document_metadata_v2": 2,
+      "from:document_index_quality": 1,
+      "from:document_images": 3,
+      "from:rag_retrieval_logs": 1,
+      "from:rag_queries": 1,
+    });
   });
 
   it("spends no rate-limit-denied request on retrieval traffic beyond the limiter check", async () => {
