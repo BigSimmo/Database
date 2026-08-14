@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "b53c5e20-2c6f-41da-a202-bcf5c7609938",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#215",
+    "outcome": "Remaining 2 of 4 items shipped via PR #1949. (a) decoding=\"async\" added to the PWA install-sheet icon in src/components/pwa-lifecycle.tsx, matching the image-lightbox.tsx / non-pdf-source-preview.tsx pattern. (b) Demo PNG-to-WebP conversion explicitly declined rather than done: no real conversion tooling available without adding a new dependency (sharp is only a peer-dep override pin, not usable standalone), SignedImage deliberately sets unoptimized on next/image for signed-URL-security reasons unrelated to demo assets, and the payoff is ~185KB on assets that never reach production users. Recorded as a deliberate keep-as-PNG decision, not an open gap."
+  }
+}

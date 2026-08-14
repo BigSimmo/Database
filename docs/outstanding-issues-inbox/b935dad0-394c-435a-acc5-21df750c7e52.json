@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "b935dad0-394c-435a-acc5-21df750c7e52",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#293",
+    "outcome": "Finding 1 (min-height override) reconfirmed already refuted/intentional, untouched. Finding 2 (nondeterministic enumeration): confirmed via git history it was written once but reverted rather than landed, so there was no code to fix, only a missing regression test to build (PR #1962). New Playwright test in tests/ui-style-contract.spec.ts runs on /forms's static home (avoids the original live-search route race), at a 390x844 phone viewport (avoids the sm: release that refuted Finding 1), polls until 3 consecutive enumeration reads agree instead of trusting networkidle, explicitly sorts the shape list, and repeats 3 full navigate-and-enumerate cycles inside the test asserting an exact match. Full spec file: 10/10 tests passing."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "5cf082dd-60c3-42ef-95dc-82b9c255e9be",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#210",
+    "outcome": "scripts/run-playwright.mjs's generated isolated child tsconfig now gets an explicit include/exclude (PR #1953), plus a glob-consolidation correction pushed to the same branch after a Codex review finding was investigated and found NOT to hold against real Next.js build behaviour -- verified via the actual runTypeCheck() -> parseJsonConfigFileContent() -> createProgram() call chain, not the tsc --showConfig CLI-display path the reviewer's probe used. Empirically confirmed via planted-file probes: stale repo-root .next/dev/types no longer leak into the isolated build, and this run's own generated route types remain present in the real TypeScript program. Full build+server+Playwright-spec reproduction passed; tsconfig hash-stability confirmed byte-identical before/after a build. Items 1 and 2 of this row were already closed/refuted before this PR; this closes item 3, the last open part."
+  }
+}

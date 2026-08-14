@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "73d9d20f-eca9-44ef-9972-ce9803563457",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#098",
+    "outcome": "Route-level /api/search Supabase round-trip budget added via PR #1950 (tests/search-route-round-trip-budget.test.ts), following the tests/answer-route-preamble.test.ts pattern of driving POST from the route with counted clients. Verified: 16 round trips pinned exactly with a full breakdown; a companion test pins that a rate-limit denial costs exactly 1 round trip."
+  }
+}
