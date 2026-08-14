@@ -245,7 +245,7 @@ test.describe("unlayered style rules render their effect", () => {
 
     const runAudit = async (): Promise<string[]> => {
       await page.goto("/forms", { waitUntil: "domcontentloaded" });
-      await page.locator("#main-content").first().waitFor({ state: "visible", timeout: 20_000 });
+      await page.getByRole("region", { name: "Forms tasks" }).waitFor({ state: "visible", timeout: 20_000 });
       return waitForStableEnumeration();
     };
 
