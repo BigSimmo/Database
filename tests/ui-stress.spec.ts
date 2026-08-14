@@ -527,6 +527,27 @@ test.describe("Medication responsive stress coverage", () => {
       } else {
         await expect(desktopResult).toBeVisible();
         await expect(phoneResult).toBeHidden();
+
+        const columnMetrics = await page
+          .locator('[data-testid^="medication-result-"][data-testid$="-desktop"]:visible')
+          .evaluateAll((rows) =>
+            rows.map((row) => {
+              const ceiling = row.querySelector<HTMLElement>('[data-medication-cell="ceiling"]');
+              const action = row.querySelector<HTMLElement>('[data-medication-cell="action"]');
+              if (!ceiling || !action) return null;
+              const ceilingRect = ceiling.getBoundingClientRect();
+              const actionRect = action.getBoundingClientRect();
+              return {
+                columnGap: actionRect.left - ceilingRect.right,
+                ceilingOverflow: ceiling.scrollWidth - ceiling.clientWidth,
+              };
+            }),
+          );
+        expect(columnMetrics.every(Boolean)).toBe(true);
+        for (const metrics of columnMetrics) {
+          expect(metrics?.columnGap ?? 0).toBeGreaterThanOrEqual(12);
+          expect(metrics?.ceilingOverflow ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
+        }
       }
     }
 

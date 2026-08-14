@@ -385,13 +385,13 @@ function HighlightedName({ text, term }: { text: string; term: string }) {
   );
 }
 
-function DoseCeiling({ value }: { value: string }) {
+function MaximumDose({ value }: { value: string }) {
   return (
-    <span className="inline-flex min-h-6 w-fit items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
+    <span className="inline-grid min-h-6 min-w-0 max-w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-2xs font-semibold text-[color:var(--text-muted)]">
       <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs uppercase tracking-label text-[color:var(--text-muted)]">
-        Ceiling
+        Max
       </span>
-      <span className="nums break-words text-[color:var(--text-heading)] md:whitespace-nowrap">{value}</span>
+      <span className="nums min-w-0 break-words leading-5 text-[color:var(--text-heading)]">{value}</span>
     </span>
   );
 }
@@ -601,11 +601,11 @@ function MedicationResults({
       ) : null}
 
       {!initialCatalogLoading && !catalog.error && resultCount > 0 ? (
-        <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
-          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        <div className="hidden overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
+          <div className="grid grid-cols-[minmax(15rem,1.12fr)_minmax(7.5rem,0.46fr)_minmax(10.5rem,0.66fr)_minmax(16rem,1.15fr)_1.5rem] gap-4 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-5 py-2.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <span>Medication</span>
-            <span>Dose</span>
-            <span>Ceiling</span>
+            <span>Usual dose</span>
+            <span>Max dose</span>
             <span>Prescribing action</span>
             <span className="sr-only">Open</span>
           </div>
@@ -618,7 +618,7 @@ function MedicationResults({
               // outranks "this is the top hit".
               const verdictRing = row.verdict ? medicationVerdictRingClass(row.verdict.tone) : null;
               const rowClassName = cn(
-                "group grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
+                "group grid w-full grid-cols-[minmax(15rem,1.12fr)_minmax(7.5rem,0.46fr)_minmax(10.5rem,0.66fr)_minmax(16rem,1.15fr)_1.5rem] items-start gap-4 px-5 py-3.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
                 selected
                   ? cn(
                       "bg-[color:var(--clinical-accent-soft)]/35 shadow-[var(--shadow-rail-active)]",
@@ -631,17 +631,17 @@ function MedicationResults({
               );
               const rowContent = (
                 <>
-                  <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex min-w-0 items-start gap-3">
                     <ResultToneIcon result={result} accent={row.accent} />
                     <div className="min-w-0">
-                      <span className="block break-words text-base-minus font-semibold text-[color:var(--text-heading)]">
+                      <span className="block break-words text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                         <HighlightedName text={result.name} term={query} />
                       </span>
-                      <span className="line-clamp-1 break-words text-xs font-medium text-[color:var(--text-muted)]">
+                      <span className="mt-0.5 line-clamp-1 break-words text-xs font-medium leading-4 text-[color:var(--text-muted)]">
                         {result.indication}
                       </span>
                       {showMatchBadge || result.match !== "Exact clinical fit" || row.badges.length > 0 ? (
-                        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
+                        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
                           {showMatchBadge || result.match !== "Exact clinical fit" ? (
                             <ResultMatchBadge result={result} />
                           ) : null}
@@ -650,12 +650,17 @@ function MedicationResults({
                       ) : null}
                     </div>
                   </div>
-                  <span className="nums line-clamp-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
+                  <span className="nums line-clamp-2 min-w-0 break-words pt-0.5 text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                     {result.dose}
                   </span>
-                  <DoseCeiling value={result.ceiling} />
-                  <span className="flex min-w-0 items-start gap-1.5 text-sm-minus font-medium leading-snug text-[color:var(--text-heading)]">
-                    <ActionToneIcon tone={result.actionTone} className="mt-0.5 h-3.5 w-3.5" />
+                  <div data-medication-cell="ceiling" className="min-w-0 pt-0.5">
+                    <MaximumDose value={result.ceiling} />
+                  </div>
+                  <span
+                    data-medication-cell="action"
+                    className="flex min-w-0 items-start gap-2 pt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-heading)]"
+                  >
+                    <ActionToneIcon tone={result.actionTone} className="mt-[0.1875rem] h-3.5 w-3.5" />
                     <span className="line-clamp-2 min-w-0 break-words">{result.action}</span>
                   </span>
                   {result.href ? (
@@ -732,7 +737,7 @@ function MedicationResults({
                 ) : null}
                 <div className="flex max-w-full flex-wrap items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
                   <span className="nums line-clamp-2 break-words">{result.dose}</span>
-                  <DoseCeiling value={result.ceiling} />
+                  <MaximumDose value={result.ceiling} />
                 </div>
                 <p className="line-clamp-2 break-words text-pretty text-xs leading-normal text-[color:var(--text-muted)]">
                   <ActionToneIcon tone={result.actionTone} className="mr-1 inline-block h-3.5 w-3.5 align-[-0.15em]" />
