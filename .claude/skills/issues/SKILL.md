@@ -118,6 +118,12 @@ report that the Markdown source is current and the visual artifact is stale. Sti
 reconciliation handoff — a stale visual artifact must not invalidate a successful canonical
 transaction.
 
+**This step is unavailable off the operator's Windows machine.** The script and the artifact are
+both absolute Windows paths, so a Linux, container, or cloud session cannot run it and cannot
+verify it — the artifact drifts silently from the moment such a session reconciles. Do not
+improvise a substitute renderer or write the HTML by hand; report the register as stale, name the
+reconciliation commit that made it so, and leave the refresh to the operator.
+
 ## Persist the memory (commit)
 
 When the user explicitly asks for a commit, commit only the newly created request file(s), never
