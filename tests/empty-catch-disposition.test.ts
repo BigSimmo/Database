@@ -151,7 +151,7 @@ describe("empty catch disposition", () => {
       "try { d(); } catch (error) { report(error); }", // 4: handled
       "try { e(); } catch {\n  // explained across lines\n}", // 5-7: dispositioned
       "const s = `(function(){try{f();}catch(e){}})();`;", // 8: bare, inside a script string
-      "try { g(); } catch ({ message = \")\" }) {}", // 9: bare binding with a delimiter in a string
+      'try { g(); } catch ({ message = ")" }) {}', // 9: bare binding with a delimiter in a string
       "try { h(); } catch /* binding is intentional */ (error) {}", // 10: bare with comment trivia
     ].join("\n");
 
