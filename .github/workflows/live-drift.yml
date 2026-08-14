@@ -23,17 +23,16 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
-  SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
-  SUPABASE_PROJECT_NAME: Clinical KB Database
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
 jobs:
   live-drift:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+      SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
+      SUPABASE_PROJECT_NAME: Clinical KB Database
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     outputs:
       # Consumed by drift-routing below. Job outputs survive a failed job as long
       # as the step that set them ran, which is why the capture step is always().
