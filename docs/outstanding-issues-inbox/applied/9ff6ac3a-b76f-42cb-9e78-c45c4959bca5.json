@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "9ff6ac3a-b76f-42cb-9e78-c45c4959bca5",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#117",
+    "summary": "Therapy Compass catalogue payload remains a mobile LCP and field-safety decision",
+    "source": "PR #1915 (Therapy catalogue-payload evidence); PR #1927/#1933 (separate all-route CSS and shared-JS investigation, tracked as #329)"
+  }
+}
