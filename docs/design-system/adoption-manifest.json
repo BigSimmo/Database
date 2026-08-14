@@ -3000,7 +3000,7 @@
         "files": []
       },
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
-      "sanctionedSpecialPatterns": ["ApplicationsLauncherPage", "CalculatorsSearchPage"],
+      "sanctionedSpecialPatterns": ["CalculatorsSearchPage", "ToolsSearchResultsPage"],
       "roots": [
         {
           "file": "src/app/(search-app)/calculators/page.tsx",
@@ -3020,7 +3020,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["ApplicationsLauncherPage"]
+          "sanctionedPatternsPresent": ["ToolsSearchResultsPage"]
         }
       ]
     },
