@@ -3014,14 +3014,19 @@ export function ClinicalDashboard({
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
-  // `/` is the single home page for every mode. The mode pill retargets the
-  // composer instead of navigating, so the hero must not be answer-only: picking
-  // DSM on home keeps this exact surface and only swaps the placeholder. Gated on
-  // the pathname (never on `searchMode`) per the hero-vs-dock rule in
-  // docs/search-chrome-behaviour.md — a mode pick must not flip composer reserve.
+  // `/` is the single home page for every mode except the retained `/?mode=tools`
+  // compatibility alias. New Tools picks navigate to `/tools`; old bookmarked
+  // dashboard links continue mounting the legacy launcher here.
   const isHomeRoute = pathname === "/";
+  const legacyToolsDashboardAlias = isHomeRoute && searchParams.get("mode") === "tools";
   const showSharedHome =
-    isHomeRoute && !submittedUrlRunRequested && !error && !answer && !loading && !submittedAnswerSearchActive;
+    isHomeRoute &&
+    !legacyToolsDashboardAlias &&
+    !submittedUrlRunRequested &&
+    !error &&
+    !answer &&
+    !loading &&
+    !submittedAnswerSearchActive;
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";

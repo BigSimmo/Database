@@ -106,6 +106,25 @@ describe("mode menu destination prefetch", () => {
     expect(prefetched.size).toBeLessThan(guestModeHomes().length);
   });
 
+  it("prefetches and opens the canonical all-tools directory from the mode menu", async () => {
+    const user = userEvent.setup();
+    const onSearchModeChange = vi.fn();
+
+    render(<MasterSearchHeader {...headerProps()} onSearchModeChange={onSearchModeChange} />);
+    await user.click(screen.getByRole("button", { name: /Mode Answer/i }));
+    const toolsOption = within(await screen.findByRole("menu", { name: "Choose app mode" })).getByRole(
+      "menuitemradio",
+      { name: /Tools/i },
+    );
+
+    await user.hover(toolsOption);
+    expect(router.prefetch.mock.calls.some(([href]) => href === "/tools")).toBe(true);
+
+    await user.click(toolsOption);
+    expect(router.push).toHaveBeenCalledWith("/tools");
+    expect(onSearchModeChange).not.toHaveBeenCalled();
+  });
+
   it("warms a mode again after Next invalidates its cached payload", async () => {
     const user = userEvent.setup();
     const documentsHref = modeSelectionHref("documents");
@@ -160,6 +179,26 @@ describe("mode menu destination prefetch", () => {
     await user.click(answerOption);
 
     expect(onSearchModeChange).toHaveBeenCalledWith("answer");
+    await vi.waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
+  });
+
+  it("restores mode-trigger focus when re-opening the active Tools directory", async () => {
+    const user = userEvent.setup();
+    const onSearchModeChange = vi.fn();
+    render(<MasterSearchHeader {...headerProps()} searchMode="tools" onSearchModeChange={onSearchModeChange} />);
+
+    const trigger = screen.getByRole("button", { name: /Mode Tools/i });
+    await user.click(trigger);
+    const toolsOption = within(await screen.findByRole("menu", { name: "Choose app mode" })).getByRole(
+      "menuitemradio",
+      { name: /Tools/i },
+    );
+    await user.click(toolsOption);
+
+    expect(router.push).toHaveBeenCalledWith("/tools");
+    expect(onSearchModeChange).not.toHaveBeenCalled();
     await vi.waitFor(() => {
       expect(trigger).toHaveFocus();
     });

@@ -425,8 +425,29 @@ async function expectVerticalSeparation(page: Page, upperSelector: string, lower
 
 test.beforeEach(stubZeroTouchPoints);
 
-test.describe("Clinical KB tools launcher", () => {
+test.describe("Clinical KB tools directory and legacy launcher", () => {
   test.describe.configure({ timeout: 60_000 });
+
+  for (const viewport of [
+    { name: "phone", width: 390, height: 844 },
+    { name: "desktop", width: 1280, height: 900 },
+  ] as const) {
+    test(`universal mode picker opens the all tools directory at ${viewport.name} width`, async ({ page }) => {
+      await mockAnswerDashboardApi(page);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await gotoLauncher(page, "/?mode=answer");
+
+      const menu = await openAppModeMenu(page, "Answer");
+      const toolsOption = menu.getByRole("menuitemradio", { name: /^Tools\b/ });
+      await toolsOption.scrollIntoViewIfNeeded();
+      await Promise.all([page.waitForURL(/\/tools$/), toolsOption.click()]);
+
+      await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+      await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+    });
+  }
 
   for (const viewport of [
     { name: "mobile", width: 390, height: 820 },
@@ -434,7 +455,7 @@ test.describe("Clinical KB tools launcher", () => {
   ] as const) {
     test(`tools launcher is usable at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await gotoLauncher(page);
+      await gotoLauncher(page, "/?mode=tools");
 
       await expect(page.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Quick tool shortcuts" })).toBeVisible();
@@ -478,19 +499,42 @@ test.describe("Clinical KB tools launcher", () => {
     });
   }
 
-  test("standalone tools route uses the shared global search", async ({ page }) => {
+  test("all tools are visible immediately with optional shared search", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/tools");
 
-    await expect(page.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results).toBeVisible();
+    await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
-    await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
+    await expect(results.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+    await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
     await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
 
-    // Typing in the shared composer live-filters the tools grid, matching /?mode=tools.
+    // Browsing needs no query; typing simply narrows the already-visible directory.
     await fillHydratedGlobalSearch(page, "medication");
-    await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
-    await expect(page.getByTestId("application-card-documents")).toBeHidden();
+    await expect(results.getByRole("heading", { level: 1, name: "medication" })).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "Documents" })).toHaveCount(0);
+
+    await visibleGlobalSearchInput(page).fill("");
+    await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "Documents" })).toBeVisible();
+
+    const categories = results.getByRole("radiogroup", { name: "Tool category" });
+    await categories.getByRole("radio", { name: /Treat/ }).click();
+    await expect(results.getByRole("heading", { level: 2, name: "Clinical KB Search" })).toHaveCount(0);
+    await categories.getByRole("radio", { name: /All tools/ }).click();
+
+    await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
+    await expect(results.getByRole("complementary", { name: "Medication Prescribing" })).toBeVisible();
+    await expect(
+      results.getByRole("complementary", { name: "Medication Prescribing" }).getByRole("link", {
+        name: "Prescribe Medication Prescribing",
+      }),
+    ).toHaveAttribute("href", "/medications");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -549,39 +593,27 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("tool descriptions remain complete across supported breakpoints", async ({ page }) => {
+  test("all tools stay visible across supported breakpoints and media preferences", async ({ page }) => {
     await gotoLauncher(page, "/tools");
 
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
-      const tool =
-        width < 1024
-          ? page.getByTestId("application-row-clinical-kb-search")
-          : page.getByTestId("application-card-clinical-kb-search");
-      const description = tool
-        .getByText("Ask source-backed clinical questions and move straight to evidence.", {
-          exact: true,
-        })
-        .first();
-      await expect(description).toBeVisible();
-      const clipping = await description.evaluate((element) => {
-        const style = getComputedStyle(element);
-        return {
-          horizontal: element.scrollWidth > element.clientWidth + 1,
-          vertical: element.scrollHeight > element.clientHeight + 1,
-          lineClamp: style.webkitLineClamp,
-        };
-      });
-      expect(clipping.horizontal).toBe(false);
-      expect(clipping.vertical).toBe(false);
-      expect(clipping.lineClamp).not.toBe("2");
+      await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Tool results" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
+      await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     }
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    await expect(page.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("launcher links point to the expected in-app modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page);
+    await gotoLauncher(page, "/?mode=tools");
 
     for (const [title, href] of [
       ["Medication Prescribing", "/medications"],
@@ -604,7 +636,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("search and filters reduce visible application rows without overflow", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page);
+    await gotoLauncher(page, "/?mode=tools");
 
     await fillHydratedGlobalSearch(page, "medication");
 
@@ -613,34 +645,29 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("tools mode embeds the launcher content inside the dashboard", async ({ page }) => {
+  test("non-submitted tools query keeps the all-results page and home composer", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    // `/?mode=tools&q=…` (no run=1) now prefills the shared home's composer
-    // rather than rendering Tools content there. /tools is the canonical surface.
     await gotoLauncher(page, "/tools?q=medication&focus=1");
 
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
     await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medication");
 
-    const toolsHub = page.getByTestId("tools-hub");
-    await expect(toolsHub).toBeVisible();
-    await expect(toolsHub.getByTestId("tools-home")).toBeVisible();
-    await expect(toolsHub.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
-    await expect(toolsHub.getByTestId("global-search-input")).toBeVisible();
-    const queryRibbon = toolsHub.getByTestId("search-query-ribbon");
-    await expect(queryRibbon.getByRole("heading", { name: "medication" })).toBeVisible();
-    await expect(queryRibbon.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
-    const medicationDetails = toolsHub.getByRole("button", { name: "View details for Medication Prescribing" });
-    await expect(medicationDetails).toHaveAttribute("aria-haspopup", "dialog");
-    await expect(toolsHub.getByTestId("application-card-documents")).toBeHidden();
-    await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results).toBeVisible();
+    await expect(results.getByTestId("tools-results-home-composer").getByTestId("global-search-input")).toBeVisible();
+    await expect(results.getByRole("heading", { level: 1, name: "medication" })).toBeVisible();
+    await expect(results.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
+    const medicationDetails = results.getByRole("button", { name: "View details for Medication Prescribing" });
+    await expect(results.getByRole("heading", { level: 2, name: "Documents" })).toHaveCount(0);
+    await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
 
     await medicationDetails.click();
-    const medicationDialog = page.getByRole("dialog", { name: "Medication Prescribing" });
-    await expect(medicationDialog).toBeVisible();
-    const medicationLaunch = medicationDialog.locator('a[href="/medications"]').first();
-    await expect(medicationLaunch).toBeVisible();
-    await expect(medicationLaunch).toHaveAttribute("href", "/medications");
+    const medicationPanel = results.getByRole("complementary", { name: "Medication Prescribing" });
+    await expect(medicationPanel).toBeVisible();
+    await expect(medicationPanel.getByRole("link", { name: "Prescribe Medication Prescribing" })).toHaveAttribute(
+      "href",
+      "/medications",
+    );
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -958,7 +985,7 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/differentials", testId: "differentials-home" },
       { path: "/factsheets", testId: "factsheets-home-main" },
       { path: "/favourites", testId: "favourites-hub" },
-      { path: "/tools", testId: "tools-home" },
+      { path: "/tools", testId: "tools-search-results-page" },
     ] as const) {
       await gotoLauncher(page, home.path);
       const homeSurface = page.getByTestId(home.testId);
@@ -1059,7 +1086,6 @@ test.describe("Clinical KB tools launcher", () => {
     { path: "/?mode=answer", testId: "shared-home-empty-state", heroTestId: "shared-home-empty-state" },
     { path: "/documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
     { path: "/medications", testId: "medication-home", heroTestId: "medication-home" },
-    { path: "/tools", testId: "tools-home", heroTestId: "tools-home" },
     { path: "/services", testId: "services-home", heroTestId: "services-home-template" },
     { path: "/forms", testId: "forms-home", heroTestId: "forms-home-template" },
     { path: "/differentials", testId: "differentials-home", heroTestId: "differentials-home-template" },
@@ -1197,7 +1223,6 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/services", testId: "services-home", heading: "Services", headingLevel: 1 },
       { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
-      { path: "/tools", testId: "tools-home", heading: "Tools", headingLevel: 1 },
     ] as const) {
       test(`mode home search is centered at ${viewport.name} width on ${home.path}`, async ({ page }) => {
         await mockAnswerDashboardApi(page);
@@ -2648,12 +2673,12 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/tools");
 
-    const toolsHub = page.getByTestId("tools-hub");
-    await expect(toolsHub.getByText("Selected tool")).toHaveCount(0);
-    const detailsButton = toolsHub.getByRole("button", { name: "View details for Medication Prescribing" });
-    await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
+    const results = page.getByTestId("tools-search-results-page");
+    const detailsButton = results.getByRole("button", { name: "View details for Medication Prescribing" });
     await detailsButton.click();
-    await expect(page.getByRole("dialog", { name: "Medication Prescribing" })).toBeVisible();
+    const detailSheet = page.getByTestId("tools-search-detail-sheet");
+    await expect(detailSheet).toBeVisible();
+    await expect(detailSheet.getByRole("heading", { name: "Medication Prescribing" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 });

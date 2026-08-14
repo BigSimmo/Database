@@ -883,6 +883,27 @@ export function MasterSearchHeader({
 
   function selectAppMode(mode: (typeof appModeDefinitions)[number]) {
     setModeMenuOpen(false);
+    if (mode.id === "tools" && "href" in mode && mode.href) {
+      // Tools is a browse-first directory: selecting it opens the canonical
+      // all-tools page instead of retargeting the shared-home composer.
+      pendingModeSelectionFocusRef.current = mode.id;
+      router.push(mode.href);
+      if (mode.id === searchMode) {
+        const restoreSameModeFocus = () => {
+          if (pendingModeSelectionFocusRef.current !== mode.id) return;
+          if (document.getElementById("app-mode-menu")) {
+            window.setTimeout(restoreSameModeFocus, 50);
+            return;
+          }
+          restoreFocusUnlessMoved(modeButtonRef.current);
+          pendingModeSelectionFocusRef.current = null;
+        };
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(restoreSameModeFocus);
+        });
+      }
+      return;
+    }
     if (isSearchableAppMode(mode.id)) {
       // Wait until the URL-owned mode prop settles before returning focus. The
       // trigger's accessible name changes with that prop; focusing in the click
@@ -987,11 +1008,11 @@ export function MasterSearchHeader({
   // Prefetch only the mode the user is about to choose — the highlighted option
   // on open, then whichever option receives focus/pointer while scanning.
   //
-  // A pick always returns to the shared home; warm that exact URL rather than a
-  // mode-owned home or search route the user has not asked to open.
+  // Most picks return to the shared home. Tools is browse-first and opens its
+  // canonical all-results directory, so warm that route instead.
   function prefetchModeSelection(modeId: AppModeId) {
     if (modeId === searchMode) return;
-    const href = appModeSelectionHref(modeId);
+    const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId);
     if (prefetchedModeHrefsRef.current.has(href)) return;
     prefetchedModeHrefsRef.current.add(href);
     router.prefetch(href, {
