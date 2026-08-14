@@ -209,7 +209,7 @@ function AccountOrientationPanel() {
       />
 
       <div className="relative z-10 pr-12">
-        <span className="grid h-11 w-11 place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2),var(--shadow-inset)]">
+        <span className="grid size-tap place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2),var(--shadow-inset)]">
           <BrandMark className="h-8 w-8" />
         </span>
         <h3
