@@ -10,10 +10,15 @@
  * - Never marks covers searchable / never attaches them to chunks
  * - Prefers documents that do not already have a cover_page image
  *
+ * One-shot backfill: retired from scripts/ once the ingestion pipeline started
+ * generating cover thumbnails for new documents directly (see worker/main.ts,
+ * worker/python/extract_pdf_assets.py). Kept here for provenance and as a
+ * re-runnable repair tool if a targeted document is ever missing its cover.
+ *
  * Usage:
- *   node scripts/backfill-document-covers.mjs
- *   node scripts/backfill-document-covers.mjs --apply --limit 25
- *   node scripts/backfill-document-covers.mjs --apply --document-id <uuid>
+ *   node scripts/archive/backfill-document-covers.mjs
+ *   node scripts/archive/backfill-document-covers.mjs --apply --limit 25
+ *   node scripts/archive/backfill-document-covers.mjs --apply --document-id <uuid>
  */
 
 import { createHash, randomUUID } from "node:crypto";
