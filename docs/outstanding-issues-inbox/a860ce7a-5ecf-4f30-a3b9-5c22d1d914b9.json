@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "a860ce7a-5ecf-4f30-a3b9-5c22d1d914b9",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#237",
+    "outcome": "DELIVERED — verified on main 2026-08-14. tests/accessible-table.dom.test.tsx:110 asserts the full missing-value phrase stays readable in the dense 320px preview. PR #1841 merged."
+  }
+}

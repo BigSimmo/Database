@@ -96,8 +96,8 @@ the class cannot be enumerated, and holds the medication at grey rather than gre
 
 **35 of the catalogue's 328 medications sit outside both ends of every resolved
 interaction row.** Entering one of them produces no alert — not because the combination was checked and
-found clear, but because no machine-resolved edge in the corpus includes that drug. On screen those outcomes look the
-same, so this list is the honest boundary of the feature.
+found clear, but because no machine-resolved edge in the corpus includes that drug. On screen those
+outcomes look the same, so this list is the honest boundary of the feature.
 
 This is a **corpus coverage** limit, not necessarily a lexicon fault. Widening it means adding an
 interaction row or making an existing row machine-resolvable, with clinical review of the source content.

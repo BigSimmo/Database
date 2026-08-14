@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "1e598935-a21b-4aa5-9bd2-c667ce16ebbd",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#221",
+    "outcome": "DELIVERED — verified on main 2026-08-14. The remaining local names are delegating wrappers, not duplicates: therapy-compass/ui.tsx:161-173 forwards to SharedEmptyState, :158 to LoadingPanel, :3 imports DS Chip. Recorded in ADOPTION.md section 7.1. PRs #1841/#1842 merged."
+  }
+}

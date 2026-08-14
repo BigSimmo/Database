@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "2194da1d-c445-47db-8b97-09774056ab42",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#178",
+    "outcome": "DELIVERED — verified on main 2026-08-14. scripts/pr-policy.mjs:335 flags exactly the bundling this row asked for: if (classification.operationalRisk && (classification.clinicalRisk || classification.ui)). PR #1837 merged."
+  }
+}

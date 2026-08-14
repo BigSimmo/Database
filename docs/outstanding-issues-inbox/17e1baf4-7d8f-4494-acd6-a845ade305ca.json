@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "17e1baf4-7d8f-4494-acd6-a845ade305ca",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#316",
+    "detail": "Phase 0 delivered — drift routing + post-migration trigger + evidence scaffold, PR #1938. live-drift.yml now creates/updates one pinned issue 'Live drift check failing' (label live-drift-failure) with the captured finding lines and run URL on failure, and comments+closes it on the next green run; issues: write is scoped to a separate drift-routing job so the job running npm ci keeps contents: read. The workflow also runs on pushes to main touching supabase/migrations/** or supabase/schema.sql. docs/audit/live-drift-forensics-2026-08.md now carries dated empty Phase 1-5 evidence sections anchored here. Still outstanding: a forced workflow_dispatch failure to observe the pinned issue end-to-end (provider-backed, operator to run), SUPABASE_ACCESS_TOKEN per #183, and Phases 1-5, which all need approved hosted windows. Note: the Phase 0 task prompt named #312 as the anchor; that is the unrelated Playwright-browser P3, and the anchor was resolved to #316 by exact title per the playbook."
+  }
+}
