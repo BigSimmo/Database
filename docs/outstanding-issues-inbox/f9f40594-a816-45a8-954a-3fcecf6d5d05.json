@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "f9f40594-a816-45a8-954a-3fcecf6d5d05",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#245",
+    "outcome": "RESOLVED AS INTENTIONAL — verified on main 2026-08-14. The premise still holds literally (both rails are mounted) but it is now a documented decision, not a defect: cross-mode-links.tsx:220-224 states both rails stay mounted so SSR and first paint agree, hidden/md:hidden use display:none which removes the inactive rail from the accessibility tree, and distinct test ids stop phone vs wide selectors double-counting. Removing a rail would reintroduce the hydration mismatch this comment exists to prevent. PR #1842 merged."
+  }
+}

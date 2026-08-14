@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "ded27e2f-5c71-43b8-99dc-ffffa6294ba3",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#234",
+    "outcome": "DELIVERED — verified on main 2026-08-14. answer-copy-payload.ts (now src/components/clinical-dashboard/) carries a header documenting the single-builder contract, the three consuming surfaces, and why it sits outside src/lib and outside the design system. PR #1842 merged."
+  }
+}
