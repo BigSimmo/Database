@@ -34,8 +34,16 @@ export const THEME_COOKIE_NAME = "clinical-theme";
  * throw on localStorage still receive their OS-selected theme. When localStorage
  * has no explicit pin, fall back to the `clinical-theme` cookie so a
  * cookie-only preference (matching RootLayout) is not immediately overwritten.
+ *
+ * Both catches swallow deliberately, and each says so inline. This runs before
+ * React mounts, so there is no logger or toast to report to, and every failure
+ * here means the same thing: no explicit pin was readable, so the next fallback
+ * in the chain (cookie, then the OS preference) applies. Surfacing the error
+ * instead would trade a correct default appearance for a broken first paint.
+ * Keep the inline notes to one short clause — this string ships in every
+ * page's `<head>`.
  */
-export const THEME_BOOTSTRAP_SCRIPT = `(function(){var t=null;try{t=localStorage.getItem("${THEME_STORAGE_KEY}");}catch(e){}if(t!=="light"&&t!=="dark"){try{var m=document.cookie.match(/(?:^|; )${THEME_COOKIE_NAME}=(light|dark)(?:;|$)/);if(m)t=m[1];}catch(e){}}var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);var c=d?"${APP_THEME_COLORS.dark}":"${APP_THEME_COLORS.light}";document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",c);});})();`;
+export const THEME_BOOTSTRAP_SCRIPT = `(function(){var t=null;try{t=localStorage.getItem("${THEME_STORAGE_KEY}");}catch(e){/* storage blocked (private/partitioned) - fall through to the cookie, then the OS preference */}if(t!=="light"&&t!=="dark"){try{var m=document.cookie.match(/(?:^|; )${THEME_COOKIE_NAME}=(light|dark)(?:;|$)/);if(m)t=m[1];}catch(e){/* cookie access blocked (sandboxed frame) - the OS preference below applies */}}var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);var c=d?"${APP_THEME_COLORS.dark}":"${APP_THEME_COLORS.light}";document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",c);});})();`;
 
 export function resolveThemePreference(storedTheme: string | null | undefined, prefersDark: boolean): ResolvedTheme {
   if (storedTheme === "light" || storedTheme === "dark") return storedTheme;

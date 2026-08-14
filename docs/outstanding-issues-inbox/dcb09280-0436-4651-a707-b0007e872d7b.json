@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "dcb09280-0436-4651-a707-b0007e872d7b",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#275",
+    "outcome": "RESOLVED 2026-08-14 for the badge box; two carve-outs re-filed rather than guessed. SCOPE RE-MEASURED AGAIN on merged main and it has SHRUNK back, in the opposite direction to this row's 2026-08-12 re-measure: the badge role is down from five files to ONE. #170's convergence landed in between — document-search-results.tsx now renders the shared control and therapy-compass/filter-sheet.tsx was deleted outright (PRs #1885, #1889, #1910) — so the extraction reabsorbed the leak this row was written about. Fixed: 1.0625rem is now --spacing-search-band-badge in the globals.css @theme block, consumed as h-search-band-badge / min-w-search-band-badge at result-filter-control.tsx:236. Value-preserving and PROVEN, not inferred: compiling globals.css through @tailwindcss/postcss emits '.h-search-band-badge { height: var(--spacing-search-band-badge) }' and the matching min-width rule. No ratchet moved. NOT done, deliberately, each now its own follow-up: (a) pr-[0.6875rem] and min-[414px]:max-[429px] stay raw — the repo defines ZERO --breakpoint-* tokens and eight peer sites use the same raw min-[]/max-[] form (359px, 389px, 414px), so naming one window while the peers stay raw is this row's own drift on another axis, and Tailwind named breakpoints would add variants across the whole utility surface; that is a repo-wide decision. (b) The three remaining 1.0625rem hits in mode-nav.tsx:64,214 and nav-slot-ink.tsx:44 are NOT this token — they size <Icon> glyphs, a 17px icon against a 12/14/16/20/24 --spacing-icon-* scale, so folding them under a badge token would merge two roles that only share a number. check:icon-scale deliberately does not flag arbitrary h-[Nrem], so they are unguarded but real. Snapping them to 16 or 20px is a visible nav-chrome change and a design call. This row's stop rule ('do not change the measurements themselves') was honoured — every measured justification comment is intact and no value moved."
+  }
+}
