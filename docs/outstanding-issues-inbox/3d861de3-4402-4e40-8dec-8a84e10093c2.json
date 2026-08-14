@@ -5,6 +5,6 @@
   "action": "done",
   "payload": {
     "id": "#215",
-    "outcome": "Closed after PR #1949 landed on main: the PWA install-sheet icon now uses decoding="async". Demo PNG-to-WebP conversion was explicitly declined as a low-value synthetic-demo build step, preserving the row's requested implementation-or-drop decision."
+    "outcome": "Closed after PR #1949 landed on main: the PWA install-sheet icon now uses decoding=\"async\". Demo PNG-to-WebP conversion was explicitly declined as a low-value synthetic-demo build step, preserving the row's requested implementation-or-drop decision."
   }
 }
