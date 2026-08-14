@@ -104,6 +104,15 @@
   --spacing-icon-lg: 1.25rem; /* 20px — header / primary controls */
   --spacing-icon-xl: 1.5rem; /* 24px — hero / composer emphasis */
 
+  /* Active-filter count bubble on the search band. 17px is deliberately off
+     both the 4px grid and the icon scale above: it is a text-bearing box sized
+     to its own --text-2xs numeral plus the tinted ring, not a glyph, so
+     snapping it to 16px clips the digit and 20px reads as the solid alert disc
+     the pill is written to avoid. Held as a token because the raw value has
+     already leaked once — it reached mode-nav and a since-deleted therapy
+     filter sheet before the shared control absorbed those call sites (#275). */
+  --spacing-search-band-badge: 1.0625rem;
+
   /* Type scale — sub-`xs` micro steps plus the 13–22px "between" steps the
      dense clinical UI reaches for. These are intentionally SIZE-ONLY: unlike
      Tailwind's default text-* tokens they carry no `--line-height` /
