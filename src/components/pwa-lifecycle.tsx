@@ -150,6 +150,7 @@ function InstallAppIdentity({ title, titleId, tagline }: { title: string; titleI
         src="/icons/icon-192"
         alt=""
         aria-hidden="true"
+        decoding="async"
         width={56}
         height={56}
         className="h-14 w-14 shrink-0 rounded-xl border border-[color:var(--border-lux)] shadow-[var(--shadow-tight)]"
