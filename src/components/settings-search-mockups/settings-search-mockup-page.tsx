@@ -264,7 +264,7 @@ function Toggle({ enabled }: { enabled?: boolean }) {
     >
       <span
         className={cn(
-          "absolute h-5 w-5 rounded-full bg-white shadow-[var(--shadow-tight)] transition",
+          "absolute h-5 w-5 rounded-full bg-white shadow-[var(--e1)] transition",
           enabled ? "right-0.5" : "left-0.5",
         )}
       />
@@ -331,7 +331,7 @@ function SummaryTile({ row, index, tone }: { row: SettingsRow; index: number; to
       className={cn(
         "relative grid min-h-[76px] grid-cols-[auto_minmax(0,1fr)] items-center gap-3 overflow-hidden rounded-lg border px-3 text-left transition",
         tone === "compact" ? "min-h-[70px]" : "",
-        tone === "premium" ? "min-h-[82px]" : "shadow-[var(--shadow-tight)]",
+        tone === "premium" ? "min-h-[82px]" : "shadow-[var(--e1)]",
         accent
           ? "border-[color:var(--clinical-accent)]/24 bg-[color:var(--clinical-accent-soft)]/42 shadow-[0_12px_26px_rgba(15,31,38,0.09)] before:absolute before:bottom-3 before:left-0 before:top-3 before:w-0.5 before:rounded-full before:bg-[color:var(--clinical-accent)]"
           : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-raised)]",
@@ -362,7 +362,7 @@ function DesktopProfileStrip({ tone }: { tone: Concept["tone"] }) {
         "mt-4 grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border px-4 text-left",
         tone === "compact" ? "min-h-[76px]" : tone === "premium" ? "min-h-[88px]" : "min-h-[78px]",
         tone === "compact"
-          ? "border-[color:var(--clinical-accent)]/16 bg-[color:var(--surface-inset)] shadow-[var(--shadow-tight)]"
+          ? "border-[color:var(--clinical-accent)]/16 bg-[color:var(--surface-inset)] shadow-[var(--e1)]"
           : tone === "premium"
             ? "border-[color:var(--clinical-accent)]/18 bg-[color:var(--surface-lux)] shadow-[0_12px_30px_rgba(15,31,38,0.08)]"
             : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-white/45",
@@ -511,7 +511,7 @@ function PhoneStatusBar() {
 function PhoneBackdrop() {
   return (
     <div className="pointer-events-none absolute inset-x-4 bottom-5 top-[118px] opacity-60" aria-hidden="true">
-      <div className="h-20 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]" />
+      <div className="h-20 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e1)]" />
       <div className="mt-3 space-y-2">
         {[0, 1, 2].map((item) => (
           <div
