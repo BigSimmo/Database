@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "ee6875e6-62ad-4f2e-8644-6f3b7a973d87",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "All live mobile routes breach LCP; shared CSS delivery and JavaScript are the current bottleneck",
+    "detail": "PR #1927 is merged and deployed to Railway production at exact SHA f2abf5baf3f449a1803bedef9dc107f30b70db93. Three-sample live medians on that SHA are Documents 3374 ms, DSM 3961 ms, Forms 3507 ms, root 3819 ms, Therapy 3422 ms, and Services 3793 ms; desktop LCP is 580-679 ms and mobile CLS remains within the rule. The production CSS split is retained and reduced four canonical medians modestly, but every mobile route still breaches 2500 ms. Root trace attribution is now concrete: TTFB 283 ms, LCP render delay 3449 ms, the 46,724-byte transferred shared stylesheet completes at 3644 ms under the throttled critical-request contention, total main-thread work is 1785 ms, script evaluation is 1030 ms, and shared chunk 8322 alone consumes 870 ms CPU. This is separate from canonical #117, which continues to track the unresolved Therapy catalogue payload and per-field safety decision. Next: split the 4,251-line global stylesheet by route ownership and reduce the shared search-shell/root client boundary before repeating the same bounded live matrix. Therapy field safety review remains required for search/pathways. INP remains unverified because Lighthouse does not measure it and no usable CrUX result exists. Stop: do not strip clinical fields, weaken the Lighthouse budget, refresh a passing baseline to hide latency, or claim an INP pass.",
+    "source": "PR #1927; Railway deployments 1224ed55-210d-443b-94e5-20f87475468c and 810cc8b3-e39a-493f-b18f-8c63d150d53f; live Web Vitals runs 31719448766 and 31719451951; PR #1933 review"
+  }
+}

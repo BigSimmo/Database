@@ -312,6 +312,16 @@ function DocumentResultMoreMenu({
   useEffect(() => {
     if (!open) return;
 
+    let positionFrame: number | null = null;
+    const scheduleMenuPositionUpdate = () => {
+      if (positionFrame !== null) return;
+      positionFrame = window.requestAnimationFrame(() => {
+        positionFrame = null;
+        updateMenuPosition();
+      });
+    };
+    const scrollOptions: AddEventListenerOptions = { capture: true, passive: true };
+
     function closeOutside(event: PointerEvent) {
       if (menuRef.current?.contains(event.target as Node) || buttonRef.current?.contains(event.target as Node)) return;
       setOpen(false);
@@ -325,14 +335,15 @@ function DocumentResultMoreMenu({
 
     window.document.addEventListener("pointerdown", closeOutside);
     window.addEventListener("keydown", closeOnEscape);
-    window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
+    window.addEventListener("resize", scheduleMenuPositionUpdate);
+    window.addEventListener("scroll", scheduleMenuPositionUpdate, scrollOptions);
     updateMenuPosition();
     return () => {
+      if (positionFrame !== null) window.cancelAnimationFrame(positionFrame);
       window.document.removeEventListener("pointerdown", closeOutside);
       window.removeEventListener("keydown", closeOnEscape);
-      window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
+      window.removeEventListener("resize", scheduleMenuPositionUpdate);
+      window.removeEventListener("scroll", scheduleMenuPositionUpdate, scrollOptions);
     };
   }, [open, updateMenuPosition]);
 
@@ -575,7 +586,7 @@ function SearchRecordResults({
     <section
       data-testid={`${copy.testIdPrefix}-results`}
       aria-label={copy.ariaLabel}
-      className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-tight)]"
+      className="grid gap-3 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface-lux)] p-3 shadow-[var(--e1)]"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -610,7 +621,7 @@ function SearchRecordResults({
               className={cn(
                 sourceCard,
                 "content-auto",
-                "grid gap-3 p-3 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] sm:p-4",
+                "grid gap-3 p-3 shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent-border)] sm:p-4",
                 index === 0 && "ring-1 ring-[color:var(--clinical-accent)]/15",
               )}
             >
@@ -1329,7 +1340,7 @@ function DocumentSearchResultsPanelImpl({
                       className={cn(
                         sourceCard,
                         "content-auto",
-                        "relative overflow-visible p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none",
+                        "relative overflow-visible p-0 shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none",
                         index === 0 && "border-t-[3px] border-t-[color:var(--clinical-accent)]",
                       )}
                     >

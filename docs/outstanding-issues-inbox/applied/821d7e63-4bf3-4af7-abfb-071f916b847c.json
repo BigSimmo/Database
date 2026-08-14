@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "821d7e63-4bf3-4af7-abfb-071f916b847c",
+  "createdOn": "2026-08-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "e7fe0e34-3ff3-48d0-878c-2d7a7fe792f1",
+    "reason": "The request incorrectly re-scopes canonical #117 and would discard the still-open Therapy catalogue payload work."
+  }
+}

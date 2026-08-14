@@ -2,7 +2,7 @@
   "schema": "rag-ranking-candidate-snapshot",
   "version": 1,
   "sourceCaseCount": 36,
-  "generatedAt": "2026-08-12T19:21:20.567Z",
+  "generatedAt": "2026-08-13T16:08:53.420Z",
   "sourceRunId": "31329507691",
   "sanitization": {
     "candidateIdentity": "sha256",

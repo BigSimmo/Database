@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "a5c8654c-f466-49b5-86ec-f783c15fc6e7",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#090",
+    "pri": "P3",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** Blocked upstream on three plugins publishing ESLint 10 support, and the advisories are dev-scoped only with no runtime or user impact. A recheck reminder, not work. **Outcome:** full `npm audit` reports zero high advisories from the eslint toolchain. **Blocked 2026-07-30:** the stable ecosystem still has no compatible ESLint 10 set. `eslint-config-next@16.2.12` permits ESLint 10 but bundles `eslint-plugin-react@7.37.5`, `eslint-plugin-import@2.32.0`, and `eslint-plugin-jsx-a11y@6.10.2`; each plugin's published peer range still ends at ESLint 9, and the React plugin retains the previously reproduced removed-context-API crash. Keep the Dependabot major hold and ESLint `9.39.5`; do not force an invalid peer graph merely to make the audit report green. **Next:** recheck after those three plugins publish stable ESLint 10 support, then upgrade eslint and the complete plugin/config set together. Residual highs (`@eslint/config-array`, `@eslint/eslintrc`, `eslint`, `eslint-config-next`, `eslint-plugin-import`, `eslint-plugin-jsx-a11y`, plus the advisory's numeric `<=5.0.7` hit on the unused `brace-expansion@1.1.16` / `2.1.2` maintenance lines that still ship an unpatched `main`) cascade from this dev-only toolchain. **Success:** peer-valid install, `npm run lint` clean, `verify:cheap` green, full-audit highs cleared, no rule-config regressions. **Stop:** do not use `npm audit fix --force` or override plugin peer ranges. Production `npm audit --omit=dev` is already clean after the exceljs `archiver@8` / `unzipper@0.12.5` overrides on PR #1314."
+  }
+}

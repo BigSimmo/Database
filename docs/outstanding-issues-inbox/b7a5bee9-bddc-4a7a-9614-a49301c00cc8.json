@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "b7a5bee9-bddc-4a7a-9614-a49301c00cc8",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#162",
+    "detail": "IN FLIGHT confirmed still accurate 2026-08-14: PR #1839 is the one PR in this cluster that has NOT merged (no merge commit on origin/main; refs/pull/1839/merge still exists, which GitHub keeps only for open PRs). Every sibling in the same sweep — #1835 #1836 #1837 #1840 #1841 #1842 — has landed and their rows are archived or re-scoped. Do not start this row; it is genuinely in flight."
+  }
+}

@@ -45,6 +45,23 @@ describe("CI cache safety", () => {
     expect(prShardRunner).toContain('"@quarantine|@mockup"');
   });
 
+  it("starts the critical subset and required shards concurrently", () => {
+    const uiJob = /\n  ui-critical:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(uiJob).toContain("needs: changes");
+    expect(uiJob).not.toContain("ui-critical-fast");
+  });
+
+  it("routes the blocking ingestion scan through the required aggregate", () => {
+    expect(workflow).toMatch(/^  merge_group:\s*$/m);
+    expect(workflow).toContain("ingestion_sast_changed: ${{ steps.scope.outputs.ingestion_sast_changed }}");
+    expect(workflow).toMatch(/ingestion-sast:\n[\s\S]*?needs: changes/);
+    expect(workflow).toContain("needs.changes.outputs.ingestion_sast_changed == 'true'");
+    expect(workflow).toContain('if [ "$status" -ne 2 ] || [ "$attempt" -eq 3 ]');
+    expect(workflow).toContain('exit "$status"');
+    const requiredNeeds = /\n  pr-required:\n[\s\S]*?needs:\s*\n?\s*\[([\s\S]*?)\]/.exec(workflow)?.[1] ?? "";
+    expect(requiredNeeds).toContain("ingestion-sast");
+  });
+
   it("does not transport the cross-job Next cache after hosted evidence showed a net loss", () => {
     expect(workflow).not.toContain("playwright-next-build-cache-");
     expect(workflow).not.toContain("Publish isolated Next.js build cache");
@@ -212,6 +229,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
   const allGreen = {
     STATIC_HEAVY_CHANGED: "false",
     COVERAGE_CHANGED: "false",
+    INGESTION_SAST_CHANGED: "false",
     UI_CHANGED: "false",
     DB_CHANGED: "false",
     BUILD_CHANGED: "false",
@@ -222,6 +240,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     // Recognised documentation/workflow-only scopes skip the heavy safety job.
     SAFETY_RESULT: "skipped",
     COVERAGE_RESULT: "skipped",
+    INGESTION_SAST_RESULT: "skipped",
     BUILD_RESULT: "skipped",
     CONTAINER_RESULT: "skipped",
     // Critical-first UI job (this PR); skipped when ui_changed is false.
@@ -266,6 +285,12 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "success" }).status).toBe(0);
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "skipped" }).status).not.toBe(0);
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "false", SAFETY_RESULT: "skipped" }).status).toBe(0);
+  });
+
+  it("requires ingestion SAST only for its path-scoped surface", () => {
+    expect(runAggregate({ INGESTION_SAST_CHANGED: "true", INGESTION_SAST_RESULT: "success" }).status).toBe(0);
+    expect(runAggregate({ INGESTION_SAST_CHANGED: "true", INGESTION_SAST_RESULT: "skipped" }).status).not.toBe(0);
+    expect(runAggregate({ INGESTION_SAST_CHANGED: "false", INGESTION_SAST_RESULT: "skipped" }).status).toBe(0);
   });
 
   it("reports a superseded run as CANCELLED rather than describing a failure", () => {
@@ -342,6 +367,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     }
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "cancelled" }).status).not.toBe(0);
     expect(runAggregate({ COVERAGE_CHANGED: "true", COVERAGE_RESULT: "cancelled" }).status).not.toBe(0);
+    expect(runAggregate({ INGESTION_SAST_CHANGED: "true", INGESTION_SAST_RESULT: "cancelled" }).status).not.toBe(0);
     expect(
       runAggregate({
         UI_CHANGED: "true",

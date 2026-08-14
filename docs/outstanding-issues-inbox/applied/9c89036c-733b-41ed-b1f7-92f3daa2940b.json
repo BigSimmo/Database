@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "9c89036c-733b-41ed-b1f7-92f3daa2940b",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Keep post-restore environment recovery controls visible in the universal ledger",
+    "detail": "**Consolidated survivor for #188 and #196–#200 before their source rows are archived by PR #1920.** A schema restore is not operationally complete until all five environment-owned controls have been re-created and verified: (1) restore the ingestion, retention, and related `pg_cron` schedules and confirm they are active; (2) re-add required Supabase Vault secrets, including `cron_ingestion_jwt`, and verify names only without printing values; (3) re-set the required custom `app.*` database GUCs and verify them with read-only settings checks; (4) redeploy the required Supabase edge functions with the Deno v2.x toolchain and confirm the function list and health, only in an explicitly approved hosted-change window; and (5) re-enter dashboard-owned configuration, including auth providers and SSO redirect URLs, connection-pool caps, per-project keys, and `E2E_USER_*`, without committing secret values. **Next:** after every schema-restore drill or real restore, follow the disaster-recovery checklist in `docs/operator-backlog.md` and `docs/disaster-recovery-runbook.md`, record the verification outcome here, and keep the row open until all five controls are green. **Stop:** the runbooks are the execution procedure, not a substitute for this universal-ledger status row; do not treat a restored schema alone as recovered, expose secret values, or perform hosted writes without the required approval.",
+    "source": "docs/operator-backlog.md disaster-recovery checklist; docs/disaster-recovery-runbook.md; #188/#196–#200; PR #1920 review"
+  }
+}

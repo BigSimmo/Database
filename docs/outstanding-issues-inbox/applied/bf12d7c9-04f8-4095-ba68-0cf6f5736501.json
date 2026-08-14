@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "bf12d7c9-04f8-4095-ba68-0cf6f5736501",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#086",
+    "outcome": "Umbrella index only. Superseded by its children #190 (X3 rag.ts), #191 (X5 ACL), #192 (X6 coverage), #193 (X7 reorg), #194 (L1 archive) and #195 (M1 host hardening), all of which exist as their own rows with the canonical runbook at docs/maturity-backlog-workorders.md. The index added a queue entry over rows that were already findable. AGENTS.md has been repointed at the children."
+  }
+}
