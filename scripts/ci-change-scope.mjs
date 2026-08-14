@@ -15,6 +15,7 @@ const fullRunSentinelFiles = [
   // Ensures an unresolvable-base / scheduled full run also trips lockfile_changed
   // so the dependency audit runs in its blocking mode, not advisory.
   "package-lock.json",
+  "worker/__ci_full_run__.ts",
 ];
 
 const outputs = [
@@ -23,6 +24,7 @@ const outputs = [
   "source_changed",
   "static_heavy_changed",
   "coverage_changed",
+  "ingestion_sast_changed",
   "ui_changed",
   "perf_changed",
   "advisory_ui_changed",
@@ -123,11 +125,14 @@ const workflowPatterns = [
   ".github/workflows",
   ".github/actions",
   ".agents/skills",
+  ".claude/skills",
+  ".cursor/skills",
+  "plugins/clinical-kb/skills",
   ".github/pull_request_template.md",
   "AGENTS.md",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
-  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
+  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|list-database-skills|sync-skills|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
 ];
 
 const codexAutofixPatterns = [
@@ -284,6 +289,19 @@ const ragEvalPatterns = [
   /^tests\/(rag|retrieval|answer|citations|evidence|eval|clinical-safety|source).*\.test\.ts$/,
 ];
 
+// Untrusted-document parsing and ingestion surfaces are guarded by a narrow,
+// blocking Semgrep job in required CI. Keep scan targets aligned with that job,
+// and keep the gate's executable workflow/selector self-selecting.
+const ingestionSastPatterns = [
+  ".github/workflows/ci.yml",
+  "scripts/ci-change-scope.mjs",
+  "worker",
+  /^src\/lib\/ingestion[^/]*\.ts$/,
+  "src/lib/extractors",
+  "src/app/api/ingestion",
+  "src/app/api/upload",
+];
+
 const containerPatterns = [
   "Dockerfile",
   "Dockerfile.worker",
@@ -373,6 +391,7 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   const dbChanged = normalized.some((file) => pathMatches(file, dbPatterns));
   const containerChanged = normalized.some((file) => pathMatches(file, containerPatterns));
   const ragEvalChanged = normalized.some((file) => pathMatches(file, ragEvalPatterns));
+  const ingestionSastChanged = normalized.some((file) => pathMatches(file, ingestionSastPatterns));
   const workflowChanged = normalized.some((file) => pathMatches(file, workflowPatterns));
   const codexAutofixChanged = normalized.some((file) => pathMatches(file, codexAutofixPatterns));
   const lockfileChanged = normalized.some((file) => pathMatches(file, lockfilePatterns));
@@ -405,6 +424,7 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
     source_changed: sourceChanged,
     static_heavy_changed: staticHeavyChanged,
     coverage_changed: coverageChanged,
+    ingestion_sast_changed: ingestionSastChanged,
     ui_changed: uiChanged,
     perf_changed: perfChanged,
     advisory_ui_changed: advisoryUiChanged,
@@ -1008,6 +1028,21 @@ function selfTest() {
     rag_eval_changed: true,
     source_changed: true,
   });
+  assertScope("ingestion-sast-worker", ["worker/python/extract_pdf_assets.py"], {
+    ingestion_sast_changed: true,
+  });
+  assertScope("ingestion-sast-api", ["src/app/api/upload/route.ts"], {
+    ingestion_sast_changed: true,
+  });
+  assertScope("ingestion-sast-library", ["src/lib/ingestion-queue.ts", "src/lib/extractors/pdf.ts"], {
+    ingestion_sast_changed: true,
+  });
+  assertScope("ingestion-sast-gate-contract", [".github/workflows/ci.yml", "scripts/ci-change-scope.mjs"], {
+    ingestion_sast_changed: true,
+  });
+  assertScope("non-ingestion-source-skips-sast", ["src/lib/rag.ts"], {
+    ingestion_sast_changed: false,
+  });
   // A RAG-relevant lib file outside ragEvalPatterns must still be caught as a
   // source change (so static-pr and the non-docs safety job / verify:pr-local,
   // which run fixture validation, always execute). Guards the "silent
@@ -1057,6 +1092,21 @@ function selfTest() {
     docs_only: false,
     build_changed: false,
   });
+  for (const file of [
+    ".claude/skills/issues/SKILL.md",
+    ".cursor/skills/security-review/SKILL.md",
+    "plugins/clinical-kb/skills/clinical-kb-workflow/SKILL.md",
+  ]) {
+    assertScope(`repository-skill-surface:${file}`, [file], {
+      workflow_changed: true,
+      source_changed: false,
+      coverage_changed: false,
+      workflow_only: true,
+      static_heavy_changed: false,
+      docs_only: false,
+      build_changed: false,
+    });
+  }
   assertScope(
     "executable-skill-script-stays-heavy",
     [".agents/skills/prompt-perfector/scripts/verify-repository-isolation.mjs"],
@@ -1154,6 +1204,7 @@ function selfTest() {
     source_changed: true,
     static_heavy_changed: true,
     coverage_changed: true,
+    ingestion_sast_changed: true,
     ui_changed: true,
     // The weekly schedule and any unresolvable base resolve to these sentinels, and
     // the perf gate's `if:` relies on that to keep measuring routes when no PR does.

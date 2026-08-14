@@ -58,15 +58,13 @@ read-only `/issues` needs no such check. Recorded as `#292`.
 
 Parse the intent from natural language too — the exact syntax is a convenience, not a requirement.
 
-- **`/issues add <text>`** — append a row to **Open items**. Infer `Pri`/`Type` from the text
-  (ask only if genuinely ambiguous; default `P2`/`task`). Allocate the ID from the
-  `<!-- issues:next-id=NNN -->` marker, then bump that marker. Fill `Source` with
-  `session <today>` unless the user names one; `Added` is today's date.
-- **`/issues done <id> [outcome]`** — move that row from **Open items** to **Resolved / archive**
-  with today's date and a one-line outcome. In the recommended queue, remove only that ID from any
-  composite source and rewrite the row for the remaining open work; remove the whole row only when
-  no referenced open ID remains, then close the order gap. Archive, never delete.
-- **`/issues update <id> <text>`** — edit an open row's summary or next action in place.
+- **`/issues add <text>`** — queue an immutable `add` request. Infer `Pri`/`Type` from the text
+  (ask only if genuinely ambiguous; default `P2`/`task`). The serial reconciler allocates the
+  numeric issue ID later; a feature branch must never read or bump the `issues:next-id` marker.
+- **`/issues done <id> [outcome]`** — queue an immutable `done` request for the existing canonical
+  ID and its one-line outcome. Reconciliation moves the row to **Resolved / archive** and updates
+  any recommended-queue references.
+- **`/issues update <id> <text>`** — queue an immutable `update` request for an open canonical ID.
 - **`/issues capture`** — scan the current session for recommendations, follow-ups, deferrals, and
   unfixed problems that surfaced but were not recorded. Propose them as a numbered list and add the
   confirmed ones (dedupe against existing rows first — do not re-add something already tracked).
@@ -80,8 +78,8 @@ paragraph; put the smallest next action in **Detail / next action**.
 
 ## Writing rules
 
-**Use the writer, not an editor.** Row mechanics are handled by
-`scripts/outstanding-issues.mjs`, the counterpart to the gate:
+**Queue a request, never edit the canonical ledger.** Branch-safe intake is handled by
+`scripts/ledger-inbox.mjs`:
 
 ```bash
 npm run issues:add -- --pri P2 --type issue --summary "…" --detail "…" --source "…"
@@ -89,42 +87,26 @@ npm run issues:done -- '#151' --outcome "Resolved 2026-07-31 by PR #1494. …"
 npm run issues:update -- '#151' --detail "…"
 ```
 
-It allocates the id from the marker and bumps it, appends into the **open** table (never the
-archive), moves rather than copies on `done`, reshapes to each table's width, escapes `|`, and
-re-runs the gate against its own output — refusing to write anything CI would reject. Hand-editing
-is what produced the wrong-table inserts, unescaped pipes and broken cell counts this writer exists
-to prevent; treat it like `ledger:append` for the review ledger. It does **not** solve id collisions
-between concurrent branches (see `#156` / `#168`) — that needs a different id scheme, not a better
-writer.
+Each command creates one validated UUID JSON file under `docs/outstanding-issues-inbox/`; it does
+not edit `docs/outstanding-issues.md`. Requests are immutable and merge independently. Only a
+dedicated fresh-base ledger branch may run `npm run issues:reconcile`, which allocates IDs, applies
+requests serially, and moves them to `docs/outstanding-issues-inbox/applied/`. Never reconcile as
+part of an ordinary product PR.
 
-Immediately before any mutation, explicitly refresh `origin/main` after provider authorization,
-then run `npm run issues:report -- --json` again and rebuild the intended edit against that cached
-ref rather than the worktree copy. Record the fetched SHA because the report deliberately does not
-claim that a local remote-tracking ref is independently revalidated. After the writer returns,
-inspect `git diff -- docs/outstanding-issues.md` and refuse any result that drops or duplicates
-unrelated rows. Never use GitHub's Update branch button for a PR touching this file.
-
-- Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
-- Add a retained task to the recommended queue with order, acuity, capability, timing, estimate,
-  gate, success criteria, verification, and stop rule. Reorder rather than duplicate related work.
-- When a task completes or is no longer recommended, remove only its ID from composite queue rows;
-  retain and rewrite a row while another referenced open ID remains. Preserve the evidence in the
-  open or resolved table as appropriate.
-- IDs are monotonic and never reused — always allocate from the `issues:next-id` marker and bump it.
-- Escape `|` inside cell text (write `\|`) so the markdown table stays intact.
-- This file deliberately has **no** merge driver, so an overlapping edit conflicts loudly.
-  `merge=union` was tried and removed: it concatenated both sides silently, duplicating rows and
-  the `next-id` marker (`#133`). Never resolve a conflict by taking one side wholesale — that
-  drops the other agent's rows. Rebuild from `origin/main` and re-apply only the rows you changed;
-  never take either side wholesale. `npm run check:outstanding-issues` fails on duplicate IDs, a stale next-id marker,
-  or a merge driver reappearing.
+- Preserve the request file exactly after creation; correct mistakes with a new request rather than
+  editing or deleting a queued request.
+- Include enough detail for reconciliation to preserve queue order, dependencies, success criteria,
+  verification, and stop rules when those fields matter.
+- Run `npm run check:outstanding-issues`; the write-discipline gate separately proves that request
+  records are immutable and canonical edits came only from reconciliation.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
   surface — recording it here is fine, but acting on it later still needs the usual gate.
 
 ## Refresh the visual register
 
-`docs/outstanding-issues.md` remains the only source of truth. After every successful add, update,
-done, capture, or ledger sweep—and before opening an `issues list`—refresh the user-facing artifact:
+`docs/outstanding-issues.md` remains the canonical rendered source. Queueing a request does not
+change it, so do not refresh the visual artifact after `add`, `update`, `done`, `capture`, or a
+ledger sweep. Refresh only after a successful reconciliation or before opening an `issues list`:
 
 ```powershell
 & 'C:\Users\joshs\.codex\scripts\refresh-issues-list.ps1' -LedgerPath (Join-Path (Get-Location) 'docs\outstanding-issues.md')
@@ -132,17 +114,18 @@ done, capture, or ledger sweep—and before opening an `issues list`—refresh t
 
 Require the decisive `ISSUES_LIST_UPDATED` line. The stable artifact is
 `C:\Users\joshs\OneDrive\ISSUES-LIST.html`. If refresh fails, do not undo a valid ledger mutation;
-report that the Markdown source is current and the visual artifact is stale. Still proceed to
-commit the Markdown ledger below — a stale visual artifact must not block persisting the source.
+report that the Markdown source is current and the visual artifact is stale. Still proceed to the
+reconciliation handoff — a stale visual artifact must not invalidate a successful canonical
+transaction.
 
 ## Persist the memory (commit)
 
-After any mutation (and after the refresh gate above), commit **only**
-`docs/outstanding-issues.md` so the memory survives the ephemeral container and other worktrees.
-Use `--only` so unrelated already-staged files cannot ride along:
+When the user explicitly asks for a commit, commit only the newly created request file(s), never
+`docs/outstanding-issues.md`. Use explicit paths so unrelated staged files cannot ride along:
 
 ```bash
-git commit --only docs/outstanding-issues.md -m "issues: <what changed>"
+git add -- docs/outstanding-issues-inbox/<uuid>.json
+git commit --only docs/outstanding-issues-inbox/<uuid>.json -m "issues: queue <what changed>"
 ```
 
 Do not stage or commit anything else, and do not push unless the user asks (or you are already in a

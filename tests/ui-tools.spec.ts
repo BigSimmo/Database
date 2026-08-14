@@ -309,6 +309,34 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function expectMapLabelsContained(canvas: Locator) {
+  await expect
+    .poll(async () =>
+      canvas.locator("[data-map-node]").evaluateAll((nodes) => {
+        if (nodes.length === 0) return false;
+        return nodes.every((node) => {
+          const card = node.getBoundingClientRect();
+          const labels = Array.from(node.querySelectorAll<HTMLElement>("[data-map-node-label]"));
+          return (
+            labels.length > 0 &&
+            labels.every((label) => {
+              const range = document.createRange();
+              range.selectNodeContents(label);
+              return Array.from(range.getClientRects()).every(
+                (rect) =>
+                  rect.left >= card.left - 1 &&
+                  rect.right <= card.right + 1 &&
+                  rect.top >= card.top - 1 &&
+                  rect.bottom <= card.bottom + 1,
+              );
+            })
+          );
+        });
+      }),
+    )
+    .toBe(true);
+}
+
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
@@ -463,6 +491,61 @@ test.describe("Clinical KB tools launcher", () => {
     await fillHydratedGlobalSearch(page, "medication");
     await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
     await expect(page.getByTestId("application-card-documents")).toBeHidden();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("submitting the Tools composer opens the route-owned results page", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoLauncher(page, "/?mode=tools");
+
+    await fillHydratedGlobalSearch(page, "Compare");
+    const submit = page.locator('button[aria-label="Search tools"]:visible');
+    await expect(submit).toBeEnabled();
+    await Promise.all([page.waitForURL(/\/tools\?q=Compare&run=1$/), submit.click()]);
+
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results).toBeVisible();
+    await expect(page.getByTestId("tools-home")).toHaveCount(0);
+    await expect(results.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
+    await expect(results.getByText("1 tool", { exact: true })).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
+    await expect(results.getByRole("complementary", { name: "Differentials" })).toBeVisible();
+
+    const categories = results.getByRole("radiogroup", { name: "Tool category" });
+    await expect(categories.getByRole("radio", { name: "All tools (1)" })).toHaveAttribute("aria-checked", "true");
+    await expect(categories.getByRole("radio", { name: "Assess (1)" })).toBeEnabled();
+    await expect(categories.getByRole("radio", { name: "Treat (0)" })).toBeDisabled();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("submitted Tools results use the shared phone filter and approved detail sheet", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoLauncher(page, "/tools?q=Compare&run=1");
+
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results).toBeVisible();
+    await expect(page.locator("form.answer-footer-search-dock")).toBeVisible();
+
+    const filterTrigger = results.getByTestId("tools-search-filter-trigger-phone");
+    await filterTrigger.click();
+    const filterSheet = page.locator('[data-testid="tools-search-filter-sheet"]:visible');
+    await expect(filterSheet).toBeVisible();
+    await expect(filterSheet.getByRole("radio", { name: /Assess/ })).toHaveAttribute("aria-checked", "false");
+    await expect(filterSheet.getByRole("radio", { name: /Treat/ })).toHaveAttribute("aria-disabled", "true");
+    await filterSheet.getByRole("button", { name: "Done" }).click();
+
+    const details = results.getByRole("button", { name: "View details for Differentials" });
+    await details.click();
+    const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
+    await expect(detailSheet).toBeVisible();
+    await expect(detailSheet.getByRole("heading", { name: "Differentials" })).toBeVisible();
+    await expect(detailSheet.getByRole("heading", { name: "Best for" })).toBeVisible();
+    await expect(detailSheet.getByRole("link", { name: "Compare Differentials" })).toHaveAttribute(
+      "href",
+      "/differentials",
+    );
+    await detailSheet.getByRole("button", { name: "Close Differentials" }).click();
+    await expect(details).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -2362,6 +2445,84 @@ test.describe("Clinical KB tools launcher", () => {
     expect(overviewLineCount).toBe(1);
   });
 
+  test("diagnosis map keeps labels contained and the selected inspector out of the canvas", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await gotoLauncher(page, "/differentials/diagnoses/catatonia-in-mood-disorder?tab=map");
+    await visibleByTestId(page, "open-diagnosis-map").click();
+
+    const dialog = page.getByTestId("diagnosis-map-dialog");
+    const canvas = dialog.getByTestId("diagnosis-map-full-canvas");
+    const inspector = dialog.getByTestId("diagnosis-map-node-details");
+    await expect(dialog).toBeVisible();
+    await expect(canvas).toBeVisible();
+    await expectMapLabelsContained(canvas);
+    await expectNoPageHorizontalOverflow(page);
+
+    // All five related nodes are "Possible" for this record, so an empty
+    // must-not-miss filter must not be advertised as a working control.
+    await expect(dialog.getByRole("button", { name: "Must-not-miss" })).toHaveCount(0);
+    await expect(dialog.getByLabel("Map legend")).toContainText("Focus diagnosis");
+    await expect(dialog.getByLabel("Map legend")).toContainText("Possible");
+
+    await canvas.getByTestId("diagnosis-map-node-catatonia-in-psychotic-disorder").click();
+    await expect(inspector).toContainText("Psychosis plus marked motor syndrome");
+    await expect(inspector).toContainText("Characteristic motor syndrome");
+    await expect(inspector).not.toContainText(
+      "Refusal of intake, immobility complications, dehydration, autonomic change, hyperthermia, DVT/PE, rhabdomyolysis.",
+    );
+    await expect(inspector.getByRole("button", { name: "Collapse selected diagnosis details" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    const nonOverlap = await Promise.all([canvas.boundingBox(), inspector.boundingBox()]);
+    expect(nonOverlap[0]).not.toBeNull();
+    expect(nonOverlap[1]).not.toBeNull();
+    expect(nonOverlap[1]!.y).toBeGreaterThanOrEqual(nonOverlap[0]!.y + nonOverlap[0]!.height - 1);
+
+    await inspector.getByRole("button", { name: "Add to compare" }).click();
+    await expect(inspector.getByRole("link", { name: "Compare (2)" })).toHaveAttribute(
+      "href",
+      "/differentials/compare?ids=catatonia-in-mood-disorder%2Ccatatonia-in-psychotic-disorder",
+    );
+
+    const zoom = dialog.getByLabel("Map zoom");
+    await expect(zoom).toHaveText("100%");
+    await dialog.getByRole("button", { name: "Zoom in" }).click();
+    await expect(zoom).toHaveText("114%");
+    await dialog.getByRole("button", { name: "Reset map view" }).click();
+    await expect(zoom).toHaveText("100%");
+
+    await canvas.focus();
+    await expect(canvas).toBeFocused();
+    const focusNode = canvas.getByTestId("diagnosis-map-node-diagnosis");
+    const fittedFocusBox = await focusNode.boundingBox();
+    await page.keyboard.press("ArrowRight");
+    await expect
+      .poll(async () => (await focusNode.boundingBox())?.x ?? Number.POSITIVE_INFINITY)
+      .toBeLessThan((fittedFocusBox?.x ?? 0) - 20);
+    await page.keyboard.press("Home");
+    await expect
+      .poll(async () => Math.abs(((await focusNode.boundingBox())?.x ?? 0) - (fittedFocusBox?.x ?? 0)))
+      .toBeLessThanOrEqual(1);
+
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 639, height: 900 },
+      { width: 768, height: 1024 },
+      { width: 1440, height: 900 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expectMapLabelsContained(canvas);
+      await expectNoPageHorizontalOverflow(page);
+    }
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await expectMapLabelsContained(canvas);
+    await expect(canvas.getByTestId("diagnosis-map-node-diagnosis")).toBeVisible();
+  });
+
   test("differentials compare queue launches presentation comparison", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
     const workflow = acuteConfusionPresentationWorkflow;
@@ -2407,7 +2568,8 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByText("Transport order")).toHaveCount(0);
     await expect(page.getByLabel("Differential review sidebar").getByText("Local content only").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Copy after review" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Edit columns" })).toBeDisabled();
+    await expect(page.getByTestId("differential-presentation-edit-selection-desktop")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edit columns" })).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
 
     const tableScrolls = await page.getByTestId("differential-comparison-scroll").evaluate((element) => {
@@ -2431,10 +2593,24 @@ test.describe("Clinical KB tools launcher", () => {
       .getByTestId("mobile-composer-reserve-pad")
       .getByTestId("differential-presentation-page");
     await expect(presentationPage).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("link", { name: "Back to differentials" })).toBeVisible();
+    const differentialModeNav = page.getByRole("navigation", { name: "Differentials pages" });
+    await expect(differentialModeNav).toBeVisible();
+    const modeOverflow = differentialModeNav.getByRole("button", { name: /More/ });
+    await expect(modeOverflow).toBeVisible();
+    await modeOverflow.click();
+    const modeSheet = page.getByRole("dialog", { name: "Differentials pages" });
+    await expect(modeSheet).toBeVisible();
+    await expect(modeSheet.getByRole("link", { name: "Presentations" })).toHaveAttribute("aria-current", "page");
+    await expect(modeSheet.getByRole("link", { name: "Compare" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(modeSheet).toBeHidden();
+    await expect(page.getByRole("link", { name: "Back to differentials" })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Differential breadcrumbs" })).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
     const mobileComparison = page.getByLabel("Mobile differential comparison");
-    await expect(mobileComparison.getByRole("button", { name: "Column filters unavailable" })).toBeDisabled();
+    const editSelection = mobileComparison.getByRole("link", { name: "Edit" });
+    await expect(editSelection).toBeVisible();
+    await expect(editSelection).toHaveAttribute("href", /\/differentials\?.*ids=wernicke-encephalopathy/);
     await expect(mobileComparison.getByText("Wernicke encephalopathy", { exact: true }).first()).toBeVisible();
     const languageControl = page.getByRole("button", { name: "Language and region settings (coming soon)" });
     await expect(languageControl).toBeVisible();
@@ -2443,6 +2619,28 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
     await expect(page.getByText("Service details")).toHaveCount(0);
     await expect(page.getByText("Transport order")).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+
+    for (const viewport of [
+      { width: 320, height: 740 },
+      { width: 390, height: 844 },
+      { width: 639, height: 900 },
+      { width: 768, height: 1024 },
+      { width: 1440, height: 920 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Differentials pages" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Safety snapshot" }).first()).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+    }
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Differentials pages" })).toBeVisible();
+    await expect(page.getByTestId("differential-presentation-edit-selection-mobile")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 

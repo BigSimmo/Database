@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "bb14f53c-d36f-48ce-a02d-836aaa107008",
+  "createdOn": "2026-08-13",
+  "action": "done",
+  "payload": {
+    "id": "#152",
+    "outcome": "Merged into #169 — one of four rows describing work that exists only on a machine no current session can reach. #169 is the survivor and carries the uncommitted worktree changes, the unpushed branches, the stranded Sentry commits (was #260) and the Wave 5 orphan branches and dev servers (was #236)."
+  }
+}

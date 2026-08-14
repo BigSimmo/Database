@@ -4716,6 +4716,38 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answerSections ?? []).toEqual([]);
   });
 
+  it("reuses a rejected warm-up embedding instead of retrying the provider", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+
+    const rpc = vi.fn(async () => ({ data: [], error: null }));
+    const embedTextWithTelemetry = vi.fn(async () => {
+      throw new Error("embedding provider unavailable");
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult: vi.fn(),
+    }));
+
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
+    const search = await searchChunksWithTelemetry({
+      query: "monitoring requirements",
+      topK: 4,
+      allowGlobalSearch: true,
+    });
+
+    expect(search.telemetry.embedding_prefetched).toBe(true);
+    expect(search.telemetry.embedding_skipped).toBe(true);
+    expect(embedTextWithTelemetry).toHaveBeenCalledOnce();
+  });
+
   it("does not convert caller cancellation during embedding into lexical fallback", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -5035,7 +5067,7 @@ describe("budget-aware generation deadlines", () => {
     vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
     // Burn 20_000ms of the 25_000ms fast budget inside the first attempt before it
     // resolves truncated: the 5_000ms left is below generationRecoveryReserveMs +
-    // minimumGenerationRetryMs (7_000ms), so the strong self-heal must be skipped
+    // minimumGenerationRetryMs (22_000ms), so the strong self-heal must be skipped
     // instead of spending the recovery reserve on a guaranteed-discard retry.
     const { answer, generateStructuredTextResult } = await lithiumTruncatedGenerationAnswer(20_000);
 

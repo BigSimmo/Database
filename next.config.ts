@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { withSentryConfig } from "@sentry/nextjs";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
+import { resolveSentryRelease } from "./src/lib/observability/sentry-release";
 import { expectedSupabaseProject } from "./src/lib/supabase/project";
 import { THERAPY_CATALOGUE_ASSETS } from "./src/components/therapy-compass/data/generated-assets";
 
@@ -177,12 +178,6 @@ function shouldEnableSentrySourceMapUpload() {
   return Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
 }
 
-function getSentryRelease() {
-  return (
-    process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev"
-  );
-}
-
 export default async function loadNextConfig() {
   const baseConfig = await withOptionalBundleAnalyzer(nextConfig);
 
@@ -194,7 +189,7 @@ export default async function loadNextConfig() {
     org: process.env.SENTRY_ORG,
     project: process.env.SENTRY_PROJECT,
     authToken: process.env.SENTRY_AUTH_TOKEN,
-    release: { name: getSentryRelease() },
+    release: { name: resolveSentryRelease() },
     silent: process.env.NODE_ENV === "production",
     // Browser telemetry is intentionally disabled by the repository privacy
     // policy, so there is no Sentry router-transition hook to register.

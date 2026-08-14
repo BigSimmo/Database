@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "b278a991-3122-4662-a835-37dd1d6645cc",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#266",
+    "pri": "P3",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** Adoption counting toward 53/53 while a clinical P1 is open. The row's own title says never as a race to 53/53; the queue has been running the race anyway. Demand-driven means it activates when a surface needs a component, not on a schedule. COUNTS RE-MEASURED 2026-08-12 from docs/design-system/adoption-manifest.json on merged main: **54 registered, 31 adopted, 23 UNADOPTED**. (This supersedes the 2026-08-08 figures of 53/30/23, which a main-merge briefly restored over this correction.) The total held at 23 but the membership moved — DisclosureGroup joined the adopted set, and the newly built ErrorState joined the unadopted set; ErrorState's enforcement is closed (archived #298) but its adoption is still open under #299. Today's 23: AnswerFooter, Checkbox, Citation, CitationList, ConfirmDialog, Disclosure, DoseLine, DownloadLink, ErrorState, ErrorSummary, ExternalTextLink, FieldError, FieldHint, LinkAction, Pagination, Progress, RadioGroup, SearchField, StageList, Tabs, TextLink, ToastRegion, Tooltip. Approach unchanged and still correct: demand-driven adoption — pick a surface and let it pull, the way AccessibleTable pulled Button and the answer surface pulled AnswerCard (#216) — never a race to 54/54. Forms remain the largest single tranche: FieldError, FieldHint, ErrorSummary, SearchField, Checkbox and RadioGroup land together on one form conversion. Do not stub a component to move the count. Regenerate with npm run design-system:adoption:update AND npm run design-system:design-sync:update; both manifests are generated, never hand-edited."
+  }
+}

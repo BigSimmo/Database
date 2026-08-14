@@ -90,7 +90,7 @@ const commonPathways: ModeHomePill[] = [
 
 export function ServicesHomePage({ defaultServiceSlug = null }: { defaultServiceSlug?: string | null }) {
   const taskCards = buildTaskCards(defaultServiceSlug);
-  const registry = useRegistryRecords("service");
+  const registry = useRegistryRecords("service", { view: "summary" });
   const verifiedCount = countVerifiedRegistryRecords(registry);
   const registryReady = registry.status === "ready" || registry.status === "refetching";
   const hasRegistryRecords = registryReady && registry.total > 0;

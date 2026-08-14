@@ -24,8 +24,18 @@ function sourceSegment(contents: string, startMarker: string, endMarker: string)
 const clinicalDashboardSource = source("src/components/ClinicalDashboard.tsx");
 const masterSearchHeaderSource = source("src/components/clinical-dashboard/master-search-header.tsx");
 const universalAlsoMatchesSource = source("src/components/clinical-dashboard/universal-search-also-matches.tsx");
+const universalCommandSurfaceSource = source("src/components/clinical-dashboard/universal-search-command-surface.tsx");
+const globalSearchShellSource = source("src/components/clinical-dashboard/global-search-shell.tsx");
 
 describe("audit navigation and auth regressions", () => {
+  it("keeps the tappable phone suggestion ticker connected to standalone homes", () => {
+    expect(globalSearchShellSource).toContain('isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)');
+    expect(masterSearchHeaderSource).toContain("showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}");
+    expect(universalCommandSurfaceSource).toContain('data-testid="smart-search-phone-ticker"');
+    expect(universalCommandSurfaceSource).toContain("onClick={() => onPickExample(resolvedTickerExample)}");
+    expect(universalCommandSurfaceSource).toContain("examples.includes(heldTickerExample)");
+    expect(universalCommandSurfaceSource).toContain("onQueryChange(example);");
+  });
   it("redirects exact legacy route handlers at request time while retaining useful query state", () => {
     const applications = redirectApplications(
       new NextRequest("https://clinical-kb.test/applications?q=acute+care&tag=one&tag=two"),
@@ -108,8 +118,10 @@ describe("audit navigation and auth regressions", () => {
     expect(masterSearchHeaderSource).toContain("{!usesPhoneSearchLayout && modeMenuOpen ? (");
     expect(masterSearchHeaderSource).toContain('aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}');
     expect(masterSearchHeaderSource).toContain('mobilePlacement="bottom"');
-    expect(masterSearchHeaderSource).toContain('contentClassName="max-h-[calc(100dvh-0.5rem)] sm:max-w-md"');
-    expect(masterSearchHeaderSource).toContain('usesPhoneSearchLayout ? "min-h-12" : "min-h-[3.25rem]"');
+    expect(masterSearchHeaderSource).toContain(
+      'contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"',
+    );
+    expect(masterSearchHeaderSource).toMatch(/usesPhoneSearchLayout\s*\?\s*"min-h-14\b[\s\S]*:\s*"min-h-\[3\.25rem\]/);
     expect(masterSearchHeaderSource).toContain("phoneLayoutGateRef");
     // Hydration-safe: do not read matchMedia in useState (SSR/client mismatch → React #418).
     expect(masterSearchHeaderSource).toContain(
@@ -119,10 +131,10 @@ describe("audit navigation and auth regressions", () => {
   });
 
   it("prefetches only the mode a user focuses or points at", () => {
-    const modeOptions = sourceSegment(
+    const modeOption = sourceSegment(
       masterSearchHeaderSource,
+      "function renderModeMenuOption(",
       "function renderModeMenuOptions()",
-      "const restoreActionMenuFocusRef",
     );
     const openModeMenuWithFocus = sourceSegment(
       masterSearchHeaderSource,
@@ -139,8 +151,8 @@ describe("audit navigation and auth regressions", () => {
     expect(masterSearchHeaderSource).toContain("const href = appModeSelectionHref(modeId)");
     expect(masterSearchHeaderSource).toContain("router.prefetch(href,");
     expect(masterSearchHeaderSource).toContain("onInvalidate:");
-    expect(modeOptions).toContain("onFocus={() => prefetchModeSelection(mode.id)}");
-    expect(modeOptions).toContain("onPointerEnter={() => prefetchModeSelection(mode.id)}");
+    expect(modeOption).toContain("onFocus={() => prefetchModeSelection(mode.id)}");
+    expect(modeOption).toContain("onPointerEnter={() => prefetchModeSelection(mode.id)}");
     // Menu-open paths warm only the highlighted option — never every visible home.
     expect(openModeMenuWithFocus).toContain("prefetchModeSelection(highlighted.id)");
     expect(toggleModeMenu).toContain("prefetchModeSelection(highlighted.id)");

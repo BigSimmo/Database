@@ -304,19 +304,21 @@ action must perform one; a page that ships must be reachable.
 
 # Bundle budget
 
-`check:bundle-budget` enforces **two** baselines in `bundle-budget.json`, because one number could
-not honestly answer both questions (`#013` vs `#252`, reconciled 2026-08-09):
+`check:bundle-budget` enforces **three complementary safeguards** in `bundle-budget.json`:
 
 - **`production`** — every chunk a non-mockup route reaches, plus chunks no route manifest claims
   (framework, polyfills, runtime). This is user-facing weight and the real regression guard.
   Tolerance 10%. A failure here means find the regression; do not refresh the baseline to clear it.
+- **`routes`** — client JavaScript referenced by `/`, `/therapy-compass`, `/documents/search`,
+  `/dsm`, and `/forms`, the same journeys measured by Lighthouse. Each route has a 10% tolerance,
+  so local growth cannot hide inside a still-healthy repository aggregate.
 - **`mockups`** — chunks reachable **only** from `/mockups/**`. Nobody downloads these, so this is a
   repo-hygiene ceiling for unbounded accumulation, not a per-mockup gate. Tolerance 25%.
 
 A chunk shared by a mockup and a production route counts as production — it would be built either
 way. Attribution comes from the per-route `*_client-reference-manifest.js` files under
-`.next/server/app`; if that tree is missing or resolves no routes the check **fails closed** rather
-than collapsing the two buckets.
+`.next/server/app`; if that tree is missing, resolves no routes, or omits a configured route, the
+check **fails closed** rather than collapsing the buckets or silently dropping a route.
 
 Why the split rather than a raised ceiling: measured on `main` at `af85cbc`, the repo-wide total was
 +9.96% of the old single baseline — 576 bytes from failing `Build` — while production-only was
@@ -872,7 +874,7 @@ named PR). Future process only.
 
 ## Repository productivity skills
 
-Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 34 canonical single-word skills and `npm run check:skills` to verify catalog integrity. The older long names remain compatibility aliases and must not be counted as unique skills.
+Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 34 canonical single-word skills. `npm run check:skills` verifies those skills, their compatibility aliases, and the Claude, Cursor, and Clinical KB plugin skill surfaces. The older long names remain compatibility aliases and must not be counted as unique skills.
 
 The foundational orchestration skills are:
 
@@ -903,8 +905,11 @@ to the recommended queue.
   `npm run issues:report -- --json` to read the cached `origin/main` ledger with an explicit stale-state warning;
   refresh that ref first only with provider authorization. State the recommended queue in order, then summarize other open
   items by priority. A plain `/issues` is read-only — it mutates and commits nothing.
-- `/issues add|done|update|capture …` mutate the ledger; each mutation commits **only**
-  `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).
+- `/issues add|done|update|capture …` queue immutable request files under
+  `docs/outstanding-issues-inbox/`; ordinary branches never edit the canonical ledger. Commit a
+  request only when explicitly asked, and never push unless requested or already handing off.
+  One deliberately serialized fresh-base branch later runs `npm run issues:reconcile` and refreshes
+  the visual register after the canonical transaction succeeds.
 - Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
   before a session's context is lost — that is what keeps it a memory rather than a stale list.
 - **An open row is not evidence that nobody is building it.** Some rows do carry a progress marker in

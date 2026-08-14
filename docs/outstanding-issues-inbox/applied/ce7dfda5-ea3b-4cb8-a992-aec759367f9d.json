@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "ce7dfda5-ea3b-4cb8-a992-aec759367f9d",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "The recommended queue's Outcome cells are now unrendered dead text",
+    "detail": "**Residual of the queue-misdirection fix (PR #1902).** Both consumers — .claude/hooks/issues-surface.sh and scripts/issues-report.mjs — now derive each queue row's prose from the cited row's Detail cell, so the Outcome column reaches no reader through tooling. The stale prose still sits in the file, where a human opening it can read and act on it; for #231 that prose pointed at an approach the row had already recorded as refuted. **Implementation, established by building it 2026-08-13 — three findings that are not obvious:** (1) It cannot be a direct edit. check-ledger-write-discipline compares the canonical ledger against exactly applyRequestBatch(base, movedRequests), and no request type reaches the queue, so a hand edit is unlandable by construction. The rewrite has to live INSIDE applyRequestBatch — the function the checker itself imports — so checker and reconciler compute the same result; make it run for an empty batch and be idempotent so ordinary PRs are byte-identical. (2) It must land in the SAME commit as a reconcile. Code alone makes the checker compute normalise(base) while canonical stays un-normalised, failing every PR until a reconcile normalises it. (3) Do NOT drop the column, and do NOT blank composite rows. issues-report skips any queue row whose cells.length !== 7, so removing the column makes the queue vanish from /issues; and derivation deliberately skips composite ID(s) rows, so those still fall back to the Outcome cell and blanking it leaves them with no prose at all — filter to rows citing exactly one id. **Stop:** do not delete the queue table; order, acuity, capability, when and estimate exist nowhere else.",
+    "source": "PR #1902; implementation attempt 2026-08-13"
+  }
+}

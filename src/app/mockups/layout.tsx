@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { mockupsEnabled } from "@/lib/env";
 
 import { MockupsLayoutClient } from "./mockups-layout-client";
+import "./mockups.css";
 
 // Design-exploration prototypes: shipped for shareability, but never indexed
 // (belt-and-braces alongside the robots.ts /mockups/ disallow).

@@ -19,6 +19,7 @@ import { usePatientProfile } from "@/components/clinical-dashboard/patient-profi
 import {
   evaluateMedicationInteractions,
   interactionNoteBody,
+  medicationDisplayName,
   severityLabel,
   type MedicationInteraction,
   type MedicationVerdict,
@@ -32,6 +33,12 @@ import type { MedicationRecord } from "@/lib/medications";
 import type { SemanticTone } from "@/lib/semantic-tone";
 import { Disclosure } from "@/components/ui/disclosure";
 import { cn, InlineNotice } from "@/components/ui-primitives";
+
+/** "A", "A and B", "A, B and C" — the drug names read as prose, not as an array. */
+function formatMedicationList(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
 
 /**
  * Verdict edge for the DESKTOP results table rows, which sit in a divided list
@@ -417,7 +424,9 @@ function MedicationInteractionBlock({ record }: { record: MedicationRecord }) {
           )}
         </div>
       ) : result.interactions.length === 0 ? (
-        <InlineNotice tone={result.unresolvedRowCount > 0 ? "neutral" : "success"}>
+        <InlineNotice
+          tone={result.unresolvedRowCount > 0 || result.unreachableCounterparties.length > 0 ? "neutral" : "success"}
+        >
           No interaction found between this medication and the {medicationCount}{" "}
           {medicationCount === 1 ? "medication" : "medications"} entered. Always confirm against source.
         </InlineNotice>
@@ -456,11 +465,24 @@ function MedicationInteractionBlock({ record }: { record: MedicationRecord }) {
         </div>
       )}
 
-      {/* Two distinct reasons this medication cannot be shown as clear, and they
-          need different words. `dataAvailable === false` means the catalogue
+      {/* Three distinct reasons this medication cannot be shown as clear, and
+          they need different words. `dataAvailable === false` means the catalogue
           carries no interaction rows for it at all, in which case
           `unresolvedRowCount` is a synthetic 1 against a `totalRowCount` of 0 —
-          phrasing that as "1 of 0 rows" would be nonsense. */}
+          phrasing that as "1 of 0 rows" would be nonsense. The third names the
+          entered drugs outside the resolved interaction graph, which is a statement about the
+          patient's list rather than about this medication, so it renders
+          alongside the other two rather than instead of them. */}
+      {result.unreachableCounterparties.length > 0 ? (
+        <InlineNotice tone="neutral">
+          This catalogue has no machine-resolved interaction involving{" "}
+          {formatMedicationList(result.unreachableCounterparties.map(medicationDisplayName))}, so{" "}
+          {result.unreachableCounterparties.length === 1 ? "it was" : "they were"} not cross-checked in either
+          direction. The absence of a warning above is not evidence of safety for{" "}
+          {result.unreachableCounterparties.length === 1 ? "that drug" : "those drugs"}. Review manually.
+        </InlineNotice>
+      ) : null}
+
       {!result.dataAvailable ? (
         <InlineNotice tone="neutral">
           This catalogue carries no interaction data for this medication, so nothing could be cross-checked against the

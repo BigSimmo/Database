@@ -1,6 +1,6 @@
 {
-  "$comment": "Pre-merge Lighthouse budget, graded against a LOCAL production build by scripts/check-lighthouse-budget.mjs. This is a relative gate: absolute web-vitals thresholds are meaningless without network latency, so it compares each route to a committed known-good baseline. Refresh intentionally with `npm run check:lighthouse-budget -- --update` after an intentional, known-good run. Distinct from .github/workflows/live-web-vitals.yml, which measures the deployed origin for ledger #017 and cannot block a merge. Starts with enforce:false and no baseline so the first CI runs report without blocking; set enforce:true once the baseline has held across a few runs.",
-  "enforce": false,
+  "$comment": "Pre-merge Lighthouse budget, graded against a LOCAL production build by scripts/check-lighthouse-budget.mjs. This is a relative gate: absolute web-vitals thresholds are meaningless without network latency, so it compares each route to a committed known-good baseline. Refresh only through the CI refresh artifact after an intentional, known-good run. Distinct from .github/workflows/live-web-vitals.yml, which measures the deployed origin. Enforcement was promoted after complete pinned-browser baselines on 2026-08-08 and 2026-08-13 remained within tolerance.",
+  "enforce": true,
   "$lighthouseVersion": "Pinned exactly, not `lighthouse@12`: a patch published between a baseline run and its follow-up would silently change the measurement. Kept in step with LIGHTHOUSE_VERSION in .github/workflows/live-web-vitals.yml by tests/check-lighthouse-budget.test.ts so the two Lighthouse entry points cannot drift apart.",
   "lighthouseVersion": "12.8.2",
   "routes": ["/", "/therapy-compass", "/documents/search", "/dsm", "/forms"],
@@ -20,75 +20,75 @@
   },
   "baseline": {
     "desktop-documents-search": {
-      "lcpMs": 816.54435,
+      "lcpMs": 783.0789,
       "cls": 0.1192626548872241,
-      "tbtMs": 2.499999999999943,
-      "fcpMs": 381.4543,
+      "tbtMs": 0,
+      "fcpMs": 341.0263,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "desktop-dsm": {
-      "lcpMs": 843.7154499999999,
-      "cls": 0.01342963896133897,
+      "lcpMs": 845.9704999999998,
+      "cls": 0.01385597670614338,
       "tbtMs": 0,
-      "fcpMs": 383.9187,
+      "fcpMs": 387.58820000000003,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "desktop-forms": {
-      "lcpMs": 821.8480500000005,
-      "cls": 0.05606642664873546,
-      "tbtMs": 0,
-      "fcpMs": 382.6329,
+      "lcpMs": 876.0039,
+      "cls": 0.0633683272433484,
+      "tbtMs": 14,
+      "fcpMs": 341.7154,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "desktop-root": {
-      "lcpMs": 819.4945,
-      "cls": 0.006778250591016549,
-      "tbtMs": 14.5,
-      "fcpMs": 339.8315,
+      "lcpMs": 868.109,
+      "cls": 0.006415130023640662,
+      "tbtMs": 2,
+      "fcpMs": 337.5545,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "desktop-therapy-compass": {
-      "lcpMs": 826.6481999999996,
+      "lcpMs": 793.2665999999999,
       "cls": 0,
       "tbtMs": 0,
-      "fcpMs": 383.6996,
+      "fcpMs": 344.4222,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "mobile-documents-search": {
-      "lcpMs": 2307.8,
+      "lcpMs": 2380.327,
       "cls": 0,
-      "tbtMs": 343.34200000000055,
-      "fcpMs": 2307.8,
+      "tbtMs": 375.2569999999996,
+      "fcpMs": 2380.327,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "mobile-dsm": {
-      "lcpMs": 2336.558,
-      "cls": 0,
-      "tbtMs": 318.4069999999979,
-      "fcpMs": 2336.558,
+      "lcpMs": 2373.182,
+      "cls": 0.03530337546450838,
+      "tbtMs": 361.0809999999392,
+      "fcpMs": 2373.182,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "mobile-forms": {
-      "lcpMs": 2306.606,
-      "cls": 0.08045469317717091,
-      "tbtMs": 295.9940000000006,
-      "fcpMs": 2306.606,
+      "lcpMs": 2357.471,
+      "cls": 0.07497720365583048,
+      "tbtMs": 315.7259999999992,
+      "fcpMs": 2357.471,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "mobile-root": {
-      "lcpMs": 2308.077,
-      "cls": 0,
-      "tbtMs": 292.7889999999693,
-      "fcpMs": 2308.077,
+      "lcpMs": 2364.533,
+      "cls": 0.01269102607447784,
+      "tbtMs": 338.5250000000019,
+      "fcpMs": 2364.533,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "mobile-therapy-compass": {
-      "lcpMs": 2667.986,
+      "lcpMs": 2387.501,
       "cls": 0,
-      "tbtMs": 279.28999999999996,
-      "fcpMs": 2335.23,
+      "tbtMs": 296.71299999999974,
+      "fcpMs": 2387.501,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     }
   },
-  "updatedAt": "2026-08-08T16:48:18.630Z"
+  "updatedAt": "2026-08-13T12:02:17.964Z"
 }

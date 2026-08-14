@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "829597d4-698b-4cc2-9bf4-65310504cba3",
+  "createdOn": "2026-08-13",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "rec",
+    "summary": "No gate detects a merged PR whose content is silently reverted by a later merge resolution",
+    "detail": "MEASURED 2026-08-13 by blob comparison against origin/main, not by reading merge messages. Method: for every PR merge into main since 2026-08-06, for each file the PR changed, compare origin/main's blob against the file's PRE-merge parent blob. Equality means the PR's change to that file is gone. Seven merged PRs came back positive: #1800 (fuzzy catalogue search plus its tests, 8 files), #1803 (the --shadow-tight to --e1 token retirement, 49 files), #1809 (2 specifier pages), #1811 (2 secondary-navigation test files), #1804 (4 test files), #1796 (worker/validate-runtime.ts), #1815 (1 command-surface file). Six of the seven first show the wiped state at ONE commit, acf78bf 2026-08-11 'Merge remote-tracking branch origin/main into probe2-1815', part of the PR #1815 babysit and unblock chain whose manual conflict resolutions took the stale branch side and reverted whatever had landed on main meanwhile. Confirmation that does not rely on blob identity: --shadow-tight is still referenced in 67 files on main after the PR that retired it merged, and open row #302 independently records legacyShadowAliases pinned at 220 while measuring 193, which is what a lost retirement looks like. WHY NOTHING WENT RED: the reverts took each PR's tests in the same stroke, so no gate had an assertion left to fail. Commit 6f8c70d 'fix(pr-1815) resolve main merge conflict and keep shadow-tight switch migration' shows a human trying to preserve #1803 and a later merge in the same chain undoing it anyway, so care at the keyboard is not the control. Note 55f51ab 'docs(issues) repair three merge losses' repaired the DOCS casualties of this same event; the source-code casualties were never noticed. This is #311's ledger loss-detector generalised from docs to source, which is where it actually bit. Next: add the blob-comparison sweep as a script plus a test, run it against origin/main post-merge or on a schedule, and fail on any file that reverts to its pre-PR blob. Keep the window bounded (for example 14 days) so the check stays cheap. Stop: do not treat a positive as automatically a defect, because a deliberate later revert looks identical at blob level. The check should name the PR and the file and require a human to confirm, exactly as the branch-review ledger does.",
+    "source": "session 2026-08-13; local blob sweep over origin/main at 63526ee; acf78bf; 6f8c70d; 55f51ab; row #302; row #311"
+  }
+}

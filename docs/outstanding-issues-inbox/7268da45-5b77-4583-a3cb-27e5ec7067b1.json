@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "7268da45-5b77-4583-a3cb-27e5ec7067b1",
+  "createdOn": "2026-08-14",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Claude Code web containers can ship Node 22 with no node_modules, so npm ci fails engine-strict before any work starts",
+    "detail": "Hit 2026-08-14 at the start of a Claude Code on the web session, and it blocks a session completely until worked around, so it is worth recording even though the cause is the container image rather than this repo. The container provided /opt/node20, /opt/node21 and /opt/node22 with node22 on PATH, no nvm, and no node_modules in either the primary checkout or a fresh worktree. package.json requires node >=24.15.0 <25 with engine-strict, so 'npm ci --include=dev' aborts immediately with 'notsup Required: {node: >=24.15.0 <25, npm: 11.x} Actual: {npm: 10.9.7, node: v22.22.2}'. Nothing in the repo can fix this from inside, because the failure happens before any repo script can run — .nvmrc correctly says 24 and is simply not consulted, and there is no nvm for it to drive. Workaround used, which took about a minute and is safe: fetch the current 24.x from the nodejs.org dist index, untar to /opt/node24, and prefix subsequent commands with 'export PATH=/opt/node24/bin:/opt/node24/bin:/root/.local/bin:/root/.cargo/bin:/usr/local/go/bin:/opt/node22/bin:/opt/maven/bin:/opt/gradle/bin:/opt/rbenv/bin:/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'. Everything downstream then behaved normally — npm ci, the full unit suite, build, and the Playwright-free gates all passed. Worth knowing that this is a DIFFERENT surface from the Codex Cloud provisioning path: scripts/setup-codex-cloud.sh and scripts/setup-codex-worktree.mjs cover Codex, and docs/codex-cloud.md is explicit that Cloud mirrors the tracked toolchain, but neither runs for a Claude Code web session, so that hardening does not carry over. Next: decide whether this deserves repo-side help at all. Options are a short note in the AGENTS.md or CLAUDE.md orientation telling an agent to install Node 24 to /opt/node24 and re-export PATH rather than concluding the environment is broken, or a small bootstrap script equivalent to the Codex ones that a web session can run first. Prefer the note: a bootstrap script that downloads a runtime is a bigger surface than the problem. Stop: do not relax the engines range, drop engine-strict, or pass --force to get npm ci through — the Node 24 floor is enforced deliberately in several places (preinstall, check:runtime, scripts/dev-free-port.mjs) and loosening it to accommodate a bad container would disable a real guard.",
+    "source": "session 2026-08-14; Claude Code web container for PR #1942"
+  }
+}

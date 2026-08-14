@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "0e47904b-f354-4795-a4fc-dcf8b91c1790",
+  "createdOn": "2026-08-13",
+  "action": "update",
+  "payload": {
+    "id": "#211",
+    "pri": "P3",
+    "detail": "**DEPRIORITISED 2026-08-12 (yield review against current main).** 1,266 sites, each a local judgment, and no open ledger row traces a defect to unchecked indexed access. Real hardening, but speculative against this repo's measured failure history, and the diff conflicts with every open PR. Do it in scoped batches after the clinical and CI-trust work. VERIFIED CORRECT 2026-08-12 — re-checked against merged main during the full ledger sweep and left unchanged: `noUncheckedIndexedAccess` is absent from tsconfig.json — the migration has not begun. This stamp exists so a later reader can tell \"checked and still true\" from \"never looked at\"; the two were indistinguishable before. Enable noUncheckedIndexedAccess in a branch and remediate the 1,266 errors, starting with the 15-20 highest-risk source files. Hot spots include worker/main.ts:901-942, src/lib/rag/rag-extractive-answer.ts, and src/lib/answer-verification.ts. Prefer ?. or ?? guards, or non-null assertions only where invariants are provable. Re-run npm run test and npm run typecheck before merge. See docs/review-findings-2026-08-02.md section 6."
+  }
+}

@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* Design-scratch routes have their own route-scoped utility sheet. Keeping
+   their rapidly growing utility vocabulary out of every production page cuts
+   the shared render-blocking stylesheet without changing mockup rendering. */
+@source not "./mockups";
+@source not "../components/**/*mockup*";
 /* Opt-in v2 design-system token layer. Every rule is scoped to `.ckb-v2`, so
    importing it cannot change any surface that does not carry the class. */
 @import "./ckb-v2-tokens.css";
@@ -59,6 +64,13 @@
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
 
+  /* Specifier-map layout roles: jump target height, numbered step column, and
+     wide-screen detail rail. These stay together so the page cannot drift back
+     to unrelated one-off dimensions. */
+  --spacing-specifier-map-jump: 5.25rem;
+  --spacing-specifier-map-step-number: 2.25rem;
+  --spacing-specifier-map-aside: 22rem;
+
   /* Mode-home composer slots reserve their settled portal geometry before the
      client host adopts them. Without this structural reserve, Therapy moved the
      entire action stack when hydration relocated the composer (CLS 0.248).
@@ -91,6 +103,15 @@
   --spacing-icon-md: 1rem; /* 16px — default: buttons, nav, fields */
   --spacing-icon-lg: 1.25rem; /* 20px — header / primary controls */
   --spacing-icon-xl: 1.5rem; /* 24px — hero / composer emphasis */
+
+  /* Active-filter count bubble on the search band. 17px is deliberately off
+     both the 4px grid and the icon scale above: it is a text-bearing box sized
+     to its own --text-2xs numeral plus the tinted ring, not a glyph, so
+     snapping it to 16px clips the digit and 20px reads as the solid alert disc
+     the pill is written to avoid. Held as a token because the raw value has
+     already leaked once — it reached mode-nav and a since-deleted therapy
+     filter sheet before the shared control absorbed those call sites (#275). */
+  --spacing-search-band-badge: 1.0625rem;
 
   /* Type scale — sub-`xs` micro steps plus the 13–22px "between" steps the
      dense clinical UI reaches for. These are intentionally SIZE-ONLY: unlike
@@ -430,7 +451,6 @@
      resting-hairline role is gone: its call sites reach for --e1 directly. */
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
-  --shadow-tight: var(--e1);
   --shadow-hover: var(--e3);
   --shadow-elevated: var(--e4);
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 90%), var(--e4);
@@ -678,7 +698,6 @@
 
   --shadow-card: var(--e2);
   --shadow-soft: var(--e2);
-  --shadow-tight: var(--e1);
   --shadow-hover: var(--e3);
   --shadow-elevated: var(--e4);
   --shadow-lux: var(--e4);
@@ -3140,9 +3159,14 @@ td,
   }
 }
 
+/* 320 → 0 is equivalent to 0 → -320 modulo the dash period, without
+   WebKit's unreliable negative SVG dash-offset interpolation. */
 @keyframes answer-ecg-sweep {
+  from {
+    stroke-dashoffset: 320;
+  }
   to {
-    stroke-dashoffset: -320;
+    stroke-dashoffset: 0;
   }
 }
 

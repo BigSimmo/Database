@@ -209,13 +209,15 @@ function tagText(value: string) {
   return cleaned.toLowerCase();
 }
 
-function toDifferentialResult(item: DifferentialSearchResultItem): DifferentialResult {
+function toDifferentialResult(item: DifferentialSearchResultItem, query: string): DifferentialResult {
   return {
     id: item.id,
     kind: item.kind,
     title: item.title,
     subtitle: item.subtitle,
-    href: item.href,
+    // Presentation comparisons now own the shared mode bar. Preserve the
+    // originating search query so its Search tab can return to these results.
+    href: item.kind === "presentation" ? differentialRouteWithQuery(item.href, query) : item.href,
     status: item.status,
     selected: false,
     matchLabel: item.matchLabel,
@@ -322,7 +324,7 @@ function DesktopResultRow({
       className={cn(
         "group grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] items-center gap-3 rounded-lg border bg-[color:var(--surface)] px-3.5 py-3 shadow-[var(--shadow-inset)] transition",
         isBest
-          ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/40 shadow-[var(--shadow-tight)]"
+          ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/40 shadow-[var(--e1)]"
           : "border-[color:var(--border)] hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
       )}
     >
@@ -735,10 +737,10 @@ function SearchResultsView({
   const catalog = useDifferentialSearch(query);
   const results = useMemo(
     () =>
-      composeDifferentialSearchResults(catalog.matches.diagnoses, catalog.matches.presentations).map(
-        toDifferentialResult,
+      composeDifferentialSearchResults(catalog.matches.diagnoses, catalog.matches.presentations).map((item) =>
+        toDifferentialResult(item, query),
       ),
-    [catalog.matches],
+    [catalog.matches, query],
   );
   const [kindFilter, setKindFilter] = useState<"all" | "presentation" | "diagnosis">("all");
   const filterPanelId = useId();

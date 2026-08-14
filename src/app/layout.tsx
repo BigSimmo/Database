@@ -10,6 +10,7 @@ import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/l
 import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import { AppAnnouncements } from "@/components/app-announcements";
 import { OverlayRoot } from "@/components/ui/overlay-root";
+import { PRIVATE_APP_ROBOTS_METADATA } from "@/lib/crawler-policy";
 import "./globals.css";
 
 /**
@@ -47,7 +48,7 @@ const geistMono = localFont({
   // The mono face is only used deep in the UI (tabular figures, `kbd`, code) and
   // never in initial/LCP text, so don't preload it on every route — it competes
   // for the critical-path connection. It still loads on-demand via `swap` when
-  // first painted. The sans face keeps the default preload.
+  // first painted, while the body sans face remains preloaded for LCP text.
   preload: false,
 });
 
@@ -55,6 +56,7 @@ const baseMetadata: Metadata = {
   applicationName: "Clinical KB",
   title: "Clinical KB",
   description: "Private medical guideline RAG knowledge base",
+  robots: PRIVATE_APP_ROBOTS_METADATA,
   appleWebApp: {
     capable: true,
     title: "Clinical KB",
@@ -133,14 +135,18 @@ export default async function RootLayout({
             Mirrors resolveThemePreference in src/lib/theme.ts: stored choice wins,
             otherwise the OS preference. Key must match use-theme.ts. The second
             block applies the density/motion preferences (keys must match
-            use-app-preferences.ts) so an opted-in choice never flashes in. */}
+            use-app-preferences.ts) so an opted-in choice never flashes in.
+            Its catch swallows deliberately (see the inline note): this runs
+            before React mounts, so there is no logger or toast to report to,
+            and both failure modes — storage blocked, or corrupt stored JSON —
+            mean the same thing, that the default density/motion apply. */}
         <script
           nonce={nonce}
           // Next.js strips the nonce from the client payload (so scripts can't
           // read it), which reads as a hydration mismatch on this attribute.
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
-            __html: `${THEME_BOOTSTRAP_SCRIPT}(function(){try{var p=JSON.parse(localStorage.getItem("clinical-kb-preferences")||"{}");if(p&&typeof p==="object"){if(p.density==="compact"||p.density==="spacious"){document.documentElement.setAttribute("data-density",p.density);}if(p.motion==="reduced"){document.documentElement.setAttribute("data-motion","reduced");}}}catch(e){}})();`,
+            __html: `${THEME_BOOTSTRAP_SCRIPT}(function(){try{var p=JSON.parse(localStorage.getItem("clinical-kb-preferences")||"{}");if(p&&typeof p==="object"){if(p.density==="compact"||p.density==="spacious"){document.documentElement.setAttribute("data-density",p.density);}if(p.motion==="reduced"){document.documentElement.setAttribute("data-motion","reduced");}}}catch(e){/* storage blocked or stored preferences JSON corrupt - the default density/motion apply */}})();`,
           }}
         />
         <a

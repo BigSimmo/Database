@@ -1,11 +1,12 @@
 "use client";
 
 import { FileText, Network, Search, Sparkles, Waypoints } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
-import { useTcBindings } from "../bindings";
+import { THERAPY_CATALOGUE_SUMMARY } from "../data/generated-assets";
 
 const SUGGESTIONS = [
   "Anxiety in outpatient care",
@@ -16,12 +17,13 @@ const SUGGESTIONS = [
 ];
 
 export function HomeScreen() {
-  const b = useTcBindings();
+  const router = useRouter();
+  const therapyCount: number = THERAPY_CATALOGUE_SUMMARY.totalCount;
 
   const therapyCountCopy =
-    b.therapyCount === 0
+    therapyCount === 0
       ? "Source-grounded therapy records."
-      : `${b.therapyCount} source-grounded therapy ${b.therapyCount === 1 ? "record" : "records"}.`;
+      : `${therapyCount} source-grounded therapy ${therapyCount === 1 ? "record" : "records"}.`;
 
   return (
     <ModeHomeMain testId="therapy-compass-home" contentAlign="startOnPhone">
@@ -49,13 +51,13 @@ export function HomeScreen() {
             title: "Create a patient sheet",
             description: "Design and print a plain-language handout.",
             icon: FileText,
-            onClick: b.goSheets,
+            href: `/therapy-compass/${THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug}/sheet`,
           },
         ]}
         pillsTitle="Common therapy searches"
         pills={SUGGESTIONS.map((suggestion) => ({
           label: suggestion,
-          onClick: () => b.submitQuery(suggestion),
+          onClick: () => router.push(`/therapy-compass/search?q=${encodeURIComponent(suggestion)}&run=1`),
           icon: Network,
         }))}
         footer={
