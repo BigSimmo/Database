@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "63419f06-c12a-4a84-a684-6e177f527365",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "4b6930e6-fae2-4b4f-9f90-49bf0bcd548c",
+    "reason": "The final PR #1930 head deliberately removed the resolved queued runtime request during review-and-fix. Comparing all historical additions with the squash therefore creates a false loss. Any future integrity proof must compare the final PR-head inbox tree with the squash tree."
+  }
+}
