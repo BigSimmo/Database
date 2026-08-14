@@ -264,17 +264,37 @@ test.describe("unlayered style rules render their effect", () => {
 
     const tapFloor = await page.evaluate(() => {
       const probe = document.createElement("div");
+      // Keep the measurement out of the page's flex/grid flow so it reflects
+      // only the token value, not ambient layout sizing.
+      Object.assign(probe.style, {
+        position: "fixed",
+        left: "-9999px",
+        top: "-9999px",
+        display: "block",
+        boxSizing: "border-box",
+        width: "1px",
+        minHeight: "0",
+        margin: "0",
+        padding: "0",
+        border: "0",
+      });
       probe.style.height =
         getComputedStyle(document.documentElement).getPropertyValue("--spacing-tap").trim() || "3rem";
       document.body.appendChild(probe);
-      const height = probe.getBoundingClientRect().height;
-      probe.remove();
-      return height;
+      try {
+        return probe.getBoundingClientRect().height;
+      } finally {
+        probe.remove();
+      }
     });
+    expect(tapFloor, "expected --spacing-tap to resolve to the documented 48px phone tap floor").toBeGreaterThanOrEqual(
+      48,
+    );
 
     const undersized = first.filter((shape) => {
       const height = Number(shape.slice(shape.lastIndexOf("@") + 1));
-      return Number.isFinite(height) && height < tapFloor - 0.5;
+      // An unmeasurable shape is a failure, not a pass.
+      return !Number.isFinite(height) || height < tapFloor - 0.5;
     });
 
     // At this viewport `min-h-tap`'s `sm:` release (finding 1) is not in
