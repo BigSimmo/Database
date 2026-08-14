@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "fc23f1ec-c597-4690-b256-2263ecf73c86",
+  "createdOn": "2026-08-14",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Decide whether responsive breakpoint windows get named tokens, or stay raw min-[]/max-[] everywhere",
+    "detail": "Split out of #275 rather than guessed at. The repo defines ZERO --breakpoint-* tokens, and at least nine sites hand-write the arbitrary form: min-[414px]:max-[429px] at clinical-dashboard/result-filter-control.tsx:231, plus max-[359px] (search-heading-mockups, differentials/diagnosis-map-panel.tsx:1036, clinical-dashboard/account-setup-dialog.tsx:98) and max-[389px] (factsheets/factsheets-search-page.tsx:176, clinical-dashboard/search-results-header-band.tsx:532, factsheets-compact-view-mockups). #275 asked for the 414-429 window to be tokenised alongside the badge box; that was deliberately NOT done, because naming one window while eight peers stay raw reintroduces exactly the one-call-site drift #275 exists to stop, just on a different axis. This is a real decision with two defensible answers and it should be made once, for all of them. (a) Stay raw and say so in docs/design-system/GATES.md: the values are per-device band edges carrying measured justifications in their own comments, they are not a scale, and a Tailwind 4 --breakpoint-* entry adds BOTH the min and max variant to every utility in the build for a single consumer. (b) Name them: Tailwind 4 --breakpoint-<name> generates <name>: and max-<name>:, so the 414-429 window needs two entries (414px and 430px, since max-[429px] is inclusive and max-<bp> is exclusive), and 359/389 would want their own. Note the mockup hits are design scratch and out of scope for any gate. Next: pick (a) or (b), record it in GATES.md section 3 so the next session does not re-derive it, and only then migrate. Stop: do not migrate one window ahead of the decision.",
+    "source": "session 2026-08-14; split from #275 during the design-token relands PR"
+  }
+}

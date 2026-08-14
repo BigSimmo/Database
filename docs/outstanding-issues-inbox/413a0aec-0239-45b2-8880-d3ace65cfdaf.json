@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "413a0aec-0239-45b2-8880-d3ace65cfdaf",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#238",
+    "outcome": "DELIVERED — verified on main 2026-08-14. tests/sheet.dom.test.tsx exists; the Sheet portal default is portal = true (:108) with the documented portal={false} opt-out (:75). PR #1842 merged."
+  }
+}

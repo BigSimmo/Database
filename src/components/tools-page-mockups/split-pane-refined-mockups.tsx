@@ -221,7 +221,7 @@ function ToolList({
               className={cn(
                 "grid min-h-[5.25rem] grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-md border p-3 text-left transition",
                 active
-                  ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-tight)]"
+                  ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--e1)]"
                   : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)]",
                 variant === "compact-sheet" && "min-h-[4.5rem]",
                 focusRing,
@@ -320,7 +320,7 @@ function DetailPanel({ tool, variant }: { tool: ToolFixture; variant: RefinedVar
         <Link
           href={tool.href}
           className={cn(
-            "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]",
+            "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
             focusRing,
           )}
         >
@@ -474,7 +474,7 @@ function PhonePopup({
                 <Link
                   href={tool.href}
                   className={cn(
-                    "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]",
+                    "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
                     focusRing,
                   )}
                 >
@@ -581,7 +581,7 @@ function MobileViewportSheet({
           <Link
             href={tool.href}
             className={cn(
-              "inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]",
+              "inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
               focusRing,
             )}
           >

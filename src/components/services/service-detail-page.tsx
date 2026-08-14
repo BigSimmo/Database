@@ -759,7 +759,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                     href={readinessActionHref}
                     target={hrefIsExternal(readinessActionHref) ? "_blank" : undefined}
                     rel={hrefIsExternal(readinessActionHref) ? "noopener noreferrer" : undefined}
-                    className="inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    className="inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   >
                     <ReadinessActionIcon className="h-4 w-4" aria-hidden />
                     {readinessActionLabel}
