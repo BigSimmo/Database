@@ -32,6 +32,7 @@ import {
   commandDropdownCanDisplay,
   commandDropdownMinimumWidthMediaQuery,
   commandDropdownPointerMediaQuery,
+  commandSurfaceRemoteSearchEnabled,
   differentialRedFlagTerms,
   filteredSuggestions,
   isFormCodeQuery,
@@ -489,7 +490,7 @@ export function UniversalSearchCommandSurface({
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
     query: trimmedQuery,
-    enabled: dropdownOpen && dropdownDisplayable && Boolean(config),
+    enabled: dropdownOpen && dropdownDisplayable && commandSurfaceRemoteSearchEnabled(modeId),
     contextMode: modeId,
   });
   const savedRegistryFavourites = useSavedRegistryFavourites().items;

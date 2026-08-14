@@ -856,7 +856,9 @@ function GlobalStandaloneSearchShellBody({
             onAsk={submitSearch}
             onClearQuery={() => {
               setQuery("");
-              if (isStandaloneModeHome) navigateToMode(searchMode, { focus: true });
+              if (isStandaloneModeHome || searchMode === "calculators") {
+                navigateToMode(searchMode, { focus: true });
+              }
             }}
             onClearScope={() => undefined}
             onQueryModeChange={setQueryMode}

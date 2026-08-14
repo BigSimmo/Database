@@ -35,10 +35,10 @@ describe("searchShellPropsForPathname", () => {
     expect(searchShellPropsForPathname("/")).toEqual({ initialMode: "answer" });
   });
 
-  it("hides the shell composer on calculators (page-owned)", () => {
+  it("assigns calculator home and results search to the shared shell", () => {
     expect(searchShellPropsForPathname("/calculators")).toEqual({
-      initialMode: "tools",
-      searchComposerVisible: false,
+      initialMode: "calculators",
+      desktopSearchPlacement: "hero",
     });
   });
 });

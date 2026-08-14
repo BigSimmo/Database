@@ -14,6 +14,7 @@ export const appModeIds = [
   "formulation",
   "prescribing",
   "tools",
+  "calculators",
   "therapy-compass",
   "factsheets",
 ] as const;
@@ -31,6 +32,7 @@ export type AppModeSearchKind =
   | "dsm"
   | "specifiers"
   | "formulation"
+  | "calculators"
   | "tools";
 export type AppModeResultKind = AppModeSearchKind;
 
@@ -337,6 +339,29 @@ export const appModeDefinitions = [
     },
   },
   {
+    id: "calculators",
+    label: "Calculators",
+    description: "Source-cited psychiatry scores and clinical decision calculators",
+    href: "/calculators",
+    search: {
+      kind: "calculators",
+      placeholder: "Search calculators by scale, symptom, or indication...",
+      inputAriaLabel: "Search clinical calculators by scale, symptom, or indication",
+      submitIdleLabel: "Calculate",
+      submitBusyLabel: "Calculate",
+      submitAriaLabel: "Search clinical calculators",
+      emptyTitle: "Search clinical calculators",
+      readyTitle: "Find a clinical calculator",
+      progressLabel: "Searching the local calculator catalogue.",
+      resultKind: "calculators",
+      resultHeading: "Calculator matches",
+      resultsSurface: "results-band",
+      statusLabel: "Calculators",
+      nextStep: "Open a calculator to score it and review next actions",
+      badgeLabel: null,
+    },
+  },
+  {
     id: "therapy-compass",
     label: "Therapy",
     description: "Source-grounded therapy decision support",
@@ -429,6 +454,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "therapy-compass",
   "factsheets",
   "tools",
+  "calculators",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
@@ -523,6 +549,7 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
     kind === "dsm" ||
     kind === "specifiers" ||
     kind === "formulation" ||
+    kind === "calculators" ||
     kind === "tools"
   );
 }

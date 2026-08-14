@@ -113,8 +113,8 @@ const phoneModeGroups = [
   {
     id: "care",
     label: "Care",
-    hint: "Medication, tools, therapy",
-    modeIds: ["prescribing", "tools", "therapy-compass", "factsheets"],
+    hint: "Medication, calculators, tools, therapy",
+    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;
