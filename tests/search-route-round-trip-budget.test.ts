@@ -135,10 +135,10 @@ class RouteQuery implements PromiseLike<{ data: unknown[]; error: null }> {
   insert() {
     return this;
   }
-  then<TResult1 = { data: unknown[]; error: null }>(
+  then<TResult1 = { data: unknown[]; error: null }, TResult2 = never>(
     onfulfilled?: ((value: { data: unknown[]; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: unknown) => TResult1 | PromiseLike<TResult1>) | null,
-  ): PromiseLike<TResult1> {
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ): PromiseLike<TResult1 | TResult2> {
     return Promise.resolve({ data: [], error: null }).then(onfulfilled, onrejected);
   }
 }
