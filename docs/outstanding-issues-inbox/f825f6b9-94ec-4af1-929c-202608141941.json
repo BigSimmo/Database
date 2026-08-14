@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "f825f6b9-94ec-4af1-929c-202608141941",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#213",
+    "outcome": "Closed 2026-08-14. The 2026-08-12 re-measure counted correctly but described the wrong thing: the 3 remaining bare catches under src/ were not fetch/stream swallowing at all. All 3 lived inside render-blocking inline bootstrap script strings — src/lib/theme.ts:46 (localStorage.getItem, then document.cookie) and src/app/layout.tsx:149 (JSON.parse of stored preferences) — where a throw means storage/cookies are unavailable and the correct behaviour is the documented fallback chain (cookie, then OS preference; defaults for density/motion). Each now carries an inline comment stating the throwing condition and the fallback that covers it; no behaviour changed, because there is no logger or toast before React mounts and surfacing the error would trade a correct default appearance for a broken first paint. The genuine fetch/stream catches this row was opened against were already dispositioned by earlier passes (api/answer/stream/route.ts:178,291 and api/search/universal/route.ts:102 carry comments and propagate via controller.error). Added tests/empty-catch-disposition.test.ts, a raw source-text scan asserting every empty catch under src/ carries a comment — raw text rather than an AST because ESLint's no-empty cannot see catches inside template-literal script strings, which is exactly where these 3 hid. Population is 21 empty catches, all dispositioned, 0 bare."
+  }
+}

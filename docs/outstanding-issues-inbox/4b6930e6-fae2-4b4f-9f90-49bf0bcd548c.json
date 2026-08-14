@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "4b6930e6-fae2-4b4f-9f90-49bf0bcd548c",
+  "createdOn": "2026-08-14",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A queued inbox request was lost between a PR branch and its squash on main, and nothing detected it",
+    "detail": "**Outcome:** a request that is committed to a branch either reaches main or fails loudly; 'merge-safe' means the loss is impossible or visible, not merely unlikely. **Detail, verified 2026-08-14.** PR #1930 (squash a544719a) merged branch claude/viewer-ledger-truth-pass at head 9525dd7b. That branch added SIX inbox requests across three commits; the squash on main contains FIVE. The missing one is faa4299e-0a68-4747-9509-e3eb2578b64c, added by commit 648b86ad, and 'git merge-base --is-ancestor 648b86ad 9525dd7b' confirms that commit was genuinely part of the merged head. The file is absent from main entirely: not under docs/outstanding-issues-inbox/, not under applied/, and its text appears nowhere in docs/outstanding-issues.md. Mechanism NOT established — a GitHub squash does not drop files on its own, so something happened at merge time; this row records the verified facts rather than a theory. **Why this instance cost nothing, and why that is not reassuring.** The lost request was a finding whose two remedies — guard CLAUDE_ENV_FILE in .claude/hooks/session-start.sh, and have checkNodeRuntime's failure message name that hook — shipped in the SAME pull request and are on main now. So the record was lost, not the work. A request carrying something not fixed in its own PR would simply have disappeared. **Nothing detected it.** check:ledger-write-discipline audits canonical-ledger edits against moved requests and proves request files are immutable from the merge base; no check asserts that requests committed on a branch are still present after it merges. The loss was found by counting 5 against 6 by hand, days later, while answering an unrelated question. **Next:** consider a cheap post-merge assertion — for a merge commit, compare inbox files added anywhere in the merged range against inbox files present in the resulting tree, and fail on any that vanished. Cheap because both sides are just filenames. Alternatively have reconcile report UUIDs referenced in git history but absent from the tree. **Stop:** do not respond by making request files editable or by hand-restoring a lost file into the tree under its old UUID — an immutable record that reappears with a new provenance is worse than an absent one. Queue a fresh request instead, as was done here.",
+    "source": "session 2026-08-14; PR #1930 squash a544719a vs branch head 9525dd7b; commit 648b86ad"
+  }
+}

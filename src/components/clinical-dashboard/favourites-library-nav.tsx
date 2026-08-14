@@ -349,7 +349,7 @@ function SetBrowseCard({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "relative min-w-[8.75rem] max-w-[9.75rem] shrink-0 overflow-hidden rounded-xl border p-2.5 text-left shadow-[var(--shadow-tight)] transition hover:-translate-y-px hover:shadow-[var(--shadow-soft)] sm:min-w-[9.5rem] sm:max-w-[10.5rem]",
+        "relative min-w-[8.75rem] max-w-[9.75rem] shrink-0 overflow-hidden rounded-xl border p-2.5 text-left shadow-[var(--e1)] transition hover:-translate-y-px hover:shadow-[var(--shadow-soft)] sm:min-w-[9.5rem] sm:max-w-[10.5rem]",
         active
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/40 ring-2 ring-[color:var(--clinical-accent)]/20"
           : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--clinical-accent-border)]",
@@ -468,7 +468,7 @@ export function FavouritesMobileQuickViews({
                 className={cn(
                   "inline-flex h-tap shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm-minus font-semibold transition",
                   chip.active
-                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)]"
+                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--e1)]"
                     : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                   focusRing,
                 )}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "b5f28517-89c9-455d-a4b4-202608141940",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "74edc91b-042b-4e73-911c-286d0b38da45",
+    "reason": "Cancel closure of #235: executable evidence does not replace the requested desktop and phone proof shots. Keep the row open until those focused journeys are captured."
+  }
+}
