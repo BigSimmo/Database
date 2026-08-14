@@ -145,16 +145,28 @@ These reach live providers — they need explicit confirmation before running.
 Completed migration/batch helpers kept only for provenance; retire to the `scripts/archive/`
 subfolder once the underlying migration is confirmed live (work order L1).
 
-**Already archived** (in `scripts/archive/`, still runnable as live-DB re-verification probes via
-`npm run check:m13-migration` / `npm run check:july8-live-batch`): `check-m13-migration.ts`,
-`check-july8-live-batch.ts`. Their `.test.ts` companion lives in `scripts/archive/` too so it stays
-out of the `tests/**` run.
+**Already archived** (in `scripts/archive/`, still runnable): `check-m13-migration.ts` /
+`check-july8-live-batch.ts` — live-DB re-verification probes via `npm run check:m13-migration` /
+`npm run check:july8-live-batch`. Their `.test.ts` companion lives in `scripts/archive/` too so it
+stays out of the `tests/**` run. `backfill-document-tags.ts` / `backfill-enrichment.ts` — completed
+one-time backfills, still invocable via `npm run tags:backfill` / `npm run enrich:backfill` (both
+repointed at the archive path). `backfill-document-covers.mjs` — completed one-time backfill for
+documents indexed before the ingestion pipeline started generating cover thumbnails directly (see
+`worker/main.ts`, `worker/python/extract_pdf_assets.py`); no npm script, invoke directly via
+`node scripts/archive/backfill-document-covers.mjs`. `tests/document-cover-thumbnails.test.ts`
+still asserts its pagination logic by reading the archived source (`ledger #194`, 2026-08-14).
+
+Ledger `#194` also named `backfill-gold-document-labels.ts` and `backfill-smart-index.ts` as
+one-shot candidates, but both are already classified as `[live]` ongoing tooling elsewhere in this
+doc (Document intelligence & governance / Ingestion, indexing & reindex) and in
+`docs/codebase-index.md` — not completed migrations. Left in `scripts/` on that basis; re-flag only
+if their live classification is deliberately revisited.
 
 **Remaining candidates** (still in `scripts/`, retire once each is confirmed retired):
 `check-retrieval-owner-migration.ts`, `backfill-source-metadata.ts`, `backfill-text-normalization.ts`,
-`backfill-visual-intelligence.ts`, `backfill-document-tags.ts`, `backfill-enrichment.ts`,
-`derive-unknown-status.ts`, `reindex-image-generation-metadata.ts`, `measure-wrapped-dose-prevalence.ts`,
-`decompose-indexing-v3.mjs`, `repro-coalesce-poison-race.mjs` (a one-off race reproducer).
+`backfill-visual-intelligence.ts`, `derive-unknown-status.ts`, `reindex-image-generation-metadata.ts`,
+`measure-wrapped-dose-prevalence.ts`, `decompose-indexing-v3.mjs`, `repro-coalesce-poison-race.mjs`
+(a one-off race reproducer).
 
 ## Workflow planners [infra]
 
