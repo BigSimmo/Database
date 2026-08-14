@@ -134,6 +134,7 @@ next-env.d.ts
 .codex-screenshots/
 /worktrees/
 .worktrees/
+.claude/worktrees/
 /docs/mockups/
 # design/UX review scratch dumps (favourites-review, tools-page-review, etc.) — never commit
 artifacts/
