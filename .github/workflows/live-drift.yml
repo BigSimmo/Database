@@ -74,25 +74,28 @@ jobs:
           set -o pipefail
           npm run check:drift 2>&1 | tee drift-output.txt
 
-      - name: Capture drift findings
+      - name: Align migration history for Supabase Preview
+        run: |
+          set -o pipefail
+          npm run check:migration-history 2>&1 | tee migration-history-output.txt
+
+      - name: Capture drift and migration-history findings
         id: findings
         if: always()
         run: |
-          # Line shapes come from scripts/check-drift.ts: the manifest/compared
-          # context lines, the "! [category] kind key" unexpected-drift findings,
-          # and the "? [category]" stale allowlist entries. Absent when the run
-          # died before the comparison (missing secret, identity guard); the
-          # routing job says so rather than implying a clean result.
+          # Keep a migration-history failure visible rather than publishing a
+          # successful drift result as the explanation for the failed job.
           {
             echo "findings<<LIVE_DRIFT_FINDINGS_EOF"
             if [ -f drift-output.txt ]; then
               grep -E '^(Drift manifest:|Compared |UNEXPECTED DRIFT|  ! \[|  \? \[)' drift-output.txt | head -80 || true
             fi
+            if [ -f migration-history-output.txt ]; then
+              echo "Migration-history check output:"
+              tail -80 migration-history-output.txt
+            fi
             echo "LIVE_DRIFT_FINDINGS_EOF"
           } >> "$GITHUB_OUTPUT"
-
-      - name: Align migration history for Supabase Preview
-        run: npm run check:migration-history
 
   # Split out so issues: write is scoped to a job that never installs or executes
   # repository code — the drift job above keeps contents: read only.
