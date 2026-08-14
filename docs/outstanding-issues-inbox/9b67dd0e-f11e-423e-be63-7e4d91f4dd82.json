@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "9b67dd0e-f11e-423e-be63-7e4d91f4dd82",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#335",
+    "outcome": "Closed 2026-08-15 as duplicate follow-up of #324. The delivered file-level audit, the remaining schedule/owner decision, and the distinct inbox-request-loss scope are all retained in #324; no scheduling or CI policy was changed by this consolidation."
+  }
+}
