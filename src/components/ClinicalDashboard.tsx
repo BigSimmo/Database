@@ -110,6 +110,7 @@ import {
   replaceOwnedAbortController,
   mergeDocumentRefresh,
   normalizeNavigationHash,
+  shouldShowSharedHome,
   setupNeedsSlowRecheck,
   setupRecheckPollMs,
   shorterPollDelay,
@@ -3014,19 +3015,15 @@ export function ClinicalDashboard({
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
-  // `/` is the single home page for every mode except the retained `/?mode=tools`
-  // compatibility alias. New Tools picks navigate to `/tools`; old bookmarked
-  // dashboard links continue mounting the legacy launcher here.
-  const isHomeRoute = pathname === "/";
-  const legacyToolsDashboardAlias = isHomeRoute && searchParams.get("mode") === "tools";
-  const showSharedHome =
-    isHomeRoute &&
-    !legacyToolsDashboardAlias &&
-    !submittedUrlRunRequested &&
-    !error &&
-    !answer &&
-    !loading &&
-    !submittedAnswerSearchActive;
+  const showSharedHome = shouldShowSharedHome({
+    pathname,
+    mode: searchParams.get("mode"),
+    submittedUrlRunRequested,
+    hasError: Boolean(error),
+    hasAnswer: Boolean(answer),
+    loading,
+    submittedAnswerSearchActive,
+  });
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
