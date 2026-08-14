@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "d52dbc3d-6759-4f6e-9089-24059830ed5a",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "19fb70c0-1fd4-43a8-a4f4-efa9c31d16b1",
+    "reason": "superseded: merged into the combined #231 update queued in this same PR"
+  }
+}
