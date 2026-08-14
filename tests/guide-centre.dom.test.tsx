@@ -42,6 +42,28 @@ describe("Clinical KB Guide Centre", () => {
     expect(within(dialog).getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
   });
 
+  it("shows a useful verification example and hides the mobile tour action while scrolling down", () => {
+    const { dialog } = renderGuide();
+    expect(within(dialog).getByText("Check each claim, not just the summary")).toBeVisible();
+    expect(within(dialog).getByLabelText("Neutral illustrative answer")).toHaveTextContent(
+      "place its citation beside the words it supports",
+    );
+
+    const scrollBody = dialog.querySelector<HTMLElement>(".polished-scroll");
+    const footer = within(dialog).getAllByRole("button", { name: "Start guided tour" }).at(-1)?.parentElement
+      ?.parentElement?.parentElement;
+    expect(scrollBody).not.toBeNull();
+    expect(footer).not.toBeNull();
+
+    Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 80 });
+    fireEvent.scroll(scrollBody!);
+    expect(footer).toHaveClass("translate-y-full");
+
+    Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 0 });
+    fireEvent.scroll(scrollBody!);
+    expect(footer).not.toHaveClass("translate-y-full");
+  });
+
   it("wires every quick task to its complete guide topic", async () => {
     const user = userEvent.setup();
     const { dialog } = renderGuide();

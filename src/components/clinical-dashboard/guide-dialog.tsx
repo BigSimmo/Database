@@ -23,7 +23,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type UIEvent } from "react";
 
 import {
   guideQuickTasks,
@@ -270,34 +270,45 @@ function VerificationDemo({ onOpenSourceGuide }: { onOpenSourceGuide: () => void
         Follow each claim to the source before using it in practice.
       </p>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-[8rem_minmax(0,1fr)]">
-        <ol className="space-y-3" aria-label="Verification steps">
+      <div className="mt-5 grid gap-4 md:grid-cols-[11rem_minmax(0,1fr)]">
+        <ol className="grid grid-cols-3 gap-2 md:grid-cols-1 md:gap-3" aria-label="Verification steps">
           {["Check the claim", "Open the citation", "Read the source passage"].map((label, index) => (
-            <li key={label} className="flex items-start gap-2 text-sm font-medium text-[color:var(--text-heading)]">
+            <li
+              key={label}
+              className="flex min-w-0 flex-col items-center gap-1.5 text-center text-xs font-medium text-[color:var(--text-heading)] md:flex-row md:items-start md:gap-2 md:text-left md:text-sm"
+            >
               <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-bold text-[color:var(--clinical-accent-contrast)]">
                 {index + 1}
               </span>
-              <span className="pt-1">{label}</span>
+              <span className="leading-4 md:pt-1 md:leading-5">{label}</span>
             </li>
           ))}
         </ol>
 
         <div className="space-y-3">
           <article className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-inset)]">
-            <h3 className="text-base font-semibold text-[color:var(--text-heading)]">Answer preview</h3>
-            <div className="mt-3 space-y-3" aria-label="Neutral illustrative answer">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 flex-1 rounded-full bg-[color:var(--surface-subtle)]" />
-                <span className="rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-1 font-mono text-xs font-semibold text-[color:var(--clinical-accent)]">
+            <p className={cn(eyebrowText, "text-[color:var(--clinical-accent)]")}>Illustrative answer</p>
+            <h3 className="mt-1 text-base font-semibold text-[color:var(--text-heading)]">
+              Check each claim, not just the summary
+            </h3>
+            <div
+              className="mt-3 space-y-3 text-sm leading-6 text-[color:var(--text)]"
+              aria-label="Neutral illustrative answer"
+            >
+              <p>
+                The answer should state a focused claim and place its citation beside the words it supports{" "}
+                <span className="inline-flex rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 py-0.5 font-mono text-xs font-semibold text-[color:var(--clinical-accent)]">
                   [1]
                 </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-4/5 rounded-full bg-[color:var(--surface-subtle)]" />
-                <span className="rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-1 font-mono text-xs font-semibold text-[color:var(--clinical-accent)]">
+                .
+              </p>
+              <p className="border-l-2 border-[color:var(--clinical-accent)] pl-3 text-[color:var(--text-muted)]">
+                Open the citation and compare the source passage with the wording, population, and limits of the claim{" "}
+                <span className="inline-flex rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 py-0.5 font-mono text-xs font-semibold text-[color:var(--clinical-accent)]">
                   [2]
                 </span>
-              </div>
+                .
+              </p>
             </div>
           </article>
 
@@ -652,12 +663,26 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
   const [tourStepIndex, setTourStepIndex] = useState(0);
   const [tourComplete, setTourComplete] = useState(false);
   const contentStartRef = useRef<HTMLDivElement | null>(null);
+  const scrollBodyRef = useRef<HTMLDivElement | null>(null);
+  const lastScrollTopRef = useRef(0);
+  const [mobileFooterHidden, setMobileFooterHidden] = useState(false);
 
   function focusPageStart() {
     window.requestAnimationFrame(() => {
-      contentStartRef.current?.scrollIntoView({ block: "start" });
+      if (scrollBodyRef.current) scrollBodyRef.current.scrollTop = 0;
+      lastScrollTopRef.current = 0;
+      setMobileFooterHidden(false);
       contentStartRef.current?.querySelector<HTMLElement>("[data-guide-page-heading]")?.focus({ preventScroll: true });
     });
+  }
+
+  function handleBodyScroll(event: UIEvent<HTMLDivElement>) {
+    const nextScrollTop = event.currentTarget.scrollTop;
+    const delta = nextScrollTop - lastScrollTopRef.current;
+    if (nextScrollTop <= 12) setMobileFooterHidden(false);
+    else if (delta > 6) setMobileFooterHidden(true);
+    else if (delta < -6) setMobileFooterHidden(false);
+    lastScrollTopRef.current = nextScrollTop;
   }
 
   function navigate(nextView: GuideView) {
@@ -713,11 +738,11 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         ? "Review guided tour"
         : "Resume guided tour";
   const footer = (
-    <div className="flex min-w-0 items-center justify-between gap-3">
+    <div className="flex min-w-0 items-center justify-center gap-3 sm:justify-between">
       <p className={cn("hidden min-w-0 items-center gap-2 text-xs sm:flex", textMuted)}>
         <ShieldCheck aria-hidden="true" className="size-icon-md shrink-0" /> Demo content only · Do not enter PHI
       </p>
-      <div className="ml-auto flex min-w-0 items-center justify-end gap-2">
+      <div className="flex min-w-0 items-center justify-center gap-2 sm:ml-auto sm:justify-end">
         {view === "tour" && !tourComplete ? (
           <>
             <button
@@ -798,10 +823,18 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
           <BookOpen aria-hidden="true" className="size-6" />
         </span>
       }
-      contentClassName="font-sans sm:max-w-none lg:h-[min(56rem,calc(100dvh-3rem))] lg:max-w-[min(94vw,90rem)]"
+      contentClassName="relative font-sans sm:max-w-none lg:h-[min(56rem,calc(100dvh-3rem))] lg:max-w-[min(94vw,90rem)]"
       bodyClassName="p-0 sm:p-0"
+      bodyRef={scrollBodyRef}
+      onBodyScroll={handleBodyScroll}
+      headerClassName="pt-[max(1rem,env(safe-area-inset-top))] sm:pt-5"
       mobilePlacement="fullscreen"
       footer={footer}
+      footerClassName={cn(
+        "absolute inset-x-0 bottom-0 z-30 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 transition-[transform,opacity] duration-[var(--duration-quick)] sm:static sm:p-4",
+        mobileFooterHidden &&
+          "pointer-events-none translate-y-full opacity-0 sm:pointer-events-auto sm:translate-y-0 sm:opacity-100",
+      )}
       testId="clinical-kb-guide-centre"
       closeButtonClassName="grid size-tap shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
     >
@@ -812,7 +845,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         <GuideSearch query={query} onQueryChange={setQuery} />
       </div>
       <GuideTopNavigation view={view} onNavigate={navigate} />
-      <div ref={contentStartRef} className="space-y-4 p-3 sm:p-5">
+      <div ref={contentStartRef} className="space-y-4 p-3 pb-28 sm:p-5">
         {hasSearch ? (
           <SearchResults query={query} onSelect={openTopic} />
         ) : (
