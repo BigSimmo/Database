@@ -102,7 +102,12 @@ async function runRoutingScript(options: { findings?: string; openIssues?: Issue
           return { data: options.openIssues ?? [] };
         },
         update: async (
-          request: RepositoryCoordinates & { body?: string; issue_number: number; state?: string; state_reason?: string },
+          request: RepositoryCoordinates & {
+            body?: string;
+            issue_number: number;
+            state?: string;
+            state_reason?: string;
+          },
         ) => {
           if (request.state) {
             calls.closed.push({
