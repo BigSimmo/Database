@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "aef88de1-288a-4f2c-b15a-76b8c9a88f3c",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#210",
+    "summary": "Prove or eliminate the inherited .next/dev type glob in the isolated Playwright build tsconfig",
+    "source": "session 2026-08-02 /ledger sweep; docs/review-findings-2026-08-02.md; Codex PR #1936 review"
+  }
+}
