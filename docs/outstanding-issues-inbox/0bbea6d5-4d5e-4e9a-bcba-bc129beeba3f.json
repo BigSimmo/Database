@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "0bbea6d5-4d5e-4e9a-bcba-bc129beeba3f",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "ef62d13b-6852-4a12-a1d3-4d7e22ec1232",
+    "reason": "The shell expanded code-span markers while creating this request, removing two command names; preserve it for audit and apply the corrected #331 update instead."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "d226dce3-76a2-4ccc-9723-5e7ca03a6c5d",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "4bc449a1-ec81-426d-aadd-8a78abec21cf",
+    "reason": "This aborted command captured audit output inside the immutable detail field; apply the corrected #324 update 19762e55-fa25-41de-a5a2-7f4932a545fe instead."
+  }
+}
