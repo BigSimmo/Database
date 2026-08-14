@@ -1,21 +1,20 @@
 name: Live drift check
 
 # Live Supabase drift detection is useful, but it must not slow PR iteration or
-# touch live services on every branch. Scheduled/manual, plus a post-merge run
-# whenever main changes the migration surface — drift gets checked within minutes
-# of the change that could cause it, not up to a week later (#316 phase 0.2).
+# touch live services on every branch. Keep it off pull requests entirely: it runs
+# on a schedule, on demand, and once a schema change actually reaches main.
 on:
   workflow_dispatch:
   schedule:
     # Weekly, aligned with the existing Sunday off-peak CI cadence.
     - cron: "30 18 * * 0"
   push:
-    branches:
-      - main
+    # A migration landing on main is the event most likely to cause drift, so
+    # check within minutes of it rather than waiting up to a week for the cron.
+    branches: [main]
     paths:
       - "supabase/migrations/**"
       - "supabase/schema.sql"
-      - "supabase/drift-manifest.json"
 
 concurrency:
   group: live-drift-check
@@ -24,23 +23,20 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
-  SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
-  SUPABASE_PROJECT_NAME: Clinical KB Database
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
 jobs:
   live-drift:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    permissions:
-      contents: read
-      # Failure routing only (#316 phase 0.1): create/update/close the pinned
-      # "Live drift check failing" issue so a red run is a visible, assignable
-      # object instead of a silent scheduled row.
-      issues: write
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+      SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
+      SUPABASE_PROJECT_NAME: Clinical KB Database
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    outputs:
+      # Consumed by drift-routing below. Job outputs survive a failed job as long
+      # as the step that set them ran, which is why the capture step is always().
+      findings: ${{ steps.findings.outputs.findings }}
 
     steps:
       - name: Checkout
@@ -71,90 +67,129 @@ jobs:
         run: npm run check:supabase-project
 
       - name: Compare live schema drift
+        id: drift
         run: |
+          # The default step shell is `bash -e`, which has no pipefail, so a
+          # failing check:drift would be masked by tee's exit code without this.
           set -o pipefail
           npm run check:drift 2>&1 | tee drift-output.txt
 
       - name: Align migration history for Supabase Preview
-        run: npm run check:migration-history
+        run: |
+          set -o pipefail
+          npm run check:migration-history 2>&1 | tee migration-history-output.txt
 
-      - name: Open or update drift alert issue
-        if: failure()
+      - name: Capture drift and migration-history findings
+        id: findings
+        if: always()
+        run: |
+          # Keep a migration-history failure visible rather than publishing a
+          # successful drift result as the explanation for the failed job.
+          {
+            echo "findings<<LIVE_DRIFT_FINDINGS_EOF"
+            if [ -f drift-output.txt ]; then
+              grep -E '^(Drift manifest:|Compared |UNEXPECTED DRIFT|  ! \[|  \? \[)' drift-output.txt | head -80 || true
+            fi
+            if [ -f migration-history-output.txt ]; then
+              echo "Migration-history check output:"
+              tail -80 migration-history-output.txt
+            fi
+            echo "LIVE_DRIFT_FINDINGS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  # Split out so issues: write is scoped to a job that never installs or executes
+  # repository code — the drift job above keeps contents: read only.
+  drift-routing:
+    needs: live-drift
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Route drift status to the pinned issue
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          DRIFT_RESULT: ${{ needs.live-drift.result }}
+          DRIFT_FINDINGS: ${{ needs.live-drift.outputs.findings }}
         with:
           script: |
-            const fs = require("fs");
-            const label = "live-drift";
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            let findings = "";
-            try {
-              const raw = fs.readFileSync("drift-output.txt", "utf8");
-              const lines = raw.trimEnd().split("\n");
-              findings = lines.slice(-60).join("\n");
-            } catch {
-              findings = "(drift output unavailable — the failure happened before or after the drift comparison step)";
-            }
-            const body = [
-              `Live drift check failed on ${new Date().toISOString()}.`,
-              "",
-              `Run: ${runUrl}`,
-              "",
-              "Findings (tail of `npm run check:drift`):",
-              "",
-              "```",
-              findings,
-              "```",
-              "",
-              "Remediation path: docs/database-remediation-plan.md (ledger #316).",
-              "Do not raw-SQL a fix — every live change is codified as migration + schema.sql mirror + regenerated drift-manifest.json.",
-            ].join("\n");
-            const { data: existing } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+            const title = "Live drift check failing";
+            const label = "live-drift-failure";
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const result = process.env.DRIFT_RESULT || "unknown";
+            const findings = (process.env.DRIFT_FINDINGS || "").trim();
+            const now = new Date().toISOString();
+
+            // One pinned issue, found by label so a retitle by a human does not
+            // orphan it and start a second thread.
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
               state: "open",
               labels: label,
             });
-            if (existing.length > 0) {
+            const existing = open.find((issue) => issue.title === title) ?? open[0];
+
+            if (result === "success") {
+              if (!existing) {
+                core.info("Live drift check is green and no failure issue is open.");
+                return;
+              }
               await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existing[0].number,
-                body,
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: `Resolved — the live drift check is green again as of ${now}.\n\nRun: ${runUrl}`,
               });
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                state: "closed",
+                state_reason: "completed",
+              });
+              core.info(`Closed #${existing.number} after a green live drift run.`);
+              return;
+            }
+
+            const body = [
+              "The live Supabase drift check is failing. This issue is updated in place by",
+              "`.github/workflows/live-drift.yml`; it is closed automatically on the next green run.",
+              "",
+              `- Latest failing run: ${runUrl}`,
+              `- Job result: \`${result}\``,
+              `- Trigger: \`${context.eventName}\``,
+              `- Last updated: ${now}`,
+              "",
+              findings
+                ? `### Drift findings\n\n\`\`\`\n${findings}\n\`\`\``
+                : "### Drift findings\n\nNone captured — the run failed before the drift comparison ran, so this is **not** evidence of a clean schema. Read the run log linked above.",
+              "",
+              "Remediation context: `docs/database-remediation-plan.md`, `docs/database-drift-detection.md`.",
+              "Never fix drift with raw SQL against live — codify it (migration + `schema.sql` mirror + regenerated manifest).",
+            ].join("\n");
+
+            if (existing) {
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: `Still failing as of ${now} — ${runUrl}`,
+              });
+              core.warning(`Live drift check failing; updated #${existing.number}.`);
             } else {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: "Live drift check failing",
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
                 labels: [label],
                 body,
               });
-            }
-
-      - name: Resolve drift alert issue on green
-        if: success()
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const label = "live-drift";
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const { data: existing } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: "open",
-              labels: label,
-            });
-            for (const issue of existing) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                body: `Live drift check is green again: ${runUrl}. Closing.`,
-              });
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                state: "closed",
-              });
+              core.warning(`Live drift check failing; opened #${created.data.number}.`);
             }
