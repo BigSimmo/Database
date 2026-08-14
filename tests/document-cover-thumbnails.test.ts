@@ -8,7 +8,10 @@ import type { RelatedDocument } from "@/lib/types";
 
 const extractorSource = readFileSync(new URL("../worker/python/extract_pdf_assets.py", import.meta.url), "utf8");
 const workerSource = readFileSync(new URL("../worker/main.ts", import.meta.url), "utf8");
-const backfillSource = readFileSync(new URL("../scripts/backfill-document-covers.mjs", import.meta.url), "utf8");
+const backfillSource = readFileSync(
+  new URL("../scripts/archive/backfill-document-covers.mjs", import.meta.url),
+  "utf8",
+);
 
 describe("document cover thumbnails", () => {
   it("pages cover backfill with stable ORDER BY for PostgREST range scans", () => {
