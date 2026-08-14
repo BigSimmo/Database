@@ -9,6 +9,7 @@ const workflowPath = path.join(repoRoot, ".github", "workflows", "live-drift.yml
 const workflow = readFileSync(workflowPath, "utf8").replace(/\r\n/g, "\n");
 
 type Issue = { number: number; title: string };
+type RepositoryCoordinates = { owner: string; repo: string };
 
 type ScriptFunction = (
   github: Record<string, unknown>,
@@ -64,11 +65,11 @@ if (extraScripts.length > 0) {
 const routingScript = new AsyncFunction("github", "context", "core", routingScriptSource);
 
 type Calls = {
-  closed: Array<{ issue_number: number; state?: string; state_reason?: string }>;
-  comments: Array<{ issue_number: number; body: string }>;
-  created: Array<{ title: string; labels: string[]; body: string }>;
-  listed: Array<{ labels: string; state: string }>;
-  updatedBodies: Array<{ issue_number: number; body: string }>;
+  closed: Array<RepositoryCoordinates & { issue_number: number; state?: string; state_reason?: string }>;
+  comments: Array<RepositoryCoordinates & { issue_number: number; body: string }>;
+  created: Array<RepositoryCoordinates & { title: string; labels: string[]; body: string }>;
+  listed: Array<RepositoryCoordinates & { labels: string; state: string }>;
+  updatedBodies: Array<RepositoryCoordinates & { issue_number: number; body: string }>;
   warnings: string[];
 };
 
@@ -78,27 +79,47 @@ async function runRoutingScript(options: { findings?: string; openIssues?: Issue
   const github = {
     rest: {
       issues: {
-        create: async (request: { body: string; labels: string[]; title: string }) => {
-          calls.created.push({ body: request.body, labels: request.labels, title: request.title });
+        create: async (request: RepositoryCoordinates & { body: string; labels: string[]; title: string }) => {
+          calls.created.push({
+            body: request.body,
+            labels: request.labels,
+            owner: request.owner,
+            repo: request.repo,
+            title: request.title,
+          });
           return { data: { number: 4242 } };
         },
-        createComment: async (request: { body: string; issue_number: number }) => {
-          calls.comments.push({ body: request.body, issue_number: request.issue_number });
+        createComment: async (request: RepositoryCoordinates & { body: string; issue_number: number }) => {
+          calls.comments.push({
+            body: request.body,
+            issue_number: request.issue_number,
+            owner: request.owner,
+            repo: request.repo,
+          });
         },
-        listForRepo: async (request: { labels: string; state: string }) => {
-          calls.listed.push({ labels: request.labels, state: request.state });
+        listForRepo: async (request: RepositoryCoordinates & { labels: string; state: string }) => {
+          calls.listed.push({ labels: request.labels, owner: request.owner, repo: request.repo, state: request.state });
           return { data: options.openIssues ?? [] };
         },
-        update: async (request: { body?: string; issue_number: number; state?: string; state_reason?: string }) => {
+        update: async (
+          request: RepositoryCoordinates & { body?: string; issue_number: number; state?: string; state_reason?: string },
+        ) => {
           if (request.state) {
             calls.closed.push({
               issue_number: request.issue_number,
+              owner: request.owner,
+              repo: request.repo,
               state: request.state,
               state_reason: request.state_reason,
             });
           }
           if (typeof request.body === "string") {
-            calls.updatedBodies.push({ body: request.body, issue_number: request.issue_number });
+            calls.updatedBodies.push({
+              body: request.body,
+              issue_number: request.issue_number,
+              owner: request.owner,
+              repo: request.repo,
+            });
           }
         },
       },
@@ -136,6 +157,30 @@ async function runRoutingScript(options: { findings?: string; openIssues?: Issue
 
 const pinnedIssue: Issue = { number: 1234, title: "Live drift check failing" };
 const sampleFindings = "UNEXPECTED DRIFT (2):\n  ! [indexes] missing_live documents_title_trgm_idx";
+const repositoryCoordinates = { owner: "BigSimmo", repo: "Database" };
+
+function workflowJobPermissionMaps(source: string) {
+  const jobsStart = source.indexOf("jobs:\n");
+  if (jobsStart < 0) throw new Error("Expected a jobs map in .github/workflows/live-drift.yml.");
+
+  const jobsSection = source.slice(jobsStart);
+  const jobHeaders = [...jobsSection.matchAll(/^  ([a-z][\w-]*):$/gm)];
+  const jobs = Object.fromEntries(
+    jobHeaders.map((header, index) => {
+      const bodyStart = (header.index ?? 0) + header[0].length + 1;
+      const bodyEnd = jobHeaders[index + 1]?.index ?? jobsSection.length;
+      const body = jobsSection.slice(bodyStart, bodyEnd);
+      const permissions = Object.fromEntries(
+        [...body.matchAll(/^    permissions:\n((?:      [^\n]+\n?)*)/gm)].flatMap((permissionsMatch) =>
+          [...permissionsMatch[1].matchAll(/^      ([\w-]+): ([\w-]+)$/gm)].map((entry) => [entry[1], entry[2]]),
+        ),
+      );
+      return [header[1], { permissions }];
+    }),
+  );
+
+  return { jobs };
+}
 
 describe("live-drift workflow triggers and privileges", () => {
   it("keeps the weekly schedule and manual dispatch", () => {
@@ -164,15 +209,11 @@ describe("live-drift workflow triggers and privileges", () => {
     // Workflow-level permissions stay read-only, so no job inherits issue writes.
     expect(workflow).toMatch(/^permissions:\n {2}contents: read\n/m);
 
-    const routingStart = workflow.indexOf("\n  drift-routing:");
-    expect(routingStart).toBeGreaterThan(-1);
-
-    // Match the YAML key only. Matching the bare string would also hit the
-    // explanatory comment above the job and silently pass on a real regression.
-    const grantPattern = /^ +issues: write$/gm;
-    const grants = [...workflow.matchAll(grantPattern)];
-    expect(grants).toHaveLength(1);
-    expect(grants[0].index).toBeGreaterThan(routingStart);
+    const parsed = workflowJobPermissionMaps(workflow);
+    expect(parsed.jobs["drift-routing"]?.permissions).toEqual({ contents: "read", issues: "write" });
+    for (const [jobName, job] of Object.entries(parsed.jobs)) {
+      if (jobName !== "drift-routing") expect(job.permissions.issues).toBeUndefined();
+    }
   });
 
   it("keeps the service-role key out of the job that can write issues", () => {
@@ -198,10 +239,11 @@ describe("live-drift failure routing", () => {
   it("opens one labelled issue when the check fails and none is open", async () => {
     const calls = await runRoutingScript({ findings: sampleFindings, result: "failure" });
 
-    expect(calls.listed).toEqual([{ labels: "live-drift-failure", state: "open" }]);
+    expect(calls.listed).toEqual([{ ...repositoryCoordinates, labels: "live-drift-failure", state: "open" }]);
     expect(calls.created).toHaveLength(1);
     expect(calls.created[0].title).toBe("Live drift check failing");
     expect(calls.created[0].labels).toEqual(["live-drift-failure"]);
+    expect(calls.created[0]).toMatchObject(repositoryCoordinates);
     expect(calls.created[0].body).toContain("https://github.com/BigSimmo/Database/actions/runs/99");
     expect(calls.created[0].body).toContain("documents_title_trgm_idx");
     expect(calls.closed).toHaveLength(0);
@@ -215,9 +257,10 @@ describe("live-drift failure routing", () => {
     });
 
     expect(calls.created).toHaveLength(0);
-    expect(calls.updatedBodies).toEqual([expect.objectContaining({ issue_number: 1234 })]);
+    expect(calls.updatedBodies).toEqual([expect.objectContaining({ ...repositoryCoordinates, issue_number: 1234 })]);
     expect(calls.comments).toHaveLength(1);
     expect(calls.comments[0].issue_number).toBe(1234);
+    expect(calls.comments[0]).toMatchObject(repositoryCoordinates);
     expect(calls.comments[0].body).toContain("Still failing");
     expect(calls.closed).toHaveLength(0);
     expect(calls.warnings.join(" ")).toContain("1234");
@@ -227,6 +270,7 @@ describe("live-drift failure routing", () => {
     const calls = await runRoutingScript({ findings: "", result: "failure" });
 
     expect(calls.created).toHaveLength(1);
+    expect(calls.created[0]).toMatchObject(repositoryCoordinates);
     expect(calls.created[0].body).toContain("not** evidence of a clean schema");
     expect(calls.created[0].body).not.toContain("UNEXPECTED DRIFT");
   });
@@ -237,8 +281,11 @@ describe("live-drift failure routing", () => {
     expect(calls.comments).toHaveLength(1);
     expect(calls.comments[0].body).toContain("Resolved");
     expect(calls.comments[0].body).toContain("https://github.com/BigSimmo/Database/actions/runs/99");
-    expect(calls.closed).toEqual([{ issue_number: 1234, state: "closed", state_reason: "completed" }]);
+    expect(calls.closed).toEqual([
+      { ...repositoryCoordinates, issue_number: 1234, state: "closed", state_reason: "completed" },
+    ]);
     expect(calls.created).toHaveLength(0);
+    expect(calls.listed).toEqual([{ ...repositoryCoordinates, labels: "live-drift-failure", state: "open" }]);
   });
 
   it("writes nothing when the check is green and no issue is open", async () => {
@@ -254,6 +301,6 @@ describe("live-drift failure routing", () => {
     const calls = await runRoutingScript({ openIssues: [pinnedIssue], result: "" });
 
     expect(calls.closed).toHaveLength(0);
-    expect(calls.updatedBodies).toHaveLength(1);
+    expect(calls.updatedBodies).toEqual([expect.objectContaining({ ...repositoryCoordinates, issue_number: 1234 })]);
   });
 });
