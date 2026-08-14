@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "fbfe982f-cd2f-49c9-a94e-908a99efa6b8",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#331",
+    "detail": "**Outcome:** one authoritative owner for the medication-report staleness problem, including its missing CI coverage. **Evidence:** on 2026-08-14, check:medication-lexicon-report reported the review document stale on three independently authored branches (#1947, #1949, #1950) although the document, lexicon sources, medication snapshot, and interaction index were untouched. The symptom must therefore be investigated against a clean current main rather than fixed opportunistically in unrelated work. **Scope:** this row also carries the CI evidence formerly duplicated in #333: the check is reached only at the end of verify:pr-local and no workflow invokes it, so CI can stay green while a local PR preflight fails. **Next:** inspect the generator and its staleness comparison against current main; if the report is genuinely stale, regenerate it in a dedicated clinical-document change, otherwise fix the comparison. In the same decision, either make the validated check part of the appropriate CI contract or move it out of the local preflight so its enforcement matches its ownership. **Stop:** do not delete or weaken the check merely to green an unrelated preflight, and do not regenerate a clinical-facing artifact without checking whether the diff changes clinical content.",
+    "source": "PR #1947, PR #1949 and PR #1950 clean-branch reproductions; PR #1942 preflight; session 2026-08-14; consolidated by PR #1956 review follow-up"
+  }
+}

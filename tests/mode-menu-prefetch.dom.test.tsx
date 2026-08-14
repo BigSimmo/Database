@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { LAST_APP_MODE_STORAGE_KEY } from "@/components/clinical-dashboard/use-last-app-mode";
 import { appModeSelectionHref, visibleAppModeDefinitionsForSession, type AppModeId } from "@/lib/app-modes";
 
 /**
@@ -85,6 +86,7 @@ describe("mode menu destination prefetch", () => {
     router.push.mockReset();
     router.replace.mockReset();
     router.prefetch.mockReset();
+    window.localStorage.clear();
   });
 
   it("prefetches the shared-home selection URL when the user points at a mode", async () => {
@@ -104,6 +106,26 @@ describe("mode menu destination prefetch", () => {
     const prefetched = new Set(router.prefetch.mock.calls.map(([href]) => href as string));
     expect(prefetched.has(documentsHref)).toBe(true);
     expect(prefetched.size).toBeLessThan(guestModeHomes().length);
+  });
+
+  it("prefetches and opens the canonical all-tools directory from the mode menu", async () => {
+    const user = userEvent.setup();
+    const onSearchModeChange = vi.fn();
+
+    render(<MasterSearchHeader {...headerProps()} onSearchModeChange={onSearchModeChange} />);
+    await user.click(screen.getByRole("button", { name: /Mode Answer/i }));
+    const toolsOption = within(await screen.findByRole("menu", { name: "Choose app mode" })).getByRole(
+      "menuitemradio",
+      { name: /Tools/i },
+    );
+
+    await user.hover(toolsOption);
+    expect(router.prefetch.mock.calls.some(([href]) => href === "/tools")).toBe(true);
+
+    await user.click(toolsOption);
+    expect(router.push).toHaveBeenCalledWith("/tools");
+    expect(onSearchModeChange).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(LAST_APP_MODE_STORAGE_KEY)).toBe("tools");
   });
 
   it("warms a mode again after Next invalidates its cached payload", async () => {
@@ -160,6 +182,26 @@ describe("mode menu destination prefetch", () => {
     await user.click(answerOption);
 
     expect(onSearchModeChange).toHaveBeenCalledWith("answer");
+    await vi.waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
+  });
+
+  it("restores mode-trigger focus when re-opening the active Tools directory", async () => {
+    const user = userEvent.setup();
+    const onSearchModeChange = vi.fn();
+    render(<MasterSearchHeader {...headerProps()} searchMode="tools" onSearchModeChange={onSearchModeChange} />);
+
+    const trigger = screen.getByRole("button", { name: /Mode Tools/i });
+    await user.click(trigger);
+    const toolsOption = within(await screen.findByRole("menu", { name: "Choose app mode" })).getByRole(
+      "menuitemradio",
+      { name: /Tools/i },
+    );
+    await user.click(toolsOption);
+
+    expect(router.push).toHaveBeenCalledWith("/tools");
+    expect(onSearchModeChange).not.toHaveBeenCalled();
     await vi.waitFor(() => {
       expect(trigger).toHaveFocus();
     });

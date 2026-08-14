@@ -148,7 +148,9 @@ describe("audit navigation and auth regressions", () => {
     );
 
     expect(masterSearchHeaderSource).toContain("function prefetchModeSelection(modeId: AppModeId)");
-    expect(masterSearchHeaderSource).toContain("const href = appModeSelectionHref(modeId)");
+    expect(masterSearchHeaderSource).toContain(
+      'const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId)',
+    );
     expect(masterSearchHeaderSource).toContain("router.prefetch(href,");
     expect(masterSearchHeaderSource).toContain("onInvalidate:");
     expect(modeOption).toContain("onFocus={() => prefetchModeSelection(mode.id)}");
