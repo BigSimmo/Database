@@ -95,7 +95,7 @@ function CurrentFloatingSearch({ query = "lithium", placeholder = "Search" }: Se
       )}
       <button
         type="submit"
-        className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
+        className="grid h-11 w-11 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]"
         aria-label="Search"
       >
         <Search className="h-4 w-4" />
