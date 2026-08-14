@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "bbf21714-0ef9-4c2f-942f-1b8d7e328ac8",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#316",
+    "detail": "2026-08-14 incident session: two of the 21 missing indexes (documents_title_trgm_idx, document_chunks_content_trgm_idx) were the retrieval-critical pair; restored live via owner-approved CREATE INDEX CONCURRENTLY + ANALYZE. Before/after supabase_rpc_latency_ms 31610 -> 1535 (text) / 8519 (hybrid). Forensics: indexes existed 2026-08-04 (guard 20260804110240 passed) and were dropped by 2026-08-09; no app code drops indexes - owner to check dashboard audit for manual/advisor DROP INDEX. Evidence: docs/audit/live-drift-forensics-2026-08.md. Remaining drift findings + 10 diverged match_* RPC bodies stay with docs/database-remediation-plan.md. Drift routing: PR #1939.",
+    "source": "session 2026-08-14 live incident (owner-authorized Supabase connector)"
+  }
+}
