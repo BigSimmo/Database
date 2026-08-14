@@ -307,7 +307,7 @@ describe("check-playwright-browser-revision", () => {
       expect(directoryResult.ok).toBe(false);
       expect(directoryResult.status).toBe("binary-missing");
 
-      rmSync(binary, { recursive: true, force: true });
+      rmSync(binary, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       writeFileSync(binary, "", { mode: 0o644 });
       const nonExecutableResult = playwrightBrowserRevisionCheck({
         projectRoot,
