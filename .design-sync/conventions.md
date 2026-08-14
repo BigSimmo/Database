@@ -2,10 +2,9 @@
 
 > The system of record is `docs/design-system/` (SPEC · TOKENS · COMPONENTS · DECISIONS ·
 > GATES). This file is the designer-facing build idiom; where it disagrees with that set,
-> treat the disagreement as a defect here and follow the set. Known nuance: the
-> `--shadow-*` role aliases below are **legacy-compat only** — new code uses the `--e0`…
-> `--e4` tiers directly; the aliases are scheduled for retirement
-> (`docs/design-system/TOKENS.md` §6).
+> treat the disagreement as a defect here and follow the set. New code uses the `--e0`…
+> `--e4` tiers directly; the remaining `--shadow-*` roles are legacy-compat aliases
+> documented in `docs/design-system/TOKENS.md` §6.
 
 ## Setup
 
@@ -31,8 +30,8 @@ arbitrary-value form — never hardcoded colours:
   `--info-solid`. For a filled non-danger status use `-bg` + `-text`.
 - Elevation: the `--e0` … `--e4` ladder — `shadow-[var(--e2)]`, `hover:shadow-[var(--e3)]`.
   `--e0` flush · `--e1` resting hairline · `--e2` cards/popovers · `--e3` hover/lifted chrome ·
-  `--e4` modals/sheets/drawers. The role names are aliases onto tiers:
-  `--shadow-tight`→`--e1`, `--shadow-card`/`--shadow-soft`→`--e2`, `--shadow-hover`→`--e3`,
+  `--e4` modals/sheets/drawers. The remaining role names are aliases onto tiers:
+  `--shadow-card`/`--shadow-soft`→`--e2`, `--shadow-hover`→`--e3`,
   `--shadow-elevated`/`--shadow-lux`→`--e4`. `--shadow-inset` stays bespoke.
   Never hand-roll a `shadow-[0_…]` literal.
 - Focus ring: `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]`.
