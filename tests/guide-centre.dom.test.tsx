@@ -43,6 +43,14 @@ describe("Clinical KB Guide Centre", () => {
   });
 
   it("shows a useful verification example and hides the mobile tour action while scrolling down", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      () =>
+        ({
+          matches: true,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as MediaQueryList,
+    );
     const { dialog } = renderGuide();
     expect(within(dialog).getByText("Check each claim, not just the summary")).toBeVisible();
     expect(within(dialog).getByLabelText("Neutral illustrative answer")).toHaveTextContent(
@@ -50,18 +58,44 @@ describe("Clinical KB Guide Centre", () => {
     );
 
     const scrollBody = dialog.querySelector<HTMLElement>(".polished-scroll");
-    const footer = within(dialog).getAllByRole("button", { name: "Start guided tour" }).at(-1)?.parentElement
-      ?.parentElement?.parentElement;
+    const footer = dialog.querySelector<HTMLElement>("[data-guide-mobile-footer]");
+    const footerLayer = footer?.parentElement;
+    const content = dialog.querySelector<HTMLElement>("[data-guide-content]");
     expect(scrollBody).not.toBeNull();
     expect(footer).not.toBeNull();
+    expect(content).not.toBeNull();
 
     Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 80 });
     fireEvent.scroll(scrollBody!);
-    expect(footer).toHaveClass("translate-y-full");
+    expect(footerLayer).toHaveClass("translate-y-full");
+    expect(footer).toHaveAttribute("aria-hidden", "true");
+    expect(footer).toHaveAttribute("inert", "");
+    expect(within(footer!).queryByRole("button", { name: "Start guided tour" })).not.toBeInTheDocument();
+    expect(content).toHaveClass("pb-0");
+    expect(content).not.toHaveClass("pb-28");
 
     Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 0 });
     fireEvent.scroll(scrollBody!);
-    expect(footer).not.toHaveClass("translate-y-full");
+    expect(footerLayer).not.toHaveClass("translate-y-full");
+    expect(footer).toHaveAttribute("aria-hidden", "false");
+    expect(footer).not.toHaveAttribute("inert");
+    expect(content).toHaveClass("pb-28");
+  });
+
+  it("keeps the guide footer available while the desktop body scrolls", () => {
+    const { dialog } = renderGuide();
+    const scrollBody = dialog.querySelector<HTMLElement>(".polished-scroll");
+    const footer = dialog.querySelector<HTMLElement>("[data-guide-mobile-footer]");
+    const footerLayer = footer?.parentElement;
+    const content = dialog.querySelector<HTMLElement>("[data-guide-content]");
+
+    Object.defineProperty(scrollBody, "scrollTop", { configurable: true, value: 80 });
+    fireEvent.scroll(scrollBody!);
+
+    expect(footerLayer).not.toHaveClass("translate-y-full");
+    expect(footer).toHaveAttribute("aria-hidden", "false");
+    expect(footer).not.toHaveAttribute("inert");
+    expect(content).toHaveClass("pb-28");
   });
 
   it("wires every quick task to its complete guide topic", async () => {

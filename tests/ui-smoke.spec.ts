@@ -5317,6 +5317,30 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
 
     const dialog = await openGuide(page);
+    const guideScrollBody = dialog.locator(".polished-scroll");
+    const mobileFooter = dialog.locator("[data-guide-mobile-footer]");
+    const mobileFooterAction = mobileFooter.locator("button");
+    await guideScrollBody.evaluate((element) => {
+      element.scrollTop = 80;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
+    await expect(mobileFooter).toHaveAttribute("inert", "");
+
+    // The hidden mobile footer must not be reachable by keyboard tabbing.
+    await dialog.getByRole("button", { name: "Close guide" }).focus();
+    const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
+    for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
+      await page.keyboard.press("Tab");
+      await expect(mobileFooterAction).not.toBeFocused();
+    }
+
+    await guideScrollBody.evaluate((element) => {
+      element.scrollTop = 0;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(mobileFooter).toHaveAttribute("aria-hidden", "false");
+    await expect(mobileFooter).not.toHaveAttribute("inert");
     const search = dialog.getByPlaceholder("Search the guide");
     await search.fill("privacy");
     await expect(dialog.getByText(/topics? found for “privacy”\./)).toBeVisible();

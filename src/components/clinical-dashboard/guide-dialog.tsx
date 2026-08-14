@@ -23,7 +23,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState, type UIEvent } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore, type UIEvent } from "react";
 
 import {
   guideQuickTasks,
@@ -57,6 +57,23 @@ import {
 } from "@/components/ui-primitives";
 
 const guideAccessibleNameId = "clinical-kb-guide-accessible-name";
+const phoneMediaQuery = "(max-width: 639px)";
+
+function subscribeToPhoneMedia(callback: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
+  const media = window.matchMedia(phoneMediaQuery);
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+
+function getPhoneMediaSnapshot() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia(phoneMediaQuery).matches;
+}
+
+function usePhoneViewport() {
+  return useSyncExternalStore(subscribeToPhoneMedia, getPhoneMediaSnapshot, () => false);
+}
 
 const topicIcons: Record<GuideTopicId, LucideIcon> = {
   "getting-started": BookOpen,
@@ -666,6 +683,8 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
   const scrollBodyRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
   const [mobileFooterHidden, setMobileFooterHidden] = useState(false);
+  const isPhoneViewport = usePhoneViewport();
+  const footerHidden = isPhoneViewport && mobileFooterHidden;
 
   function focusPageStart() {
     window.requestAnimationFrame(() => {
@@ -678,6 +697,11 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
 
   function handleBodyScroll(event: UIEvent<HTMLDivElement>) {
     const nextScrollTop = event.currentTarget.scrollTop;
+    if (!isPhoneViewport) {
+      lastScrollTopRef.current = nextScrollTop;
+      setMobileFooterHidden(false);
+      return;
+    }
     const delta = nextScrollTop - lastScrollTopRef.current;
     if (nextScrollTop <= 12) setMobileFooterHidden(false);
     else if (delta > 6) setMobileFooterHidden(true);
@@ -738,7 +762,12 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         ? "Review guided tour"
         : "Resume guided tour";
   const footer = (
-    <div className="flex min-w-0 items-center justify-center gap-3 sm:justify-between">
+    <div
+      data-guide-mobile-footer
+      aria-hidden={footerHidden}
+      inert={footerHidden || undefined}
+      className="flex min-w-0 items-center justify-center gap-3 sm:justify-between"
+    >
       <p className={cn("hidden min-w-0 items-center gap-2 text-xs sm:flex", textMuted)}>
         <ShieldCheck aria-hidden="true" className="size-icon-md shrink-0" /> Demo content only · Do not enter PHI
       </p>
@@ -832,7 +861,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
       footer={footer}
       footerClassName={cn(
         "absolute inset-x-0 bottom-0 z-30 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 transition-[transform,opacity] duration-[var(--duration-quick)] sm:static sm:p-4",
-        mobileFooterHidden &&
+        footerHidden &&
           "pointer-events-none translate-y-full opacity-0 sm:pointer-events-auto sm:translate-y-0 sm:opacity-100",
       )}
       testId="clinical-kb-guide-centre"
@@ -845,7 +874,11 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
         <GuideSearch query={query} onQueryChange={setQuery} />
       </div>
       <GuideTopNavigation view={view} onNavigate={navigate} />
-      <div ref={contentStartRef} className="space-y-4 p-3 pb-28 sm:p-5">
+      <div
+        ref={contentStartRef}
+        data-guide-content
+        className={cn("space-y-4 p-3 sm:p-5", footerHidden ? "pb-0" : "pb-28")}
+      >
         {hasSearch ? (
           <SearchResults query={query} onSelect={openTopic} />
         ) : (
