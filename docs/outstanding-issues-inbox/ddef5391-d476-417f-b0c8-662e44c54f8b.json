@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "ddef5391-d476-417f-b0c8-662e44c54f8b",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "9b67dd0e-f11e-423e-be63-7e4d91f4dd82",
+    "reason": "This duplicate #335 closure was created by the aborted command; apply the identical intended closure 2b7856a5-fe32-49b8-9e3c-819d961784c6 instead."
+  }
+}
