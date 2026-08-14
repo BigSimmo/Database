@@ -269,10 +269,7 @@ describe("shared-search route ownership", () => {
       /if \(mode === "answer" \|\| mode === "documents"\) \{[\s\S]*?void executeSearch\(crossQuery, mode/,
     );
     expect(dashboardSource).toMatch(
-      /const legacyToolsDashboardAlias = isHomeRoute && searchParams\.get\("mode"\) === "tools";/,
-    );
-    expect(dashboardSource).toMatch(
-      /const showSharedHome =\s*isHomeRoute &&\s*!legacyToolsDashboardAlias &&[\s\S]*?!submittedAnswerSearchActive;/,
+      /const showSharedHome = shouldShowSharedHome\(\{[\s\S]*?pathname,[\s\S]*?mode: searchParams\.get\("mode"\),[\s\S]*?submittedAnswerSearchActive,[\s\S]*?\}\);/,
     );
   });
 

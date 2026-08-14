@@ -37,6 +37,7 @@ import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -354,6 +355,7 @@ export function MasterSearchHeader({
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
   const router = useRouter();
+  const [, setLastAppMode] = useLastAppMode();
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
@@ -886,6 +888,9 @@ export function MasterSearchHeader({
     if (mode.id === "tools" && "href" in mode && mode.href) {
       // Tools is a browse-first directory: selecting it opens the canonical
       // all-tools page instead of retargeting the shared-home composer.
+      // Persist the selection here rather than via onSearchModeChange: that
+      // callback owns shared-home navigation and would race this canonical push.
+      setLastAppMode(mode.id);
       pendingModeSelectionFocusRef.current = mode.id;
       router.push(mode.href);
       if (mode.id === searchMode) {

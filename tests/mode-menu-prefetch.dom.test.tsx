@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { LAST_APP_MODE_STORAGE_KEY } from "@/components/clinical-dashboard/use-last-app-mode";
 import { appModeSelectionHref, visibleAppModeDefinitionsForSession, type AppModeId } from "@/lib/app-modes";
 
 /**
@@ -85,6 +86,7 @@ describe("mode menu destination prefetch", () => {
     router.push.mockReset();
     router.replace.mockReset();
     router.prefetch.mockReset();
+    window.localStorage.clear();
   });
 
   it("prefetches the shared-home selection URL when the user points at a mode", async () => {
@@ -123,6 +125,7 @@ describe("mode menu destination prefetch", () => {
     await user.click(toolsOption);
     expect(router.push).toHaveBeenCalledWith("/tools");
     expect(onSearchModeChange).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(LAST_APP_MODE_STORAGE_KEY)).toBe("tools");
   });
 
   it("warms a mode again after Next invalidates its cached payload", async () => {
