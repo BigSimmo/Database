@@ -43,9 +43,29 @@ function sourceFiles(): string[] {
  */
 function endOfPair(source: string, open: number, opener: string, closer: string): number {
   let depth = 0;
+  let quote: "'" | '"' | "`" | null = null;
   for (let i = open; i < source.length; i += 1) {
-    if (source[i] === opener) depth += 1;
-    else if (source[i] === closer) {
+    const character = source[i] ?? "";
+    if (quote) {
+      if (character === "\\") i += 1;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === "/" && source[i + 1] === "/") {
+      i = source.indexOf("\n", i + 2);
+      if (i === -1) return -1;
+      continue;
+    }
+    if (character === "/" && source[i + 1] === "*") {
+      i = source.indexOf("*/", i + 2);
+      if (i === -1) return -1;
+      i += 1;
+      continue;
+    }
+    if (character === "'" || character === '"' || character === "`") {
+      quote = character;
+    } else if (character === opener) depth += 1;
+    else if (character === closer) {
       depth -= 1;
       if (depth === 0) return i + 1;
     }
@@ -53,9 +73,21 @@ function endOfPair(source: string, open: number, opener: string, closer: string)
   return -1;
 }
 
-function skipWhitespace(source: string, from: number): number {
+function skipTrivia(source: string, from: number): number {
   let i = from;
-  while (i < source.length && /\s/.test(source[i] ?? "")) i += 1;
+  while (i < source.length) {
+    if (/\s/.test(source[i] ?? "")) {
+      i += 1;
+    } else if (source.startsWith("//", i)) {
+      const end = source.indexOf("\n", i + 2);
+      if (end === -1) return source.length;
+      i = end + 1;
+    } else if (source.startsWith("/*", i)) {
+      const end = source.indexOf("*/", i + 2);
+      if (end === -1) return source.length;
+      i = end + 2;
+    } else break;
+  }
   return i;
 }
 
@@ -65,13 +97,13 @@ function undispositionedCatches(source: string, label: string): string[] {
 
   for (const match of source.matchAll(/\bcatch\b/g)) {
     const keywordAt = match.index;
-    let cursor = skipWhitespace(source, keywordAt + "catch".length);
+    let cursor = skipTrivia(source, keywordAt + "catch".length);
 
     // The binding is optional: both `catch {` and `catch (error) {` are valid.
     if (source[cursor] === "(") {
       const bindingEnd = endOfPair(source, cursor, "(", ")");
       if (bindingEnd === -1) continue;
-      cursor = skipWhitespace(source, bindingEnd);
+      cursor = skipTrivia(source, bindingEnd);
     }
     if (source[cursor] !== "{") continue;
 
@@ -119,8 +151,16 @@ describe("empty catch disposition", () => {
       "try { d(); } catch (error) { report(error); }", // 4: handled
       "try { e(); } catch {\n  // explained across lines\n}", // 5-7: dispositioned
       "const s = `(function(){try{f();}catch(e){}})();`;", // 8: bare, inside a script string
+      "try { g(); } catch ({ message = \")\" }) {}", // 9: bare binding with a delimiter in a string
+      "try { h(); } catch /* binding is intentional */ (error) {}", // 10: bare with comment trivia
     ].join("\n");
 
-    expect(undispositionedCatches(fixture, "fixture")).toEqual(["fixture:1", "fixture:2", "fixture:8"]);
+    expect(undispositionedCatches(fixture, "fixture")).toEqual([
+      "fixture:1",
+      "fixture:2",
+      "fixture:8",
+      "fixture:9",
+      "fixture:10",
+    ]);
   });
 });
