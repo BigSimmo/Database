@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "11e56221-8d46-4c9a-a89c-78621f18e754",
+  "createdOn": "2026-08-14",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Three mode-nav icon glyphs sit at 17px, off the --spacing-icon-* scale, and no gate flags them",
+    "detail": "Split out of #275 rather than folded into its badge-box token. mode-nav/mode-nav.tsx:64 and :214 and mode-nav/nav-slot-ink.tsx:44 size their <Icon> with h-[1.0625rem] w-[1.0625rem] — 17px against an icon scale of 12/14/16/20/24 (--spacing-icon-xs..xl in the globals.css @theme block). #275 counted these among its five files because they share the badge's number, but they are a different role: the badge is a text-bearing box sized around its own --text-2xs numeral, these are glyphs. They are now the only consumers of that value, since the badge moved to --spacing-search-band-badge. Nothing gates this: check-icon-scale.mjs enforces only the retired 4.5 (18px) half-step and its header states it deliberately does NOT flag arbitrary h-[Nrem], because non-icon boxes legitimately use that form. So this is unguarded and will not self-report. Why it was not just fixed: snapping to size-icon-md (16px) or size-icon-lg (20px) visibly changes nav chrome at every breakpoint, and 17px is close enough to 16 that the choice looks arbitrary without seeing it rendered — a design call, not a token swap. Next: get a Chromium look at mode-nav at phone and desktop widths with the icon at 16 and at 20, pick one, then migrate all three together. If 17px turns out to be deliberate, say so in a comment at the call site and consider whether check:icon-scale should flag off-scale arbitrary icon sizes on <Icon>-typed elements specifically, which would have surfaced this. Stop: do not add a 17px step to --spacing-icon-* to make the problem go away — that token block's own comment argues against widening the scale off the 4px grid, and it would sanction the drift rather than resolve it.",
+    "source": "session 2026-08-14; split from #275; check-icon-scale.mjs header"
+  }
+}

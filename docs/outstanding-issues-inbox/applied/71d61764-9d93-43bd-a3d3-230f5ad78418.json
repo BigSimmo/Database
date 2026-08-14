@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "71d61764-9d93-43bd-a3d3-230f5ad78418",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#258",
+    "detail": "GAP RECORDED 2026-08-14 in PR #1944 — docs/pr-handoff-stop-cross-agent-gap.md. This is the row's own stated fallback (\"If no mechanism exists at all, record that explicitly here so the gap is a known limit rather than an open task\"), so the row stays open but is no longer unexamined. Checked, not assumed: .claude/settings.json is read only by Claude Code; plugins/clinical-kb/.codex-plugin/plugin.json declares name/version/description/author/repository/keywords/skills and an interface block with NO hook, event, or pre-tool-interception field, shipping exactly one skill; .cursor/ holds settings.json (plugin enablement only), mcp.json, agents/ and skills/ with no deny path. So the cheapest-first option the row proposed is currently unavailable in both tools. Worth noting because it sharpens the cost: .cursor/agents/pr-babysit.md exists, meaning Cursor ships a documented agent for exactly the PR-following behaviour this rule restricts, with nothing bounding it. The doc records the Claude Code mechanism in enough detail to reimplement (session-scoped marker under the absolute git dir, fail-open on an unidentifiable session id, never pruning a sibling's marker, post-mode scanning only the request half so a command that merely prints a PR URL cannot arm it, and the CLAUDE_ALLOW_PR_FOLLOW=1 prefix unlock that a mention alone cannot trigger), plus the three questions any parity mechanism must answer. It is explicit that the wrapper fallback is advisory only — it cannot touch the MCP-connector or loop-machinery classes, so it makes a violation detectable after the fact rather than prevented. Next: re-check the Codex and Cursor manifests when either ships hook support; close only when a mechanism exists or the limit is accepted deliberately. Stop unchanged: do not weaken the Claude Code hook for symmetry, and do not keep a second copy of the deny list."
+  }
+}

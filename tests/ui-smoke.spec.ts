@@ -904,7 +904,7 @@ function accountSettingsDialog(page: Page) {
 }
 
 function accountSetupDialog(page: Page) {
-  return page.getByRole("dialog", { name: "Set up your workspace" });
+  return page.getByRole("dialog", { name: "Account setup" });
 }
 
 async function expectAccountSettingsSurface(settings: Locator) {
@@ -981,19 +981,31 @@ async function expectMobileSettingsLayout(settings: Locator) {
 }
 
 async function expectAccountSetupSurface(setup: Locator) {
-  await expect(setup.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
-  await expect(setup.getByLabel("Email address")).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Continue with email" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Continue to your workspace" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Your workspace, wherever you work." })).toBeVisible();
+  await expect(setup.getByLabel("Work email")).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue securely" })).toBeVisible();
   await expect(setup.getByRole("button", { name: "Continue with Apple" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
   await expect(setup.getByText(/Apple sign-in is not available/i)).toHaveCount(0);
-  await expect(setup.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
-  await expect(setup.getByText("Account", { exact: true })).toHaveCount(2);
-  await expect(setup.getByText("This device", { exact: true })).toBeVisible();
-  await expect(setup.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
-  await expect(setup.getByText(/No PHI required\./i)).toBeVisible();
-  await expect(setup).toContainText("Do not enter patient-identifying information during sign-in.");
+  const accountSetupViewportWidth = await setup.evaluate(() => window.innerWidth);
+  if (accountSetupViewportWidth >= 1024) {
+    await expect(setup.getByText("Save favourites", { exact: true })).toBeVisible();
+    await expect(setup.getByText(/Reopen trusted resources on any device/i)).toBeVisible();
+    await expect(setup.getByText("Keep your clinical defaults", { exact: true })).toBeVisible();
+    await expect(setup.getByText(/Your jurisdiction and answer style follow you/i)).toBeVisible();
+    await expect(setup.getByText("Recent searches stay here", { exact: true })).toBeVisible();
+    await expect(setup.getByText(/Browser activity does not sync to your account/i)).toBeVisible();
+  } else {
+    await expect(setup.getByText("Favourites sync", { exact: true })).toBeVisible();
+    await expect(setup.getByText("Preferences sync", { exact: true })).toBeVisible();
+    await expect(setup.getByText("Searches stay here", { exact: true })).toBeVisible();
+  }
+  const privacyLink = setup.getByRole("link", { name: "Privacy and data processing" });
+  await expect(privacyLink).toBeVisible();
+  await expect(privacyLink).toHaveAttribute("href", "/privacy");
+  await expect(privacyLink.locator("xpath=..")).toContainText("Do not enter patient-identifiable information.");
 }
 
 async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stack") {
@@ -1588,7 +1600,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
     await expectAccountProviderLayout(setup, "stack");
-    await expect(setup.getByLabel("Email address")).toBeFocused();
+    await expect(setup.getByLabel("Work email")).toBeFocused();
     const setupBox = await setup.boundingBox();
     expect(setupBox).not.toBeNull();
     expect(setupBox!.x).toBeGreaterThanOrEqual(-1);
@@ -1597,8 +1609,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 320, height: 700 });
     const setupClose = setup.getByRole("button", { name: "Close account setup" });
-    await expect(setup.getByLabel("Email address")).toBeInViewport();
-    await expect(setup.getByRole("button", { name: "Continue with email" })).toBeInViewport();
+    const setupEmail = setup.getByLabel("Work email");
+    await setupEmail.scrollIntoViewIfNeeded();
+    await expect(setupEmail).toBeInViewport();
+    await expect(setup.getByRole("button", { name: "Continue securely" })).toBeInViewport();
     await expect(setupClose).toBeInViewport();
     await expectNoPageHorizontalOverflow(page);
 
@@ -1606,7 +1620,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await setupScrollPort.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
     });
-    await expect(setup.getByText("No PHI required")).toBeInViewport();
+    await expect(setup.getByRole("link", { name: "Privacy and data processing" })).toBeInViewport();
     await expect(setupClose).toBeInViewport();
 
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
@@ -5317,6 +5331,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
 
     const dialog = await openGuide(page);
+    const guideScrollBody = dialog.locator(".polished-scroll");
+    const mobileFooter = dialog.locator("[data-guide-mobile-footer]");
+    await guideScrollBody.evaluate((element) => {
+      element.scrollTop = 80;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
+    await expect(mobileFooter).toHaveAttribute("inert", "");
+
+    // The hidden mobile footer must not be reachable by keyboard tabbing.
+    await dialog.getByRole("button", { name: "Close guide" }).focus();
+    const tabStopCount = await dialog.locator('button, input, [href], [tabindex]:not([tabindex="-1"])').count();
+    for (let tabIndex = 0; tabIndex <= tabStopCount; tabIndex += 1) {
+      await page.keyboard.press("Tab");
+      await expect.poll(() => mobileFooter.evaluate((element) => element.contains(document.activeElement))).toBe(false);
+    }
+
+    await guideScrollBody.evaluate((element) => {
+      element.scrollTop = 0;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(mobileFooter).toHaveAttribute("aria-hidden", "false");
+    await expect(mobileFooter).not.toHaveAttribute("inert");
     const search = dialog.getByPlaceholder("Search the guide");
     await search.fill("privacy");
     await expect(dialog.getByText(/topics? found for “privacy”\./)).toBeVisible();
