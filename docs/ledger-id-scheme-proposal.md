@@ -96,12 +96,12 @@ while producing exactly the renumbering churn this row exists to end.
 
 So the two forms coexist, and the migration is additive:
 
-| Step | Change                                                                                                                                                   | Risk                                                            |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Step | Change                                                                                                                                                        | Risk                                                            |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | 1    | Widen every id validator to accept both `#NNN` and the new stored display id, while allocation still uses the marker. No behaviour change; purely permissive. | Low. Fully reversible.                                          |
-| 2    | Add ULID and display-id fields to new rows and switch allocation to them. The `issues:next-id` marker stops being read.                                      | Medium — this is the cutover.                                   |
-| 3    | Remove the marker and its `next-id` guards once no writer consults it.                                                                                   | Low, but only after step 2 has been through a few real appends. |
-| 4    | Reconsider a union merge driver, which becomes safe only once **no** id is allocated read-modify-write.                                                  | Deliberately last. See the Stop below.                          |
+| 2    | Add ULID and display-id fields to new rows and switch allocation to them. The `issues:next-id` marker stops being read.                                       | Medium — this is the cutover.                                   |
+| 3    | Remove the marker and its `next-id` guards once no writer consults it.                                                                                        | Low, but only after step 2 has been through a few real appends. |
+| 4    | Reconsider a union merge driver, which becomes safe only once **no** id is allocated read-modify-write.                                                       | Deliberately last. See the Stop below.                          |
 
 **Every place that currently assumes a sequential id** — all of these need step 1 before
 anything else moves:

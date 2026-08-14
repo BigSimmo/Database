@@ -133,9 +133,9 @@ describe("merge-loss reconciliation exemption", () => {
   it("credits only a verbatim move to the matching request filename", () => {
     const entryAt = reader({ [`landing:${request}`]: "100644 blob eee", [`head:${applied}`]: "100644 blob eee" });
     expect(isReconciliationMove(request, "landing", "head", entryAt)).toBe(true);
-    expect(
-      isReconciliationMove(`${INBOX}/22222222-2222-4222-8222-222222222222.json`, "landing", "head", entryAt),
-    ).toBe(false);
+    expect(isReconciliationMove(`${INBOX}/22222222-2222-4222-8222-222222222222.json`, "landing", "head", entryAt)).toBe(
+      false,
+    );
     expect(isReconciliationMove("src/lib/rag/rag.ts", "landing", "head", entryAt)).toBe(false);
     expect(isReconciliationMove(applied, "landing", "head", entryAt)).toBe(false);
   });
