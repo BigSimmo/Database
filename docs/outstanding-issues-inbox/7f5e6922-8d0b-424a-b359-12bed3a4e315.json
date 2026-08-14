@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "7f5e6922-8d0b-424a-b359-12bed3a4e315",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#231",
+    "detail": "PARTIAL 2026-08-12: This PR fixes the clinically consequential stale-fallback path: every answer whose routing or degraded reason contains generation_fallback is excluded from rag_response_cache. Offline evidence: 96 focused answer-route tests and 574 RAG fixture/contract tests passed. Approved live baseline/final canaries preserved 36/36 document and content recall at 1.0 with zero per-case reciprocal-rank regressions; the final 44-case answer gate had zero citation or numeric-grounding failures. A budget extension was tested and rejected: four cache-bypassed 'Lithium dosing?' probes remained grounded, cited safe extractive fallbacks at 35-40 second candidate budgets; the decisive 40-second probe completed generation in 25.272 seconds and 27.237 seconds total with route_deadline_exceeded=false, but failed generation quality. Therefore OPENAI_ANSWER_TIMEOUT_MS and the route budget are not the current residual binding cause. INSTRUMENT NOW EXISTS 2026-08-14: the \"Next: instrument\" half of this row is done. Commit a3bc4da adds scripts/probe-generation-quality.ts — one cache-bypassed live answer reporting the structured generation_quality_gate_reasons, provider-backed, refusing demo mode, never caching or logging the probe. The same commit adjudicates PR #1861: superseded for phase 1, close recommended, with the numeric-retry half deferred to phase 2 pending probe evidence. So do not review #1861 as though it were the live fix, and do not re-implement the probe. Next: run scripts/probe-generation-quality.ts in an environment that has OPENAI and Supabase credentials — it is blocked in offline containers, which is why it has not been run yet — then make a separate bounded output-quality fix with an offline fixture and live canary. Stop: do not increase route/provider timeouts or cache any generation fallback."
+  }
+}
