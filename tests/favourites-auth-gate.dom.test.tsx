@@ -155,18 +155,24 @@ describe("favourites auth gate DOM", () => {
 
     expect(screen.getByRole("heading", { name: "Sign up to save favourites" })).toBeVisible();
     expect(screen.getByText(/Sign in or create an account to save favourites/i)).toBeVisible();
-    expect(screen.getByText("Saved favourites")).toBeVisible();
+    expect(screen.getByText("Save favourites")).toBeVisible();
   });
 
   it("separates account-synced data from device-only recents", () => {
     render(<AccountSetupDialog open onClose={() => undefined} />);
 
-    expect(screen.getByRole("heading", { name: "What’s saved where" })).toBeVisible();
-    expect(screen.getAllByText("Account")).toHaveLength(2);
-    expect(screen.getByText("This device")).toBeVisible();
-    expect(screen.getByText(/Recent searches/i)).toBeVisible();
-    expect(screen.getByText(/Stay in this browser session and do not sync/i)).toBeVisible();
-    expect(screen.getByText(/No PHI required\./i)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Your workspace, wherever you work." })).toBeVisible();
+    expect(screen.getByText("Save favourites")).toBeVisible();
+    expect(screen.getByText(/Reopen trusted resources on any device/i)).toBeVisible();
+    expect(screen.getByText("Keep your clinical defaults")).toBeVisible();
+    expect(screen.getByText(/Your jurisdiction and answer style follow you/i)).toBeVisible();
+    expect(screen.getByText("Recent searches stay here")).toBeVisible();
+    expect(screen.getByText(/Browser activity does not sync to your account/i)).toBeVisible();
+    expect(screen.getAllByText("Do not enter patient-identifiable information.")).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: "Privacy and data processing" })).toHaveLength(2);
+    for (const privacyLink of screen.getAllByRole("link", { name: "Privacy and data processing" })) {
+      expect(privacyLink).toHaveAttribute("href", "/privacy");
+    }
     expect(screen.queryByText(/Everything syncs across your devices/i)).toBeNull();
     expect(screen.queryByText(/never shared/i)).toBeNull();
     expect(screen.queryByText("Account-scoped saves")).toBeNull();
@@ -179,7 +185,7 @@ describe("favourites auth gate DOM", () => {
     const apple = screen.getByRole("button", { name: "Continue with Apple" });
     const google = screen.getByRole("button", { name: "Continue with Google" });
     const microsoft = screen.getByRole("button", { name: "Continue with Microsoft" });
-    const email = screen.getByLabelText(/Email address/);
+    const email = screen.getByLabelText(/Work email/);
 
     expect(apple.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(google.compareDocumentPosition(microsoft) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -207,16 +213,16 @@ describe("favourites auth gate DOM", () => {
     for (const provider of ["Apple", "Google", "Microsoft"]) {
       expect(screen.getByRole("button", { name: `Continue with ${provider}` })).toBeDisabled();
     }
-    expect(screen.getByRole("button", { name: "Continue with email" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Continue securely" })).toBeDisabled();
   });
 
   it("submits email and announces success and failure feedback", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<AccountSetupDialog open onClose={() => undefined} />);
 
-    const submit = screen.getByRole("button", { name: "Continue with email" });
+    const submit = screen.getByRole("button", { name: "Continue securely" });
     expect(submit).toBeDisabled();
-    const email = screen.getByLabelText(/Email address/);
+    const email = screen.getByLabelText(/Work email/);
     expect(email).toHaveAttribute("data-sheet-autofocus", "true");
     await user.type(email, "clinician@clinic.example");
     await user.click(submit);
