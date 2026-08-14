@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "3d0adf39-ec7a-4fa3-9309-057a193410de",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#316",
+    "detail": "Combined 2026-08-14 update, superseding the two partial requests cancelled in this same batch. PHASE 0 CLOSED including the forced-dispatch proof its definition of done required: live-drift dispatched on main (Actions run 31813064485) failed at the drift step, the always() capture step still ran, the migration-history step correctly skipped, and the separate drift-routing job then created issue #1963 \"Live drift check failing\" carrying the label, run URL, job result, trigger and the full findings block. Routing is now also covered offline by tests/live-drift-workflow.test.ts, mutation-verified. INCIDENT REPAIR, owner-approved in-session: the two retrieval-critical indexes documents_title_trgm_idx and document_chunks_content_trgm_idx were restored with CREATE INDEX CONCURRENTLY plus ANALYZE, both indisvalid and indisready at 648 kB and 68 MB, re-verified afterwards by an independent read-only query. Before and after supabase_rpc_latency_ms 31610 to 1535 on the text fast path and 8519 hybrid, with match_document_chunks_text_v2 at 14 ms. No repo schema change was needed because the definitions were already codified. CORRECTED FIGURES measured 2026-08-14, superseding the 2026-08-09 numbers this row was opened with: 10 match_* def_hash mismatches (unchanged), 20 missing_live indexes rather than 21, and the same 2 unexpected_live. ATTRIBUTION STILL OPEN: migration 20260705180000 recorded 14 executed statements so it was not mark-applied, and the 20260804110240 guard validates four other indexes and never checks this pair, so it gives no existence bound for 2026-08-04. The drop window is therefore 2026-07-05 to 2026-08-02 and the dashboard audit-history pairing remains owner action; #248 stays open. NEXT: Phase 3 RPC reconciliation before Phase 4, per the plan's ordering that the change which can alter clinical answers precedes the ones that only speed them up. Evidence: docs/audit/live-drift-forensics-2026-08.md."
+  }
+}
