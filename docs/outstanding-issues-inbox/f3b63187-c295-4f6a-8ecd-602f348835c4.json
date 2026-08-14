@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "f3b63187-c295-4f6a-8ecd-602f348835c4",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#333",
+    "outcome": "Closed 2026-08-15 as a duplicate of #331. Its clean-main and missing-CI evidence is preserved in #331, which is now the single owner of both the staleness diagnosis and the CI/local-preflight enforcement decision; no medication report was regenerated or clinical content changed."
+  }
+}
