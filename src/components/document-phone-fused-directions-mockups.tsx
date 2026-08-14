@@ -194,7 +194,7 @@ function Pane({ id, layout }: { id: string; layout: "list" | "grid" }) {
   return (
     <div
       id={id}
-      className="shrink-0 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)] px-2 pb-2 pt-1.5 shadow-[var(--shadow-tight)]"
+      className="shrink-0 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)] px-2 pb-2 pt-1.5 shadow-[var(--e1)]"
     >
       <p className="px-1 pb-1 text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--text-soft)]">Jump to</p>
       {layout === "grid" ? <PaneGrid /> : <PaneList />}

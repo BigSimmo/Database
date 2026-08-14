@@ -281,7 +281,7 @@ function ToolSearch({
         aria-label={copy.openSelectedAriaLabel}
         data-testid="tools-local-search-submit"
         className={cn(
-          "grid h-tap w-tap place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
+          "grid h-tap w-tap place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--clinical-accent-hover)]",
           focusRing,
         )}
       >
@@ -490,7 +490,7 @@ function ToolCard({
           <ToolChips app={app} />
         </span>
       </span>
-      <span className="self-end rounded-lg bg-[color:var(--clinical-accent)] px-3 py-2 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+      <span className="self-end rounded-lg bg-[color:var(--clinical-accent)] px-3 py-2 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
         Details
         <ChevronRight className="ml-1 inline h-3.5 w-3.5" aria-hidden />
       </span>
@@ -531,7 +531,7 @@ function MobileToolRow({
           {app.description}
         </span>
       </span>
-      <span className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3 text-2xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+      <span className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3 text-2xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
         Details
         <ChevronRight className="ml-1 h-3 w-3" aria-hidden />
       </span>
@@ -673,7 +673,7 @@ function DetailDialog({ app, open, onClose }: { app: LauncherApp; open: boolean;
             target={app.external ? "_blank" : undefined}
             rel={app.external ? "noopener noreferrer" : undefined}
             className={cn(
-              "inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)]",
+              "inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--clinical-accent-hover)]",
               focusRing,
             )}
           >
