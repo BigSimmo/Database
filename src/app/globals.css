@@ -3176,10 +3176,6 @@ td,
  * those unlayered classes, check the class body first; the class wins.
  */
 @layer components {
-  .answer-activity-trace {
-    contain: paint;
-  }
-
   .answer-activity-trace__sweep {
     animation: var(--animate-answer-ecg);
   }
