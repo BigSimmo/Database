@@ -11,8 +11,8 @@ import { type AppModeId, appModeSearchConfig } from "@/lib/app-modes";
 
 const ApplicationsLauncherWorkspace = dynamic(
   () => import("@/components/applications-launcher-page").then((module) => module.ApplicationsLauncherWorkspace),
-  // ssr: false renders nothing server-side, so /tools would otherwise be blank
-  // until this chunk executes.
+  // The retained `/?mode=tools` dashboard alias owns this legacy client-only
+  // launcher. Canonical `/tools` is rendered by ToolsSearchResultsPage.
   { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={6} label="Loading tools" /> },
 );
 
