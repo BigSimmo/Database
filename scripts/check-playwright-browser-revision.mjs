@@ -24,26 +24,12 @@
  * where a newer lock expects chromium-1234 but the image only ships 1194 —
  * pointing PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH at the stale shell is forbidden.
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { accessSync, constants, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_CONTAINER_ROOT = "/opt/pw-browsers";
-
-// Mirrors playwright-core's `EXECUTABLE_PATHS.chromium` (full Chrome for
-// Testing, installed under a `chromium-<revision>` directory).
-const CHROMIUM_EXECUTABLE_LAYOUTS = Object.freeze({
-  linux: {
-    x64: [["chrome-linux64", "chrome"]],
-    arm64: [["chrome-linux", "chrome"]],
-  },
-  darwin: {
-    x64: [["chrome-mac-x64", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"]],
-    arm64: [["chrome-mac-arm64", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"]],
-  },
-  win32: [["chrome-win64", "chrome.exe"]],
-});
 
 // Mirrors playwright-core's `EXECUTABLE_PATHS["chromium-headless-shell"]`
 // (installed under a `chromium_headless_shell-<revision>` directory — the
@@ -121,8 +107,36 @@ export function resolveDefaultManagedBrowsersRoot(
 }
 
 /**
+ * Resolve the cache root with the same special/relative-path semantics that
+ * playwright-core uses. `PLAYWRIGHT_BROWSERS_PATH=0` opts into the installed
+ * package's `.local-browsers`; relative overrides resolve from INIT_CWD (or
+ * the invoking working directory), not from a literal directory named "0".
+ */
+export function resolvePlaywrightBrowsersRoot({
+  env = process.env,
+  defaultManagedBrowsersRoot = resolveDefaultManagedBrowsersRoot(env),
+  playwrightCoreRoot,
+  workingDirectory = process.cwd(),
+} = {}) {
+  const configured = env.PLAYWRIGHT_BROWSERS_PATH?.trim() ?? "";
+  if (configured === "0") return path.join(playwrightCoreRoot, ".local-browsers");
+  if (!configured) return defaultManagedBrowsersRoot;
+  return path.isAbsolute(configured) ? configured : path.resolve(env.INIT_CWD?.trim() || workingDirectory, configured);
+}
+
+export function isLaunchableFile(filePath, platform = process.platform) {
+  try {
+    if (!statSync(filePath).isFile()) return false;
+    if (platform !== "win32") accessSync(filePath, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The real, load-bearing check this file exists for: does a launchable
- * Chromium binary for `revision` actually exist under `browsersRoot`? A
+ * headless-shell binary for `revision` actually exist under `browsersRoot`? A
  * same-named directory with no executable inside it (partial/corrupt
  * install) must not count — that was the residual gap even in the old
  * "container-aligned" path, which only checked directory names (#312).
@@ -130,22 +144,18 @@ export function resolveDefaultManagedBrowsersRoot(
 export function findInstalledChromiumBinary(
   browsersRoot,
   revision,
-  { platform = process.platform, architecture = process.arch, fileExists = existsSync } = {},
+  { platform = process.platform, architecture = process.arch, fileIsLaunchable = isLaunchableFile } = {},
 ) {
   if (!browsersRoot || !revision) return null;
-  const candidates = [
-    ...layoutsForPlatform(CHROMIUM_EXECUTABLE_LAYOUTS, platform, architecture).map((layout) => ({
-      dir: `chromium-${revision}`,
-      layout,
-    })),
-    ...layoutsForPlatform(CHROMIUM_HEADLESS_SHELL_EXECUTABLE_LAYOUTS, platform, architecture).map((layout) => ({
+  const candidates = layoutsForPlatform(CHROMIUM_HEADLESS_SHELL_EXECUTABLE_LAYOUTS, platform, architecture).map(
+    (layout) => ({
       dir: `chromium_headless_shell-${revision}`,
       layout,
-    })),
-  ];
+    }),
+  );
   for (const candidate of candidates) {
     const executable = path.join(browsersRoot, candidate.dir, ...candidate.layout);
-    if (fileExists(executable)) return executable;
+    if (fileIsLaunchable(executable, platform)) return executable;
   }
   return null;
 }
@@ -158,7 +168,7 @@ export function findInstalledChromiumBinary(
  *   defaultManagedBrowsersRoot?: string,
  *   platform?: string,
  *   architecture?: string,
- *   fileExists?: (path: string) => boolean,
+ *   workingDirectory?: string,
  * }} [options]
  */
 export function playwrightBrowserRevisionCheck(options = {}) {
@@ -167,7 +177,6 @@ export function playwrightBrowserRevisionCheck(options = {}) {
   const containerBrowsersRoot = options.containerBrowsersRoot ?? DEFAULT_CONTAINER_ROOT;
   const platform = options.platform ?? process.platform;
   const architecture = options.architecture ?? process.arch;
-  const fileExists = options.fileExists ?? existsSync;
 
   const expected = readExpectedChromiumRevision(projectRoot);
   if (!expected.ok) {
@@ -193,14 +202,18 @@ export function playwrightBrowserRevisionCheck(options = {}) {
   // metadata alone. This is the #312 fix: the previous version skipped this
   // check entirely whenever no container root was forced.
   const defaultManagedBrowsersRoot = options.defaultManagedBrowsersRoot ?? resolveDefaultManagedBrowsersRoot(env);
-  const browsersRoot = exposedRoot || defaultManagedBrowsersRoot;
+  const browsersRoot = resolvePlaywrightBrowsersRoot({
+    env,
+    defaultManagedBrowsersRoot,
+    playwrightCoreRoot: path.dirname(expected.browsersJsonPath),
+    workingDirectory: options.workingDirectory,
+  });
 
   const installed = listInstalledChromiumRevisions(browsersRoot);
   const revisionDirectoryPresent = installed.includes(expected.revision);
   const binaryPath = findInstalledChromiumBinary(browsersRoot, expected.revision, {
     platform,
     architecture,
-    fileExists,
   });
 
   if (revisionDirectoryPresent && binaryPath) {

@@ -48,13 +48,18 @@ describe("check-playwright-browser-revision", () => {
     }
   });
 
-  it("passes (#312) when the default managed cache actually has a launchable chromium binary", () => {
+  it("passes (#312) when the default managed cache has a launchable headless-shell binary", () => {
     const root = mkdtempSync(path.join(tmpdir(), "pw-default-installed-"));
     const projectRoot = mkdtempSync(path.join(tmpdir(), "pw-project-"));
     try {
-      const binary = path.join(root, "chromium-1234", "chrome-linux64", "chrome");
+      const binary = path.join(
+        root,
+        "chromium_headless_shell-1234",
+        "chrome-headless-shell-linux64",
+        "chrome-headless-shell",
+      );
       mkdirSync(path.dirname(binary), { recursive: true });
-      writeFileSync(binary, "");
+      writeFileSync(binary, "", { mode: 0o755 });
 
       mkdirSync(path.join(projectRoot, "node_modules", "playwright-core"), { recursive: true });
       writeFileSync(
@@ -149,7 +154,7 @@ describe("check-playwright-browser-revision", () => {
         "chrome-headless-shell",
       );
       mkdirSync(path.dirname(binary), { recursive: true });
-      writeFileSync(binary, "");
+      writeFileSync(binary, "", { mode: 0o755 });
 
       mkdirSync(path.join(projectRoot, "node_modules", "playwright-core"), { recursive: true });
       writeFileSync(
@@ -213,6 +218,112 @@ describe("check-playwright-browser-revision", () => {
     }
   });
 
+  it("fails closed when only full Chrome is present because the default projects launch headless shell", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "pw-full-chrome-only-"));
+    const projectRoot = mkdtempSync(path.join(tmpdir(), "pw-project-"));
+    try {
+      const fullChrome = path.join(root, "chromium-1234", "chrome-linux64", "chrome");
+      mkdirSync(path.dirname(fullChrome), { recursive: true });
+      writeFileSync(fullChrome, "", { mode: 0o755 });
+      mkdirSync(path.join(projectRoot, "node_modules", "playwright-core"), { recursive: true });
+      writeFileSync(
+        path.join(projectRoot, "node_modules", "playwright-core", "browsers.json"),
+        JSON.stringify({ browsers: [{ name: "chromium", revision: "1234" }] }),
+      );
+
+      const result = playwrightBrowserRevisionCheck({
+        projectRoot,
+        env: { NODE_ENV: "test" },
+        defaultManagedBrowsersRoot: root,
+        platform: "linux",
+        architecture: "x64",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe("binary-missing");
+    } finally {
+      rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("uses playwright-core's package-local cache when PLAYWRIGHT_BROWSERS_PATH=0", () => {
+    const projectRoot = mkdtempSync(path.join(tmpdir(), "pw-project-"));
+    try {
+      const coreRoot = path.join(projectRoot, "node_modules", "playwright-core");
+      const binary = path.join(
+        coreRoot,
+        ".local-browsers",
+        "chromium_headless_shell-1234",
+        "chrome-headless-shell-linux64",
+        "chrome-headless-shell",
+      );
+      mkdirSync(path.dirname(binary), { recursive: true });
+      writeFileSync(binary, "", { mode: 0o755 });
+      writeFileSync(
+        path.join(coreRoot, "browsers.json"),
+        JSON.stringify({ browsers: [{ name: "chromium", revision: "1234" }] }),
+      );
+
+      const result = playwrightBrowserRevisionCheck({
+        projectRoot,
+        env: { NODE_ENV: "test", PLAYWRIGHT_BROWSERS_PATH: "0" },
+        platform: "linux",
+        architecture: "x64",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.status).toBe("installed");
+      expect(result.binaryPath).toBe(binary);
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("fails closed when the expected headless-shell path is a directory or a non-executable file", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "pw-not-executable-"));
+    const projectRoot = mkdtempSync(path.join(tmpdir(), "pw-project-"));
+    try {
+      const binary = path.join(
+        root,
+        "chromium_headless_shell-1234",
+        "chrome-headless-shell-linux64",
+        "chrome-headless-shell",
+      );
+      mkdirSync(binary, { recursive: true });
+      mkdirSync(path.join(projectRoot, "node_modules", "playwright-core"), { recursive: true });
+      writeFileSync(
+        path.join(projectRoot, "node_modules", "playwright-core", "browsers.json"),
+        JSON.stringify({ browsers: [{ name: "chromium", revision: "1234" }] }),
+      );
+
+      const directoryResult = playwrightBrowserRevisionCheck({
+        projectRoot,
+        env: { NODE_ENV: "test" },
+        defaultManagedBrowsersRoot: root,
+        platform: "linux",
+        architecture: "x64",
+      });
+      expect(directoryResult.ok).toBe(false);
+      expect(directoryResult.status).toBe("binary-missing");
+
+      rmSync(binary, { recursive: true, force: true });
+      writeFileSync(binary, "", { mode: 0o644 });
+      const nonExecutableResult = playwrightBrowserRevisionCheck({
+        projectRoot,
+        env: { NODE_ENV: "test" },
+        defaultManagedBrowsersRoot: root,
+        platform: "linux",
+        architecture: "x64",
+      });
+      expect(nonExecutableResult.ok).toBe(false);
+      expect(nonExecutableResult.status).toBe("binary-missing");
+    } finally {
+      rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      rmSync(projectRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
   it("lists installed chromium revisions from a browsers root", () => {
     const root = mkdtempSync(path.join(tmpdir(), "pw-list-"));
     mkdirSync(path.join(root, "chromium-1234"));
@@ -221,14 +332,19 @@ describe("check-playwright-browser-revision", () => {
     expect(listInstalledChromiumRevisions(root)).toEqual(["1234"]);
   });
 
-  it("finds the actual chromium binary for a revision, not just its directory", () => {
+  it("finds the actual headless-shell binary for a revision, not just its directory", () => {
     const root = mkdtempSync(path.join(tmpdir(), "pw-find-binary-"));
     try {
       expect(findInstalledChromiumBinary(root, "1234", { platform: "linux", architecture: "x64" })).toBeNull();
 
-      const binary = path.join(root, "chromium-1234", "chrome-linux64", "chrome");
+      const binary = path.join(
+        root,
+        "chromium_headless_shell-1234",
+        "chrome-headless-shell-linux64",
+        "chrome-headless-shell",
+      );
       mkdirSync(path.dirname(binary), { recursive: true });
-      writeFileSync(binary, "");
+      writeFileSync(binary, "", { mode: 0o755 });
       expect(findInstalledChromiumBinary(root, "1234", { platform: "linux", architecture: "x64" })).toBe(binary);
     } finally {
       rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
