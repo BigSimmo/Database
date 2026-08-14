@@ -44,7 +44,9 @@ Full `schema_migrations` fingerprint captured. Decisive rows:
 - `20260705180000 reconcile_search_health_indexes` — `no_statements = false`, **stmt_count 14**.
   It does **not** carry the mark-applied signal: its DDL was recorded as executed.
 - `20260804110240 restore_rag_search_health_indexes` (the guard) — applied with its statement on
-  2026-08-04, meaning the guarded indexes existed and validated on that date.
+  2026-08-04. Note (per PR #1960 review): that guard validates four **other** indexes and never
+  checks this pair, so its application gives **no** existence bound for
+  `documents_title_trgm_idx` / `document_chunks_content_trgm_idx`.
 - Rows with the mark-applied signal (`statements IS NULL` or empty): the 2026-07-01…07-02 cluster
   (`fix_chunks_hybrid_perf_and_ambiguity`, `fix_remaining_hybrid_perf_and_ambiguity`,
   `schema_health_hybrid_execution_smoke`, `drop_dead_drifted_hybrid_variants`,
@@ -55,11 +57,14 @@ Full `schema_migrations` fingerprint captured. Decisive rows:
   `promote_index_generation_id_columns`) and the 2026-07-12 reconciliation batch
   (`reconcile_ingestion_index_shapes` … `add_legacy_index_health_batch_repair`, stmt_count 0).
 
-**Conclusion for the two retrieval-critical indexes:** created and validated ≤ 2026-08-04, then
-**dropped between 2026-08-04 and the red drift run of 2026-08-09** (Actions 31330856982). No
-app/worker/edge-function code issues `DROP INDEX` (repo grep, this session), so the dropper was a
-manual/dashboard action — plausibly an accepted "unused index" advisor suggestion. Pairing with the
-dashboard audit/query history for that window remains **pending** (owner action). `#248` stays open.
+**Conclusion for the two retrieval-critical indexes:** their creation was recorded as executed on
+2026-07-05 (`20260705180000`, 14 statements), and both were reported missing by the live-drift
+runs of 2026-08-02 (Actions 30763871562) and 2026-08-09 (31330856982), with the weekly check red
+since 2026-07-26 — so the drop happened **between 2026-07-05 and 2026-08-02** (likely by
+2026-07-26). No app/worker/edge-function code issues `DROP INDEX` (repo grep, this session), so a
+manual/dashboard action — e.g. an accepted "unused index" advisor suggestion — is the leading
+**inference, not an established attribution**; pairing with the dashboard audit/query history for
+that window remains **pending** (owner action). `#248` stays open.
 
 ### 1.2 RPC divergence dossier
 
@@ -106,13 +111,24 @@ _2026-08-14 (partial, incident-driven: the two retrieval-critical indexes only, 
 - `create index concurrently if not exists document_chunks_content_trgm_idx …` — same source.
   Result: `indisvalid = true`, `indisready = true`, 68 MB.
 - `ANALYZE public.documents; ANALYZE public.document_chunks;` after both builds.
+- Canonical-shape validation (per PR #1960 review — `IF NOT EXISTS` could otherwise no-op on a
+  same-named index; here the prior inventory proved both absent, and post-build `pg_indexes`
+  returns the canonical normalized definitions verbatim):
+  `CREATE INDEX document_chunks_content_trgm_idx ON public.document_chunks USING gin (lower(((COALESCE(section_heading, ''::text) || ' '::text) || COALESCE(content, ''::text))) gin_trgm_ops)` and
+  `CREATE INDEX documents_title_trgm_idx ON public.documents USING gin (lower(((COALESCE(title, ''::text) || ' '::text) || COALESCE(file_name, ''::text))) gin_trgm_ops)` —
+  both matching `20260705180000` / `schema.sql`.
 
 Deviation from the phase template, recorded honestly: no PITR restore point was captured first —
 the operation was additive index creation with a one-statement rollback
-(`drop index concurrently`), no data-loss surface. No migration was added: the definitions are
-already codified in `20260705180000` + `schema.sql`; this was the documented operator prebuild for
-a drifted hosted target. The other 19 drift findings, the 2 unexpected live indexes, and the green
-live-drift dispatch remain **pending** for the full phase.
+(`drop index concurrently`), no data-loss surface. No migration was added in the incident window:
+the definitions are already codified in `20260705180000` + `schema.sql`, and this was the
+documented operator prebuild for a drifted hosted target. **Outstanding phase debt (PR #1960
+review):** plan phase 4.4 still requires a fail-fast reconcile/guard migration for this repaired
+pair (the `20260804110240` pattern names four other indexes only), so a later replay cannot
+silently proceed if either index disappears again — queued as follow-up work for the full Phase 4
+batch, deliberately not bundled into this docs-only PR because migrations are an operational-risk
+surface with their own replay gates. The other 19 drift findings, the 2 unexpected live indexes,
+and the green live-drift dispatch also remain **pending** for the full phase.
 
 ## Phase 5 — Measure and close the loop
 
