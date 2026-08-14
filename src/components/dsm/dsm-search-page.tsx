@@ -290,7 +290,7 @@ export function DsmSearchPage({
               <Link
                 href={compareHref(selected)}
                 data-testid="dsm-search-compare"
-                className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--command)] px-2.5 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] sm:min-h-10"
+                className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--command)] px-2.5 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:min-h-10"
               >
                 <GitCompareArrows className="h-4 w-4" aria-hidden />
                 Compare {selected.length}
@@ -487,7 +487,7 @@ export function DsmSearchPage({
                 {canCompare ? (
                   <Link
                     href={compareHref(selected)}
-                    className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
+                    className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
                   >
                     Compare selected
                     <ChevronRight className="h-4 w-4" aria-hidden />

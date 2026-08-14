@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "1b483041-4f2e-4ccf-872e-f7657785cfb3",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#233",
+    "outcome": "DELIVERED — verified on main 2026-08-14. Both halves are answered: COMPONENTS.md:16 section 0 is now the generated maturity matrix ('the generated maturity snapshot below is the claim'), not the pre-adoption world; the optionality-marker contract is documented at COMPONENTS.md:387-390 including the deliberate removal of the (optional) suffix. PR #1842 merged."
+  }
+}

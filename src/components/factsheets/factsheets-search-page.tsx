@@ -216,7 +216,7 @@ export function FactsheetsSearchPage({
           </div>
           <Link
             href="/factsheets/search"
-            className="inline-flex min-h-tap items-center rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
+            className="inline-flex min-h-tap items-center rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
           >
             Browse sheets
           </Link>

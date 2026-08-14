@@ -226,7 +226,7 @@ function Pane({ id, grouped = false }: { id: string; grouped?: boolean }) {
   return (
     <div
       id={id}
-      className="max-h-[60%] shrink-0 overflow-y-auto border-b border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-tight)]"
+      className="max-h-[60%] shrink-0 overflow-y-auto border-b border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--e1)]"
     >
       <div className="sticky top-0 flex items-center justify-between bg-[color:var(--surface-lux)] px-3 pb-1 pt-2">
         <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--text-soft)]">Jump to</p>

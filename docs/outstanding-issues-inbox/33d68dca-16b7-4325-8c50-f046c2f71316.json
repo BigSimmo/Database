@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "33d68dca-16b7-4325-8c50-f046c2f71316",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#150",
+    "detail": "IN FLIGHT annotation retired 2026-08-14: PR #1836 has merged, so the do-not-start note is stale and was blocking rather than protecting. The row itself is NOT code-verifiable from a container — CodeRabbit's spending cap is an account/billing state, so confirming whether the cap still suppresses reviews needs the operator's CodeRabbit dashboard. Next: check the subscription's review quota and either raise it or record the accepted coverage gap. Keeping open pending that operator read."
+  }
+}
