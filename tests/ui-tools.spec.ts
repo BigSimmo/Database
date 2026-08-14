@@ -1896,6 +1896,14 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Differential matches" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
+    const desktopBestMatch = page.getByTestId("differential-best-match-card");
+    await expect(desktopBestMatch).toBeVisible();
+    await expect(desktopBestMatch.getByText("Best match", { exact: true })).toBeVisible();
+    await expect(desktopBestMatch.getByTestId("differential-best-match-panel")).toContainText(
+      /Why considered.*Look for.*Check next/s,
+    );
+    await expect(page.getByTestId("differential-compact-result").first()).toContainText("Clinical cues");
+    await expect(visibleByTestId(page, "differentials-search-results")).not.toContainText("Decision support");
   });
 
   test("differentials evidence-backed search badges stay single-line on narrow viewport", async ({ page }) => {
@@ -2120,6 +2128,11 @@ test.describe("Clinical KB tools launcher", () => {
     await expect.poll(async () => (await readPrimaryScrollGeometry(page)).scrollTop).toBe(0);
     const bestAnswer = page.getByTestId("differential-best-answer");
     await expect(bestAnswer).toBeVisible();
+    await expect(bestAnswer.getByText("Best match", { exact: true })).toBeVisible();
+    await expect(bestAnswer.getByTestId("differential-best-match-panel")).toContainText(
+      /Why considered.*Look for.*Check next/s,
+    );
+    await expect(bestAnswer).not.toContainText("Decision support");
     const foldLayout = await bestAnswer.evaluate((best) => {
       const main = document.querySelector("#main-content");
       const header = document.querySelector("header.universal-header");
@@ -2139,12 +2152,12 @@ test.describe("Clinical KB tools launcher", () => {
     expect(foldLayout!.bestTop).toBeGreaterThanOrEqual(foldLayout!.headerBottom - 2);
     expect(foldLayout!.bestTop).toBeLessThan(foldLayout!.viewportHeight * 0.5);
 
-    // Phone list hides the featured best answer, so ranks must start at 1.
+    // The featured best match owns rank 1; compact results continue at 2.
     const mobileCards = page.getByTestId("differential-mobile-result-card");
     await expect(mobileCards.first()).toBeVisible();
-    await expect(mobileCards.first().getByTestId("differential-mobile-result-rank")).toHaveText("1");
+    await expect(mobileCards.first().getByTestId("differential-mobile-result-rank")).toHaveText("2");
     const ranks = await mobileCards.getByTestId("differential-mobile-result-rank").allTextContents();
-    expect(ranks).toEqual(ranks.map((_, index) => String(index + 1)));
+    expect(ranks).toEqual(ranks.map((_, index) => String(index + 2)));
 
     // Selection reads as a checkbox, but only the visible box is compact. Its
     // surrounding label retains the repository's 48px phone target contract.
