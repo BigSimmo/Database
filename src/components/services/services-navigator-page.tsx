@@ -12,7 +12,7 @@ import {
   ListChecks,
   X,
 } from "lucide-react";
-import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useId, useMemo, useRef, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
@@ -104,6 +104,8 @@ function ServiceCard({
   onToggleSelected,
   saved,
   savedStateReady,
+  savedStateLoadFailed,
+  savePending,
   onToggleSaved,
 }: {
   service: ServiceRecord;
@@ -116,6 +118,8 @@ function ServiceCard({
   // `false` for EVERY service — not because nothing is saved, but because
   // nothing has been read yet — so the control must not assert a state.
   savedStateReady: boolean;
+  savedStateLoadFailed: boolean;
+  savePending: boolean;
   onToggleSaved: (slug: string) => void;
 }) {
   const showBestFit = relevanceRank !== null && relevanceRank <= 2;
@@ -186,24 +190,34 @@ function ServiceCard({
         <button
           type="button"
           onClick={() => onToggleSaved(service.slug)}
-          disabled={!savedStateReady}
-          aria-pressed={savedStateReady ? saved : undefined}
-          title={savedStateReady ? undefined : "Loading your saved services…"}
+          disabled={!savedStateReady || savedStateLoadFailed || savePending}
+          aria-pressed={savedStateReady && !savedStateLoadFailed ? saved : undefined}
+          title={
+            savedStateLoadFailed
+              ? "Saved services are unavailable. Retry from your favourites."
+              : !savedStateReady
+                ? "Loading your saved services…"
+                : savePending
+                  ? "Saving…"
+                  : undefined
+          }
           aria-label={
-            savedStateReady
-              ? saved
-                ? `Remove ${service.title} from favourites`
-                : `Save ${service.title} to favourites`
-              : `Loading saved state for ${service.title}`
+            savedStateLoadFailed
+              ? `Saved state unavailable for ${service.title}`
+              : savedStateReady
+                ? saved
+                  ? `Remove ${service.title} from favourites`
+                  : `Save ${service.title} to favourites`
+                : `Loading saved state for ${service.title}`
           }
           className={cn(
             "grid min-h-12 min-w-12 place-items-center rounded-lg border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:min-w-10",
-            savedStateReady && saved
+            savedStateReady && !savedStateLoadFailed && saved
               ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
               : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] enabled:hover:bg-[color:var(--surface-subtle)]",
           )}
         >
-          {savedStateReady && saved ? (
+          {savedStateReady && !savedStateLoadFailed && saved ? (
             <BookmarkCheck className="h-4 w-4" aria-hidden />
           ) : (
             <Bookmark className="h-4 w-4" aria-hidden />
@@ -481,6 +495,11 @@ export function ServicesNavigatorPage() {
   const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
   const accountData = useAccountData();
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  // The provider rolls back a failed mutation from its pre-request snapshot.
+  // Serialize writes from this multi-row surface so one row's rollback cannot
+  // erase another row's successful optimistic update.
+  const savingSlugsRef = useRef(new Set<string>());
+  const [savingSlugs, setSavingSlugs] = useState<ReadonlySet<string>>(() => new Set());
   // Derived during render rather than tracked in an effect: the stage is a
   // pure function of the shortlist state that already exists, and
   // tests/audit-content-services-regressions.test.ts pins this file as
@@ -491,9 +510,11 @@ export function ServicesNavigatorPage() {
     // Belt as well as braces: the control is disabled until the read settles,
     // but a toggle computed from an unread library would invert the wrong
     // state, so refuse it here too rather than trusting the caller.
-    if (!accountData.ready) return;
+    if (!accountData.ready || accountData.loadError || savingSlugsRef.current.size > 0) return;
     const service = searchableRecords.find((record) => record.slug === slug);
     if (!service) return;
+    savingSlugsRef.current.add(slug);
+    setSavingSlugs(new Set(savingSlugsRef.current));
     const nowSaved = !accountData.isSaved("service", slug);
     try {
       if (!(await accountData.setFavourite("service", slug, nowSaved))) {
@@ -505,6 +526,9 @@ export function ServicesNavigatorPage() {
       setSaveNotice(nowSaved ? `${service.title} saved to favourites.` : `${service.title} removed from favourites.`);
     } catch {
       setSaveNotice("Save failed. Try again.");
+    } finally {
+      savingSlugsRef.current.delete(slug);
+      setSavingSlugs(new Set(savingSlugsRef.current));
     }
   }
 
@@ -899,6 +923,8 @@ export function ServicesNavigatorPage() {
                 onToggleSelected={toggleSelected}
                 saved={accountData.isSaved("service", service.slug)}
                 savedStateReady={accountData.ready}
+                savedStateLoadFailed={Boolean(accountData.loadError)}
+                savePending={savingSlugs.size > 0}
                 onToggleSaved={toggleSaved}
               />
             ))}

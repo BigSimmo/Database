@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -7,7 +7,7 @@ import { mapCatalogToServiceRecords } from "@/lib/service-catalog-mapper";
 
 const registryRecords = mapCatalogToServiceRecords(loadServicesSnapshot().services).slice(0, 3);
 
-const accountState = vi.hoisted(() => ({ ready: true, saved: [] as string[] }));
+const accountState = vi.hoisted(() => ({ ready: true, loadError: null as string | null, saved: [] as string[] }));
 const setFavourite = vi.hoisted(() => vi.fn(async () => true));
 
 vi.mock("next/navigation", () => ({
@@ -46,7 +46,7 @@ vi.mock("@/components/account-data-provider", () => ({
   useAccountData: () => ({
     favourites: { service: accountState.saved, form: [], differential: [] },
     ready: accountState.ready,
-    loadError: null,
+    loadError: accountState.loadError,
     error: null,
     isAuthenticated: true,
     isSaved: (_type: string, key: string) => accountState.saved.includes(key),
@@ -87,6 +87,7 @@ describe("services result bookmark readiness", () => {
 
   it("reports the real saved state once the read settles", () => {
     accountState.ready = true;
+    accountState.loadError = null;
     accountState.saved = [registryRecords[0]!.slug];
     render(<ServicesNavigatorPage />);
 
@@ -96,5 +97,49 @@ describe("services result bookmark readiness", () => {
 
     const unsaved = screen.getByRole("button", { name: `Save ${registryRecords[1]!.title} to favourites` });
     expect(unsaved).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("does not assert or mutate saved state after the account read fails", () => {
+    accountState.ready = true;
+    accountState.loadError = "Saved items could not be loaded.";
+    accountState.saved = [];
+    render(<ServicesNavigatorPage />);
+
+    const control = screen.getByRole("button", {
+      name: `Saved state unavailable for ${registryRecords[0]!.title}`,
+    });
+    expect(control).toBeDisabled();
+    expect(control).not.toHaveAttribute("aria-pressed");
+    fireEvent.click(control);
+    expect(setFavourite).not.toHaveBeenCalled();
+  });
+
+  it("serializes in-flight mutations across result rows", async () => {
+    accountState.ready = true;
+    accountState.loadError = null;
+    accountState.saved = [];
+    let finishSave: ((saved: boolean) => void) | undefined;
+    setFavourite.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    render(<ServicesNavigatorPage />);
+
+    const control = screen.getByRole("button", { name: `Save ${registryRecords[0]!.title} to favourites` });
+    const siblingControl = screen.getByRole("button", {
+      name: `Save ${registryRecords[1]!.title} to favourites`,
+    });
+    fireEvent.click(control);
+
+    await waitFor(() => expect(control).toBeDisabled());
+    expect(siblingControl).toBeDisabled();
+    fireEvent.click(control);
+    fireEvent.click(siblingControl);
+    expect(setFavourite).toHaveBeenCalledTimes(1);
+
+    finishSave?.(true);
+    await waitFor(() => expect(control).toBeEnabled());
   });
 });
