@@ -663,8 +663,8 @@ export function MasterSearchHeader({
                         : searchMode === "calculators"
                           ? "calculators"
                           : searchMode === "factsheets"
-                          ? "factsheets"
-                          : "answer";
+                            ? "factsheets"
+                            : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
 

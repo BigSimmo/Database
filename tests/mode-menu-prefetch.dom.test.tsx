@@ -136,7 +136,7 @@ describe("mode menu destination prefetch", () => {
       const input = screen.getByTestId("global-search-input");
       await user.clear(input);
       await user.type(input, "depression");
-      await user.click(await screen.findByRole("option", { name: "depression severity" }));
+      await user.click(await screen.findByRole("option", { name: /depression severity.*PHQ-9/i }));
 
       expect(onAsk).toHaveBeenCalledWith("depression severity");
     } finally {
