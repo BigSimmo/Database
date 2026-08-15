@@ -273,7 +273,12 @@ async function main() {
       // immediately before work so an atomic reindex cannot leave this repair
       // operating on the generation that was current when corpus paging began.
       const doc = await loadCurrentDocument(candidate.id);
-      if (!doc || doc.status !== "indexed" || !doc.storage_path || !String(doc.file_type).toLowerCase().includes("pdf")) {
+      if (
+        !doc ||
+        doc.status !== "indexed" ||
+        !doc.storage_path ||
+        !String(doc.file_type).toLowerCase().includes("pdf")
+      ) {
         console.log(`skipped stale candidate ${candidate.id}`);
         skipped += 1;
         continue;
