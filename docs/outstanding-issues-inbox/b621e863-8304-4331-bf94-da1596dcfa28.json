@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "id": "b621e863-8304-4331-bf94-da1596dcfa28",
+  "createdOn": "2026-08-15",
+  "action": "update",
+  "payload": {
+    "id": "#316",
+    "summary": "Live DB has 20 currently missing repo-defined indexes and 10 retrieval RPC bodies diverge; weekly live-drift has been red since 2026-07-26 with no routing",
+    "detail": "Combined 2026-08-14 update, superseding two partial requests cancelled in this same batch. PHASE 0 CLOSED including its forced-dispatch proof: live-drift dispatched on main, failed at the drift step, the always() capture still ran, the migration-history step correctly skipped, and the drift-routing job created issue #1963 with the label, run URL, job result, trigger, and full findings. Routing is also covered offline by tests/live-drift-workflow.test.ts. INCIDENT REPAIR, owner-approved in-session: the two retrieval-critical indexes documents_title_trgm_idx and document_chunks_content_trgm_idx were restored with CREATE INDEX CONCURRENTLY plus ANALYZE, both indisvalid and indisready at 648 kB and 68 MB, re-verified by an independent read-only query. Before/after supabase_rpc_latency_ms 31610 to 1535 on the text fast path and 8519 hybrid, with match_document_chunks_text_v2 at 14 ms. No repo schema change was needed because definitions were already codified. CORRECTED FIGURES measured 2026-08-14: 10 match_* def_hash mismatches unchanged, 20 missing_live indexes (the observed inventory, not an arithmetic inference from the previous 21 baseline), and 2 unexpected_live. ATTRIBUTION STILL OPEN: migration 20260705180000 recorded 14 executed statements; guard 20260804110240 validates four other indexes and gives no existence bound for this pair. The drop window is 2026-07-05 to 2026-08-02, likely by 2026-07-26; dashboard audit-history pairing remains owner action and #248 stays open. NEXT: Phase 3 RPC reconciliation before Phase 4, per plan ordering. Evidence: docs/audit/live-drift-forensics-2026-08.md.",
+    "source": "PR #1968 review against docs/audit/live-drift-forensics-2026-08.md, 2026-08-15"
+  }
+}
