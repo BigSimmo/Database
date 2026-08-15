@@ -233,7 +233,7 @@ export function ResultFilterTrigger({
         // A tinted pill, not a solid disc: a saturated filled circle is the single
         // loudest signal on a bar that is otherwise hairlines and type, and it
         // reads as an alert rather than as a count.
-        <span className="search-band-badge nums grid h-[1.0625rem] min-w-[1.0625rem] place-items-center rounded-full bg-[color:var(--search-band-badge-bg)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
+        <span className="search-band-badge nums grid h-search-band-badge min-w-search-band-badge place-items-center rounded-full bg-[color:var(--search-band-badge-bg)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
           {activeCount}
         </span>
       ) : null}

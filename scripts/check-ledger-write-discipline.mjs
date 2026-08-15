@@ -10,6 +10,12 @@
  *
  * This is deliberately stronger than a shape check. A valid-looking manual
  * edit would still reintroduce the shared-hunk race that the inbox removes.
+ *
+ * Both comparison endpoints are commits, so an edit that is still sitting in
+ * the working tree is invisible here and the audited range is empty. Reporting
+ * a pass in that state told an author on 2026-08-13 that a forbidden hand-edit
+ * of the canonical ledger was fine (issue #313). The gate therefore refuses to
+ * report any verdict while a governed path is dirty — see dirtyGovernedPaths.
  */
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -26,6 +32,19 @@ const APPLIED = `${INBOX}/applied`;
 
 function git(args) {
   return execFileSync("git", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+}
+
+/**
+ * Untrimmed on purpose: porcelain's status field is two columns wide and its
+ * first column is a space for an unstaged change, so trimming shifts every path
+ * by one character and the governed-path match silently stops firing.
+ */
+function statusPorcelain(pathspecs) {
+  return execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=normal", "--", ...pathspecs], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
 }
 
 function readAt(ref, relative) {
@@ -154,6 +173,48 @@ export function verifyIssueReconciliation({
     );
   }
   return failures;
+}
+
+function governedReason(relative) {
+  if (relative === ISSUES_LEDGER) return "the canonical outstanding-issues ledger";
+  if (relative === REVIEW_LEDGER) return "the frozen branch-review ledger";
+  if (relative === INBOX || relative.startsWith(`${INBOX}/`)) return "an outstanding-issues inbox request";
+  return undefined;
+}
+
+/**
+ * Governed paths carrying working-tree changes the committed-range audit cannot
+ * see. Input is `git status --porcelain=v1 -z --untracked-files=normal` output;
+ * NUL records avoid porcelain's quoting rules entirely, and a rename/copy record
+ * is followed by a second field holding its original path.
+ *
+ * Pure and exported so the script self-test and focused tests can exercise it
+ * without a fixture repository.
+ */
+export function dirtyGovernedPaths(porcelain) {
+  const fields = String(porcelain ?? "").split("\0");
+  const dirty = [];
+  const seen = new Set();
+  for (let index = 0; index < fields.length; index += 1) {
+    const record = fields[index];
+    if (record.length < 4) continue; // trailing empty field, never a real record
+    const status = record.slice(0, 2);
+    const paths = [record.slice(3)];
+    if (status[0] === "R" || status[0] === "C") {
+      const origin = fields[index + 1];
+      index += 1;
+      if (origin) paths.push(origin);
+    }
+    for (const relative of paths) {
+      const reason = governedReason(relative);
+      if (reason === undefined || seen.has(relative)) continue;
+      seen.add(relative);
+      const change =
+        status === "??" ? "is untracked" : `has an uncommitted change (${status.trim() || status.trimEnd()})`;
+      dirty.push({ path: relative, status, reason: `${reason} ${change}` });
+    }
+  }
+  return dirty;
 }
 
 export function reviewLedgerRowsChanged(baseMarkdown, headMarkdown) {
@@ -288,6 +349,23 @@ function selfTest() {
     throw new Error("self-test failed: partial reconciliation was accepted");
   }
 
+  // #313: the committed-range audit cannot see a working-tree edit, so a pass
+  // reported over a dirty governed path is a green that evaluated nothing.
+  if (dirtyGovernedPaths("").length !== 0) throw new Error("self-test failed: a clean worktree was reported dirty");
+  const dirtyLedger = dirtyGovernedPaths(` M ${ISSUES_LEDGER}\0`);
+  if (dirtyLedger.length !== 1 || dirtyLedger[0].path !== ISSUES_LEDGER) {
+    throw new Error("self-test failed: an uncommitted canonical ledger edit was not detected");
+  }
+  if (dirtyGovernedPaths(`?? ${INBOX}/${name}\0`).length !== 1) {
+    throw new Error("self-test failed: an untracked inbox request was not detected");
+  }
+  if (dirtyGovernedPaths(`R  ${APPLIED}/${name}\0${INBOX}/${name}\0`).length !== 2) {
+    throw new Error("self-test failed: a renamed request did not report both of its paths");
+  }
+  if (dirtyGovernedPaths(" M src/lib/rag/rag.ts\0").length !== 0) {
+    throw new Error("self-test failed: an unrelated dirty file was treated as a ledger violation");
+  }
+
   const review = `| 2026-08-13 | codex/a | ${"a".repeat(40)} | review | pass | test |\n`;
   if (!reviewLedgerRowsChanged("", review) || reviewLedgerRowsChanged(review, review)) {
     throw new Error("self-test failed: legacy review row change detection is incorrect");
@@ -298,6 +376,24 @@ function selfTest() {
 function main() {
   if (process.argv.includes("--self-test")) return selfTest();
   const { base, head } = resolveArgs(process.argv.slice(2));
+
+  // Only when the head endpoint is the working checkout's tip. guard-push.mjs
+  // passes an explicit committed --head at a moment when the tree is legitimately
+  // dirty, and CI checks out clean, so neither is affected by this refusal.
+  if (head === "HEAD") {
+    const dirty = dirtyGovernedPaths(statusPorcelain([ISSUES_LEDGER, REVIEW_LEDGER, INBOX]));
+    if (dirty.length > 0) {
+      console.error("Ledger write-discipline check refused to report a verdict:");
+      for (const entry of dirty) console.error(`- ${entry.path}: ${entry.reason}`);
+      console.error(
+        "\nThis gate compares two committed refs, so an uncommitted ledger edit is invisible to it and a pass " +
+          "would mean nothing. Commit the change first — git add the inbox request if it is new — then re-run.",
+      );
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   const failures = [];
   const baseReview = readAt(base, REVIEW_LEDGER);
   const headReview = readAt(head, REVIEW_LEDGER);

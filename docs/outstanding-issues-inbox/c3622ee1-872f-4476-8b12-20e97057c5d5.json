@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "c3622ee1-872f-4476-8b12-20e97057c5d5",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#248",
+    "detail": "APPEND 2026-08-13: the prior closure is withdrawn. Repository and live-drift evidence establishes that 20260705180000_reconcile_search_health_indexes.sql is recorded as applied while documents_title_trgm_idx and document_chunks_content_trgm_idx are missing on live. Supabase transaction semantics exclude a persisted partial migration, but the present record does not distinguish skipped DDL/history repair from indexes created and later dropped. In an approved read-only window, query supabase_migrations.schema_migrations for the 20260705180000 statements fingerprint and inspect the relevant audit/history evidence; retain both hypotheses until that evidence establishes the cause. Separately, scheduled check:drift did detect the missing indexes, but red runs were not routed. FINGERPRINT CAPTURED 2026-08-14 (read-only connector session): the requested statements fingerprint is done and is recorded in forensics 1.1 and 1.3. 20260705180000 carries stmt_count 14 and does NOT carry the mark-applied signal, so its DDL was recorded as executed - which eliminates the skipped-DDL/history-repair hypothesis for this migration and leaves created-then-dropped. The same check across four further migrations that define still-absent indexes returns the same answer (20260528007000 stmt_count 32, 20260608001000 36, 20260712165211 27, 20260717170000 11, none mark-applied), so this is not confined to one migration. Also ruled out: invalid-but-present indexes - pg_index filtered on indisvalid/indisready false returns zero rows across public. What remains genuinely unknown is the actor: no app, worker or edge-function code issues DROP INDEX, so a manual or advisor-accepted dashboard drop is the leading inference and NOT an established attribution. Next: the dashboard audit/query-history pairing for the affected windows, which is owner-only. Keep this row open until that pairing lands - the mechanism question is answered, the attribution question is not."
+  }
+}

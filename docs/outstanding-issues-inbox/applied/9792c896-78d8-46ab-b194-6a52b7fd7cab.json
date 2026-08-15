@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "9792c896-78d8-46ab-b194-6a52b7fd7cab",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#316",
+    "detail": "Phase 0 CLOSED 2026-08-14, including the forced-dispatch proof its definition of done required. Dispatched live-drift on main (run 31813064485): the drift job failed as expected, the always() capture step still ran, and the separate drift-routing job then created issue #1963 'Live drift check failing' automatically, carrying the run URL, job result, trigger and the full findings block. Failure routing is therefore proven end-to-end against the real repository, not just offline; PR #1951 adds a mutation-verified contract test so it stays proven. That run also supersedes the stale 2026-08-09 drift numbers this row was opened with. Measured now: 10 match_* function def_hash mismatches (UNCHANGED - Phase 3 is entirely outstanding and remains the highest-stakes unknown), 20 missing_live indexes (not 21), and the same 2 unexpected_live indexes (document_table_facts_document_id_idx, storage_cleanup_jobs_owner_id_idx). documents_title_trgm_idx and document_chunks_content_trgm_idx are no longer in the missing list, independently confirmed by direct read-only query against sjrfecxgysukkwxsowpy (both indisvalid/indisready, 648 kB and 68 MB), which corroborates the restoration recorded in PR #1960. Next: Phase 3 (RPC reconciliation) before Phase 4, per the plan's ordering — the change that can alter clinical answers goes before the ones that only speed them up."
+  }
+}

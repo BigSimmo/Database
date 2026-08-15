@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (237 files) and the `package.json` script surface (245 entries),
+Curated map of `scripts/` (238 files) and the `package.json` script surface (246 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -28,6 +28,7 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 | `check-outstanding-issues.mjs`, `check-pr-mergeability-workflow.mjs`                                                                                                                                                                                                    | Outstanding-issues ID/marker/no-driver guard + PR mergeability workflow contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `outstanding-issues.mjs`                                                                                                                                                                                                                                                | Writer for `docs/outstanding-issues.md` (`issues:add` / `issues:done` / `issues:update`) — allocates the id, picks the right table, escapes `\|`, and re-runs the guard on its own output. Never hand-edit that file, as with `ledger:append`                                                                                                                                                                                                                                                                                                                                          |
 | `check-installed-lock-parity.mjs`, `phone-chrome-plan.mjs`, `verify-phone-chrome.mjs`, `playwright-browser-preflight.mjs`                                                                                                                                               | Lock-trust preflight, change-scoped phone contracts, and Playwright browser-binary preflight before build                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `audit-merge-loss.mjs`                                                                                                                                                                                                                                                  | Advisory blob-comparison sweep for merged PRs a later merge resolution silently reverted (`audit:merge-loss`); names the PR and files and exits 0 — a deliberate revert is identical at blob level, so a positive needs human confirmation                                                                                                                                                                                                                                                                                                                                             |
 | `final-merge-audit.mjs`                                                                                                                                                                                                                                                 | Fail-closed local merge-tree audit; explicit provider mode adds PR/check/thread/tree/deployment proof                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `child-process-result.mjs`, `cli-utils.ts`, `productivity-core.mjs`                                                                                                                                                                                                     | Shared helpers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `test-focused.mjs`, `test-run-selection.mjs`, `test-cache-path.mjs`, `test-environment.mjs`                                                                                                                                                                             | Backs `npm run test:focused` — change-scoped selection, cache pathing, env setup; fails closed for deleted files and test infrastructure                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -144,16 +145,28 @@ These reach live providers — they need explicit confirmation before running.
 Completed migration/batch helpers kept only for provenance; retire to the `scripts/archive/`
 subfolder once the underlying migration is confirmed live (work order L1).
 
-**Already archived** (in `scripts/archive/`, still runnable as live-DB re-verification probes via
-`npm run check:m13-migration` / `npm run check:july8-live-batch`): `check-m13-migration.ts`,
-`check-july8-live-batch.ts`. Their `.test.ts` companion lives in `scripts/archive/` too so it stays
-out of the `tests/**` run.
+**Already archived** (in `scripts/archive/`, still runnable): `check-m13-migration.ts` /
+`check-july8-live-batch.ts` — live-DB re-verification probes via `npm run check:m13-migration` /
+`npm run check:july8-live-batch`. Their `.test.ts` companion lives in `scripts/archive/` too so it
+stays out of the `tests/**` run. `backfill-document-tags.ts` / `backfill-enrichment.ts` — completed
+one-time backfills, still invocable via `npm run tags:backfill` / `npm run enrich:backfill` (both
+repointed at the archive path). `backfill-document-covers.mjs` — completed one-time backfill for
+documents indexed before the ingestion pipeline started generating cover thumbnails directly (see
+`worker/main.ts`, `worker/python/extract_pdf_assets.py`); no npm script, invoke directly via
+`node scripts/archive/backfill-document-covers.mjs`. `tests/document-cover-thumbnails.test.ts`
+still asserts its pagination logic by reading the archived source (`ledger #194`, 2026-08-14).
+
+Ledger `#194` also named `backfill-gold-document-labels.ts` and `backfill-smart-index.ts` as
+one-shot candidates, but both are already classified as `[live]` ongoing tooling elsewhere in this
+doc (Document intelligence & governance / Ingestion, indexing & reindex) and in
+`docs/codebase-index.md` — not completed migrations. Left in `scripts/` on that basis; re-flag only
+if their live classification is deliberately revisited.
 
 **Remaining candidates** (still in `scripts/`, retire once each is confirmed retired):
 `check-retrieval-owner-migration.ts`, `backfill-source-metadata.ts`, `backfill-text-normalization.ts`,
-`backfill-visual-intelligence.ts`, `backfill-document-tags.ts`, `backfill-enrichment.ts`,
-`derive-unknown-status.ts`, `reindex-image-generation-metadata.ts`, `measure-wrapped-dose-prevalence.ts`,
-`decompose-indexing-v3.mjs`, `repro-coalesce-poison-race.mjs` (a one-off race reproducer).
+`backfill-visual-intelligence.ts`, `derive-unknown-status.ts`, `reindex-image-generation-metadata.ts`,
+`measure-wrapped-dose-prevalence.ts`, `decompose-indexing-v3.mjs`, `repro-coalesce-poison-race.mjs`
+(a one-off race reproducer).
 
 ## Workflow planners [infra]
 

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "d229e6b5-a31a-44a9-8a7b-536e7f8ccf50",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#168",
+    "detail": "DESIGNED 2026-08-14 in PR #1944 — docs/ledger-id-scheme-proposal.md. Design only, nothing implemented, so this row stays open. Recommends a ULID as the durable id with a short derived display form, the property that matters being that the display form is derived rather than stored: a clash there is a rendering fix (take one more character) rather than a renumber. UUIDv7 noted as an equally good fit. Records why timestamp-plus-slug and content hashes were rejected — the slug wants to change when a row is re-scoped, which is renumbering under another name, and a content hash is neither sortable nor stable. Migration is additive because the 314 existing sequential ids keep their numbers permanently: they are cited across the ledger, docs/branch-review-records/, AGENTS.md, the skills and the commit history, so renumbering would invalidate every citation while producing exactly the churn this row exists to end. Four steps, widening validators before allocation changes, with every current #NNN assumption enumerated by file and symbol (ledger-inbox.mjs validateRequest twice; check-outstanding-issues.mjs ID_CELL, the MARKER parse, the nextId-above-highest assertion and its padStart formatting; outstanding-issues.mjs allocator; issues-report.mjs and the issues-surface hook). Stop unchanged and now load-bearing on step ordering: do not reinstate merge=union while ids are sequential — it only becomes safe after the marker is gone."
+  }
+}
