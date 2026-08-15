@@ -17,9 +17,13 @@ import type { SearchResult } from "@/lib/types";
  *
  * The schema is deliberately asymmetric:
  *
- * - **Strict on the ranking, citation, and evidence fields.** The required chunk identity,
- *   provenance, and visual fields are `not null` in `supabase/schema.sql`, so requiring them
- *   cannot reject a row that works today. The four score fields are `.nullish()` — absent or
+ * - **Strict on the ranking, citation, and evidence fields.** Every required field except
+ *   `source_metadata` is `not null` in `supabase/schema.sql`, so requiring it cannot reject a
+ *   row that works today. `source_metadata` is the exception: `documents.metadata` is bare
+ *   `jsonb`, which permits arrays and scalars, so pinning it to an object is guaranteed by the
+ *   data rather than by a constraint. Measured 2026-08-15, all 2851 live documents are
+ *   objects; a `check (jsonb_typeof(metadata) = 'object')` would make that structural.
+ *   The four score fields are `.nullish()` — absent or
  *   null already flows through the downstream `?? 0` handling unchanged — but a *string where
  *   a number belongs* is rejected, which is precisely the silent-misranking case this exists
  *   to catch.
@@ -100,7 +104,12 @@ function describeIssues(error: z.ZodError): string[] {
  * has them, which would otherwise swallow the signal entirely.
  */
 export function assertRetrievalRows(rows: unknown, rpc: string): asserts rows is SearchResult[] {
-  const parsed = retrievalRowsSchema.safeParse(rows);
+  assertRowsAgainst(retrievalRowsSchema, rows, rpc);
+}
+
+/** Shared validate-log-throw step. Kept separate so every row contract fails identically. */
+function assertRowsAgainst(schema: z.ZodType, rows: unknown, rpc: string): void {
+  const parsed = schema.safeParse(rows);
   if (parsed.success) return;
   const issues = describeIssues(parsed.error);
   logger.error("retrieval_row_shape_mismatch", {
@@ -109,6 +118,68 @@ export function assertRetrievalRows(rows: unknown, rpc: string): asserts rows is
     rowCount: Array.isArray(rows) ? rows.length : null,
   });
   throw new RetrievalRowShapeError(rpc, issues);
+}
+
+/**
+ * Signal rows from `match_document_embedding_fields_hybrid` — not `SearchResult`s.
+ *
+ * These carry a chunk id plus scores; `loadChunksForSignalMatches` then loads the real chunk.
+ * A wrong `source_chunk_id` loads the wrong evidence, and the mapping coerces scores with
+ * `Number(row.similarity ?? 0)`, which turns a stringified score into a silently different
+ * number rather than an error. Both are validated here; `field_type` is only a provenance
+ * label, so it stays permissive.
+ */
+const embeddingFieldRowSchema = z.looseObject({
+  source_chunk_id: z.string().nullable(),
+  field_type: z.string().nullable(),
+  similarity: z.number().nullish(),
+  text_rank: z.number().nullish(),
+  hybrid_score: z.number().nullish(),
+});
+
+export type EmbeddingFieldSignalRow = z.infer<typeof embeddingFieldRowSchema>;
+
+/** Validate embedding-field signal rows before they select chunks and scores. */
+export function assertEmbeddingFieldRows(rows: unknown, rpc: string): asserts rows is EmbeddingFieldSignalRow[] {
+  assertRowsAgainst(z.array(embeddingFieldRowSchema), rows, rpc);
+}
+
+/**
+ * Index-unit rows from `match_document_index_units_hybrid`.
+ *
+ * Every pinned field is backed by a constraint on `public.document_index_units` in
+ * `supabase/schema.sql`: `unit_type`, `title`, `content` and `extraction_mode` are `not null`,
+ * and both `unit_type` and `extraction_mode` carry `check` constraints — so the enum below
+ * cannot reject a row the database would accept. `heading_path`, `normalized_terms` and
+ * `metadata` are `not null` too, but stay `.nullish()` to match the `?? []` / `?? null`
+ * handling the caller already applies.
+ */
+const indexUnitRowSchema = z.looseObject({
+  id: z.string().min(1),
+  document_id: z.string().min(1),
+  source_chunk_id: z.string().nullable(),
+  source_image_id: z.string().nullable(),
+  unit_type: z.string().min(1),
+  title: z.string(),
+  content: z.string(),
+  page_start: z.number().int().nullable(),
+  page_end: z.number().int().nullable(),
+  heading_path: z.array(z.string()).nullish(),
+  normalized_terms: z.array(z.string()).nullish(),
+  source_span: z.record(z.string(), z.unknown()).nullish(),
+  quality_score: z.number().nullable(),
+  extraction_mode: z.enum(["deterministic", "model_heavy", "hybrid"]),
+  metadata: z.record(z.string(), z.unknown()).nullish(),
+  similarity: z.number().nullish(),
+  text_rank: z.number().nullish(),
+  hybrid_score: z.number().nullish(),
+});
+
+export type IndexUnitSignalRow = z.infer<typeof indexUnitRowSchema>;
+
+/** Validate index-unit signal rows before they select chunks, scores, and unit provenance. */
+export function assertIndexUnitRows(rows: unknown, rpc: string): asserts rows is IndexUnitSignalRow[] {
+  assertRowsAgainst(z.array(indexUnitRowSchema), rows, rpc);
 }
 
 /** Build and validate the locally retrieved rows used as document-summary context. */

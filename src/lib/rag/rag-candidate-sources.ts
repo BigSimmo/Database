@@ -27,6 +27,13 @@ import { applyMemoryCardBoosts, fetchMemoryCardsForQuery } from "@/lib/deep-memo
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import {
+  assertEmbeddingFieldRows,
+  assertIndexUnitRows,
+  assertRetrievalRows,
+  type EmbeddingFieldSignalRow,
+  type IndexUnitSignalRow,
+} from "@/lib/rag/rag-row-contracts";
+import {
   firstVariantPoolIsStrong,
   maxTextRpcQueryVariants,
   relaxVariantToOrQuery,
@@ -211,7 +218,9 @@ export async function searchTextChunkCandidates(args: {
     // most-terminal lexical layer surfaces in hybrid_rpc_errors telemetry
     // instead of silently degrading to zero candidates. Return value unchanged.
     if (error) recordHybridRpcError(args.telemetry, "match_document_chunks_text", error);
-    return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
+    if (error || !data?.length) return [] as SearchResult[];
+    assertRetrievalRows(data, "match_document_chunks_text");
+    return data;
   };
 
   const variants = args.queryVariants.slice(0, maxTextRpcQueryVariants);
@@ -336,14 +345,6 @@ export type ChunkSignalMatch = {
     match_reason?: string | null;
   }>;
   indexUnit?: DocumentIndexUnitMatch | null;
-};
-
-type IndexUnitRpcRow = DocumentIndexUnitMatch & {
-  document_id: string;
-  source_chunk_id: string | null;
-  similarity?: number | null;
-  text_rank?: number | null;
-  hybrid_score?: number | null;
 };
 
 type TableFactRpcRow = {
@@ -1058,26 +1059,9 @@ export async function searchEmbeddingFieldCandidates(args: {
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
-  const matches = (
-    data as Array<{
-      source_chunk_id: string | null;
-      field_type: string | null;
-      similarity?: number | null;
-      text_rank?: number | null;
-      hybrid_score?: number | null;
-    }>
-  )
-    .filter(
-      (
-        row,
-      ): row is {
-        source_chunk_id: string;
-        field_type: string | null;
-        similarity?: number | null;
-        text_rank?: number | null;
-        hybrid_score?: number | null;
-      } => Boolean(row.source_chunk_id),
-    )
+  assertEmbeddingFieldRows(data, "match_document_embedding_fields_hybrid");
+  const matches = data
+    .filter((row): row is EmbeddingFieldSignalRow & { source_chunk_id: string } => Boolean(row.source_chunk_id))
     .map((row) => ({
       chunkId: row.source_chunk_id,
       similarity: Number(row.similarity ?? 0),
@@ -1125,8 +1109,9 @@ export async function searchIndexUnitCandidates(args: {
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
-  const matches = (data as IndexUnitRpcRow[])
-    .filter((row): row is IndexUnitRpcRow & { source_chunk_id: string } => Boolean(row.source_chunk_id))
+  assertIndexUnitRows(data, "match_document_index_units_hybrid");
+  const matches = data
+    .filter((row): row is IndexUnitSignalRow & { source_chunk_id: string } => Boolean(row.source_chunk_id))
     .map((row) => ({
       chunkId: row.source_chunk_id,
       similarity: Number(row.similarity ?? 0),
