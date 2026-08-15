@@ -4319,7 +4319,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
     await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
 
-    // The dot rail is progressive: it tracks the shortlist state rather than
+    // The compact rail is progressive: it tracks shortlist state rather than
     // standing there as an always-on four-card walkthrough (ledger #163).
     const progress = navigator.getByRole("navigation", { name: "Referral progress" });
     const currentStage = progress.locator('[aria-current="step"]');
