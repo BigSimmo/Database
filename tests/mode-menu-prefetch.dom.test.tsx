@@ -2,6 +2,7 @@
 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
@@ -118,10 +119,23 @@ describe("mode menu destination prefetch", () => {
     );
 
     try {
-      render(
-        <MasterSearchHeader {...headerProps()} searchMode="calculators" query="depression" onAsk={onAsk} />,
-      );
-      await user.click(screen.getByTestId("global-search-input"));
+      function CalculatorHeader() {
+        const [query, setQuery] = useState("depression");
+        return (
+          <MasterSearchHeader
+            {...headerProps()}
+            searchMode="calculators"
+            query={query}
+            onQueryChange={setQuery}
+            onAsk={onAsk}
+          />
+        );
+      }
+
+      render(<CalculatorHeader />);
+      const input = screen.getByTestId("global-search-input");
+      await user.clear(input);
+      await user.type(input, "depression");
       await user.click(await screen.findByRole("option", { name: "depression severity" }));
 
       expect(onAsk).toHaveBeenCalledWith("depression severity");
