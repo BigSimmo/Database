@@ -2094,7 +2094,8 @@ export async function searchChunksWithTelemetry(
   // A1: the embedding-field, index-unit, and chunk-hybrid RPCs each depend only on the
   // already-computed query embedding and have no data dependency on one another, so run
   // them concurrently instead of as three sequential Supabase round-trips. The two helper
-  // functions swallow their own RPC errors and resolve to [], so Promise.all cannot reject.
+  // functions resolve their own RPC errors and logged row-shape mismatches to [], so Promise.all
+  // cannot reject when an optional signal layer drifts.
   throwIfAborted(args.signal);
   const parallelRpcStartedAt = Date.now();
   const [embeddingFieldResult, indexUnitResult, hybridResult] = await Promise.all([
