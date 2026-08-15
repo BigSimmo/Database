@@ -1793,7 +1793,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(Number.parseFloat(closeGeometry.radius)).toBeGreaterThanOrEqual(22);
 
     // A lower group remains reachable through the sheet's own scroll owner.
-    // Selecting a mode closes the sheet and retargets the shared home.
+    // Tools is browse-first, so selecting it opens the canonical directory.
     const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
     await toolsMode.scrollIntoViewIfNeeded();
     await expect(toolsMode).toBeVisible();
@@ -1801,10 +1801,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeMenu).toHaveCount(0);
-    await expect(page).toHaveURL(/\/\?mode=tools\b/);
+    await expect(page).toHaveURL(/\/tools$/);
     const toolsTrigger = page.getByRole("button", { name: "Mode Tools" });
     await expect(toolsTrigger).toBeVisible();
-    await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
+    await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
 
     // Reopening on a mode in a lower group must position that selected row in

@@ -15,6 +15,7 @@ import {
   normalizedPollDelay,
   setupNeedsSlowRecheck,
   setupRecheckPollMs,
+  shouldShowSharedHome,
   shorterPollDelay,
 } from "@/components/clinical-dashboard/clinical-dashboard-helpers";
 import type { ClinicalDocument, ImportBatch, IngestionJob, RagAnswer } from "@/lib/types";
@@ -51,6 +52,36 @@ describe("normalizedPollDelay / shorterPollDelay", () => {
     expect(shorterPollDelay(4000, 8000)).toBe(4000);
     expect(shorterPollDelay(10000, 0)).toBe(10000); // invalid next → keep current
     expect(shorterPollDelay(null, 0)).toBeNull();
+  });
+});
+
+describe("shouldShowSharedHome", () => {
+  const sharedHomeState = {
+    pathname: "/",
+    mode: null,
+    submittedUrlRunRequested: false,
+    hasError: false,
+    hasAnswer: false,
+    loading: false,
+    submittedAnswerSearchActive: false,
+  };
+
+  it("shows an idle mode home but preserves the legacy Tools launcher alias", () => {
+    expect(shouldShowSharedHome(sharedHomeState)).toBe(true);
+    expect(shouldShowSharedHome({ ...sharedHomeState, mode: "tools" })).toBe(false);
+    expect(shouldShowSharedHome({ ...sharedHomeState, pathname: "/tools" })).toBe(false);
+  });
+
+  it("hides the shared home whenever search or answer state owns the page", () => {
+    for (const state of [
+      { submittedUrlRunRequested: true },
+      { hasError: true },
+      { hasAnswer: true },
+      { loading: true },
+      { submittedAnswerSearchActive: true },
+    ]) {
+      expect(shouldShowSharedHome({ ...sharedHomeState, ...state })).toBe(false);
+    }
   });
 });
 
