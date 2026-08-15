@@ -222,8 +222,8 @@
   --animate-dialog-rise: dialog-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-action-tray-in: action-tray-in var(--swipe-duration, 160ms) cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
-  --animate-answer-ecg: answer-ecg-sweep 1.8s linear infinite;
-  --animate-answer-ecg-compact: answer-ecg-sweep 1.6s linear infinite;
+  --animate-answer-ecg: answer-ecg-pulse 1.8s ease-in-out infinite;
+  --animate-answer-ecg-compact: answer-ecg-pulse 1.6s ease-in-out infinite;
 }
 
 /* Theme tokens */
@@ -3152,14 +3152,16 @@ td,
   }
 }
 
-/* 320 → 0 is equivalent to 0 → -320 modulo the dash period, without
-   WebKit's unreliable negative SVG dash-offset interpolation. */
-@keyframes answer-ecg-sweep {
-  from {
-    stroke-dashoffset: 320;
+/* Animate a compositable CSS property rather than SVG stroke-dashoffset.
+   Mobile WebKit can report the dash animation as running without repainting it,
+   especially in an installed PWA. Opacity produces a visible ECG pulse in both. */
+@keyframes answer-ecg-pulse {
+  0%,
+  100% {
+    opacity: 0.2;
   }
-  to {
-    stroke-dashoffset: 0;
+  50% {
+    opacity: 1;
   }
 }
 
@@ -3176,10 +3178,6 @@ td,
  * those unlayered classes, check the class body first; the class wins.
  */
 @layer components {
-  .answer-activity-trace {
-    contain: paint;
-  }
-
   .answer-activity-trace__sweep {
     animation: var(--animate-answer-ecg);
   }

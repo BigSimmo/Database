@@ -24,11 +24,15 @@ function keyframes(name: string) {
 }
 
 describe("answer activity trace CSS", () => {
-  it("cycles through the positive dash-offset equivalent for WebKit", () => {
-    const sweep = keyframes("answer-ecg-sweep");
+  it("does not paint-contain the animated SVG on WebKit", () => {
+    expect(globalsCss).not.toMatch(/\.answer-activity-trace\s*{[^}]*contain:\s*paint;/s);
+  });
 
-    expect(sweep).toMatch(/from\s*{\s*stroke-dashoffset:\s*320;/);
-    expect(sweep).toMatch(/to\s*{\s*stroke-dashoffset:\s*0;/);
-    expect(sweep).not.toMatch(/stroke-dashoffset:\s*-/);
+  it("pulses with opacity instead of WebKit-unreliable SVG dash offsets", () => {
+    const pulse = keyframes("answer-ecg-pulse");
+
+    expect(pulse).toMatch(/opacity:\s*0\.2;/);
+    expect(pulse).toMatch(/opacity:\s*1;/);
+    expect(pulse).not.toMatch(/stroke-dashoffset/);
   });
 });
