@@ -27,7 +27,25 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+
+export function isMissingStorageObject(error) {
+  if (!error || typeof error !== "object") return false;
+  return (
+    Number(error.status) === 404 || String(error.statusCode ?? "") === "404" || String(error.code ?? "") === "NoSuchKey"
+  );
+}
+
+export function selectCommittedCovers(covers, committedGeneration, coverImageId) {
+  const matches = covers.filter((cover) => {
+    const metadataGeneration = cover.metadata?.index_generation_id;
+    const rowGeneration = cover.index_generation_id || metadataGeneration;
+    return !committedGeneration || !rowGeneration || rowGeneration === committedGeneration;
+  });
+  const selected = matches.find((cover) => cover.id === coverImageId) ?? matches[0] ?? null;
+  return { selected, matches };
+}
 
 function argValue(flag) {
   const index = process.argv.indexOf(flag);
@@ -217,7 +235,9 @@ async function main() {
       .from("documents")
       .update({ metadata: { ...current, cover_image_id: coverImageId } })
       .eq("id", targetDocumentId)
-      .eq("status", "indexed");
+      .eq("status", "indexed")
+      .eq("storage_path", fresh.storage_path)
+      .eq("metadata", JSON.stringify(current));
     patch = expectedGeneration
       ? patch.eq("metadata->>index_generation_id", expectedGeneration)
       : patch.is("metadata->>index_generation_id", null);
@@ -230,9 +250,9 @@ async function main() {
     const fresh = await loadCurrentDocument(expectedDocument.id);
     return Boolean(
       fresh &&
-        fresh.status === "indexed" &&
-        fresh.storage_path === expectedDocument.storage_path &&
-        committedGenerationId(fresh.metadata) === expectedGeneration,
+      fresh.status === "indexed" &&
+      fresh.storage_path === expectedDocument.storage_path &&
+      committedGenerationId(fresh.metadata) === expectedGeneration,
     );
   }
 
@@ -267,6 +287,37 @@ async function main() {
     }
   }
 
+  async function retireCoverRow(targetDocument, coverRow) {
+    const { error } = await supabase
+      .from("document_images")
+      .delete()
+      .eq("id", coverRow.id)
+      .eq("document_id", targetDocument.id);
+    if (error) throw new Error(`failed to retire cover row ${coverRow.id}: ${error.message}`);
+    if (coverRow.storage_path) {
+      await removeOrQueueReplacedImage(targetDocument, coverRow.storage_path);
+    }
+  }
+
+  async function rollbackReplacementCover(targetDocument, insertedId, imagePath) {
+    if (insertedId) {
+      const fresh = await loadCurrentDocument(targetDocument.id);
+      if (fresh?.metadata?.cover_image_id === insertedId) {
+        return false;
+      }
+      const { error } = await supabase
+        .from("document_images")
+        .delete()
+        .eq("id", insertedId)
+        .eq("document_id", targetDocument.id);
+      if (error) {
+        throw new Error(`failed to roll back replacement cover row ${insertedId}: ${error.message}`);
+      }
+    }
+    await removeOrQueueReplacedImage(targetDocument, imagePath);
+    return true;
+  }
+
   for (const candidate of candidates) {
     try {
       // Candidate and cover inventories are only selection snapshots. Reload both
@@ -286,21 +337,25 @@ async function main() {
 
       const committedGeneration = committedGenerationId(doc.metadata);
       const existingCovers = await loadCurrentCovers(doc.id);
-      const committedCover = existingCovers.find((cover) => {
-        const metadataGeneration = cover.metadata?.index_generation_id;
-        const rowGeneration = cover.index_generation_id || metadataGeneration;
-        return !committedGeneration || !rowGeneration || rowGeneration === committedGeneration;
-      });
+      const { selected: committedCover, matches: committedCovers } = selectCommittedCovers(
+        existingCovers,
+        committedGeneration,
+        doc.metadata?.cover_image_id,
+      );
       const existingCover = committedCover ?? existingCovers[0];
 
       let existingObjectIsLive = false;
       if (committedCover?.storage_path) {
         const probe = await supabase.storage.from(imageBucket).download(committedCover.storage_path);
+        if (probe.error && !isMissingStorageObject(probe.error)) {
+          throw new Error(`failed to verify existing cover ${committedCover.id}: ${probe.error.message}`);
+        }
         existingObjectIsLive = !probe.error && Boolean(probe.data);
       }
 
       if (existingCover && existingObjectIsLive) {
         const existingId = existingCover.id;
+        let changed = false;
         if (apply && doc.metadata?.cover_image_id !== existingId) {
           const patched = await patchCoverImageId(doc.id, existingId, committedGeneration);
           if (!patched) {
@@ -309,11 +364,22 @@ async function main() {
             continue;
           }
           console.log(`recovered cover metadata ${existingId} for ${doc.id}`);
+          changed = true;
+        }
+        if (apply && committedGeneration) {
+          for (const duplicate of committedCovers) {
+            if (duplicate.id === existingId) continue;
+            await retireCoverRow(doc, duplicate);
+            console.log(`retired duplicate cover ${duplicate.id} for ${doc.id}`);
+            changed = true;
+          }
+        }
+        if (changed) {
           repaired += 1;
         } else {
+          skipped += 1;
           console.log(`verified live cover ${existingId} for ${doc.id}`);
         }
-        skipped += 1;
         continue;
       }
 
@@ -326,98 +392,114 @@ async function main() {
 
       const workDir = await mkdtemp(path.join(tmpdir(), "cover-backfill-"));
       try {
-        const { data: blob, error: downloadError } = await supabase.storage
-          .from(documentBucket)
-          .download(doc.storage_path);
-        if (downloadError || !blob) throw new Error(downloadError?.message || "download failed");
-        const pdfPath = path.join(workDir, "source.pdf");
-        await writeFile(pdfPath, Buffer.from(await blob.arrayBuffer()));
-        const cover = await runPythonCover(pdfPath, workDir);
-        if (!cover?.path) throw new Error("cover render returned empty");
+        let replacementPath = null;
+        let replacementRowId = null;
+        let replacementNeedsRollback = false;
+        try {
+          const { data: blob, error: downloadError } = await supabase.storage
+            .from(documentBucket)
+            .download(doc.storage_path);
+          if (downloadError || !blob) throw new Error(downloadError?.message || "download failed");
+          const pdfPath = path.join(workDir, "source.pdf");
+          await writeFile(pdfPath, Buffer.from(await blob.arrayBuffer()));
+          const cover = await runPythonCover(pdfPath, workDir);
+          if (!cover?.path) throw new Error("cover render returned empty");
 
-        const bytes = await readFile(cover.path);
-        const generationId = committedGeneration ?? randomUUID();
-        const imagePrefix = doc.owner_id ? `${doc.owner_id}/images/${doc.id}` : `local/${doc.id}`;
-        const imagePath = `${imagePrefix}/${generationId}/cover-page-1.png`;
-        const upload = await supabase.storage.from(imageBucket).upload(imagePath, bytes, {
-          contentType: "image/png",
-          upsert: true,
-        });
-        if (upload.error) throw new Error(upload.error.message);
+          const bytes = await readFile(cover.path);
+          const generationId = committedGeneration ?? randomUUID();
+          const repairId = randomUUID();
+          const imagePrefix = doc.owner_id ? `${doc.owner_id}/images/${doc.id}` : `local/${doc.id}`;
+          const imagePath = `${imagePrefix}/${generationId}/cover-page-1-${repairId}.png`;
+          const upload = await supabase.storage.from(imageBucket).upload(imagePath, bytes, {
+            contentType: "image/png",
+            upsert: false,
+          });
+          if (upload.error) throw new Error(upload.error.message);
+          replacementPath = imagePath;
+          replacementNeedsRollback = true;
 
-        // Rendering and upload can be slow. Revalidate immediately before the
-        // database write, then use a generation-conditioned pointer update as
-        // the final compare-and-swap. If either fence fails, remove the new
-        // artifact instead of publishing an old-generation cover.
-        if (!(await generationIsCurrent(doc, committedGeneration))) {
-          await supabase.storage.from(imageBucket).remove([imagePath]);
-          console.log(`skipped generation-changed cover repair for ${doc.id}`);
-          skipped += 1;
-          continue;
-        }
-
-        const imageHash = createHash("sha256").update(bytes).digest("hex");
-        const imageRow = {
-          document_id: doc.id,
-          page_number: 1,
-          storage_path: imagePath,
-          mime_type: "image/png",
-          caption: "Document cover page preview.",
-          bbox: cover.bbox ?? null,
-          image_type: "unclear",
-          searchable: false,
-          clinical_relevance_score: 0,
-          source_kind: "cover_page",
-          width: cover.width ?? null,
-          height: cover.height ?? null,
-          image_hash: imageHash,
-          labels: ["cover-page"],
-          index_generation_id: generationId,
-          metadata: {
-            ...(cover.metadata ?? {}),
-            source_kind: "cover_page",
-            clinical_use_class: "decorative_or_empty",
-            index_generation_id: generationId,
-            backfill: "document-cover-thumbnails",
-          },
-        };
-
-        // Insert first and retire the previous row only after the document
-        // pointer moves. This preserves the old storage-path ledger until the
-        // replacement is committed and makes a failed compare-and-swap easy to
-        // roll back without reconstructing a mutated row.
-        const { data: inserted, error: insertError } = await supabase
-          .from("document_images")
-          .insert(imageRow)
-          .select("id")
-          .single();
-        if (insertError) throw new Error(insertError.message);
-
-        const patched = await patchCoverImageId(doc.id, inserted.id, committedGeneration);
-        if (!patched) {
-          await supabase.from("document_images").delete().eq("id", inserted.id);
-          await supabase.storage.from(imageBucket).remove([imagePath]);
-          console.log(`rolled back generation-changed cover repair for ${doc.id}`);
-          skipped += 1;
-          continue;
-        }
-
-        if (existingCover) {
-          const replacedPath = existingCover.storage_path;
-          const { error: retireError } = await supabase
-            .from("document_images")
-            .delete()
-            .eq("id", existingCover.id)
-            .eq("document_id", doc.id);
-          if (retireError) throw new Error(retireError.message);
-          if (replacedPath && replacedPath !== imagePath) {
-            await removeOrQueueReplacedImage(doc, replacedPath);
+          // Rendering and upload can be slow. Revalidate immediately before the
+          // database write, then use a generation-conditioned pointer update as
+          // the final compare-and-swap. If either fence fails, remove the new
+          // artifact instead of publishing an old-generation cover.
+          if (!(await generationIsCurrent(doc, committedGeneration))) {
+            await rollbackReplacementCover(doc, null, imagePath);
+            replacementNeedsRollback = false;
+            console.log(`skipped generation-changed cover repair for ${doc.id}`);
+            skipped += 1;
+            continue;
           }
-          repaired += 1;
-          console.log(`repaired cover ${inserted.id} for ${doc.id}`);
-        } else {
-          created += 1;
-          console.log(`created cover ${inserted.id} for ${doc.id}`);
+
+          const imageHash = createHash("sha256").update(bytes).digest("hex");
+          const imageRow = {
+            document_id: doc.id,
+            page_number: 1,
+            storage_path: imagePath,
+            mime_type: "image/png",
+            caption: "Document cover page preview.",
+            bbox: cover.bbox ?? null,
+            image_type: "unclear",
+            searchable: false,
+            clinical_relevance_score: 0,
+            source_kind: "cover_page",
+            width: cover.width ?? null,
+            height: cover.height ?? null,
+            image_hash: imageHash,
+            labels: ["cover-page"],
+            index_generation_id: generationId,
+            metadata: {
+              ...(cover.metadata ?? {}),
+              source_kind: "cover_page",
+              clinical_use_class: "decorative_or_empty",
+              index_generation_id: generationId,
+              backfill: "document-cover-thumbnails",
+            },
+          };
+
+          // Insert first and retire the previous row only after the document
+          // pointer moves. This preserves the old storage-path ledger until the
+          // replacement is committed and makes a failed compare-and-swap easy to
+          // roll back without reconstructing a mutated row.
+          const { data: inserted, error: insertError } = await supabase
+            .from("document_images")
+            .insert(imageRow)
+            .select("id")
+            .single();
+          if (insertError) throw new Error(insertError.message);
+          replacementRowId = inserted.id;
+
+          const patched = await patchCoverImageId(doc.id, inserted.id, committedGeneration);
+          if (!patched) {
+            const rolledBack = await rollbackReplacementCover(doc, inserted.id, imagePath);
+            if (!rolledBack) {
+              throw new Error(`replacement cover ${inserted.id} became published during rollback`);
+            }
+            replacementNeedsRollback = false;
+            console.log(`rolled back generation-changed cover repair for ${doc.id}`);
+            skipped += 1;
+            continue;
+          }
+          replacementNeedsRollback = false;
+
+          if (existingCover) {
+            await retireCoverRow(doc, existingCover);
+            repaired += 1;
+            console.log(`repaired cover ${inserted.id} for ${doc.id}`);
+          } else {
+            created += 1;
+            console.log(`created cover ${inserted.id} for ${doc.id}`);
+          }
+        } catch (error) {
+          if (replacementNeedsRollback && replacementPath) {
+            try {
+              await rollbackReplacementCover(doc, replacementRowId, replacementPath);
+            } catch (rollbackError) {
+              const originalMessage = error instanceof Error ? error.message : String(error);
+              const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+              throw new Error(`${originalMessage}; rollback failed: ${rollbackMessage}`);
+            }
+          }
+          throw error;
         }
       } finally {
         await rm(workDir, { recursive: true, force: true });
@@ -443,7 +525,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
