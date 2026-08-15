@@ -43,8 +43,12 @@ async function fillHydratedAnswerQuestion(page: Page, value: string) {
 }
 
 async function dismissBlockingPwaNotice(page: Page) {
-  const dismiss = page.getByRole("button", { name: /Dismiss (?:offline notice|update notice|install)/ });
-  if (await dismiss.isVisible()) await dismiss.click();
+  const dismiss = page.getByRole("button", { name: /Dismiss (?:offline notice|update notice|install)/ }).first();
+  const noticeAppeared = await dismiss
+    .waitFor({ state: "visible", timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (noticeAppeared) await dismiss.click();
 }
 
 async function mockDashboardApis(page: Page) {
