@@ -248,8 +248,11 @@ test.describe("Clinical KB PWA", () => {
     const viewports = [
       { name: "compact phone", width: 320, height: 720 },
       { name: "phone", width: 390, height: 844 },
+      { name: "wide phone", width: 639, height: 900 },
+      { name: "small tablet", width: 768, height: 1024 },
       { name: "tablet", width: 820, height: 1180 },
       { name: "desktop", width: 1440, height: 1000 },
+      { name: "wide desktop", width: 1920, height: 1080 },
     ] as const;
 
     for (const viewport of viewports) {

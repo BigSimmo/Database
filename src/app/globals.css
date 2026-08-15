@@ -2656,11 +2656,11 @@ summary::-webkit-details-marker {
   pointer-events: none;
 }
 
-/* A 320px mode home cannot show the full install proposition and its complete
+/* A phone mode home cannot show the full install proposition and its complete
    centred empty-state introduction without covering the search composer. While
    the transient install sheet is present, keep the real composer visible in
    the clear space under the app header and omit only the decorative intro. */
-@media (max-width: 359.98px) {
+@media (max-width: 639.98px) {
   body:has(.pwa-install-sheet) #main-content[data-phone-footer-owner="hero"] > div > section {
     justify-content: flex-start;
     padding-top: calc(2 * var(--radius-xs));
