@@ -214,14 +214,110 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
  * deliberate desktop release, not a violation. An unprefixed `min-h-tap` or
  * `min-h-12`+ on the same element rescues it.
  */
-const TAP_FLOOR_STEPS_BELOW_48 = String.raw`0|px|0\.5|1|1\.5|2|2\.5|3|3\.5|4|5|6|7|8|9|10|11`;
-const SHORT_MIN_HEIGHT_UTILITY = new RegExp(String.raw`^min-h-(?:${TAP_FLOOR_STEPS_BELOW_48})$`);
-const TAP_FLOOR_MIN_HEIGHT_UTILITY = /^min-h-(?:tap|1[2-9]|[2-9]\d|\[[^\]]+\])$/;
 const TAP_FLOOR_INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "summary", "textarea"]);
+const MAX_CLASS_ALTERNATIVES = 128;
+
+function combineClassAlternatives(left, right) {
+  const combined = [];
+  for (const first of left) {
+    for (const second of right) {
+      combined.push(`${first} ${second}`.trim());
+      if (combined.length >= MAX_CLASS_ALTERNATIVES) return [...new Set(combined)];
+    }
+  }
+  return [...new Set(combined)];
+}
+
+function classExpressionAlternatives(node) {
+  if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) return [node.text];
+  if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isNonNullExpression(node)) {
+    return classExpressionAlternatives(node.expression);
+  }
+  if (ts.isSatisfiesExpression?.(node)) return classExpressionAlternatives(node.expression);
+  if (ts.isConditionalExpression(node)) {
+    return [
+      ...new Set([...classExpressionAlternatives(node.whenTrue), ...classExpressionAlternatives(node.whenFalse)]),
+    ];
+  }
+  if (ts.isBinaryExpression(node)) {
+    if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      return [...new Set(["", ...classExpressionAlternatives(node.right)])];
+    }
+    if (
+      node.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+      node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+    ) {
+      return [...new Set([...classExpressionAlternatives(node.left), ...classExpressionAlternatives(node.right)])];
+    }
+    if (node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+      return combineClassAlternatives(classExpressionAlternatives(node.left), classExpressionAlternatives(node.right));
+    }
+    return [""];
+  }
+  if (ts.isTemplateExpression(node)) {
+    let alternatives = [node.head.text];
+    for (const span of node.templateSpans) {
+      alternatives = combineClassAlternatives(alternatives, classExpressionAlternatives(span.expression));
+      alternatives = alternatives.map((value) => `${value}${span.literal.text}`);
+    }
+    return alternatives;
+  }
+  if (ts.isCallExpression(node) || ts.isArrayLiteralExpression(node)) {
+    const values = ts.isCallExpression(node) ? node.arguments : node.elements;
+    return values.reduce(
+      (alternatives, value) => combineClassAlternatives(alternatives, classExpressionAlternatives(value)),
+      [""],
+    );
+  }
+  if (ts.isObjectLiteralExpression(node)) {
+    return node.properties.reduce(
+      (alternatives, property) => {
+        if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) return alternatives;
+        const name = property.name;
+        const className =
+          name && (ts.isStringLiteralLike(name) || ts.isIdentifier(name) || ts.isNumericLiteral(name)) ? name.text : "";
+        return className ? combineClassAlternatives(alternatives, ["", className]) : alternatives;
+      },
+      [""],
+    );
+  }
+  return [""];
+}
+
+function jsxClassAlternatives(attribute) {
+  const initializer = attribute.initializer;
+  if (!initializer) return [];
+  if (ts.isStringLiteral(initializer)) return [initializer.text];
+  if (!ts.isJsxExpression(initializer) || !initializer.expression) return [];
+  return classExpressionAlternatives(initializer.expression);
+}
+
+function minHeightPixels(token) {
+  const normalized = token.replace(/^!/, "");
+  if (normalized === "min-h-tap") return 48;
+  if (normalized === "min-h-px") return 1;
+  const spacing = normalized.match(/^min-h-(\d+(?:\.\d+)?)$/);
+  if (spacing) return Number(spacing[1]) * 4;
+  const arbitrary = normalized.match(/^min-h-\[(-?\d+(?:\.\d+)?)(px|rem)\]$/);
+  if (!arbitrary) return null;
+  const value = Number(arbitrary[1]);
+  return arbitrary[2] === "rem" ? value * 16 : value;
+}
+
+function hasSubFloorEffectiveMinHeight(classText) {
+  const minHeightTokens = classText
+    .split(/\s+/)
+    .filter((token) => token && !token.includes(":"))
+    .map((token) => token.replace(/^!/, ""))
+    .filter((token) => token.startsWith("min-h-"));
+  if (minHeightTokens.length === 0) return false;
+  const pixels = minHeightPixels(minHeightTokens.at(-1));
+  return pixels !== null && pixels < 48;
+}
 
 export function findInteractiveTapFloorDeclarationsInSource(relativePath, sourceText) {
   if (!relativePath.endsWith(".tsx")) return [];
-  if (!/\bmin-h-(?:[0-9]|1[01])\b/.test(sourceText)) return [];
+  if (!/\bmin-h-(?:[0-9]|1[01]|\[)/.test(sourceText)) return [];
   const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const findings = [];
 
@@ -231,12 +327,8 @@ export function findInteractiveTapFloorDeclarationsInSource(relativePath, source
       (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
     );
     if (!classAttribute || !ts.isJsxAttribute(classAttribute)) return;
-    const tokens = jsxClassSegments(classAttribute)
-      .join(" ")
-      .split(/\s+/)
-      .filter((token) => token && !token.includes(":"));
-    if (!tokens.some((token) => SHORT_MIN_HEIGHT_UTILITY.test(token))) return;
-    if (tokens.some((token) => TAP_FLOOR_MIN_HEIGHT_UTILITY.test(token))) return;
+    const alternatives = jsxClassAlternatives(classAttribute);
+    if (!alternatives.some(hasSubFloorEffectiveMinHeight)) return;
     const line = source.getLineAndCharacterOfPosition(classAttribute.getStart(source)).line + 1;
     findings.push(`${relativePath}:${line}`);
   }

@@ -91,11 +91,20 @@ describe("design-system contract helpers", () => {
       "src/example.tsx:1",
     ]);
     expect(find('<summary className="min-h-8">Details</summary>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<summary className="min-h-[42px]">Details</summary>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-[2.5rem]">Reset</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className={compact ? "min-h-10" : "min-h-12"}>Reset</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className={cn("min-h-12", compact && "min-h-10")}>Reset</button>')).toEqual([
+      "src/example.tsx:1",
+    ]);
 
     // The repo's correct responsive pattern must NOT be flagged: 48px on
     // phones, released to 40px from `sm` up.
     expect(find('<button className="min-h-12 sm:min-h-10">Save</button>')).toEqual([]);
     expect(find('<button className="min-h-tap sm:min-h-9">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-[48px]">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-[3rem]">Save</button>')).toEqual([]);
+    expect(find('<button className={compact ? "min-h-tap" : "min-h-12"}>Save</button>')).toEqual([]);
 
     // A short height on a NON-interactive element is layout, not a tap target.
     expect(find('<div className="min-h-9">Panel</div>')).toEqual([]);
