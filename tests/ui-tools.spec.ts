@@ -488,9 +488,10 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
       if (viewport.name === "mobile") {
-        // Phones keep the compact shared search in the tools-home hero slot.
-        await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
-        await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
+        // Tools delegates its phone composer to the same shared global footer
+        // used by submitted views; tablet and desktop retain the hero slot.
+        await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toHaveCount(0);
+        await expect(page.locator("form.answer-footer-search-dock")).toBeVisible();
       } else {
         await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
       }
@@ -985,7 +986,6 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       { path: "/differentials", testId: "differentials-home" },
       { path: "/factsheets", testId: "factsheets-home-main" },
       { path: "/favourites", testId: "favourites-hub" },
-      { path: "/tools", testId: "tools-search-results-page" },
     ] as const) {
       await gotoLauncher(page, home.path);
       const homeSurface = page.getByTestId(home.testId);

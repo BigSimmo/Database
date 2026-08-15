@@ -43,7 +43,7 @@ describe("mobile composer reserve contract", () => {
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: false,
         documentViewerOwnedRoute: true,
-        isStandaloneModeHome: false,
+        heroOwnsPhoneComposer: false,
         searchMode: "documents",
         differentialsCompareAddonActive: false,
       }),
@@ -55,11 +55,23 @@ describe("mobile composer reserve contract", () => {
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: true,
         documentViewerOwnedRoute: false,
-        isStandaloneModeHome: true,
+        heroOwnsPhoneComposer: true,
         searchMode: "services",
         differentialsCompareAddonActive: false,
       }),
     ).toBe(mobileComposerIdleReserve);
+  });
+
+  it("uses the shared compact dock reserve when a standalone home delegates phones to the footer", () => {
+    expect(
+      resolveShellVisibleMobileComposerReserve({
+        shouldShowSearchComposer: true,
+        documentViewerOwnedRoute: false,
+        heroOwnsPhoneComposer: false,
+        searchMode: "tools",
+        differentialsCompareAddonActive: false,
+      }),
+    ).toBe(mobileComposerVisibleReserve.shellDock);
   });
 
   it("uses the compact dock reserve for non-answer dashboard docks when the hero does not own phones", () => {
@@ -188,7 +200,7 @@ describe("mobile composer reserve contract", () => {
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: true,
         documentViewerOwnedRoute: false,
-        isStandaloneModeHome: false,
+        heroOwnsPhoneComposer: false,
         searchMode: "differentials",
         differentialsCompareAddonActive: true,
       }),
@@ -213,7 +225,7 @@ describe("mobile composer reserve contract", () => {
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: false,
         pageOwnedComposerRoute: true,
-        isStandaloneModeHome: false,
+        heroOwnsPhoneComposer: false,
         searchMode: "tools",
         differentialsCompareAddonActive: false,
       }),

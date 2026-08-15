@@ -4,6 +4,7 @@ export type SearchShellPathProps = {
   initialMode: AppModeId;
   availableModeIds?: AppModeId[];
   desktopSearchPlacement?: "default" | "hero";
+  mobileHomeComposerPlacement?: "hero" | "footer";
   searchComposerVisible?: boolean;
   mobileChromeVisible?: boolean;
 };
@@ -67,7 +68,11 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
   }
 
   if (pathname.startsWith("/tools")) {
-    return { initialMode: "tools", desktopSearchPlacement: "hero" };
+    return {
+      initialMode: "tools",
+      desktopSearchPlacement: "hero",
+      mobileHomeComposerPlacement: "footer",
+    };
   }
 
   if (pathname.startsWith("/calculators")) {

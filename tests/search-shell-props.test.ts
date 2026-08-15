@@ -28,6 +28,14 @@ describe("searchShellPropsForPathname", () => {
     });
   });
 
+  it("keeps tools in the hero from tablet up and uses the shared phone footer", () => {
+    expect(searchShellPropsForPathname("/tools")).toEqual({
+      initialMode: "tools",
+      desktopSearchPlacement: "hero",
+      mobileHomeComposerPlacement: "footer",
+    });
+  });
+
   it("maps therapy and home fallbacks", () => {
     expect(searchShellPropsForPathname("/therapy-compass/search")).toEqual({
       initialMode: "therapy-compass",
