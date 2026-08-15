@@ -148,24 +148,10 @@ export function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc
   }
 }
 
-/**
- * The embedding-field and index-unit layers are optional retrieval signals.  Their
- * row contracts log a redacted shape mismatch before throwing; preserve that
- * visibility while allowing the primary chunk retrieval path to continue.
- */
-function assertOptionalSignalRows(assertRows: () => void) {
-  try {
-    assertRows();
-    return true;
-  } catch (error) {
-    if (error instanceof RetrievalRowShapeError) return false;
-    throw error;
-  }
-}
-
 /** Index-unit consumers read these provenance fields as maps; retain that output contract. */
 function optionalJsonRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
 }
 
 /** Record how many variant RPCs a lexical surface actually issued (PT-02 early-exit). */
@@ -1080,7 +1066,10 @@ export async function searchEmbeddingFieldCandidates(args: {
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
-  if (!assertOptionalSignalRows(() => assertEmbeddingFieldRows(data, "match_document_embedding_fields_hybrid"))) {
+  try {
+    assertEmbeddingFieldRows(data, "match_document_embedding_fields_hybrid");
+  } catch (error) {
+    if (!(error instanceof RetrievalRowShapeError)) throw error;
     return [] as SearchResult[];
   }
   const matches = data
@@ -1132,7 +1121,10 @@ export async function searchIndexUnitCandidates(args: {
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
-  if (!assertOptionalSignalRows(() => assertIndexUnitRows(data, "match_document_index_units_hybrid"))) {
+  try {
+    assertIndexUnitRows(data, "match_document_index_units_hybrid");
+  } catch (error) {
+    if (!(error instanceof RetrievalRowShapeError)) throw error;
     return [] as SearchResult[];
   }
   const matches = data
