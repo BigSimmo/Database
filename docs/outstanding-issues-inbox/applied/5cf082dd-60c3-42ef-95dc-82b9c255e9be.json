@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "5cf082dd-60c3-42ef-95dc-82b9c255e9be",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#210",
+    "detail": "CORRECTION 2026-08-14: an earlier queued request for this row claimed `done`, citing PR #1953. That was premature -- PR #1953 is still open, not merged; scripts/run-playwright.mjs on main does not yet carry the fix. Do not close this row until PR #1953 actually merges and the fix is confirmed present on main. What PR #1953 contains, once it lands: an explicit include/exclude added to the generated isolated child tsconfig, plus a glob-consolidation correction pushed to the same branch after a Codex review finding was investigated and found NOT to hold against real Next.js build behaviour (verified via the actual runTypeCheck -> parseJsonConfigFileContent -> createProgram call chain, not the tsc --showConfig CLI-display path the reviewer's probe used). Empirically confirmed via planted-file probes in that session: stale repo-root .next/dev/types no longer leak into the isolated build, and the run's own generated route types remain present in the real TypeScript program. Items 1 and 2 of this row were already closed/refuted before that PR; it addresses item 3, the last open part -- but only once merged.",
+    "source": "session 2026-08-14 ledger correction; PR #1953 (open, not yet merged as of this correction)"
+  }
+}

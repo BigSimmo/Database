@@ -375,7 +375,8 @@ function renderModePageIndex() {
       mode: "Tools",
       home: appModeHomeHref("tools"),
       search: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
-      detail: "Canonical Tools launcher at `/tools` (PT-11). `/?mode=tools` remains a dashboard-mode alias.",
+      detail:
+        "Canonical all-tools results directory at `/tools`; the universal mode picker opens it directly. `/?mode=tools` remains a dashboard-mode alias.",
     },
   ]);
 }

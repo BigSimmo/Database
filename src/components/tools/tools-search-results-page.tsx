@@ -12,6 +12,7 @@ import {
   Pill,
   Search,
   ShieldCheck,
+  Star,
   Users,
   Waves,
   type LucideIcon,
@@ -23,14 +24,23 @@ import {
   ResultFilterTrigger,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
+import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { cn, controlBase, floatingControl } from "@/components/ui-primitives";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { normalizeSearchText } from "@/lib/catalog-search";
-import { toolCatalogRecords, toolSearchText, type ToolCatalogArea, type ToolCatalogRecord } from "@/lib/tools-catalog";
+import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
+import { useAuthSession } from "@/lib/supabase/client";
+import {
+  toolCatalogRecordsForSession,
+  toolSearchText,
+  type ToolCatalogArea,
+  type ToolCatalogRecord,
+} from "@/lib/tools-catalog";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -43,6 +53,7 @@ const iconByToolId: Record<string, LucideIcon> = {
   documents: FileText,
   services: Users,
   forms: FileCheck2,
+  favourites: Star,
 };
 
 const filterOptions = [
@@ -51,6 +62,7 @@ const filterOptions = [
   { id: "reference", label: "Evidence" },
   { id: "care", label: "Treat" },
   { id: "coordination", label: "Coordinate" },
+  { id: "saved", label: "Saved" },
 ] as const satisfies ReadonlyArray<{ id: "all" | ToolCatalogArea; label: string }>;
 
 type FilterId = (typeof filterOptions)[number]["id"];
@@ -228,11 +240,24 @@ function DetailActions({ tool }: { tool: ToolCatalogRecord }) {
 
 export function ToolsSearchResultsPage({
   initialQuery = "",
+  desktopComposerSlotId,
+  canAccessFavourites: canAccessFavouritesProp,
   testId = "tools-search-results-page",
 }: {
   initialQuery?: string;
+  desktopComposerSlotId?: string;
+  /** Optional deterministic override; defaults to the current auth/demo session gate. */
+  canAccessFavourites?: boolean;
   testId?: string;
 }) {
+  const auth = useAuthSession();
+  const clientDemoMode = resolveClientDemoMode({
+    explicitDemoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
+    authUnavailableFallback: !auth.isConfigured,
+    localNoAuthMode: isLocalNoAuthMode(),
+  });
+  const { favouritesAccessible } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
+  const canAccessFavourites = canAccessFavouritesProp ?? favouritesAccessible;
   const searchCommand = useSearchCommand();
   const hydrated = useSyncExternalStore(
     subscribeNoop,
@@ -246,7 +271,7 @@ export function ToolsSearchResultsPage({
   const filterPanelId = useId();
   const [activeFilter, setActiveFilter] = useState<FilterId>("all");
   const [filterOpen, setFilterOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState("differentials");
+  const [selectedId, setSelectedId] = useState("");
   const [phoneDetailOpen, setPhoneDetailOpen] = useState(false);
   const [openSection, setOpenSection] = useState<DetailSectionId | null>(null);
   const detailReturnFocusRef = useRef<HTMLElement | null>(null);
@@ -265,12 +290,24 @@ export function ToolsSearchResultsPage({
     return () => desktopMedia.removeEventListener("change", closePhoneOverlaysOnDesktop);
   }, []);
 
+  const accessibleTools = useMemo(
+    () =>
+      toolCatalogRecordsForSession({
+        authenticated: canAccessFavourites,
+        demoMode: false,
+      }),
+    [canAccessFavourites],
+  );
+  const visibleFilterOptions = useMemo(
+    () => (canAccessFavourites ? filterOptions : filterOptions.filter((option) => option.id !== "saved")),
+    [canAccessFavourites],
+  );
+  const effectiveActiveFilter: FilterId = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
+
   const queryMatchedTools = useMemo(() => {
     const normalized = normalizeSearchText(query);
-    return toolCatalogRecords.filter(
-      (tool) => (!normalized || toolSearchText(tool).includes(normalized)) && tool.id !== "favourites",
-    );
-  }, [query]);
+    return accessibleTools.filter((tool) => !normalized || toolSearchText(tool).includes(normalized));
+  }, [accessibleTools, query]);
 
   const filterCounts = useMemo<Record<FilterId, number>>(
     () => ({
@@ -279,24 +316,28 @@ export function ToolsSearchResultsPage({
       reference: queryMatchedTools.filter((tool) => tool.area === "reference").length,
       care: queryMatchedTools.filter((tool) => tool.area === "care").length,
       coordination: queryMatchedTools.filter((tool) => tool.area === "coordination").length,
+      saved: queryMatchedTools.filter((tool) => tool.area === "saved").length,
     }),
     [queryMatchedTools],
   );
 
   const filteredTools = useMemo(
-    () => (activeFilter === "all" ? queryMatchedTools : queryMatchedTools.filter((tool) => tool.area === activeFilter)),
-    [activeFilter, queryMatchedTools],
+    () =>
+      effectiveActiveFilter === "all"
+        ? queryMatchedTools
+        : queryMatchedTools.filter((tool) => tool.area === effectiveActiveFilter),
+    [effectiveActiveFilter, queryMatchedTools],
   );
 
   const filterControlOptions = useMemo(
     () =>
-      filterOptions.map((option) => ({
+      visibleFilterOptions.map((option) => ({
         value: option.id,
         label: option.label,
         hint: String(filterCounts[option.id]),
-        disabled: filterCounts[option.id] === 0 && activeFilter !== option.id,
+        disabled: filterCounts[option.id] === 0 && effectiveActiveFilter !== option.id,
       })),
-    [activeFilter, filterCounts],
+    [effectiveActiveFilter, filterCounts, visibleFilterOptions],
   );
 
   const selectedTool = filteredTools.find((tool) => tool.id === selectedId) ?? filteredTools[0] ?? null;
@@ -321,6 +362,13 @@ export function ToolsSearchResultsPage({
       data-testid={testId}
       className="mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-12 pt-4 text-[color:var(--text)] sm:px-6 sm:pt-6 lg:px-8 lg:pt-8"
     >
+      {desktopComposerSlotId ? (
+        <DesktopComposerPortalSlot
+          id={desktopComposerSlotId}
+          data-testid="tools-results-home-composer"
+          className="mode-home-composer-slot mx-auto mb-4 hidden w-full max-w-3xl [&:not(:empty)]:block sm:mb-6"
+        />
+      ) : null}
       <section
         className={cn(
           "mx-auto grid max-w-6xl gap-5 lg:items-start",
@@ -330,7 +378,7 @@ export function ToolsSearchResultsPage({
         <div className="min-w-0">
           <SearchResultsHeaderBand
             modeId="tools"
-            query={query}
+            query={query.trim() || "All tools"}
             matchCount={filteredTools.length}
             headingLevel={1}
             filterLabel="Filter tools by category"
@@ -339,7 +387,7 @@ export function ToolsSearchResultsPage({
                 panelId={filterPanelId}
                 testId="tools-search-filter-trigger-phone"
                 open={filterOpen}
-                activeCount={activeFilter === "all" ? 0 : 1}
+                activeCount={effectiveActiveFilter === "all" ? 0 : 1}
                 onToggle={() => setFilterOpen((current) => !current)}
                 title="Filter tools"
               />
@@ -347,7 +395,7 @@ export function ToolsSearchResultsPage({
             mobileControlsPlacement="inline"
             filterControls={
               <SegmentedControl
-                value={activeFilter}
+                value={effectiveActiveFilter}
                 onChange={setActiveFilter}
                 options={filterControlOptions}
                 label="Tool category"
@@ -364,12 +412,12 @@ export function ToolsSearchResultsPage({
               resultFilterGroup({
                 id: "category",
                 label: "Category",
-                value: activeFilter,
+                value: effectiveActiveFilter,
                 options: filterControlOptions,
                 onChange: setActiveFilter,
               }),
             ]}
-            onClearAll={activeFilter === "all" ? undefined : () => setActiveFilter("all")}
+            onClearAll={effectiveActiveFilter === "all" ? undefined : () => setActiveFilter("all")}
             footerNote={`${filteredTools.length} showing`}
           />
 
