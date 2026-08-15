@@ -19,6 +19,7 @@ import {
   BookOpenText,
   TriangleAlert,
   CalendarDays,
+  Calculator,
   Check,
   ChevronDown,
   ChevronRight,
@@ -57,6 +58,7 @@ export type ModeActionSetId =
   | "forms"
   | "favourites"
   | "tools"
+  | "calculators"
   | "differentials"
   | "dsm"
   | "specifiers"
@@ -123,6 +125,7 @@ export type ModeActionId =
   | "medication-access"
   | "tools-browse"
   | "tools-new"
+  | "calculators-browse"
   | "differentials-build"
   | "differentials-criteria"
   | "differentials-documents"
@@ -226,6 +229,15 @@ const modeActionSets = {
       primary: true,
     },
     { id: "tools-new", label: "New answer", description: "Clear the current thread", icon: Sparkles },
+  ],
+  calculators: [
+    {
+      id: "calculators-browse",
+      label: "Browse calculators",
+      description: "Open the calculator catalogue",
+      icon: Calculator,
+      primary: true,
+    },
   ],
   differentials: [
     {
