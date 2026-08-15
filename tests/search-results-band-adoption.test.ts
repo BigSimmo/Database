@@ -152,8 +152,8 @@ function routePathname(routeAbs: string): string {
  * the band through their own page:
  * - `isAlwaysStandaloneShellPath` — never mounts the dashboard (services, forms, …)
  * - `isStandaloneModeHomePath` — mode homes with their own results page, including
- *   `/tools`, whose page switches between `ApplicationsLauncherPage` and its
- *   route-owned submitted-results component
+ *   `/tools`, whose default and submitted states both mount its route-owned
+ *   `ToolsSearchResultsPage`
  */
 function reachabilityRoots(routeAbs: string): string[] {
   const pathname = routePathname(routeAbs);
