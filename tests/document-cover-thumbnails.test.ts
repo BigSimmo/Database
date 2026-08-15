@@ -23,11 +23,23 @@ describe("document cover thumbnails", () => {
 
   it("audits every selected PDF and repairs missing objects or cover metadata", () => {
     expect(backfillSource).toContain('const all = hasFlag("--all")');
-    expect(backfillSource).toContain("coversByDocument.get(String(doc.id))");
+    expect(backfillSource).toContain("loadCurrentDocument(candidate.id)");
+    expect(backfillSource).toContain("loadCurrentCovers(doc.id)");
     expect(backfillSource).toContain("existingObjectIsLive");
     expect(backfillSource).toContain("recovered cover metadata");
-    expect(backfillSource).toContain('supabase.from("document_images").update(imageRow).eq("id", existingCover.id)');
+    expect(backfillSource).toContain('.eq("metadata->>index_generation_id", expectedGeneration)');
+    expect(backfillSource).toContain("rolled back generation-changed cover repair");
     expect(backfillSource).not.toContain("coveredIds.has(String(doc.id))");
+  });
+
+  it("retires replaced rows only after the pointer moves and preserves storage cleanup", () => {
+    expect(backfillSource).toContain("Insert first and retire the previous row only after the document");
+    expect(backfillSource).toMatch(
+      /patchCoverImageId\(doc\.id, inserted\.id, committedGeneration\)[\s\S]*?\.delete\(\)\s*\.eq\("id", existingCover\.id\)/,
+    );
+    expect(backfillSource).toContain("removeOrQueueReplacedImage(doc, replacedPath)");
+    expect(backfillSource).toContain('supabase.from("storage_cleanup_jobs").insert({');
+    expect(backfillSource).toContain('operation: "replace_document_cover"');
   });
 
   it("extracts a first-page cover_page artifact in the PDF worker", () => {
