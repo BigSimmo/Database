@@ -29,26 +29,36 @@ export const therapyRecords = therapiesIndexJson as TherapyIndexRecord[];
 
 const bySlug = new Map(therapyRecords.map((record) => [record.slug, record]));
 
-export function findTherapyRecord(slug: string): TherapyIndexRecord | undefined {
-  return bySlug.get(slug);
+/** Production may expose only records that have completed clinical review. */
+export function therapyRecordsForEnvironment(environment = process.env.NODE_ENV): TherapyIndexRecord[] {
+  return environment === "production" ? therapyRecords.filter((record) => !therapyNeedsReview(record)) : therapyRecords;
 }
 
-export function therapyRecordExists(slug: string): boolean {
-  return bySlug.has(slug);
+export function findTherapyRecord(slug: string, environment = process.env.NODE_ENV): TherapyIndexRecord | undefined {
+  const record = bySlug.get(slug);
+  return record && (environment !== "production" || !therapyNeedsReview(record)) ? record : undefined;
 }
 
-export function therapySlugs(): string[] {
-  return therapyRecords.map((record) => record.slug);
+export function therapyRecordExists(slug: string, environment = process.env.NODE_ENV): boolean {
+  return Boolean(findTherapyRecord(slug, environment));
+}
+
+export function therapySlugs(environment = process.env.NODE_ENV): string[] {
+  return therapyRecordsForEnvironment(environment).map((record) => record.slug);
 }
 
 /** Slugs whose record ships a brief-intervention version (the rest 404 that route). */
-export function therapyBriefSlugs(): string[] {
-  return therapyRecords.filter((record) => record.briefInterventionAvailable).map((record) => record.slug);
+export function therapyBriefSlugs(environment = process.env.NODE_ENV): string[] {
+  return therapyRecordsForEnvironment(environment)
+    .filter((record) => record.briefInterventionAvailable)
+    .map((record) => record.slug);
 }
 
 /** Slugs whose record ships a patient sheet (the rest 404 that route). */
-export function therapySheetSlugs(): string[] {
-  return therapyRecords.filter((record) => record.patientSheetAvailable).map((record) => record.slug);
+export function therapySheetSlugs(environment = process.env.NODE_ENV): string[] {
+  return therapyRecordsForEnvironment(environment)
+    .filter((record) => record.patientSheetAvailable)
+    .map((record) => record.slug);
 }
 
 /** True when a therapy still awaits qualified-clinician sign-off. */
@@ -59,12 +69,11 @@ export function therapyNeedsReview(record: TherapyIndexRecord): boolean {
 export type TherapySearchMatch = { record: TherapyIndexRecord; score: number };
 
 /**
- * Rank the therapy library for a query through the shared universal profile.
- * The full catalogue uses the same ranking owner with its established profile.
+ * Rank the production-safe therapy library through the shared Therapy scorer.
  * An empty query returns
  * the alphabetical library (stable order) so the universal-search domain can
  * still surface a browse list.
  */
-export function searchTherapyRecords(query: string): TherapySearchMatch[] {
-  return rankTherapyCandidates(therapyRecords, query, "universal");
+export function searchTherapyRecords(query: string, environment = process.env.NODE_ENV): TherapySearchMatch[] {
+  return rankTherapyCandidates(therapyRecordsForEnvironment(environment), query);
 }

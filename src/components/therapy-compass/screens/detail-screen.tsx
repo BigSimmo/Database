@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 
-import { useAccountData } from "@/components/account-data-provider";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { SourceDesignationBadge, SourceStatusBadge } from "@/components/ui-primitives";
 import { therapyScreenHref } from "@/lib/therapy-compass-navigation";
@@ -29,15 +28,16 @@ import {
 } from "../icons";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
 import { Eyebrow, LoadingState, StatusBadge, TagRow } from "../ui";
+import { useTherapyFavourite } from "../use-therapy-favourite";
 
 export function DetailScreen() {
   const b = useTcBindings();
-  const accountData = useAccountData();
   const t = b.selectedTherapy;
+  const favourite = useTherapyFavourite(t?.slug ?? null);
   if (!t) return <LoadingState />;
 
   const steps = parseSteps(t.deliverySteps);
-  const saved = accountData.isSaved("therapy", t.slug);
+  const { notice, saved, toggleFavourite } = favourite;
 
   return (
     <>
@@ -69,12 +69,21 @@ export function DetailScreen() {
                     type="button"
                     className={`${therapyBtn} ${outlineControl} ml-auto px-3 text-xs`}
                     aria-pressed={saved}
-                    onClick={() => void accountData.setFavourite("therapy", t.slug, !saved)}
+                    onClick={() => void toggleFavourite()}
                   >
                     <HeartIcon size={15} className={saved ? "fill-current" : undefined} />
                     {saved ? "Saved" : "Save"}
                   </button>
                 </div>
+                {notice ? (
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className="mt-0 mb-3 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]"
+                  >
+                    {notice}
+                  </p>
+                ) : null}
                 <h1 className="mt-0 mx-0 mb-1 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
                   {t.name}
                 </h1>

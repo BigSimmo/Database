@@ -10,8 +10,6 @@ export type TherapyRankable = {
   indications?: string | null;
 };
 
-export type TherapyRankingProfile = "catalogue" | "universal";
-
 const lowercase = (value: string | null | undefined) => (value ?? "").toLowerCase();
 const normalize = (value: string | null | undefined) =>
   lowercase(value)
@@ -20,30 +18,11 @@ const normalize = (value: string | null | undefined) =>
     .trim();
 
 /**
- * The single Therapy ranking owner. Profiles preserve the two established
- * product contracts while they are evaluated for a future quality-tuning pass:
- * the full catalogue scorer and the universal-search projection scorer.
+ * The single Therapy ranking contract used by both the dedicated catalogue and
+ * universal discovery. Keeping one scorer prevents a search handoff from
+ * reordering the same records.
  */
-export function scoreTherapyCandidate(record: TherapyRankable, query: string, profile: TherapyRankingProfile): number {
-  if (profile === "catalogue") {
-    const q = query.trim().toLowerCase();
-    if (!q) return 1;
-    const name = lowercase(record.name);
-    const tags = record.tags.map(lowercase);
-    let score = 0;
-    if (name === q) score += 100;
-    if (name.startsWith(q)) score += 40;
-    if (name.includes(q)) score += 20;
-    if (record.aliases.some((alias) => lowercase(alias).includes(q))) score += 18;
-    if (tags.some((tag) => tag.includes(q))) score += 14;
-    if (lowercase(record.category).includes(q)) score += 8;
-    if (lowercase(record.bestUsedFor).includes(q)) score += 6;
-    if (lowercase(record.targetSymptoms).includes(q)) score += 5;
-    if (lowercase(record.clinicalSummary).includes(q)) score += 3;
-    if (lowercase(record.indications).includes(q)) score += 3;
-    return score;
-  }
-
+export function scoreTherapyCandidate(record: TherapyRankable, query: string): number {
   const q = normalize(query);
   if (!q) return 1;
   const tokens = q.split(" ").filter(Boolean);
@@ -89,14 +68,11 @@ export function scoreTherapyCandidate(record: TherapyRankable, query: string, pr
 export function rankTherapyCandidates<T extends TherapyRankable>(
   records: readonly T[],
   query: string,
-  profile: TherapyRankingProfile,
 ): Array<{ record: T; score: number }> {
-  const emptyQuery = !query.trim();
   return records
-    .map((record, index) => ({
+    .map((record) => ({
       record,
-      score:
-        emptyQuery && profile === "universal" ? records.length - index : scoreTherapyCandidate(record, query, profile),
+      score: scoreTherapyCandidate(record, query),
     }))
     .filter((match) => match.score > 0)
     .sort((left, right) => right.score - left.score || left.record.name.localeCompare(right.record.name));

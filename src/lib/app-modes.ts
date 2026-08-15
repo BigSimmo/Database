@@ -342,9 +342,10 @@ export const appModeDefinitions = [
     label: "Therapy",
     description: "Source-grounded therapy decision support",
     href: "/therapy-compass",
-    // Cleared for production discovery: the re-curated therapy pathways have
-    // qualified-clinician sign-off, so Therapy is now a first-class mode in the
-    // production sidebar and MODE dropdown (no longer devOnly-gated).
+    // Keep Therapy available for local clinical review while its catalogue is
+    // awaiting qualified-clinician sign-off. Removing this gate requires the
+    // catalogue review-status contract to prove production-ready records.
+    devOnly: true,
     search: {
       kind: "therapies",
       // The longer phrase became the late portal's LCP element on Therapy Home.

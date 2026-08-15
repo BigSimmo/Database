@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 
-import { useAccountData } from "@/components/account-data-provider";
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
 import type { Therapy } from "./data/types";
@@ -18,12 +17,12 @@ import {
   ScaleIcon,
 } from "./icons";
 import { Eyebrow, IconTile, TagRow } from "./ui";
+import { useTherapyFavourite } from "./use-therapy-favourite";
 
 /** Large search-result card with why-matched / avoid / best-fit columns. */
 export function ResultCard({ therapy }: { therapy: Therapy }) {
   const b = useTcBindings();
-  const accountData = useAccountData();
-  const saved = accountData.isSaved("therapy", therapy.slug);
+  const { notice, saved, toggleFavourite } = useTherapyFavourite(therapy.slug);
   const inCompare = b.isInCompare(therapy.slug);
   const subtitle =
     cardPreviewText(therapy.clinicalSummary, { exclude: therapy.name }) ||
@@ -57,7 +56,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         type="button"
         className={`${iconControl} absolute top-3 right-3 z-[10] sm:top-3.5 sm:right-4`}
         aria-pressed={saved}
-        onClick={() => void accountData.setFavourite("therapy", therapy.slug, !saved)}
+        onClick={() => void toggleFavourite()}
         title={saved ? "Remove from favourites" : "Save therapy to favourites"}
         aria-label={saved ? `Remove ${therapy.name} from favourites` : `Save ${therapy.name} to favourites`}
       >
@@ -87,6 +86,15 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           <CardCell icon={ClockIcon} eyebrow="BEST FIT" tone="muted" text={bestFit} />
         </div>
       </div>
+      {notice ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mx-4 mb-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)] sm:mx-5"
+        >
+          {notice}
+        </p>
+      ) : null}
       <div data-therapy-result-actions className="grid grid-cols-3 gap-2 px-4 py-3.5 sm:px-5 sm:pb-4 md:pt-0">
         <button
           type="button"

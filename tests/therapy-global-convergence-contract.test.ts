@@ -27,8 +27,9 @@ describe("Therapy global-site convergence", () => {
     expect(read("supabase/migrations/20260814150000_add_therapy_favourites.sql")).toContain(
       "'differential', 'therapy'",
     );
-    expect(read("src/components/therapy-compass/therapy-card.tsx")).toContain(
-      'setFavourite("therapy", therapy.slug, !saved)',
+    expect(read("src/components/therapy-compass/therapy-card.tsx")).toContain("useTherapyFavourite(therapy.slug)");
+    expect(read("src/components/therapy-compass/use-therapy-favourite.ts")).toContain(
+      'await accountData.setFavourite("therapy", slug, nowSaved)',
     );
   });
 

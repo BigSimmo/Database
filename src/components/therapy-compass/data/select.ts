@@ -177,9 +177,9 @@ export function searchTherapies(therapies: Therapy[], opts: SearchOptions): Ther
       if (!matchesAvailability(t, opts.reviewedOnly, opts.briefOnly)) return false;
       if (opts.sheetOnly && !t.patientSheetAvailable) return false;
       if (!matchesTopics(t, topics)) return false;
-      return scoreTherapyCandidate(t, q, "catalogue") > 0;
+      return scoreTherapyCandidate(t, q) > 0;
     })
-    .map((t) => ({ t, s: scoreTherapyCandidate(t, q, "catalogue") }));
+    .map((t) => ({ t, s: scoreTherapyCandidate(t, q) }));
   scored.sort((a, b) => b.s - a.s || a.t.name.localeCompare(b.t.name));
   return scored.map((x) => x.t);
 }
@@ -262,7 +262,7 @@ export function rankRecommendations(
   const cons = RECOMMEND_CONSTRAINTS.filter((c) => constraintKeys.includes(c.key));
   const scored = therapies.map((t) => {
     let score = 0;
-    if (q) score += Math.min(scoreTherapyCandidate(t, q, "catalogue"), 60);
+    if (q) score += Math.min(scoreTherapyCandidate(t, q), 60);
     for (const c of cons) if (c.match(t)) score += 10;
     if (t.reviewStatus === "reviewed") score += 4;
     if (typeof t.indexCompleteness === "number") score += t.indexCompleteness / 100;
