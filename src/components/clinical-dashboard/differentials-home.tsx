@@ -1223,10 +1223,10 @@ function SearchResultsView({
                 // The featured card owns rank 1 on phones. Continue the
                 // remaining visible sequence at 2 without leaving a gap when
                 // the best match moves under A-Z presentation order.
-                const mobileIndex =
-                  visibleResults
-                    .slice(0, displayIndex)
-                    .filter((candidate) => !(candidate.kind === best.kind && candidate.id === best.id)).length + 1;
+                const precedingNonBestResults = visibleResults
+                  .slice(0, displayIndex)
+                  .filter((candidate) => candidate.kind !== best.kind || candidate.id !== best.id);
+                const mobileIndex = precedingNonBestResults.length + 1;
                 return (
                   // The best answer is already featured above the phone list,
                   // so its ranked duplicate only renders from the desktop
