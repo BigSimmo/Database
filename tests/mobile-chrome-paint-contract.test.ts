@@ -57,15 +57,11 @@ describe("mobile chrome paint baseline", () => {
     }
   });
 
-  it("registers the calculator page reserve with the shared hide and transition contracts", () => {
-    expect(calculatorsSource).toContain("useReserveTransitionMarker(dockHidden, activeCalc)");
-    expect(calculatorsSource).toContain("if (!activeCalc) return;");
-    expect(calculatorsSource).toContain("queueMicrotask(() =>");
-    expect(calculatorsSource).toContain("setDockFocused(false)");
-    expect(calculatorsSource).not.toContain("if (!cancelled) setDockFocused(false)");
-    expect(calculatorsSource).toContain('reserveOwner="calculator"');
-    expect(calculatorsSource).toContain('reserveHiddenPad="0rem"');
-    expect(calculatorsSource).toContain("reserveTransitioning={reserveTransitioning}");
+  it("keeps calculator results free of a second phone dock and page reserve", () => {
+    expect(calculatorsSource).not.toContain("useReserveTransitionMarker");
+    expect(calculatorsSource).not.toContain('reserveOwner="calculator"');
+    expect(calculatorsSource).not.toContain('data-testid="calculators-phone-dock"');
+    expect(calculatorsSource).not.toContain("PhoneFooterLayerPortal");
     expect(globalStylesSource).toContain('[data-reserve-owner][data-reserve-transitioning="true"]');
     expect(scrollHideSource).toContain('querySelectorAll("[data-reserve-owner]")');
     expect(scrollHideSource).toContain("dataset.reserveHiddenPad");
