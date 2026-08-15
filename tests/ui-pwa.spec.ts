@@ -339,6 +339,71 @@ test.describe("Clinical KB PWA", () => {
     }
   });
 
+  test("keeps constrained install actions reachable in a short phone viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 400 });
+    await page.goto("/?mode=answer&pwa-dev=0", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("header#search").first()).toBeVisible({ timeout: 20_000 });
+    await page.waitForFunction(() => document.documentElement.dataset.pwaDisplayMode === "browser");
+
+    await page.evaluate(() => {
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      Object.assign(event, {
+        prompt: () => Promise.resolve(),
+        userChoice: Promise.resolve({ outcome: "accepted", platform: "web" }),
+      });
+      window.dispatchEvent(event);
+    });
+
+    const install = page.getByRole("region", { name: "Install Clinical KB" });
+    await expect(install).toBeVisible();
+    const scrollState = await install.evaluate((surface) => ({
+      clientHeight: surface.clientHeight,
+      scrollHeight: surface.scrollHeight,
+      overflowY: getComputedStyle(surface).overflowY,
+    }));
+    expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
+    expect(scrollState.overflowY).toMatch(/auto|scroll/);
+
+    await install.evaluate((surface) => {
+      surface.scrollTop = surface.scrollHeight;
+    });
+    await expect(install.getByRole("button", { name: "Install app" })).toBeInViewport();
+    await expect(install.getByRole("button", { name: "Not now" })).toBeInViewport();
+  });
+
+  test("keeps the install surface clear of the submitted answer composer", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/?mode=answer&q=lithium&run=1&pwa-dev=0", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("header#search").first()).toBeVisible({ timeout: 20_000 });
+    await page.waitForFunction(() => document.documentElement.dataset.pwaDisplayMode === "browser");
+
+    await page.evaluate(() => {
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      Object.assign(event, {
+        prompt: () => Promise.resolve(),
+        userChoice: Promise.resolve({ outcome: "accepted", platform: "web" }),
+      });
+      window.dispatchEvent(event);
+    });
+
+    const install = page.getByRole("region", { name: "Install Clinical KB" });
+    const composer = page.locator("form.answer-footer-search-edge:visible").first();
+    await expect(install).toBeVisible();
+    await expect(composer).toBeVisible();
+
+    const overlap = await install.evaluate((surface, selector) => {
+      const composerSurface = document.querySelector<HTMLElement>(selector);
+      if (!composerSurface) return -1;
+      const card = surface.getBoundingClientRect();
+      const dock = composerSurface.getBoundingClientRect();
+      return (
+        Math.max(0, Math.min(card.right, dock.right) - Math.max(card.left, dock.left)) *
+        Math.max(0, Math.min(card.bottom, dock.bottom) - Math.max(card.top, dock.top))
+      );
+    }, "form.answer-footer-search-edge");
+    expect(overlap).toBe(0);
+  });
+
   test("serves a cold offline fallback, recovers online, and keeps private URLs out of CacheStorage", async ({
     context,
     page,

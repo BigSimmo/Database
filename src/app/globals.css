@@ -2698,6 +2698,7 @@ summary::-webkit-details-marker {
 
 .pwa-install-sheet {
   max-height: calc(100dvh - var(--pwa-notice-bottom-gap) - 4.25rem);
+  overflow-y: auto;
   overscroll-behavior: contain;
 }
 
@@ -2884,6 +2885,13 @@ summary::-webkit-details-marker {
     right: max(1rem, var(--safe-area-right));
     bottom: max(1rem, var(--safe-area-bottom));
     width: min(27rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
+  }
+
+  /* Submitted answer views own a fixed bottom composer. Keep the install
+     surface in the opposite corner so neither control can obscure the other. */
+  body:has(form.answer-footer-search-edge) .pwa-notice-stack {
+    top: calc(4.25rem + max(0.75rem, var(--safe-area-top)));
+    bottom: auto;
   }
 
   .pwa-install-grip {
