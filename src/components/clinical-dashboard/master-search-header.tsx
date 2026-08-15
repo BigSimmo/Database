@@ -374,6 +374,7 @@ export function MasterSearchHeader({
     selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
+    selectedSearch.kind === "calculators" ||
     selectedSearch.kind === "favourites" ||
     selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation" ||
@@ -657,7 +658,9 @@ export function MasterSearchHeader({
                       ? "formulation"
                       : searchMode === "tools"
                         ? "tools"
-                        : searchMode === "factsheets"
+                        : searchMode === "calculators"
+                          ? "calculators"
+                          : searchMode === "factsheets"
                           ? "factsheets"
                           : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
@@ -812,6 +815,10 @@ export function MasterSearchHeader({
     }
     if (actionId === "tools-browse") {
       onSearchModeChange("tools");
+      return;
+    }
+    if (actionId === "calculators-browse") {
+      router.push("/calculators");
       return;
     }
     if (actionId === "differentials-build") {

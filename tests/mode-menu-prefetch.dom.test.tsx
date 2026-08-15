@@ -87,6 +87,38 @@ describe("mode menu destination prefetch", () => {
     router.prefetch.mockReset();
   });
 
+  it("keeps calculator submission enabled when document data is unavailable", async () => {
+    const user = userEvent.setup();
+    const onAsk = vi.fn();
+
+    render(
+      <MasterSearchHeader
+        {...headerProps()}
+        searchMode="calculators"
+        query="PHQ-9"
+        realDataReady={false}
+        onAsk={onAsk}
+      />,
+    );
+
+    const submit = screen.getByRole("button", { name: "Search clinical calculators" });
+    expect(submit).toBeEnabled();
+    await user.click(submit);
+    expect(onAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows calculator-specific actions instead of Answer actions", async () => {
+    const user = userEvent.setup();
+
+    render(<MasterSearchHeader {...headerProps()} searchMode="calculators" />);
+    await user.click(screen.getByRole("button", { name: "Open calculators options" }));
+
+    const actions = await screen.findByRole("menu", { name: "Useful actions" });
+    expect(within(actions).getByRole("menuitem", { name: "Browse calculators" })).toBeVisible();
+    expect(within(actions).queryByRole("menuitem", { name: "New question" })).toBeNull();
+    expect(within(actions).queryByRole("menuitem", { name: "Add document" })).toBeNull();
+  });
+
   it("prefetches the shared-home selection URL when the user points at a mode", async () => {
     const user = userEvent.setup();
     const documents = guestModeHomes().find((mode) => mode.id === "documents");
