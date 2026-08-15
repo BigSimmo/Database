@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "b935dad0-394c-435a-acc5-21df750c7e52",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#293",
+    "detail": "CORRECTION 2026-08-14: an earlier queued request for this row claimed `done`, citing PR #1962. That was premature -- PR #1962 is still open, not merged; tests/ui-style-contract.spec.ts on main does not yet carry the new test. Do not close this row until PR #1962 actually merges and the test is confirmed present on main. What PR #1962 contains, once it lands: Finding 1 (min-height override) reconfirmed already refuted/intentional, untouched -- no code change needed there. Finding 2 (nondeterministic enumeration): confirmed via git history it was written once but reverted rather than landed, so there was no code to fix, only a missing regression test to build. The new Playwright test runs on /forms's static home (avoids the original live-search route race), at a 390x844 phone viewport (avoids the sm: release that refuted Finding 1), polls until 3 consecutive enumeration reads agree instead of trusting networkidle, explicitly sorts the shape list, and repeats 3 full navigate-and-enumerate cycles inside the test asserting an exact match. Full spec file passed 10/10 in that session's own run -- but that proof is local to the branch until the PR merges.",
+    "source": "session 2026-08-14 ledger correction; PR #1962 (open, not yet merged as of this correction)"
+  }
+}
