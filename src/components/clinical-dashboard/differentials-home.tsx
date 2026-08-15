@@ -251,16 +251,14 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
 
 type KindFilter = "all" | "presentation" | "diagnosis";
 
-function MatchBadge({ label, sourceVerified = false }: { label: string; sourceVerified?: boolean }) {
-  // Match quality is a relevance signal, not a safety one: success green marks
-  // a source-verified best result, blue carries other strong matches, and red
-  // remains reserved for emergent clinical status.
+function MatchBadge({ label }: { label: string }) {
+  // Match quality is a relevance signal, not a source-verification or safety
+  // signal. Keep it in the accent family while red remains reserved for
+  // emergent clinical status.
   const tone =
-    label === "Best match" && sourceVerified
-      ? "text-[color:var(--success-text)]"
-      : label === "High match"
-        ? "text-[color:var(--clinical-accent)]"
-        : "text-[color:var(--text-muted)]";
+    label === "Best match" || label === "High match"
+      ? "text-[color:var(--clinical-accent)]"
+      : "text-[color:var(--text-muted)]";
   return (
     <span className={cn("inline-flex items-center gap-1 text-2xs font-extrabold", tone)}>
       {label === "Best match" ? <Check className="h-3 w-3 shrink-0" aria-hidden /> : null}
@@ -358,8 +356,8 @@ function DesktopResultRow({
           Clinical cues
         </p>
         <div className="mt-1 flex max-w-full flex-wrap gap-1.5">
-          {result.clinicalCues.slice(0, 4).map((tag) => (
-            <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
+          {result.clinicalCues.slice(0, 4).map((tag, cueIndex) => (
+            <Chip key={`${result.id}-cue-${cueIndex}-${tag}`}>{tag}</Chip>
           ))}
           {result.clinicalCues.length > 4 ? <Chip>{`+${result.clinicalCues.length - 4}`}</Chip> : null}
         </div>
@@ -421,8 +419,8 @@ function MobileResultCard({
           Clinical cues
         </p>
         <div className="mt-1 flex min-w-0 max-w-full flex-wrap gap-1.5">
-          {result.clinicalCues.slice(0, 2).map((tag) => (
-            <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
+          {result.clinicalCues.slice(0, 2).map((tag, cueIndex) => (
+            <Chip key={`${result.id}-cue-${cueIndex}-${tag}`}>{tag}</Chip>
           ))}
           {result.clinicalCues.length > 2 ? <Chip fixed>{`+${result.clinicalCues.length - 2}`}</Chip> : null}
         </div>
@@ -433,45 +431,34 @@ function MobileResultCard({
 
 function conciseCueText(cues: string[]) {
   return cues
+    .map((cue) => cue.trim())
+    .filter(Boolean)
     .reduce<string[]>((visible, cue) => {
       const normalizedCue = cue.toLowerCase();
       if (visible.some((existing) => existing.toLowerCase().includes(normalizedCue))) return visible;
-      visible.push(cue);
-      return visible;
+      return [...visible.filter((existing) => !normalizedCue.includes(existing.toLowerCase())), cue];
     }, [])
     .join(" · ");
 }
 
-function BestMatchReasoningPanel({
-  result,
-  compact,
-  sourceVerified,
-}: {
-  result: DifferentialResult;
-  compact: boolean;
-  sourceVerified: boolean;
-}) {
+function BestMatchReasoningPanel({ result, compact }: { result: DifferentialResult; compact: boolean }) {
   const sections = [
     { label: "Why considered", value: result.subtitle, icon: Check },
     { label: "Look for", value: conciseCueText(result.clinicalCues), icon: Activity },
     { label: "Check next", value: result.nextSteps.join(" · "), icon: FlaskConical },
   ].filter((section) => section.value.trim());
 
+  if (sections.length === 0) return null;
+
   return (
     <div
       data-testid="differential-best-match-panel"
       className={cn(
         "overflow-hidden rounded-lg border bg-[color:var(--surface)]/85",
-        sourceVerified
-          ? "border-[color:var(--success-border)]"
-          : "border-[color:var(--clinical-accent-border)]",
+        "border-[color:var(--clinical-accent-border)]",
         compact
-          ? sourceVerified
-            ? "divide-y divide-[color:var(--success-border)]"
-            : "divide-y divide-[color:var(--clinical-accent-border)]"
-          : sourceVerified
-            ? "grid divide-x divide-[color:var(--success-border)]"
-            : "grid divide-x divide-[color:var(--clinical-accent-border)]",
+          ? "divide-y divide-[color:var(--clinical-accent-border)]"
+          : "grid divide-x divide-[color:var(--clinical-accent-border)]",
       )}
       style={!compact ? { gridTemplateColumns: `repeat(${sections.length}, minmax(0, 1fr))` } : undefined}
     >
@@ -479,23 +466,11 @@ function BestMatchReasoningPanel({
         const Icon = section.icon;
         return (
           <div key={section.label} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2.5 px-3 py-3">
-            <span
-              className={cn(
-                "grid h-7 w-7 place-items-center rounded-full",
-                sourceVerified
-                  ? "bg-[color:var(--success-bg)] text-[color:var(--success-text)]"
-                  : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-              )}
-            >
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
               <Icon className="size-icon-sm stroke-[2.25]" aria-hidden />
             </span>
             <div className="min-w-0">
-              <p
-                className={cn(
-                  "text-2xs font-extrabold uppercase tracking-eyebrow",
-                  sourceVerified ? "text-[color:var(--success-text)]" : "text-[color:var(--clinical-accent)]",
-                )}
-              >
+              <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                 {section.label}
               </p>
               <p className="mt-1 text-xs font-semibold leading-5 text-[color:var(--text-heading)]">{section.value}</p>
@@ -513,14 +488,12 @@ function BestAnswerCard({
   onToggle,
   compact = false,
   rank = 1,
-  sourceVerified = false,
 }: {
   best: DifferentialResult;
   selected?: boolean;
   onToggle?: () => void;
   compact?: boolean;
   rank?: number;
-  sourceVerified?: boolean;
 }) {
   const Icon = best.icon;
 
@@ -530,9 +503,7 @@ function BestAnswerCard({
       aria-label="Best differential match"
       className={cn(
         "grid items-start gap-x-2.5 gap-y-3 rounded-lg border shadow-[var(--e1)]",
-        sourceVerified
-          ? "border-[color:var(--success-border)] bg-[color:var(--success-bg)]/55"
-          : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45",
+        "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45",
         compact
           ? "grid-cols-[2rem_minmax(0,1fr)_var(--spacing-tap)] p-3"
           : "grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] p-3.5",
@@ -542,9 +513,7 @@ function BestAnswerCard({
         data-testid={!compact ? "differential-best-match-rank" : undefined}
         className={cn(
           "grid h-8 w-8 shrink-0 place-items-center rounded-md border bg-[color:var(--surface)] text-sm font-extrabold",
-          sourceVerified
-            ? "border-[color:var(--success-border)] text-[color:var(--success-text)]"
-            : "border-[color:var(--clinical-accent-border)] text-[color:var(--clinical-accent)]",
+          "border-[color:var(--clinical-accent-border)] text-[color:var(--clinical-accent)]",
           !compact && "self-center",
         )}
       >
@@ -554,9 +523,7 @@ function BestAnswerCard({
         <span
           className={cn(
             "grid h-14 w-14 place-items-center self-center rounded-lg border bg-[color:var(--surface)]",
-            sourceVerified
-              ? "border-[color:var(--success-border)] text-[color:var(--success-text)]"
-              : "border-[color:var(--clinical-accent-border)] text-[color:var(--clinical-accent)]",
+            "border-[color:var(--clinical-accent-border)] text-[color:var(--clinical-accent)]",
           )}
         >
           <Icon className="h-7 w-7 stroke-[1.75]" aria-hidden />
@@ -588,23 +555,18 @@ function BestAnswerCard({
         </div>
       </Link>
       {!compact ? (
-        <div
-          className={cn(
-            "grid min-h-10 place-items-center self-center border-l pl-3",
-            sourceVerified ? "border-[color:var(--success-border)]" : "border-[color:var(--clinical-accent-border)]",
-          )}
-        >
-          <MatchBadge label="Best match" sourceVerified={sourceVerified} />
+        <div className="grid min-h-10 place-items-center self-center border-l border-[color:var(--clinical-accent-border)] pl-3">
+          <MatchBadge label="Best match" />
         </div>
       ) : null}
       {onToggle ? <SelectionCheckbox selected={Boolean(selected)} onChange={onToggle} label={best.title} /> : <span />}
       {compact ? (
         <div className="col-span-2 col-start-2 flex items-center gap-1.5">
-          <MatchBadge label="Best match" sourceVerified={sourceVerified} />
+          <MatchBadge label="Best match" />
         </div>
       ) : null}
       <div className={cn(compact ? "col-span-2 col-start-2" : "col-start-3 col-end-6")}>
-        <BestMatchReasoningPanel result={best} compact={compact} sourceVerified={sourceVerified} />
+        <BestMatchReasoningPanel result={best} compact={compact} />
       </div>
     </section>
   );
@@ -1147,7 +1109,6 @@ function SearchResultsView({
               <BestAnswerCard
                 best={best}
                 compact
-                sourceVerified={hasSourceEvidence}
                 selected={selectedIds.has(best.id)}
                 onToggle={best.kind === "diagnosis" ? () => toggleSelected(best.id) : undefined}
               />
@@ -1223,8 +1184,6 @@ function SearchResultsView({
                 // The featured card owns rank 1 on phones. Continue the
                 // remaining visible sequence at 2 without leaving a gap when
                 // the best match moves under A-Z presentation order.
-                // The pinned formatter rejects both equivalent wrap layouts.
-                // prettier-ignore
                 const precedingNonBestResults = visibleResults
                   .slice(0, displayIndex)
                   .filter((candidate) => candidate.kind !== best.kind || candidate.id !== best.id);
@@ -1239,7 +1198,6 @@ function SearchResultsView({
                         <BestAnswerCard
                           best={result}
                           rank={displayIndex + 1}
-                          sourceVerified={hasSourceEvidence}
                           selected={selectedIds.has(result.id)}
                           onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
                         />
