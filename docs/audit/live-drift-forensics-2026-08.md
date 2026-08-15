@@ -123,10 +123,12 @@ to the repo:
 | `match_document_index_units_hybrid_scoped(vector,…,boolean)`       | normalization noise | re-qualified hash matches manifest                                   |
 | `match_document_memory_cards_hybrid_v3(vector,…,boolean)`          | normalization noise | re-qualified hash matches manifest                                   |
 
-**The remaining ten are real body differences and are UNCLASSIFIED.** They do not match the
-manifest under the raw hash, the `extensions.`-stripped hash, or the re-qualified hash, so the
-difference is in the body itself and not in rendering. Per the rule above they are recorded
-UNCLASSIFIED rather than guessed — deciding live-ahead vs repo-ahead needs the decisive hunk:
+**The remaining ten are unresolved hash mismatches and are UNCLASSIFIED.** They do not match the
+manifest under the raw hash, the `extensions.`-stripped hash, or the re-qualified hash. That rules
+out the tested `extensions.vector` rendering variants, but does not establish a body difference:
+`pg_get_functiondef` also carries declarations and attributes, and other normalization differences
+remain possible. Per the rule above they are recorded UNCLASSIFIED rather than guessed — deciding
+whether there is a body difference, and then live-ahead vs repo-ahead, needs the decisive hunk:
 
 `match_document_chunks_text`, `match_document_chunks_text_v2`, `match_document_chunks_hybrid`,
 `match_document_embedding_fields_hybrid`, `match_document_index_units_hybrid`,
@@ -134,8 +136,8 @@ UNCLASSIFIED rather than guessed — deciding live-ahead vs repo-ahead needs the
 `match_document_memory_cards_hybrid`, `match_document_memory_cards_hybrid_v2`,
 `match_document_table_facts_text`.
 
-This independently confirms the "10 retrieval RPC bodies diverge" figure in `#316` — the count is
-correct, and the extra six that a naive comparison surfaces are artefacts.
+This confirms ten unresolved retrieval-RPC hash mismatches after excluding the six proven
+qualification artefacts. It does **not** yet confirm that ten RPC bodies diverge.
 
 **Method trap, recorded so the next run does not repeat it.** Joining manifest signatures to live
 `p.oid::regprocedure::text` directly reports **all 93** functions as simultaneously missing _and_
@@ -188,8 +190,8 @@ returns **zero rows** across the whole `public` schema, so the failed-`CREATE IN
 class documented in `docs/database-drift-detection.md` explains none of the 20. The objects are
 absent, not broken.
 
-**The creating migrations all recorded executed DDL.** Extending the §1.1 fingerprint to the four
-further migrations that define these indexes — none carries the mark-applied signal:
+**Five covered creating migrations recorded executed DDL.** Extending the §1.1 fingerprint to the
+four further migrations in this sampled set found that none carries the mark-applied signal:
 
 | Migration                                              | `stmt_count` | Mark-applied? |
 | ------------------------------------------------------ | -----------: | ------------- |
@@ -199,12 +201,14 @@ further migrations that define these indexes — none carries the mark-applied s
 | `20260712165211 reconcile_missing_operational_indexes` |           27 | no            |
 | `20260717170000 registry_projection_cleanup`           |           11 | no            |
 
-So the §1.1 conclusion generalises: this is not confined to one migration or to the two repaired
-indexes. Recorded-executed-but-absent now spans five migrations from 2026-05-28 to 2026-07-17,
-including one named `reconcile_missing_operational_indexes`. **Root cause remains unestablished**
-— §1.1's manual/dashboard-drop inference is the leading hypothesis and the dashboard audit-history
-pairing is still the owner action that would confirm or refute it. This inventory widens what that
-pairing has to explain; it does not by itself attribute anything.
+This establishes recorded-executed-but-absent evidence across five migrations from 2026-05-28 to
+2026-07-17, including one named `reconcile_missing_operational_indexes`; it does **not** cover the
+creating migrations for `document_publication_approvals_document_idx`,
+`indexing_v3_agent_jobs_locked_at_idx`, or `medication_records_owner_category_idx`. Fingerprint
+those histories before classifying those three absences as created-then-dropped. **Root cause
+remains unestablished** — §1.1's manual/dashboard-drop inference is the leading hypothesis and the
+dashboard audit-history pairing is still the owner action that would confirm or refute it. This
+inventory widens what that pairing has to explain; it does not by itself attribute anything.
 
 ## Phase 2 — Staging parity rehearsal
 
