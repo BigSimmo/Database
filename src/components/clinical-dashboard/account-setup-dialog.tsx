@@ -104,6 +104,7 @@ export function AccountSetupDialog({
       onClose={onClose}
       title="Account setup"
       closeLabel="Close account setup"
+      mobileHeaderSafeArea="offset"
       headerClassName="absolute right-3 top-3 z-30 w-auto border-0 bg-transparent p-0 sm:right-4 sm:top-4 sm:p-0"
       titleClassName="sr-only"
       bodyClassName="bg-[color:var(--surface)] p-0 sm:p-0"
@@ -197,7 +198,7 @@ function AccountOrientationPanel() {
     <section
       aria-labelledby="account-workspace-benefits"
       data-testid="account-storage-summary"
-      className="relative isolate flex min-h-0 flex-col overflow-hidden bg-[color:var(--clinical-accent-soft)] px-5 pb-5 pt-6 sm:px-8 sm:py-8 lg:min-h-[36rem] lg:px-10 lg:py-10"
+      className="relative isolate flex min-h-0 flex-col overflow-hidden bg-[color:var(--clinical-accent-soft)] px-5 pb-5 pt-[max(1.5rem,var(--safe-area-top))] sm:px-8 sm:py-8 lg:min-h-[36rem] lg:px-10 lg:py-10"
     >
       <span
         aria-hidden="true"
@@ -209,7 +210,10 @@ function AccountOrientationPanel() {
       />
 
       <div className="relative z-10 pr-12">
-        <span className="grid size-tap place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2),var(--shadow-inset)]">
+        <span
+          data-testid="account-workspace-mark"
+          className="grid size-tap place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2),var(--shadow-inset)]"
+        >
           <BrandMark className="h-8 w-8" />
         </span>
         <h3
