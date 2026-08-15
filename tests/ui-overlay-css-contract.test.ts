@@ -215,7 +215,7 @@ describe("overlay and global CSS contracts", () => {
     expect(browserMediaBlock).toContain("var(--mobile-composer-reserve, 0rem)");
     expect(masterSearchHeaderSource).toContain("phone-footer-layer");
     expect(documentViewerSource).toContain("phone-footer-layer document-viewer-composer");
-    expect(calculatorSearchSource).toContain("phone-footer-layer answer-footer-search-dock");
+    expect(calculatorSearchSource).not.toContain("phone-footer-layer");
     expect(differentialPresentationSource).toContain("phone-footer-layer inset-x-0 bottom-0");
     expect(differentialPresentationSource).not.toContain('className="fixed inset-x-0 bottom-0');
     expect(globalSearchShellSource).toContain("phone-viewport-shell");

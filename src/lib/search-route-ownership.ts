@@ -16,6 +16,7 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "therapy-compass",
   "factsheets",
   "tools",
+  "calculators",
 ]);
 
 /**
@@ -34,6 +35,7 @@ const standaloneModeHomePaths = new Set<string>([
   "/factsheets",
   "/therapy-compass",
   "/tools",
+  "/calculators",
   // Documents and Medication gained real homes when `/` became the single shared
   // home for every mode. Like the others they own an in-flow hero composer.
   "/documents",
