@@ -84,6 +84,7 @@ const sidebarMoreModeIds = [
   "dsm",
   "specifiers",
   "formulation",
+  "calculators",
   "therapy-compass",
 ] as const satisfies readonly AppModeId[];
 
