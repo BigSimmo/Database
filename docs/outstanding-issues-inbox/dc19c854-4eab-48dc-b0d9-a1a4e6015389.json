@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "dc19c854-4eab-48dc-b0d9-a1a4e6015389",
+  "createdOn": "2026-08-15",
+  "action": "done",
+  "payload": {
+    "id": "#333",
+    "outcome": "Both halves closed. The regeneration landed in PR #1951 (pure re-wrap, whitespace-normalised byte-identical across all 28 catalogue terms, so no clinical review was implicated). The real question this row exposed — a gate in verify:pr-local but in no CI job — is answered in PR #1979: check:medication-lexicon-report now runs in static-pr under the same scope.static_heavy_changed condition verify-pr-local.mjs uses, so CI and the local chain agree and the file cannot silently rot again. The sibling diagnosis in #331 was closed separately: it was not a staleness-comparison bug, it was a genuinely stale committed file that prettier could not flag because proseWrap: preserve accepts both wrappings."
+  }
+}
