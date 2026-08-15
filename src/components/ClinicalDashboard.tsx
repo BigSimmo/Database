@@ -110,6 +110,7 @@ import {
   replaceOwnedAbortController,
   mergeDocumentRefresh,
   normalizeNavigationHash,
+  shouldShowSharedHome,
   setupNeedsSlowRecheck,
   setupRecheckPollMs,
   shorterPollDelay,
@@ -3014,14 +3015,15 @@ export function ClinicalDashboard({
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
-  // `/` is the single home page for every mode. The mode pill retargets the
-  // composer instead of navigating, so the hero must not be answer-only: picking
-  // DSM on home keeps this exact surface and only swaps the placeholder. Gated on
-  // the pathname (never on `searchMode`) per the hero-vs-dock rule in
-  // docs/search-chrome-behaviour.md — a mode pick must not flip composer reserve.
-  const isHomeRoute = pathname === "/";
-  const showSharedHome =
-    isHomeRoute && !submittedUrlRunRequested && !error && !answer && !loading && !submittedAnswerSearchActive;
+  const showSharedHome = shouldShowSharedHome({
+    pathname,
+    mode: searchParams.get("mode"),
+    submittedUrlRunRequested,
+    hasError: Boolean(error),
+    hasAnswer: Boolean(answer),
+    loading,
+    submittedAnswerSearchActive,
+  });
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
