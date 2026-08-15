@@ -610,7 +610,7 @@ export function PwaLifecycle() {
 
       {showInstall ? (
         <section
-          className={`${cardClassName} pwa-install-sheet`}
+          className={`${cardClassName} pwa-install-sheet pwa-install-native-sheet`}
           role="region"
           aria-labelledby="pwa-install-title"
           aria-live="polite"
@@ -623,6 +623,7 @@ export function PwaLifecycle() {
             onDismiss={dismissInstall}
           />
           <div className="pwa-install-body">
+            <p className="pwa-install-compact-copy">Quick access · No app store</p>
             <p className="pwa-install-tagline">Clinical guidelines on your home screen.</p>
             <p className="pwa-install-copy">
               Open it from your device like an app. Private clinical features still require a connection.

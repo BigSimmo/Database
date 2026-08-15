@@ -263,6 +263,16 @@ test.describe("Clinical KB PWA", () => {
         await page.waitForFunction(() => document.documentElement.dataset.pwaDisplayMode === "browser");
 
         await page.evaluate(() => {
+          (window as typeof window & { __pwaPromptLayoutShift?: number }).__pwaPromptLayoutShift = 0;
+          new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              const shift = entry as PerformanceEntry & { hadRecentInput: boolean; value: number };
+              if (!shift.hadRecentInput) {
+                (window as typeof window & { __pwaPromptLayoutShift?: number }).__pwaPromptLayoutShift! += shift.value;
+              }
+            }
+          }).observe({ type: "layout-shift" });
+
           const event = new Event("beforeinstallprompt", { cancelable: true });
           Object.assign(event, {
             prompt: () => Promise.resolve(),
@@ -273,14 +283,21 @@ test.describe("Clinical KB PWA", () => {
 
         const install = page.getByRole("region", { name: "Install Clinical KB" });
         await expect(install).toBeVisible();
+        await page.evaluate(
+          () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+        );
         await expect(install).toContainText("Clinical guidelines on your home screen.");
         await expect(install).toContainText(
           "Open it from your device like an app. Private clinical features still require a connection.",
         );
         await expect(install).toContainText("Free · No app store · Takes a few seconds");
-        await expect(install.getByRole("list", { name: "Install benefits" })).toContainText(
-          "Quick accessApp-like launchFamiliar workspace",
-        );
+        if (viewport.width < 640) {
+          await expect(install.getByText("Quick access · No app store")).toBeVisible();
+        } else {
+          await expect(install.getByRole("list", { name: "Install benefits" })).toContainText(
+            "Quick accessApp-like launchFamiliar workspace",
+          );
+        }
 
         const geometry = await install.evaluate((surface) => {
           const rect = surface.getBoundingClientRect();
@@ -315,6 +332,8 @@ test.describe("Clinical KB PWA", () => {
             hasInternalScroll: surface.scrollHeight > surface.clientHeight + 1,
             pageScrollWidth: document.documentElement.scrollWidth,
             viewportWidth: window.innerWidth,
+            promptLayoutShift:
+              (window as typeof window & { __pwaPromptLayoutShift?: number }).__pwaPromptLayoutShift ?? 0,
           };
         });
 
@@ -326,6 +345,9 @@ test.describe("Clinical KB PWA", () => {
         expect(geometry.secondaryActionHeight, `${viewport.name}: Not now target`).toBeGreaterThanOrEqual(48);
         expect(geometry.dismissActionHeight, `${viewport.name}: Dismiss target`).toBeGreaterThanOrEqual(48);
         expect(geometry.overlap, `${viewport.name}: install surface must not overlap search`).toBe(0);
+        expect(geometry.promptLayoutShift, `${viewport.name}: prompt must not shift page content`).toBeLessThanOrEqual(
+          0.02,
+        );
         expect(geometry.hasInternalScroll, `${viewport.name}: complete value proposition should fit`).toBe(false);
         expect(geometry.pageScrollWidth, `${viewport.name}: no horizontal overflow`).toBeLessThanOrEqual(
           geometry.viewportWidth,
@@ -364,12 +386,8 @@ test.describe("Clinical KB PWA", () => {
       scrollHeight: surface.scrollHeight,
       overflowY: getComputedStyle(surface).overflowY,
     }));
-    expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
+    expect(scrollState.scrollHeight).toBeLessThanOrEqual(scrollState.clientHeight + 1);
     expect(scrollState.overflowY).toMatch(/auto|scroll/);
-
-    await install.evaluate((surface) => {
-      surface.scrollTop = surface.scrollHeight;
-    });
     await expect(install.getByRole("button", { name: "Install app" })).toBeInViewport();
     await expect(install.getByRole("button", { name: "Not now" })).toBeInViewport();
   });

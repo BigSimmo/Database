@@ -2656,28 +2656,6 @@ summary::-webkit-details-marker {
   pointer-events: none;
 }
 
-/* A phone mode home cannot show the full install proposition and its complete
-   centred empty-state introduction without covering the search composer. While
-   the transient install sheet is present, keep the real composer visible in
-   the clear space under the app header and omit only the decorative intro. */
-@media (max-width: 639.98px) {
-  body:has(.pwa-install-sheet) #main-content[data-phone-footer-owner="hero"] > div > section {
-    justify-content: flex-start;
-    padding-top: calc(2 * var(--radius-xs));
-  }
-
-  body:has(.pwa-install-sheet) #main-content[data-phone-footer-owner="hero"] [data-testid="shared-home-empty-state"] {
-    gap: 0;
-  }
-
-  body:has(.pwa-install-sheet)
-    #main-content[data-phone-footer-owner="hero"]
-    [data-testid="shared-home-empty-state"]
-    > section[aria-labelledby="shared-home-empty-state-title"] {
-    display: none;
-  }
-}
-
 .pwa-notice-card {
   overflow: hidden;
   border: 1px solid var(--border-lux);
@@ -2778,6 +2756,10 @@ summary::-webkit-details-marker {
   padding: var(--spacing-icon-sm) var(--pwa-inset-xl) var(--pwa-inset-xl);
 }
 
+.pwa-install-compact-copy {
+  display: none;
+}
+
 .pwa-install-tagline {
   color: var(--text-heading);
   font-size: 0.875rem;
@@ -2848,6 +2830,45 @@ summary::-webkit-details-marker {
 
 .pwa-install-actions-single {
   grid-template-columns: 1fr;
+}
+
+/* The in-flow phone home composer sits near the viewport centre. Keep the
+   browser-native install prompt below it without moving page content: the full
+   value proposition remains on larger and dock-owned surfaces, while the phone
+   hero gets a concise, action-first card. */
+@media (max-width: 639.98px) {
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-notice-stack {
+    --pwa-notice-bottom-gap: max(0.5rem, var(--safe-area-bottom));
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-grip,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-tagline,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-copy,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-support,
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-benefits {
+    display: none;
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-header {
+    min-height: 3.25rem;
+    padding-block: calc(2 * var(--pwa-inset-xs));
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-body {
+    padding: var(--pwa-inset-sm) var(--pwa-inset-xl) var(--pwa-inset-xl);
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-compact-copy {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: var(--pwa-line-height-support);
+  }
+
+  body:has(#main-content[data-phone-footer-owner="hero"]):has(.pwa-install-native-sheet) .pwa-install-actions {
+    margin-top: var(--pwa-inset-sm);
+  }
 }
 
 .pwa-action {
