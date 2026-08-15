@@ -602,7 +602,7 @@ function MedicationResults({
 
       {!initialCatalogLoading && !catalog.error && resultCount > 0 ? (
         <div className="hidden overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
-          <div className="grid grid-cols-[minmax(15rem,1.12fr)_minmax(7.5rem,0.46fr)_minmax(10.5rem,0.66fr)_minmax(16rem,1.15fr)_1.5rem] gap-4 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-5 py-2.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          <div className="grid grid-cols-[minmax(12rem,1.12fr)_minmax(5.5rem,0.46fr)_minmax(7rem,0.66fr)_minmax(12rem,1.15fr)_1.5rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <span>Medication</span>
             <span>Usual dose</span>
             <span>Max dose</span>
@@ -618,7 +618,7 @@ function MedicationResults({
               // outranks "this is the top hit".
               const verdictRing = row.verdict ? medicationVerdictRingClass(row.verdict.tone) : null;
               const rowClassName = cn(
-                "group grid w-full grid-cols-[minmax(15rem,1.12fr)_minmax(7.5rem,0.46fr)_minmax(10.5rem,0.66fr)_minmax(16rem,1.15fr)_1.5rem] items-start gap-4 px-5 py-3.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
+                "group grid w-full grid-cols-[minmax(12rem,1.12fr)_minmax(5.5rem,0.46fr)_minmax(7rem,0.66fr)_minmax(12rem,1.15fr)_1.5rem] items-start gap-3 px-4 py-3.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
                 selected
                   ? cn(
                       "bg-[color:var(--clinical-accent-soft)]/35 shadow-[var(--shadow-rail-active)]",

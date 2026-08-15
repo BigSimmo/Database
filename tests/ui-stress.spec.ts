@@ -534,12 +534,16 @@ test.describe("Medication responsive stress coverage", () => {
             rows.map((row) => {
               const ceiling = row.querySelector<HTMLElement>('[data-medication-cell="ceiling"]');
               const action = row.querySelector<HTMLElement>('[data-medication-cell="action"]');
-              if (!ceiling || !action) return null;
+              const table = row.parentElement?.parentElement;
+              if (!ceiling || !action || !table) return null;
               const ceilingRect = ceiling.getBoundingClientRect();
               const actionRect = action.getBoundingClientRect();
+              const rowRect = row.getBoundingClientRect();
+              const tableRect = table.getBoundingClientRect();
               return {
                 columnGap: actionRect.left - ceilingRect.right,
                 ceilingOverflow: ceiling.scrollWidth - ceiling.clientWidth,
+                rightEdgeOverflow: rowRect.right - tableRect.right,
               };
             }),
           );
@@ -547,6 +551,7 @@ test.describe("Medication responsive stress coverage", () => {
         for (const metrics of columnMetrics) {
           expect(metrics?.columnGap ?? 0).toBeGreaterThanOrEqual(12);
           expect(metrics?.ceilingOverflow ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
+          expect(metrics?.rightEdgeOverflow ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
         }
       }
     }
