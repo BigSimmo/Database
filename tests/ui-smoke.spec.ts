@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 69854)
-Total output lines: 5415
-
 import AxeBuilder from "@axe-core/playwright";
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
@@ -2474,7 +2471,742 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const scrollGeometry = await readPrimaryScrollGeometry(page);
     const geo = await page.evaluate(() => {
       const main = document.querySelector("main#main-content");
-      const header = document.querySelector("h…9854 tokens truncated…ute(\+|%20)confusion&focus=1$/);
+      const header = document.querySelector("header");
+      const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
+      return {
+        mainMarginBottom: main ? Number.parseFloat(window.getComputedStyle(main).marginBottom) : -1,
+        mainPaddingBottom: main ? Number.parseFloat(window.getComputedStyle(main).paddingBottom) : 0,
+        headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
+        surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
+      };
+    });
+    // Browser phones intentionally scroll the document so Safari can minimize
+    // its browser chrome. The long answer still overflows that active owner and
+    // remains top-aligned under the overlaid header.
+    expect(scrollGeometry.owner).toBe("document");
+    expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight + 40);
+    expect(geo.surfaceTop - geo.headerBottom).toBeLessThanOrEqual(160);
+    // Content padding—not an outer margin—keeps the answer endpoint clear of
+    // the visible composer and Safari toolbar at the active viewport edge.
+    const composerInputTop = await visibleQuestionInput(page).evaluate((el) =>
+      Math.round(el.getBoundingClientRect().top),
+    );
+    expect(geo.mainMarginBottom).toBe(0);
+    expect(scrollGeometry.viewportTop).toBe(0);
+    expect(Math.abs(scrollGeometry.viewportBottom - scrollGeometry.clientHeight)).toBeLessThanOrEqual(1);
+    expect(geo.mainPaddingBottom).toBeGreaterThan(112);
+    expect(geo.mainPaddingBottom + 4).toBeGreaterThanOrEqual(scrollGeometry.viewportBottom - composerInputTop);
+
+    // Once the fixed dock is actually hidden, release both the composer and
+    // Safari toolbar reserve. The scrollport dimensions stay stable while its
+    // bottom padding contracts; the bottom-clamp guard must keep the dock from
+    // immediately reappearing as a false upward gesture. Do not compare total
+    // scrollHeight here because universal matches can finish streaming while
+    // this test moves the scrollport.
+    const scrollGeometryBeforeHide = {
+      ...(await readPrimaryScrollGeometry(page)),
+      paddingBottom: await main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)),
+    };
+    // WebKit retains focus on the submitted composer more aggressively than
+    // Chromium. Move focus to the scroll surface to model the user dismissing
+    // the composer before scrolling; focused composer chrome must stay visible.
+    await expect(async () => {
+      await main.focus();
+      await scrollPrimarySurface(page, 0);
+      await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
+      for (const offset of [120, 240, 360]) {
+        await scrollPrimarySurface(page, offset);
+      }
+      await expect(bottomDock).toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
+    await expect
+      .poll(async () => main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)))
+      .toBeLessThanOrEqual(13);
+    const scrollGeometryAfterHide = {
+      ...(await readPrimaryScrollGeometry(page)),
+      paddingBottom: await main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)),
+    };
+    expect(scrollGeometryBeforeHide.paddingBottom).toBeGreaterThan(200);
+    expect(scrollGeometryAfterHide.clientHeight).toBe(scrollGeometryBeforeHide.clientHeight);
+    expect(scrollGeometryAfterHide.scrollHeight).toBeGreaterThan(scrollGeometryAfterHide.clientHeight);
+    await expect(bottomDock).toHaveAttribute("data-scroll-hidden", "true");
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone answer result keeps the edge dock and shared chrome synchronized on a short runway", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=answer&focus=1");
+    await waitForDemoDashboardReady(page);
+
+    const input = await fillVisibleQuestionInput(page, "lithium dosing");
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
+    const relatedItems = page.getByRole("region", { name: "Related pages in other modes" }).getByRole("listitem");
+    await expect(relatedItems).toHaveCount(2);
+    await expect(relatedItems.last()).toBeVisible();
+
+    const main = page.locator("main#main-content");
+    const header = page.locator("header.universal-header");
+    const dock = page.locator("form.answer-footer-search-dock");
+    await expect(dock).toBeVisible();
+    const edgeGeometry = await dock.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      const style = window.getComputedStyle(node);
+      return {
+        bottom: style.bottom,
+        left: style.left,
+        right: style.right,
+        width: rect.width,
+        viewportWidth: window.innerWidth,
+        rectBottom: rect.bottom,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(edgeGeometry.bottom).toBe("0px");
+    expect(edgeGeometry.left).toBe("0px");
+    expect(edgeGeometry.right).toBe("0px");
+    expect(Math.abs(edgeGeometry.width - edgeGeometry.viewportWidth)).toBeLessThanOrEqual(1);
+    expect(Math.abs(edgeGeometry.rectBottom - edgeGeometry.viewportHeight)).toBeLessThanOrEqual(1);
+
+    // Submitting from the auto-focused home composer must not carry stale focus
+    // into the newly docked follow-up input. A focused dock is intentionally
+    // pinned for keyboard safety, so retaining focus here permanently disables
+    // the ordinary touch-scroll hide path.
+    await expect(input).not.toBeFocused();
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
+    const collapseBudget = await main.evaluate((node) => {
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      return (
+        (collapse?.getBoundingClientRect().height ?? 0) + Number.parseFloat(window.getComputedStyle(node).paddingBottom)
+      );
+    });
+    const geometry = {
+      maxOffset: scrollGeometry.maxScrollTop,
+      collapseBudget,
+      postCollapseMaxOffset: Math.max(0, scrollGeometry.maxScrollTop - collapseBudget),
+    };
+    expect(scrollGeometry.owner).toBe("document");
+    // Short answers can straddle the 32px hide-intent threshold as text wraps
+    // across browsers and font renderers. Both geometries are safe: enough
+    // post-collapse range exercises synchronized hide/reveal; a shorter range
+    // must remain pinned by the near-bottom guard while still clearing the dock.
+    // Long-answer hide/reveal is covered independently above.
+    expect(geometry.maxOffset).toBeGreaterThan(100);
+    expect(geometry.maxOffset).toBeLessThan(200);
+    expect(geometry.collapseBudget).toBeGreaterThan(112);
+    expect(geometry.collapseBudget).toBeLessThan(128);
+    expect(geometry.postCollapseMaxOffset).toBeLessThan(72);
+    // A jump straight onto the bottom edge (PageDown / full-page flick) lands
+    // past the post-collapse range; hiding there would clamp content under the
+    // finger, so the near-bottom guard keeps both chrome edges visible.
+    await scrollPrimarySurface(page, geometry.maxOffset);
+    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await scrollPrimarySurface(page, 0);
+    if (geometry.postCollapseMaxOffset >= 32) {
+      // Deliberate downward travel that still fits the post-collapse range is
+      // the designed hide path: past the 8px top band plus 24px intent.
+      await scrollPrimarySurface(page, Math.floor(geometry.postCollapseMaxOffset));
+      await expect(header).toHaveAttribute("data-scroll-hidden", "true");
+      await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+      // The reserve and both chrome edges animate for 240ms. The hidden state
+      // must survive the browser clamping scrollTop against the shrinking range.
+      await page.waitForTimeout(320);
+      await expect(header).toHaveAttribute("data-scroll-hidden", "true");
+      await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+      const settledHiddenGeometry = await page.evaluate(() => {
+        const headerNode = document.querySelector<HTMLElement>("header.universal-header");
+        const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
+        if (!headerNode || !dockNode) throw new Error("Expected shared phone chrome");
+        const headerRect = headerNode.getBoundingClientRect();
+        const dockRect = dockNode.getBoundingClientRect();
+        return {
+          headerBottom: headerRect.bottom,
+          dockTop: dockRect.top,
+          viewportHeight: window.innerHeight,
+        };
+      });
+      expect(settledHiddenGeometry.headerBottom).toBeLessThanOrEqual(1);
+      expect(settledHiddenGeometry.dockTop).toBeGreaterThanOrEqual(settledHiddenGeometry.viewportHeight - 1);
+      await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
+
+      await scrollPrimarySurface(page, 20);
+      await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+      await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    } else {
+      const liveEndpoint = (await readPrimaryScrollGeometry(page)).maxScrollTop;
+      await scrollPrimarySurface(page, liveEndpoint);
+      await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+      await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+      const endpoint = await relatedItems.last().evaluate((item) => {
+        const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
+        if (!dockNode) throw new Error("Expected phone answer dock");
+        return {
+          itemBottom: item.getBoundingClientRect().bottom,
+          dockTop: dockNode.getBoundingClientRect().top,
+        };
+      });
+      expect(endpoint.itemBottom).toBeLessThanOrEqual(endpoint.dockTop + 1);
+    }
+
+    await input.click();
+    await expect(input).toBeFocused();
+
+    await page.setViewportSize({ width: 320, height: 844 });
+    const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
+    await expect(compactCrossModeRail).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    const compactCrossModeLinks = compactCrossModeRail.getByRole("link");
+    const compactCrossModeActions = compactCrossModeRail.getByRole("button");
+    expect(await compactCrossModeLinks.count()).toBeGreaterThan(0);
+    expect(await compactCrossModeActions.count()).toBeGreaterThan(0);
+    for (const control of await compactCrossModeLinks.all()) {
+      await expectMinTouchTarget(control, 48);
+    }
+    for (const control of await compactCrossModeActions.all()) {
+      await expectMinTouchTarget(control, 48);
+    }
+  });
+
+  test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const answerRequests: string[] = [];
+    await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
+    const recent = "clozapine monitoring schedule";
+    // Seed the owner-scoped session history before the app loads.
+    await page.addInitScript(
+      ({ storageKey, value }) => {
+        window.sessionStorage.setItem(storageKey, JSON.stringify([value]));
+      },
+      { storageKey: demoRecentQueryStorageKey, value: recent },
+    );
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const recentChips = page.getByTestId("shared-home-recent-queries");
+    await expect(recentChips).toBeVisible();
+    await expect(recentChips).toContainText("Recent searches");
+    const chip = recentChips.getByRole("button", { name: recent });
+    await expect(chip).toBeVisible();
+    await chip.click();
+
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+    expect(answerRequests).toContain(recent);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const newChat = page.getByRole("button", { name: /new chat|new comparison/i });
+    await expect(newChat).toBeVisible();
+    await newChat.click();
+    await waitForDemoDashboardReady(page);
+
+    const homeRecentSearches = page.getByTestId("shared-home-recent-queries");
+    await homeRecentSearches.scrollIntoViewIfNeeded();
+    await expect(homeRecentSearches).toBeVisible();
+    const homeRecentDirection = await homeRecentSearches.evaluate((node) => getComputedStyle(node).flexDirection);
+    expect(homeRecentDirection, "home recent-searches should stack on phone width").toBe("column");
+
+    const chipsGroup = homeRecentSearches.locator(".answer-suggestion-chips");
+    const mobileJustify = await chipsGroup.evaluate((node) => getComputedStyle(node).justifyContent);
+    expect(mobileJustify, "phone home recent-search chips should align to flex-start").toBe("flex-start");
+  });
+
+  test("legacy unscoped recent-query storage is purged and never displayed @critical", async ({ page }) => {
+    // 2026-07-13 audit finding 4: a historical clinical query written by an
+    // older build into the unscoped localStorage key must not resurface for
+    // whoever uses the browser next, and must be deleted on load.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    const legacyQuery = "legacy cross-user clozapine query";
+    await page.addInitScript(
+      ({ storageKey, value }) => {
+        window.localStorage.setItem(storageKey, JSON.stringify([value]));
+        window.sessionStorage.setItem(storageKey, JSON.stringify([value]));
+      },
+      { storageKey: recentQueryStorageKey, value: legacyQuery },
+    );
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await expect(page.getByText(legacyQuery)).toHaveCount(0);
+    await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), recentQueryStorageKey)).toBeNull();
+    await expect
+      .poll(() => page.evaluate((key) => window.sessionStorage.getItem(key), recentQueryStorageKey))
+      .toBeNull();
+  });
+
+  test("answer search URL opens chat without the answer home copy", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    const answerRequests: string[] = [];
+    const question = "What clozapine monitoring items are shown in the table image?";
+    await mockDemoApi(page, {
+      answerDelayMs: 1500,
+      onAnswerRequest: (query) => answerRequests.push(query),
+    });
+
+    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&focus=1&run=1`, { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId("shared-home-empty-state")).toHaveCount(0);
+    await expect(page.getByText("What can I help with?", { exact: true })).toHaveCount(0);
+    // Prefer :visible — a useSearchParams() Suspense ancestor can leave a persistent
+    // hidden S: clone (search-chrome invariant 17), which makes getByLabel strict-mode fail.
+    await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
+    await expect.poll(() => answerRequests[0]).toBe(question);
+
+    const questionEcho = page.getByTestId("answer-card-query");
+    await expect(questionEcho).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(questionEcho).toContainText(question);
+    await expect(page.getByTestId("plain-answer-response")).toContainText("synthetic clozapine table image highlights");
+    await expect(visibleQuestionInput(page)).toHaveValue("");
+    await expect(page.getByTestId("shared-home-empty-state")).toHaveCount(0);
+    await expect(page.getByText("What can I help with?", { exact: true })).toHaveCount(0);
+    expect(answerRequests).toEqual([question]);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("stopping generation exposes a stable rerun action without answer output", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page, { answerDelayMs: 1500 });
+    const question = "What monitoring is required for clozapine?";
+    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, { waitUntil: "domcontentloaded" });
+
+    const stop = page.getByTestId("stop-answer");
+    await expect(stop).toBeVisible();
+    await stop.focus();
+    await page.keyboard.press("Enter");
+
+    const cancelled = page.getByTestId("answer-cancelled");
+    await expect(cancelled).toContainText("Generation stopped");
+    await expect(cancelled.getByRole("button", { name: "Run again" })).toBeVisible();
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
+    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
+    // Intentional fixed wait: this asserts a NEGATIVE (no answer streams in after
+    // Stop), so there is no event to await — we give a late async render time to
+    // (wrongly) appear, then confirm it did not.
+    await page.waitForTimeout(1700);
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
+  });
+
+  test("answer results surface cross-mode quick links", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const answerRequests: string[] = [];
+    await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
+    const question = "What is the maximum dose of clozapine?";
+    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
+    const strip = answerSurface.getByTestId("cross-mode-links");
+    await expect(strip).toBeVisible({ timeout: 15_000 });
+    await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
+    const rail = strip.getByTestId("cross-mode-links-card-rail");
+    await expect(rail).toBeVisible();
+    await expect(rail).toHaveCSS("display", "flex");
+    await page.keyboard.press("Escape");
+    await expect(strip.getByText("Medication", { exact: true }).filter({ visible: true })).toBeVisible();
+    const medicationSearch = strip.getByRole("button", { name: "Search Clozapine in Medication" });
+    await expect(medicationSearch).toBeVisible();
+    await expect(strip.getByText("SGA / TRS", { exact: true }).filter({ visible: true })).toBeVisible();
+
+    const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");
+    if (await followUps.isVisible()) {
+      const stripBox = await strip.boundingBox();
+      const followUpBox = await followUps.boundingBox();
+      expect(stripBox).toBeTruthy();
+      expect(followUpBox).toBeTruthy();
+      expect(stripBox!.y).toBeLessThan(followUpBox!.y);
+    }
+
+    const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
+    await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
+    await expectMinTouchTarget(medicationLink, 48);
+    await expectMinTouchTarget(medicationSearch, 48);
+    await waitForReactEventHandler(medicationLink, "onClick");
+    await medicationLink.click();
+    await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 45_000 });
+    // MedicationNavHeader portals above `medication-page-*`; InPageNavHeader's
+    // back control is always named via aria-label (`Back to ${label}`), which is
+    // the only stable accessible name across desktop (visible text) and phone
+    // (label hidden). See tests/in-page-nav-playwright-contract.test.ts.
+    await expect(page.getByTestId("medication-page-clozapine")).toBeVisible();
+    const medicationsBack = page.getByRole("link", { name: "Back to medications" }).filter({ visible: true });
+    await expect(medicationsBack).toBeVisible();
+    await medicationsBack.click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === "/" &&
+        url.searchParams.get("mode") === "answer" &&
+        url.searchParams.get("q") === question &&
+        url.searchParams.get("run") === "1",
+      { timeout: 45_000 },
+    );
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    expect(answerRequests).toEqual([question]);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    expect(answerRequests).toEqual([question]);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("answer mode keeps prior turns visible for follow-up questions", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const firstQuestion = "lithium dosing";
+    await fillVisibleQuestionInput(page, firstQuestion);
+    await visibleAnswerSubmitButton(page).click();
+
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    // Live answer owns the query echo via AnswerCard; prior turns keep UserQuestionBubble.
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+    await expect(page.getByTestId("answer-card-query")).toContainText(firstQuestion);
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(0);
+    await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible();
+
+    const composer = visibleQuestionInput(page);
+    await expect(composer).toHaveValue("");
+    await expect(composer).toHaveAttribute("placeholder", "Ask a follow-up...");
+
+    const followUp = "what about renal impairment?";
+    await fillVisibleQuestionInput(page, followUp);
+    await visibleAnswerSubmitButton(page).click();
+
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+    await expect(page.getByTestId("answer-card-query")).toContainText(followUp);
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(1);
+    await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
+    await expect(composer).toHaveValue("");
+    await expect(page).toHaveURL(/\?mode=answer&q=what\+about\+renal\+impairment\%3F&run=1/);
+    await expectNoPageHorizontalOverflow(page);
+
+    await waitForPersistedAnswerThread(page, 1);
+    await page.reload();
+    await waitForDemoDashboardReady(page);
+    await expect(async () => {
+      await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
+      await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+    }).toPass({ timeout: 15_000 });
+    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
+    await expect(page.getByTestId("answer-card-query")).toContainText(followUp);
+    await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
+  });
+
+  test("answer follow-up suggestions run the next question", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "lithium dosing");
+    await visibleAnswerSubmitButton(page).click();
+    await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    const suggestion = visibleAnswerFollowUpSuggestions(page).getByRole("button").first();
+    const suggestionText = (await suggestion.textContent())?.trim();
+    expect(suggestionText).toBeTruthy();
+    await suggestion.click();
+
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+    await expect(page.getByTestId("answer-card-query")).toContainText(suggestionText ?? "");
+  });
+
+  test("quote follow-up stages a composer draft from evidence quotes", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const question = "What clozapine monitoring items are shown in the table image?";
+    await fillVisibleQuestionInput(page, question);
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
+    await expect(evidenceDrawer).toBeVisible();
+    await evidenceDrawer.click();
+
+    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
+    await expect(evidenceSheet).toBeVisible();
+    await evidenceSheet.getByRole("tab", { name: /Quotes/i }).click();
+    await expect(evidenceSheet.getByRole("tabpanel", { name: /Quotes/i })).toBeVisible();
+
+    const followUpButton = evidenceSheet.getByRole("button", { name: /Ask a follow-up from quote/i }).first();
+    await expect(followUpButton).toBeVisible();
+    await followUpButton.click();
+
+    const composer = visibleQuestionInput(page);
+    await expect(composer).toBeFocused();
+    await expect(composer).toHaveValue(/Using the quoted source from/i);
+    await expect(composer).toHaveValue(/Quote:/i);
+    await expect(visibleAnswerSubmitButton(page)).toBeEnabled();
+  });
+
+  test("source-only answer keeps support rows honest", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page, {
+      answerOverride: (query, documentId, documentIds) => {
+        const base = demoAnswer(query, documentId, documentIds);
+        return {
+          ...base,
+          answer:
+            "I found source material, but the generated answer included clinical numbers that could not be matched verbatim to its cited source chunks. Review the sources directly before using this for dose, threshold, route, timing, monitoring, or risk decisions.",
+          grounded: false,
+          confidence: "low",
+          answerQualityTier: "source_only",
+          fallbackReason: "source_only_no_api",
+          citations: [],
+          answerSections: [],
+          quoteCards: [],
+          visualEvidence: [],
+        };
+      },
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "lithium");
+    await visibleAnswerSubmitButton(page).click();
+
+    const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
+    await expect(sourceOnlyDisclosure).toBeVisible();
+    await expect(sourceOnlyDisclosure).toContainText("Source-only");
+    await expect(sourceOnlyDisclosure).toContainText("verify passages");
+    await expect(sourceOnlyDisclosure).not.toContainText("without the AI model");
+    await sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ }).click();
+    await expect(sourceOnlyDisclosure).toContainText("without the AI model");
+
+    const supportCard = page.getByTestId("answer-support-card");
+    await expect(supportCard).toBeVisible();
+    await expect(supportCard).toContainText("Review source match");
+    await expect(supportCard).toContainText("Verify cited passages");
+    await expect(supportCard).toContainText("Clinical notes");
+    await expect(supportCard.getByTestId("answer-evidence-trigger")).toContainText(/sources?|claims?/i);
+    await expect(supportCard.getByTestId("answer-evidence-trigger")).not.toContainText("0 claims");
+
+    const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
+    await expect(clinicalTrigger).toBeVisible();
+    await clinicalTrigger.click();
+    const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
+    await expect(clinicalNotesSheet).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(clinicalNotesSheet).toHaveCount(0);
+
+    await supportCard.getByTestId("answer-evidence-trigger").click();
+    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
+    await expect(evidenceSheet).toBeVisible();
+    await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(evidenceSheet).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  for (const viewport of [
+    { name: "phone", width: 390, height: 820, sheet: true },
+    { name: "tablet", width: 768, height: 1024, sheet: true },
+    { name: "near sheet breakpoint", width: 1018, height: 900, sheet: true },
+    { name: "desktop", width: 1440, height: 900, sheet: false },
+  ] as const) {
+    test(`answer support popups adapt at ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await mockDemoApi(page);
+      await gotoApp(page, "/");
+      await waitForDemoDashboardReady(page);
+
+      await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
+      await visibleAnswerSubmitButton(page).click();
+
+      const plainAnswer = page.getByTestId("plain-answer-response");
+      await expect(plainAnswer).toBeVisible();
+      const supportCard = page.getByTestId("answer-support-card");
+      await expect(supportCard).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+
+      const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
+      await expectMinTouchTarget(sourceCapsule);
+      await sourceCapsule.click();
+      const sourceSurface = page.getByRole("dialog", { name: "Sources" });
+      await expect(sourceSurface).toBeVisible();
+      await expect(sourceSurface.getByTestId("source-capsule-preview-row").first()).toHaveAttribute(
+        "href",
+        /\/documents\/.+chunk=/,
+      );
+      await expectMinTouchTarget(sourceSurface.getByTestId("source-capsule-preview-row").first());
+      await page.keyboard.press("Escape");
+      await expect(sourceSurface).toHaveCount(0);
+      await expect(sourceCapsule).toBeFocused();
+      if (!viewport.sheet) {
+        await sourceCapsule.click();
+        await expect(sourceSurface).toBeVisible();
+        await sourceCapsule.click();
+        await expect(sourceSurface).toHaveCount(0);
+      }
+
+      const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
+      await expectMinTouchTarget(clinicalTrigger);
+      await clinicalTrigger.click();
+      const clinicalSurface = page.getByRole("dialog", { name: "Clinical notes" });
+      await expect(clinicalSurface).toBeVisible();
+      await expect(clinicalSurface.getByTestId("clinical-notes-checklist")).toBeVisible();
+      await expect(clinicalSurface.getByRole("tab", { name: /Actions/ })).toBeVisible();
+      await expectMinTouchTarget(clinicalSurface.getByRole("link", { name: /^Source$/ }).first());
+      const clinicalCopy = clinicalSurface.getByRole("button", { name: /^(Copy|Copied)$/ }).first();
+      await expectMinTouchTarget(clinicalCopy);
+      await clinicalCopy.click();
+      await page.keyboard.press("Escape");
+      await expect(clinicalSurface).toHaveCount(0);
+      await expect(clinicalTrigger).toBeVisible();
+
+      const evidenceTrigger = page.locator("#answer-evidence-drawer-mobile-trigger");
+      await expectMinTouchTarget(evidenceTrigger);
+      await evidenceTrigger.click();
+      const evidenceSurface = page.getByRole("dialog", { name: "Evidence" });
+      await expect(evidenceSurface).toBeVisible();
+      await expect(evidenceSurface.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
+      await expect(evidenceSurface.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
+      await expect(evidenceSurface.getByTestId("evidence-claims-panel")).toBeVisible();
+      await expectMinTouchTarget(evidenceSurface.getByRole("link", { name: /^Source$/ }).first());
+      const evidenceCopy = evidenceSurface.getByRole("button", { name: /^(Copy|Copied)$/ }).last();
+      await expectMinTouchTarget(evidenceCopy);
+      await evidenceCopy.click();
+      const evidenceTablesTab = evidenceSurface.getByTestId("mobile-evidence-tab-tables");
+      if (await evidenceTablesTab.count()) {
+        await evidenceTablesTab.click();
+        await expect(evidenceSurface.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
+        await expectMinTouchTarget(evidenceTablesTab);
+      }
+      await page.keyboard.press("Escape");
+      await expect(evidenceSurface).toHaveCount(0);
+      await expect(evidenceTrigger).toBeFocused();
+
+      await expectNoPageHorizontalOverflow(page);
+    });
+  }
+
+  for (const viewport of [
+    { name: "390px mobile", width: 390, height: 844, expands: true },
+    { name: "768px tablet", width: 768, height: 1024, expands: true },
+    { name: "1280px desktop", width: 1280, height: 800, expands: false },
+  ] as const) {
+    test(`clinical table mobile expansion at ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await mockDemoApi(page);
+      await gotoApp(page, "/");
+      await waitForDemoDashboardReady(page);
+
+      await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
+      const submitAnswer = visibleAnswerSubmitButton(page);
+      await submitAnswer.click();
+
+      const clinicalTable = page.getByLabel("Inline table preview").first();
+      await expect(clinicalTable).toBeVisible();
+      await expect(clinicalTable).toContainText("FBC/ANC");
+      await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
+
+      const expandButton = clinicalTable.getByTestId("table-expand-button");
+      const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
+      if (!viewport.expands) {
+        await expect(page.getByRole("button", { name: "Open answer sources" })).toContainText(/sources?/i);
+        await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
+          "data-desktop-table-aside",
+          "true",
+        );
+        const desktopLayout = await page.evaluate(() => {
+          const answer = document.querySelector('[data-testid="plain-answer-response"]');
+          const support = document.querySelector('[data-testid="answer-support-card"]');
+          const table = document.querySelector('[aria-label="Inline table preview"]');
+          const answerRect = answer?.getBoundingClientRect();
+          const supportRect = support?.getBoundingClientRect();
+          const tableRect = table?.getBoundingClientRect();
+          return {
+            answerRight: answerRect?.right ?? 0,
+            answerTop: answerRect?.top ?? 9999,
+            supportRight: supportRect?.right ?? 0,
+            tableLeft: tableRect?.left ?? 0,
+            tableTop: tableRect?.top ?? 9999,
+          };
+        });
+        expect(desktopLayout.tableLeft).toBeGreaterThan(
+          Math.max(desktopLayout.answerRight, desktopLayout.supportRight),
+        );
+        expect(Math.abs(desktopLayout.tableTop - desktopLayout.answerTop)).toBeLessThan(180);
+        await expect(expandButton).toHaveCount(0);
+        await expectNoPageHorizontalOverflow(page);
+        return;
+      }
+
+      await expect(tableSurface).not.toHaveAttribute("role", "button");
+      await expect(tableSurface).not.toHaveAttribute("tabindex");
+      await expect(expandButton).toHaveAttribute("aria-expanded", "false");
+      await page.keyboard.press("Escape");
+      const surfaceDialog = await openMobileTableFullscreen(page, clinicalTable);
+      await expect(expandButton).toHaveAttribute("aria-expanded", "true");
+      await expect(surfaceDialog.getByRole("button", { name: "Close full-screen table" })).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      expect(await surfaceDialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(await surfaceDialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await expect(surfaceDialog).toContainText("FBC/ANC");
+      await page.keyboard.press("Escape");
+      await expect(surfaceDialog).toBeHidden();
+      await expect(expandButton).toHaveAttribute("aria-expanded", "false");
+
+      await expect(expandButton).toBeVisible();
+      const dialog = await openMobileTableFullscreen(page, clinicalTable);
+      await expect(dialog.getByRole("table")).toBeVisible();
+      await expect(dialog).toContainText("FBC/ANC");
+      await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
+      const modal = page.getByRole("dialog", { name: /clozapine monitoring/i });
+      await expect(modal).toBeVisible();
+      await page.keyboard.press("Shift+Tab");
+      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await expectNoPageHorizontalOverflow(page);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      await expect(expandButton).toBeFocused();
+    });
+  }
+
+  test("dashboard favourites selection stays on the shared home; submitted links open Favourites", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    const redirectMeasureErrors: string[] = [];
+    page.on("pageerror", (error) => {
+      if (error.message.includes("cannot have a negative time stamp")) redirectMeasureErrors.push(error.message);
+    });
+
+    // Bare /?mode= favourites is the shared home with Favourites preselected —
+    // not a redirect to /favourites (legacy proxy used to hop early).
+    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
+    await expect(page).toHaveURL(/\/\?mode=favourites&q=lithium(\+|%20)set&focus=1$/);
+    await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
+    expect(redirectMeasureErrors).toEqual([]);
+
+    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1&run=1");
+    await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1&run=1$/);
+    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+  });
+
+  test("dashboard differentials selection stays on the shared home; submitted links open Differentials", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+
+    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
+    await expect(page).toHaveURL(/\/\?mode=differentials&q=acute(\+|%20)confusion&focus=1$/);
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
 
     await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1&run=1");
