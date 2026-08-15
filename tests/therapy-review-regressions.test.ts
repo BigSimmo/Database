@@ -24,6 +24,8 @@ describe("Therapy review regression contracts", () => {
     expect(detail).toContain('role="status"');
     expect(detail).toContain(': "sr-only"');
     expect(workspace).toContain('<InformationPageShell testId="therapy-information-loading">');
+    expect(workspace.indexOf("if (b.error)"))
+      .toBeLessThan(workspace.indexOf("if (b.loading && b.therapies.length === 0)"));
   });
 
   it("adds the favourites check without validating existing rows in the same migration", () => {
