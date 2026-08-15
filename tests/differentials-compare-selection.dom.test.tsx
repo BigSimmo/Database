@@ -191,7 +191,7 @@ describe("DifferentialsHome compare selection URL handoff", () => {
     const investigation = alphabeticalFirst!.investigations.find((step) => step.trim());
     expect(clinicalCue).toBeTruthy();
     expect(investigation).toBeTruthy();
-    expect(resultRow).toHaveTextContent(clinicalCue!);
+    expect(resultRow).toHaveTextContent(clinicalCue!.replaceAll("/", " / ").replace(/\s+/g, " ").trim().toLowerCase());
     expect(resultRow).not.toHaveTextContent(investigation!);
 
     await act(async () => {
