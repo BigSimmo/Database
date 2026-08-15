@@ -13,9 +13,11 @@ Companion evidence: live-drift Actions runs
 > dossier, is outstanding and is the gate for Phase 3**. Phase 4 is **partial**: the two
 > retrieval-critical trigram indexes were restored, ~20 remain.
 >
-> **Next step is Phase 3, not Phase 1.** Before starting it — or any later phase — check the open-PR
-> list for the surface first (`#292`): Phase 0 was independently built twice on 2026-08-14, and
-> Phases 3 and 4 spend approved production windows and eval-canary budget rather than just tokens.
+> **Next step is Phase 1.2, not Phase 3.** Complete and review the RPC divergence dossier first,
+> then run the Phase 2 staging-parity rehearsal. Only after both prerequisites are complete may an
+> appropriately approved Phase 3 reconciliation proceed. Before starting any phase, check the
+> open-PR list for the surface first (`#292`): Phase 0 was independently built twice on 2026-08-14,
+> and Phases 3 and 4 spend approved production windows and eval-canary budget rather than just tokens.
 
 **Scope.** Fixes, in dependency order: the live-vs-repo schema gap, the unresolved cause of the
 affected migration history, drift-detection routing, and the surrounding database debt (`#102`,

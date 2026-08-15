@@ -33,13 +33,14 @@ supersedes the 2026-08-09 run `31330856982` the plan was originally written agai
   `storage_cleanup_jobs_owner_id_idx`.
 - `def_hash` mismatches on 10 `match_*` retrieval RPCs — **unchanged, and entirely outstanding**
   (protected RAG surface; live bodies vs repo — direction unknown until diffed). This is now the
-  highest-stakes remaining unknown and the reason Phase 3 comes next.
+  highest-stakes remaining unknown and the reason Phase 1.2 comes next.
 - Drift-failure routing is **live**: a failed run creates or updates the pinned issue
   "Live drift check failing" (currently **#1963**) and a green run closes it.
 
 **Phase status.** Phase 0 complete. Phase 1 partial — 1.1 and 1.3 done in the owner-authorised
 incident window, **1.2 (RPC dossier) outstanding and gating Phase 3**. Phase 4 partial — two
-indexes restored, ~20 remain. **Next: Phase 3.**
+indexes restored, ~20 remain. **Next: complete Phase 1.2, then the Phase 2 staging-parity
+rehearsal; only then may an appropriately approved Phase 3 proceed.**
 
 **Before starting any phase, check the open-PR list for the surface** (`#292`). Phase 0 was built
 twice independently on 2026-08-14; a duplicate in Phase 3 or 4 wastes an approved production window
