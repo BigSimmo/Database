@@ -291,8 +291,12 @@ describe("audit navigation and auth regressions", () => {
 
     expect(universalMatchesContract).toContain("<UniversalSearchAlsoMatches modeId={searchMode}");
     expect(universalMatchesContract).not.toContain('activeModeResultKind === "favourites"');
+    // This test is about WHICH surface owns the favourites also-matches block,
+    // not about the expression feeding its query prop — that became
+    // `activeQuery` when the page took over live in-place filtering from the
+    // shared composer (ledger #164).
     expect(source("src/components/clinical-dashboard/favourites-command-library-page.tsx")).toContain(
-      '<UniversalSearchAlsoMatches modeId="favourites" query={query} />',
+      '<UniversalSearchAlsoMatches modeId="favourites"',
     );
   });
 });
