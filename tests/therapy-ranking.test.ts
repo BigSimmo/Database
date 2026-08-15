@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { EMPTY_SEARCH, searchTherapies } from "@/components/therapy-compass/data/select";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
+import type { Therapy } from "@/components/therapy-compass/data/types";
 import { rankTherapyCandidates, scoreTherapyCandidate } from "@/lib/therapy-ranking";
 import {
   findTherapyRecord,
@@ -26,6 +30,10 @@ const records = [
   },
 ];
 
+const fullTherapyRecords = JSON.parse(
+  readFileSync(new URL(`../public/therapy-compass-data/${THERAPY_CATALOGUE_ASSETS.full}`, import.meta.url), "utf8"),
+) as Therapy[];
+
 describe("shared Therapy ranker", () => {
   it("uses one normalized scoring contract for catalogue and universal callers", () => {
     expect(scoreTherapyCandidate(records[0], "cognitive behavioural therapy")).toBeGreaterThan(
@@ -48,5 +56,37 @@ describe("shared Therapy ranker", () => {
     expect(searchTherapyRecords("CBT", "production")).toEqual([]);
     expect(therapySlugs("production")).toEqual([]);
     expect(findTherapyRecord(therapyRecords[0].slug, "production")).toBeUndefined();
+  });
+
+  it.each([
+    "CBT",
+    "ACT",
+    "DBT",
+    "EMDR",
+    "grounding",
+    "trauma",
+    "sleep",
+    "psychosis",
+    "self harm",
+    "adolescent",
+    "motivational interviewing",
+  ])("keeps the top five ordered identically across catalogue and universal discovery for %s", (query) => {
+    const catalogueOrder = searchTherapies(fullTherapyRecords, { ...EMPTY_SEARCH, query })
+      .slice(0, 5)
+      .map((record) => record.slug);
+    const universalOrder = searchTherapyRecords(query, "development")
+      .slice(0, 5)
+      .map(({ record }) => record.slug);
+
+    expect(universalOrder).toEqual(catalogueOrder);
+  });
+
+  it.each([
+    ["CBT", "cognitive-behavioural-therapy-cbt"],
+    ["ACT", "acceptance-and-commitment-therapy-act"],
+    ["DBT", "dialectical-behaviour-therapy-dbt"],
+    ["EMDR", "eye-movement-desensitisation-and-reprocessing-emdr"],
+  ])("ranks the exact %s alias first", (query, expectedSlug) => {
+    expect(searchTherapyRecords(query, "development")[0]?.record.slug).toBe(expectedSlug);
   });
 });
