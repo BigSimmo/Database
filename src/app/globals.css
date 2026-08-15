@@ -3419,9 +3419,10 @@ td,
   }
 }
 
-/* Animate a compositable CSS property rather than SVG stroke-dashoffset.
-   Mobile WebKit can report the dash animation as running without repainting it,
-   especially in an installed PWA. Opacity produces a visible ECG pulse in both. */
+/* Animate compositable opacity on the HTML overlay that contains the bright ECG
+   path. Mobile WebKit can report animations on SVG path properties as running
+   without repainting them, especially in an installed PWA. Keeping animation on
+   a regular HTML layer makes the pulse visible without JavaScript or layout work. */
 @keyframes answer-ecg-pulse {
   0%,
   100% {
@@ -3447,6 +3448,7 @@ td,
 @layer components {
   .answer-activity-trace__sweep {
     animation: var(--animate-answer-ecg);
+    will-change: opacity;
   }
 
   .answer-activity-trace[data-density="compact"] .answer-activity-trace__sweep {
