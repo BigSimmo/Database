@@ -3196,7 +3196,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1&run=1");
     await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1&run=1$/);
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
   });
 
   test("dashboard differentials selection stays on the shared home; submitted links open Differentials", async ({
@@ -3459,7 +3459,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/favourites?q=lithium%20set&focus=1&run=1");
 
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
@@ -3476,7 +3476,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
@@ -3521,7 +3521,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites");
 
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
     await expect(page.getByTestId("favourites-item-workspace")).toHaveCount(0);
 
     await visibleByTestId(page, "favourite-row-lithium-monitoring-guideline").locator("button[aria-pressed]").click();
