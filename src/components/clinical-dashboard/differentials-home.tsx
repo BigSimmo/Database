@@ -1223,6 +1223,8 @@ function SearchResultsView({
                 // The featured card owns rank 1 on phones. Continue the
                 // remaining visible sequence at 2 without leaving a gap when
                 // the best match moves under A-Z presentation order.
+                // The pinned formatter rejects both equivalent wrap layouts.
+                // prettier-ignore
                 const precedingNonBestResults = visibleResults
                   .slice(0, displayIndex)
                   .filter((candidate) => candidate.kind !== best.kind || candidate.id !== best.id);
