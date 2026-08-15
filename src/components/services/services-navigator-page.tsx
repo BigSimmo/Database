@@ -2,9 +2,19 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Check, ExternalLink, GitCompareArrows, ListChecks, ShieldCheck, X } from "lucide-react";
+import {
+  ArrowRight,
+  Bookmark,
+  BookmarkCheck,
+  Check,
+  ExternalLink,
+  GitCompareArrows,
+  ListChecks,
+  X,
+} from "lucide-react";
 import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
 
+import { useAccountData } from "@/components/account-data-provider";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
@@ -92,15 +102,18 @@ function ServiceCard({
   relevanceRank,
   selected,
   onToggleSelected,
+  saved,
+  onToggleSaved,
 }: {
   service: ServiceRecord;
   index: number;
   relevanceRank: number | null;
   selected: boolean;
   onToggleSelected: (slug: string) => void;
+  saved: boolean;
+  onToggleSaved: (slug: string) => void;
 }) {
   const showBestFit = relevanceRank !== null && relevanceRank <= 2;
-  const catchment = service.catchments?.slice(0, 2).join(" · ") || service.location;
 
   return (
     <article
@@ -112,7 +125,7 @@ function ServiceCard({
           : "border-[color:var(--border)]",
       )}
     >
-      <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]">
+      <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)_auto]">
         <span
           className={cn(
             "grid h-9 w-9 place-items-center rounded-lg border text-sm font-extrabold",
@@ -155,33 +168,31 @@ function ServiceCard({
             ))}
           </div>
         </div>
-        <span className="hidden items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--text-muted)] sm:inline-flex">
-          <ShieldCheck className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
-          {service.verification?.confidence ?? "Unknown"} confidence
-        </span>
+        {/* Favourite, not shortlist: the bookmark persists to the account
+            across sessions, while the shortlist below is this search's
+            working set and is deliberately not persisted. Two different
+            jobs, so they stay two different controls. */}
+        <button
+          type="button"
+          onClick={() => onToggleSaved(service.slug)}
+          aria-pressed={saved}
+          aria-label={saved ? `Remove ${service.title} from favourites` : `Save ${service.title} to favourites`}
+          className={cn(
+            "grid min-h-12 min-w-12 place-items-center rounded-lg border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:min-w-10",
+            saved
+              ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+          )}
+        >
+          {saved ? <BookmarkCheck className="h-4 w-4" aria-hidden /> : <Bookmark className="h-4 w-4" aria-hidden />}
+        </button>
       </div>
 
-      <dl className="mt-3 grid min-w-0 grid-cols-1 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] sm:grid-cols-3">
-        {[
-          ["Catchment", compactText(catchment, 72, "Confirm locally")],
-          ["Eligibility", compactText(service.eligibility, 86, "Review criteria")],
-          ["Cost", compactText(service.cost, 72, "Confirm fees")],
-        ].map(([label, value], itemIndex) => (
-          <div
-            key={label}
-            className={cn(
-              "min-w-0 px-3 py-2.5",
-              itemIndex > 0 && "border-t border-[color:var(--border)] sm:border-l sm:border-t-0",
-            )}
-          >
-            <dt className="text-2xs font-semibold text-[color:var(--text-muted)]">{label}</dt>
-            <dd className="mt-0.5 line-clamp-2 text-xs font-bold leading-4 text-[color:var(--text-heading)]">
-              {value}
-            </dd>
-          </div>
-        ))}
-      </dl>
-
+      {/* The Catchment/Eligibility/Cost strip that used to sit here is gone
+          (direction B, ledger #163): three truncated fields per row turned a
+          scan of 45 crisis services into a wall of clipped prose. The full,
+          untruncated values are one tap away on the record via "Review
+          referral", which is where a referral decision is actually made. */}
       <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
         <Link
           href={`/services/${service.slug}`}
@@ -208,6 +219,82 @@ function ServiceCard({
         </button>
       </div>
     </article>
+  );
+}
+
+const referralStages = [
+  { id: "search", label: "Search" },
+  { id: "shortlist", label: "Shortlist" },
+  { id: "compare", label: "Compare" },
+  { id: "refer", label: "Refer" },
+] as const;
+
+type ReferralStageId = (typeof referralStages)[number]["id"];
+
+/**
+ * The progressive replacement for the old four-card numbered walkthrough
+ * (direction B, ledger #163): one ~20px line of dots that says where you are
+ * without spending a third of the fold saying it.
+ *
+ * The accessible name is deliberately NOT "Referral workflow" — that name
+ * belongs to `ServiceReferralFlow` on the service record, and
+ * `tests/ui-tools.spec.ts` asserts it is absent from the results route so the
+ * removed walkthrough cannot creep back in. Reusing it here would satisfy that
+ * assertion's letter and defeat its purpose.
+ *
+ * "Refer" is never the active stage here; it is reached on the record itself.
+ * It stays in the rail because the point is showing the whole path, not just
+ * the part this page owns.
+ */
+function ServiceReferralProgress({ active }: { active: ReferralStageId }) {
+  const activeIndex = referralStages.findIndex((stage) => stage.id === active);
+
+  return (
+    <nav aria-label="Referral progress" className="min-w-0">
+      <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        {referralStages.map((stage, index) => {
+          const isActive = index === activeIndex;
+          const isComplete = index < activeIndex;
+          return (
+            <li key={stage.id} className="flex min-w-0 items-center gap-2">
+              {index > 0 ? (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "h-px w-4 shrink-0 sm:w-6",
+                    isComplete || isActive ? "bg-[color:var(--clinical-accent-border)]" : "bg-[color:var(--border)]",
+                  )}
+                />
+              ) : null}
+              <span
+                aria-current={isActive ? "step" : undefined}
+                className={cn(
+                  "inline-flex min-w-0 items-center gap-1.5 text-2xs font-bold",
+                  isActive
+                    ? "text-[color:var(--clinical-accent)]"
+                    : isComplete
+                      ? "text-[color:var(--text)]"
+                      : "text-[color:var(--text-muted)]",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "h-2 w-2 shrink-0 rounded-full border",
+                    isActive
+                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)]"
+                      : isComplete
+                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
+                        : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
+                  )}
+                />
+                {stage.label}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 
@@ -369,6 +456,30 @@ export function ServicesNavigatorPage() {
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const heading = query || (activeGroup ? serviceCoreGroupLabel(activeGroup) : "Browse services");
+  const accountData = useAccountData();
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  // Derived during render rather than tracked in an effect: the stage is a
+  // pure function of the shortlist state that already exists, and
+  // tests/audit-content-services-regressions.test.ts pins this file as
+  // effect-free.
+  const referralStage: ReferralStageId = showComparison ? "compare" : selectedSlugs.length ? "shortlist" : "search";
+
+  async function toggleSaved(slug: string) {
+    const service = searchableRecords.find((record) => record.slug === slug);
+    if (!service) return;
+    const nowSaved = !accountData.isSaved("service", slug);
+    try {
+      if (!(await accountData.setFavourite("service", slug, nowSaved))) {
+        setSaveNotice(
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save services.",
+        );
+        return;
+      }
+      setSaveNotice(nowSaved ? `${service.title} saved to favourites.` : `${service.title} removed from favourites.`);
+    } catch {
+      setSaveNotice("Save failed. Try again.");
+    }
+  }
 
   function toggleSelected(slug: string) {
     setSelectedSlugs((current) => {
@@ -532,43 +643,6 @@ export function ServicesNavigatorPage() {
             className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />
 
-          {selected.length ? (
-            <section
-              data-testid="services-shortlist-bar"
-              aria-label="Service shortlist"
-              className="flex min-h-14 flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2 sm:px-4"
-            >
-              <span className="inline-flex items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]">
-                <ListChecks className="h-4 w-4" aria-hidden />
-                {selected.length} shortlisted
-              </span>
-              <span className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setShowComparison(true)}
-                  disabled={selected.length < 2}
-                  title={
-                    selected.length < 2 ? "Shortlist at least two services to compare" : "Compare shortlisted services"
-                  }
-                  className="inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10"
-                >
-                  <GitCompareArrows className="h-4 w-4" aria-hidden />
-                  Compare
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedSlugs([]);
-                    setShowComparison(false);
-                  }}
-                  className="inline-flex min-h-12 items-center rounded-lg px-3 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
-                >
-                  Clear
-                </button>
-              </span>
-            </section>
-          ) : null}
-
           <SearchResultsHeaderBand
             modeId="services"
             query={heading}
@@ -628,6 +702,62 @@ export function ServicesNavigatorPage() {
               </span>
             }
           />
+
+          {/* Progress, then the shortlist banner, then browse — the banner
+              sits under the heading it qualifies rather than above it, and
+              appears only once something is shortlisted. */}
+          <ServiceReferralProgress active={referralStage} />
+
+          {selected.length ? (
+            <section
+              data-testid="services-shortlist-bar"
+              aria-label="Service shortlist"
+              className="flex min-h-14 flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2 sm:px-4"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]">
+                <ListChecks className="h-4 w-4" aria-hidden />
+                {selected.length} shortlisted
+              </span>
+              <span className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowComparison(true)}
+                  disabled={selected.length < 2}
+                  title={
+                    selected.length < 2 ? "Shortlist at least two services to compare" : "Compare shortlisted services"
+                  }
+                  className="inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10"
+                >
+                  <GitCompareArrows className="h-4 w-4" aria-hidden />
+                  Compare
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSlugs([]);
+                    setShowComparison(false);
+                  }}
+                  className="inline-flex min-h-12 items-center rounded-lg px-3 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+                >
+                  Clear
+                </button>
+              </span>
+            </section>
+          ) : null}
+
+          {/* The bookmark control is otherwise silent, and a failed save must
+              not read as a success. Visible rather than sr-only: "Sign in to
+              save services" is the common outcome for a guest, and hiding it
+              from sighted readers leaves the bookmark looking simply broken.
+              The live region is always mounted so the announcement is not
+              swallowed by the node appearing at the same time as its text. */}
+          <p
+            role="status"
+            aria-live="polite"
+            className={cn("text-xs font-semibold text-[color:var(--text-muted)]", saveNotice ? "min-h-5" : "sr-only")}
+          >
+            {saveNotice ?? ""}
+          </p>
 
           <section className="grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:p-4">
             <ServiceGroupNav
@@ -740,6 +870,8 @@ export function ServicesNavigatorPage() {
                 relevanceRank={sortValue === "alpha" ? null : (relevanceRankMap.get(service.slug) ?? null)}
                 selected={selectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
+                saved={accountData.isSaved("service", service.slug)}
+                onToggleSaved={toggleSaved}
               />
             ))}
           </div>

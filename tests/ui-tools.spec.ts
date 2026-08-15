@@ -1392,8 +1392,22 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
     await expect(page.getByLabel("Referral workflow")).toHaveCount(0);
+    // The four-card numbered walkthrough stays gone (assertion above); what
+    // replaces it is a one-line dot rail under a DIFFERENT accessible name,
+    // so the check above cannot be satisfied by quietly renaming the old
+    // component back onto this route (ledger #163).
+    const referralProgress = page.getByRole("navigation", { name: "Referral progress" });
+    await expect(referralProgress).toBeVisible();
+    await expect(referralProgress.locator('[aria-current="step"]')).toHaveText("Search");
     await expect(page.getByRole("navigation", { name: "Service groups" })).toBeVisible();
     await expect(page.getByTestId("services-shortlist-bar")).toHaveCount(0);
+
+    // The row is compact by contract: the Catchment/Eligibility/Cost strip
+    // moved to the record, and the bookmark is a persisted favourite that is
+    // deliberately distinct from the in-page shortlist.
+    const firstResult = page.getByTestId("service-search-result-13yarn");
+    await expect(firstResult.getByText("Catchment", { exact: true })).toHaveCount(0);
+    await expect(firstResult.getByRole("button", { name: "Save 13YARN to favourites" })).toBeVisible();
 
     const culturallySafe = page
       .getByTestId("service-quick-search-suggestions")

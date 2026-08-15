@@ -4259,20 +4259,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
     await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
 
+    // The dot rail is progressive: it tracks the shortlist state rather than
+    // standing there as an always-on four-card walkthrough (ledger #163).
+    const progress = navigator.getByRole("navigation", { name: "Referral progress" });
+    const currentStage = progress.locator('[aria-current="step"]');
+    await expect(currentStage).toHaveText("Search");
+
     const addButtons = navigator.getByRole("button", { name: /Add .* to shortlist/ });
     await addButtons.nth(0).click();
     const shortlist = navigator.getByTestId("services-shortlist-bar");
     await expect(shortlist).toContainText("1 shortlisted");
     await expect(shortlist.getByRole("button", { name: "Compare" })).toBeDisabled();
+    await expect(currentStage).toHaveText("Shortlist");
 
     await addButtons.nth(1).click();
     await expect(shortlist).toContainText("2 shortlisted");
     await shortlist.getByRole("button", { name: "Compare" }).click();
     await expect(navigator.getByTestId("services-comparison")).toBeVisible();
+    await expect(currentStage).toHaveText("Compare");
 
     await shortlist.getByRole("button", { name: "Clear" }).click();
     await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
     await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
+    await expect(currentStage).toHaveText("Search");
   });
 
   test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {
