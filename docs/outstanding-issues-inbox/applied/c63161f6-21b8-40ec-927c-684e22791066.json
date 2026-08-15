@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "c63161f6-21b8-40ec-927c-684e22791066",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "c3d91fce-52e5-41ed-8648-b2bf5e95b32c",
+    "reason": "Superseded by fbfe982f-cd2f-49c9-a94e-908a99efa6b8, the current #331 update consolidating the authoritative remaining work."
+  }
+}

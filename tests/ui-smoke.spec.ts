@@ -1793,7 +1793,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(Number.parseFloat(closeGeometry.radius)).toBeGreaterThanOrEqual(22);
 
     // A lower group remains reachable through the sheet's own scroll owner.
-    // Selecting a mode closes the sheet and retargets the shared home.
+    // Tools is browse-first, so selecting it opens the canonical directory.
     const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
     await toolsMode.scrollIntoViewIfNeeded();
     await expect(toolsMode).toBeVisible();
@@ -1801,10 +1801,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeMenu).toHaveCount(0);
-    await expect(page).toHaveURL(/\/\?mode=tools\b/);
+    await expect(page).toHaveURL(/\/tools$/);
     const toolsTrigger = page.getByRole("button", { name: "Mode Tools" });
     await expect(toolsTrigger).toBeVisible();
-    await expect(visibleByTestId(page, "shared-home-empty-state")).toBeVisible();
+    await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
 
     // Reopening on a mode in a lower group must position that selected row in
@@ -3195,7 +3196,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1&run=1");
     await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1&run=1$/);
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
   });
 
   test("dashboard differentials selection stays on the shared home; submitted links open Differentials", async ({
@@ -3458,7 +3459,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/favourites?q=lithium%20set&focus=1&run=1");
 
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
@@ -3475,7 +3476,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
     await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
@@ -3520,7 +3521,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites");
 
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
     await expect(page.getByTestId("favourites-item-workspace")).toHaveCount(0);
 
     await visibleByTestId(page, "favourite-row-lithium-monitoring-guideline").locator("button[aria-pressed]").click();
@@ -3660,6 +3661,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     await expectSingleMedicationPage(page);
     await expect(page.getByRole("link", { name: "Back to medications" }).filter({ visible: true })).toBeVisible();
+
+    // Desktop polish: the patient control belongs to the title row, with a
+    // deliberate breathing space before the elevated category rail below it.
+    const desktopPatientAction = page.getByTestId("medication-primary-action").filter({ visible: true });
+    const desktopMedicationRail = page.getByTestId("medication-section-rail");
+    const [patientBox, desktopRailBox] = await Promise.all([
+      desktopPatientAction.boundingBox(),
+      desktopMedicationRail.boundingBox(),
+    ]);
+    expect(patientBox).not.toBeNull();
+    expect(desktopRailBox).not.toBeNull();
+    expect(desktopRailBox!.y - (patientBox!.y + patientBox!.height)).toBeGreaterThanOrEqual(6);
+
+    const summaryCategory = desktopMedicationRail.getByRole("button", { name: /^Summary/ });
+    await summaryCategory.focus();
+    await expect(summaryCategory).toBeFocused();
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect
+      .poll(() => summaryCategory.evaluate((button) => Number.parseFloat(getComputedStyle(button).transitionDuration)))
+      .toBeLessThanOrEqual(0.001);
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "no-preference" });
+    await expect
+      .poll(() => desktopMedicationRail.evaluate((rail) => getComputedStyle(rail).borderTopStyle))
+      .not.toBe("none");
+    await page.emulateMedia({ forcedColors: "none" });
 
     // Regression guard for #1802: medication sections use the same priority
     // menu as the mode home, not the older horizontally scrolling tab strip.
@@ -4258,20 +4284,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
     await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
 
+    // The dot rail is progressive: it tracks the shortlist state rather than
+    // standing there as an always-on four-card walkthrough (ledger #163).
+    const progress = navigator.getByRole("navigation", { name: "Referral progress" });
+    const currentStage = progress.locator('[aria-current="step"]');
+    await expect(currentStage).toHaveText("Search");
+
     const addButtons = navigator.getByRole("button", { name: /Add .* to shortlist/ });
     await addButtons.nth(0).click();
     const shortlist = navigator.getByTestId("services-shortlist-bar");
     await expect(shortlist).toContainText("1 shortlisted");
     await expect(shortlist.getByRole("button", { name: "Compare" })).toBeDisabled();
+    await expect(currentStage).toHaveText("Shortlist");
 
     await addButtons.nth(1).click();
     await expect(shortlist).toContainText("2 shortlisted");
     await shortlist.getByRole("button", { name: "Compare" }).click();
     await expect(navigator.getByTestId("services-comparison")).toBeVisible();
+    await expect(currentStage).toHaveText("Compare");
 
     await shortlist.getByRole("button", { name: "Clear" }).click();
     await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
     await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
+    await expect(currentStage).toHaveText("Search");
   });
 
   test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {

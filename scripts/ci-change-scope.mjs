@@ -121,6 +121,11 @@ const docPatterns = [
   /^LICENSE(?:\..*)?$/i,
 ];
 
+// This Markdown file is generated from the medication interaction lexicon. A
+// direct edit must run its freshness check; otherwise the ordinary docs-only
+// classification would let a stale clinical-facing report through CI.
+const generatedMedicationLexiconReport = "docs/medication-interaction-lexicon-review.md";
+
 const workflowPatterns = [
   ".github/workflows",
   ".github/actions",
@@ -371,6 +376,7 @@ function isExecutableWorkflowSurfacePath(filePath) {
  * YAML/policy under workflow surfaces stay light; executable files there do not.
  */
 function isRecognisedLightPath(filePath) {
+  if (filePath === generatedMedicationLexiconReport) return false;
   if (pathMatches(filePath, docPatterns)) return true;
   if (!pathMatches(filePath, workflowPatterns)) return false;
   return !isExecutableWorkflowSurfacePath(filePath);
@@ -413,6 +419,7 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   const docsOnly =
     normalized.length > 0 &&
     normalized.every((file) => pathMatches(file, docPatterns)) &&
+    !normalized.includes(generatedMedicationLexiconReport) &&
     !sourceChanged &&
     !workflowChanged;
   const workflowOnly = workflowChanged && !staticHeavyChanged;
@@ -766,6 +773,12 @@ function selfTest() {
     static_heavy_changed: false,
     build_changed: false,
     lockfile_changed: false,
+  });
+  assertScope("generated-medication-lexicon-report-stays-heavy", [generatedMedicationLexiconReport], {
+    docs_only: false,
+    docs_changed: true,
+    static_heavy_changed: true,
+    coverage_changed: true,
   });
   assertScope("tests-only", ["tests/rag-routing.test.ts"], {
     source_changed: true,

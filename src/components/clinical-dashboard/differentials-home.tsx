@@ -77,6 +77,8 @@ type DifferentialResult = {
   selected: boolean;
   matchLabel: string;
   tags: string[];
+  clinicalCues: string[];
+  nextSteps: string[];
   icon: LucideIcon;
   safety?: string;
 };
@@ -222,6 +224,8 @@ function toDifferentialResult(item: DifferentialSearchResultItem, query: string)
     selected: false,
     matchLabel: item.matchLabel,
     tags: item.tags.map(tagText),
+    clinicalCues: item.clinicalCues.map(tagText),
+    nextSteps: item.nextSteps,
     icon: resultIcon(item.kind, item.slug),
     safety: item.safety,
   };
@@ -248,8 +252,9 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
 type KindFilter = "all" | "presentation" | "diagnosis";
 
 function MatchBadge({ label }: { label: string }) {
-  // Match quality is a relevance signal, not a safety one — keep it in the
-  // accent family so red stays reserved for the emergent status badges.
+  // Match quality is a relevance signal, not a source-verification or safety
+  // signal. Keep it in the accent family while red remains reserved for
+  // emergent clinical status.
   const tone =
     label === "Best match" || label === "High match"
       ? "text-[color:var(--clinical-accent)]"
@@ -307,13 +312,11 @@ function SelectionCheckbox({ selected, onChange, label }: { selected: boolean; o
 function DesktopResultRow({
   result,
   index,
-  isBest,
   selected,
   onToggle,
 }: {
   result: DifferentialResult;
   index: number;
-  isBest: boolean;
   selected: boolean;
   onToggle?: () => void;
 }) {
@@ -321,31 +324,13 @@ function DesktopResultRow({
 
   return (
     <article
-      className={cn(
-        "group grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] items-center gap-3 rounded-lg border bg-[color:var(--surface)] px-3.5 py-3 shadow-[var(--shadow-inset)] transition",
-        isBest
-          ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/40 shadow-[var(--e1)]"
-          : "border-[color:var(--border)] hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
-      )}
+      data-testid="differential-compact-result"
+      className="group grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]"
     >
-      <span
-        className={cn(
-          "grid h-8 w-8 place-items-center rounded-md border text-sm font-extrabold",
-          isBest
-            ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
-            : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-        )}
-      >
+      <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]">
         {index + 1}
       </span>
-      <span
-        className={cn(
-          "grid h-14 w-14 place-items-center rounded-lg border transition group-hover:border-[color:var(--clinical-accent-border)]",
-          isBest
-            ? "border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)]"
-            : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
-        )}
-      >
+      <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] transition group-hover:border-[color:var(--clinical-accent-border)]">
         <Icon className="h-7 w-7 stroke-[1.75]" aria-hidden />
       </span>
       <div className="min-w-0">
@@ -367,11 +352,14 @@ function DesktopResultRow({
             {result.subtitle}
           </p>
         </Link>
-        <div className="mt-2 flex max-w-full flex-wrap gap-1.5">
-          {result.tags.slice(0, 4).map((tag) => (
-            <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
+        <p className="mt-2 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          Clinical cues
+        </p>
+        <div className="mt-1 flex max-w-full flex-wrap gap-1.5">
+          {result.clinicalCues.slice(0, 4).map((tag, cueIndex) => (
+            <Chip key={`${result.id}-cue-${cueIndex}-${tag}`}>{tag}</Chip>
           ))}
-          {result.tags.length > 4 ? <Chip>{`+${result.tags.length - 4}`}</Chip> : null}
+          {result.clinicalCues.length > 4 ? <Chip>{`+${result.clinicalCues.length - 4}`}</Chip> : null}
         </div>
       </div>
       <div className="grid min-h-10 place-items-center border-l border-[color:var(--border)] pl-3">
@@ -426,13 +414,71 @@ function MobileResultCard({
         ) : null}
       </Link>
       {onToggle ? <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} /> : <span />}
-      <div className="col-span-2 col-start-2 flex min-w-0 max-w-full flex-wrap gap-1.5">
-        {result.tags.slice(0, 2).map((tag) => (
-          <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
-        ))}
-        {result.tags.length > 2 ? <Chip fixed>{`+${result.tags.length - 2}`}</Chip> : null}
+      <div className="col-span-2 col-start-2 min-w-0">
+        <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          Clinical cues
+        </p>
+        <div className="mt-1 flex min-w-0 max-w-full flex-wrap gap-1.5">
+          {result.clinicalCues.slice(0, 2).map((tag, cueIndex) => (
+            <Chip key={`${result.id}-cue-${cueIndex}-${tag}`}>{tag}</Chip>
+          ))}
+          {result.clinicalCues.length > 2 ? <Chip fixed>{`+${result.clinicalCues.length - 2}`}</Chip> : null}
+        </div>
       </div>
     </article>
+  );
+}
+
+function conciseCueText(cues: string[]) {
+  return cues
+    .map((cue) => cue.trim())
+    .filter(Boolean)
+    .reduce<string[]>((visible, cue) => {
+      const normalizedCue = cue.toLowerCase();
+      if (visible.some((existing) => existing.toLowerCase().includes(normalizedCue))) return visible;
+      return [...visible.filter((existing) => !normalizedCue.includes(existing.toLowerCase())), cue];
+    }, [])
+    .join(" · ");
+}
+
+function BestMatchReasoningPanel({ result, compact }: { result: DifferentialResult; compact: boolean }) {
+  const sections = [
+    { label: "Why considered", value: result.subtitle, icon: Check },
+    { label: "Look for", value: conciseCueText(result.clinicalCues), icon: Activity },
+    { label: "Check next", value: result.nextSteps.join(" · "), icon: FlaskConical },
+  ].filter((section) => section.value.trim());
+
+  if (sections.length === 0) return null;
+
+  return (
+    <div
+      data-testid="differential-best-match-panel"
+      className={cn(
+        "overflow-hidden rounded-lg border bg-[color:var(--surface)]/85",
+        "border-[color:var(--clinical-accent-border)]",
+        compact
+          ? "divide-y divide-[color:var(--clinical-accent-border)]"
+          : "grid divide-x divide-[color:var(--clinical-accent-border)]",
+      )}
+      style={!compact ? { gridTemplateColumns: `repeat(${sections.length}, minmax(0, 1fr))` } : undefined}
+    >
+      {sections.map((section) => {
+        const Icon = section.icon;
+        return (
+          <div key={section.label} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2.5 px-3 py-3">
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+              <Icon className="size-icon-sm stroke-[2.25]" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
+                {section.label}
+              </p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-[color:var(--text-heading)]">{section.value}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -441,64 +487,64 @@ function BestAnswerCard({
   selected,
   onToggle,
   compact = false,
+  rank = 1,
 }: {
   best: DifferentialResult;
   selected?: boolean;
   onToggle?: () => void;
   compact?: boolean;
+  rank?: number;
 }) {
   const Icon = best.icon;
-  const tagLimit = compact ? 2 : best.tags.length;
-  const visibleTags = best.tags.slice(0, tagLimit);
-  const hiddenTagCount = best.tags.length - visibleTags.length;
-
-  // Use danger styling for emergent, accent styling for routine results
-  const isEmergent = best.status === "emergent";
-  const cardBorderColor = isEmergent ? "var(--danger-border)" : "var(--clinical-accent-border)";
-  const cardBgColor = isEmergent ? "var(--danger-soft)" : "var(--clinical-accent-soft)";
-  const iconBorderColor = isEmergent ? "var(--danger-border)" : "var(--clinical-accent-border)";
-  const iconColor = isEmergent ? "var(--danger)" : "var(--clinical-accent)";
 
   return (
     <section
-      data-testid={compact ? "differential-best-answer" : undefined}
+      data-testid={compact ? "differential-best-answer" : "differential-best-match-card"}
+      aria-label="Best differential match"
       className={cn(
-        "grid items-start gap-x-2.5 gap-y-2 rounded-lg border shadow-[var(--shadow-inset)]",
+        "grid items-start gap-x-2.5 gap-y-3 rounded-lg border shadow-[var(--e1)]",
+        "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45",
         compact
-          ? "grid-cols-[2.5rem_minmax(0,1fr)_var(--spacing-tap)] p-3"
-          : "grid-cols-[3rem_minmax(0,1fr)_var(--spacing-tap)] p-4",
+          ? "grid-cols-[2rem_minmax(0,1fr)_var(--spacing-tap)] p-3"
+          : "grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] p-3.5",
       )}
-      style={{
-        borderColor: `color-mix(in srgb, ${cardBorderColor}, transparent)`,
-        backgroundColor: `color-mix(in srgb, ${cardBgColor}, transparent 45%)`,
-      }}
     >
       <span
+        data-testid={!compact ? "differential-best-match-rank" : undefined}
         className={cn(
-          "grid shrink-0 place-items-center rounded-lg border bg-[color:var(--surface)]",
-          compact ? "h-10 w-10" : "h-12 w-12",
+          "grid h-8 w-8 shrink-0 place-items-center rounded-md border bg-[color:var(--surface)] text-sm font-extrabold",
+          "border-[color:var(--clinical-accent-border)] text-[color:var(--clinical-accent)]",
+          !compact && "self-center",
         )}
-        style={{
-          borderColor: `color-mix(in srgb, ${iconBorderColor}, transparent)`,
-          color: `color-mix(in srgb, ${iconColor}, transparent)`,
-        }}
       >
-        <Icon className={cn("stroke-[1.8]", compact ? "size-icon-lg" : "size-icon-xl")} aria-hidden />
+        {rank}
       </span>
-      <Link
-        href={best.href}
-        className="block min-w-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-      >
-        <p className="text-2xs font-extrabold uppercase text-[color:var(--text-muted)]">Best answer</p>
-        <h2
+      {!compact ? (
+        <span
           className={cn(
-            "mt-0.5 font-extrabold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)]",
-            compact ? "text-base" : "text-lg",
+            "grid h-14 w-14 place-items-center self-center rounded-lg border bg-[color:var(--surface)]",
+            "border-[color:var(--clinical-accent-border)] text-[color:var(--clinical-accent)]",
           )}
         >
-          <span className={cn(compact && "line-clamp-2")}>{best.title}</span>
-        </h2>
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <Icon className="h-7 w-7 stroke-[1.75]" aria-hidden />
+        </span>
+      ) : null}
+      <Link
+        href={best.href}
+        className={cn(
+          "block min-w-0 self-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          compact && "self-start",
+        )}
+      >
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h2
+            className={cn(
+              "font-extrabold leading-6 text-[color:var(--text-heading)]",
+              compact ? "text-base" : "text-lg",
+            )}
+          >
+            <span className={cn(compact && "line-clamp-2")}>{best.title}</span>
+          </h2>
           <DesignChip
             size="compact"
             appearance={{ kind: "information", tone: best.kind === "presentation" ? "accent" : "inset" }}
@@ -507,21 +553,20 @@ function BestAnswerCard({
           </DesignChip>
           <StatusBadge status={best.status} />
         </div>
-        <p
-          className={cn(
-            "min-w-0 text-sm font-medium text-[color:var(--text-muted)]",
-            compact ? "mt-2 line-clamp-2 leading-5" : "mt-2.5 leading-6",
-          )}
-        >
-          {best.subtitle}
-        </p>
       </Link>
+      {!compact ? (
+        <div className="grid min-h-10 place-items-center self-center border-l border-[color:var(--clinical-accent-border)] pl-3">
+          <MatchBadge label="Best match" />
+        </div>
+      ) : null}
       {onToggle ? <SelectionCheckbox selected={Boolean(selected)} onChange={onToggle} label={best.title} /> : <span />}
-      <div className="col-span-2 col-start-2 flex min-w-0 max-w-full flex-wrap gap-1.5">
-        {visibleTags.map((tag) => (
-          <Chip key={tag}>{tag}</Chip>
-        ))}
-        {hiddenTagCount > 0 ? <Chip fixed={compact}>{`+${hiddenTagCount}`}</Chip> : null}
+      {compact ? (
+        <div className="col-span-2 col-start-2 flex items-center gap-1.5">
+          <MatchBadge label="Best match" />
+        </div>
+      ) : null}
+      <div className={cn(compact ? "col-span-2 col-start-2" : "col-start-3 col-end-6")}>
+        <BestMatchReasoningPanel result={best} compact={compact} />
       </div>
     </section>
   );
@@ -702,7 +747,6 @@ function InterpretationRail({
         Interpretation
         <Info className="h-4 w-4" aria-hidden />
       </h2>
-      <BestAnswerCard best={best} />
       {safetyLead.safety ? <SafetyCard safety={safetyLead.safety} query={query} /> : null}
       {best.kind === "presentation" ? <LikelyPresentationCard lead={best} /> : null}
       <UrgencyCard results={results} />
@@ -713,9 +757,6 @@ function InterpretationRail({
         sourcesChecked={sourcesChecked}
         onRunSourceSearch={onRunSourceSearch}
       />
-      <p className="px-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-        Clinical decision support only. Review before use. No patient data stored.
-      </p>
     </aside>
   );
 }
@@ -1140,24 +1181,34 @@ function SearchResultsView({
                 // Best-match styling remains tied to relevance while the row
                 // number follows the user's chosen presentation order.
                 const isBest = result.kind === best.kind && result.id === best.id;
-                // Phone list hides the best-answer duplicate, so ranks must
-                // skip that row or the first visible card starts at 2/3.
-                const mobileIndex = visibleResults
+                // The featured card owns rank 1 on phones. Continue the
+                // remaining visible sequence at 2 without leaving a gap when
+                // the best match moves under A-Z presentation order.
+                const precedingNonBestResults = visibleResults
                   .slice(0, displayIndex)
-                  .filter((candidate) => !(candidate.kind === best.kind && candidate.id === best.id)).length;
+                  .filter((candidate) => candidate.kind !== best.kind || candidate.id !== best.id);
+                const mobileIndex = precedingNonBestResults.length + 1;
                 return (
                   // The best answer is already featured above the phone list,
                   // so its ranked duplicate only renders from the desktop
                   // breakpoint (hiding the wrapper keeps the grid gap clean).
                   <div key={`${result.kind}-${result.id}`} className={cn(isBest && "max-lg:hidden")}>
                     <div className="hidden lg:block">
-                      <DesktopResultRow
-                        result={result}
-                        index={displayIndex}
-                        isBest={isBest}
-                        selected={selectedIds.has(result.id)}
-                        onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
-                      />
+                      {isBest ? (
+                        <BestAnswerCard
+                          best={result}
+                          rank={displayIndex + 1}
+                          selected={selectedIds.has(result.id)}
+                          onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
+                        />
+                      ) : (
+                        <DesktopResultRow
+                          result={result}
+                          index={displayIndex}
+                          selected={selectedIds.has(result.id)}
+                          onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
+                        />
+                      )}
                     </div>
                     {!isBest ? (
                       <div className="lg:hidden">
@@ -1220,10 +1271,6 @@ function SearchResultsView({
       ) : null}
 
       <UniversalSearchAlsoMatches modeId="differentials" query={query} />
-
-      <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
-        Clinical decision support only. Review before use.
-      </p>
     </div>
   );
 }

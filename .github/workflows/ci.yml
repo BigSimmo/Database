@@ -188,6 +188,14 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:upload-limit-parity
 
+      # The generated lexicon review is a clinical-facing artefact. It was in the
+      # local verify:pr-local chain but in no CI job, so it rotted on main and
+      # failed every local preflight while every required check stayed green
+      # (#333). Same static-heavy condition verify-pr-local.mjs already uses.
+      - name: Medication lexicon report freshness
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:medication-lexicon-report
+
       - name: GitHub Actions pin check
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:github-actions

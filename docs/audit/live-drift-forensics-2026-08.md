@@ -27,14 +27,42 @@ runs on pushes to `main` touching `supabase/migrations/**` or `supabase/schema.s
 `workflow_dispatch`, the secret preflight, and `concurrency.cancel-in-progress: false` were kept
 unchanged. No hosted Supabase call was made.
 
-Outstanding for the operator: dispatch `live-drift` once to confirm a real failure produces the
-pinned issue (provider-backed — not run from the authoring session), and add
-`SUPABASE_ACCESS_TOKEN` to environment secrets per plan step 0.3 and ledger `#183`.
+_2026-08-14, forced-dispatch proof (owner-authorized)._ `live-drift` dispatched on `main`
+(Actions run `31813064485`). The definition-of-done behaviour was observed end-to-end:
+
+- `live-drift` job **failed** at `Compare live schema drift`, as intended for this proof.
+- `Capture drift and migration-history findings` still ran (`if: always()`), and
+  `Align migration history for Supabase Preview` correctly **skipped** after the failing step.
+- The separate `drift-routing` job then ran (`if: ${{ !cancelled() }}`) and **succeeded**,
+  creating issue **#1963 "Live drift check failing"** with label `live-drift-failure`, the run
+  URL, `Job result: failure`, `Trigger: workflow_dispatch`, and the full findings block.
+
+That run also supersedes the stale 2026-08-09 figures this file was opened with. Measured
+2026-08-14, `UNEXPECTED DRIFT (32)`:
+
+| Category                                 | 2026-08-09 | 2026-08-14         |
+| ---------------------------------------- | ---------- | ------------------ |
+| `match_*` function `def_hash` mismatches | 10         | **10 — unchanged** |
+| `missing_live` indexes                   | 21         | **20**             |
+| `unexpected_live` indexes                | 2          | **2 — unchanged**  |
+
+`documents_title_trgm_idx` and `document_chunks_content_trgm_idx` are absent from the missing
+list, independently corroborating the Phase 4 restoration below (verified separately by
+read-only query against `sjrfecxgysukkwxsowpy`: both `indisvalid`/`indisready`, 648 kB and
+68 MB). The 10 RPC mismatches are untouched, so **Phase 3 remains entirely outstanding** and is
+the next step per the plan's ordering.
+
+Routing is also covered offline by `tests/live-drift-workflow.test.ts` (mutation-verified), so a
+future regression fails a test rather than waiting for a live failure to be mishandled.
+
+Outstanding for the operator: add `SUPABASE_ACCESS_TOKEN` to environment secrets per plan step
+0.3 and ledger `#183` (dashboard work; names only, never values).
 
 ## Phase 1 — Read-only forensics
 
-_Partially run 2026-08-14 in an owner-authorized incident window; 1.2 and the audit-history
-pairing remain pending._
+_Partially run 2026-08-14 in an owner-authorized incident window, then extended the same day in a
+read-only connector session. 1.2 is enumerated and noise-separated but its per-function diff hunks,
+the remaining index sizing, and the dashboard audit-history pairing remain pending._
 
 ### 1.1 Migration-history fingerprint
 
@@ -68,9 +96,55 @@ that window remains **pending** (owner action). `#248` stays open.
 
 ### 1.2 RPC divergence dossier
 
-_Pending._ One entry per mismatched `match_*` function, each classified **live-ahead**,
-**repo-ahead**, **normalization noise**, or **UNCLASSIFIED**, quoting the decisive diff hunk.
-Protected RAG surface: an ambiguous diff is recorded as UNCLASSIFIED and escalated, never guessed.
+One entry per mismatched `match_*` function, each classified **live-ahead**, **repo-ahead**,
+**normalization noise**, or **UNCLASSIFIED**, quoting the decisive diff hunk. Protected RAG
+surface: an ambiguous diff is recorded as UNCLASSIFIED and escalated, never guessed.
+
+_2026-08-14 (owner-authorized read-only connector session) — enumeration and noise-separation
+complete; per-function diff hunks still pending._
+
+All 93 `public` functions were compared by the manifest's own rule (`pg_get_functiondef`, block
+and line comments stripped, whitespace stripped, md5) against `supabase/drift-manifest.json`.
+Result: **0 missing on live, 0 extra on live, 16 hash mismatches** — every one a `match_document_*`
+retrieval RPC.
+
+**Six of the sixteen are normalization noise and are now closed.** A live session renders
+`regprocedure` and body types unqualified (`vector`), while the manifest was generated where they
+render schema-qualified (`extensions.vector`). Re-qualifying `vector` → `extensions.vector` before
+hashing reproduces the manifest hash **exactly** for these six, so their bodies are byte-identical
+to the repo:
+
+| Function                                                           | Classification      | Evidence                                                             |
+| ------------------------------------------------------------------ | ------------------- | -------------------------------------------------------------------- |
+| `match_document_chunks(vector,integer,double precision,uuid,uuid)` | normalization noise | re-qualified hash `cdf9d685c98bc8ff731a0422c29a47a4` = manifest hash |
+| `match_document_chunks_v2(vector,…,boolean)`                       | normalization noise | re-qualified hash matches manifest                                   |
+| `match_document_chunks_hybrid_v2(vector,…,boolean)`                | normalization noise | re-qualified hash matches manifest                                   |
+| `match_document_embedding_fields_hybrid_v2(vector,…,boolean)`      | normalization noise | re-qualified hash matches manifest                                   |
+| `match_document_index_units_hybrid_scoped(vector,…,boolean)`       | normalization noise | re-qualified hash matches manifest                                   |
+| `match_document_memory_cards_hybrid_v3(vector,…,boolean)`          | normalization noise | re-qualified hash matches manifest                                   |
+
+**The remaining ten are unresolved hash mismatches and are UNCLASSIFIED.** They do not match the
+manifest under the raw hash, the `extensions.`-stripped hash, or the re-qualified hash. That rules
+out the tested `extensions.vector` rendering variants, but does not establish a body difference:
+`pg_get_functiondef` also carries declarations and attributes, and other normalization differences
+remain possible. Per the rule above they are recorded UNCLASSIFIED rather than guessed — deciding
+whether there is a body difference, and then live-ahead vs repo-ahead, needs the decisive hunk:
+
+`match_document_chunks_text`, `match_document_chunks_text_v2`, `match_document_chunks_hybrid`,
+`match_document_embedding_fields_hybrid`, `match_document_index_units_hybrid`,
+`match_document_index_units_hybrid_v2`, `match_document_lookup_chunks_text`,
+`match_document_memory_cards_hybrid`, `match_document_memory_cards_hybrid_v2`,
+`match_document_table_facts_text`.
+
+This confirms ten unresolved retrieval-RPC hash mismatches after excluding the six proven
+qualification artefacts. It does **not** yet confirm that ten RPC bodies diverge.
+
+**Method trap, recorded so the next run does not repeat it.** Joining manifest signatures to live
+`p.oid::regprocedure::text` directly reports **all 93** functions as simultaneously missing _and_
+extra, because the manifest stores `public.fn(extensions.vector,…)` and the live session renders
+`fn(vector,…)`. That is a join failure, not a finding. Normalize both sides (strip the `public.`
+prefix, fold `extensions.vector` → `vector`) before comparing, then test each surviving mismatch
+against the qualification variants before calling it divergence.
 
 ### 1.3 Index inventory, sizing, and EXPLAIN baselines
 
@@ -84,6 +158,57 @@ Before-measurements came from live production probes rather than raw EXPLAIN (th
 end-to-end visible): `/api/search` semantic query 2026-08-14 → total 37.7 s,
 `supabase_rpc_latency_ms` **31,610**; a second semantic probe 29.9 s / 21,757. The remaining
 missing-index sizing and the `rag_retrieval_logs` miss-scan baseline are **pending**.
+
+**Whole-schema inventory — 2026-08-14, after the repair above (owner-authorized read-only
+connector session).** The scope above is the ten `20260705180000` indexes; this is the full
+`public` schema, and it is **additive to the incident, not a restatement of it**. Both repaired
+indexes (`documents_title_trgm_idx`, `document_chunks_content_trgm_idx`) are confirmed **present**
+on live now.
+
+|                           Side |  Count | Source                                                                      |
+| -----------------------------: | -----: | --------------------------------------------------------------------------- |
+|                   Repo-defined |    210 | `supabase/drift-manifest.json` `snapshot.indexes`                           |
+|                           Live |    192 | `pg_indexes`, schema `public`                                               |
+|           **Absent from live** | **20** | full outer join by name                                                     |
+| Orphaned on live (not in repo) |      2 | `document_table_facts_document_id_idx`, `storage_cleanup_jobs_owner_id_idx` |
+
+210 − 20 + 2 = 192, so neither side is a partial read. The 20 absent, retrieval-relevant ones
+first:
+
+`document_chunks_anchor_idx`, `document_index_units_heading_path_idx`, `rag_aliases_type_enabled_idx`,
+`rag_queries_source_chunk_ids_gin_idx`, `rag_query_misses_aliases_idx`,
+`documents_registry_projection_lookup_idx`, `document_images_structured_profile_gin_idx`,
+`image_caption_cache_owner_hash_idx`, `api_rate_limits_bucket_updated_idx`,
+`audit_logs_action_created_idx`, `audit_logs_owner_created_idx`, `document_images_hash_idx`,
+`document_images_visual_intelligence_version_idx`, `document_index_quality_owner_score_idx`,
+`document_publication_approvals_document_idx`, `document_summaries_owner_idx`,
+`indexing_v3_agent_jobs_locked_at_idx`, `ingestion_job_stages_job_stage_started_idx`,
+`medication_records_owner_category_idx`, `storage_cleanup_jobs_owner_status_idx`.
+
+**None is invalid-but-present.** `pg_index` filtered on `indisvalid = false or indisready = false`
+returns **zero rows** across the whole `public` schema, so the failed-`CREATE INDEX CONCURRENTLY`
+class documented in `docs/database-drift-detection.md` explains none of the 20. The objects are
+absent, not broken.
+
+**Five covered creating migrations recorded executed DDL.** Extending the §1.1 fingerprint to the
+four further migrations in this sampled set found that none carries the mark-applied signal:
+
+| Migration                                              | `stmt_count` | Mark-applied? |
+| ------------------------------------------------------ | -----------: | ------------- |
+| `20260528007000 database_hardening_before_import`      |           32 | no            |
+| `20260608001000 index_accuracy_usability_improvements` |           36 | no            |
+| `20260705180000 reconcile_search_health_indexes`       |           14 | no (per §1.1) |
+| `20260712165211 reconcile_missing_operational_indexes` |           27 | no            |
+| `20260717170000 registry_projection_cleanup`           |           11 | no            |
+
+This establishes recorded-executed-but-absent evidence across five migrations from 2026-05-28 to
+2026-07-17, including one named `reconcile_missing_operational_indexes`; it does **not** cover the
+creating migrations for `document_publication_approvals_document_idx`,
+`indexing_v3_agent_jobs_locked_at_idx`, or `medication_records_owner_category_idx`. Fingerprint
+those histories before classifying those three absences as created-then-dropped. **Root cause
+remains unestablished** — §1.1's manual/dashboard-drop inference is the leading hypothesis and the
+dashboard audit-history pairing is still the owner action that would confirm or refute it. This
+inventory widens what that pairing has to explain; it does not by itself attribute anything.
 
 ## Phase 2 — Staging parity rehearsal
 

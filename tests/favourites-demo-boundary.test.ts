@@ -21,10 +21,15 @@ const universalSearchSource = readFileSync(
   new URL("../src/components/clinical-dashboard/universal-search-command-surface.tsx", import.meta.url),
   "utf8",
 );
-const mobileCardSource = librarySource.slice(
-  librarySource.indexOf("function FavouriteMobileCard"),
-  librarySource.indexOf("function FavouritesTable"),
-);
+// End the slice at FavouriteMobileCard's own closing brace rather than at
+// whichever function happened to be declared next. The old form ran to
+// `function FavouritesTable`, so any component added between the two was
+// silently pulled into this window and failed the aria-pressed assertion below
+// for code that is not the mobile card at all (hit while retiring the library
+// nav for ledger #164).
+const mobileCardStart = librarySource.indexOf("function FavouriteMobileCard");
+const mobileCardEnd = librarySource.indexOf("\n}\n", mobileCardStart);
+const mobileCardSource = librarySource.slice(mobileCardStart, mobileCardEnd);
 
 describe("favourites demo-data boundary", () => {
   it("passes trusted server demo state and never merges prototype favourites into live mode unconditionally", () => {
