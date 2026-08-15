@@ -6,6 +6,10 @@ import {
   assertRetrievalRows,
   buildDocumentSummaryResults,
 } from "@/lib/rag/rag-row-contracts";
+import {
+  searchEmbeddingFieldCandidates,
+  searchIndexUnitCandidates,
+} from "@/lib/rag/rag-candidate-sources";
 
 vi.mock("@/lib/logger", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -262,5 +266,24 @@ describe("signal row shape contracts", () => {
     assertIndexUnitRows(rows, "match_document_index_units_hybrid");
 
     expect(rows[0]).toMatchObject({ a_future_column: "kept" });
+  });
+
+  it.each([
+    ["embedding-field", "match_document_embedding_fields_hybrid_v2", searchEmbeddingFieldCandidates],
+    ["index-unit", "match_document_index_units_hybrid_v2", searchIndexUnitCandidates],
+  ])("degrades an invalid optional %s signal instead of rejecting the whole search", async (_layer, rpc, search) => {
+    const supabase = {
+      rpc: vi.fn(async () => ({ data: [embeddingFieldRow({ hybrid_score: "0.68" })], error: null })),
+    };
+
+    await expect(
+      search({
+        supabase: supabase as never,
+        query: "lithium monitoring",
+        queryEmbedding: [0.1, 0.2],
+        matchCount: 8,
+      }),
+    ).resolves.toEqual([]);
+    expect(supabase.rpc).toHaveBeenCalledWith(rpc, expect.any(Object));
   });
 });

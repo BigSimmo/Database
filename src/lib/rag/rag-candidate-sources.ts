@@ -27,6 +27,7 @@ import { applyMemoryCardBoosts, fetchMemoryCardsForQuery } from "@/lib/deep-memo
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import {
+  RetrievalRowShapeError,
   assertEmbeddingFieldRows,
   assertIndexUnitRows,
   assertRetrievalRows,
@@ -144,6 +145,21 @@ export function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc
       ...(telemetry.hybrid_rpc_errors ?? {}),
       [rpc]: code,
     };
+  }
+}
+
+/**
+ * The embedding-field and index-unit layers are optional retrieval signals.  Their
+ * row contracts log a redacted shape mismatch before throwing; preserve that
+ * visibility while allowing the primary chunk retrieval path to continue.
+ */
+function assertOptionalSignalRows(assertRows: () => void) {
+  try {
+    assertRows();
+    return true;
+  } catch (error) {
+    if (error instanceof RetrievalRowShapeError) return false;
+    throw error;
   }
 }
 
@@ -1059,7 +1075,9 @@ export async function searchEmbeddingFieldCandidates(args: {
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
-  assertEmbeddingFieldRows(data, "match_document_embedding_fields_hybrid");
+  if (!assertOptionalSignalRows(() => assertEmbeddingFieldRows(data, "match_document_embedding_fields_hybrid"))) {
+    return [] as SearchResult[];
+  }
   const matches = data
     .filter((row): row is EmbeddingFieldSignalRow & { source_chunk_id: string } => Boolean(row.source_chunk_id))
     .map((row) => ({
@@ -1109,7 +1127,9 @@ export async function searchIndexUnitCandidates(args: {
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
-  assertIndexUnitRows(data, "match_document_index_units_hybrid");
+  if (!assertOptionalSignalRows(() => assertIndexUnitRows(data, "match_document_index_units_hybrid"))) {
+    return [] as SearchResult[];
+  }
   const matches = data
     .filter((row): row is IndexUnitSignalRow & { source_chunk_id: string } => Boolean(row.source_chunk_id))
     .map((row) => ({
