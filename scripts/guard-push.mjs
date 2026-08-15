@@ -116,17 +116,46 @@ export function pushedBranchNames(ranges, fallbackBranch = "") {
   return [...branches];
 }
 
-/** Exported for tests: existing branches compare from their remote tip; new
- * branches compare from the PR merge base so newer main-only commits are out of
- * scope for transaction guards that accept explicit base/head commits. */
-export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
-  if (range.remoteSha && range.remoteSha !== ZERO_SHA) return range.remoteSha;
+/** True when `ancestor` is reachable from `descendant`, i.e. the push fast-forwards. */
+function isAncestor(ancestor, descendant, cwd = PROJECT_ROOT) {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], { cwd, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Merge base with origin/main — the base a PR is actually evaluated against, and
+ * the same one CI passes as LEDGER_WRITE_BASE_SHA (.github/workflows/ci.yml). */
+function mainMergeBase(range, cwd = PROJECT_ROOT) {
   if (!tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd)) return undefined;
   return tryGit(["merge-base", MAIN_REMOTE_REF, range.localSha], cwd);
 }
 
+/** Exported for tests: a fast-forward push compares from its remote tip; a new
+ * branch, or one whose history was rewritten, compares from the PR merge base so
+ * newer main-only commits are out of scope for transaction guards that accept
+ * explicit base/head commits.
+ *
+ * The rewritten-history case matters: after a force-push the old remote tip is an
+ * abandoned line, so every request it carried reads as deleted and the ledger
+ * transaction guard can never pass — no matter how clean the rebuild is. Falling
+ * back to the merge base asks the question CI asks instead of an unanswerable one. */
+export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
+  if (range.remoteSha && range.remoteSha !== ZERO_SHA) {
+    if (isAncestor(range.remoteSha, range.localSha, cwd)) return range.remoteSha;
+    return mainMergeBase(range, cwd);
+  }
+  return mainMergeBase(range, cwd);
+}
+
 export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
-  const existingRemote = range.remoteSha && range.remoteSha !== ZERO_SHA;
+  // A rewritten history is treated like a new branch here for the same reason as
+  // guardBaseForRange: `<abandoned tip>..<local>` is not the set of files this push
+  // actually introduces relative to main.
+  const existingRemote =
+    range.remoteSha && range.remoteSha !== ZERO_SHA && isAncestor(range.remoteSha, range.localSha, cwd);
   const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd);
   const spec = existingRemote
     ? `${range.remoteSha}..${range.localSha}`

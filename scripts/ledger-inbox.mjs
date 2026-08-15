@@ -100,11 +100,41 @@ function mutationConflicts(requests) {
 }
 
 /**
+ * Ids of requests that a previous reconciliation already applied. Used to tell a
+ * cancellation that lost a race (its target landed via another branch's batch)
+ * apart from one that names a request which never existed.
+ */
+function appliedRequestIds() {
+  try {
+    return new Set(
+      loadRequestsIn(APPLIED_DIR)
+        .map((entry) => entry.request?.id)
+        .filter(Boolean),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+/**
  * Resolve immutable cancellation decisions before applying a pending request batch.
  * A cancellation request is itself retained in the applied audit trail, while the
  * targeted request is moved unchanged but deliberately not applied to the ledger.
+ *
+ * Parallel reconciliations are normal here: several branches queue requests and one
+ * of them reconciles first. A cancellation whose target was applied by that earlier
+ * batch has therefore *failed* — but throwing would wedge every consumer of this
+ * function (check:docs-links, check:ledger-write-discipline and reconcile itself)
+ * with no legal way out, because write discipline forbids deleting the queued file.
+ * So an already-applied target is reported loudly and skipped rather than fatal; a
+ * genuinely unknown target still throws.
+ *
+ * @param {Array<object>} requests pending requests in the batch
+ * @param {{ appliedIds?: Set<string>, warn?: (message: string) => void }} [options]
  */
-export function planRequestBatch(requests) {
+export function planRequestBatch(requests, options = {}) {
+  const applied = options.appliedIds ?? appliedRequestIds();
+  const warn = options.warn ?? ((message) => console.warn(message));
   const byId = new Map();
   for (const request of requests) {
     const problems = validateRequest(request);
@@ -115,10 +145,23 @@ export function planRequestBatch(requests) {
 
   const cancelledIds = new Set();
   const cancellations = [];
+  const ineffective = [];
   for (const request of requests) {
     if (request.action !== "cancel") continue;
     const target = byId.get(request.payload.requestId);
     if (!target) {
+      if (applied.has(request.payload.requestId)) {
+        // Lost the race. Say so plainly: the correction this cancellation was
+        // protecting did NOT take effect, and whoever queued it needs to fix the
+        // row with a fresh update rather than assume the cancel did its job.
+        ineffective.push({ requestId: request.id, targetId: request.payload.requestId });
+        warn(
+          `ledger inbox: cancel request ${request.id} did not take effect — its target ` +
+            `${request.payload.requestId} was already applied by an earlier reconciliation. ` +
+            `The cancellation is recorded but changed nothing; correct the affected row with a new update request.`,
+        );
+        continue;
+      }
       throw new Error(`cancel request ${request.id} targets missing pending request ${request.payload.requestId}`);
     }
     if (target.action === "cancel") {
@@ -145,7 +188,7 @@ export function planRequestBatch(requests) {
     );
   }
 
-  return { active, cancellations, cancelledIds: [...cancelledIds] };
+  return { active, cancellations, cancelledIds: [...cancelledIds], ineffectiveCancellations: ineffective };
 }
 
 export function applyRequestBatch(markdown, requests) {
