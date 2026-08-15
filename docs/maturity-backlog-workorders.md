@@ -158,15 +158,37 @@ structural change, not a single mixed PR.
 - **Verification:** `npm run check:drift` + the CI `db-reset-verify` replay; **live-DB work is
   confirmation-required** per the AGENTS.md provider boundary.
 
-### X6 · Raise coverage floors for clinical domains — `OPEN`
+### X6 · Raise coverage floors for clinical domains — `DONE`
 
 - **Outcome:** higher targeted thresholds where correctness matters most (clinical-safety,
   retrieval, answer) than the current global 38–50%.
-- **Approach:** add per-path coverage thresholds in `vitest.config.mts`; add the targeted tests
-  needed to clear them (ratchet up, don't drop the bar retroactively).
-- **Files:** `vitest.config.mts` (+ new `tests/*` specs).
-- **Risk:** MEDIUM — needs real tests, not just a threshold bump.
-- **Verification:** `npm run test:coverage` meets the new per-path floors.
+- **Landed (ledger #192, 2026-08-14):** `vitest.config.mts` already carried four per-domain
+  coverage-threshold groups — retrieval (`clinical-search`, `retrieval-selection`,
+  `answer-ranking`, `clinical-value-binding`, `medication-entities`,
+  `rag-candidate-sources`, `rag-context-selection`, `rag-retrieval-variants`,
+  `rag-routing`), evidence/verification (`answer-verification`, `evidence`,
+  `evidence-relevance`, `rag-claim-support`, `rag-evidence-gates`,
+  `rag-quote-verification`, `rag-source-segmentation`), core RAG/answer (`rag`,
+  `rag-extractive-answer`, `rag-comparison`, `rag-answer-support`), and
+  clinical-safety/governance (`clinical-safety`, `source-governance`, `source-review`,
+  `clinical-review-queue`, `answer-response`) — plus a whole-repository floor, all
+  CI-enforced by the required `coverage` job (`npm run test:coverage`) on every PR that
+  touches executable scope. This closed out most of X6 before this ledger item was
+  worked; re-measuring on 2026-08-14 confirmed the floors were honest (no false
+  failure) and found two branch thresholds that had drifted past this file's own
+  documented 5pp re-ratchet trigger, so those two were raised (never lowered) to
+  restore headroom: evidence/verification branches 81 → 84 (measured 86.04%, gap was
+  5.04pp) and core RAG/answer branches 72 → 76 (measured 78.22%, gap was 6.22pp). No
+  other value in this file needed a change — every other floor already sat within the
+  5pp band. No file in the four domain groups showed a genuine untested critical path:
+  the per-file low points were 76.4% statements (`rag-quote-verification.ts`) and 57.7%
+  branches (`rag-answer-support.ts`), well clear of the "under 30%" bar this ledger item
+  treats as scary, so no padding tests were added, per the ledger's own stop condition.
+- **Files:** `vitest.config.mts`, `docs/maturity-backlog-workorders.md`.
+- **Risk:** MEDIUM — needs real tests, not just a threshold bump. (No new tests were
+  needed this pass; the floors were already backed by real, passing coverage.)
+- **Verification:** `npm run test:coverage` — 606 files / 6549 tests passed, all
+  thresholds green, both before and after the two branch-floor raises.
 
 ### X7 · Complete the `src/lib` domain-directory reorg — `OPEN`
 
@@ -291,7 +313,7 @@ collaborators join — `AGENTS.md` + the PR template already carry that load.
 | X3 Monolith decomposition        | Next       | IN PROGRESS (DocumentViewer #1025 + Dashboard #1034/#1042/#1047 done; rag.ts open) |
 | X4 SAST-blocking on parser       | Next       | **DONE** (gate + policy check)                                                     |
 | X5 ACL-migration consolidation   | Next       | PROVIDER-GATED (DB owner)                                                          |
-| X6 Coverage floors               | Next       | OPEN                                                                               |
+| X6 Coverage floors               | Next       | **DONE** (ledger #192)                                                             |
 | X7 `src/lib` domain reorg (rest) | Next       | OPEN (follow-on to X2; needs RAG flag on answer/retrieval clusters)                |
 | L1 Archive one-shot scripts      | Later      | IN PROGRESS (#1033 archived m13/july8; refs reconciled; backfills open)            |
 | L2 Action-SHA uniformity         | Later      | **DONE** (#992)                                                                    |

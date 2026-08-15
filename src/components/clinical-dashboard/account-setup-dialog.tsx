@@ -104,6 +104,7 @@ export function AccountSetupDialog({
       onClose={onClose}
       title="Account setup"
       closeLabel="Close account setup"
+      mobileHeaderSafeArea="offset"
       headerClassName="absolute right-3 top-3 z-30 w-auto border-0 bg-transparent p-0 sm:right-4 sm:top-4 sm:p-0"
       titleClassName="sr-only"
       bodyClassName="bg-[color:var(--surface)] p-0 sm:p-0"
@@ -172,7 +173,7 @@ export function AccountSetupDialog({
             busyLabel="Sending link…"
             disabled={actionBusy || !email.trim()}
             idleIcon={<LockKeyhole aria-hidden="true" className="h-4 w-4" />}
-            className={cn(primaryControl, "min-h-tap w-full")}
+            className={cn(primaryControl, "min-h-12 w-full")}
           >
             Continue securely
           </AsyncButton>
@@ -197,19 +198,22 @@ function AccountOrientationPanel() {
     <section
       aria-labelledby="account-workspace-benefits"
       data-testid="account-storage-summary"
-      className="relative isolate flex min-h-0 flex-col overflow-hidden bg-[color:var(--clinical-accent-soft)] px-5 pb-5 pt-6 sm:px-8 sm:py-8 lg:min-h-[36rem] lg:px-10 lg:py-10"
+      className="relative isolate flex min-h-0 flex-col overflow-hidden bg-[color:var(--clinical-accent-soft)] px-5 pb-5 pt-[max(1.5rem,var(--safe-area-top))] sm:px-8 sm:py-8 lg:min-h-[36rem] lg:px-10 lg:py-10"
     >
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-32 -left-24 -z-10 h-80 w-[34rem] rounded-[50%] border border-white/50 bg-white/20 forced-colors:hidden"
+        className="pointer-events-none absolute -bottom-32 -left-24 z-0 h-80 w-[34rem] rounded-full border border-[color:var(--border-lux)]/50 bg-[color:var(--surface)]/20 forced-colors:hidden"
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-48 -left-12 -z-10 h-80 w-[38rem] rounded-[50%] border border-white/40 bg-white/15 forced-colors:hidden"
+        className="pointer-events-none absolute -bottom-48 -left-12 z-0 h-80 w-[38rem] rounded-full border border-[color:var(--border-lux)]/40 bg-[color:var(--surface)]/15 forced-colors:hidden"
       />
 
-      <div className="pr-12">
-        <span className="grid h-11 w-11 place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft),var(--shadow-inset)]">
+      <div className="relative z-10 pr-12">
+        <span
+          data-testid="account-workspace-mark"
+          className="grid size-tap place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2),var(--shadow-inset)]"
+        >
           <BrandMark className="h-8 w-8" />
         </span>
         <h3
@@ -220,13 +224,13 @@ function AccountOrientationPanel() {
         </h3>
       </div>
 
-      <ul className="mt-5 grid grid-cols-3 gap-2 sm:gap-3 lg:mt-8 lg:grid-cols-1 lg:gap-5">
+      <ul className="relative z-10 mt-5 grid grid-cols-3 gap-2 sm:gap-3 lg:mt-8 lg:grid-cols-1 lg:gap-5">
         {workspaceBenefits.map((benefit) => (
           <WorkspaceBenefitRow key={benefit.label} benefit={benefit} />
         ))}
       </ul>
 
-      <PrivacyFooter className="mt-auto hidden pt-8 lg:flex" />
+      <PrivacyFooter className="relative z-10 mt-auto hidden pt-8 lg:flex" />
     </section>
   );
 }
@@ -236,7 +240,7 @@ function WorkspaceBenefitRow({ benefit }: { benefit: WorkspaceBenefit }) {
 
   return (
     <li className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)]/55 p-2.5 text-center shadow-[var(--shadow-inset)] sm:p-3 lg:flex-row lg:items-start lg:gap-3 lg:border-0 lg:bg-transparent lg:p-0 lg:text-left lg:shadow-none">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-soft),var(--shadow-inset)] lg:h-10 lg:w-10">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)] shadow-[var(--e2),var(--shadow-inset)] lg:h-10 lg:w-10">
         <Icon aria-hidden="true" className="h-4 w-4 lg:h-[1.125rem] lg:w-[1.125rem]" />
       </span>
       <span className="min-w-0">
@@ -294,7 +298,7 @@ function ProviderButton({
       data-provider={provider.toLowerCase()}
       className={cn(
         floatingControl,
-        "min-h-tap w-full min-w-0 justify-center gap-2.5 bg-[color:var(--surface-lux)] px-3 shadow-[var(--shadow-inset)]",
+        "min-h-12 w-full min-w-0 justify-center gap-2.5 bg-[color:var(--surface-lux)] px-3 shadow-[var(--shadow-inset)]",
       )}
     >
       {pending ? (

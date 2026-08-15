@@ -436,7 +436,7 @@ describe("shared header hide/reveal wiring", () => {
   it("uses one adaptive phone footer positioning owner", () => {
     expect(headerSource).toContain("phone-footer-layer");
     expect(documentViewerSource).toContain("phone-footer-layer document-viewer-composer");
-    expect(calculatorSearchSource).toContain("phone-footer-layer answer-footer-search-dock");
+    expect(calculatorSearchSource).not.toContain("phone-footer-layer");
   });
 
   it("exposes one stable diagnostic contract across each phone chrome owner", () => {
@@ -464,20 +464,18 @@ describe("shared header hide/reveal wiring", () => {
     expect(phoneFooterPortalSource).toContain("export function PhoneFooterLayerFrame");
     expect(shellSource).toContain("<PhoneFooterLayerFrame");
     expect(dashboardSource).toContain("<PhoneFooterLayerFrame");
-    expect(calculatorSearchSource).toContain("<PhoneFooterLayerPortal>");
+    expect(calculatorSearchSource).not.toContain("<PhoneFooterLayerPortal>");
     expect(documentViewerSource).toContain("<PhoneFooterLayerPortal>");
     expect(differentialPresentationSource).toContain("<PhoneFooterLayerPortal>");
     expect(differentialPresentationSource).toContain('data-testid="differential-presentation-phone-footer"');
   });
 
-  it("shares the frame's authoritative scroll decision with the calculator footer", () => {
+  it("keeps calculator results on the shell's authoritative scroll decision", () => {
     expect(phoneFooterPortalSource).toContain("export function usePhoneFooterLayerScrollHidden");
     expect(shellSource).toContain("scrollHidden={chromeScrollHide.hidden}");
     expect(dashboardSource).toContain("scrollHidden={chromeScrollHidden}");
-    expect(calculatorSearchSource).toContain("const frameScrollHidden = usePhoneFooterLayerScrollHidden()");
-    expect(calculatorSearchSource).toContain(
-      "const footerHidden = frameScrollHidden ?? (innerFooterHidden || documentFooterHidden)",
-    );
+    expect(calculatorSearchSource).not.toContain("usePhoneFooterLayerScrollHidden");
+    expect(calculatorSearchSource).not.toContain("useHideOnScroll");
   });
 
   it("releases the phone top safe-area with hidden chrome while retaining the wide inset", () => {

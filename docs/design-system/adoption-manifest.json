@@ -1562,6 +1562,7 @@
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
         "tests/in-page-nav-route-sections.dom.test.tsx",
+        "tests/mobile-sheet-safe-area-contract.test.ts",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",
@@ -3000,7 +3001,7 @@
         "files": []
       },
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
-      "sanctionedSpecialPatterns": ["ApplicationsLauncherPage", "CalculatorsSearchPage"],
+      "sanctionedSpecialPatterns": ["CalculatorsSearchPage", "ToolsSearchResultsPage"],
       "roots": [
         {
           "file": "src/app/(search-app)/calculators/page.tsx",
@@ -3020,7 +3021,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["ApplicationsLauncherPage"]
+          "sanctionedPatternsPresent": ["ToolsSearchResultsPage"]
         }
       ]
     },

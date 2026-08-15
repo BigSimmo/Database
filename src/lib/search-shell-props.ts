@@ -70,9 +70,8 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
     return { initialMode: "tools", desktopSearchPlacement: "hero" };
   }
 
-  // Calculators owns its search composer (desktop top + phone bottom dock).
   if (pathname.startsWith("/calculators")) {
-    return { initialMode: "tools", searchComposerVisible: false };
+    return { initialMode: "calculators", desktopSearchPlacement: "hero" };
   }
 
   if (pathname.startsWith("/therapy-compass")) {
