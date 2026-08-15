@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import { describe, expect, it } from "vitest";
 
 import {
@@ -457,28 +455,5 @@ describe("ranked differential search", () => {
   it("keeps the full catalogue for an empty query and still honours aliases", () => {
     expect(searchDifferentialRecords("")).toEqual(differentialRecords);
     expect(searchDifferentialRecords("   ")).toEqual(differentialRecords);
-  });
-});
-
-
-describe("differential result presentation contract", () => {
-  const source = readFileSync(
-    new URL("../src/components/clinical-dashboard/differentials-home.tsx", import.meta.url),
-    "utf8",
-  );
-
-  it("keeps catalogue-only best matches out of success styling", () => {
-    expect(source).toContain('data-source-state={sourceBacked ? "source-backed" : "guided"}');
-    expect(source).toContain('sourceBacked ? "border-[color:var(--success-border)]" : "border-[color:var(--border)]"');
-  });
-
-  it("renders the dedicated clinical cue projection under Clinical cues", () => {
-    expect(source).toContain("result.clinicalCues.slice(0, 4)");
-    expect(source).toContain("result.clinicalCues.slice(0, 2)");
-  });
-
-  it("passes the current presentation rank to the desktop best-match card", () => {
-    expect(source).toContain("rank={displayIndex + 1}");
-    expect(source).toContain('data-testid={compact ? "differential-best-answer-rank" : "differential-desktop-result-rank"}');
   });
 });

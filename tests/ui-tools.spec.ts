@@ -1923,15 +1923,11 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
     const desktopBestMatch = page.getByTestId("differential-best-match-card");
     await expect(desktopBestMatch).toBeVisible();
-    await expect(desktopBestMatch).toHaveAttribute("data-source-state", "source-backed");
     await expect(desktopBestMatch.getByText("Best match", { exact: true })).toBeVisible();
     await expect(desktopBestMatch.getByTestId("differential-best-match-panel")).toContainText(
       /Why considered.*Look for.*Check next/s,
     );
     await expect(page.getByTestId("differential-compact-result").first()).toContainText("Clinical cues");
-    await page.getByRole("button", { name: "A–Z", exact: true }).click();
-    const desktopRanks = await page.getByTestId("differential-desktop-result-rank").allTextContents();
-    expect(desktopRanks).toEqual(desktopRanks.map((_, index) => String(index + 1)));
     await expect(visibleByTestId(page, "differentials-search-results")).not.toContainText("Decision support");
   });
 

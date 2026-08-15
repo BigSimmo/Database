@@ -41,9 +41,12 @@ vi.mock("@/components/clinical-dashboard/use-differential-catalog", () => ({
   }),
 }));
 
-vi.mock("@/components/use-result-sort", () => ({
-  useResultSort: () => ["relevance", vi.fn()] as const,
-}));
+vi.mock("@/components/use-result-sort", async () => {
+  const { useState } = await import("react");
+  return {
+    useResultSort: () => useState<"relevance" | "alpha">("relevance"),
+  };
+});
 
 vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
   UniversalSearchAlsoMatches: () => null,
@@ -161,6 +164,41 @@ describe("DifferentialsHome compare selection URL handoff", () => {
           "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion",
         );
       }
+    });
+  });
+
+  it("keeps guided best matches in accent styling, shows only clinical cues, and ranks them after A–Z sorting", async () => {
+    const alphabeticalFirst = getDifferentialRecord("acute-dystonia");
+    const relevanceBest = getDifferentialRecord("medical-gi-endocrine-painful-organic-cause");
+    expect(alphabeticalFirst && relevanceBest).toBeTruthy();
+    catalogState.status = "ready";
+    catalogState.matches = {
+      diagnoses: [
+        { record: relevanceBest!, score: 20, reasons: ["title"] },
+        { record: alphabeticalFirst!, score: 12, reasons: ["title"] },
+      ],
+      presentations: [],
+    };
+
+    render(<DifferentialsHome query="Pain" loading={false} searchSubmitted onRunSearch={vi.fn()} />);
+
+    const bestMatch = await screen.findByTestId("differential-best-match-card");
+    expect(bestMatch).toHaveClass("border-[color:var(--clinical-accent-border)]");
+    expect(bestMatch).not.toHaveClass("border-[color:var(--success-border)]");
+
+    const resultRow = screen.getByTestId("differential-compact-result");
+    const clinicalCue = alphabeticalFirst!.currentPresentation.find((cue) => cue.trim());
+    const investigation = alphabeticalFirst!.investigations.find((step) => step.trim());
+    expect(clinicalCue).toBeTruthy();
+    expect(investigation).toBeTruthy();
+    expect(resultRow).toHaveTextContent(clinicalCue!);
+    expect(resultRow).not.toHaveTextContent(investigation!);
+
+    await act(async () => {
+      screen.getByRole("button", { name: "A–Z" }).click();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("differential-best-match-rank")).toHaveTextContent("2");
     });
   });
 });
