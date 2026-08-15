@@ -22,7 +22,7 @@ complete never-indexed documents, and the real LLM summary pipeline
    plus the exact `RAG impact:` line given per PR below, written in full prose
    (it is parsed by `scripts/pr-policy.mjs` — a shortened fragment fails the
    gate).
-4. **RAG flag (AGENTS.md):** these changes alter retrieval *inputs* — summary
+4. **RAG flag (AGENTS.md):** these changes alter retrieval _inputs_ — summary
    text/embeddings and labels feed hybrid search
    (`src/lib/rag/rag-contracts.ts:134`). PR 1 = "no retrieval behaviour
    change"; PR 2 = "behaviour change — canary pair". No ranking code changes.
@@ -84,14 +84,14 @@ complete never-indexed documents, and the real LLM summary pipeline
 
 ### Gates (run and record decisive output)
 
-| Gate | Why |
-|---|---|
-| `npm run check:edge:functions` | Deno v2 typecheck of the remaining agent (needs Deno v2 locally; CI enforces) |
-| `npm run check:indexing` | ingestion-surface health |
-| `npm run test:focused -- --files tests/supabase-schema.test.ts` | schema contract |
-| `npm run check:migration-role` | **required** — Supabase SQL changed |
-| `npm run verify:pr-local` | PR handoff gate |
-| `npm run check:production-readiness` | ingestion/privacy domain rule |
+| Gate                                                            | Why                                                                           |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `npm run check:edge:functions`                                  | Deno v2 typecheck of the remaining agent (needs Deno v2 locally; CI enforces) |
+| `npm run check:indexing`                                        | ingestion-surface health                                                      |
+| `npm run test:focused -- --files tests/supabase-schema.test.ts` | schema contract                                                               |
+| `npm run check:migration-role`                                  | **required** — Supabase SQL changed                                           |
+| `npm run verify:pr-local`                                       | PR handoff gate                                                               |
+| `npm run check:production-readiness`                            | ingestion/privacy domain rule                                                 |
 
 **PR body:** complete `## Clinical Governance Preflight` (all items) plus:
 `RAG impact: no retrieval behaviour change — removes the backfill edge worker
@@ -99,6 +99,7 @@ and adds claim/query generation guards only; no ranking or retrieval inputs
 change in this PR.`
 
 ### Approval gates (operator; report + ask)
+
 1. Apply `<timestamp>_retire_ingestion_worker.sql` to live (pause, confirm, per
    migration safety rules).
 2. Remove the dashboard pg_cron schedule for `invoke_ingestion_worker` (if
@@ -141,7 +142,7 @@ previous agent version. The DB drop is inert if the cron is removed first.
   (covers heuristic rows, empty rows, reindexed content).
 - **Markers on upsert:** `model` = actual LLM model;
   `metadata = { generated_by:'indexing-v3-agent', summary_kind:'llm',
-  summary_version:'v1', index_generation_id: <committed gen>, generated_at }`.
+summary_version:'v1', index_generation_id: <committed gen>, generated_at }`.
 - **Stage-then-swap:** generate + validate fully before any DB write; upsert
   only (`on conflict document_id do update`); never delete-before-generate
   (R24a).
@@ -172,6 +173,7 @@ previous agent version. The DB drop is inert if the cron is removed first.
 pin doc/content recall 1.0 and zero per-case rr regressions).
 
 ### Approval gates
+
 1. Deploy the agent (operator).
 2. Offline golden check first (`npm run eval:retrieval` local/offline fixtures),
    then **live eval-canary pair** before trusting (provider-backed, ~$1–2,
@@ -229,6 +231,7 @@ confirmation run.
 hardening and offline quality assertions only.`
 
 ### Approval gates
+
 Apply the two migrations to live (operator, paused and confirmed); re-deploy
 the agent if its status-write signature changed.
 
