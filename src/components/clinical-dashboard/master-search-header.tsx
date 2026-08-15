@@ -114,8 +114,8 @@ const phoneModeGroups = [
   {
     id: "care",
     label: "Care",
-    hint: "Medication, tools, therapy",
-    modeIds: ["prescribing", "tools", "therapy-compass", "factsheets"],
+    hint: "Medication, calculators, tools, therapy",
+    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;
@@ -247,7 +247,7 @@ export function MasterSearchHeader({
   realDataReady: boolean;
   onQueryChange: (query: string) => void;
   onSearchModeChange: (mode: AppModeId) => void;
-  onAsk: () => void;
+  onAsk: (query?: string) => void;
   onClearQuery: () => void;
   onClearScope: () => void;
   onQueryModeChange: (mode: ClinicalQueryMode) => void;
@@ -376,6 +376,7 @@ export function MasterSearchHeader({
     selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
+    selectedSearch.kind === "calculators" ||
     selectedSearch.kind === "favourites" ||
     selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation" ||
@@ -659,9 +660,11 @@ export function MasterSearchHeader({
                       ? "formulation"
                       : searchMode === "tools"
                         ? "tools"
-                        : searchMode === "factsheets"
-                          ? "factsheets"
-                          : "answer";
+                        : searchMode === "calculators"
+                          ? "calculators"
+                          : searchMode === "factsheets"
+                            ? "factsheets"
+                            : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
 
@@ -814,6 +817,10 @@ export function MasterSearchHeader({
     }
     if (actionId === "tools-browse") {
       onSearchModeChange("tools");
+      return;
+    }
+    if (actionId === "calculators-browse") {
+      router.push("/calculators");
       return;
     }
     if (actionId === "differentials-build") {

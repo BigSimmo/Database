@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { RetrievalRowShapeError, assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
+import {
+  RetrievalRowShapeError,
+  assertEmbeddingFieldRows,
+  assertIndexUnitRows,
+  assertRetrievalRows,
+  buildDocumentSummaryResults,
+} from "@/lib/rag/rag-row-contracts";
+import { searchEmbeddingFieldCandidates, searchIndexUnitCandidates } from "@/lib/rag/rag-candidate-sources";
 
 vi.mock("@/lib/logger", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -142,5 +149,147 @@ describe("retrieval row shape contract", () => {
   it("rejects a payload that is not an array of rows", () => {
     expect(() => assertRetrievalRows({ rows: [] }, "match_document_chunks_hybrid")).toThrow(RetrievalRowShapeError);
     expect(() => assertRetrievalRows(null, "match_document_chunks_hybrid")).toThrow(RetrievalRowShapeError);
+  });
+});
+
+// Signal rows carry a chunk id plus scores; loadChunksForSignalMatches then loads the real
+// chunk. Column lists mirror the RPCs' `returns table (...)` in
+// supabase/migrations/20260713020000_owner_plus_public_retrieval.sql.
+function embeddingFieldRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "9c1e0000-1111-4aaa-8bbb-000000000001",
+    document_id: "9c1e0000-2222-4aaa-8bbb-000000000002",
+    source_chunk_id: "9c1e0000-3333-4aaa-8bbb-000000000003",
+    field_type: "section_context",
+    content: "Monitoring schedule after a dose change.",
+    similarity: 0.74,
+    text_rank: 0.21,
+    hybrid_score: 0.68,
+    ...overrides,
+  };
+}
+
+function indexUnitRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "4b2d0000-1111-4aaa-8bbb-000000000001",
+    document_id: "4b2d0000-2222-4aaa-8bbb-000000000002",
+    source_chunk_id: "4b2d0000-3333-4aaa-8bbb-000000000003",
+    source_image_id: null,
+    unit_type: "threshold",
+    title: "Serum lithium target range",
+    content: "0.6–0.8 mmol/L for maintenance.",
+    page_start: 12,
+    page_end: 12,
+    heading_path: ["Monitoring", "Lithium"],
+    normalized_terms: ["lithium", "serum level"],
+    source_span: { start: 10, end: 240 },
+    quality_score: 0.86,
+    extraction_mode: "deterministic",
+    metadata: { producer: "deterministic-v3" },
+    similarity: 0.81,
+    text_rank: 0.33,
+    hybrid_score: 0.77,
+    ...overrides,
+  };
+}
+
+describe("signal row shape contracts", () => {
+  it("accepts realistic embedding-field and index-unit rows without mutating them", () => {
+    const fieldRows: unknown = [embeddingFieldRow()];
+    const unitRows: unknown = [indexUnitRow()];
+    const fieldsBefore = structuredClone(fieldRows);
+    const unitsBefore = structuredClone(unitRows);
+
+    assertEmbeddingFieldRows(fieldRows, "match_document_embedding_fields_hybrid");
+    assertIndexUnitRows(unitRows, "match_document_index_units_hybrid");
+
+    expect(fieldRows).toEqual(fieldsBefore);
+    expect(unitRows).toEqual(unitsBefore);
+  });
+
+  it("rejects a stringified score, which Number() would otherwise coerce silently", () => {
+    // `Number("0.74")` is 0.74 and `Number("high")` is NaN — neither fails today, and both
+    // reach the ranking pool as a score nobody computed.
+    expect(() =>
+      assertEmbeddingFieldRows([embeddingFieldRow({ hybrid_score: "0.68" })], "match_document_embedding_fields_hybrid"),
+    ).toThrow(RetrievalRowShapeError);
+    expect(() =>
+      assertIndexUnitRows([indexUnitRow({ similarity: "0.81" })], "match_document_index_units_hybrid"),
+    ).toThrow(RetrievalRowShapeError);
+  });
+
+  it("rejects a signal row whose chunk pointer is the wrong type", () => {
+    expect(() =>
+      assertEmbeddingFieldRows([embeddingFieldRow({ source_chunk_id: 12 })], "match_document_embedding_fields_hybrid"),
+    ).toThrow(RetrievalRowShapeError);
+    expect(() => assertIndexUnitRows([indexUnitRow({ id: "" })], "match_document_index_units_hybrid")).toThrow(
+      RetrievalRowShapeError,
+    );
+  });
+
+  it("accepts a null chunk pointer, which the caller filters out itself", () => {
+    expect(() =>
+      assertEmbeddingFieldRows(
+        [embeddingFieldRow({ source_chunk_id: null })],
+        "match_document_embedding_fields_hybrid",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertIndexUnitRows([indexUnitRow({ source_chunk_id: null })], "match_document_index_units_hybrid"),
+    ).not.toThrow();
+  });
+
+  it("pins extraction_mode to the values its check constraint allows", () => {
+    expect(() =>
+      assertIndexUnitRows([indexUnitRow({ extraction_mode: "model_heavy" })], "match_document_index_units_hybrid"),
+    ).not.toThrow();
+    expect(() =>
+      assertIndexUnitRows([indexUnitRow({ extraction_mode: "guessed" })], "match_document_index_units_hybrid"),
+    ).toThrow(RetrievalRowShapeError);
+  });
+
+  it("tolerates null collection columns the caller already coalesces", () => {
+    expect(() =>
+      assertIndexUnitRows(
+        [indexUnitRow({ heading_path: null, normalized_terms: null, source_span: null, metadata: null })],
+        "match_document_index_units_hybrid",
+      ),
+    ).not.toThrow();
+  });
+
+  it("accepts array and scalar provenance from unconstrained jsonb columns", () => {
+    expect(() =>
+      assertIndexUnitRows(
+        [indexUnitRow({ source_span: ["page", 12], metadata: "legacy-provenance" })],
+        "match_document_index_units_hybrid",
+      ),
+    ).not.toThrow();
+  });
+
+  it("preserves unknown columns on signal rows too", () => {
+    const rows: unknown = [indexUnitRow({ a_future_column: "kept" })];
+
+    assertIndexUnitRows(rows, "match_document_index_units_hybrid");
+
+    expect(rows[0]).toMatchObject({ a_future_column: "kept" });
+  });
+
+  it.each([
+    ["embedding-field", "match_document_embedding_fields_hybrid_v2", searchEmbeddingFieldCandidates],
+    ["index-unit", "match_document_index_units_hybrid_v2", searchIndexUnitCandidates],
+  ])("degrades an invalid optional %s signal instead of rejecting the whole search", async (_layer, rpc, search) => {
+    const supabase = {
+      rpc: vi.fn(async () => ({ data: [embeddingFieldRow({ hybrid_score: "0.68" })], error: null })),
+    };
+
+    await expect(
+      search({
+        supabase: supabase as never,
+        query: "lithium monitoring",
+        queryEmbedding: [0.1, 0.2],
+        matchCount: 8,
+      }),
+    ).resolves.toEqual([]);
+    expect(supabase.rpc).toHaveBeenCalledWith(rpc, expect.any(Object));
   });
 });
