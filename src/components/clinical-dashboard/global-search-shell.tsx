@@ -638,8 +638,8 @@ function GlobalStandaloneSearchShellBody({
     router.push(appModeHomeHref(mode, nextOptions));
   }
 
-  function submitSearch() {
-    const trimmedQuery = query.trim();
+  function submitSearch(queryOverride?: string) {
+    const trimmedQuery = (queryOverride ?? query).trim();
     navigateToMode(searchMode, {
       query: trimmedQuery || undefined,
       run: Boolean(trimmedQuery),
@@ -856,7 +856,9 @@ function GlobalStandaloneSearchShellBody({
             onAsk={submitSearch}
             onClearQuery={() => {
               setQuery("");
-              if (isStandaloneModeHome) navigateToMode(searchMode, { focus: true });
+              if (isStandaloneModeHome || searchMode === "calculators") {
+                navigateToMode(searchMode, { focus: true });
+              }
             }}
             onClearScope={() => undefined}
             onQueryModeChange={setQueryMode}

@@ -63,14 +63,9 @@ export function isDocumentViewerOwnedRoute(pathname: string): boolean {
   return pathname !== "/documents/search";
 }
 
-/** Calculators owns its desktop top + phone bottom search composer. */
-export function isCalculatorsOwnedRoute(pathname: string): boolean {
-  return pathname === "/calculators" || pathname.startsWith("/calculators/");
-}
-
 /** Routes that own a floating/page composer so the shell keeps only a zero pad. */
 export function isPageOwnedComposerRoute(pathname: string): boolean {
-  return isDocumentViewerOwnedRoute(pathname) || isCalculatorsOwnedRoute(pathname);
+  return isDocumentViewerOwnedRoute(pathname);
 }
 
 /*
@@ -124,7 +119,7 @@ export function resolveShellVisibleMobileComposerReserve(input: {
   patientDetailsAddonActive?: boolean;
 }): string {
   if (!input.shouldShowSearchComposer) {
-    // Page-owned composers (DocumentViewer, Calculators) manage their own dock
+    // Page-owned composers (DocumentViewer) manage their own dock
     // clearance; the shell keeps only the hidden-size pad.
     const pageOwned = input.pageOwnedComposerRoute ?? input.documentViewerOwnedRoute ?? false;
     return pageOwned ? mobileComposerHiddenReserve : mobileComposerIdleReserve;

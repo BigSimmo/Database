@@ -52,9 +52,13 @@ registered service worker. Localhost is the browser's secure-context development
 is shown only when the browser emits `beforeinstallprompt`; browsers that do not expose that event retain their own
 install/Add to Home Screen flow.
 
-The install card is not shown in standalone mode. Choosing **Not now**, or dismissing the browser prompt, suppresses
-the custom prompt for 30 days using `clinical-kb-pwa-install-dismissed-at` in localStorage. `appinstalled` clears that
-value. Storage failures are treated as non-fatal progressive-enhancement failures.
+The install card is not shown in standalone mode. It stays non-blocking and lower-right on wide screens; on phones it
+becomes a compact sheet positioned clear of the current composer owner (above a bottom dock or below an in-flow home
+composer) and the safe area. The benefit list is deliberately limited to quick access, app-like launch, and the
+familiar Clinical KB workspace. It does not imply offline clinical access.
+Choosing **Not now**, using **Dismiss**, or dismissing the browser prompt suppresses the custom prompt for 30 days
+using `clinical-kb-pwa-install-dismissed-at` in localStorage. `appinstalled` clears that value. Storage failures are
+treated as non-fatal progressive-enhancement failures.
 
 iOS and iPadOS never emit `beforeinstallprompt`, so outside standalone mode those platforms get a one-time manual
 hint instead (Safari: Share, then Add to Home Screen). **Not now** suppresses it for 30 days via
@@ -155,11 +159,11 @@ clinical actions remain network-dependent.
 
 ### Update UX
 
-- An already-waiting worker, or an installing worker that reaches `installed` while a controller exists, shows **An
-  update is ready**.
+- An already-waiting worker, or an installing worker that reaches `installed` while a controller exists, shows
+  **Update available**.
 - When the page becomes visible or connectivity returns, the registration may check for an update. App-triggered
   checks are throttled to at most once per hour; there is no background polling timer.
-- **Refresh now** sends `SKIP_WAITING`. The page reloads once after `controllerchange`, so it cannot loop.
+- **Reload** sends `SKIP_WAITING`. The page reloads once after `controllerchange`, so it cannot loop.
 - **Later** hides the update for the current lifecycle instance. A later page load can surface the waiting update
   again.
 - If another tab activates the update, an already-controlled tab receives `controllerchange` and offers its own
@@ -232,7 +236,7 @@ resource problem by weakening the page CSP or adding a provider origin to the wo
 
 ## Accessibility, theme, and device fit
 
-- Lifecycle notices use a polite live region, labelled status/region containers, real buttons, 44 px minimum target
+- Lifecycle notices use a polite live region, labelled status/region containers, real buttons, 48 px minimum target
   height, and visible focus treatment.
 - The notice stack does not take page scroll ownership. Its cards restore pointer events while the container remains
   transparent to unrelated interaction.
@@ -299,7 +303,7 @@ explicitly authorized.
       document must appear and must not reveal prior content. Restore connectivity and verify the restored notice.
 - [ ] Confirm an offline API/document/media request is not answered from a PWA cache.
 - [ ] Deploy a worker with a new cache version in a staging environment. Verify the update waits, **Later** does not
-      force a refresh, **Refresh now** activates it, every older tab is offered a refresh, and only the two newest
+      force a refresh, **Reload** activates it, every older tab is offered a refresh, and only the two newest
       prior static caches remain for lazy-chunk compatibility.
 - [ ] Check keyboard focus, screen-reader announcements, forced colours, light/dark theme, portrait/landscape, display
       cutouts, and the standalone home-indicator area at phone and desktop breakpoints.
