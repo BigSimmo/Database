@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "fd548180-f031-44d8-bd70-24c3b03c5f21",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "6b09c1df-5f7c-4103-af3c-aead33eafb00",
+    "reason": "Queued in error: a shell substitution resolved to the placeholder text MISSING instead of the intended detail. Replaced by the correct combined update in the same batch."
+  }
+}
