@@ -109,6 +109,27 @@ describe("mode menu destination prefetch", () => {
     expect(onAsk).toHaveBeenCalledTimes(1);
   });
 
+  it("submits the selected calculator suggestion rather than the previous query state", async () => {
+    const user = userEvent.setup();
+    const onAsk = vi.fn();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    );
+
+    try {
+      render(
+        <MasterSearchHeader {...headerProps()} searchMode="calculators" query="depression" onAsk={onAsk} />,
+      );
+      await user.click(screen.getByTestId("global-search-input"));
+      await user.click(await screen.findByRole("option", { name: "depression severity" }));
+
+      expect(onAsk).toHaveBeenCalledWith("depression severity");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("shows calculator-specific actions instead of Answer actions", async () => {
     const user = userEvent.setup();
 

@@ -638,8 +638,8 @@ function GlobalStandaloneSearchShellBody({
     router.push(appModeHomeHref(mode, nextOptions));
   }
 
-  function submitSearch() {
-    const trimmedQuery = query.trim();
+  function submitSearch(queryOverride?: string) {
+    const trimmedQuery = (queryOverride ?? query).trim();
     navigateToMode(searchMode, {
       query: trimmedQuery || undefined,
       run: Boolean(trimmedQuery),

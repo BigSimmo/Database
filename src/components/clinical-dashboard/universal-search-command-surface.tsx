@@ -442,7 +442,7 @@ export function UniversalSearchCommandSurface({
   dropdownOpen: boolean;
   onDropdownOpenChange: (open: boolean) => void;
   onQueryChange: (query: string) => void;
-  onSearch: () => void;
+  onSearch: (query?: string) => void;
   onPickRecent: (query: string) => void;
   onCrossMode: (modeId: AppModeId, query: string) => void;
   onRunModeAction?: (actionId: ModeActionId) => void;
@@ -698,7 +698,7 @@ export function UniversalSearchCommandSurface({
             onSelect: () => {
               onDropdownOpenChange(false);
               onQueryChange(suggestion.text);
-              onSearch();
+              onSearch(suggestion.text);
             },
             render: (active) => (
               <OptionShell active={active} hint="Search">

@@ -247,7 +247,7 @@ export function MasterSearchHeader({
   realDataReady: boolean;
   onQueryChange: (query: string) => void;
   onSearchModeChange: (mode: AppModeId) => void;
-  onAsk: () => void;
+  onAsk: (query?: string) => void;
   onClearQuery: () => void;
   onClearScope: () => void;
   onQueryModeChange: (mode: ClinicalQueryMode) => void;
