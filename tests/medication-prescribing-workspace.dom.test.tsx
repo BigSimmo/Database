@@ -142,6 +142,14 @@ describe("MedicationPrescribingWorkspace — home vs submitted results", () => {
     expect(screen.queryByTestId("medication-home")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("medication-result-clozapine-desktop").length).toBeGreaterThan(0);
   });
+
+  it("uses concise, interval-safe dose labels", () => {
+    renderWorkspace({ showHome: false });
+    expect(screen.getByText("Usual dose")).toBeInTheDocument();
+    expect(screen.getByText("Max dose")).toBeInTheDocument();
+    expect(screen.getAllByText("Max").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Ceiling")).not.toBeInTheDocument();
+  });
 });
 
 describe("MedicationPrescribingWorkspace — query interpretation", () => {
