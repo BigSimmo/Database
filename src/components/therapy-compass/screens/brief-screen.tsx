@@ -131,7 +131,7 @@ export function BriefScreen() {
                     onChange={(e) => setFilter(e.target.value)}
                     placeholder="Filter records…"
                     aria-label="Filter brief-intervention records"
-                    className="w-full h-[40px] pt-0 pr-3 pb-0 pl-9 border border-[color:var(--border)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus"
+                    className="w-full min-h-tap pt-0 pr-3 pb-0 pl-9 border border-[color:var(--border)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus"
                   />
                 </label>
                 <div className="flex flex-col gap-2 max-h-[520px] overflow-auto">

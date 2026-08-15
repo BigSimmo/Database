@@ -213,6 +213,9 @@ export function CompareScreen() {
             {/* table */}
             <div
               data-therapy-scroll-sm
+              role="region"
+              aria-label="Therapy comparison table"
+              tabIndex={0}
               className="overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--shadow-soft)]"
             >
               <table className="w-full min-w-[720px] border-collapse bg-[color:var(--surface)] text-left">

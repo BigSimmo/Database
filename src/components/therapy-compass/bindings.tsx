@@ -236,13 +236,17 @@ export function TcProvider({ children }: { children: ReactNode }) {
     if (canonical.toString() === urlStateKey) return;
     router.replace(therapyHrefWithSearchParams(pathname, canonical), { scroll: false });
   }, [pathname, router, searchParams, urlStateKey]);
+  const [seededQParam, setSeededQParam] = useState(qParam);
+  if (qParam !== seededQParam) {
+    setSeededQParam(qParam);
+    setSearch((prev) => ({ ...prev, query: qParam }));
+  }
   const [seededUrlStateKey, setSeededUrlStateKey] = useState(urlStateKey);
   if (urlStateKey !== seededUrlStateKey) {
     setSeededUrlStateKey(urlStateKey);
     setCompareSlugs(workspaceFromUrl.compareSlugs);
     setSearch((prev) => ({
       ...prev,
-      query: qParam,
       tags: workspaceFromUrl.topics,
       briefOnly: workspaceFromUrl.briefOnly,
       sheetOnly: workspaceFromUrl.sheetOnly,

@@ -50,6 +50,9 @@ function TherapyCompassDataError() {
 
 function TherapyCompassInformationRoute({ children }: { children: ReactNode }) {
   const b = useTcBindings();
+  if (b.loading && b.therapies.length === 0) {
+    return <InformationPageShell testId="therapy-information-loading">{children}</InformationPageShell>;
+  }
   if (!b.error) return children;
   return (
     <InformationPageShell testId="therapy-information-error">

@@ -11,11 +11,11 @@ export function therapySourceMetadata(source: TherapySourceInput, recordReviewSt
   return {
     source_kind: "document",
     registry_record_kind: null,
-    registry_record_subkind: source.sourceType,
+    registry_record_subkind: null,
     registry_record_id: null,
     registry_record_slug: null,
     source_title: source.title ?? source.reference ?? source.sourceType,
-    publisher: source.sourceType,
+    publisher: null,
     publisher_code: null,
     jurisdiction: null,
     version: null,

@@ -75,15 +75,17 @@ export function DetailScreen() {
                     {saved ? "Saved" : "Save"}
                   </button>
                 </div>
-                {notice ? (
-                  <p
-                    role="status"
-                    aria-live="polite"
-                    className="mt-0 mb-3 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]"
-                  >
-                    {notice}
-                  </p>
-                ) : null}
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className={
+                    notice
+                      ? "mt-0 mb-3 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]"
+                      : "sr-only"
+                  }
+                >
+                  {notice}
+                </p>
                 <h1 className="mt-0 mx-0 mb-1 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
                   {t.name}
                 </h1>

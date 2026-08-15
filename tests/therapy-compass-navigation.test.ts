@@ -21,6 +21,15 @@ describe("Therapy Compass canonical navigation", () => {
     expect(therapyRecordHref("cbt", "sheet")).toBe("/therapy-compass/cbt/sheet");
   });
 
+  it("round-trips encoded record slugs and tolerates malformed path encoding", () => {
+    const slug = "acceptance/commitment therapy";
+    expect(resolveTherapyRoute(therapyRecordHref(slug))).toEqual({ screen: "detail", slug });
+    expect(resolveTherapyRoute("/therapy-compass/%E0%A4%A")).toEqual({
+      screen: "detail",
+      slug: "%E0%A4%A",
+    });
+  });
+
   it("round-trips every approved shareable workspace choice", () => {
     const state = {
       ...DEFAULT_THERAPY_WORKSPACE_STATE,

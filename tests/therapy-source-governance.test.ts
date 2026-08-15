@@ -5,9 +5,11 @@ import { therapySourceMetadata } from "@/lib/therapy-source-governance";
 describe("therapy source governance", () => {
   const source = { title: "Example guideline", sourceType: "Guideline", reference: "Ref 12" };
 
-  it("keeps imported source currency and extraction quality unknown", () => {
+  it("keeps imported source currency, designation and extraction quality unknown", () => {
     expect(therapySourceMetadata(source, "needs_review")).toMatchObject({
       source_title: "Example guideline",
+      registry_record_subkind: null,
+      publisher: null,
       document_status: "unknown",
       clinical_validation_status: "unverified",
       extraction_quality: "unknown",

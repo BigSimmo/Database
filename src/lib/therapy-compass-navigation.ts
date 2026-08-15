@@ -88,6 +88,14 @@ function oneOf<T extends string>(value: string | null, options: readonly T[], fa
   return value && options.includes(value as T) ? (value as T) : fallback;
 }
 
+function safeDecodePathSegment(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 /** Resolve the active Therapy screen and record slug from a canonical pathname. */
 export function resolveTherapyRoute(pathname: string): { screen: string; slug: string | null } {
   const rest = pathname.startsWith(THERAPY_COMPASS_BASE)
@@ -98,7 +106,7 @@ export function resolveTherapyRoute(pathname: string): { screen: string; slug: s
   const [first, second] = segments;
   if (RESERVED_SEGMENTS.has(first)) return { screen: first, slug: null };
   const screen = second === "brief" ? "brief" : second === "sheet" ? "sheets" : "detail";
-  return { screen, slug: first };
+  return { screen, slug: safeDecodePathSegment(first) };
 }
 
 export function therapyScreenHref(screen: string): string {

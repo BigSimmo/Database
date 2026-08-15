@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -65,5 +65,25 @@ describe("Therapy favourite feedback", () => {
     await user.click(screen.getByRole("button", { name: `Save ${therapy.name} to favourites` }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Save failed. Try again.");
+  });
+
+  it("coalesces rapid save clicks while a favourite mutation is pending", async () => {
+    accountState.authenticated = true;
+    let resolveMutation!: (value: boolean) => void;
+    accountState.setFavourite.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveMutation = resolve;
+        }),
+    );
+    render(<ResultCard therapy={therapy} />);
+
+    const saveButton = screen.getByRole("button", { name: `Save ${therapy.name} to favourites` });
+    fireEvent.click(saveButton);
+    fireEvent.click(saveButton);
+
+    expect(accountState.setFavourite).toHaveBeenCalledTimes(1);
+    await act(async () => resolveMutation(true));
+    expect(await screen.findByRole("status")).toHaveTextContent("Therapy saved.");
   });
 });
