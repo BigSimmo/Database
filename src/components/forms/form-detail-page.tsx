@@ -1122,7 +1122,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </section>
 
             <section id="form-information" aria-label="Form information" className={cn(inPageAnchor, "grid gap-2")}>
-              <DisclosureGroup items={formInformationItems(detailRows)} headingLevel={3} />
+              <DisclosureGroup className="min-w-0" items={formInformationItems(detailRows)} headingLevel={3} />
             </section>
 
             {/* The `-mobile`/`-desktop` id pairs below are the section anchors
