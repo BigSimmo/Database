@@ -24,6 +24,10 @@ function keyframes(name: string) {
 }
 
 describe("answer activity trace CSS", () => {
+  it("does not paint-contain the animated SVG on WebKit", () => {
+    expect(globalsCss).not.toMatch(/\.answer-activity-trace\s*{[^}]*contain:\s*paint;/s);
+  });
+
   it("cycles through the positive dash-offset equivalent for WebKit", () => {
     const sweep = keyframes("answer-ecg-sweep");
 
