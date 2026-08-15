@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "d5a3fde2-33a4-49c5-b07c-fed5951883d4",
+  "createdOn": "2026-08-15",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Establish whether live index loss is ongoing before any restoration window",
+    "detail": "Two counts measured the same way by the repo's own check:drift do not reconcile. The 2026-08-09 live-drift run reported missing_live = 21; the 2026-08-14 forced dispatch (Actions run 31813064485) reported missing_live = 20. Between those runs the owner-authorized incident window RESTORED two indexes (documents_title_trgm_idx, document_chunks_content_trgm_idx), so the expected 2026-08-14 figure was 19, not 20. The arithmetic gap of one is consistent with a further index having been dropped inside that five-day window - which would mean the loss mechanism is STILL ACTIVE rather than a historical event already contained. This is an inference from two aggregate counts and is NOT established: the 21 could simply have been imprecise, which is why #316 already carries a note that 21 is approximate and 20 is the measured figure. Disproving it is as valuable as confirming it. Why it matters: every downstream repair assumes a static fault. Restoring 20 indexes into an active drop is wasted work that also masks the signal, and it changes #248 from 'who dropped them' to 'is it still happening'. Contrast that makes the case sharper: the match_* RPC mismatch count was 10 at BOTH 2026-08-09 and 2026-08-14 - unchanged - so the RPC surface is static while the index surface is not. Outcome: a definite yes or no on whether index loss is ongoing. Next: (1) re-run the whole-schema index inventory against sjrfecxgysukkwxsowpy and diff against the 20 names recorded in docs/audit/live-drift-forensics-2026-08.md section 1.3 - any newly absent name, or any of the 20 now present, is decisive; (2) extract missing_live from every live-drift Actions run and read the trend rather than two points; (3) re-check indisvalid/indisready, which was zero across public on 2026-08-14 - a non-zero result now means a different mechanism entirely. All three are read-only and need no hosted write. Stop: do not begin the index restoration window until this resolves; and if the count is still moving, treat it as an incident and escalate rather than repairing. Record a negative result explicitly - 'the drift is stable' is a real finding and is exactly the kind that gets established, felt like nothing, and never written down.",
+    "source": "session 2026-08-14 read-only drift verification; docs/audit/live-drift-forensics-2026-08.md"
+  }
+}
