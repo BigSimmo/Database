@@ -42,6 +42,15 @@ async function fillHydratedAnswerQuestion(page: Page, value: string) {
   return submit;
 }
 
+async function dismissBlockingPwaNotice(page: Page) {
+  const dismiss = page.getByRole("button", { name: /Dismiss (?:offline notice|update notice|install)/ }).first();
+  const noticeAppeared = await dismiss
+    .waitFor({ state: "visible", timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (noticeAppeared) await dismiss.click();
+}
+
 async function mockDashboardApis(page: Page) {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -435,6 +444,7 @@ test("follow-up answer generation stays compact above the previous answer", asyn
   await mockDashboardApis(page);
   await installSuccessfulThenHoldingAnswerStreams(page);
   await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  await dismissBlockingPwaNotice(page);
 
   const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
   await submit.click();
@@ -466,7 +476,7 @@ test("follow-up answer generation stays compact above the previous answer", asyn
         timingFunction: style.animationTimingFunction,
       };
     }),
-  ).toEqual({ duration: "1.6s", iterationCount: "infinite", timingFunction: "linear" });
+  ).toEqual({ duration: "1.6s", iterationCount: "infinite", timingFunction: "ease-in-out" });
   const stop = progress.getByRole("button", { name: "Stop generating answer" });
   expect((await stop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
 
@@ -528,6 +538,7 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
   await mockDashboardApis(page);
   await installHoldingAnswerStream(page);
   await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  await dismissBlockingPwaNotice(page);
 
   const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
   await submit.click();
@@ -566,11 +577,23 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
       };
     }),
   ).toEqual({
-    name: "answer-ecg-sweep",
+    name: "answer-ecg-pulse",
     duration: "1.8s",
     iterationCount: "infinite",
-    timingFunction: "linear",
+    timingFunction: "ease-in-out",
   });
+  expect(
+    await activityTraceSweep.evaluate(async (trace) => {
+      const animation = trace.getAnimations()[0];
+      animation.pause();
+      animation.currentTime = 0;
+      await new Promise(requestAnimationFrame);
+      const restingOpacity = getComputedStyle(trace).opacity;
+      animation.currentTime = 900;
+      await new Promise(requestAnimationFrame);
+      return { restingOpacity, peakOpacity: getComputedStyle(trace).opacity };
+    }),
+  ).toEqual({ restingOpacity: "0.2", peakOpacity: "1" });
 
   await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
   await expect(currentStage.locator('[data-slot="answer-progress-stage-marker"]')).toBeVisible();
