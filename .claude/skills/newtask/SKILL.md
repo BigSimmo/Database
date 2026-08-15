@@ -53,6 +53,17 @@ must still be able to start work. Recorded as `#292`.
 5. **Warm routes before any browser/UI work** (fresh worktrees can hash onto a
    Next-reserved port and 404 all routes until warmed): `npm run ensure`, then hit
    `/` and `/applications` once.
+6. **Before any Railway MCP tool use, link this worktree first.** The Railway CLI's link
+   state (`~/.railway/config.json`) is keyed by folder path, so every fresh worktree starts
+   unlinked. An unlinked directory makes Railway tooling try to auto-provision a project
+   for "the current directory" — which collides with the already-existing pinned project
+   and surfaces as an "already exists" error (see `railway-connector-server-conflict`
+   session, 2026-08-14). Skip this step for tasks that never touch Railway. Link explicitly
+   to the pinned project instead of letting anything auto-create one:
+   ```
+   link_service(project_id="5deaad0b-675a-4c13-978e-5ca2b5b877f9", service_id="6db32f39-2ecd-493c-a688-feb2d6670ff4")  # "Database" service
+   ```
+   Verify with `environment_status` — expect `Database` and `worker` both `SUCCESS`.
 
 ## Notes
 

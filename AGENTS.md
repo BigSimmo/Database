@@ -8,6 +8,17 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+<!-- BEGIN:context7-documentation -->
+
+# Context7 documentation routing
+
+- For version-sensitive peer-library APIs, use an available Context7 connector before relying on training data. In Codex Desktop, prefer the installed Context7 app when its tools are callable; Cursor uses the project-local server in `.cursor/mcp.json`.
+- Resolve the library name first, then query one focused topic. A user-supplied Context7 ID such as `/org/project` or `/org/project/version` may skip resolution. Prefer exact version IDs when Context7 lists the version in use.
+- Send no secrets, credentials, personal data, or proprietary source in Context7 queries. Repository `CONTEXT7_API_KEY` configuration applies to the local Cursor/CLI path and is not proof that a host-installed app is authenticated.
+- Next.js 16 is the standing exception: read `node_modules/next/dist/docs/` locally. If Context7 is unavailable or rate-limited, use the documented local `npx ctx7 library|docs` fallback or report the gap; do not invent APIs.
+
+<!-- END:context7-documentation -->
+
 <!-- BEGIN:dependency-shortcut -->
 
 ## Dependency shortcut
@@ -1111,7 +1122,7 @@ Use `docs/codex-cloud.md` as the environment contract:
 
 Durable notes for Cloud Agents. Standard commands live in `README.md` and `package.json`; only non-obvious caveats are captured here.
 
-- Context7 peer-library docs habit (and the Next 16 local-docs carve-out) lives in `docs/agents-guide.md`. Project MCP is local `@upstash/context7-mcp@3.2.5` with `CONTEXT7_API_KEY` from env/Secrets. If the host-injected Context7 MCP returns quota exceeded, use `npx ctx7 library|docs …` with the same secret — do not invent peer APIs from training data.
+- Context7 peer-library docs habit (and the Next 16 local-docs carve-out) lives above and in `docs/agents-guide.md`. Project Cursor MCP is local `@upstash/context7-mcp@4.0.2` with `CONTEXT7_API_KEY` from env/Secrets. Prefer a callable host-installed Context7 app in Codex; if that path is unavailable or rate-limited, use `npx ctx7 library|docs …` with the local secret — do not invent peer APIs from training data.
 - Runtime: the app hard-requires Node >=24.15.0 <25 / npm 11.x (`engine-strict`; the preinstall and runtime gates enforce the minor floor, while `scripts/dev-free-port.mjs` rejects other majors). A compatible Node 24 is installed via nvm and symlinked into `/usr/local/cargo/bin` (first entry in `PATH`) so `node`/`npm` resolve to it in every shell. If a shell ever resolves `/exec-daemon/node` (v22) instead, prepend the installed nvm Node 24 bin to `PATH` (for example `"$HOME/.nvm/versions/node/v24.18.1/bin"`; run `ls "$HOME/.nvm/versions/node"` to confirm the exact patch version).
 - Live vs demo mode: the app auto-detects. When the Supabase + OpenAI env vars below are present (set them as Cloud Agent **Secrets** so they inject into `.env.local`/`process.env`), `isDemoMode()` (`src/lib/env.ts`) is false and the app runs against the live `Clinical KB Database` project (~2000 indexed docs) with OpenAI answer generation. When they are absent, dev auto-falls back to demo mode using the synthetic corpus in `src/lib/demo-data.ts` / `public/demo-documents/`. Required for live mode: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_PROJECT_REF`, `SUPABASE_PROJECT_NAME`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…`), `SUPABASE_SERVICE_ROLE_KEY` (accepts the `sb_secret_…` secret key), `OPENAI_API_KEY`. Keep `RAG_PROVIDER_MODE=auto` so OpenAI is used with graceful source-only fallback. `E2E_USER_EMAIL`/`E2E_USER_PASSWORD` power CI env-check and Playwright.
 - Live-mode caveat: `RAG_PROVIDER_MODE=auto` attempts OpenAI (fast → strong route); if generation fails the built-in quality gates it silently degrades to a deterministic "Source-only" answer that still cites real documents — this is expected, not a failure. The header sign-in UI exposes magic-link + OAuth only (no password field), but the `/api/answer` + retrieval flow works server-side without a browser session.
