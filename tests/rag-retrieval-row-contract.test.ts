@@ -260,6 +260,15 @@ describe("signal row shape contracts", () => {
     ).not.toThrow();
   });
 
+  it("accepts array and scalar provenance from unconstrained jsonb columns", () => {
+    expect(() =>
+      assertIndexUnitRows(
+        [indexUnitRow({ source_span: ["page", 12], metadata: "legacy-provenance" })],
+        "match_document_index_units_hybrid",
+      ),
+    ).not.toThrow();
+  });
+
   it("preserves unknown columns on signal rows too", () => {
     const rows: unknown = [indexUnitRow({ a_future_column: "kept" })];
 

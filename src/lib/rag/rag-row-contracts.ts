@@ -147,12 +147,13 @@ export function assertEmbeddingFieldRows(rows: unknown, rpc: string): asserts ro
 /**
  * Index-unit rows from `match_document_index_units_hybrid`.
  *
- * Every pinned field is backed by a constraint on `public.document_index_units` in
- * `supabase/schema.sql`: `unit_type`, `title`, `content` and `extraction_mode` are `not null`,
- * and both `unit_type` and `extraction_mode` carry `check` constraints — so the enum below
- * cannot reject a row the database would accept. `heading_path`, `normalized_terms` and
- * `metadata` are `not null` too, but stay `.nullish()` to match the `?? []` / `?? null`
- * handling the caller already applies.
+ * The fields that select a chunk, control scoring, or label extraction are backed by
+ * constraints on `public.document_index_units` in `supabase/schema.sql`: `unit_type`, `title`,
+ * `content` and `extraction_mode` are `not null`, and both `unit_type` and `extraction_mode`
+ * carry `check` constraints — so the enum below cannot reject a row the database would accept.
+ * `source_span` and `metadata` are unconstrained `jsonb`, so they accept any JSON value rather
+ * than turning a non-object provenance value into a retrieval outage. `heading_path` and
+ * `normalized_terms` stay `.nullish()` to match the `?? []` handling the caller already applies.
  */
 const indexUnitRowSchema = z.looseObject({
   id: z.string().min(1),
@@ -166,10 +167,10 @@ const indexUnitRowSchema = z.looseObject({
   page_end: z.number().int().nullable(),
   heading_path: z.array(z.string()).nullish(),
   normalized_terms: z.array(z.string()).nullish(),
-  source_span: z.record(z.string(), z.unknown()).nullish(),
+  source_span: z.json().nullish(),
   quality_score: z.number().nullable(),
   extraction_mode: z.enum(["deterministic", "model_heavy", "hybrid"]),
-  metadata: z.record(z.string(), z.unknown()).nullish(),
+  metadata: z.json().nullish(),
   similarity: z.number().nullish(),
   text_rank: z.number().nullish(),
   hybrid_score: z.number().nullish(),

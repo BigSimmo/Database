@@ -163,6 +163,11 @@ function assertOptionalSignalRows(assertRows: () => void) {
   }
 }
 
+/** Index-unit consumers read these provenance fields as maps; retain that output contract. */
+function optionalJsonRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
 /** Record how many variant RPCs a lexical surface actually issued (PT-02 early-exit). */
 function recordTextVariantFanout(
   telemetry: SearchTelemetry | undefined,
@@ -1151,13 +1156,13 @@ export async function searchIndexUnitCandidates(args: {
         page_end: row.page_end,
         heading_path: row.heading_path ?? [],
         normalized_terms: row.normalized_terms ?? [],
-        source_span: row.source_span ?? null,
+        source_span: optionalJsonRecord(row.source_span),
         quality_score: row.quality_score,
         extraction_mode: row.extraction_mode,
         similarity: row.similarity,
         text_rank: row.text_rank,
         hybrid_score: row.hybrid_score,
-        metadata: row.metadata ?? null,
+        metadata: optionalJsonRecord(row.metadata),
       },
     }));
   return loadChunksForSignalMatches({
