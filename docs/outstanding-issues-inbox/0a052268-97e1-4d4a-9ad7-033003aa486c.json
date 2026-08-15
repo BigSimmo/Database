@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "0a052268-97e1-4d4a-9ad7-033003aa486c",
+  "createdOn": "2026-08-15",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Favourites Continue and Recent are driven by hard-coded demo timestamps; real saved items have no last-opened data",
+    "detail": "Surfaced while shipping #164 (PR #1983), which made both surfaces prominent. src/components/clinical-dashboard/favourites-command-library-page.tsx derives 'most recently used' from lastUsedScore(item.lastUsed), and item.lastUsed comes from lastUsedByItemId — a hard-coded five-entry literal keyed to demo slugs ('Today 08:44', 'Yesterday 16:12', ...). Anything else, including every real registry favourite, falls back to the literal string 'Saved', which lastUsedScore buckets at 1000. pinnedItemIds is likewise a hard-coded two-item Set. The consequence after #164: for a signed-in user with real favourites, the Continue card and the Recent panel are effectively arbitrary — every item ties at the same score and the order is whatever the source array happened to be. Note that recentQueries in the shell is search-query history, not viewed-item history, so it cannot back this. Next: add a per-favourite last-opened timestamp. Cheapest is a client-side recents store keyed by favourite id written on open; the durable version is a column on the account favourites record so it survives a device change, which is a schema plus /api/account/favourites change and needs the usual migration review. Either way, pinning should stop being a hard-coded id set. Stop: do not fabricate a timestamp at render time from anything other than a recorded open event — an invented 'last used' on a clinical reference list is worse than an honest absence.",
+    "source": "session 2026-08-15; PR #1983; favourites-command-library-page.tsx lastUsedByItemId/pinnedItemIds"
+  }
+}
