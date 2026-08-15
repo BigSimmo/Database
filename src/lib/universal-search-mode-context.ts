@@ -13,6 +13,9 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   formulation: ["formulation"],
   prescribing: ["medications", "documents"],
   tools: ["tools"],
+  // Calculators searches its local, session-aware catalogue rather than the
+  // cross-entity index, so it has no universal-search domain preference.
+  calculators: [],
   // Therapy Compass leads with its own therapy library, exposed to cross-entity
   // search as the "therapies" domain.
   "therapy-compass": ["therapies"],

@@ -36,6 +36,7 @@ export const modeHomeRoutes = [
   "/formulation",
   "/dsm",
   "/tools",
+  "/calculators",
   "/differentials",
   "/specifiers",
   "/factsheets",
@@ -52,6 +53,7 @@ export const longRoutes = [
   "/formulation/worry",
   "/formulation/builder?mechanism=rumination&template=5Ps",
   "/documents/search",
+  "/calculators?q=depression&run=1",
   // Demo-corpus document detail: DocumentViewer owns its composer here, and its
   // scroll container binding has its own failure mode (stale #main-content).
   "/documents/11111111-1111-4111-8111-111111111111?page=1",
@@ -69,6 +71,7 @@ export const appModeHeaderRoutes = [
   { mode: "Formulation", route: "/formulation" },
   { mode: "Medication", route: "/?mode=prescribing" },
   { mode: "Tools", route: "/tools" },
+  { mode: "Calculators", route: "/calculators" },
   { mode: "Therapy", route: "/therapy-compass" },
   { mode: "Factsheets", route: "/factsheets" },
 ];
@@ -122,14 +125,6 @@ export const pageOwnedHeaderRoutes = [
 ];
 
 export const standalonePageOwnedFooterRoutes = [
-  {
-    name: "calculator composer",
-    route: "/calculators",
-    selector: '[data-testid="calculators-phone-dock"]',
-    focusSelector: 'input[aria-label="Search calculators"]',
-    reserveSelector: '[data-testid="calculators-search-page"]',
-    flushBottom: true,
-  },
   {
     name: "document composer",
     route: "/documents/11111111-1111-4111-8111-111111111111?page=1",

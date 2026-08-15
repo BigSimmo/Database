@@ -2,6 +2,7 @@
 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
@@ -87,6 +88,72 @@ describe("mode menu destination prefetch", () => {
     router.replace.mockReset();
     router.prefetch.mockReset();
     window.localStorage.clear();
+  });
+
+  it("keeps calculator submission enabled when document data is unavailable", async () => {
+    const user = userEvent.setup();
+    const onAsk = vi.fn();
+
+    render(
+      <MasterSearchHeader
+        {...headerProps()}
+        searchMode="calculators"
+        query="PHQ-9"
+        realDataReady={false}
+        onAsk={onAsk}
+      />,
+    );
+
+    const submit = screen.getByRole("button", { name: "Search clinical calculators" });
+    expect(submit).toBeEnabled();
+    await user.click(submit);
+    expect(onAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it("submits the selected calculator suggestion rather than the previous query state", async () => {
+    const user = userEvent.setup();
+    const onAsk = vi.fn();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    );
+
+    try {
+      function CalculatorHeader() {
+        const [query, setQuery] = useState("depression");
+        return (
+          <MasterSearchHeader
+            {...headerProps()}
+            searchMode="calculators"
+            query={query}
+            onQueryChange={setQuery}
+            onAsk={onAsk}
+          />
+        );
+      }
+
+      render(<CalculatorHeader />);
+      const input = screen.getByTestId("global-search-input");
+      await user.clear(input);
+      await user.type(input, "depression");
+      await user.click(await screen.findByRole("option", { name: /depression severity.*PHQ-9/i }));
+
+      expect(onAsk).toHaveBeenCalledWith("depression severity");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("shows calculator-specific actions instead of Answer actions", async () => {
+    const user = userEvent.setup();
+
+    render(<MasterSearchHeader {...headerProps()} searchMode="calculators" />);
+    await user.click(screen.getByRole("button", { name: "Open calculators options" }));
+
+    const actions = await screen.findByRole("menu", { name: "Useful actions" });
+    expect(within(actions).getByRole("menuitem", { name: "Browse calculators" })).toBeVisible();
+    expect(within(actions).queryByRole("menuitem", { name: "New question" })).toBeNull();
+    expect(within(actions).queryByRole("menuitem", { name: "Add document" })).toBeNull();
   });
 
   it("prefetches the shared-home selection URL when the user points at a mode", async () => {
