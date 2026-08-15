@@ -103,6 +103,7 @@ function ServiceCard({
   selected,
   onToggleSelected,
   saved,
+  savedStateReady,
   onToggleSaved,
 }: {
   service: ServiceRecord;
@@ -111,6 +112,10 @@ function ServiceCard({
   selected: boolean;
   onToggleSelected: (slug: string) => void;
   saved: boolean;
+  // False until the account favourites read settles. Until then `saved` is
+  // `false` for EVERY service — not because nothing is saved, but because
+  // nothing has been read yet — so the control must not assert a state.
+  savedStateReady: boolean;
   onToggleSaved: (slug: string) => void;
 }) {
   const showBestFit = relevanceRank !== null && relevanceRank <= 2;
@@ -172,19 +177,37 @@ function ServiceCard({
             across sessions, while the shortlist below is this search's
             working set and is deliberately not persisted. Two different
             jobs, so they stay two different controls. */}
+        {/* Native `disabled`, not aria-disabled: this is transient inertness
+            while a request settles, which is exactly the case
+            docs/wiring-conventions.md reserves `disabled` for. Without it the
+            control asserts "not saved" for every service during the account
+            read and a tap issues a redundant write against a service that is
+            already saved. */}
         <button
           type="button"
           onClick={() => onToggleSaved(service.slug)}
-          aria-pressed={saved}
-          aria-label={saved ? `Remove ${service.title} from favourites` : `Save ${service.title} to favourites`}
+          disabled={!savedStateReady}
+          aria-pressed={savedStateReady ? saved : undefined}
+          title={savedStateReady ? undefined : "Loading your saved services…"}
+          aria-label={
+            savedStateReady
+              ? saved
+                ? `Remove ${service.title} from favourites`
+                : `Save ${service.title} to favourites`
+              : `Loading saved state for ${service.title}`
+          }
           className={cn(
-            "grid min-h-12 min-w-12 place-items-center rounded-lg border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:min-w-10",
-            saved
+            "grid min-h-12 min-w-12 place-items-center rounded-lg border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:min-w-10",
+            savedStateReady && saved
               ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] enabled:hover:bg-[color:var(--surface-subtle)]",
           )}
         >
-          {saved ? <BookmarkCheck className="h-4 w-4" aria-hidden /> : <Bookmark className="h-4 w-4" aria-hidden />}
+          {savedStateReady && saved ? (
+            <BookmarkCheck className="h-4 w-4" aria-hidden />
+          ) : (
+            <Bookmark className="h-4 w-4" aria-hidden />
+          )}
         </button>
       </div>
 
@@ -465,6 +488,10 @@ export function ServicesNavigatorPage() {
   const referralStage: ReferralStageId = showComparison ? "compare" : selectedSlugs.length ? "shortlist" : "search";
 
   async function toggleSaved(slug: string) {
+    // Belt as well as braces: the control is disabled until the read settles,
+    // but a toggle computed from an unread library would invert the wrong
+    // state, so refuse it here too rather than trusting the caller.
+    if (!accountData.ready) return;
     const service = searchableRecords.find((record) => record.slug === slug);
     if (!service) return;
     const nowSaved = !accountData.isSaved("service", slug);
@@ -871,6 +898,7 @@ export function ServicesNavigatorPage() {
                 selected={selectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
                 saved={accountData.isSaved("service", service.slug)}
+                savedStateReady={accountData.ready}
                 onToggleSaved={toggleSaved}
               />
             ))}
