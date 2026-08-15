@@ -28,10 +28,11 @@ does today — tells the reader they cannot hold two domains at once, which is f
 
 ### There is no `navigate` kind, and that is the point
 
-Services' quick filters do not filter. They call `router.push` and **replace the query**, so
-choosing one discards the search and its results with no warning and no undo. A control labelled
-"Filter" must not do that. Query-replacing presets belong beside the composer as suggested
-searches (`AnswerSuggestionChips`), not inside the filter sheet.
+Services' former quick filters did not filter. They called `router.push` and **replaced the query**,
+so choosing one discarded the search and its results with no warning and no undo. A control labelled
+"Filter" must not do that. The presets were removed because they also competed visually with the
+service-group navigation; query-replacing suggestions should only return if they have a distinct,
+clearly labelled home beside the composer.
 
 Factsheets' category dimension is not this pattern, despite an earlier draft of this section
 grouping it with services' quick filters: `filterFactsheets(query, category)` ANDs the two, so

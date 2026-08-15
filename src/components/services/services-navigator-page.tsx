@@ -13,7 +13,6 @@ import {
   SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
-import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
@@ -54,16 +53,6 @@ import { sortResultItems } from "@/lib/result-sort";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 
 type ServiceResultScope = "results" | "all";
-
-const bestFitQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
-const serviceQuickFilters = [
-  { label: "Best fit", query: bestFitQuery },
-  { label: "Crisis", query: "crisis" },
-  { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
-  { label: "Phone referral", query: "phone referral" },
-  { label: "Free", query: "free" },
-  { label: "WA", query: "WA" },
-] as const;
 
 function displayText(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
@@ -660,24 +649,6 @@ export function ServicesNavigatorPage() {
                 />
               ) : undefined
             }
-          />
-
-          {/* Evicted from the filter sheet: every quick filter called
-              `router.push` and replaced the query outright, discarding the
-              search and its results with no warning and no undo — exactly
-              what docs/filter-contract.md section 1 forbids inside a control
-              labelled "Filter". Framed as a new search, which is what
-              picking one does. */}
-          <AnswerSuggestionChips
-            label="Try a focused search"
-            labelPlacement="above"
-            layout="scroll"
-            testId="service-quick-search-suggestions"
-            suggestions={serviceQuickFilters.map((filter) => filter.label)}
-            onPick={(label) => {
-              const filter = serviceQuickFilters.find((item) => item.label === label);
-              if (filter) applyServiceQuery(filter.query);
-            }}
           />
         </>
       }

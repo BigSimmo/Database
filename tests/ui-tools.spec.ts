@@ -1132,8 +1132,7 @@ test.describe("Clinical KB tools launcher", () => {
     const quickFilter = page.getByTestId("service-filter-trigger-phone");
     await expect(quickFilter).toBeVisible();
     await expect(quickFilter).toHaveAccessibleName(/No filters active/);
-    await page.getByTestId("service-quick-search-suggestions").getByRole("button", { name: "Crisis" }).click();
-    await expect(page).toHaveURL(/\/services\?.*q=crisis/);
+    await expect(page.getByText("Try a focused search", { exact: true })).toHaveCount(0);
 
     // Phones keep the full search results in the page instead of opening a
     // command sheet over the small viewport.
@@ -1330,6 +1329,7 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/services?focus=1");
     await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeVisible();
     await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeFocused();
+    await expect(page.getByText("Try a focused search", { exact: true })).toHaveCount(0);
 
     await gotoLauncher(page, "/forms?focus=1");
     await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toBeVisible();
@@ -1370,16 +1370,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("navigation", { name: "Service groups" })).toBeVisible();
     await expect(page.getByTestId("services-shortlist-bar")).toHaveCount(0);
 
-    const culturallySafe = page
-      .getByTestId("service-quick-search-suggestions")
-      .getByRole("button", { name: "Culturally safe" });
-    await expect(culturallySafe).toBeVisible();
-    await waitForReactEventHandler(culturallySafe);
-    await culturallySafe.click();
-    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
+    await expect(page.getByText("Try a focused search", { exact: true })).toHaveCount(0);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
-    // Quick search suggestions and facet clearing are separate contracts.
     // Exercise a real facet, then clear only that facet while preserving q.
     await page.getByTestId("service-filter-trigger-desktop").click();
     const filterPanel = page.getByTestId("service-filter-panel");
@@ -1389,7 +1382,7 @@ test.describe("Clinical KB tools launcher", () => {
     await crisisFacet.click();
     await expect(page).toHaveURL(/acuity_flags=crisis_high/);
     await filterPanel.getByTestId("service-filter-panel-clear").click();
-    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
+    await expect(page).toHaveURL(/q=13YARN/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
     await filterPanel.getByRole("button", { name: "Close", exact: true }).click();
 
