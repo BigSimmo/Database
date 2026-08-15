@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "39b08439-bd16-4b6d-b218-f04ad0a9a8cd",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#302",
+    "outcome": "RESOLVED 2026-08-14 — the five ratchets carrying slack are re-pinned to measured, in the same PR that paid the debt, which is the coupling this row asked for. legacyShadowAliases 220 -> 119 (the row measured 193 on 2026-08-12; the reland of --shadow-tight pays down the debt the acf78bf revert had re-hidden, so the real gap was 101 units, not 27), edgeOwnershipConflicts 27 -> 25, rawPaddingLiterals 67 -> 63, rawGapLiterals 34 -> 32, layoutTransitionExceptions 12 -> 11. Regenerated with 'node scripts/check-design-system-contract.mjs --print-debt-baseline' rather than hand-edited, so per-path debtByPath moved with the totals — those are what findDebtPathRegressions compares, and the retirement moved them wholesale. Every metric in the diff decreases; nothing was absorbed upward. Verified zero slack on every ratchet afterwards by diffing the baseline against a fresh --print-metrics run. Mutation-verified: reintroducing one alias in button.tsx now fails at both the total (119 -> 120) and the per-path level, where the old 220 ceiling passed it silently. This is not the baseline refresh #262 warns against — that stop rule forbids refreshing to HIDE the movement, whereas this pins the movement in. The stale GATES.md section 3 numbers for all five were corrected in the same commit per #301. Residual risk this row should still be read for: nothing enforces the coupling. A future PR can still pay debt down and leave the ceiling, and only a manual --print-metrics diff will notice. A cheap guard would be a check that fails when any baseline metric exceeds its measured value by more than a stated tolerance."
+  }
+}

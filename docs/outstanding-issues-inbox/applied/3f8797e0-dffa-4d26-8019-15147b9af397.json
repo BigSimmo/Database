@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "3f8797e0-dffa-4d26-8019-15147b9af397",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#292",
+    "detail": "Recurred 2026-08-14 on the database remediation plan, this time with two assistants building Phase 0: PR #1938 and PR #1939 both implemented live-drift failure routing and the post-migration trigger, merged four hours apart. Both landed and no harm resulted — #1939 built on #1938's commit and improved it, moving the findings capture after the migration-history step so a migration-history failure is visible instead of a clean drift result being published as its explanation. The cost was still two full authoring sessions and two CI cycles for one deliverable. This matters more for the phases still ahead than it did here: Phase 1 consumes an approved read-only production window, and Phases 3 and 4 consume approved mutation windows and live eval-canary budget, so a duplicate there wastes an operator-gated resource rather than just tokens. Concrete ask for the remediation work specifically: check the open-PR list for the surface before starting any of Phases 1-5, per docs/database-remediation-playbook.md."
+  }
+}

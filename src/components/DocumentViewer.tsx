@@ -1088,7 +1088,7 @@ export function DocumentViewer({
       <PhoneHeaderCollapsePortal>
         <header
           data-document-sticky-header
-          className="edge-glass-header relative z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--shadow-tight)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]"
+          className="edge-glass-header relative z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--e1)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]"
         >
           <div className="mx-auto flex min-h-12 min-w-0 max-w-[1440px] items-center gap-2">
             <ContextualBackLink
@@ -1600,7 +1600,7 @@ export function DocumentViewer({
             <button
               type="submit"
               disabled={!canViewSourceDocuments || normalizedSourceSearch.length < 2}
-              className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--e1)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Search within this document"
             >
               {documentSearchPending ? (

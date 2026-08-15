@@ -484,6 +484,24 @@ describe("in-page navigation panel-swap contracts", () => {
     expect(within(rail).getByRole("button", { name: /^Safety/ })).toHaveAttribute("aria-current", "true");
   });
 
+  it("opens every card when a medication category becomes active", async () => {
+    const user = userEvent.setup();
+    render(<MedicationRecordPage slug={medication!.slug} fallbackRecord={medication!} />);
+    const rail = screen.getByTestId("medication-section-rail");
+
+    for (const section of medicationNavSections) {
+      await user.click(within(rail).getByRole("button", { name: new RegExp(`^${section.label}`) }));
+      const panel = document.querySelector<HTMLElement>(`#medication-panel-${CSS.escape(section.id)}`);
+      const cards = Array.from(panel?.querySelectorAll<HTMLDetailsElement>(":scope > details") ?? []);
+
+      expect(cards.length, `the "${section.id}" panel renders no cards`).toBeGreaterThan(0);
+      expect(
+        cards.every((card) => card.open),
+        `the "${section.id}" panel contains a folded card`,
+      ).toBe(true);
+    }
+  });
+
   it("offers no dead segment: every declared tab holds at least one section", () => {
     // The track always draws four segments, so a tab that could never hold
     // content would be a permanently empty destination. This pins the grouping

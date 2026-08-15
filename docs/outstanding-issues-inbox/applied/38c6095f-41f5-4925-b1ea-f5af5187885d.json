@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "38c6095f-41f5-4925-b1ea-f5af5187885d",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#238",
+    "detail": "CLOSURE ATTEMPTED AND REJECTED 2026-08-14 — read this before closing again. PR #1940 queued a `done` for this row citing tests/sheet.dom.test.tsx and the `portal = true` default; the closure was cancelled on review with the reason \"generic Sheet coverage does not verify the requested product-overlay browser journeys\". The cancellation is correct. The residual risk this row exists for is ancestor-scoped CSS, `contain` and `transform` on the specific product overlays — a property of where each overlay sits in the real page, which a component-level unit test cannot see no matter how thorough it is. IN FLIGHT note retired: PR #1842 merged, so the do-not-start warning no longer applies. The requirement is unchanged. PR #1616 flips the Sheet portal default to true, moving ~10 product overlays into OverlayRoot; token inheritance is safe. Next: one visual pass in a real browser over settings-dialog, ClinicalSidebar, answer-result sheets, launcher sheet and section-nav. Stop: do not close this row on Sheet component coverage — the question is about the five host surfaces, not about Sheet."
+  }
+}

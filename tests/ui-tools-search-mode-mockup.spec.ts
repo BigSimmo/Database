@@ -124,8 +124,8 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     const mockup = await gotoMockup(page, 1440);
     await page.locator('[data-testid="global-search-input"]:visible').fill("");
 
-    await expect(mockup.getByText("12 tools", { exact: true })).toBeVisible();
-    await expect(mockup.locator('section[aria-label="Tool results"] article')).toHaveCount(12);
+    await expect(mockup.getByText("13 tools", { exact: true })).toBeVisible();
+    await expect(mockup.locator('section[aria-label="Tool results"] article')).toHaveCount(13);
   });
 
   test("phone keeps results visible until Details opens the preferred bottom sheet", async ({ page }) => {

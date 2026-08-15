@@ -61,6 +61,8 @@ export type CalculatorFixture = {
   /** Question stem shown above the items. */
   stem?: string;
   timeEstimate: string;
+  /** Numeric range used by the local completion-time filter. */
+  timeEstimateMinutes: { min: number; max: number };
   minScore: number;
   maxScore: number;
   items: CalculatorItem[];
@@ -121,6 +123,7 @@ export const calculators: CalculatorFixture[] = [
     summary: "9-item depression severity score with treatment-action bands.",
     stem: "Over the last 2 weeks, how often have you been bothered by:",
     timeEstimate: "2–3 min",
+    timeEstimateMinutes: { min: 2, max: 3 },
     minScore: 0,
     maxScore: 27,
     scoringNote: "Sum of 9 items (0–3 each). Severity bands map to stepped treatment actions.",
@@ -199,6 +202,7 @@ export const calculators: CalculatorFixture[] = [
     summary: "7-item anxiety severity score; also performs well for panic and social anxiety.",
     stem: "Over the last 2 weeks, how often have you been bothered by:",
     timeEstimate: "1–2 min",
+    timeEstimateMinutes: { min: 1, max: 2 },
     minScore: 0,
     maxScore: 21,
     scoringNote: "Sum of 7 items (0–3 each). ≥10 is the usual cut-point for probable GAD.",
@@ -242,6 +246,7 @@ export const calculators: CalculatorFixture[] = [
     summary: "10-item distress measure scored 10–50, widely used across Australian primary care.",
     stem: "In the past 4 weeks, about how often did you feel:",
     timeEstimate: "2–3 min",
+    timeEstimateMinutes: { min: 2, max: 3 },
     minScore: 10,
     maxScore: 50,
     scoringNote: "Sum of 10 items (1–5 each); range 10–50. Higher scores indicate greater distress.",
@@ -293,6 +298,7 @@ export const calculators: CalculatorFixture[] = [
     summary: "13 lifetime hypomanic symptoms plus co-occurrence and impairment criteria.",
     stem: "Has there ever been a period of time when you were not your usual self and you…",
     timeEstimate: "3–4 min",
+    timeEstimateMinutes: { min: 3, max: 4 },
     minScore: 0,
     maxScore: 13,
     scoringNote:
@@ -399,6 +405,7 @@ export const calculators: CalculatorFixture[] = [
     indication: "Rapid 4-question lifetime screen for problem drinking in adults.",
     summary: "Four yes/no questions; two or more positives is a clinically significant screen.",
     timeEstimate: "under 1 min",
+    timeEstimateMinutes: { min: 0, max: 1 },
     minScore: 0,
     maxScore: 4,
     scoringNote: "1 point per “yes”. ≥2 is a positive screen; follow with AUDIT and drinking history.",
@@ -440,6 +447,7 @@ export const calculators: CalculatorFixture[] = [
     indication: "Brief consumption screen for hazardous drinking — the first three AUDIT items.",
     summary: "3 consumption questions scored 0–4 each; sex-specific positive thresholds.",
     timeEstimate: "1 min",
+    timeEstimateMinutes: { min: 1, max: 1 },
     minScore: 0,
     maxScore: 12,
     scoringNote: "Positive screen at ≥3 for women and ≥4 for men. Higher totals track hazard severity.",
@@ -509,6 +517,7 @@ export const calculators: CalculatorFixture[] = [
     indication: "Structure a rapid inventory of static suicide-risk factors as an adjunct to clinical assessment.",
     summary: "10 yes/no risk factors, one point each; supports — never replaces — clinical judgement.",
     timeEstimate: "1–2 min",
+    timeEstimateMinutes: { min: 1, max: 2 },
     minScore: 0,
     maxScore: 10,
     scoringNote: "1 point per factor present. Bands are indicative only; act on clinical concern at any score.",
@@ -566,6 +575,7 @@ export const calculators: CalculatorFixture[] = [
     indication: "Grade the severity of obsessive-compulsive symptoms and track treatment response.",
     summary: "10 severity items (0–4) across obsessions and compulsions; total 0–40.",
     timeEstimate: "5–8 min",
+    timeEstimateMinutes: { min: 5, max: 8 },
     minScore: 0,
     maxScore: 40,
     scoringNote: "Sum of 10 items. Items 1–5 grade obsessions, 6–10 compulsions; subscales can be reported separately.",

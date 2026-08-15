@@ -484,7 +484,7 @@
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["ApplicationsLauncherPage", "CalculatorsSearchPage"]
+      "sanctionedSpecialPatterns": ["ToolsSearchResultsPage", "CalculatorsSearchPage"]
     },
     {
       "id": "privacy-safety-and-reference",

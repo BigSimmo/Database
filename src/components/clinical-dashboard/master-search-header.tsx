@@ -37,6 +37,7 @@ import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -113,8 +114,8 @@ const phoneModeGroups = [
   {
     id: "care",
     label: "Care",
-    hint: "Medication, tools, therapy",
-    modeIds: ["prescribing", "tools", "therapy-compass", "factsheets"],
+    hint: "Medication, calculators, tools, therapy",
+    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;
@@ -246,7 +247,7 @@ export function MasterSearchHeader({
   realDataReady: boolean;
   onQueryChange: (query: string) => void;
   onSearchModeChange: (mode: AppModeId) => void;
-  onAsk: () => void;
+  onAsk: (query?: string) => void;
   onClearQuery: () => void;
   onClearScope: () => void;
   onQueryModeChange: (mode: ClinicalQueryMode) => void;
@@ -354,6 +355,7 @@ export function MasterSearchHeader({
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
   const router = useRouter();
+  const [, setLastAppMode] = useLastAppMode();
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
@@ -374,6 +376,7 @@ export function MasterSearchHeader({
     selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
+    selectedSearch.kind === "calculators" ||
     selectedSearch.kind === "favourites" ||
     selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation" ||
@@ -657,9 +660,11 @@ export function MasterSearchHeader({
                       ? "formulation"
                       : searchMode === "tools"
                         ? "tools"
-                        : searchMode === "factsheets"
-                          ? "factsheets"
-                          : "answer";
+                        : searchMode === "calculators"
+                          ? "calculators"
+                          : searchMode === "factsheets"
+                            ? "factsheets"
+                            : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
 
@@ -814,6 +819,10 @@ export function MasterSearchHeader({
       onSearchModeChange("tools");
       return;
     }
+    if (actionId === "calculators-browse") {
+      router.push("/calculators");
+      return;
+    }
     if (actionId === "differentials-build") {
       onSearchModeChange("differentials");
       onQueryChange(trimmedQuery || "acute confusion differential diagnosis");
@@ -883,6 +892,30 @@ export function MasterSearchHeader({
 
   function selectAppMode(mode: (typeof appModeDefinitions)[number]) {
     setModeMenuOpen(false);
+    if (mode.id === "tools" && "href" in mode && mode.href) {
+      // Tools is a browse-first directory: selecting it opens the canonical
+      // all-tools page instead of retargeting the shared-home composer.
+      // Persist the selection here rather than via onSearchModeChange: that
+      // callback owns shared-home navigation and would race this canonical push.
+      setLastAppMode(mode.id);
+      pendingModeSelectionFocusRef.current = mode.id;
+      router.push(mode.href);
+      if (mode.id === searchMode) {
+        const restoreSameModeFocus = () => {
+          if (pendingModeSelectionFocusRef.current !== mode.id) return;
+          if (document.getElementById("app-mode-menu")) {
+            window.setTimeout(restoreSameModeFocus, 50);
+            return;
+          }
+          restoreFocusUnlessMoved(modeButtonRef.current);
+          pendingModeSelectionFocusRef.current = null;
+        };
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(restoreSameModeFocus);
+        });
+      }
+      return;
+    }
     if (isSearchableAppMode(mode.id)) {
       // Wait until the URL-owned mode prop settles before returning focus. The
       // trigger's accessible name changes with that prop; focusing in the click
@@ -987,11 +1020,11 @@ export function MasterSearchHeader({
   // Prefetch only the mode the user is about to choose — the highlighted option
   // on open, then whichever option receives focus/pointer while scanning.
   //
-  // A pick always returns to the shared home; warm that exact URL rather than a
-  // mode-owned home or search route the user has not asked to open.
+  // Most picks return to the shared home. Tools is browse-first and opens its
+  // canonical all-results directory, so warm that route instead.
   function prefetchModeSelection(modeId: AppModeId) {
     if (modeId === searchMode) return;
-    const href = appModeSelectionHref(modeId);
+    const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId);
     if (prefetchedModeHrefsRef.current.has(href)) return;
     prefetchedModeHrefsRef.current.add(href);
     router.prefetch(href, {
@@ -2260,7 +2293,7 @@ export function MasterSearchHeader({
             aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
             aria-label={`Mode ${selectedAppMode.label}`}
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
               {/* 16px in the 32px pill, not the 14px metadata step: this is a
                   primary control, and 2.25 keeps its absolute stroke in line
                   with the larger glyphs beside it. */}
