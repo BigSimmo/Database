@@ -195,6 +195,61 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
   return findings;
 }
 
+/**
+ * Gate 2's remaining named case: an interactive control that declares its OWN
+ * minimum height below the 48px tap floor.
+ *
+ * Scoped to `min-h-*` deliberately, and NOT to `h-*`/`size-*`. A short `h-4` on
+ * an interactive element is frequently the *visible* box of a control whose hit
+ * area is owned by a tap-sized wrapper — `SelectionCheckbox` in
+ * `differentials-home.tsx` is exactly that, and `ui-smoke` asserts the label
+ * around it still meets the floor. Flagging those would pad the baseline with
+ * findings that are not defects, which GATES.md §5 calls out as the way a gate
+ * gets switched off. `min-h-*` carries no such ambiguity: it is the element's
+ * own declared floor, so a value under the token is a lowered tap target by
+ * construction.
+ *
+ * Unprefixed only. `min-h-12 sm:min-h-10` is the repo's correct pattern — 48px
+ * on phones, 40px from `sm` up — so a variant-prefixed short value is a
+ * deliberate desktop release, not a violation. An unprefixed `min-h-tap` or
+ * `min-h-12`+ on the same element rescues it.
+ */
+const TAP_FLOOR_STEPS_BELOW_48 = String.raw`0|px|0\.5|1|1\.5|2|2\.5|3|3\.5|4|5|6|7|8|9|10|11`;
+const SHORT_MIN_HEIGHT_UTILITY = new RegExp(String.raw`^min-h-(?:${TAP_FLOOR_STEPS_BELOW_48})$`);
+const TAP_FLOOR_MIN_HEIGHT_UTILITY = /^min-h-(?:tap|1[2-9]|[2-9]\d|\[[^\]]+\])$/;
+const TAP_FLOOR_INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "summary", "textarea"]);
+
+export function findInteractiveTapFloorDeclarationsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx")) return [];
+  if (!/\bmin-h-(?:[0-9]|1[01])\b/.test(sourceText)) return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function inspectOpeningElement(node) {
+    if (!TAP_FLOOR_INTERACTIVE_TAGS.has(node.tagName.getText(source))) return;
+    const classAttribute = node.attributes.properties.find(
+      (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+    );
+    if (!classAttribute || !ts.isJsxAttribute(classAttribute)) return;
+    const tokens = jsxClassSegments(classAttribute)
+      .join(" ")
+      .split(/\s+/)
+      .filter((token) => token && !token.includes(":"));
+    if (!tokens.some((token) => SHORT_MIN_HEIGHT_UTILITY.test(token))) return;
+    if (tokens.some((token) => TAP_FLOOR_MIN_HEIGHT_UTILITY.test(token))) return;
+    const line = source.getLineAndCharacterOfPosition(classAttribute.getStart(source)).line + 1;
+    findings.push(`${relativePath}:${line}`);
+  }
+
+  function visit(node) {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) inspectOpeningElement(node);
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
 const BORDER_WIDTH_UTILITY = /^border(?:-[xytrblse])?(?:-(?:0|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 // The status-colour family declared in `globals.css` (`--success`/`--warning`/
