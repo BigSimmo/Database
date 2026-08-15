@@ -2664,11 +2664,6 @@ summary::-webkit-details-marker {
   body:has(form[data-composer-placement="desktop-home"]) .pwa-notice-stack {
     --pwa-notice-bottom-gap: max(0.75rem, var(--safe-area-bottom));
   }
-
-  body:has(.pwa-install-sheet) #main-content[data-phone-footer-owner="hero"] > div > section {
-    justify-content: flex-start;
-    padding-top: calc(2 * var(--radius-xs));
-  }
 }
 
 /* A 320px mode home cannot show the full install proposition and its complete
@@ -2676,6 +2671,11 @@ summary::-webkit-details-marker {
    the transient install sheet is present, keep the real composer visible in
    the clear space under the app header and omit only the decorative intro. */
 @media (max-width: 359.98px) {
+  body:has(.pwa-install-sheet) #main-content[data-phone-footer-owner="hero"] > div > section {
+    justify-content: flex-start;
+    padding-top: calc(2 * var(--radius-xs));
+  }
+
   body:has(.pwa-install-sheet) #main-content[data-phone-footer-owner="hero"] [data-testid="shared-home-empty-state"] {
     gap: 0;
   }
