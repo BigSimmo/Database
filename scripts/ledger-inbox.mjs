@@ -104,15 +104,16 @@ function mutationConflicts(requests) {
  * cancellation that lost a race (its target landed via another branch's batch)
  * apart from one that names a request which never existed.
  */
-function appliedRequestIds() {
+function appliedRequestsById() {
   try {
-    return new Set(
+    return new Map(
       loadRequestsIn(APPLIED_DIR)
-        .map((entry) => entry.request?.id)
-        .filter(Boolean),
+        .map((entry) => entry.request)
+        .filter((request) => request?.id)
+        .map((request) => [request.id, request]),
     );
   } catch {
-    return new Set();
+    return new Map();
   }
 }
 
@@ -130,10 +131,10 @@ function appliedRequestIds() {
  * genuinely unknown target still throws.
  *
  * @param {Array<object>} requests pending requests in the batch
- * @param {{ appliedIds?: Set<string>, warn?: (message: string) => void }} [options]
+ * @param {{ appliedRequests?: Map<string, object>, warn?: (message: string) => void }} [options]
  */
 export function planRequestBatch(requests, options = {}) {
-  const applied = options.appliedIds ?? appliedRequestIds();
+  const applied = options.appliedRequests ?? appliedRequestsById();
   const warn = options.warn ?? ((message) => console.warn(message));
   const byId = new Map();
   for (const request of requests) {
@@ -150,7 +151,11 @@ export function planRequestBatch(requests, options = {}) {
     if (request.action !== "cancel") continue;
     const target = byId.get(request.payload.requestId);
     if (!target) {
-      if (applied.has(request.payload.requestId)) {
+      const appliedTarget = applied.get(request.payload.requestId);
+      if (appliedTarget) {
+        if (appliedTarget.action === "cancel") {
+          throw new Error(`cancel request ${request.id} cannot cancel another cancellation request`);
+        }
         // Lost the race. Say so plainly: the correction this cancellation was
         // protecting did NOT take effect, and whoever queued it needs to fix the
         // row with a fresh update rather than assume the cancel did its job.

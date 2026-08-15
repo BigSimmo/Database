@@ -28,11 +28,11 @@ function cancel(id: string, requestId: string) {
 }
 
 // planRequestBatch reads the applied directory itself by default; every test here
-// injects the set so the assertions do not depend on the repo's real inbox.
-function plan(requests: object[], appliedIds: string[] = []) {
+// injects the requests so the assertions do not depend on the repo's real inbox.
+function plan(requests: object[], appliedRequests: ReturnType<typeof update | typeof cancel>[] = []) {
   const warnings: string[] = [];
   const result = planRequestBatch(requests, {
-    appliedIds: new Set(appliedIds),
+    appliedRequests: new Map(appliedRequests.map((request) => [request.id, request])),
     warn: (message: string) => warnings.push(message),
   });
   return { ...result, warnings };
@@ -54,7 +54,7 @@ describe("ledger inbox cancellation planning", () => {
   // check:docs-links, check:ledger-write-discipline and reconcile at once, with no
   // legal way out because write discipline forbids deleting the queued request.
   it("does not throw when the cancelled target was already applied elsewhere", () => {
-    const result = plan([update(UPDATE_ID), cancel(CANCEL_ID, APPLIED_ID)], [APPLIED_ID]);
+    const result = plan([update(UPDATE_ID), cancel(CANCEL_ID, APPLIED_ID)], [update(APPLIED_ID)]);
 
     expect(result.active).toHaveLength(1);
     expect(result.cancelledIds).toHaveLength(0);
@@ -62,7 +62,7 @@ describe("ledger inbox cancellation planning", () => {
   });
 
   it("says loudly that an already-applied cancellation changed nothing", () => {
-    const result = plan([cancel(CANCEL_ID, APPLIED_ID)], [APPLIED_ID]);
+    const result = plan([cancel(CANCEL_ID, APPLIED_ID)], [update(APPLIED_ID)]);
 
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain(CANCEL_ID);
@@ -74,11 +74,19 @@ describe("ledger inbox cancellation planning", () => {
   });
 
   it("still throws when the target never existed", () => {
-    expect(() => plan([cancel(CANCEL_ID, UNKNOWN_ID)], [APPLIED_ID])).toThrow(/targets missing pending request/);
+    expect(() => plan([cancel(CANCEL_ID, UNKNOWN_ID)], [update(APPLIED_ID)])).toThrow(
+      /targets missing pending request/,
+    );
   });
 
   it("still refuses to cancel another cancellation", () => {
     expect(() => plan([update(UPDATE_ID), cancel(CANCEL_ID, UPDATE_ID), cancel(APPLIED_ID, CANCEL_ID)])).toThrow(
+      /cannot cancel another cancellation/,
+    );
+  });
+
+  it("still refuses to cancel a cancellation that was already applied", () => {
+    expect(() => plan([cancel(CANCEL_ID, APPLIED_ID)], [cancel(APPLIED_ID, UPDATE_ID)])).toThrow(
       /cannot cancel another cancellation/,
     );
   });
@@ -98,8 +106,8 @@ describe("ledger inbox cancellation planning", () => {
   it("an ineffective cancellation does not resolve a competing-mutation conflict", () => {
     // The cancellation lost its race, so both updates are still active and the
     // conflict must still be raised rather than silently half-applied.
-    expect(() => plan([update(UPDATE_ID), update(CANCEL_ID), cancel(UNKNOWN_ID, APPLIED_ID)], [APPLIED_ID])).toThrow(
-      /multiple pending mutations require an explicit cancellation decision/,
-    );
+    expect(() =>
+      plan([update(UPDATE_ID), update(CANCEL_ID), cancel(UNKNOWN_ID, APPLIED_ID)], [update(APPLIED_ID)]),
+    ).toThrow(/multiple pending mutations require an explicit cancellation decision/);
   });
 });
