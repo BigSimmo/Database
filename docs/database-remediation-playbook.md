@@ -19,19 +19,31 @@ migrations show that history advanced, but neither point distinguishes skipped D
 history from indexes that were created and later dropped. The Phase 1 read-only history and audit
 check must establish that cause before the row is closed or remediation is attributed to it.
 
-**Current live state** (from scheduled `live-drift.yml` Actions run `31330856982`, 2026-08-09):
+**Current live state** (from `live-drift.yml` Actions run `31813064485`, 2026-08-14 — this
+supersedes the 2026-08-09 run `31330856982` the plan was originally written against):
 
-- 21 `missing_live` indexes across many migrations — tables: `audit_logs` (2), `api_rate_limits`,
-  `document_chunks` (2, incl. `document_chunks_content_trgm_idx`), `document_images` (3),
-  `document_index_quality`, `document_index_units`, `document_publication_approvals`,
-  `document_summaries`, `documents` (2, incl. `documents_title_trgm_idx`),
+- 20 `missing_live` indexes across many migrations — tables: `audit_logs` (2), `api_rate_limits`,
+  `document_chunks`, `document_images` (3), `document_index_quality`, `document_index_units`,
+  `document_publication_approvals`, `document_summaries`, `documents`,
   `image_caption_cache`, `indexing_v3_agent_jobs`, `ingestion_job_stages`, `medication_records`,
   `rag_aliases`, `rag_queries`, `rag_query_misses`, `storage_cleanup_jobs`.
+  **`documents_title_trgm_idx` and `document_chunks_content_trgm_idx` are no longer among them** —
+  both were restored in the 2026-08-14 incident window and re-verified `indisvalid`/`indisready`.
 - 2 `unexpected_live` indexes: `document_table_facts_document_id_idx`,
   `storage_cleanup_jobs_owner_id_idx`.
-- `def_hash` mismatches on 10 `match_*` retrieval RPCs (protected RAG surface; live bodies vs
-  repo — direction unknown until diffed).
-- The weekly `live-drift` run has been red since 2026-07-26 with no notification routing.
+- `def_hash` mismatches on 10 `match_*` retrieval RPCs — **unchanged, and entirely outstanding**
+  (protected RAG surface; live bodies vs repo — direction unknown until diffed). This is now the
+  highest-stakes remaining unknown and the reason Phase 3 comes next.
+- Drift-failure routing is **live**: a failed run creates or updates the pinned issue
+  "Live drift check failing" (currently **#1963**) and a green run closes it.
+
+**Phase status.** Phase 0 complete. Phase 1 partial — 1.1 and 1.3 done in the owner-authorised
+incident window, **1.2 (RPC dossier) outstanding and gating Phase 3**. Phase 4 partial — two
+indexes restored, ~20 remain. **Next: Phase 3.**
+
+**Before starting any phase, check the open-PR list for the surface** (`#292`). Phase 0 was built
+twice independently on 2026-08-14; a duplicate in Phase 3 or 4 wastes an approved production window
+and eval-canary budget, not just tokens.
 
 **Prior repair to imitate.** PR #1614 / migration `20260804110240_restore_rag_search_health_indexes.sql`
 is the approved pattern: operator prebuilds indexes with `CREATE INDEX CONCURRENTLY` outside any
@@ -70,7 +82,10 @@ mistakes. Opus is sufficient for Phases 0, 2, 4, 5, 7 — execution against this
 
 ---
 
-## Phase 0 — Enablement (repo-only; no approval window needed) · Opus · 2–4 h
+## Phase 0 — Enablement (repo-only; no approval window needed) · Opus · 2–4 h — **COMPLETE 2026-08-14**
+
+Delivered in PRs #1938, #1939 and #1951; the forced-dispatch proof is Actions run `31813064485`,
+which auto-created issue #1963. The prompt below is retained as history.
 
 Deliverables: drift-failure routing, post-migration drift trigger, evidence file scaffold.
 Definition of done: PR merged; `check:github-actions` and `verify:pr-local` green; a forced
@@ -119,7 +134,7 @@ conclusion for `#248`; no writes performed.
 > classify each as live-ahead, repo-ahead, or normalization noise, quoting the decisive diff hunks
 > — this is a protected RAG surface, so classification accuracy matters more than speed, and any
 > ambiguous diff is recorded as UNCLASSIFIED with the ambiguity explained, never guessed; (3) for
-> the 21 missing and 2 unexpected indexes, record owning-table pg_relation_size and run EXPLAIN
+> the 20 missing and 2 unexpected indexes, record owning-table pg_relation_size and run EXPLAIN
 > (ANALYZE, BUFFERS) for the documents title ILIKE query, the document_chunks content search, and
 > the rag_retrieval_logs miss scan as before-baselines. Write all evidence with dates and run IDs
 > into docs/audit/live-drift-forensics-2026-08.md, update the live-drift tracking item, commit, push, PR (docs-only;
@@ -169,7 +184,8 @@ allowlist entries); eval evidence attached for any behaviour-changing deploy.
 
 ## Phase 4 — Index restoration (approved off-peak production window) · Opus · 2–3 h active
 
-Prerequisites: Phases 1–3. Deliverables: 21 indexes restored + validated, 2 unexpected indexes
+Prerequisites: Phases 1–3. Deliverables: the ~20 still-missing indexes restored + validated (the two
+trigram indexes were already restored on 2026-08-14), 2 unexpected indexes
 dispositioned, guard migrations landed, live-drift green. Definition of done: green live-drift
 dispatch output pasted; `search_schema_health()` still `ok: true`.
 
