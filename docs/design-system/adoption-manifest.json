@@ -1560,6 +1560,7 @@
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
         "tests/in-page-nav-route-sections.dom.test.tsx",
+        "tests/mobile-sheet-safe-area-contract.test.ts",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",
