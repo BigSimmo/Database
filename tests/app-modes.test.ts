@@ -175,6 +175,14 @@ describe("app mode search contract", () => {
     );
   });
 
+  it("routes Therapy searches as a first-class local catalogue", () => {
+    const config = appModeSearchConfig("therapy-compass");
+    expect(isSearchableAppMode("therapy-compass")).toBe(true);
+    expect(config.kind).toBe("therapies");
+    expect(config.resultKind).toBe("therapies");
+    expect(appModeHomeHref("therapy-compass", { query: "CBT", run: true })).toBe("/therapy-compass/search?q=CBT&run=1");
+  });
+
   it("keeps source-library shortcut searches in their active mode family", () => {
     expect(appModeCanUseSourceLibraryShortcut("answer")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("tools")).toBe(false);
@@ -389,8 +397,7 @@ describe("app mode search contract", () => {
       differentials: "/differentials?q=clozapine&run=1",
       specifiers: "/specifiers?q=clozapine&run=1",
       formulation: "/formulation?q=clozapine&run=1",
-      // Therapy resolves to its home, which server-redirects to /therapy-compass/search.
-      "therapy-compass": "/therapy-compass?q=clozapine&run=1",
+      "therapy-compass": "/therapy-compass/search?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.
       tools: "/tools?q=clozapine&run=1",
     });

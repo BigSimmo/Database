@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-import { ignoreUnavailableActivation } from "@/components/ui-primitives";
+import { useAccountData } from "@/components/account-data-provider";
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
 import type { Therapy } from "./data/types";
@@ -22,6 +22,8 @@ import { Eyebrow, IconTile, TagRow } from "./ui";
 /** Large search-result card with why-matched / avoid / best-fit columns. */
 export function ResultCard({ therapy }: { therapy: Therapy }) {
   const b = useTcBindings();
+  const accountData = useAccountData();
+  const saved = accountData.isSaved("therapy", therapy.slug);
   const inCompare = b.isInCompare(therapy.slug);
   const subtitle =
     cardPreviewText(therapy.clinicalSummary, { exclude: therapy.name }) ||
@@ -54,12 +56,12 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       <button
         type="button"
         className={`${iconControl} absolute top-3 right-3 z-[10] sm:top-3.5 sm:right-4`}
-        aria-disabled="true"
-        onClick={ignoreUnavailableActivation}
-        title="Favourite saving is not available yet"
-        aria-label="Favourite saving is not available yet"
+        aria-pressed={saved}
+        onClick={() => void accountData.setFavourite("therapy", therapy.slug, !saved)}
+        title={saved ? "Remove from favourites" : "Save therapy to favourites"}
+        aria-label={saved ? `Remove ${therapy.name} from favourites` : `Save ${therapy.name} to favourites`}
       >
-        <HeartIcon size={17} />
+        <HeartIcon size={17} className={saved ? "fill-current text-[color:var(--clinical-accent)]" : undefined} />
       </button>
       <div className="grid grid-cols-1 items-start gap-3 px-4 pt-3.5 md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] md:gap-4 md:px-5 md:py-4 md:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
         <div data-therapy-result-copy className="min-w-0 pr-[calc(var(--spacing-tap)+0.5rem)] md:pr-0">

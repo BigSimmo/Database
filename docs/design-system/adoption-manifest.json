@@ -279,11 +279,13 @@
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
-        "src/components/ui/confirm-dialog.tsx"
+        "src/components/ui/confirm-dialog.tsx",
+        "src/components/ui/print-output.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
-        "src/components/clinical-dashboard/signed-image.tsx"
+        "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/ui/print-output.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1404,6 +1406,8 @@
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/services/services-navigator-page.tsx",
         "src/components/specifiers/specifiers-home-page.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
+        "src/components/therapy-compass/screens/sheets-screen.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
       "productImportFiles": [
@@ -1416,6 +1420,8 @@
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/services/services-navigator-page.tsx",
         "src/components/specifiers/specifiers-home-page.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
+        "src/components/therapy-compass/screens/sheets-screen.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
@@ -1562,12 +1568,14 @@
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
         "tests/in-page-nav-route-sections.dom.test.tsx",
+        "tests/mode-nav-contract.test.ts",
         "tests/mode-nav.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",
         "tests/sheet-focus-stress.dom.test.tsx",
         "tests/sheet-focus.dom.test.tsx",
         "tests/sheet.dom.test.tsx",
+        "tests/therapy-global-convergence-contract.test.ts",
         "tests/ui-accessibility.spec.ts",
         "tests/ui-overlay-css-contract.test.ts",
         "tests/ui-phone-scroll-page-owned.spec.ts",
@@ -1635,8 +1643,14 @@
       "source": "src/components/ui-primitives.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
-      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/therapy-compass/screens/detail-screen.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/therapy-compass/screens/detail-screen.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1691,8 +1705,14 @@
       "source": "src/components/ui-primitives.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
-      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/therapy-compass/screens/detail-screen.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/therapy-compass/screens/detail-screen.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1779,15 +1799,25 @@
       "source": "src/components/ui/tabs.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": [
+        "src/components/therapy-compass/screens/brief-screen.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/therapy-compass/screens/brief-screen.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
         "preview": ".design-sync/previews/Tabs.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/therapy-tabs.dom.test.tsx",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1796,8 +1826,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -1903,11 +1933,13 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
-        "src/components/forms/forms-search-results-page.tsx"
+        "src/components/forms/forms-search-results-page.tsx",
+        "src/components/therapy-compass/screens/sheets-screen.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
-        "src/components/forms/forms-search-results-page.tsx"
+        "src/components/forms/forms-search-results-page.tsx",
+        "src/components/therapy-compass/screens/sheets-screen.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -3400,7 +3432,7 @@
   "summary": {
     "registeredComponentCount": 54,
     "previewCount": 54,
-    "productImportedComponentCount": 32,
+    "productImportedComponentCount": 33,
     "rootCount": 59,
     "productionRouteCount": 51,
     "nextUiEntryCount": 103

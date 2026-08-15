@@ -52,7 +52,7 @@ import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { useAuthSession } from "@/lib/supabase/client";
 
 type FavouriteType =
-  "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form" | "Differential";
+  "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form" | "Differential" | "Therapy";
 type ViewMode = FavouritesViewMode;
 type SortMode = "last-used" | "title" | "type";
 
@@ -90,6 +90,7 @@ const typeAppearance: Record<FavouriteType, ChipAppearance> = {
   Service: { kind: "category", tone: "service" },
   Form: { kind: "category", tone: "form" },
   Differential: { kind: "information", tone: "accent" },
+  Therapy: { kind: "information", tone: "accent" },
 };
 
 const lastUsedByItemId: Record<string, string> = {
@@ -109,6 +110,7 @@ const typeByPrototypeType: Record<PrototypeFavouriteItem["type"], FavouriteType>
   services: "Service",
   forms: "Form",
   differentials: "Differential",
+  therapies: "Therapy",
 };
 
 const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
@@ -118,6 +120,7 @@ const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
   services: appModeIcons.services,
   forms: appModeIcons.forms,
   differentials: appModeIcons.differentials,
+  therapies: appModeIcons["therapy-compass"],
 };
 
 function lastUsedScore(lastUsed: string): number {

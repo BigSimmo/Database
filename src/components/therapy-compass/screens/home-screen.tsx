@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Network, Search, Sparkles, Waypoints } from "lucide-react";
+import { GitCompareArrows, Network, Search, Sparkles, Waypoints } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
@@ -48,10 +48,10 @@ export function HomeScreen() {
             href: "/therapy-compass/pathways",
           },
           {
-            title: "Create a patient sheet",
-            description: "Design and print a plain-language handout.",
-            icon: FileText,
-            href: `/therapy-compass/${THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug}/sheet`,
+            title: "Compare therapies",
+            description: "Compare clinical fit, cautions and delivery.",
+            icon: GitCompareArrows,
+            href: "/therapy-compass/compare",
           },
         ]}
         pillsTitle="Common therapy searches"

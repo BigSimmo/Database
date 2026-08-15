@@ -1,4 +1,5 @@
 import type { Therapy } from "./types";
+import { scoreTherapyCandidate } from "@/lib/therapy-ranking";
 
 // ---- text helpers -------------------------------------------------------
 
@@ -168,24 +169,6 @@ export function matchesAvailability(therapy: Therapy, reviewedOnly: boolean, bri
   return true;
 }
 
-function scoreTherapy(t: Therapy, q: string): number {
-  if (!q) return 1;
-  const name = lc(t.name);
-  const tags = t.tags.map(lc);
-  let score = 0;
-  if (name === q) score += 100;
-  if (name.startsWith(q)) score += 40;
-  if (name.includes(q)) score += 20;
-  if (t.aliases.some((a) => lc(a).includes(q))) score += 18;
-  if (tags.some((tag) => tag.includes(q))) score += 14;
-  if (lc(t.category).includes(q)) score += 8;
-  if (lc(t.bestUsedFor).includes(q)) score += 6;
-  if (lc(t.targetSymptoms).includes(q)) score += 5;
-  if (lc(t.clinicalSummary).includes(q)) score += 3;
-  if (lc(t.indications).includes(q)) score += 3;
-  return score;
-}
-
 export function searchTherapies(therapies: Therapy[], opts: SearchOptions): Therapy[] {
   const q = opts.query.trim().toLowerCase();
   const topics = new Set(opts.tags);
@@ -194,9 +177,9 @@ export function searchTherapies(therapies: Therapy[], opts: SearchOptions): Ther
       if (!matchesAvailability(t, opts.reviewedOnly, opts.briefOnly)) return false;
       if (opts.sheetOnly && !t.patientSheetAvailable) return false;
       if (!matchesTopics(t, topics)) return false;
-      return scoreTherapy(t, q) > 0;
+      return scoreTherapyCandidate(t, q, "catalogue") > 0;
     })
-    .map((t) => ({ t, s: scoreTherapy(t, q) }));
+    .map((t) => ({ t, s: scoreTherapyCandidate(t, q, "catalogue") }));
   scored.sort((a, b) => b.s - a.s || a.t.name.localeCompare(b.t.name));
   return scored.map((x) => x.t);
 }
@@ -279,7 +262,7 @@ export function rankRecommendations(
   const cons = RECOMMEND_CONSTRAINTS.filter((c) => constraintKeys.includes(c.key));
   const scored = therapies.map((t) => {
     let score = 0;
-    if (q) score += Math.min(scoreTherapy(t, q), 60);
+    if (q) score += Math.min(scoreTherapyCandidate(t, q, "catalogue"), 60);
     for (const c of cons) if (c.match(t)) score += 10;
     if (t.reviewStatus === "reviewed") score += 4;
     if (typeof t.indexCompleteness === "number") score += t.indexCompleteness / 100;

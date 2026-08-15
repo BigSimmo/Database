@@ -172,6 +172,8 @@ export type StyleEffectContract = {
   /** Human-readable name used in the test title. */
   readonly description: string;
   readonly route: string;
+  /** Optional viewport needed to make a responsive rule's target render. */
+  readonly viewport?: Readonly<{ width: number; height: number }>;
   /** Playwright selector for an element carrying `className`. */
   readonly selector: string;
   readonly bootstrap?: StyleContractSessionBootstrap;
@@ -250,10 +252,9 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
   {
     className: "mode-nav__rule",
     description: "mode nav overflow rule marks the page held in More",
-    // Brief Intervention is the seventh of Therapy's seven destinations, so it
-    // never gets a slot of its own at any band and More carries its rule at
-    // every width — including the default desktop viewport this spec runs at.
-    route: "/therapy-compass/acceptance-and-commitment-therapy-act/brief",
+    // Compare folds into More at Therapy's three-slot phone band.
+    route: "/therapy-compass/compare",
+    viewport: { width: 352, height: 844 },
     // Scoped through the collapse host: Next streams the server-rendered copy
     // while the client tree hydrates, so a bare testid can resolve to two navs.
     selector: '[data-testid="universal-header-collapse"] [data-testid="mode-nav"] .mode-nav__more .mode-nav__rule',
@@ -261,8 +262,7 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
     // with Tailwind's `bg-transparent`, and the unlayered rule here is what
     // paints it. Move that rule into a layer and it loses to the utility: the
     // element still has every class, still has its 2px box, and marks nothing —
-    // so on a phone five of Therapy's seven pages would silently stop saying
-    // where you are.
+    // so a folded page would silently stop saying where you are.
     computed: { height: "2px" },
     nonInert: ["backgroundColor"],
     colorToken: { property: "backgroundColor", token: "--clinical-accent" },
@@ -270,7 +270,8 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
   {
     className: "mode-nav__ink",
     description: "mode nav overflow ink takes heading weight when it holds the page",
-    route: "/therapy-compass/acceptance-and-commitment-therapy-act/brief",
+    route: "/therapy-compass/compare",
+    viewport: { width: 352, height: 844 },
     selector: '[data-testid="universal-header-collapse"] [data-testid="mode-nav"] .mode-nav__more .mode-nav__ink',
     // The other half of the mark, and a genuine cascade fight: SlotInk sets
     // `text-[color:var(--text-muted)]` for the off state, and this unlayered
@@ -381,10 +382,8 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   "mode-nav__more": "scoping ancestor only; the rules it scopes are contracted on mode-nav__rule and mode-nav__ink",
 
   // Therapy Compass residuals moved out of the deleted parallel stylesheet.
-  // Phone/print behaviour is pinned by therapy-compass-responsive-contract; no
+  // Phone behaviour is pinned by therapy-compass-responsive-contract; no
   // browser computed-effect contract yet (#094 / #183).
-  "therapy-compare-grid":
-    "CSS-var comparison columns — column count is set inline via --tc-compare-columns; layout covered by therapy-compass-responsive-contract",
   "therapy-pathway-list":
     "phone border swap (right→bottom) under max-width 640px — covered by therapy-compass-responsive-contract",
 };

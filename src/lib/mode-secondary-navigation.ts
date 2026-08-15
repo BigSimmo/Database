@@ -1,18 +1,11 @@
 import { appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
 export type ModeSecondaryNavigationEntry = {
   id: string;
   label: string;
   shortLabel?: string;
   href?: string;
-  action?:
-    | "search"
-    | "therapy-search"
-    | "therapy-recommend"
-    | "therapy-compare"
-    | "therapy-pathways"
-    | "therapy-brief"
-    | "therapy-sheets";
 };
 
 /**
@@ -57,18 +50,15 @@ export const modeSecondaryNavigationRegistry = {
   ],
   prescribing: [],
   tools: [],
-  // Inert: `PageSecondaryNavigation` early-returns on `/therapy-compass*`, and
-  // the mode's live destination list is `useTherapyNavItems` in
-  // `src/components/therapy-compass/nav.tsx`, which feeds the shared `ModeNav`.
-  // Kept because this registry is a 13-mode contract, not because it renders.
-  // Editing these entries changes nothing a user sees.
+  // Record-owned outputs (briefs and patient sheets) deliberately stay off the
+  // global mode bar: they require an explicitly selected therapy. This prevents
+  // a generic navigation action from silently opening an unrelated default
+  // record. The global/sidebar mode switch already owns Home.
   "therapy-compass": [
-    { id: "search", label: "Search", action: "therapy-search" },
-    { id: "recommend", label: "Recommend", action: "therapy-recommend" },
-    { id: "compare", label: "Compare", action: "therapy-compare" },
-    { id: "pathways", label: "Pathways", action: "therapy-pathways" },
-    { id: "brief", label: "Brief Intervention", action: "therapy-brief" },
-    { id: "sheets", label: "Patient Sheets", action: "therapy-sheets" },
+    { id: "search", label: "Search", href: "/therapy-compass/search" },
+    { id: "recommend", label: "Recommend", href: "/therapy-compass/recommend" },
+    { id: "compare", label: "Compare", href: "/therapy-compass/compare" },
+    { id: "pathways", label: "Pathways", href: "/therapy-compass/pathways" },
   ],
   // Two genuinely distinct surfaces: `/factsheets` is the browse home (category
   // chips + a featured grid) and `/factsheets/search` is a separate component
@@ -106,9 +96,8 @@ export type RoutedModeSecondaryNavigationId = Extract<RegistryEntry, { href: str
  * mode onto a different navigation surface. Adoption is a per-mode decision
  * with its own density evidence (`tests/ui-mode-nav-density.spec.ts`).
  *
- * `therapy-compass` is absent because it never reaches this registry:
- * `PageSecondaryNavigation` early-returns on `/therapy-compass*` and the mode
- * feeds `ModeNav` from `useTherapyNavItems` instead.
+ * Therapy uses the same registry as every other multi-route catalogue. Its
+ * record-owned brief and patient-sheet outputs are intentionally absent.
  */
 export const MODE_NAV_ADOPTED_MODES = [
   "dsm",
@@ -116,6 +105,7 @@ export const MODE_NAV_ADOPTED_MODES = [
   "formulation",
   "differentials",
   "factsheets",
+  "therapy-compass",
 ] as const satisfies readonly AppModeId[];
 
 export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
@@ -173,6 +163,13 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     // `/factsheets/<slug>` is a record. It cannot reach `ModeNav` today —
     // `hasLocalInformationPageNavigation` returns null for it first — but
     // without this branch it would inherit the mode's first entry.
+    return null;
+  }
+  if (modeId === "therapy-compass") {
+    if (pathname === "/therapy-compass/search") return "search";
+    if (pathname === "/therapy-compass/recommend") return "recommend";
+    if (pathname === "/therapy-compass/compare") return "compare";
+    if (pathname === "/therapy-compass/pathways") return "pathways";
     return null;
   }
   // Every mode with destinations has a branch above; the rest register none, so
@@ -251,6 +248,10 @@ export function modeSecondaryNavigationHref(params: {
 }): string {
   const { modeId, itemId, href, currentSearchParams } = params;
   const query = currentSearchParams.get("q") ?? currentSearchParams.get("query") ?? "";
+
+  if (modeId === "therapy-compass") {
+    return navigationHrefWithParams(href, therapyWorkspaceNavigationEntries(currentSearchParams));
+  }
 
   if (modeId === "differentials") {
     const entries: Array<readonly [string, string]> = query ? [["q", query]] : [];

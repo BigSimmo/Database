@@ -8,19 +8,21 @@ import {
   savedDifferentialsStorageKey,
   savedFormsStorageKey,
   savedServicesStorageKey,
+  savedTherapiesStorageKey,
   subscribeSavedRegistrySlugs,
   writeSavedRegistrySlugs,
 } from "@/lib/saved-registry-storage";
 
-export type FavouriteContentType = "service" | "form" | "differential";
+export type FavouriteContentType = "service" | "form" | "differential" | "therapy";
 
 type FavouritesByType = Record<FavouriteContentType, string[]>;
 
-const emptyFavourites: FavouritesByType = { service: [], form: [], differential: [] };
+const emptyFavourites: FavouritesByType = { service: [], form: [], differential: [], therapy: [] };
 const storageKeyByType = {
   service: savedServicesStorageKey,
   form: savedFormsStorageKey,
   differential: savedDifferentialsStorageKey,
+  therapy: savedTherapiesStorageKey,
 } satisfies Record<FavouriteContentType, string>;
 const demoAccountData = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
@@ -29,6 +31,7 @@ function readDemoFavourites(): FavouritesByType {
     service: readSavedRegistrySlugs(savedServicesStorageKey),
     form: readSavedRegistrySlugs(savedFormsStorageKey),
     differential: readSavedRegistrySlugs(savedDifferentialsStorageKey),
+    therapy: readSavedRegistrySlugs(savedTherapiesStorageKey),
   };
 }
 
@@ -53,13 +56,16 @@ const AccountDataContext = createContext<AccountDataContextValue | null>(null);
 
 function normalizedFavourites(value: unknown): FavouritesByType {
   const rows = Array.isArray(value) ? value : [];
-  const result: FavouritesByType = { service: [], form: [], differential: [] };
+  const result: FavouritesByType = { service: [], form: [], differential: [], therapy: [] };
   for (const row of rows) {
     if (!row || typeof row !== "object") continue;
     const contentType = (row as { contentType?: unknown }).contentType;
     const contentKey = (row as { contentKey?: unknown }).contentKey;
     if (
-      (contentType === "service" || contentType === "form" || contentType === "differential") &&
+      (contentType === "service" ||
+        contentType === "form" ||
+        contentType === "differential" ||
+        contentType === "therapy") &&
       typeof contentKey === "string" &&
       contentKey.trim()
     ) {

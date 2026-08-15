@@ -6,6 +6,7 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   ResultFilterFacetChips,
   ResultFilterSheet,
@@ -220,8 +221,8 @@ export function SearchScreen() {
               query={q}
               appliedFilters={appliedFilters}
               onClearFilters={b.clearSearchFilters}
-              // Query-only zero results otherwise have no filter chip, example,
-              // or cross-mode action. Restore a one-tap escape without relabeling
+              // Query-only zero results otherwise have no filter chip or example.
+              // Restore a one-tap escape without relabeling
               // a query reset as a filter operation.
               onClearSearch={b.clearSearch}
             />
@@ -234,6 +235,10 @@ export function SearchScreen() {
           )}
         </>
       )}
+
+      {!b.error && !b.loading ? (
+        <UniversalSearchAlsoMatches modeId="therapy-compass" query={q} className="mt-4" />
+      ) : null}
     </section>
   );
 }

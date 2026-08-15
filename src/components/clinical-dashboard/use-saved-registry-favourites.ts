@@ -11,6 +11,7 @@ import {
   type SavedFavouritesBandStatus,
 } from "@/components/clinical-dashboard/saved-registry-favourites-status";
 import type { ServiceRecord } from "@/lib/services";
+import { findTherapyRecord } from "@/lib/therapies";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 
 function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): FavouriteItem {
@@ -51,6 +52,7 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
   const savedServices = favourites.service;
   const savedForms = favourites.form;
   const savedDifferentials = favourites.differential;
+  const savedTherapies = favourites.therapy;
 
   const services = useRegistryRecords("service", { enabled: savedServices.length > 0, view: "search" });
   const forms = useRegistryRecords("form", { enabled: savedForms.length > 0, view: "search" });
@@ -80,8 +82,29 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
       icon: BrainCircuit,
       keywords: slug.replaceAll("-", " "),
     }));
-    return [...serviceItems, ...formItems, ...differentialItems];
-  }, [services.records, forms.records, savedServices, savedForms, savedDifferentials]);
+    const therapyItems: FavouriteItem[] = savedTherapies.flatMap((slug) => {
+      const therapy = findTherapyRecord(slug);
+      if (!therapy) return [];
+      return [
+        {
+          id: `therapies:${therapy.slug}`,
+          title: therapy.name,
+          type: "therapies",
+          set: "Saved therapies",
+          meta: therapy.bestUsedFor ?? therapy.category ?? "Saved therapy record",
+          sourceMeta: therapy.reviewStatus === "reviewed" ? "Reviewed therapy" : "Source review required",
+          primaryAction: "Open",
+          href: `/therapy-compass/${therapy.slug}`,
+          icon: appModeIcons["therapy-compass"],
+          keywords: [therapy.name, therapy.category, therapy.modality, ...therapy.tags]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase(),
+        } satisfies FavouriteItem,
+      ];
+    });
+    return [...serviceItems, ...formItems, ...differentialItems, ...therapyItems];
+  }, [services.records, forms.records, savedServices, savedForms, savedDifferentials, savedTherapies]);
 
   // Only a registry that was actually requested can report a fault: a disabled
   // hook sits in its initial state forever and must not be read as a failure.

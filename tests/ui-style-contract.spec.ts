@@ -23,6 +23,7 @@ test.describe("unlayered style rules render their effect", () => {
 
   for (const contract of STYLE_EFFECT_CONTRACTS) {
     test(contract.description, async ({ page }) => {
+      if (contract.viewport) await page.setViewportSize(contract.viewport);
       if (contract.bootstrap?.sessionStorage?.length) {
         await page.addInitScript(
           ({ sessionStorage }) => {

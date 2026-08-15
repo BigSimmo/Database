@@ -31,6 +31,7 @@ export type AppModeSearchKind =
   | "dsm"
   | "specifiers"
   | "formulation"
+  | "therapies"
   | "tools";
 export type AppModeResultKind = AppModeSearchKind;
 
@@ -345,10 +346,7 @@ export const appModeDefinitions = [
     // qualified-clinician sign-off, so Therapy is now a first-class mode in the
     // production sidebar and MODE dropdown (no longer devOnly-gated).
     search: {
-      // Therapy owns its in-tool search over the imported therapy library (not
-      // the document corpus), so the shared composer borrows the benign "tools"
-      // command behavior while routing into Therapy's dedicated search page.
-      kind: "tools",
+      kind: "therapies",
       // The longer phrase became the late portal's LCP element on Therapy Home.
       // Keep the full search scope in the accessible name below; the concise
       // visible prompt lets the already-painted hero remain the LCP owner.
@@ -360,7 +358,7 @@ export const appModeDefinitions = [
       emptyTitle: "Browse the therapy library",
       readyTitle: "Search source-grounded therapies",
       progressLabel: "Loading the therapy library.",
-      resultKind: "tools",
+      resultKind: "therapies",
       resultHeading: "Therapies",
       resultsSurface: "results-band",
       statusLabel: "Therapy",
@@ -448,7 +446,13 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
 
     const suffix = namespacedParams.toString();
     const namespacedHref =
-      query && modeId === "dsm" ? "/dsm/search" : query && modeId === "factsheets" ? "/factsheets/search" : mode.href;
+      query && modeId === "dsm"
+        ? "/dsm/search"
+        : query && modeId === "factsheets"
+          ? "/factsheets/search"
+          : query && modeId === "therapy-compass"
+            ? "/therapy-compass/search"
+            : mode.href;
     return suffix ? `${namespacedHref}?${suffix}` : namespacedHref;
   }
 
@@ -523,6 +527,7 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
     kind === "dsm" ||
     kind === "specifiers" ||
     kind === "formulation" ||
+    kind === "therapies" ||
     kind === "tools"
   );
 }
