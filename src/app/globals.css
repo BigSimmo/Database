@@ -2656,16 +2656,6 @@ summary::-webkit-details-marker {
   pointer-events: none;
 }
 
-/* Mode homes keep their phone composer in the hero rather than in the bottom
-   dock. In that ownership model the install sheet belongs at the safe bottom
-   edge; keeping the dock reserve would lift it over the in-flow composer. */
-@media (max-width: 639.98px) {
-  body:has([data-phone-footer-owner="hero"]) .pwa-notice-stack,
-  body:has(form[data-composer-placement="desktop-home"]) .pwa-notice-stack {
-    --pwa-notice-bottom-gap: max(0.75rem, var(--safe-area-bottom));
-  }
-}
-
 /* A 320px mode home cannot show the full install proposition and its complete
    centred empty-state introduction without covering the search composer. While
    the transient install sheet is present, keep the real composer visible in
@@ -2924,13 +2914,6 @@ summary::-webkit-details-marker {
 @media (display-mode: standalone) {
   .pwa-notice-stack {
     --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
-  }
-}
-
-@media (display-mode: standalone) and (max-width: 639.98px) {
-  body:has([data-phone-footer-owner="hero"]) .pwa-notice-stack,
-  body:has(form[data-composer-placement="desktop-home"]) .pwa-notice-stack {
-    --pwa-notice-bottom-gap: max(0.75rem, var(--safe-area-bottom));
   }
 }
 
