@@ -4,17 +4,17 @@ This repo uses one shared search experience across the global shell, dashboard r
 
 ## Page ownership model
 
-| Page state                                       | Composer placement                                                          | Reserve owner                                                                  |
-| ------------------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Answer home / standalone mode homes              | In-flow hero composer on phones and larger breakpoints                      | Page content; no fixed phone dock reserve                                      |
-| Tools directory (`/tools`, no submitted query)   | In-flow composer above the all-tools results directory                      | Page content; no fixed phone dock reserve                                      |
-| Submitted/search-result views                    | Compact bottom dock on phones; in normal page flow on tablets and desktops  | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
-| Answer result view                               | Overlaid glass header plus answer composer dock                             | Dashboard `#main-content` top/bottom reserves                                  |
-| Document detail/source routes                    | `DocumentViewer` floating composer                                          | `DocumentViewer` content padding                                               |
-| Document section navigation                      | Header row disclosure (phone sheet) + rail index card at `lg`               | None — adds no chrome and no reserve                                           |
-| Record page breadcrumb header                    | Same header row without the disclosure or track; view mode inline from `sm` | None — portals into the phone collapse row, sticky at `sm+`                    |
-| Calculators (`/calculators`)                     | In-flow hero composer at home; shared compact dock after submission         | Page content at home; shell reserve for submitted results                      |
-| Info/detail pages with no composer               | No fixed composer                                                           | Idle shell padding only                                                        |
+| Page state                                     | Composer placement                                                          | Reserve owner                                                                  |
+| ---------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Answer home / standalone mode homes            | In-flow hero composer on phones and larger breakpoints                      | Page content; no fixed phone dock reserve                                      |
+| Tools directory (`/tools`, no submitted query) | In-flow composer above the all-tools results directory                      | Page content; no fixed phone dock reserve                                      |
+| Submitted/search-result views                  | Compact bottom dock on phones; in normal page flow on tablets and desktops  | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
+| Answer result view                             | Overlaid glass header plus answer composer dock                             | Dashboard `#main-content` top/bottom reserves                                  |
+| Document detail/source routes                  | `DocumentViewer` floating composer                                          | `DocumentViewer` content padding                                               |
+| Document section navigation                    | Header row disclosure (phone sheet) + rail index card at `lg`               | None — adds no chrome and no reserve                                           |
+| Record page breadcrumb header                  | Same header row without the disclosure or track; view mode inline from `sm` | None — portals into the phone collapse row, sticky at `sm+`                    |
+| Calculators (`/calculators`)                   | In-flow hero composer at home; shared compact dock after submission         | Page content at home; shell reserve for submitted results                      |
+| Info/detail pages with no composer             | No fixed composer                                                           | Idle shell padding only                                                        |
 
 ## Default in-page navigation template
 
