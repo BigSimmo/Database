@@ -211,10 +211,7 @@ describe("signal row shape contracts", () => {
     // `Number("0.74")` is 0.74 and `Number("high")` is NaN — neither fails today, and both
     // reach the ranking pool as a score nobody computed.
     expect(() =>
-      assertEmbeddingFieldRows(
-        [embeddingFieldRow({ hybrid_score: "0.68" })],
-        "match_document_embedding_fields_hybrid",
-      ),
+      assertEmbeddingFieldRows([embeddingFieldRow({ hybrid_score: "0.68" })], "match_document_embedding_fields_hybrid"),
     ).toThrow(RetrievalRowShapeError);
     expect(() =>
       assertIndexUnitRows([indexUnitRow({ similarity: "0.81" })], "match_document_index_units_hybrid"),
