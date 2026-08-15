@@ -57,6 +57,12 @@ function describeMarker(marker: string) {
   return collapsed.length > 60 ? `${collapsed.slice(0, 57)}…` : collapsed;
 }
 
+function requireNonEmptyMarker(marker: string, kind: "start" | "end", context: string) {
+  if (marker.length === 0) {
+    throw new Error(`${context}${kind} marker must not be empty`);
+  }
+}
+
 /**
  * Slice the window between `startMarker` and the first `endMarker` after it.
  *
@@ -70,13 +76,15 @@ export function sourceSegment(
   options: SourceSegmentOptions = {},
 ): string {
   const context = options.label ? `${options.label}: ` : "";
+  requireNonEmptyMarker(startMarker, "start", context);
+  requireNonEmptyMarker(endMarker, "end", context);
   const start = contents.indexOf(startMarker);
   if (start < 0) {
     throw new Error(`${context}start marker not found: "${describeMarker(startMarker)}"`);
   }
 
   if (!options.allowRepeatedStart) {
-    const second = contents.indexOf(startMarker, start + startMarker.length);
+    const second = contents.indexOf(startMarker, start + 1);
     if (second >= 0) {
       throw new Error(
         `${context}start marker "${describeMarker(startMarker)}" occurs more than once, so this window covers only ` +
@@ -103,12 +111,13 @@ export function sourceSegment(
  */
 export function sourceFrom(contents: string, startMarker: string, options: SourceSegmentOptions = {}): string {
   const context = options.label ? `${options.label}: ` : "";
+  requireNonEmptyMarker(startMarker, "start", context);
   const start = contents.indexOf(startMarker);
   if (start < 0) {
     throw new Error(`${context}start marker not found: "${describeMarker(startMarker)}"`);
   }
   if (!options.allowRepeatedStart) {
-    const second = contents.indexOf(startMarker, start + startMarker.length);
+    const second = contents.indexOf(startMarker, start + 1);
     if (second >= 0) {
       throw new Error(
         `${context}start marker "${describeMarker(startMarker)}" occurs more than once; anchor on something unique ` +

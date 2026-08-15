@@ -34,6 +34,15 @@ describe("sourceSegment", () => {
     expect(sourceSegment(twice, "render(<Panel />);", "const y", { allowRepeatedStart: true })).toContain("const x");
   });
 
+  it("rejects overlapping repeated start markers", () => {
+    expect(() => sourceSegment("aaa END", "aa", " END")).toThrow(/occurs more than once/);
+  });
+
+  it("rejects an empty marker instead of returning a misleading window", () => {
+    expect(() => sourceSegment(file, "function target()", "")).toThrow(/end marker must not be empty/);
+    expect(() => sourceSegment(file, "", "const after")).toThrow(/start marker must not be empty/);
+  });
+
   it("names the contract in the failure when a label is given", () => {
     expect(() => sourceSegment(file, "function missing()", "const after", { label: "mode menu focus" })).toThrow(
       /^mode menu focus: start marker not found/,
@@ -45,5 +54,10 @@ describe("sourceFrom", () => {
   it("runs to end of file and still guards the start marker", () => {
     expect(sourceFrom(file, "function target()")).toContain("const after = 2;");
     expect(() => sourceFrom(file, "function missing()")).toThrow(/start marker not found/);
+  });
+
+  it("rejects overlapping and empty start markers", () => {
+    expect(() => sourceFrom("aaa END", "aa")).toThrow(/occurs more than once/);
+    expect(() => sourceFrom(file, "")).toThrow(/start marker must not be empty/);
   });
 });
