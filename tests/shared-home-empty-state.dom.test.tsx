@@ -67,6 +67,11 @@ const expectedPresentations = [
     iconClass: "lucide-wrench",
   },
   {
+    modeId: "calculators",
+    title: "Clinical Calculators",
+    iconClass: "lucide-calculator",
+  },
+  {
     modeId: "therapy-compass",
     title: "Therapy Compass",
     iconClass: "lucide-compass",

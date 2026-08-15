@@ -32,6 +32,7 @@ import {
   commandDropdownCanDisplay,
   commandDropdownMinimumWidthMediaQuery,
   commandDropdownPointerMediaQuery,
+  commandSurfaceRemoteSearchEnabled,
   differentialRedFlagTerms,
   filteredSuggestions,
   isFormCodeQuery,
@@ -441,7 +442,7 @@ export function UniversalSearchCommandSurface({
   dropdownOpen: boolean;
   onDropdownOpenChange: (open: boolean) => void;
   onQueryChange: (query: string) => void;
-  onSearch: () => void;
+  onSearch: (query?: string) => void;
   onPickRecent: (query: string) => void;
   onCrossMode: (modeId: AppModeId, query: string) => void;
   onRunModeAction?: (actionId: ModeActionId) => void;
@@ -489,7 +490,7 @@ export function UniversalSearchCommandSurface({
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
     query: trimmedQuery,
-    enabled: dropdownOpen && dropdownDisplayable && Boolean(config),
+    enabled: dropdownOpen && dropdownDisplayable && commandSurfaceRemoteSearchEnabled(modeId),
     contextMode: modeId,
   });
   const savedRegistryFavourites = useSavedRegistryFavourites().items;
@@ -697,7 +698,7 @@ export function UniversalSearchCommandSurface({
             onSelect: () => {
               onDropdownOpenChange(false);
               onQueryChange(suggestion.text);
-              onSearch();
+              onSearch(suggestion.text);
             },
             render: (active) => (
               <OptionShell active={active} hint="Search">
