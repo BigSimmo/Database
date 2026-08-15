@@ -6,10 +6,7 @@ import {
   assertRetrievalRows,
   buildDocumentSummaryResults,
 } from "@/lib/rag/rag-row-contracts";
-import {
-  searchEmbeddingFieldCandidates,
-  searchIndexUnitCandidates,
-} from "@/lib/rag/rag-candidate-sources";
+import { searchEmbeddingFieldCandidates, searchIndexUnitCandidates } from "@/lib/rag/rag-candidate-sources";
 
 vi.mock("@/lib/logger", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
