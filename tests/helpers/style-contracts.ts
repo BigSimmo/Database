@@ -377,15 +377,13 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // component effects are not yet individually asserted by the general
   // computed-style journey.
   "pwa-action-primary": "PWA primary action — target geometry covered by ui-pwa; effect not contracted yet (#094)",
-  "pwa-action-secondary":
-    "PWA secondary action — target geometry covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-action-secondary": "PWA secondary action — target geometry covered by ui-pwa; effect not contracted yet (#094)",
   "pwa-connection-restored": "PWA connectivity-recovery notice — no deterministic effect contract yet (#094)",
   "pwa-install-benefits":
     "PWA benefit list — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
   "pwa-install-body": "PWA install body — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
   "pwa-install-copy": "PWA install copy — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
-  "pwa-install-dismiss":
-    "PWA install dismissal — target geometry covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-install-dismiss": "PWA install dismissal — target geometry covered by ui-pwa; effect not contracted yet (#094)",
   "pwa-install-grip":
     "PWA phone-sheet grip — responsive sheet journey covered by ui-pwa; effect not contracted yet (#094)",
   "pwa-install-header":
