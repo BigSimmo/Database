@@ -120,12 +120,12 @@ describe("issues report", () => {
       "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome, gate, verification, and stopping condition |",
       "| ----: | ---- | ---- | ---- | ---- | ---- | ---- |",
       "| 1 | `#001` | A1 | Operator | Now | 1 hour | Live action |",
-      "| 2 | `#002` | A2 | Standard | Next | 30 min | Offline guard |",
+      "| 2 | `#ABCDEF` | A2 | Standard | Next | 30 min | Offline guard |",
       "## Open items",
       "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
       "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
       "| #001 | P1 | task | urgent | detail | src | 2026-01-01 |",
-      "| #002 | P2 | task | safe | detail | src | 2026-01-01 |",
+      "| #ABCDEF <!-- issue-ulid:0000000000ABCDEF0000000000 --> | P2 | task | safe | detail | src | 2026-01-01 |",
       "## Resolved / archive",
       "| ID | Type | Summary | Outcome | Resolved |",
       "| ---- | ---- | ---- | ---- | ---- |",
@@ -134,7 +134,8 @@ describe("issues report", () => {
     const report = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true });
     expect(report.counts).toEqual({ open: 2, recommended: 2 });
     expect(report.priorityBlockers[0].ids).toEqual(["#001"]);
-    expect(report.agentSafeWins.map((row: { ids: string[] }) => row.ids[0])).toEqual(["#002"]);
+    expect(report.agentSafeWins.map((row: { ids: string[] }) => row.ids[0])).toEqual(["#ABCDEF"]);
+    expect(report.open[1].id).toBe("#ABCDEF");
     expect(report.open[0].added).toBe("2026-01-01");
   });
 
