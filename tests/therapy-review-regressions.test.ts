@@ -28,6 +28,18 @@ describe("Therapy review regression contracts", () => {
       .toBeLessThan(workspace.indexOf("if (b.loading && b.therapies.length === 0)"));
   });
 
+  it("keeps Therapy unavailable in production until clinical review is complete", () => {
+    const layout = source("src/app/(search-app)/therapy-compass/layout.tsx");
+    const modes = source("src/lib/app-modes.ts");
+    const therapies = source("src/lib/therapies.ts");
+
+    expect(layout).toContain('isAppModeVisible("therapy-compass", "production")');
+    expect(layout).toContain("notFound()");
+    expect(modes).toMatch(/id: "therapy-compass"[\s\S]*?devOnly: true/);
+    expect(therapies).toContain('environment === "production"');
+    expect(therapies).toContain("therapyNeedsReview(record)");
+  });
+
   it("adds the favourites check without validating existing rows in the same migration", () => {
     const addConstraint = source("supabase/migrations/20260814150000_add_therapy_favourites.sql");
     const validateConstraint = source(
@@ -39,5 +51,7 @@ describe("Therapy review regression contracts", () => {
     expect(validateConstraint.toLowerCase()).toContain(
       "validate constraint user_favourites_content_type_check",
     );
+    expect(validateConstraint.toLowerCase()).not.toContain("drop constraint");
+    expect(validateConstraint.toLowerCase()).not.toContain("add constraint");
   });
 });

@@ -67,13 +67,13 @@ describe("Therapy favourite feedback", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Save failed. Try again.");
   });
 
-  it("coalesces rapid save clicks while a favourite mutation is pending", async () => {
+  it("preserves the final intent across rapid opposite favourite toggles", async () => {
     accountState.authenticated = true;
-    let resolveMutation!: (value: boolean) => void;
+    const pending: Array<{ saved: boolean; resolve: (value: boolean) => void }> = [];
     accountState.setFavourite.mockImplementation(
-      () =>
+      (_kind, _slug, saved) =>
         new Promise<boolean>((resolve) => {
-          resolveMutation = resolve;
+          pending.push({ saved, resolve });
         }),
     );
     render(<ResultCard therapy={therapy} />);
@@ -82,8 +82,11 @@ describe("Therapy favourite feedback", () => {
     fireEvent.click(saveButton);
     fireEvent.click(saveButton);
 
-    expect(accountState.setFavourite).toHaveBeenCalledTimes(1);
-    await act(async () => resolveMutation(true));
-    expect(await screen.findByRole("status")).toHaveTextContent("Therapy saved.");
+    expect(accountState.setFavourite).toHaveBeenCalledTimes(2);
+    expect(pending.map((mutation) => mutation.saved)).toEqual([true, false]);
+
+    await act(async () => pending[0]?.resolve(true));
+    await act(async () => pending[1]?.resolve(true));
+    expect(await screen.findByRole("status")).toHaveTextContent("Therapy removed from saved items.");
   });
 });
