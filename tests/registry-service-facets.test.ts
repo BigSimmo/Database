@@ -23,9 +23,10 @@ describe("registry service facet payloads", () => {
       const restored = rowToServiceRecord(row as RegistryRecordRow);
 
       expect(row.catalog_payload).toEqual(record.catalogPayload);
-      for (const dimension of tagDimensions) {
-        expect(serviceCatalogTags(restored)[dimension]).toEqual(serviceCatalogTags(record)[dimension]);
-      }
+      // Compare with the raw fixture payload rather than parsing both sides
+      // through the same helper, which could let a parser regression agree
+      // with itself.
+      expect(serviceCatalogTags(restored)).toEqual(record.catalogPayload?.tags);
     }
   });
 
