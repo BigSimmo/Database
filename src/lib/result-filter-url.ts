@@ -1,8 +1,7 @@
 type ReadableSearchParams = Pick<URLSearchParams, "get">;
 
 function normalizeValues(values: Iterable<string>, allowedValues: ReadonlySet<string>): string[] {
-  return [...new Set(values)]
-    .map((value) => value.trim())
+  return [...new Set([...values].map((value) => value.trim()))]
     .filter((value) => value.length > 0 && allowedValues.has(value))
     .sort((left, right) => left.localeCompare(right));
 }
