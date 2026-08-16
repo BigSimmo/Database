@@ -1,192 +1,148 @@
 # The filter contract
 
-One filter surface, shared by every mode. This is the rule set; the component is
-`src/components/clinical-dashboard/result-filter-control.tsx`.
+Every searchable catalogue uses the typed filter system in
+`src/components/clinical-dashboard/result-filter-control.tsx`. A mode declares the meaning of
+its refinements and supplies one predicate; the shared system owns responsive presentation,
+selection semantics, applied-state visibility and the result action.
 
-It exists because an audit of all ten filter surfaces in 2026-08 found the same dimension
-rendered three different ways, two modes whose "filter" discarded the search instead of
-narrowing it, and a mode whose footer counted items its filters did not govern. The fix is not a
-restyle — it is agreeing on what a filter group _means_ before deciding how it looks.
+## Responsive anatomy
 
-## 1. A mode declares semantics, never a layout
+- `ResultFilterTrigger` is pinned in `SearchResultsHeaderBand`, carries the active-refinement
+  count and is available at every supported width.
+- `ResultFilterSheet` is a bottom sheet on phones and a restrained right drawer from `sm` up.
+  It owns the dialog label, focus trap and restoration, sticky header/footer, safe-area inset,
+  reduced-motion behavior and 48 px phone / 40 px desktop action targets.
+- The visible order is coverage, optional `Search in` scope, optional dense-filter search,
+  groups, polite result summary, one primary result action, then an optional secondary reach
+  action.
+- More than three facet groups or more than twenty facet options enables dense mode: a
+  find-a-filter field and collapse-by-default groups. Selected options remain reachable while
+  searching.
+- Callers use typed `summary`, `coverage`, `scope`, `secondaryAction` and
+  `applicationMode`. Arbitrary caller-owned footer, meter and scope markup is not supported.
 
-`ResultFilterGroup` is discriminated by `kind`. The mode says what the dimension is; the
-component decides the renderer. No call site picks chips, rows or a segmented control.
+## Semantics
 
-| Kind             | Meaning                                                         | Selection                         | Built with                 |
-| ---------------- | --------------------------------------------------------------- | --------------------------------- | -------------------------- |
-| `lens` (default) | The options **partition** the result set; exactly one is active | one-of-N                          | `resultFilterGroup()`      |
-| `facet`          | Independent constraints that accumulate                         | many-of-N, OR within / AND across | `resultFilterFacetGroup()` |
+| Kind  | Meaning                                          | Selection                         | Component builder                     |
+| ----- | ------------------------------------------------ | --------------------------------- | ------------------------------------- |
+| Lens  | A one-of-N partition of the same result universe | exactly one                       | `resultFilterGroup()`                 |
+| Facet | Values that may accumulate                       | many-of-N                         | `resultFilterFacetGroup()`            |
+| Scope | Which result universe is searched                | exactly one, separate from groups | `ResultFilterScopeSelector` / `scope` |
 
-`kind` is optional and defaults to `lens`, because that is what all seven existing call sites
-are. Adding the facet kind changed no rendered output.
+Facets use OR within a group and AND across groups. Visual `optionSections` may organise a long
+facet but never create additional AND groups. Formulation domains are the reference case: four
+visual sections, one OR predicate.
 
-**Which is which is a question about the data, not the UI.** Differentials'
-All / Presentations / Diagnoses is a lens: a result cannot be both. Formulation's twelve domains
-are facets: a mechanism routinely carries four. Rendering facets as radios — which formulation
-does today — tells the reader they cannot hold two domains at once, which is false.
+Sort, display density, grouping, comparison state, suggested searches and Recently used views
+are not filters. They do not increment the badge or appear on the applied-filter shelf. A
+query-replacing suggestion is never placed in the filter panel. Answer has no artificial filter.
 
-### There is no `navigate` kind, and that is the point
+Lens groups expose radio semantics with roving tab focus and Arrow/Home/End selection. Facets
+expose individually reachable pressed controls. Selected state always includes an icon and text;
+colour or opacity is never the only channel.
 
-Services' quick filters do not filter. They call `router.push` and **replace the query**, so
-choosing one discards the search and its results with no warning and no undo. A control labelled
-"Filter" must not do that. Query-replacing presets belong beside the composer as suggested
-searches (`AnswerSuggestionChips`), not inside the filter sheet.
+## Scope
 
-Factsheets' category dimension is not this pattern, despite an earlier draft of this section
-grouping it with services' quick filters: `filterFactsheets(query, category)` ANDs the two, so
-selecting a category narrows within the current search and preserves `q` — it is a real `lens`
-(one-of-N, exactly the shape this section describes above), not a query-replacing preset. Its
-actual defect was the one section 2 names next: the desktop rail used raw `<Link>` chips while
-the phone sheet correctly used `resultFilterGroup`, so the two breakpoints disagreed on
-component even though they agreed on values. Converged, not evicted — see the Rollout section.
+`Search in` is used only when a mode can meaningfully widen beyond the current query result set.
+It is rendered as quiet, labelled radio cards with truthful counts and descriptions, not as a
+generic segmented toggle. A non-default scope is an active refinement.
 
-Until a mode has real facets, it is better for its filter trigger to be absent than to open a
-sheet that throws the query away.
+Current scoped modes are Services, Differential stream workspaces, Specifiers and Medication.
+Documents has retrieval scope in the same panel but keeps **Browse all sources** as a separate,
+query-preserving reach action rather than presenting corpus browsing as a refinement.
 
-## 2. Accessibility follows from the kind
+An explicit scope is respected even when it yields zero results. Specifiers may choose its
+default from available guide matches only when the URL does not specify a scope.
 
-|            | `lens`                          | `facet`        |
-| ---------- | ------------------------------- | -------------- |
-| Container  | `role="radiogroup"`             | `role="group"` |
-| Option     | `role="radio"` + `aria-checked` | `aria-pressed` |
-| Tab stops  | one per group, roving tabindex  | one per option |
-| Arrow keys | move **and select**             | not bound      |
+## Counts and dead ends
 
-The single tab stop is correct for a lens precisely because arrowing _replaces_ the selection.
-It would be wrong for a facet, where arrowing would silently accumulate constraints the reader
-never asked for, and where every toggle must be individually reachable.
+Options and counts must come from the same predicate as the visible list. A projected facet count
+answers “how many would be visible if I selected this too?”; adding another value to a facet group
+therefore widens that group while the other groups remain applied.
 
-Both breakpoints use the same contract. The per-mode desktop chip rails that use `aria-pressed`
-for one-of-N dimensions are wrong and are replaced as each mode adopts.
+Derive stable options from catalogue data. If another active refinement makes an option a dead
+end, retain it as a focusable, dashed, muted control with `aria-disabled` and an explanation.
+Selected values always remain removable, including at zero results. Do not hide a selected value
+or disable it natively.
 
-## 3. Counts, and the rule that makes them safe
+The footer summary counts only the rows governed by the panel. Documents additionally reports
+`visible of retrieved matches`; it never compares local refinements with the whole corpus.
+Faulted or untrusted catalogue reads must not assert a trustworthy count.
 
-A count goes in `option.hint` and answers **"how many would I have if I ticked this as well?"** —
-the same predicate as the filter. Under OR-within-group, adding an option to an already-selected
-group _widens_, so a count derived by narrowing the current subset would disagree with what the
-click actually does. `projectSmartTagFacetGroups` in `src/lib/document-tags.ts` is the reference
-implementation.
+## Applied state and actions
 
-That contract has one failure mode: an option that matches nothing reports the unchanged total
-rather than zero, so an empty option looks identical to a full one. The companion rule removes
-the failure rather than patching it:
+Every hidden or multi-dimensional refinement is represented in the labelled `Filtered by` shelf.
+`AppliedFilterChip` separates:
 
-> **Derive the option list from the data. Never declare it.**
+- `valueLabel`, compact enough for phones;
+- `groupLabel`, restored on larger screens (for example `Risk: High`);
+- `accessibleLabel`, the complete assistive label when the visible forms are not sufficient.
 
-Formulation declares twelve domains; three of them — Biological, Social and Cultural — match
-none of the twelve mechanisms, so the sheet offers three controls that can never return anything.
-Documents derives its facets from the current match set, so a zero-member facet cannot exist.
-Derive, and the union count is always safe.
+The shelf remains visible during loading and zero-result recovery. The actions are deliberately
+distinct:
 
-A zero **as a consequence of the current selection** is legitimate and must stay visible: dashed
-border, muted pair, `aria-disabled`, click guarded, still focusable, with an `sr-only` reason.
-Never `opacity` — it multiplies against an already-muted foreground and does not survive
-forced-colors, where border-style is preserved. A reader who has narrowed to nothing needs to see
-which choice did it.
+- **Remove** clears one value.
+- **Reset filters** clears filter-owned state only.
+- **Clear search** clears the query.
+- **Browse all** widens reach while preserving the query.
 
-## 4. Scope is conditional, and most modes do not get it
+Reset never clears `q`, comparison `ids`, group navigation or focus intent unless a mode-specific
+contract explicitly owns that parameter.
 
-Where a mode has a catalogue meaningfully larger than the current result set, the sheet offers a
-scope segment — `These results N | All items N`, counts on both — built from the shared
-`SegmentedControl` (`src/components/ui/segmented-control.tsx`), which already has the roving
-tabindex and radio semantics. `ResultFilterSheet` reserves the slot (`scopeControl`) but does not
-build the segment itself: "meaningfully larger" and what the two counts mean are per-mode
-judgements the shared renderer cannot make. Services is the first mode to use it — see
-`services-navigator-page.tsx`: the segment is gated on the catalogue exceeding the query/group
-scoped result set (not the facet-narrowed one, so the segment does not flicker away as facets are
-applied), and both counts reflect the current facet/lens selection.
+## Live and staged application
 
-It earns its place because it is the only escape from a filtered-to-zero state that does not
-discard the query: the commit becomes "Show N in all items" instead of a dead end.
+Local catalogues apply filters live. Their footer action closes the panel while announcing the
+current result count.
 
-**Render it only when the catalogue is meaningfully larger than the result set.** Otherwise the
-two segments show the same number and the row is noise.
+Documents uses `applicationMode="staged"`:
 
-| Gets scope                                                              | Does not                                            |
-| ----------------------------------------------------------------------- | --------------------------------------------------- |
-| services (219), medication (328), differentials (232), specifiers (585) | factsheets (8), applications (13), formulation (12) |
+1. Opening the panel snapshots committed retrieval and local facet state into a draft.
+2. Dismissing the sheet discards the draft.
+3. **Update search** commits all draft changes together.
+4. Retrieval/source changes schedule at most one retrieval with the committed scope.
+5. Result type and local smart-tag-only changes commit without refetching.
 
-Documents is deliberately excluded: it already answers this with a `N of M documents shown` meter
-and a "Browse all sources" action framed as _reach, not refinement_. That is a better fit for a
-corpus of that size, and it stays.
+Internal import batch IDs and mode-default label-type constraints are preserved through the merge
+but are not clinician-facing options.
 
-## 5. Density is a function of option count
+## URL contract
 
-Facet groups only. Two states, not three: the shared renderer uses the same threshold for its
-find-a-filter field and collapse-by-default disclosures.
+Stable catalogue filters use `src/lib/result-filter-url.ts`:
 
-| Options                     | Renderer                                                                                 |
-| --------------------------- | ---------------------------------------------------------------------------------------- |
-| ≤ 3 groups and ≤ 20 options | chips, single row where they fit (unchanged from before this section)                    |
-| > 3 groups, or > 20 options | chips plus find-a-filter and collapse-by-default, every group behind a disclosure header |
+- multi-value parameters are comma-separated, deduplicated and sorted;
+- defaults and empty selections are omitted;
+- invalid values are ignored;
+- unrelated parameters such as `q`, `ids`, `focus` and document `scope.*` state are preserved;
+- repeated filter changes use replacement navigation so Back history is not polluted;
+- Back/Forward hydration reads from the URL rather than from a second local copy.
 
-`ResultFilterSheet` computes the threshold once across all facet groups. The option-count limb
-catches a small number of very large groups, while the group-count limb covers services' five
-facet groups. Below the threshold every group renders as before.
+Calculator progress and private/session-derived favourites state remain local. A mode must not
+persist patient-profile or private clinical state in catalogue filter URLs.
 
-Collapse rules, when they apply: groups start collapsed; a group holding a selection opens
-itself; an explicit user collapse beats that; an active needle forces every matched group open
-and owns openness. A selected option always survives the needle, so an active constraint can
-never become unreachable. A group whose options are all filtered out by the needle disappears
-rather than showing an empty heading.
+## Mode matrix
 
-## 6. Invariants
+| Mode                              | Filter contract                                                                                                                                                                                                   |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Documents                         | Staged selected-source and retrieval governance/locality controls, advanced clinical labels, result type and smart-tag facets; `resultType`/`facet` plus existing `scope.*`; query-preserving Browse all sources. |
+| Services                          | Search in Current results / All services; Program type, catchment, age group, setting, acuity and housing; existing URL keys; no query-replacing suggestion rail.                                                 |
+| Forms                             | Category, clinical risk and availability facets; `category`, `risk`, `availability`. Exact code matching, grouping and access behavior stay outside the filter predicate.                                         |
+| Differentials                     | Combined All / Presentations / Diagnoses lens; stream scope, urgency, presentation/chapter and related-only refinements; grouping is a view control.                                                              |
+| DSM Diagnosis                     | Category facets plus independent Has specifiers / Has differential guidance; comma-separated legacy-compatible `category` and `support`; comparison IDs preserved.                                                |
+| Specifiers                        | Clinical guides / Full catalogue scope; guide Family/Diagnosis lenses; catalogue Category and Source-verified facets; filter before the progressive display limit.                                                |
+| Formulation                       | One Domain OR facet organised into four visual sections; `domain`; pattern suggestions remain outside filters.                                                                                                    |
+| Medication                        | Best matches / All medications scope, Match quality lens, Drug class facet and one Safety/Monitoring OR signal facet; patient safety presentation and ranking remain independent.                                 |
+| Calculators / Therapy             | Existing predicates with typed summaries and the shared adaptive panel.                                                                                                                                           |
+| Factsheets / Tools / Applications | Compact category lenses driven by one counted option source.                                                                                                                                                      |
+| Favourites                        | Local Set and Type facets plus independent Pinned and Source-backed refinements; Recently used is a view/sort choice.                                                                                             |
+| Answer                            | No narrowing dimension, therefore no filter control.                                                                                                                                                              |
 
-- **`footerNote` counts what the filters actually govern.** Specifiers currently reports
-  `results.length + catalogueMatches.length` while the groups narrow only `results` — the sheet
-  claims to scope a list it half controls. A mode must not report a total its filters cannot move.
-- **`onClearAll` never touches the query.** Clearing filters and clearing a search are different
-  intentions. Therapy-compass now uses the shared sheet's filter-only clear; the composer's
-  explicit "Clear search" action remains responsible for deleting the query.
-- **One trigger component.** `ResultFilterTrigger`. Therapy-compass now uses the shared trigger
-  at the phone breakpoint and the shared facet chips on desktop.
-- **Tap targets are `min-h-tap` (48px) on phone.** Do not relax to 44px for generic WCAG
-  guidance; it reintroduces a known `ui-smoke` flake.
+## Verification obligations
 
-## 7. Not yet reconciled
+Predicate tests cover OR/AND composition and projected counts. URL tests cover invalid values,
+stable serialization, query preservation, reset and history hydration. Shared DOM tests cover
+scope radios, visual sections, live/staged footer behavior, draft dismissal, focus restoration,
+arrow navigation, dead ends, dense search and applied-chip labels.
 
-`SearchScopeFilters` (`src/lib/search-scope.ts`) is a second filter surface: 20 keys applied
-server-side at retrieval, not editable from any panel, visible only as removable chips in the
-documents zero-results state. Anything here that claims to be "the" filter contract is currently
-telling half the story. Reconciling the two is tracked separately and is not a prerequisite for
-adoption.
-
-## Rollout
-
-Contract first, then one PR per mode:
-
-1. **Contract** — add the kinds, the facet renderer and the builders, changing no rendered output.
-2. **Per mode** — adopt the right kind, derive the option list, add counts, and retire that mode's
-   desktop rail so the breakpoints stop disagreeing. Done for differentials, medication,
-   applications and specifiers (all `lens`), formulation (`facet`), and factsheets, whose real
-   category lens now shares one counted option array between desktop and phone.
-3. **Services** — move its query-replacing quick filters to the composer. Done for services:
-   five facets (catchments, age_groups, setting_flags, acuity_flags, housing_flags),
-   substance_flags as a lens (an exact partition, not an accumulating constraint — see
-   `src/lib/service-facets.ts`), a URL round-trip alongside `q`/`group`, and the scope segment
-   (section 4). Services is also the first mode dense enough (5 facet groups) to exercise the
-   `> 3 groups` chrome added to the shared sheet for this — see section 5.
-4. **Therapy-compass** — converge runtime use of the bespoke phone-only filter sheet and trigger
-   onto `ResultFilterSheet`, `ResultFilterTrigger`, and `ResultFilterFacetChips`. Topics are OR
-   within their group. Review status and handout availability are independent one-option groups
-   that AND with Topics and with each other. Option counts and filtering share
-   `matchesTopics`/`matchesAvailability`, and Clear filters preserves the query.
-5. **Documents last** — converged onto the shared component. Its needle and collapse-by-default
-   mechanics moved up into `ResultFilterSheet` first, as part of services (§5); documents itself
-   deleted its ~500-line bespoke `DocumentFilterPanel` and rebuilt on `ResultFilterSheet` with
-   three small additive extensions the other six modes never needed:
-   - `meterContent` — the `N of M documents shown` progress bar, rendered first in the body.
-   - `footerOverride` — replaces the default `footerNote` + Done button entirely, for a mode whose
-     commit needs its own label (`Show N documents`) and a second action beside it
-     (`Browse all sources`).
-   - `note` on `resultFilterGroup()` — a short label-adjacent annotation (`"one only"`) that
-     distinguishes a `lens` group from the `facet` groups sitting beside it in the same sheet.
-     Source type is the first lens to share a sheet with facets; services' `substance` lens beside
-     five facet groups (PR C) has the identical shape without this annotation — a follow-up worth
-     tracking, not a contradiction this PR resolves. The annotation is scoped to documents' call
-     site for now, not a general convention.
-
-   All three are optional and default to inert — the six modes that adopted earlier render
-   byte-identical output. This closes the rollout: every filter surface in the audit now shares
-   one component.
+Browser evidence covers phone, tablet and desktop opening, selection, removal, reset, zero-result
+recovery, keyboard-only use, reduced motion and forced colours. Chromium emulation does not close
+physical Safari or installed-PWA acceptance.

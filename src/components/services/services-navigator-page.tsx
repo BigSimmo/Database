@@ -21,16 +21,15 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
+  type AppliedFilterChip,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
-import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
   resultFilterFacetGroup,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ServiceGroupNav } from "@/components/services/service-group-nav";
 import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
@@ -60,20 +59,11 @@ import {
   type ServiceFacetDimension,
 } from "@/lib/service-facets";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
+import { replaceResultFilterUrl } from "@/lib/result-filter-url";
 import { sortResultItems } from "@/lib/result-sort";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 
 type ServiceResultScope = "results" | "all";
-
-const bestFitQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
-const serviceQuickFilters = [
-  { label: "Best fit", query: bestFitQuery },
-  { label: "Crisis", query: "crisis" },
-  { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
-  { label: "Phone referral", query: "phone referral" },
-  { label: "Free", query: "free" },
-  { label: "WA", query: "WA" },
-] as const;
 
 function displayText(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
@@ -442,7 +432,7 @@ export function ServicesNavigatorPage() {
 
   // Facet selection lives in the URL, alongside `q`/`group`, so a filtered
   // services search stays shareable and survives navigating away and back —
-  // see docs/filter-contract.md section 1 and PR C's own scope note.
+  // see docs/filter-contract.md.
   const facetSelection = useMemo(() => serviceFacetSelectionFromParams(searchParams), [searchParams]);
   const substanceLens = searchParams.get("substance") ?? "all";
   const resultScope: ServiceResultScope = searchParams.get("scope") === "all" ? "all" : "results";
@@ -471,7 +461,8 @@ export function ServicesNavigatorPage() {
     () => filterServicesByFacets(searchableRecords, facetSelection, substanceLens).length,
     [searchableRecords, facetSelection, substanceLens],
   );
-  const activeFilterCount = serviceFacetSelectionSize(facetSelection) + (substanceLens === "all" ? 0 : 1);
+  const activeFilterCount =
+    serviceFacetSelectionSize(facetSelection) + (substanceLens === "all" ? 0 : 1) + (resultScope === "all" ? 1 : 0);
   const relevanceRankMap = useMemo(() => {
     const map = new Map<string, number>();
     rankedMatches.forEach((service, index) => map.set(service.slug, index + 1));
@@ -540,70 +531,76 @@ export function ServicesNavigatorPage() {
     });
   }
 
-  const updateParams = useCallback(
-    (mutator: (params: URLSearchParams) => void, replace = false) => {
+  const updateNavigationParams = useCallback(
+    (mutator: (params: URLSearchParams) => void) => {
       const params = new URLSearchParams(searchParams.toString());
       mutator(params);
       params.set("run", "1");
       const href = `/services?${params.toString()}`;
-      if (replace) router.replace(href, { scroll: false });
-      else router.push(href, { scroll: false });
+      router.push(href, { scroll: false });
     },
     [router, searchParams],
   );
+
+  const updateFilterParams = useCallback((mutator: (params: URLSearchParams) => void) => {
+    replaceResultFilterUrl((params) => {
+      mutator(params);
+      params.set("run", "1");
+    });
+  }, []);
 
   // Facet/lens/scope toggles replace (not push) — a reader ticking several
   // chips should not spam the back-button history the way submitting a new
   // search does.
   const toggleFacetValue = useCallback(
     (dimension: ServiceFacetDimension, value: string) => {
-      updateParams((params) => {
+      updateFilterParams((params) => {
         const current = serviceFacetSelectionFromParams(params);
         const next = new Set(current[dimension]);
         if (!next.delete(value)) next.add(value);
         writeServiceFacetSelectionToParams(params, { ...current, [dimension]: next });
-      }, true);
+      });
     },
-    [updateParams],
+    [updateFilterParams],
   );
 
   const setSubstanceLensValue = useCallback(
     (value: string) => {
-      updateParams((params) => {
+      updateFilterParams((params) => {
         if (value === "all") params.delete("substance");
         else params.set("substance", value);
-      }, true);
+      });
     },
-    [updateParams],
+    [updateFilterParams],
   );
 
   const setResultScopeValue = useCallback(
     (value: ServiceResultScope) => {
-      updateParams((params) => {
+      updateFilterParams((params) => {
         if (value === "all") params.set("scope", "all");
         else params.delete("scope");
-      }, true);
+      });
     },
-    [updateParams],
+    [updateFilterParams],
   );
 
   // Never touches `q`/`query`/`group` — docs/filter-contract.md section 6:
   // clearing filters and clearing a search are different intentions. The
-  // quick filters this sheet used to hold DID conflate the two (clearing
-  // them wiped the search box); moving them to suggestion chips below the
-  // band removes that conflation rather than papering over it here.
+  // old query-replacing suggestion rail conflated the two (clearing its
+  // choices also replaced the search). It is gone; this reset now changes
+  // only scope and narrowing dimensions.
   const clearAllFilters = useCallback(() => {
-    updateParams((params) => {
+    updateFilterParams((params) => {
       for (const dimension of serviceFacetDimensions) params.delete(dimension);
       params.delete("substance");
       params.delete("scope");
-    }, true);
-  }, [updateParams]);
+    });
+  }, [updateFilterParams]);
 
   function applyServiceQuery(nextQuery: string) {
     const trimmedQuery = nextQuery.trim();
     setLocalQuery({ urlQuery, value: trimmedQuery });
-    updateParams((params) => {
+    updateNavigationParams((params) => {
       params.delete("query");
       if (trimmedQuery) params.set("q", trimmedQuery);
       else params.delete("q");
@@ -682,6 +679,37 @@ export function ServicesNavigatorPage() {
     [facetBaseMatches, facetSelection, searchableRecords, substanceLens, toggleFacetValue],
   );
 
+  const appliedFilters = useMemo<AppliedFilterChip[]>(() => {
+    const chips: AppliedFilterChip[] = [];
+    if (resultScope === "all") {
+      chips.push({
+        id: "scope-all",
+        groupLabel: "Search in",
+        valueLabel: "All services",
+        onRemove: () => setResultScopeValue("results"),
+      });
+    }
+    if (substanceLens !== "all") {
+      chips.push({
+        id: `substance-${substanceLens}`,
+        groupLabel: "Program type",
+        valueLabel: serviceSubstanceLensValueLabel(substanceLens),
+        onRemove: () => setSubstanceLensValue("all"),
+      });
+    }
+    for (const dimension of serviceFacetDimensions) {
+      for (const value of facetSelection[dimension]) {
+        chips.push({
+          id: `${dimension}-${value}`,
+          groupLabel: serviceFacetDimensionLabels[dimension],
+          valueLabel: serviceFacetValueLabel(dimension, value),
+          onRemove: () => toggleFacetValue(dimension, value),
+        });
+      }
+    }
+    return chips;
+  }, [facetSelection, resultScope, setResultScopeValue, setSubstanceLensValue, substanceLens, toggleFacetValue]);
+
   return (
     <SearchResultsLayout
       testId="services-navigator"
@@ -729,6 +757,8 @@ export function ServicesNavigatorPage() {
             }
             sortValue={sortValue}
             onSortChange={setSortValue}
+            appliedFilters={appliedFilters}
+            onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
             mobileControlsPlacement="inline"
             mobileControls={
               <ResultFilterTrigger
@@ -826,39 +856,31 @@ export function ServicesNavigatorPage() {
             title="Filter services"
             groups={[substanceGroup, ...facetGroups]}
             onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
-            footerNote={`${displayedMatches.length} showing`}
+            summary={{ count: displayedMatches.length, noun: displayedMatches.length === 1 ? "service" : "services" }}
             chromeResetKey={`${deferredQuery}|${activeGroup ?? ""}|${resultScope}`}
-            scopeControl={
-              showResultScope ? (
-                <SegmentedControl
-                  label="Result scope"
-                  value={resultScope}
-                  onChange={setResultScopeValue}
-                  options={[
-                    { value: "results", label: "These results", hint: String(resultsScopedCount) },
-                    { value: "all", label: "All items", hint: String(allScopedCount) },
-                  ]}
-                />
-              ) : undefined
+            scope={
+              showResultScope
+                ? {
+                    label: "Search in",
+                    value: resultScope,
+                    onChange: (value) => setResultScopeValue(value as ServiceResultScope),
+                    options: [
+                      {
+                        value: "results",
+                        label: "Current results",
+                        count: resultsScopedCount,
+                        description: "Keep the current search and service group.",
+                      },
+                      {
+                        value: "all",
+                        label: "All services",
+                        count: allScopedCount,
+                        description: "Apply filters across the full catalogue.",
+                      },
+                    ],
+                  }
+                : undefined
             }
-          />
-
-          {/* Evicted from the filter sheet: every quick filter called
-              `router.push` and replaced the query outright, discarding the
-              search and its results with no warning and no undo — exactly
-              what docs/filter-contract.md section 1 forbids inside a control
-              labelled "Filter". Framed as a new search, which is what
-              picking one does. */}
-          <AnswerSuggestionChips
-            label="Try a focused search"
-            labelPlacement="above"
-            layout="scroll"
-            testId="service-quick-search-suggestions"
-            suggestions={serviceQuickFilters.map((filter) => filter.label)}
-            onPick={(label) => {
-              const filter = serviceQuickFilters.find((item) => item.label === label);
-              if (filter) applyServiceQuery(filter.query);
-            }}
           />
         </>
       }
@@ -881,9 +903,8 @@ export function ServicesNavigatorPage() {
         />
       ) : deferredQuery === query && displayedMatches.length === 0 ? (
         // `displayedMatches` is now group- AND facet/lens-narrowed, so a zero
-        // here can come from either — the old copy named only the group tab
-        // and a "quick filter" concept that no longer filters anything (it
-        // navigates). Offer both escapes, and only the one that applies.
+        // here can come from either. Offer both escapes, and only the one that
+        // applies, without reintroducing the removed query-suggestion rail.
         <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center">
           <h2 className="text-lg font-bold text-[color:var(--text-heading)]">No services match</h2>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">

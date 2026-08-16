@@ -19,10 +19,9 @@ import {
   Search,
   ShieldCheck,
   Trash2,
-  X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
@@ -40,6 +39,11 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  ResultFilterSheet,
+  ResultFilterTrigger,
+  resultFilterFacetGroup,
+} from "@/components/clinical-dashboard/result-filter-control";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
@@ -51,7 +55,7 @@ type FavouriteType =
   "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form" | "Differential";
 // Previously imported from `favourites-library-nav`, which this redesign
 // retired along with the sidebar and the two phone rails it exported.
-type ViewMode = "all" | "source-backed" | "pinned" | "recent";
+type ViewMode = "all" | "recent";
 type SortMode = "last-used" | "title" | "type";
 
 type FavouriteItem = {
@@ -230,14 +234,18 @@ function filterAndSortItems(
   items: FavouriteItem[],
   {
     searchTerm,
-    selectedTypeId,
-    selectedSet,
+    selectedTypeIds,
+    selectedSetTitles,
+    pinnedOnly,
+    sourceBackedOnly,
     viewMode,
     sortMode,
   }: {
     searchTerm: string;
-    selectedTypeId: string;
-    selectedSet: FavouriteSet | null;
+    selectedTypeIds: ReadonlySet<string>;
+    selectedSetTitles: ReadonlySet<string>;
+    pinnedOnly: boolean;
+    sourceBackedOnly: boolean;
     viewMode: ViewMode;
     sortMode: SortMode;
   },
@@ -246,13 +254,10 @@ function filterAndSortItems(
   const effectiveSort: SortMode = viewMode === "recent" ? "last-used" : sortMode;
 
   return items
-    .filter((item) => selectedTypeId === "all" || item.tabId === selectedTypeId)
-    .filter((item) => !selectedSet || item.set === selectedSet.title)
-    .filter((item) => {
-      if (viewMode === "source-backed") return isSourceBacked(item);
-      if (viewMode === "pinned") return item.pinned === true;
-      return true;
-    })
+    .filter((item) => selectedTypeIds.size === 0 || selectedTypeIds.has(item.tabId))
+    .filter((item) => selectedSetTitles.size === 0 || selectedSetTitles.has(item.set))
+    .filter((item) => !pinnedOnly || item.pinned === true)
+    .filter((item) => !sourceBackedOnly || isSourceBacked(item))
     .filter((item) =>
       normalizedSearch
         ? [item.title, item.description, item.type, item.set, item.evidence].some((field) =>
@@ -297,62 +302,6 @@ function SmallChip({ children, appearance }: { children: React.ReactNode; appear
     <Chip size="compact" appearance={appearance}>
       {children}
     </Chip>
-  );
-}
-
-function ActiveFilterChips({
-  searchTerm,
-  selectedTypeId,
-  selectedSet,
-  viewMode,
-  onClearSearch,
-  onClearType,
-  onClearSet,
-  onClearViewMode,
-  includeSearch = true,
-}: {
-  searchTerm: string;
-  selectedTypeId: string;
-  selectedSet: FavouriteSet | null;
-  viewMode: ViewMode;
-  onClearSearch: () => void;
-  onClearType: () => void;
-  onClearSet: () => void;
-  onClearViewMode: () => void;
-  includeSearch?: boolean;
-}) {
-  const typeLabel = favouriteTabs.find((tab) => tab.id === selectedTypeId)?.label;
-  const chips: { key: string; label: string; onClear: () => void }[] = [];
-
-  if (includeSearch && searchTerm.trim()) {
-    chips.push({ key: "search", label: `Search: ${searchTerm.trim()}`, onClear: onClearSearch });
-  }
-  if (selectedSet) chips.push({ key: "set", label: selectedSet.title, onClear: onClearSet });
-  if (selectedTypeId !== "all" && typeLabel) chips.push({ key: "type", label: typeLabel, onClear: onClearType });
-  if (viewMode === "source-backed") chips.push({ key: "view", label: "Source-backed", onClear: onClearViewMode });
-  if (viewMode === "pinned") chips.push({ key: "view", label: "Pinned", onClear: onClearViewMode });
-  if (viewMode === "recent") chips.push({ key: "view", label: "Recently used", onClear: onClearViewMode });
-
-  if (chips.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="favourites-active-filters">
-      {chips.map((chip) => (
-        <button
-          key={chip.key}
-          type="button"
-          onClick={chip.onClear}
-          className={cn(
-            "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-2xs font-semibold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]/80",
-            focusRing,
-          )}
-        >
-          <span className="truncate">{chip.label}</span>
-          <X className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span className="sr-only">Clear filter</span>
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -605,133 +554,6 @@ function FavouritesEmptyMatches() {
       testId="favourites-empty-matches"
       live="polite"
     />
-  );
-}
-
-/**
- * One horizontal rail replacing three separate navigation surfaces: the
- * desktop `FavouritesSidebar`, the phone `FavouritesMobileQuickViews`, and the
- * phone `FavouritesMobileBrowseRail`. Direction B (ledger #164) collapses sets,
- * quick views and types into a single row of chips, so the same control reads
- * identically at every width instead of three components disagreeing about
- * what "browse" means.
- *
- * Each chip toggles its own dimension, so a set and a type still compose the
- * way the sidebar allowed. "All" is the only chip that clears every dimension,
- * and it reads as pressed exactly when nothing else is.
- */
-function FavouritesFilterRail({
-  items,
-  sets,
-  selectedSetId,
-  selectedTypeId,
-  viewMode,
-  onSelectSet,
-  onSelectType,
-  onSelectViewMode,
-  onClearAll,
-}: {
-  items: FavouriteItem[];
-  sets: FavouriteSet[];
-  selectedSetId: string | null;
-  selectedTypeId: string;
-  viewMode: ViewMode;
-  onSelectSet: (id: string | null) => void;
-  onSelectType: (id: string) => void;
-  onSelectViewMode: (mode: ViewMode) => void;
-  onClearAll: () => void;
-}) {
-  const typeChips = favouriteTabs
-    .filter((tab) => tab.id !== "all" && tab.id !== "sets")
-    .map((tab) => ({ id: tab.id, label: tab.label, count: items.filter((item) => item.tabId === tab.id).length }))
-    .filter((tab) => tab.count > 0);
-  const pinnedCount = items.filter((item) => item.pinned === true).length;
-  const sourceBackedCount = items.filter((item) => isSourceBacked(item)).length;
-  const nothingActive = selectedSetId === null && selectedTypeId === "all" && viewMode === "all";
-
-  return (
-    <nav
-      aria-label="Filter favourites"
-      data-testid="favourites-filter-rail"
-      className="-mx-1 flex min-w-0 max-w-full snap-x items-center gap-2 overflow-x-auto px-1 pb-1"
-    >
-      <FilterRailChip label="All" count={null} pressed={nothingActive} onClick={onClearAll} />
-      {sets.map((set) => (
-        <FilterRailChip
-          key={`set-${set.id}`}
-          label={set.title}
-          count={set.count}
-          pressed={selectedSetId === set.id}
-          onClick={() => onSelectSet(selectedSetId === set.id ? null : set.id)}
-        />
-      ))}
-      {pinnedCount > 0 ? (
-        <FilterRailChip
-          label="Pinned"
-          count={pinnedCount}
-          pressed={viewMode === "pinned"}
-          onClick={() => onSelectViewMode(viewMode === "pinned" ? "all" : "pinned")}
-        />
-      ) : null}
-      {sourceBackedCount > 0 ? (
-        <FilterRailChip
-          label="Source-backed"
-          count={sourceBackedCount}
-          pressed={viewMode === "source-backed"}
-          onClick={() => onSelectViewMode(viewMode === "source-backed" ? "all" : "source-backed")}
-        />
-      ) : null}
-      {typeChips.map((tab) => (
-        <FilterRailChip
-          key={`type-${tab.id}`}
-          label={tab.label}
-          count={tab.count}
-          pressed={selectedTypeId === tab.id}
-          onClick={() => onSelectType(selectedTypeId === tab.id ? "all" : tab.id)}
-        />
-      ))}
-    </nav>
-  );
-}
-
-function FilterRailChip({
-  label,
-  count,
-  pressed,
-  onClick,
-}: {
-  label: string;
-  count: number | null;
-  pressed: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={pressed}
-      className={cn(
-        "inline-flex min-h-tap shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-bold transition sm:min-h-9",
-        focusRing,
-        pressed
-          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-      )}
-    >
-      {label}
-      {count === null ? null : (
-        <span
-          className={cn(
-            "nums rounded-full px-1.5 text-2xs font-bold",
-            pressed
-              ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-              : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-          )}
-        >
-          {count}
-        </span>
-      )}
-    </button>
   );
 }
 
@@ -1296,14 +1118,24 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
         ? "ready"
         : favouritesHookStatus;
   const sets = useMemo(() => buildFavouriteSets(items), [items]);
-  const [selectedTypeId, setSelectedTypeId] = useState("all");
-  const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedTypeIds, setSelectedTypeIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [selectedSetIds, setSelectedSetIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [pinnedOnly, setPinnedOnly] = useState(false);
+  const [sourceBackedOnly, setSourceBackedOnly] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [sortMode, setSortMode] = useState<SortMode>("last-used");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
-  const effectiveSelectedSetId = selectedSetId && sets.some((set) => set.id === selectedSetId) ? selectedSetId : null;
-  const selectedSet = effectiveSelectedSetId ? (sets.find((set) => set.id === effectiveSelectedSetId) ?? null) : null;
+  const effectiveSelectedSetIds = useMemo(
+    () => new Set([...selectedSetIds].filter((id) => sets.some((set) => set.id === id))),
+    [selectedSetIds, sets],
+  );
+  const selectedSetTitles = useMemo(
+    () => new Set(sets.filter((set) => effectiveSelectedSetIds.has(set.id)).map((set) => set.title)),
+    [effectiveSelectedSetIds, sets],
+  );
 
   // Single source of truth for "what is in the list right now". The band's
   // match count, the Continue gate, the empty-state branch and the table all
@@ -1312,12 +1144,14 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     () =>
       filterAndSortItems(items, {
         searchTerm: activeQuery,
-        selectedTypeId,
-        selectedSet,
+        selectedTypeIds,
+        selectedSetTitles,
+        pinnedOnly,
+        sourceBackedOnly,
         viewMode,
         sortMode,
       }),
-    [items, activeQuery, selectedTypeId, selectedSet, viewMode, sortMode],
+    [items, activeQuery, selectedTypeIds, selectedSetTitles, pinnedOnly, sourceBackedOnly, viewMode, sortMode],
   );
   const continueItem = useMemo(() => getMostRecentlyUsedItem(items), [items]);
   const showContinueStrip =
@@ -1338,10 +1172,146 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   }
 
   function clearAllFilters() {
-    setSelectedSetId(null);
-    setSelectedTypeId("all");
-    setViewMode("all");
+    setSelectedSetIds(new Set());
+    setSelectedTypeIds(new Set());
+    setPinnedOnly(false);
+    setSourceBackedOnly(false);
   }
+
+  const toggleSet = (id: string) => {
+    const next = new Set(effectiveSelectedSetIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedSetIds(next);
+  };
+  const toggleType = (id: string) => {
+    const next = new Set(selectedTypeIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedTypeIds(next);
+  };
+  const countWith = ({
+    typeIds = selectedTypeIds,
+    setIds = effectiveSelectedSetIds,
+    pinned = pinnedOnly,
+    sourceBacked = sourceBackedOnly,
+  }: {
+    typeIds?: ReadonlySet<string>;
+    setIds?: ReadonlySet<string>;
+    pinned?: boolean;
+    sourceBacked?: boolean;
+  }) => {
+    const setTitles = new Set(sets.filter((set) => setIds.has(set.id)).map((set) => set.title));
+    return filterAndSortItems(items, {
+      searchTerm: activeQuery,
+      selectedTypeIds: typeIds,
+      selectedSetTitles: setTitles,
+      pinnedOnly: pinned,
+      sourceBackedOnly: sourceBacked,
+      viewMode,
+      sortMode,
+    }).length;
+  };
+  const setOptions = sets.map((set) => {
+    const projected = effectiveSelectedSetIds.has(set.id)
+      ? effectiveSelectedSetIds
+      : new Set([...effectiveSelectedSetIds, set.id]);
+    const count = countWith({ setIds: projected });
+    return {
+      value: set.id,
+      label: set.title,
+      hint: String(count),
+      disabled: !effectiveSelectedSetIds.has(set.id) && count === 0,
+    };
+  });
+  const typeOptions = favouriteTabs
+    .filter((tab) => tab.id !== "all" && tab.id !== "sets")
+    .map((tab) => {
+      const projected = selectedTypeIds.has(tab.id) ? selectedTypeIds : new Set([...selectedTypeIds, tab.id]);
+      const count = countWith({ typeIds: projected });
+      return {
+        value: tab.id,
+        label: tab.label,
+        hint: String(count),
+        disabled: !selectedTypeIds.has(tab.id) && count === 0,
+      };
+    })
+    .filter((option) => items.some((item) => item.tabId === option.value) || selectedTypeIds.has(option.value));
+  const pinnedCount = countWith({ pinned: true });
+  const sourceBackedCount = countWith({ sourceBacked: true });
+  const activeFilterCount =
+    effectiveSelectedSetIds.size + selectedTypeIds.size + Number(pinnedOnly) + Number(sourceBackedOnly);
+  const filterGroups = [
+    resultFilterFacetGroup({
+      id: "set",
+      label: "Set",
+      selected: effectiveSelectedSetIds,
+      options: setOptions,
+      onToggle: toggleSet,
+    }),
+    resultFilterFacetGroup({
+      id: "type",
+      label: "Type",
+      selected: selectedTypeIds,
+      options: typeOptions,
+      onToggle: toggleType,
+    }),
+    resultFilterFacetGroup({
+      id: "pinned",
+      label: "Pinned",
+      selected: new Set(pinnedOnly ? ["pinned"] : []),
+      options: [
+        {
+          value: "pinned",
+          label: "Pinned only",
+          hint: String(pinnedCount),
+          disabled: !pinnedOnly && pinnedCount === 0,
+        },
+      ],
+      onToggle: () => setPinnedOnly((current) => !current),
+    }),
+    resultFilterFacetGroup({
+      id: "source",
+      label: "Source support",
+      selected: new Set(sourceBackedOnly ? ["source-backed"] : []),
+      options: [
+        {
+          value: "source-backed",
+          label: "Source-backed only",
+          hint: String(sourceBackedCount),
+          disabled: !sourceBackedOnly && sourceBackedCount === 0,
+        },
+      ],
+      onToggle: () => setSourceBackedOnly((current) => !current),
+    }),
+  ];
+  const appliedFilters = [
+    ...[...effectiveSelectedSetIds].map((id) => ({
+      id: `set-${id}`,
+      groupLabel: "Set",
+      valueLabel: sets.find((set) => set.id === id)?.title ?? id,
+      onRemove: () => toggleSet(id),
+    })),
+    ...[...selectedTypeIds].map((id) => ({
+      id: `type-${id}`,
+      groupLabel: "Type",
+      valueLabel: favouriteTabs.find((tab) => tab.id === id)?.label ?? id,
+      onRemove: () => toggleType(id),
+    })),
+    ...(pinnedOnly
+      ? [{ id: "pinned", groupLabel: "Status", valueLabel: "Pinned", onRemove: () => setPinnedOnly(false) }]
+      : []),
+    ...(sourceBackedOnly
+      ? [
+          {
+            id: "source-backed",
+            groupLabel: "Support",
+            valueLabel: "Source-backed",
+            onRemove: () => setSourceBackedOnly(false),
+          },
+        ]
+      : []),
+  ];
 
   if (!favouritesAccessible) {
     return (
@@ -1448,33 +1418,58 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                   : undefined
               }
               filterLabel="Active favourites filters"
-              filterControls={
-                selectedTypeId !== "all" || selectedSet || viewMode !== "all" ? (
-                  <ActiveFilterChips
-                    searchTerm={activeQuery}
-                    selectedTypeId={selectedTypeId}
-                    selectedSet={selectedSet}
-                    viewMode={viewMode}
-                    onClearSearch={clearSearch}
-                    onClearType={() => setSelectedTypeId("all")}
-                    onClearSet={() => setSelectedSetId(null)}
-                    onClearViewMode={() => setViewMode("all")}
-                    includeSearch={false}
-                  />
-                ) : null
+              mobileControlsPlacement="inline"
+              mobileControls={
+                <ResultFilterTrigger
+                  panelId={filterPanelId}
+                  testId="favourites-filter-trigger-phone"
+                  title="Filter favourites"
+                  open={filterOpen}
+                  activeCount={activeFilterCount}
+                  onToggle={() => setFilterOpen((current) => !current)}
+                />
               }
+              filterControls={
+                <ResultFilterTrigger
+                  panelId={filterPanelId}
+                  testId="favourites-filter-trigger-desktop"
+                  title="Filter favourites"
+                  open={filterOpen}
+                  activeCount={activeFilterCount}
+                  onToggle={() => setFilterOpen((current) => !current)}
+                />
+              }
+              utilityControls={
+                <button
+                  type="button"
+                  aria-pressed={viewMode === "recent"}
+                  onClick={() => setViewMode((current) => (current === "recent" ? "all" : "recent"))}
+                  className={cn(
+                    "search-band-ghost inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold",
+                    viewMode === "recent"
+                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+                    focusRing,
+                  )}
+                >
+                  <Clock className="h-3.5 w-3.5" aria-hidden />
+                  Recently used
+                </button>
+              }
+              appliedFilters={appliedFilters}
+              onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
             />
 
-            <FavouritesFilterRail
-              items={items}
-              sets={sets}
-              selectedSetId={effectiveSelectedSetId}
-              selectedTypeId={selectedTypeId}
-              viewMode={viewMode}
-              onSelectSet={setSelectedSetId}
-              onSelectType={setSelectedTypeId}
-              onSelectViewMode={setViewMode}
-              onClearAll={clearAllFilters}
+            <ResultFilterSheet
+              open={filterOpen}
+              onClose={() => setFilterOpen(false)}
+              panelId={filterPanelId}
+              testId="favourites-filter-panel"
+              title="Filter favourites"
+              description="Combine sets, item types, pinned status and source support. Recently used remains a view choice."
+              groups={filterGroups}
+              onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
+              summary={{ count: filteredItems.length, noun: filteredItems.length === 1 ? "favourite" : "favourites" }}
             />
 
             {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} /> : null}
@@ -1487,7 +1482,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               <FavouritesDashboardBand
                 recentItems={recentItems}
                 sets={sets}
-                onSelectSet={setSelectedSetId}
+                onSelectSet={(id) => setSelectedSetIds(new Set([id]))}
                 onShowRecent={() => setViewMode("recent")}
               />
             ) : null}
@@ -1496,7 +1491,13 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 faulted an empty list means we could not look, not that the
                 library is empty; the band's fault panel reports that. */}
             {searching && filteredItems.length === 0 && favouritesRegistryStatus === "ready" ? (
-              <SearchResultsEmptyState modeId="favourites" query={activeQuery} />
+              <SearchResultsEmptyState
+                modeId="favourites"
+                query={activeQuery}
+                appliedFilters={appliedFilters}
+                onClearFilters={activeFilterCount > 0 ? clearAllFilters : undefined}
+                onClearSearch={clearSearch}
+              />
             ) : (
               <FavouritesTable
                 items={items}

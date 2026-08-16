@@ -418,7 +418,7 @@ export function ToolsSearchResultsPage({
               }),
             ]}
             onClearAll={effectiveActiveFilter === "all" ? undefined : () => setActiveFilter("all")}
-            footerNote={`${filteredTools.length} showing`}
+            summary={{ count: filteredTools.length, noun: filteredTools.length === 1 ? "tool" : "tools" }}
           />
 
           <section aria-label="Tool results" className="mt-4 grid gap-3">

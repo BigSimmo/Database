@@ -576,7 +576,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(filterSheet).toBeVisible();
     await expect(filterSheet.getByRole("radio", { name: /Assess/ })).toHaveAttribute("aria-checked", "false");
     await expect(filterSheet.getByRole("radio", { name: /Treat/ })).toHaveAttribute("aria-disabled", "true");
-    await filterSheet.getByRole("button", { name: "Done" }).click();
+    await expect(filterSheet.getByTestId("tools-search-filter-sheet-done")).toHaveText(/View 1 tool/);
+    await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
 
     const details = results.getByRole("button", { name: "View details for Differentials" });
     await details.click();
@@ -1158,7 +1159,9 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     const quickFilter = page.getByTestId("service-filter-trigger-phone");
     await expect(quickFilter).toBeVisible();
     await expect(quickFilter).toHaveAccessibleName(/No filters active/);
-    await page.getByTestId("service-quick-search-suggestions").getByRole("button", { name: "Crisis" }).click();
+    await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
+    await input.fill("crisis");
+    await input.press("Enter");
     await expect(page).toHaveURL(/\/services\?.*q=crisis/);
 
     // Phones keep the full search results in the page instead of opening a
@@ -1386,7 +1389,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("services results keep browse navigation without a walkthrough", async ({ page }) => {
+  test("services results keep browse navigation and filters without a suggestion rail", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
 
@@ -1409,16 +1412,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(firstResult.getByText("Catchment", { exact: true })).toHaveCount(0);
     await expect(firstResult.getByRole("button", { name: "Save 13YARN to favourites" })).toBeVisible();
 
-    const culturallySafe = page
-      .getByTestId("service-quick-search-suggestions")
-      .getByRole("button", { name: "Culturally safe" });
-    await expect(culturallySafe).toBeVisible();
-    await waitForReactEventHandler(culturallySafe);
-    await culturallySafe.click();
-    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
-    await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
+    await expect(page.getByTestId("service-quick-search-suggestions")).toHaveCount(0);
 
-    // Quick search suggestions and facet clearing are separate contracts.
     // Exercise a real facet, then clear only that facet while preserving q.
     await page.getByTestId("service-filter-trigger-desktop").click();
     const filterPanel = page.getByTestId("service-filter-panel");
@@ -1428,7 +1423,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await crisisFacet.click();
     await expect(page).toHaveURL(/acuity_flags=crisis_high/);
     await filterPanel.getByTestId("service-filter-panel-clear").click();
-    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
+    await expect(page).toHaveURL(/q=13YARN/);
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
     await filterPanel.getByRole("button", { name: "Close", exact: true }).click();
 
